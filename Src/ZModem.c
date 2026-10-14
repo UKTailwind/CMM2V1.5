@@ -43,7 +43,7 @@
  * The command table is full, so ZMODEM is not a token of its own: tokenise() rewrites "ZMODEM" as
  * "XMODEM Z" and cmd_xmodem() hands a leading Z to cmd_zmodem().  The syntax is the PicoMite's:
  *
- *   ZMODEM SEND [file$]        ZMODEM RECEIVE [file$]        ZMODEM RECEIVE "dir/*"
+ *   ZMODEM SEND [file$]        ZMODEM RECEIVE [file$]        ZMODEM RECEIVE "dir/" + "*"
  *
  * SEND and RECEIVE can be shortened to S and R.
  */

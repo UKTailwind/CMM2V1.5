@@ -78,7 +78,7 @@ jmp_buf run;                                                       // longjump t
 jmp_buf mark;                                                       // longjump to recover from an error and abort
 jmp_buf ErrNext;                                                    // longjump to recover from an error and continue
 char __attribute__ ((aligned (8))) inpbuf[STRINGSIZE];                                            // used to store user keystrokes until we have a line
-char __attribute__ ((aligned (8))) tknbuf[STRINGSIZE];                                            // used to store the tokenised representation of the users input line
+char __attribute__ ((aligned (8))) tknbuf[TKNBUFSIZE];                                          // used to store the tokenised representation of the users input line
 int hashlistpointer=0;
 int NextData;                                                       // used to track the next item to read in DATA & READ stmts
 char *NextDataLine;                                                 // used to track the next line to read in DATA & READ stmts
@@ -1276,10 +1276,16 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 
 #endif
 
+// Every target is a line buffer of STRINGSIZE bytes (inpbuf, or the loader's line).  A result that would
+// not fit leaves the target as it was and sets strreplace_overflow, which the callers report as "Line ...
+// is too long".  Unchecked, it ran past buffer[] and then past the target: one 251-character line of
+// DHT22s (each becomes BITBANG DHT22) typed at the prompt hung the board.
+int strreplace_overflow = 0;
 void str_replace(char *target, const char *needle, const char *replacement, uint8_t ignoresurround)
 {
     char buffer[288] = { 0 };
     char *insert_point = &buffer[0];
+    const char *limit = &buffer[STRINGSIZE - 1];                    // the most a line buffer holds, less its zero
     const char *tmp = target;
     size_t needle_len = strlen(needle);
     size_t repl_len = strlen(replacement);
@@ -1289,6 +1295,7 @@ void str_replace(char *target, const char *needle, const char *replacement, uint
 
         // walked past last occurrence of needle; copy remaining part
         if (p == NULL) {
+            if(insert_point + strlen(tmp) > limit) goto toolong;
             strcpy(insert_point, tmp);
             break;
         }
@@ -1298,6 +1305,7 @@ void str_replace(char *target, const char *needle, const char *replacement, uint
             q=(char *)p;
         } else q=(char *)p-1;
         if( (isnamechar(*q) && !(ignoresurround & 1)) || (isnameend(p[strlen(needle)]) && !(ignoresurround & 2))){
+            if(insert_point + (p - tmp) + needle_len > limit) goto toolong;
             // copy part before needle
             memcpy(insert_point, tmp, p - tmp);
             insert_point += p - tmp;
@@ -1309,6 +1317,7 @@ void str_replace(char *target, const char *needle, const char *replacement, uint
             // adjust pointers, move on
             tmp = p + needle_len;
         } else {
+            if(insert_point + (p - tmp) + repl_len > limit) goto toolong;
             // copy part before needle
             memcpy(insert_point, tmp, p - tmp);
             insert_point += p - tmp;
@@ -1324,6 +1333,10 @@ void str_replace(char *target, const char *needle, const char *replacement, uint
 
     // write altered string back to target
     strcpy(target, buffer);
+    return;
+
+toolong:
+    strreplace_overflow = 1;                                        // the target is unchanged
 }
 /*void str_replace(char *target, const char *needle, const char *replacement)
 {
@@ -1420,7 +1433,10 @@ void STR_REPLACE(char *target, const char *needle, const char *replacement, uint
         str_replace(target, needle, replacement, ignoresurround);
         ip=target;
         if(comment[0]=='\''){
-            strcat(target,comment);
+            if(strlen(target) + strlen(comment) > STRINGSIZE - 1)
+                strreplace_overflow = 1;                            // the substitution left no room for the comment
+            else
+                strcat(target,comment);
         }
         while(*ip){
             if(*ip==0xFF)*ip=' ';
@@ -1444,12 +1460,16 @@ void STR_REPLACE(char *target, const char *needle, const char *replacement, uint
 //the result in tknbuf[] is terminated with double zero chars
 // if the arg console is true then do not add a line number
 
-void MIPS16 tokenise(int console) {
-    char *p, *op, *tp;
+// every byte tokenise() writes goes through TKNPUT, which stops at the end of tknbuf
+#define TKNPUT(c) do { if(op >= tknend) goto toolong; *op++ = (c); } while(0)
+char tknerrmsg[80];
+int MIPS16 tokenise(int console) {
+    char *p, *op, *tp, *tknend = tknbuf + TKNBUFSIZE - 3;       // room for the three terminating zeros
     int i=0;
     int firstnonwhite;
     int labelvalid;
     routinechecks(1);
+    strreplace_overflow = 0;
     while(i<MMEND){
         char buff[]="~( )";
         buff[2]=i+'A';
@@ -1472,6 +1492,7 @@ void MIPS16 tokenise(int console) {
     STR_REPLACE(inpbuf,"=>",">=", 3);
     STR_REPLACE(inpbuf,"=<","<=", 3);
     STR_REPLACE(inpbuf,"ZMODEM","XMODEM Z",0);                      // ZMODEM has no token of its own (the table is full): cmd_xmodem dispatches on the Z
+    if(strreplace_overflow) goto toolong;                           // a substitution would not fit in the line
     p = inpbuf;
 //    MMPrintString(inpbuf);PRet();
     // second, make sure that only printable characters are in the line
@@ -1484,7 +1505,7 @@ void MIPS16 tokenise(int console) {
     // setup the input and output buffers
     p = inpbuf;
     op = tknbuf;
-    if(!console) *op++ = T_NEWLINE;
+    if(!console) TKNPUT(T_NEWLINE);
 
     // get the line number if it exists
     tp = p;
@@ -1493,9 +1514,9 @@ void MIPS16 tokenise(int console) {
     if(IsDigitinline(*tp) && i < 8) {                                     // if it a digit and not an 8 digit hex number (ie, it is CFUNCTION data) then try for a line number
         i = strtol(tp, &tp, 10);
         if(!console && i > 0 && i <= MAXLINENBR) {
-            *op++ = T_LINENBR;
-            *op++ = (i>>8);
-            *op++ = (i & 0xff);
+            TKNPUT(T_LINENBR);
+            TKNPUT((i>>8));
+            TKNPUT((i & 0xff));
         }
         p = tp;
     }
@@ -1507,7 +1528,7 @@ void MIPS16 tokenise(int console) {
 
         // just copy a space
         if(*p == ' ') {
-            *op++ = *p++;
+            TKNPUT(*p++);
             continue;
         }
 
@@ -1515,7 +1536,7 @@ void MIPS16 tokenise(int console) {
         // this will throw an error if there is no closing quote
         if(*p == '"') {
             do {
-                *op++ = *p++;
+                TKNPUT(*p++);
                 if(!*p){
                  	MMPrintString("Parsing error: No Closing quote - ");
                  	char *q=strchr(inpbuf,'|');
@@ -1530,25 +1551,25 @@ void MIPS16 tokenise(int console) {
                     SoftReset();                                                // this will restart the processor
                 }
             } while(*p != '"');
-            *op++ = *p++;
+            TKNPUT(*p++);
             continue;
         }
 
         // copy anything after a comment (')
         if(*p == '\'') {
             do {
-                *op++ = *p++;
+                TKNPUT(*p++);
             } while(*p);
             continue;
         }
 
         // check for multiline separator (colon) and replace with a zero char
         if(*p == ':') {
-            *op++ = 0;
+            TKNPUT(0);
             p++;
             while(*p == ':') {                                      // insert a space between consecutive colons
-                *op++ = ' ';
-                *op++ = 0;
+                TKNPUT(' ');
+                TKNPUT(0);
                 p++;
             }
             firstnonwhite = true;
@@ -1559,12 +1580,12 @@ void MIPS16 tokenise(int console) {
         if(IsDigitinline(*p) || *p == '.') {                              // valid chars at the start of a number
             while(IsDigitinline(*p) || *p == '.' || *p == 'E' || *p == 'e')
                 if (*p == 'E' || *p == 'e') {   // check for '+' or '-' as part of the exponent
-                    *op++ = *p++;                                   // copy the number
+                    TKNPUT(*p++);                                   // copy the number
                     if (*p == '+' || *p == '-') {                   // BUGFIX by Gerard Sexton
-                        *op++ = *p++;                               // copy the '+' or '-'
+                        TKNPUT(*p++);                               // copy the '+' or '-'
                     }
                 } else {
-                    *op++ = *p++;                                   // copy the number
+                    TKNPUT(*p++);                                   // copy the number
                 }
             firstnonwhite = false;
             continue;
@@ -1636,11 +1657,11 @@ void MIPS16 tokenise(int console) {
 
             if(match_i > -1) {
                 // we have found a command
-                *op++ = match_i + C_BASETOKEN;                      // insert the token found
+                TKNPUT(match_i + C_BASETOKEN);                      // insert the token found
                 p = match_p;                                        // step over the command in the source
                 if(IsAlpha(*(p-1)) && *p == ' ') p++;               // if the command is followed by a space skip over it
                 if(match_i + C_BASETOKEN == GetCommandValue("Rem")) // check if it is a REM command
-                    while(*p) *op++ = *p++;                         // and in that case just copy everything
+                    while(*p) TKNPUT(*p++);                         // and in that case just copy everything
                 firstnonwhite = false;
                 labelvalid = false;                                 // we do not want any labels after this
                 continue;
@@ -1652,9 +1673,9 @@ void MIPS16 tokenise(int console) {
                     if(!isnamechar(*tp)) break;                     // search for the first invalid char
                 if(*tp == ':') {                                    // Yes !!  It is a label
                     labelvalid = false;                             // we do not want any more labels
-                    *op++ = T_LABEL;                                // insert the token
-                    *op++ = tp - p;                                 // insert the length of the label
-                    for(i = tp - p; i > 0; i--) *op++ = *p++;       // copy the label
+                    TKNPUT(T_LABEL);                                // insert the token
+                    TKNPUT(tp - p);                                 // insert the length of the label
+                    for(i = tp - p; i > 0; i--) TKNPUT(*p++);       // copy the label
                     p++;                                            // step over the terminating colon
                     continue;
                 }
@@ -1675,7 +1696,7 @@ void MIPS16 tokenise(int console) {
             if(i != TokenTableSize - 1) {
                 // we have a  match
                 i += C_BASETOKEN;
-                *op++ = i;                                          // insert the token found
+                TKNPUT(i);                                          // insert the token found
                 p = tp2;                                            // and step over it in the source text
                 if(i == tokenTHEN || i == tokenELSE)
                     firstnonwhite = true;                           // a command is valid after a THEN or ELSE
@@ -1692,9 +1713,9 @@ void MIPS16 tokenise(int console) {
                 tp = skipvar(p, true);                              // find the char after the variable
                 skipspace(tp);
                 if(*tp == '=')                                      // is it an implied let?
-                    *op++ = GetCommandValue("Let");                 // find let's token value and copy into memory
+                    TKNPUT(GetCommandValue("Let"));                 // find let's token value and copy into memory
                 }
-            while(isnamechar(*p)) *op++ = *p++;                     // copy the variable name
+            while(isnamechar(*p)) TKNPUT(*p++);                     // copy the variable name
             firstnonwhite = false;
             labelvalid = false;                                     // we do not want any labels after this
             continue;
@@ -1712,7 +1733,7 @@ void MIPS16 tokenise(int console) {
         }
 
         // something else, so just copy the one character
-        *op++ = *p++;
+        TKNPUT(*p++);
        labelvalid = false;                                          // we do not want any labels after this
        firstnonwhite = false;
 
@@ -1721,7 +1742,25 @@ void MIPS16 tokenise(int console) {
     if(Option.profile==0) while(*(op - 1) == ' ' && op > tknbuf + 3) *--op = 0;
     // make sure that it is terminated properly
     *op++ = 0;  *op++ = 0;  *op++ = 0;                              // terminate with  zero chars
+    return 0;
+
+    // the line will not fit: name it by the loader's '|line or '|file,line marker at its end, if it has one
+toolong:
+    {
+        char *m = NULL, *q = inpbuf, *c;
+        while((q = strstr(q, "'|")) != NULL) { m = q; q += 2; }
+        if(m && !console && (c = strchr(m + 2, ',')) != NULL)
+            snprintf(tknerrmsg, 80, "Line %d of %.*s is too long", atoi(c + 1), (int)(c - (m + 2)) > 40 ? 40 : (int)(c - (m + 2)), m + 2);
+        else if(m && !console)
+            snprintf(tknerrmsg, 80, "Line %d is too long", atoi(m + 2));
+        else
+            strcpy(tknerrmsg, "Line is too long");
+    }
+    tknbuf[0] = tknbuf[1] = tknbuf[2] = 0;
+    if(console) error("$", tknerrmsg);
+    return 1;                                                       // a program being saved: the writer closes its image first
 }
+#undef TKNPUT
 
 
 

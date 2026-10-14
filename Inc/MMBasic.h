@@ -181,6 +181,11 @@ extern char *ContinuePoint;                     // Where to continue from if usi
 
 extern char inpbuf[];                           // used to store user keystrokes until we have a line
 extern char tknbuf[];                           // used to store the tokenised representation of the users input line
+// tknbuf holds twice a source line: the most a 255-character line can tokenise to is 509 bytes (a line
+// of colons), so no line is refused for its length once it fits in a line buffer
+#define TKNBUFSIZE (2 * STRINGSIZE)
+extern char tknerrmsg[];                        // why tokenise() refused a line ("Line 12 is too long")
+extern int strreplace_overflow;                 // set when a substitution would overflow its line buffer
 extern char lastcmd[];                          // used to store the command history in case the user uses the up arrow at the command prompt
 
 extern MMFLOAT farg1, farg2, fret;              // Global floating point variables used by operators
@@ -256,7 +261,7 @@ long long int getinteger(char *p);
 //int getint(char *p, int min, int max);
 long long int getint(char *p, long long int min, long long int max);
 char *getstring(char *p);
-void MIPS16 tokenise(int console);
+int MIPS16 tokenise(int console);                // 0, or 1 when a program line is too long (console: an error)
 void ExecuteProgram(char *);
 //void AddProgramLine(int append);
 char *findline(int, int);

@@ -3957,7 +3957,8 @@ Tick Interrupts (1 to 4 in that order)
 int check_interrupt(void) {
 	int i, v;
 	char *intaddr;
-	static char rti[2];
+	static char rti[2];		// the IRETURN token and its terminating zero: make this rti[4] when command tokens become
+					// two bytes (the PicoMite's rti[2] then held only the token, with nothing to end it)
 	if(GUIactive && GUITimer1>=16){
 		if(mousestruct[Option.Mouse].ax!=xcursor || mousestruct[Option.Mouse].ay!=ycursor){
 			hidecursor(0);

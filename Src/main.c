@@ -891,6 +891,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 	  skipspace(p);
 
 	  if(*p=='*'){ //shortform RUN command so convert to a normal version
+		  if(strlen(inpbuf) + 5 > MAXSTRLEN) error("Line is too long");   // it grows by up to five characters
 		  if((p[1]==' ')|(p[1]==0)){  //no filename provided
 			   memmove(&p[4],&p[1],strlen(p)+1);
 			   p[0]='R';p[1]='U';p[2]='N';p[3]=' ';
@@ -3535,12 +3536,12 @@ void SoftReset(void){
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to program flash in tokenised format
 void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
-    char *p, endtoken, fontnbr, prevchar = 0, buf[STRINGSIZE];
+    char *p, endtoken, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
     int nbr, i, n, SaveSizeAddr;
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realflashsave;
 	SCB_CleanInvalidateDCache();
 	clearrepeat();
-    mycpy(buf, tknbuf, STRINGSIZE);                                // save the token buffer because we are going to use it
+    mycpy(buf, tknbuf, TKNBUFSIZE);                                // save the token buffer because we are going to use it
 	i=3;
     while(FlashWriteInit((uint32_t)ProgMemory) && i)i--;                     // erase program memory
     if(i==0)error("Failed to erase flash memory");
@@ -3566,7 +3567,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     // this is used to count the number of bytes written to flash
     inpbuf[0]=39;
     memcpy(&inpbuf[1],fname,strlen(fname)+1);
-    tokenise(false);                                            // turn into executable code
+    if(tokenise(false)) goto toolong;                           // turn into executable code
     p = tknbuf;
     while(!(p[0] == 0 && p[1] == 0)) {
         FlashWriteByte(*p++); nbr++;
@@ -3601,7 +3602,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 			memmove(&inpbuf[1],&inpbuf[4],strlen(inpbuf)-4);
 			inpbuf[strlen(inpbuf)-3]=0;
  			strcpy(tknbuf,inpbuf);
-        } else tokenise(false);                                            // turn into executable code
+        } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
             FlashWriteByte(*p++); nbr++;
@@ -3817,12 +3818,18 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         MMPrintString(tknbuf);
         MMPrintString(" bytes\r\n");
     }
-    memcpy(tknbuf, buf, STRINGSIZE);                                // restore the token buffer in case there are other commands in it
+    memcpy(tknbuf, buf, TKNBUFSIZE);                                // restore the token buffer in case there are other commands in it
     initConsole();
 	clearrepeat();
 //    SCB_EnableICache() ;
 //    SCB_EnableDCache() ;
     return;
+
+    // a line too long to tokenise: end the program written so far, then report it
+    toolong:
+        FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
+        FlashWriteClose();
+        error("$", tknerrmsg);
 
     // we only get here in an error situation while writing the program to flash
     exiterror1:
@@ -3833,12 +3840,12 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to memory in tokenised format
 uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
-    char *p, endtoken, fontnbr, prevchar = 0, buf[STRINGSIZE];
+    char *p, endtoken, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
     int nbr, i, n, SaveSizeAddr;
 	SCB_CleanInvalidateDCache();
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realmemsave, retvalue;
 	clearrepeat();
-    mycpy(buf, tknbuf, STRINGSIZE);                                // save the token buffer because we are going to use it
+    mycpy(buf, tknbuf, TKNBUFSIZE);                                // save the token buffer because we are going to use it
     SDMemory=GetMemory(512*1024);
     realmempointer=(uint32_t)SDMemory;
     mymemset(SDMemory,0xFF,512*1024);
@@ -3846,7 +3853,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     // this is used to count the number of bytes written to flash
     inpbuf[0]=39;
     memcpy(&inpbuf[1],fname,strlen(fname)+1);
-    tokenise(false);                                            // turn into executable code
+    if(tokenise(false)) goto toolong;                           // turn into executable code
     p = tknbuf;
     while(!(p[0] == 0 && p[1] == 0)) {
         MemWriteByte(*p++); nbr++;
@@ -3880,7 +3887,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
 			memmove(&inpbuf[1],&inpbuf[4],strlen(inpbuf)-4);
 			inpbuf[strlen(inpbuf)-3]=0;
  			strcpy(tknbuf,inpbuf);
-        } else tokenise(false);                                            // turn into executable code
+        } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
             MemWriteByte(*p++); nbr++;
@@ -4109,12 +4116,19 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
         MMPrintString(tknbuf);
         MMPrintString(" bytes\r\n");
     }
-    memcpy(tknbuf, buf, STRINGSIZE);                                // restore the token buffer in case there are other commands in it
+    memcpy(tknbuf, buf, TKNBUFSIZE);                                // restore the token buffer in case there are other commands in it
     initConsole();
 	clearrepeat();
 //    SCB_EnableICache() ;
 //    SCB_EnableDCache() ;
     return retvalue;
+
+    // a line too long to tokenise: end the program written so far, then report it
+    toolong:
+        MemWriteByte(0); MemWriteByte(0); MemWriteByte(0);    // terminate the program
+        MemWriteClose();
+		FreeMemory(SDMemory);
+        error("$", tknerrmsg);
 
     // we only get here in an error situation while writing the program to flash
     exiterror1:
@@ -4137,6 +4151,31 @@ int i, slen;
         lastcmd[i] = lastcmd[i - slen];                             // shift the contents of the buffer up
     strcpy(lastcmd, s);                                             // and insert the new string in the beginning
     for(i = STRINGSIZE*4 - 1; lastcmd[i]; i--) lastcmd[i] = 0;             // zero the end of the buffer
+}
+
+// collect the rest of a console line that has run past the right hand edge of the screen.  It is added to
+// what was typed before it and can only be backspaced as far as the edge.  A line longer than MAXSTRLEN
+// is read to its end and then refused, so that its tail is not run as a command of its own.
+static void GetLineTail(int n) {
+    int c, edge = n, over = false;
+    while(1) {
+        c = MMgetchar(1);
+        if(c == '\r') break;
+        if(c == '\b') {
+            if(n > edge) { MMPrintString("\b \b"); n--; }
+            continue;
+        }
+        if(c == TAB) c = ' ';
+        if(c < ' ' || c >= 0x7f) continue;
+        if(n >= MAXSTRLEN) { over = true; continue; }
+        inpbuf[n++] = c;
+        MMputchar(c);
+    }
+    inpbuf[n] = 0;
+    if(over) {
+        MMPrintString("\r\n");
+        error("Line is too long");
+    }
 }
 
 void EditInputLine(void) {
@@ -4322,7 +4361,7 @@ void EditInputLine(void) {
                                     inpbuf[CharIndex++] = buf[0];                           // overwrite the char
                                     MMputchar(buf[0]);                                      // display it
                                     if(CharIndex + startline >= maxchars) {                 // has the input gone beyond the end of the line?
-                                        MMgetline(0, inpbuf);                               // use the old fashioned way of getting the line
+                                        GetLineTail(CharIndex);                             // collect the rest of it without editing
                                         //if(autoOn && atoi(inpbuf) > 0) autoNext = atoi(inpbuf) + autoIncr;
                                         goto saveline;
                                     }
