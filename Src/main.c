@@ -140,6 +140,8 @@ unsigned int __attribute__((section(".my_section"))) _excep_addr;  //  __attribu
 unsigned int __attribute__((section(".my_section"))) _excep_cause;  //  __attribute__ ((persistent));  // and this is the address
 unsigned int __attribute__((section(".my_section"))) _excep_keys;  //  __attribute__ ((persistent));  // and this is the address
 unsigned int __attribute__((section(".my_section"))) rtcChange;  //  __attribute__ ((persistent));  // and this is the address
+unsigned int __attribute__((section(".my_section"))) _reset_magic;   // SoftReset() sets this: a software reset without it came from outside the firmware
+#define SOFTRESET_MAGIC 0x50F7C0DE
 unsigned int __attribute__((section(".backup"))) backup_ram[1024];  //  __attribute__ ((persistent));  // and this is the address
 char *InterruptReturn = NULL;
 int BasicRunning = false;
@@ -706,6 +708,8 @@ int maxH=PageTable[WritePage].ymax;
 if (__HAL_RCC_GET_FLAG(RCC_FLAG_PINRST) != RESET)strcpy(bootcause,"Switch\r\n");
 if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)strcpy(bootcause,"Power-On\r\n");
 if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET)strcpy(bootcause,"Software\r\n");
+int probereset = (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET && _reset_magic != SOFTRESET_MAGIC);   // e.g. SYSRESETREQ from the debug probe
+_reset_magic = 0;
 if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_code == SCREWUP_TIMEOUT|| _excep_code == WATCHDOG_TIMEOUT|| _excep_code == RESTART_HEAP)){
 	  if(Option.Autorun==0 ){
 		  DrawLogo();
@@ -725,6 +729,7 @@ if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_
 		  OptionFileErrorAbort = 1;
 	  }
 }
+if(probereset) MMPrintString("Reset requested from outside the firmware (debug probe?)\r\n");
 __HAL_RCC_CLEAR_RESET_FLAGS();
 if(Option.ProgramStartCode < 0){
 	mymemset(ProgMemory,0xFF,512*1024);
@@ -3531,6 +3536,7 @@ void MM_Delay(int n){
 	}
 }
 void SoftReset(void){
+	_reset_magic = SOFTRESET_MAGIC;
 	NVIC_SystemReset();
 }
 
