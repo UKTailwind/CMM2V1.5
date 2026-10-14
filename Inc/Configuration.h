@@ -24,7 +24,7 @@ provisions:
 #include <math.h>
 // The main clock frequency for the chip at bootup, it can be changed by the CPU command
 #define	CLOCKFREQ		(400000000L)			    // This is set in in Configuration Bits.h
-#define CONSOLE_BAUDRATE    115200
+#define CONSOLE_BAUDRATE    460800
 #define MMFLOAT double
 #define TFLOAT float
 #define FLOAT3D float
