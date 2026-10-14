@@ -71,8 +71,6 @@ SECTIONS
   _sDTCMData = .;        /* create a global symbol at DTCMData start */
    . = ALIGN(4);
   *stm32h7xx_it.o (.data .data*)
-  *stm32h7xx_it.c.obj (.data .data*)
-   . = ALIGN(4);
    _eDTCMData = .;        /* create a global symbol at DTCMData end */
    } >DTCMRAM AT> FLASH
  
@@ -94,12 +92,9 @@ SECTIONS
   .text :
   {
    . = ALIGN(4);
-    *(.cspace)         /* the CSUB CallTable: must stay first so it keeps its fixed address (ARMCFunctions.h) */
-    /* Code destined for ITCM (see .ITCMSection below) must be kept out of here: the linker gives an
-       input section to the FIRST output section whose pattern matches it, and .text comes first.
-       Both the CubeIDE (*.o) and CMake (*.c.obj) object names are listed. */
-    EXCLUDE_FILE(*stm32h7xx_it.o *stm32h7xx_it.c.obj *Timers.o *Timers.c.obj *stm32h7xx_hal_ltdc.o *stm32h7xx_hal_ltdc.c.obj *stm32h7xx_hal_hcd.o *stm32h7xx_hal_hcd.c.obj) *(.text)    /* .text sections (code) */
-    EXCLUDE_FILE(*stm32h7xx_it.o *stm32h7xx_it.c.obj *Timers.o *Timers.c.obj *stm32h7xx_hal_ltdc.o *stm32h7xx_hal_ltdc.c.obj *stm32h7xx_hal_hcd.o *stm32h7xx_hal_hcd.c.obj) *(.text*)   /* .text* sections (code) */
+    *(.cspace)
+    *(.text)           /* .text sections (code) */
+    *(.text*)          /* .text* sections (code) */
     *(.glue_7)         /* glue arm to thumb code */
     *(.glue_7t)        /* glue thumb to arm code */
     *(.eh_frame)
@@ -119,28 +114,19 @@ SECTIONS
     _etext7 = .;
 } >FLASH7
  
-  /* Zero-wait-state code: the interrupt handlers, the timers, and the LTDC and USB host HAL.
-     Copied from flash by the startup code (LoopCopyITCMInit).  CMake names objects *.c.obj,
-     CubeIDE named them *.o, so both forms are matched. */
   .ITCMSection : {
 
    . = ALIGN(4);
    _sITCM = .;        /* create a global symbol at ITCM start */
 
     *stm32h7xx_it.o (.text .text*)
-    *stm32h7xx_it.c.obj (.text .text*)
    *stm32h7xx_it.o (.rodata .rodata*)
-   *stm32h7xx_it.c.obj (.rodata .rodata*)
    *Timers.o (.text .text*)
-   *Timers.c.obj (.text .text*)
    *Timers.o (.rodata .rodata*)
-   *Timers.c.obj (.rodata .rodata*)
    *stm32h7xx_hal_ltdc.o (.text .text*)
-   *stm32h7xx_hal_ltdc.c.obj (.text .text*)
    *stm32h7xx_hal_hcd.o (.text .text*)
-   *stm32h7xx_hal_hcd.c.obj (.text .text*)
 
-   . = ALIGN(4);
+ 
     _eITCM = .;        /* create a global symbol at ITCM end */
 
  } >ITCMRAM AT> FLASH
