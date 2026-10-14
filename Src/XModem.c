@@ -32,11 +32,20 @@ void xmodemTransmit(char *p, int fnbr, int commport);
 void xmodemReceive(char *sp, int maxbytes, int fnbr, int crunch, int commport);
 int FindFreeFileNbr(void);
 
+void cmd_zmodem(void);
+
 void cmd_xmodem(void) {
 	char BreakKeySave;
     int rcv = 0, fnbr;
     int commport=0;
 	char *fname;
+    // ZMODEM shares this token: tokenise() rewrites "ZMODEM ..." as "XMODEM Z ..." (the command table is full)
+    if(toupper(*cmdline) == 'Z' && !IsAlpha(cmdline[1])) {
+        cmdline++;
+        skipspace(cmdline);
+        cmd_zmodem();
+        return;
+    }
     if(toupper(*cmdline) == 'R')
         rcv = true;
     else if(toupper(*cmdline) == 'S')

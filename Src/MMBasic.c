@@ -1471,6 +1471,7 @@ void MIPS16 tokenise(int console) {
     STR_REPLACE(inpbuf,"SPI2","SPI 2",0);
     STR_REPLACE(inpbuf,"=>",">=", 3);
     STR_REPLACE(inpbuf,"=<","<=", 3);
+    STR_REPLACE(inpbuf,"ZMODEM","XMODEM Z",0);                      // ZMODEM has no token of its own (the table is full): cmd_xmodem dispatches on the Z
     p = inpbuf;
 //    MMPrintString(inpbuf);PRet();
     // second, make sure that only printable characters are in the line
