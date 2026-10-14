@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "cmake",
+            "command": "build",
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Clean rebuild",
+            "type": "cmake",
+            "command": "cleanRebuild",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            // Builds the active preset, then programs and verifies via ST-Link (connect under reset).
+            // 1 MHz SWD: verification read-back failed once at the default 4 MHz.
+            "label": "Flash (ST-Link)",
+            "type": "process",
+            "command": "C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": ["-c", "port=SWD", "mode=UR", "freq=1000", "-w", "${command:cmake.launchTargetPath}", "-v", "-rst"],
+            "problemMatcher": []
+        }
+    ]
+}

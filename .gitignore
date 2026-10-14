@@ -1,0 +1,4 @@
+# CMake build output
+build/
+# Python bytecode from the tools
+__pycache__/

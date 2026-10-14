@@ -1,0 +1,31 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // Builds the active CMake preset, flashes it and stops at main()
+            "name": "Debug CMM2 (ST-Link)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "stlink",
+            "cwd": "${workspaceFolder}",
+            "executable": "${command:cmake.launchTargetPath}",
+            "device": "STM32H743II",
+            "interface": "swd",
+            "serverArgs": ["-k"], // connect under reset, as in CubeIDE
+            "svdFile": "${workspaceFolder}/.vscode/STM32H743.svd",
+            "runToEntryPoint": "main"
+        },
+        {
+            // Attaches to the running firmware without reset or flashing
+            "name": "Attach CMM2 (ST-Link)",
+            "type": "cortex-debug",
+            "request": "attach",
+            "servertype": "stlink",
+            "cwd": "${workspaceFolder}",
+            "executable": "${command:cmake.launchTargetPath}",
+            "device": "STM32H743II",
+            "interface": "swd",
+            "svdFile": "${workspaceFolder}/.vscode/STM32H743.svd"
+        }
+    ]
+}
