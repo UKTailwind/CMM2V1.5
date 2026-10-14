@@ -1,0 +1,485 @@
+# Colour Maximite 2 firmware: audit against PicoMite V7.00.00RC1, and the plan to catch up
+
+*Working document, 14 October 2026. Compares `CMM2V1.5` (MMBasic 6.00.00b7, STM32H743II) with `D:\Dropbox\PicoMite\PicoMite` at tag `PicoMite-V7.00.00RC1` (main at 675891c). Everything below was read from the two source trees, the PicoMite design documents in `docs/`, the two user manuals and the V6.01 to V7.00 release notes. Nothing was built or run on a board. Figures marked "estimate" are guesses.*
+
+---
+
+## 0. Summary: the ten things that matter
+
+1. **The gap is a generation, not a release.** The CMM2 still uses 8-bit command and function tokens and both of its tables are completely full (127 commands, 128 functions and operators), so not one keyword can be added before the PicoMite's 14-bit command tokens are adopted (essential; there is no way round it). The function space is handled the way the PicoMite handles it: the tokeniser folds families of functions behind one pseudo-function with a selector letter (`~(` for the `MM.` variables, `BASE$(n,`, `TOPBOTTOM(I|A,`, `SCHANGE$(E|R|U|L,`, `DEVICE(`), which the CMM2 already does for `~(` and `BASE$(` and can extend. The CMM2 core is the 2020 interpreter with V6.00-era features ported on top. PicoMite V7 rewrote how names are stored (symbols), where variables live (heap chunks), how SUBs and labels are found (one name index), how interrupts are polled (a ready word), and added a compiler (Route B) that runs most statements as wordcode. Between 6.04.00RC2 and 7.00.00RC1 alone, 76 files changed, 22,882 lines added, 6,485 removed; the core directory is now 48,000 lines against the CMM2's 20,000.
+2. **The CMM2 hardware makes the V7 work pay more, not less.** The H743 does double precision in hardware, so arithmetic is nearly free and the interpreter's text-reading overhead is an even larger share of run time than on the RP2350. Route B's executor, which must run from RAM, has 64 KB of zero-wait ITCM to live in; the stream it compiles has 5 to 24 MB of SDRAM; the compact variable table replaces a 64 KB static table in the slow D3 SRAM.
+3. **The ITCM code placement had never worked, and is now fixed (14 Oct).** The linker script meant to put `stm32h7xx_it`, `Timers`, the LTDC HAL and the USB host HAL into ITCM, but its `.text` output section claimed every `.text*` input section first (ld gives an input section to the first matching rule), and after the CMake move the `*.o` patterns no longer matched `*.c.obj` either, so `.ITCMSection` was 0 bytes. With `EXCLUDE_FILE` on the flash `.text` rules and both object-name forms listed, the section is 19,792 bytes (the four objects exactly), the CallTable stays at 0x080002a0, and the image was built, flashed and verified on the board. The `.ramcode` copy routines from `assember.S` are still in flash (no linker rule, same as under CubeIDE): decide in P0 whether they should be.
+4. **Flash is the binding constraint.** The current image uses 844 KB of the 896 KB `FLASH` region and 63 KB of the 128 KB `FLASH7` region. A PicoMite RP2350 build with the same feature set (no network, no Bluetooth) is 1,052 to 1,168 KB. The CMM2 has 2 MB of flash in two 1 MB banks; bank 2 holds the program (512 KB), five spare 128 KB sectors and the options. The plan has to decide how bank 2 is divided between firmware, program and flash slots before any code is ported.
+5. **Thirty-plus functional gaps.** 115 keywords exist in PicoMite's table and not the CMM2's. The ones that matter to BASIC programs: `TYPE`/`STRUCT`, `LIBRARY`, `CHAIN`, `SAVE/LOAD CONTEXT`, `REDIM`, `ERASE`, `EXIT DO`, `ELSE IF`/`END IF`, `ARRAY SET/ADD/INSERT/SLICE`, `SPRITE` as a command family, `BLIT MEMORY`, `FRAMEBUFFER MERGE/LAYER/SYNC`, `TILEMAP`, `RAY`, `FRAME`, `BEZIER`, `FILL`, `FLASH` slots, `RAM` slots, `FM`, `YMODEM`/`ZMODEM`, `HEX$`/`BIN$`/`SCHANGE$`/`TOPBOTTOM`/`BIT`/`BYTE`/`FLAG`, `LINPUT`/`LMID`, `RANDOMIZE`, `ONESHOT`, `DEVICE(`, `KEYBOARD`, `KEYPAD`, `WS2812`, `HUMID`, `RTC`, `MOUSE`, `GAMEPAD`, `SET`/`WAIT`, `VAR`, `CALC`, `MANDELBROT`, `EDIT FILE`, `STAR`/`ASTRO`, and about 60 `MM.INFO` sub-keywords. Section 3 has the full list; the raw diffs are in Appendix A and B.
+6. **The CMM2-only features must survive.** `PAGE` (write, display, copy, scroll, stitch, merge, resize, and/or pixels), `MODE n [, depth]` with 18 modes and 8/12/16/32-bit colour, `IMAGE` (resize, rotate, warp), `MOUSE(`/`NUNCHUK(`/`CLASSIC(`/`CONTROLLER`, `CAN`, `DAC`/`ADC` commands, `PLAY TTS`/`PLAY EFFECT` (SAM speech), `LOAD GIF`/`LOAD FONT`, the hardware JPEG decoder, `MMDEBUG`, `BITBANG`, `>>>`, `OPTION LEGACY` (CMM1), the line profiler (`OPTION PROFILE`), `CLUT`, `BAUDRATE(`, `MM.CMDLINE$`, `MM.WATCHDOG`, `AUTOSAVE2`.
+7. **Every vendored library is behind, several by years.** FatFs R0.14 (2019) on both boards against R0.16 (2025) with three 2026 CVEs; cJSON 1.7.14 against 1.7.19; dr_flac 0.12.25 / dr_mp3 0.6.25 / dr_wav 0.12.16 against 0.13.3 / 0.7.3 / 0.14.5 (API breaks in the major steps); STM32 HAL 1.9.0 (2020) against 1.11.6 (Feb 2026); ST USB host library 3.3.x (2020, HID only, no hub) against 3.5.5 (Jun 2026) or TinyUSB (which the PicoMite uses, with hub, mouse, gamepad, CDC and mass storage); CMSIS core 5.1; toolchain GCC 13.3 against 15.3. Section 4 has the table.
+8. **There is no test harness, no benchmark, no git history and no help generator on the CMM2 side.** The PicoMite has 978 commits since June, a serial-driven goldens corpus of 112 programs with reference outputs on three boards, 60 Python drivers, a per-feature PASS/FAIL suite, an interpreter profiler and a release pre-flight script. Every V7 step was gated on those. The CMM2 work needs the same harness first, on its serial console, or nothing can be judged.
+9. **Known interpreter bugs are present in the CMM2 code.** Of the 30 in the PicoMite's September bug list, at least seven are in `CMM2V1.5` today by inspection: `MAX`/`MIN` clamp at `FLT_MAX` (Functions.c:1358), the integer `^` loop with no bound (Operators.c:71), `FloatToInt64` accepting NaN and 2^63 (MMBasic.c:3883), `CurrentSubFunName` never restored after a nested call so `STATIC` can attach to the wrong SUB (MMBasic.c:931, 1226), the 2-byte `rti` IRETURN stub with no terminator (MM_Misc.c:3960), no bound on `tknbuf` in `tokenise` (a long line overwrites memory), and the global probe loop with no counted guard. None has the V7 fix.
+10. **The compatibility goal decides the strategy.** Running PicoMite programs unchanged while keeping CMM2 programs working means one firmware that carries both dialects and switches the few keywords that genuinely conflict (`MODE`, `FRAMEBUFFER` sub-commands, `MAP`, fonts, pin names, drive letters, `MM.DEVICE$`, parts of `OPTION` and `MM.INFO`). Section 6 lists the conflicts; section 7 recommends building the new firmware as a CMM2 *variant of the PicoMite tree* (PicoMite dialect native, CMM2 dialect preserved as a legacy layer) rather than porting V7 piece by piece into the CMM2 tree, and gives the plan either way.
+
+---
+
+## 1. The two code bases today
+
+### 1.1 Side by side
+
+| | CMM2V1.5 | PicoMite |
+|---|---|---|
+| Version | 6.00.00b7 (`Inc/Version.h`), last edits Nov 2025 | 7.00.00RC1 (`Version.h`), 13 Oct 2026 |
+| Lineage | Geoff Graham's CMM2 MMBasic 5.07 plus V6.00-era PicoMite features ported in 2024-25 | PicoMiteAllVersions, reorganised per subsystem June 2026, 978 commits since |
+| Source layout | flat `Src/` (70 files) and `Inc/`; third-party mixed in with firmware | `core/` `graphics/` `io/` `input/` `misc/` `net/` `bluetooth/` `third_party_mod/` `fonts/` `tools/` `docs/` `Bas/` `Testfiles/` |
+| Lines, interpreter core | 20,257 (`MMBasic.c` 4,249; `Commands.c` 3,007; `MM_Misc.c` 4,360; `MATHS.c` 3,280; `Memory.c` 1,636; `Functions.c` 1,404; `FileIO.c` 1,850) | ~48,000 in `core/` plus `misc/FileIO.c` 8,370 (`MMBasic.c` 8,593; `Commands.c` 11,222; `MM_Misc.c` 10,955; `Stream.c` 5,750; `MATHS.c` 4,641; `Memory.c` 2,639; `Functions.c` 2,005; `Symbols.c` 1,042) |
+| Lines, graphics and applications | 20,031 (`Draw.c` 5,799; `sprites.c` 2,102; `GUI.c` 2,458; `kilo.c` 2,076; `fm.c` 1,557; `turtle.c` 1,083; SAM speech 3,100) | ~32,000 in `graphics/` plus `misc/Editor.c` 9,303 (`Draw.c` 6,808; `GUI.c` 4,981; `Sprite.c` 2,683; `Blit.c` 2,177; `FrameBuffer.c` 1,981; `Raycaster.c` 1,732; `Pointer.c` 1,706; `Draw3D.c` 1,359; `DrawFill.c` 1,177; `TileMap.c` 1,048; `Turtle.c` 1,107) |
+| Lines, hardware layer | 28,620 (`main.c` 4,700 incl. CubeMX init; `MiscSTM32.c` 1,609; `ltdc.c` 997; `keyboard.c` 1,238; `Audio.c` 1,996; `External.c` 2,422; `CAN.c` 802; `OtherDisplays.c` 3,465; HAL MSP and IT 2,736) | pico-sdk based: `PicoMite.c` 5,341; `io/` 23,000 (incl. `stepper.c` 7,028, `I2C.c` 4,614); `input/` 6,100; `graphics/` display drivers |
+| Keywords in the token tables | 240 | 338 |
+| Command/function handlers | 252 | 326 |
+| Firmware image | 982,052 bytes (`.text` 604 K, `.rodata` 206 K, `.extra` 64 K, `.ramcode` 20 K, `.data` 14 K) | 834 KB (RP2040 VGA) to 1,726 KB (PC3); 1,052 to 1,168 KB for the RP2350 non-wireless builds |
+| Build | CMake + Ninja, presets, GCC 13.3.rel1 from CubeIDE 2.0.0, `build.cmd` | CMake + NMake, pico-sdk 2.3.1 unmodified, GCC 13.3.1, TinyUSB master e20482387 patched, `buildpicomite.bat`, 18 variants, post-build fit checks |
+| Git | not a repository (a `.gitignore` exists) | repository, `main` + `development` branches, tags per beta |
+| Tests | none | 112-program goldens corpus with references for three boards; `Testfiles/` PASS/FAIL suite (66 programs); `Bas/bench/` 60 serial drivers; interrupt tests; game checks |
+| Docs | `Inc/help.h` compiled in; the 2021 PDF manual | `docs/` 150 files: manual (docx), 25 companion manuals, design reviews, generated `help.txt` in three sizes |
+
+### 1.2 The CMM2 as the firmware uses it
+
+Hardware: STM32H743II, Cortex-M7 at 400/480/504 MHz (`Option.CPUmode`), FPv5-D16 (hardware double precision), 2 MB flash in two banks of eight 128 KB sectors, 1 MB internal RAM (DTCM 128 K, AXI 512 K, D2 288 K, D3 64 K, ITCM 64 K), 8 MB (G1) or 32 MB (G2) SDRAM on the FMC at 100 MHz 16-bit, LTDC VGA with two hardware layers, USB OTG FS host (keyboard, mouse through the ST HID class), PS/2-style mouse state machine (`mouse.c`), SD card on SPI (`mmc_stm32.c`, bit-bang or SPI), DAC audio, FDCAN, three I2C, three SPI, four UARTs, hardware JPEG decoder, RNG, RTC with backup SRAM.
+
+Memory map as used by the firmware (`Memory.h`, `Flash.h`, `main.c`, `ltdc.c`):
+
+| Region | Use |
+|---|---|
+| ITCM 0x00000000, 64 K | vector table (664 bytes) and `.ITCMSection`: intended for the interrupt handlers, timers, LTDC and HCD HAL; **empty since the CMake migration** |
+| DTCM 0x20000000, 128 K | `.data` 14 K, `.bss` 78 K, heap and stack 18 K |
+| AXI 0x24000000, 512 K | display pages (`ltdc.c:80`), spilling to SDRAM when they do not fit |
+| D2 0x30000000, 288 K | `SDmap` allocation bitmap for the SDRAM heap (32 K), `RAMBASE` internal heap from 0x30008000 (after the GUI control table) to 0x30040000 (224 K), `funtbl` 32 K at 0x30040000 |
+| D3 0x38000000, 64 K | `vartbl`: 1,024 entries of 64 bytes, static (`Memory.c:1190`) |
+| Backup SRAM 0x38800000, 4 K | saved variables |
+| SDRAM 0xD0000000 | display pages first; heap from 0xD0300000 (G1, 5 MB) or 0xD0800000 (G2, 24 MB); the program itself at 0xD0300000 / 0xD0780000 when `Option.ProgramStartCode < 0`; the line profiler's 512 K counters |
+| Flash bank 1 | `FLASH` 896 K: code, rodata, the CSUB `CallTable` at 0x80002a0 (`.cspace`); `FLASH7` 128 K: `.extra` (MATHS tables, OtherDisplays) |
+| Flash bank 2 | sector 0 spare; sectors 1-4 the program (512 K, `FLASH_PROGRAM_ADDR`); `progstart[]` lets the program start at any of sectors 0-6; sector 7 options |
+
+Two consequences for the plan: the heap is split between a small fast internal pool and a large slower pool exactly as the RP2350-with-PSRAM builds are, so the PicoMite's `GetMemory`/PSRAM spill model maps directly; and the CMM2 already keeps display pages in SDRAM and can run the program from SDRAM, so RAM program slots, a RAM library and the Route B stream all have a home.
+
+### 1.3 Measured baseline (14 Oct 2026, COM4, G2 board at 480 MHz, 6.00.00b7 built from this tree)
+
+| Test | CMM2 G2, 480 MHz | PicoMite reference |
+|---|---|---|
+| `solar_eclipse.bas` with the reference inputs (12,1,2000 / 39,40,36 / -104,57,12 / 1644 / 30), golden JD 2451904.14541560 / .19690359 / .25420764 reproduced | **7.46-7.47 s** (7.471 s before the ITCM fix, 7.459 s after) | PC3 HDMIWEB 378 MHz interpreted 12.5-14.6 s; PC3 compiled (beta 6, 315 MHz) 6.0 s; `sefunc` as a CSUB 2.5 s |
+| `FOR i = 1 TO 200000 : NEXT` (float), per pass | 0.57 us | RP2040 378 MHz 2.16 us; RP2350 252 MHz 2.28 us; compiled 1.12 us |
+| `a = b + c` inside that loop, per statement | about 4.3 us | RP2040 8.06 us; RP2350 9.08 us; compiled 1.00 us |
+
+So the CMM2 interprets the anchor about 1.7 to 2 times faster than the PC3 at a comparable clock ratio, and the same program compiled on the PC3 is already faster than the CMM2 interpreted. Route B on the H7 should take the anchor well under 3 s (estimate, from the PC3's 2.1x compiled gain and the CMM2's FPU).
+
+### 1.4 What the CubeIDE-to-CMake migration left behind
+
+- `.ITCMSection` was 0 bytes for two reasons: the `.text` output section precedes `.ITCMSection` and claimed every `.text*` input section (so the ITCM rule could never match code, even under CubeIDE), and the `*stm32h7xx_it.o` patterns do not match CMake's `*.c.obj`. **Fixed 14 Oct 2026:** `EXCLUDE_FILE(...)` on the two `.text` rules and both name forms in `.ITCMSection` and `.DTCMData`; the section is now 19,792 bytes (`stm32h7xx_it` 6.2 KB, `Timers` 9.7 KB, `stm32h7xx_hal_ltdc` 2.5 KB, `stm32h7xx_hal_hcd` 2.3 KB), the `.text` section shrank by the same amount and the CallTable address is unchanged. A longer-term tidy-up is `__attribute__((section(".itcm.*")))` on the functions themselves and a section-name rule, which is how the PicoMite's `__not_in_flash_func` would map onto the H7 (P1). `.DTCMbss` has no input patterns at all and was always empty; all `.bss` goes to DTCM anyway.
+- `.ramcode` (the FPU block-copy routines, 19,740 bytes) has no linker rule and lands in flash. Decide whether it was ever meant to be RAM-resident; on the H7 with the I-cache it probably does not matter, but it should be deliberate.
+- `-mslow-flash-data` is on for Release, as in CubeIDE. Keep.
+- The toolchain path is hard-wired to CubeIDE 2.0.0's GCC 13.3.rel1 in `CMakePresets.json`. The PicoMite uses the same GCC version, which is convenient while the two trees share code; both could move to Arm GNU Toolchain 14.3.Rel1 or 15.3.Rel1 later, together.
+
+---
+
+## 2. Audit: interpreter structure and performance
+
+The PicoMite's own design documents (`docs/Interpreter_Performance_Plan.html`, `Interpreter_S5S6_Symbols_Design.html`, `Variable_Table_Redesign.html`, `SubFun_Label_Redesign.html`, `Interpreter_RouteB_Design.html`, `option-profiling-cache.md`, `MMBasic_Performance_Guide.md`) describe each change, its measured gain and its tests. This table maps them onto the CMM2 code.
+
+| Area | CMM2 6.00.00b7 | PicoMite V7.00.00RC1 | Worth on the CMM2 |
+|---|---|---|---|
+| Token width | **8-bit command tokens and 8-bit function/operator tokens, and both tables are full.** `tokenise` writes one byte per command (`MMBasic.c:1638`), `ExecuteProgram` dispatches on one byte (`:357-360`); the command table has 127 commands plus the terminator and the function/operator table 128 plus the terminator, which is every code from 0x80 to 0xFF in each. That is why the CMM2 tokeniser aliases `SPRITE` to `BLIT`, `WII` to `CONTROLLER`, `PIXEL FAST` to `CLS`, `EXIT DO` to `EXIT`, `END IF` to `ENDIF`: there is no slot for a new keyword of either kind | **14-bit command tokens**: two bytes, each 0x80 plus 7 bits (`core/MMBasic.c:2215-2216`), `typedef uint16_t CommandToken` (`core/MMBasic.h:269`), `commandtbl_decode` (`core/Commands.h:156-159`), every walker steps `sizeof(CommandToken)`; `AllCommands.h` has 228 command entries across the variants. Function and operator tokens are still one byte (7 bits, 127 usable) and the largest variants sit at 127 | blocking: not one PicoMite command can be added to the CMM2 until its command tokens are widened to the PicoMite's 14-bit form (essential, no alternative). The function space is kept inside 7 bits the way the PicoMite does it: the tokeniser rewrites families of functions into one pseudo-function with a selector letter (`fun_tilde` for every `MM.` read-only variable, `BASE$(2|8|16,` for `BIN$`/`OCT$`/`HEX$`, `TOPBOTTOM(I|A,` for `MIN`/`MAX`, `SCHANGE$(E|R|U|L,` for `LEFT$`/`RIGHT$`/`UCASE$`/`LCASE$`, `PEEK(INT8` for `PEEK(BYTE`, `DEVICE(` for the mouse, Wii and gamepad readers; `MMBasic.c:1987-2000`). The CMM2 already does this for `~(` and `BASE$(` (`MMBasic.c:1454-1463`) but still spends separate tokens on `LEFT$(`, `RIGHT$(`, `UCASE$(`, `LCASE$(`, `MIN(`, `MAX(`, `MM.HRES`, `MM.VRES`, `MM.CMDLINE$` and `MM.WATCHDOG`: adopting the PicoMite rewrites frees about ten slots at once, and `MOUSE(`/`NUNCHUK(`/`CLASSIC(` can go behind a selector the same way. The CMM2 re-tokenises programs from source at every load, so no stored image format is affected. If the folds are ever not enough, the reference design for multibyte function tokens is MMB4L 0.8 alpha 1 (24 Sep 2026, `src/core/tokentbl.h`): `typedef uint16_t FunctionToken`; ids below 0xFF stay one byte, larger ids are written as an 0xFF escape followed by two 7-bit bytes (a two-byte-everywhere variant is behind `USE_TWO_BYTE_TOKENS`), with `tokentbl_peek`/`tokentbl_read`/`tokentbl_write`/`tokensize` used at the six readers (`getvalue`, `doexpr`, `skipvar`, `getclosebracket`, `skipexpression`, the lister). The escape form keeps every existing one-byte token and its speed. Its code is not portable (the tree is refactored into `commandtbl.c`, `funtbl.c`, `vartbl.c`, `tokentbl.c` and is Linux-only), the design is. Its changelog also records the trap: a single-line IF scan that compared bytes against `tokenELSE` false-matched a command token byte once command ids and function ids could coincide |
+| Program image | keywords tokenised, every name as text; line header `T_NEWLINE` only; no skip byte | 2-byte header with a skip byte (comment lines jumped in O(1), `findline` skips whole lines); every name a 2- or 3-byte **symbol** with a per-image symbol table after the program (`Symbols.c`), library symbols distinct; `OPTION SYMBOLS OFF` escape hatch; images shrink 4-13% on large programs | high: symbols removed 16-34% of run time on the RP2350 and are the foundation of Route B |
+| Name lookup | `findvar` upper-cases and FNV-hashes each character on every reference, probes a 1,024-slot open-addressed table (`MMBasic.c:2752-3195`), locals probed first inside SUBs; `FindSubFun` by hash in `funtbl` for every `name(` | symbol id bound lazily to its global slot, newest local (per-frame shadow stack), SUB index and label; lookup is a few loads; text path kept for the prompt, `EXECUTE`, `EVAL`, `CALL name$` | high |
+| Variable table | static `vartbl[1024]` of 64 bytes in D3 SRAM (64 KB whether used or not); `MAXVARS` 1,024, `MAXHASH` 511 | 8-byte slots plus 56/64-byte records allocated in chunks of 32 from the heap, seeded at RUN; `OPTION LOCAL VARIABLES` caps the local stack only; freed 20-56 KB per build; `PEEK/POKE VARTBL` removed, CSUB table vector 0x60 now points at the slot table | medium (RAM) / high (the 64 KB block is in the slowest internal RAM) |
+| SUBs, FUNCTIONs, labels | RP2350-style `funtbl` of 513 x 36-byte entries rebuilt at every `PrepareProgram`, labels hashed into it; 18 KB static | one 8-byte-slot name index in the heap sized to the program, kinds (SUB/FUN/LABEL), duplicates reported at prepare, packed per-SUB parameter layouts read once (`DefinedSubFun` no longer re-parses the parameter list on every call) | medium |
+| Statement loop | `ExecuteProgram` (`MMBasic.c:284-407`): `setjmp(ErrNext)` only under `ON ERROR SKIP` (good), `CheckAbort()` every statement, `check_interrupt()` every statement when any interrupt or GUI is active, which then tests **every** source in turn (`MM_Misc.c:3957+`) | same shape plus: comment fast path, `IntReady` word set by the sources so an armed-but-quiet interrupt costs one test (about 30% off a loop with `SETTICK` armed), `routinechecks` behind a 100 us cadence, `OPTION NOCHECK`, hand-over to `RunStream` when a compiled stream is live, `OPTION PROFILING` counters, core 1 stack canary | medium |
+| FOR/NEXT, DO/LOOP | FOR stack with saved `nextptr` (CMM2 has this), DO loops evaluate the condition every pass | plus the **DO fast path** (`var OP number` resolved once, 2.5x), `EXIT DO`, `CONTINUE DO`, `NEXT i, j` | medium |
+| IF/ELSEIF/ENDIF | linear scan to the next arm on every false branch | sorted **IF jump table** built at `PrepareProgram`, O(log N) | medium (state machines, menus) |
+| Calls | `DefinedSubFun` splits both argument lists with `makeargs` on every call; 2 copies of the function exist (`MMBasic.c:603` and `:993`) | parameter layouts cached per SUB; symbol-bound parameters; `CALL name$` faster; `ON ERROR SKIP` argument leak fixed; stack overflow test on every call level | high (calls are the most expensive thing in MMBasic: 28-45 us interpreted) |
+| Compiler | none | **Route B** (`core/Stream.c`, 5,750 lines, RP2350 only): compiles at RUN when the image CRC changes, one record per statement, wordcode VM with computed goto, shared operator helpers, `OPTION COMPILE ON/OFF/SHADOW`, falls back per statement; games 1.4-5x faster, `a = b + c` 9x, TSCP chess 58.9 to 37.5 s between betas; needs the executor in RAM (about 7 KB) and a stream area of 3 program sizes | very high: the CMM2's hardware FPU makes the interpreter's share of time larger, and it has ITCM for the executor and SDRAM for the stream |
+| Profiling | `OPTION PROFILE` line profiler writing counts and microseconds per line into a 512 K SDRAM area (`ExecuteProgram`), `LIST PROFILE [CSV]` | `OPTION PROFILING ON [, SAMPLE]`: dispatch counts per command, findvar local/global split, per-SUB inclusive/exclusive times, a PC sampler on a hardware alarm, `[PERF]` report at `END` | keep both: the CMM2 line profiler is unique and useful; add the PicoMite one for the harness |
+| Memory manager | 256-byte pages with 2-bit maps for the internal and SDRAM heaps (`mmap[65]`, `SDmap`), `GetMemory` with SDRAM fallback, temp strings tracked in `StrTmp[1024]` | same lineage plus a top-down first-free hint, PSRAM-aware allocation (`GetSRAMMemory` for things that must be fast or survive `SAVE CONTEXT`), out-of-memory messages that name the size and the symbol-table hint | low |
+| Arrays and types | `MAXDIM` 5; `DIM a(0)` under base 0 is an error | single-element dimensions, whole-array assignment `b() = a()`, FUNCTIONs returning arrays, `REDIM [PRESERVE]`, `ERASE`, `ARRAY SET/ADD/INSERT/SLICE`, `MATH CLAMP` etc., **structures** (`TYPE ... END TYPE`, nested, arrays of structs, struct members in MATH with stride, `STRUCT(`), `BIT(`, `BYTE(`, `FLAG(` | high (language parity) |
+| Libraries and program slots | one program in flash bank 2 or SDRAM; `progstart[]` chooses the start sector; no library | `LIBRARY LOAD/SAVE/LIST/DELETE/DISK SAVE`, a library in RAM beside the one in flash, `FLASH SAVE/LOAD/RUN/LIST/ERASE/CHAIN` (3 flash slots), `RAM` slots 1-5 with PSRAM, image slots, `CHAIN`, `SAVE/LOAD CONTEXT`, `MM.STARTUP`/`MM.PROMPT`/`MM.END` hooks | medium-high |
+| CSUBs | `CallTable` at a fixed flash address 0x80002a0 (`.cspace`), 46 vectors (`ARMCFunctions.h` V1.6), `CFuncmSec`, `CFuncInt1/2`, 10 arguments | `CallTable` found through vector-table slot 7 at run time, 110+ vectors (`PicoCFunctions.h` v2.3.0): 64-bit maths, `memcpy`/`memset`/`memmove`, `Mstr*`, string cores (`StrMid`, `StrCase`...), `INSTR`, `STR$`, `VAL`, `TIMER`, `RND`, `PinVal`/`PinPut`, colours; 16 arguments on the RP2350; `CSUB` interrupt vector; **mmb2csub** compiles a SUB/FUNCTION to a CSUB from the PC (10-35x) | high: on the CMM2, mmb2csub can target `-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard`, so the generated code does double arithmetic and 64-bit multiply/divide inline instead of through CallTable helpers; expect more than the RP2350's gain |
+| Error handling | `error()`, `StandardError(n)` already present ("from picomites") | plus `MM.ERRLINE`, `ON ERROR RESTART`, `-INF`/`NAN` printing, `Number too large` on NaN/infinity conversion, line-too-long refusal, bounded probe loops | low-medium |
+| String core | functions welded to the evaluator | string cores split from parsing (`String_Core_Refactor_Plan.md`, phases A-B done) and exposed through the CallTable; `TRIM$`, `BASE$`, `SCHANGE$`, `TOPBOTTOM(`, `BIN$`/`HEX$`/`OCT$` | low-medium |
+| Editor | `kilo.c` (2,076 lines, mouse, colour) | `Editor.c` (9,303 lines): long lines without splitting, find/replace (F3/F6/F7/F8), beautify (F12), `EDIT FILE`, mouse, status line, on-screen keyboard; `FM` file manager with copy, rename, track list | medium |
+| Help | `help.h` compiled in (599 lines) | `HELP` reads `A:/help.txt`, three sizes generated from the manual by `tools/gen_help.py`, 1,151 topics, linted by `tools/help_lint.py` | medium (and frees flash) |
+
+### 2.1 Known bugs that are in the CMM2 code
+
+From `docs/Main_Bug_Report_2026-09.html` (30 items, all fixed on PicoMite main), checked by reading `CMM2V1.5`:
+
+| # | Bug | CMM2 location | Fix on PicoMite |
+|---|---|---|---|
+| 5 | `STATIC` after a nested call attaches to the wrong SUB (`CurrentSubFunName` never restored) | `MMBasic.c:931`, `:1226` | b0f448e |
+| 7 | Probe loops with no counted guard (global region full at level 0, `hashlabels`, `FindSubFun`) | `MMBasic.c:2895`, `:2927`, `hashlabels` 2532 | 1c95cd1 |
+| 10 | `tokenise` has no bound on `tknbuf` (256 bytes): a long line overwrites memory; `CALL` appends to a 256-byte buffer unchecked | `MMBasic.c:81`, `:1447` | c4ea0e2 (`Line is too long`) |
+| 11 | IRETURN stub `rti[2]` has no terminator | `MM_Misc.c:3960` | fc1ca32 (`rti[4]`) |
+| 22 | `MAX`/`MIN` start from `FLT_MAX`, clamping doubles at 3.4e38 | `Functions.c:1358` | 50c9aa0 |
+| 25/26 | only +INF trapped; `-INF` prints garbage; NaN converts to 9223372036854775807 (`FloatToInt64` range test is false for NaN and passes 2^63) | `MMBasic.c:3883`, `FloatToStr` 3612 | a40112b |
+| 27 | integer `^` runs one multiply per unit of the exponent, Ctrl-C cannot stop it | `Operators.c:71` | c04dc39 (squaring) |
+| 23 | `ABS` and `SGN` evaluate with `targ = T_INT`, so a float of 2^63 or more raises "Number too large" | `Functions.c:483-495` | 16d0413 |
+| 24 | an integer subscript is stored into `int dim[]` unchecked (`dim[i/2] = in`), so `a(4294967297)` reads `a(1)` | `MMBasic.c:2827` | 8f617d8 |
+
+Not checked but likely, given the shared lineage: 16 (`ON ERROR SKIP` argument leak), 9 (`FindSubFun` ignores its type argument), 14 (`MM.INFO(VARCNT)` stale). Items 21 and 29 (comment fast path, one-letter SUB) do not apply: the CMM2 has neither mechanism.
+
+### 2.2 The CMM2 program model: source on disk, and the line marker
+
+The CMM2 never reconstructs source from its tokenised image: every program is a file on the SD card, `RUN`, `EDIT`, `LIST` and `AUTOSAVE` work on the file, and the image in flash or SDRAM is a derived copy made at load time (`FileIO.c`, `SaveProgramToFlash`/`SaveProgramToMemory`). The PicoMite is the opposite: the image is the program, and `LIST`, `EDIT`, `SAVE`, the library and the flash slots all round-trip it, which is why V7's symbol table keeps every spelling. Two consequences:
+
+- **The CMM2 image can be crunched.** The loader already upper-cases, strips comments and removes spaces; `LIST FLASH` (undocumented) lists the image back through `llist` as a diagnostic only. On the CMM2 variant the symbol table therefore needs one canonical spelling per name rather than one per spelling, and the symbol collector's "keep every spelling for LIST" rule can be switched off; the PicoMite's `LOAD ,C` crunch is the CMM2's normal case.
+- **The source-line marker is the clunky part.** To report errors and drive `EDIT` by file and line, the loader appends a trailing comment to every line: `'|nnn` for the main file and `'|name,nnn` for an `#INCLUDE` file (`FileIO.c:482`, `:633`). It is recovered by `strchr` in `error()` (`MMBasic.c:3367`), in the `TRACE` printer (`:320`), by the edit-on-error path and by `LIST FLASH`, each with its own quote-toggle parsing, and it can push a line over the 254-byte limit ("Line too long"). Because it is the last element of the line, `skipelement` walks it on every execution of the line's last statement. Measured on the board (14 Oct, 480 MHz): a `FOR` loop with `a = b + c` on its own line runs at 5.09 us a pass from a main file and 5.44 us from an include with a 16-character name, whose two markers are 20 bytes longer each: about 9 ns, or 4 cycles, per marker byte. A main-file marker costs about 1% of a short statement; an include with a long name up to 4%. On `solar_eclipse.bas` the markers are about 19 KB of the 70 KB image.
+
+**Proposed replacement (for P1 of the plan).** Put the attribution in the line header instead of in the text: the V7 header is `T_NEWLINE, skip`; the CMM2 variant extends it to `T_NEWLINE, skip, file, line_lo, line_hi` (5 bytes, file = index into a small file-name table written after the image beside the symbol table, line = the line in that file). Then `CurrentLinePtr` gives file and line with two loads, `error()`, `TRACE`, `EDIT`-on-error, `MM.ERRLINE` and a new `MM.INFO$(ERRFILE)` need no parsing, Route B's statement records carry it for free, `LIST FLASH` needs no stripping, nothing is walked at run time, and the image shrinks by 1 to 17 bytes a line (about 10 KB on the anchor). Programs with their own line numbers keep `T_LINENBR` as today, so the two do not collide. The PicoMite core already reads the header through `T_NEWLINE_HDR`, which becomes a per-variant constant.
+
+### 2.3 The line header and its skip byte
+
+The PicoMite's line header is two bytes, `T_NEWLINE` then a **skip byte**: the distance to the next `T_NEWLINE` (3 to 0xFD), or 0xFE for a line too long to say; 0 and 0xFF are never used, so a copy loop that stops at `0,0` and erased flash (`0xFF,0xFF`) cannot be fooled by it. It is written by `tokenise`, read through `T_NEWLINE_HDR` (49 uses), and used by the comment-line fast path in `ExecuteProgram`, by `findline` (a `GOTO 1000` skips whole lines), by the label hash build, by Route B's statement map (its NOP records for comment and label-only lines) and by every image walker. The CMM2's header is `T_NEWLINE` alone.
+
+What adopting it touches on the CMM2 (36 sites; the seven hits in `regex.c` are `RE_DOT_NEWLINE` and do not count):
+
+| Where | Sites | Change |
+|---|---|---|
+| `tokenise` (`MMBasic.c:1487`) and the image writers `SaveProgramToFlash`/`SaveProgramToMemory` (`main.c:3635-4091`) | 13 | write the skip byte once the line is complete; the writers copy lines and compute the CSUB offsets after the program |
+| walkers that step over the header with `p++`: `ExecuteProgram` (295), `findline` (2506), the label hash (2543), `findlabel` (2636), `TraceLines` (2673), `error()` (3344-3353), `GetNextCommand` (4008, 4016), `LIST` (`Commands.c:778`, 833), `llist` (2914, 2968), the IF scanners (2149, 2354), `Memory.c:576`, 641, `MM_Misc.c:3256`, `cmd_run` (1096, a test only) | 19 | `p += T_NEWLINE_HDR` |
+| readers of the first line's `'#file` name: `MM.INFO$(CURRENT)` and `MM.INFO$(PATH)` (`MM_Misc.c:3092`, 3098), the label hash's start (`MMBasic.c:2537`), and the new `zcurrentprogram()` in `ZModem.c:1190` | 4 | read from `ProgMemory + T_NEWLINE_HDR`, best through one helper |
+| `skipline` (`MMBasic.h:139`) | 0 | safe as it is: it looks for `0, T_NEWLINE`, and the skip byte is never 0 |
+
+Three further consequences:
+
+- **`T_LABEL` changes value.** The CMM2 has `T_LABEL 4`; the PicoMite moved it to 3 because 0x04-0x07 are now the symbol introducers (`SYM_PROG_LONG` and the rest). It comes with the core under strategy B and is one more format change under A.
+- **A stored image goes stale, and the CMM2 runs stored images at boot.** With `OPTION AUTORUN` and `OPTION FLASH`, `main()` runs the image in bank 2 directly (`main.c:814`), so the first boot of a firmware with a new header, `T_LABEL` value or symbols would execute an image written by the old one. The PicoMite answers this with a new magic key that wipes program memory; the CMM2 can do better, because every image starts with the name of its source file: put a format stamp in the image and, when it does not match, load the program again from that file before running it (and say so on the console).
+- **It changes what the line marker proposal (2.2) gains.** With file and line in the header (`T_NEWLINE, skip, file, line_lo, line_hi`), a comment-only or blank line carries nothing at all, so the loader can drop it from the image unless it holds a label or a line number, and the comment fast path becomes almost unused on the CMM2 (its comments are already stripped). The largest line falls from 253 to 250 bytes of content, still well above the 254-byte source limit less the marker that applies today. The comment fast path must keep the PicoMite's bug-21 guard (`p > line_start && p < line_start + line_skip`) whenever it is present.
+
+---
+
+## 3. Audit: functional gaps
+
+The keyword tables (`Inc/allcommands.h` against `AllCommands.h`) and the `checkstring` sub-keywords inside each shared handler were diffed by script (Appendix A and B). Grouped and trimmed of things that cannot apply to the CMM2 hardware:
+
+### 3.1 Language and interpreter (needed for any PicoMite program to run)
+
+`TYPE`/`END TYPE`/`STRUCT`/`STRUCT(`; `REDIM`; `ERASE`; (`EXIT DO`, `ELSE IF` and `END IF` are already mapped by the CMM2 tokeniser, `MMBasic.c:1598-1601`, so they only look missing in the table diff); `ARRAY ADD/INSERT/SET/SLICE`; `MATH` sub-commands added since 6.00 (`CLAMP`, `INTERPOLATE`, `SHIFT`, `C_AND/OR/XOR`, `POWER`, `WINDOW` with min/max, `CROSSING`, `CHI`, `CORREL`, `MEDIAN`, `SD`, `FFT` family, `SINC`, quaternions, `PID`, `SENSORFUSION`: diff `cmd_math` sub-keywords in Appendix B); `RANDOMIZE`; `CHAIN`; `LIBRARY`; `FLASH`/`RAM` slots; `SAVE/LOAD CONTEXT`, `SAVE PERSISTENT`, `SAVE COMPRESSED IMAGE`; `VAR` (saved variables command exists as `cmd_var` on the CMM2 but is not in the table); `SET`/`WAIT`; `ONESHOT`; `INTERRUPT` (CSUB); `OPTION LOCAL VARIABLES`, `OPTION NOCHECK`, `OPTION SYMBOLS`, `OPTION COMPILE`, `OPTION PROFILING`, `OPTION DEFAULT COLOURS`, `OPTION F1/F5-F9`, `OPTION HEARTBEAT`, `OPTION KEYBOARD REPEAT`, `OPTION MOUSE SENSITIVITY`, `OPTION PLATFORM`; `CALC` (calculator immediate mode); `MM.ERRLINE`; `MM.INFO` keys (about 60: `BOOT`, `BOOT COUNT`, `CALLTABLE`, `HEAPEND`, `FLASH ADDRESS`, `FLASH SIZE`, `MAX VARS`, `PSRAM SIZE`, `STACKPEAK`, `SYSTEM HEAP`, `COMPILE`, `INTERRUPTS`, `PLATFORM`, `USB`, `WIDTH`/`HEIGHT`, `PINNO`, `UPTIME` etc.); `LIST COLLISIONS/OPTIONS/PINS/TYPE/VARIABLES/SYSTEM I2C`; `FLUSH`; `DRIVE`; `CAT`; `LINPUT(`, `LMID(`, `LOCATION`; `HEX$(`/`BIN$(`/`OCT$(`; `SCHANGE$(`; `TOPBOTTOM(`; `BIT(`, `BYTE(`, `FLAG(`/`FLAGS`; `DEVICE`/`DEVICE(`; `KEYBOARD`; `KEYPAD` (n x m); `TRIM$` is already present; `PLAY ARRAY`.
+
+### 3.2 Graphics
+
+`SPRITE` as a command family (on the CMM2 `SPRITE` is tokenised as `BLIT`, whose sub-keywords are the CMM2 sprite engine; PicoMite's `Sprite.c` has `SPRITE LOADBMP`, `LOADPNG` with crop, `COPY`, `MEMORY`, `SCROLLR`, `SCROLL`, `SET TRANSPARENT`, collision functions and the `FRAMEBUFFER`-aware compositor); `BLIT READ/WRITE/CLOSE/LOADBMP/MERGE/RESIZE/FRAMEBUFFER/FLASH/MEMORY`; `FRAMEBUFFER CREATE/CREATE 2/LAYER/LAYER TOP/WRITE F|L|N|2|T/COPY/MERGE/SYNC/WAIT/CLOSE` (the CMM2 has `FRAMEBUFFER BACKUP/RESTORE/WINDOW` with different meanings); `TILEMAP`/`TILE`/`TILEMAP(`; `RAY`/`RAY(` (raycaster); `FRAME`/`FRAME(` (text frames); `BEZIER`; `FILL` (flood fill); `BOX` lost its `AND_PIXELS/OR_PIXELS/XOR_PIXELS` (CMM2-only); `TRIANGLE SAVE/RESTORE`; `TURTLE` colour spellings; `COLOUR MAP`/`MAP` semantics; `LOAD PNG` streaming (any size, cropped, 40 KB of RAM); `LOAD JPG` downscale and dither; `LOAD IMAGE` dither modes; `SAVE IMAGE` reading the displayed colours; `DRAW3D` growth (`MAX3D` 32 on PicoMite, 128 on CMM2: keep 128), `usefurthest`; `GUI LISTBOX`, `GUI SLIDER`, `GUI CURSOR`, `CLICK(`, gestures `TOUCH(` (no touch on CMM2: the mouse is the pointer); `MANDELBROT`; `MODE 400/800` (SSD1963 only: no); `RESOLUTION` (HDMI only: no); `REFRESH`, `OPTION REFRESH`/`AUTOREFRESH` (buffered LCD: no); fonts (PicoMite has 9 built-in fonts to the CMM2's 8, with a different numbering: see section 6).
+
+### 3.3 Sound
+
+`PLAY SOUND` (four channels, waveforms, band-limited), `PLAY NOTE`, `PLAY SAMPLE`/`LOAD SOUND`, `PLAY STREAM`, `PLAY ARRAY`, `PLAY BBC SOUND/ENVELOPE`, `PLAY MIDI`/`MIDIFILE` (VS1053 only: no), `PLAY CONTINUE/HALT/RELEASE/ON/OFF/TEST`, album play of a directory with mixed formats, `PLAY NEXT/PREVIOUS`, the decoders feeding sound during image loads, `MM.INFO(AUDIO)`. The CMM2 keeps `PLAY EFFECT` and `PLAY TTS` (SAM) and its DAC output path.
+
+### 3.4 I/O and devices
+
+`SETPIN` forms and `PIN(`/`PORT` growth (pulse, `ONESHOT`, `PWM SYNC`, `SLEW`, `OPTION PWM`...): to be reconciled with the CMM2's fixed-function 40-pin connector in section 6; `I2C CHECK`, `I2C SLAVE OPEN/CLOSE/READ/WRITE` (the CMM2 has `I2C 1|2|3` numbering instead of `I2C`/`I2C2`); `SPI OPEN/CLOSE/READ/WRITE` names (CMM2: `SPI 1|2`); `I2C LCD`, `LCD`, `HUMID`, `WS2812`, `RTC GETTIME/SETTIME/GETREG/SETREG`, `GPS(` `JULIAN`/`SIDEREAL`, `STAR`/`ASTRO`; `MOUSE` command (`SET`, `INTERRUPT ENABLE/DISABLE`), `DEVICE(MOUSE n, ...)`, `DEVICE(GAMEPAD ...)`, `GAMEPAD`, `DEVICE(WII ...)`; `KEYBOARD` (configure, layouts, `LOCAL KEYBOARD`); USB: hub, gamepad, touch screen, CDC serial adapters as `COM3`-`COM6`, flash drive as `C:`, `UPDATE FIRMWARE`; `WATCHDOG HW`; `CPU SPEED` without reboot, `CPU SLEEP`; `MEMORY SHARE` (parallel link between two boards); `XMODEM` `C` crunch; `YMODEM`; `ZMODEM` (batch, CRC-32 recovery); `LOAD file$, C` crunch; `EDIT FILE`; `FM`.
+
+Not applicable to the CMM2 (stub or error in compatibility mode): `PIO` and the PIO assembler words (`JMP`, `MOV`, `NOP`, `OUT`, `IN`, `PULL`, `PUSH`, `SET`, `WAIT`, `IRQ...`, `_WRAP`, `_LABEL`, `_PROGRAM`, `_LINE`, `_SIDE SET`); `WEB`, `MQTT`, `NTP`, `TFTP`, `PING`, `TLS`; `BLUETOOTH`; `CAMERA`; `STEPPER`, `TMC22XX`; `BITSTREAM`; `OPTION PSRAM PIN`, `CYW43 PINS`, `HDMI PINS`, `PS2 PINS`, `KEYBOARD PINS`, `LCDPANEL`, `BACKLIGHT`, `LCD320`, `SCREEN KEYBOARD`; `CONFIGURE` (PicoCalc etc.); `PICO`, `PICO PLUS 2`, `PLATFORM` presets.
+
+### 3.5 CMM2-only features to preserve (all of these are in use by existing CMM2 programs)
+
+`PAGE WRITE/DISPLAY/COPY/SCROLL/STITCH/MERGE/RESIZE/AND_PIXELS/OR_PIXELS` and the 60-page model; `MODE 1-18 [, 8|12|16|32 [, bc [, interrupt]]]`; `FRAMEBUFFER BACKUP/RESTORE/WINDOW`; `BOX ... AND_PIXELS/OR_PIXELS/XOR_PIXELS`; `IMAGE RESIZE/ROTATE/WARP...` (`Src/Image/`); `LOAD GIF`, `LOAD FONT`; hardware JPEG decode; `BLIT` sprite sub-keywords (`LOADARRAY`, `LOADPNG`, `SHOW`, `SHOW SAFE`, `HIDE`, `HIDE SAFE`, `HIDE ALL`, `MOVE`, `SWAP`, `NEXT`, `SCROLL`, `SCROLLR`, `INTERRUPT`, `NOINTERRUPT`, `TRANSPARENCY`, `RESTORE`, `CLOSE ALL`, `COPY`); `SPRITE(` function; `MOUSE(`, `NUNCHUK(`, `CLASSIC(`, `CONTROLLER` (`WII` alias); `CAN` (FDCAN); `DAC`, `ADC` commands; `PIN(DAC1|DAC2|BAT|IREF|SREF)`; `BAUDRATE(`; `BITBANG`; `PLAY EFFECT`, `PLAY TTS`; `MMDEBUG`; `OPTION LEGACY` (CMM1 compatibility, a precedent for a dialect switch); `OPTION PROFILE` and `LIST PROFILE [CSV]`; `LIST FLASH [ALL]`, `LIST PAGES`, `LIST COMMANDS V`/`FUNCTIONS V`; `OPTION VCC`, `Y_AXIS UP|DOWN`, `SEARCH PATH`, `STATUS`, `COLOURCODE`, `CR/LF/CRLF`, `CASE UPPER/LOWER/TITLE`, `TAB 2|3|4|8`, `PIN`, `REVERSE`, `F11`/`F12`; `MM.CMDLINE$`, `MM.WATCHDOG`, `MM.INFO(CODE SIZE|DIRECTORY|FRAMEBUFFER|FRAMEH|FRAMEV|HARDWARE|ID48|IHEAP|LEGACY|LINES|MAX PAGES|MINHEAP|MODE|MOUSE|OVERRUN|PAGE ADDRESS|PROFILING|RESET|RTC|SAMPLE PLAYING|SEARCH PATH|SHEAP|USBKEYBOARD|WRITE PAGE|Y_AXIS)`; `AUTOSAVE2`; `CLUT`; `>>>` operator; `GETSCANLINE`; `CPU` forms; `CURSOR`; `FASTTICK`; `uSec`.
+
+---
+
+## 4. Audit: third-party and vendor software
+
+| Component | CMM2 today | PicoMite today | Latest upstream (checked 14 Oct 2026) | Note |
+|---|---|---|---|---|
+| FatFs | R0.14 (FF_DEFINED 86606, Nov 2019), exFAT on, LFN 2, `A:`/`B:` | R0.14 (same 86606), LFN 1, exFAT off | **R0.16** (22 Jul 2025) plus patch ff16p1; three CVEs filed July 2026 against R0.16 and earlier (`f_getlabel` exFAT label overflow, `f_lseek` uninitialised clusters, FAT32 mount integer overflow) | both trees carry local edits (`mycpy`, `MMPrintString` hooks); update both to R0.16+patches as one job, re-apply the hooks |
+| littlefs | none (the CMM2 has no flash file system) | 2.11.3 | 2.11.3 (25 Mar) | the H7's 128 KB sectors make an on-chip `A:` drive impractical: see section 6 for the drive-letter decision |
+| cJSON | 1.7.14 | 1.7.15 | **1.7.19** (Sep 2025, bug-fix) | drop-in |
+| dr_flac | 0.12.25 (Dec 2020) | 0.12.44 | **0.13.3** (Jan 2026) | 0.13 changed the API; a security fix for crafted PICTURE metadata came after 0.13.3 |
+| dr_mp3 | 0.6.25 (Dec 2020) | 0.6.40 (Dec 2024) | **0.7.3** (Jan 2026) | 0.7 changed the API |
+| dr_wav | 0.12.16 (Dec 2020) | 0.14.0 | **0.14.5** (Mar 2026) | heap overflow fixed after 0.14.4 |
+| hxcmod | 2020 copy | newer copy (differs) | upstream unversioned | take the PicoMite copy |
+| picojpeg | v1.1 (2013) | v1.1 (differs slightly) | v1.1 is the last | take the PicoMite copy; the CMM2 also has the hardware JPEG path (`decode_polling.c`), keep it |
+| uPNG | 2020 copy, whole-image decode | streaming rewrite (any size, row callback, 40 KB) | unmaintained | take the PicoMite copy |
+| tiny-regex-c (gyrovorbis fork) | `re.c` 1,154 lines (`#include "re.h"` in `Functions.c`, but `INSTR` still calls `regcomp`/`regexec` from the GNU engine) | `re.c` 1,507 lines (groups, `{n}` fix in 6.04) | fork at 52 commits ahead of kokke | take the PicoMite copy |
+| GNU regex (`regex.c`, glibc 2023, 7,044 lines, LGPL) | used by `INSTR` and `LONGSTRING` regex | not present | n/a | decide: keep (richer POSIX syntax, licence and flash cost) or switch to the PicoMite engine for one behaviour across both boards |
+| tiny-AES-c | 2024 copy | differs | unversioned, maintained | take the PicoMite copy |
+| kilo (editor) | 2016 base, heavily modified | not used (own `Editor.c`) | n/a | see section 7 |
+| SAM speech (`sam.c`, `reciter.c`, `render.c`) | present | absent | n/a | keep |
+| gifdec | present | absent | n/a | keep |
+| STM32H7 HAL | **V1.9.0** (Cube FW_H7 1.6.0 per `.ioc`, 2020) | n/a | **V1.11.6** (16 Feb 2026) in STM32CubeH7 **v1.13.0** (24 Feb 2026) | many LTDC/SDMMC/USB/FDCAN fixes since 1.9.0; the `.ioc` is CubeMX 5.5.0 and should be regenerated or retired |
+| CMSIS core | 5.1 (`cmsis_version.h`) | n/a | 5.9 / 6.x via the Cube package | with the HAL |
+| CMSIS device (STM32H7xx) | with HAL 1.9.0 | n/a | with Cube v1.13.0 | with the HAL |
+| ST USB Host library | 3.3.x (2020): Core + HID only, `USBH_MAX_NUM_SUPPORTED_CLASS 1`, no hub | n/a (TinyUSB master e20482387 + PicoMite patches; hub, HID, CDC, MSC) | **v3.5.5** (25 Jun 2026) | option A: update in place (still no hub); option B: port TinyUSB host (dwc2 on the H7 OTG FS) and share `input/USBKeyboard.c`, `KeyboardMap.c`, CDC and MSC with the PicoMite |
+| ST JPEG utilities | V2.0.0 (2016) | n/a | with Cube v1.13.0 | with the HAL |
+| Toolchain | GCC 13.3.rel1 (CubeIDE 2.0.0) | GCC 13.3.1 | Arm GNU Toolchain 14.3.Rel1 (Jul 2025), 15.2.Rel1 (Dec 2025), 15.3.Rel1 (Jul 2026) | move both trees together, after the port, with a size and timing check |
+| Build tools | CMake 3.22+, Ninja, STM32CubeProgrammer CLI | CMake, NMake, picotool, Python 3 tools | | |
+
+---
+
+## 5. Audit: tests, tooling and documentation
+
+| | CMM2 | PicoMite |
+|---|---|---|
+| Version control | none | git, tags per beta, release notes per release, pre-flight script |
+| Regression tests | none | 112-program goldens corpus (`Bas/bench/goldens.py`), references for three boards, `goldcmp.py`; `Testfiles/` 66 PASS/FAIL programs (structures, arrays, SELECT, DO, recursion, interrupts, stepper...); `inttests/` for every interrupt source; `symchain.py`, `cmtloop.py`, `rbdepth.py`, `rbp2a`-`rbp5d` for the compiler phases |
+| Benchmarks | `OPTION PROFILE` line profiler | `stdset.py` (anchor, micro suites, games), `stdcmp.py`, `bench_micro.bas`, `perfguide/`, `pcs_report.py` sampler reports, `rbsize.py`, `rbcensus.py` |
+| Board driving | manual | serial drivers (pyserial), XMODEM upload, `flash.py` for firmware, `fwsum.py` for flash integrity |
+| Help | compiled-in `help.h` | `tools/gen_help.py` from the manual, `help_lint.py`, `help_gaps.py`, `help_coverage` review |
+| Static checks | none | `find_static_globals.py`, `find_dead_globals.py`, `.static_scan.json`, `GetHighestHexAddress.py` fit check after every build |
+| Manuals | 2021 PDF (V5.07 era): no V6 features documented | docx manual with keyword tables (the source of `help.txt`), 25 companion manuals, PDF generators |
+
+## 6. The PicoMite compatibility mode
+
+Goal (Peter, 14 October): a PicoMite program runs unchanged on the CMM2 while existing CMM2 programs keep working. The two dialects were compared keyword by keyword from the two manuals (full report with verbatim syntax and CMM2 page numbers: `docs/PicoMite_CMM2_Dialect_Conflicts.md`, 590 lines) and then checked against the firmware tables. Two caveats: the CMM2 manual describes the 5.07 firmware, and the 6.00.00b7 code already has several things the manual lacks (`OPTION ESCAPE`, `MM.VER`, `MM.FONTHEIGHT`/`MM.FONTWIDTH`/`MM.HPOS`/`MM.VPOS`, `LINE AA`/`GRAPH`/`PLOT`, `DO UNTIL`/`LOOP WHILE`, `TRIM$`, `BASE$`, the whole PicoMite `TURTLE` vocabulary including the abbreviations); those are not gaps. And the PicoMite manual does not list `SPRITE` syntax (it points at `SPRITE_User_Manual.pdf`), so the sprite sub-command diff has to be taken from the two `Sprite.c`/`sprites.c` files in P3.
+
+### 6.1 What genuinely conflicts
+
+Most PicoMite keywords are simply absent on the CMM2 and can be added (section 3). The hard cases are keywords that exist in both dialects with different arguments, numbering, units or meaning. A program written for one dialect cannot run under the other's reading of these, so they need a switch:
+
+| Keyword | CMM2 | PicoMite | Resolution |
+|---|---|---|---|
+| `MODE` | `MODE r, bits [, bg [, int]]`: r = 1-17 (800x600, 640x400, 320x200, 480x432, 240x216, 256x240, 320x240, 640x480, 1024x768, 848x480, 1280x720, 960x540x2, 400x300, 960x540, 1280x1024, 1920x1080, 384x240), bits = 8/12/16/32 | `MODE n`, n = 1-5 (full-res 2-colour with tiles; quarter-res 16 colours with layers; full-res 16 colours; quarter-res RGB555; quarter-res 256-colour palette) inside a persistent `OPTION RESOLUTION 640x480|720x400|800x600|848x480|1280x720|1024x768|1024x600|800x480` or run-time `RESOLUTION` | dual handler plus the mapping table in 6.3; `OPTION DEFAULT MODE n` follows |
+| `PAGE` vs `FRAMEBUFFER` | numbered pages (up to 60): `PAGE WRITE/DISPLAY/COPY/SCROLL/STITCH/RESIZE/MERGE/AND_PIXELS/OR_PIXELS`; 12-bit mode gives two hardware layers (page 0 under page 1) | named buffers N, F, L, 2, T: `FRAMEBUFFER CREATE [2]`, `LAYER [colour]`, `LAYER TOP`, `WRITE N|F|L|2|T`, `COPY from, to [,b]`, `MERGE [colour] [,b]`, `WAIT`, `SYNC`, `CLOSE`; L and T are composited by the video engine with a transparent colour index | both kept: `PAGE` is CMM2-only; `FRAMEBUFFER` gets the PicoMite forms with F, L, 2, T mapped onto pages and L/T onto the LTDC second layer (colour-keyed) or a blanking-time `PAGE COPY ..., B, t`; the CMM2's own `FRAMEBUFFER CREATE w, h`, bare `WRITE`, `BACKUP`, `RESTORE`, `WINDOW` are selected by the switch because `CREATE` and `WRITE` take different arguments |
+| `BLIT WRITE` | `[#]b, x, y [,orientation]`, default orientation **4** (skip transparent) | same, default **0** (copy all) | the default follows the switch |
+| `BLIT READ`, `BLIT x1,...` | optional page argument; 64 buffers | no page; 32 buffers; adds `LOADBMP`, `MERGE`, `FRAMEBUFFER`, `MEMORY`, `MEMORY332`, `COMPRESSED`, `FLASH`, `RESIZE` | union handler: CMM2 superset plus the PicoMite sub-commands, which do not collide |
+| `SPRITE` | on the CMM2 `SPRITE` is tokenised to the `BLIT` handler, whose sub-keywords are the sprite engine; sprites are full colour, transparency is black or 12-bit alpha; `SPRITE LOADPNG #n, f$ [, alpha_cut 1-15]` | separate `SPRITE` command; sprites stored as RGB121 nibbles; `LOADPNG` takes `transparent 0-15, cutoff, x, y, w, h`; `STINTERRUPT`; compositor aware of F/L | one engine (the PicoMite `Sprite.c` descends from the CMM2's) with the CMM2 storage format; argument differences under the switch; `SPRITE_User_Manual.pdf` against `sprites.c` decides the rest in P3 |
+| 16-colour index arguments | none; every colour is RGB888 (`RGB()`, `NOTBLACK`, `RGB(c, trans)`) | `BLIT MERGE/FRAMEBUFFER/MEMORY/RESIZE`, `FRAMEBUFFER LAYER`, `LOAD PNG transparent`, `TILE`, `COLOUR MAP` take an index 0-15 (Black, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow, White) | a static palette table; the seven extra colour names added to `RGB()`; index arguments only in PicoMite forms |
+| `MAP()` | returns the canonical RGB332 value that selects CLUT slot n | returns the CLUT entry for index n | dual |
+| `MAP` command | 8-bit modes only; `MAP(n) = rgb`, `MAP MAXIMITE`, `SET`, `RESET` | plus `MAP GREYSCALE`; index range 0-15 in 16-colour modes | union, index range by mode |
+| `LOAD PNG` | `file$ [, x, y] [, alpha_cut 1-15]` | `file$ [,x] [,y] [,transparent 0-15] [,alphacut 0-255] [,ximage] [,yimage]` | third argument's meaning follows the switch; streaming decoder from the PicoMite |
+| `LOAD JPG` / `LOAD BMP` / `LOAD IMAGE` | `LOAD JPG file$ [, x, y]` (hardware decoder, no progressive, must fit the screen), `LOAD BMP` | adds `mode` (dither), `ximage`, `yimage`, `scale`; `LOAD IMAGE` keyword | union (extra arguments are optional) |
+| `FONT` numbers | 1-7 built in (3 = 16x24), 8 = the `LOAD FONT` slot | 1-7 (3 = 16x16 on VGA builds, 16x24 on HDMI/LCD), 8 = built-in 4x6 | add the 4x6 font; font 8 follows the switch; a `VGA|HDMI` sub-option decides font 3 |
+| `FILL` vs `PIXEL FILL` | `PIXEL FILL x, y, c` | `FILL x, y, c [,border]` | alias plus the border form |
+| `BOX` | adds `AND_PIXELS/OR_PIXELS/XOR_PIXELS` forms; x, y, w, h must all be arrays or all scalars | x, y arrays or scalars, the rest either | union |
+| `LINE` | `LW` only for horizontal/vertical | negative width centres any line | union |
+| `GETSCANLINE` | 0 = first visible line, above `MM.VRES` is blanking | 0-525 whatever the mode | rescale under the switch |
+| `PLAY MODFILE` | `file$ [, samplerate]` | `file$ [, interrupt]` and stops after one pass when given | dual (a number is a sample rate, a name is an interrupt) |
+| `PLAY SOUND` | types S, Q, T, W, N, P, O | adds U with `PLAY LOAD SOUND` | union |
+| `MM.INFO$(SOUND)` | `MODFILE`, `PAUSED`, `TTS`, `DAC` | `MOD`, `PAUSED xxx`, `BBC`, `ARRAY`, `SAMPLE` | vocabulary follows the switch |
+| pin names | connector pins 1-40 with fixed functions (`IOPorts.h`: 46 entries), 41 = IR, 42 = DS18B20 | `GPnn` (and `"GPnn"` strings), physical 1-40 of the Pico, `SETPIN rx, tx, COM1`, `SETPIN sda, scl, I2C`, `SETPIN pin, PWM1A`, `SETPIN pin, IR`, `PORT(GP0, 8)` | mapping table by function (6.4); device-allocation `SETPIN` forms validated against the fixed assignment and otherwise ignored; `GP30+` refused |
+| `SETPIN` | `AIN, bits`; `DOUT, OC`; `CIN`; `FIN gate` | `ARAW`; `CIN` edge option; counting only on four pins | union where the option values do not collide |
+| `PWM` | `PWM 1|2, freq, 1A [,1B [,1C]]`, `PWM n, STOP` | `PWM ch 0-11, freq, [dutyA] [,dutyB] [,phase] [,defer]`, `PWM ch, OFF`, `PWM SYNC` | dual: channel numbering and `STOP`/`OFF` |
+| `SERVO` | pulse width in ms, `freq`, `STOP` | position -20..120 at 50 Hz | dual |
+| `ADC OPEN` | `freq, pin1 [,pin2] [,pin3] [,int]`, `TRIGGER` | `freq, n_channels [,int]`, `START ... [,min] [,max]`, `RUN` | dual |
+| `WS2812` / `BITSTREAM` | `BITBANG WS2812 type, pin, colours%()`, `BITBANG BITSTREAM` | `WS2812 type, pin, nbr, value%[()]` (extra `nbr`, type W), `BITSTREAM` top level with modes | dual (the argument count tells them apart) |
+| `I2C` | `I2C`, `I2C2`, `I2C3` numbered; master only | `I2C`, `I2C2` plus `CHECK` and slave mode; `OPTION SYSTEM I2C` | union; slave mode is a P2 decision (the H7 can do it) |
+| `SPI` | `SPI 1|2`, 8/16/32-bit, fixed speeds | `SPI`, `SPI2`, 4-16 bit, any speed, `SETPIN ... SPI` first | union |
+| `SETTICK` | adds `FAST` | adds `PAUSE`, `RESUME` | union |
+| mouse | `CONTROLLER MOUSE OPEN [n] [,LB] [,RB] [,sens] [,LBUp]`, `MOUSE(f [,ch])` with W = wheel button, T = type | `MOUSE OPEN ch, clk, data`, `MOUSE INTERRUPT ENABLE/DISABLE`, `MOUSE SET`, `DEVICE(MOUSE ch, f)` with W = wheel delta, M, B | both command families kept; `DEVICE(MOUSE ...)` reads the same state; W follows the switch |
+| Wii | `CONTROLLER|WII CLASSIC OPEN [n] [,int [,mask]]`, `CLASSIC(f [,ch])`, `NUNCHUK(ch, f)` with calibration codes, interrupt on press | `WII [CLASSIC] OPEN [,int]` (any change), `WII NUNCHUCK OPEN`, `DEVICE(WII [CLASSIC] f)`, `DEVICE(NUNCHUCK f)` | aliases (`NUNCHUCK` spelling, `DEVICE(...)` forms); interrupt-on-change follows the switch |
+| `KEYDOWN()` | shifted F-keys add &H40 | shifted F-keys add &H20 | follows the switch |
+| `FILES` | opens the file manager; `LIST FILES`, `LS` list | lists files; `FM` is the manager | follows the switch (`FM` and `LS` always work) |
+| drives | `A:` = SD card, nothing else | `A:` = flash file system, `B:` = SD card, `C:` = USB drive, `DRIVE`, `COPY A2B` etc. | mapping table (6.5) |
+| program storage | the program is a file on the SD card, copied into flash or SDRAM to run; no `LOAD`/`SAVE`/`FLASH`/`LIBRARY`/`CHAIN` | program memory with `LOAD`, `SAVE`, `NEW`, `CHAIN`, `FLASH` slots, `LIBRARY`, `SAVE/LOAD CONTEXT`, `EDIT FILE` | under strategy B the PicoMite model is native and the CMM2's "run from the SD card" habit is kept as `RUN file$` plus `OPTION FLASH`/`OPTION RAM`; under A, `LOAD ,R` and `CHAIN` become `RUN` and `FLASH n` becomes `A:/FLASH/SLOTn.BAS` |
+| `MM.DEVICE$` | "Colour Maximite 2" / "Colour Maximite 2 G2" | "PicoMite", "PicoMiteVGA", "PicoMiteUSB", "PicoMiteHDMI", "PicoMiteHDMIUSB", "PicoMiteHDMIWEB", "PicoMiteHDMIBTH", "PicoMitePC3", "PicoMiteBT", "PicoMiteBTH", "PicoMiteVGAUSB", "WebMite..." (`MM_Misc.c:8219-8246`) | follows the switch (configurable string, default "PicoMiteHDMIUSB"), `MM.INFO$(PLATFORM)` always says which machine it really is |
+| `MM.VER` / `MM.INFO(VERSION)` | 6.0000 | 7.000051; programs test `IF MM.VER < 6.0002` | report the shared version number once the trees merge; until then a value the checks accept |
+| `MM.INFO` vocabularies | `MM.INFO$(PIN n)` = INVALID/RESERVED/IN USE/UNUSED; `MM.INFO$(KEYBOARD)` = CONNECTED; `MM.INFO(FILESIZE)` = -1 missing, -2 directory; `MM.INFO$(RESET)`; `MM.INFO(MODE)` = 1.8 | `MM.INFO$(PIN n)` = OFF/DIN/DOUT...; `MM.INFO$(KEYBOARD)` = On/Off (the on-screen keyboard); `MM.INFO(FILESIZE)` = 0 missing; `MM.INFO(EXISTS FILE)` = -1 for a directory; `MM.INFO(BOOT)`; `MM.INFO$(LCDPANEL)` | each follows the switch; everything else is a union |
+| `OPTION` names | `USBKEYBOARD nn [,noLED]` (DE), `MOUSE n [,sens]`, `MAXCTRLS`, `COLOURCODE ON|OFF|REVERSE` default on, `F11`/`F12`, `CONSOLE SAVE|PORT`, `DEFAULT MODE` (CMM2 numbers), `FLASH n`, `RAM`, `OVERCLOCK`, `BASELINE`, `SD TIMING`, `DS3231`, `Y_AXIS`, `SEARCH PATH`, `STATUS` | `KEYBOARD nn [,caps] [,num] [,rs] [,rr]` (GR), `MOUSE clk, data|DISABLE|SENSITIVITY`, `GUI CONTROLS`, `COLOURCODE ON|OFF` default off, `F1`,`F5`-`F9`, `CONSOLE NONE`, `DEFAULT MODE` (PicoMite numbers), `AUTORUN n`, `RTC AUTO`, `DISPLAY`, `CPUSPEED`, `AUDIO ...`, `PLATFORM` | aliases where the meaning is the same (`GUI CONTROLS` = `MAXCTRLS`, `KEYBOARD nn` = `USBKEYBOARD nn` with GR = DE, `RTC AUTO` = `DS3231`); the rest are a union; the few that collide (`DEFAULT MODE`, `MOUSE`, `COLOURCODE` default) follow the switch |
+| `CSUB` | Cortex-M7 code, 46-vector `CallTable` at a fixed address | M0+/M33 code, VTOR-slot-7 `CallTable` | a PicoMite CSUB blob runs on the M7 (M0+ code is a subset) only if the CallTable it expects is at the vector it looks for, with the PicoMite layout: this is the P0 ABI decision. Otherwise "CSUB not portable" |
+
+Everything else that the comparison flagged is either a PicoMite addition with no CMM2 counterpart (section 3: add it) or a CMM2 addition (section 3.5: keep it), and the two sets do not collide.
+
+### 6.2 The switch
+
+- **One flag, three ways to set it.** `OPTION PLATFORM CMM2 | PICOMITE` as a saved option (the PicoMite already has `OPTION PLATFORM name$` and `MM.INFO$(PLATFORM)`, so the keyword exists); `CMM2` is the default on a CMM2, so every existing program behaves as today. A program can override it for its own run with `OPTION PLATFORM PICOMITE` as its first statement (same rule as `OPTION SYMBOLS OFF`: only comments and `LIBRARY LOAD` may precede it), and the prompt can run one file that way with `RUN file$, P` or `*file --pico`. The flag resets at `END` to the saved value, as `OPTION LEGACY` does today.
+- **Auto-detection is a convenience, not the mechanism.** A file whose first statements are PicoMite-only (`OPTION RESOLUTION`, `FRAMEBUFFER CREATE` with no arguments, `TYPE`, `LIBRARY LOAD`) could flip the flag with a console note. It is worth having for `*file`, not for correctness.
+- **What the flag changes:** only the rows marked "follows the switch" or "dual" in 6.1, plus the mapping tables below. Everything added for the PicoMite (section 3) is available in both dialects; everything CMM2-only (3.5) is available in both dialects. A CMM2 program may use `FRAMEBUFFER LAYER` or `TILEMAP`; a PicoMite program may use `PAGE COPY` or `PLAY TTS`.
+- **Implementation shape:** a single `Dialect` global read by about 40 handlers; dual forms written as one handler with an early branch, not two handlers, so the union parts stay shared; each conflicting keyword gets a two-dialect test in `Testfiles/` (the specification is the table above).
+
+### 6.3 Mode and resolution mapping (PicoMite to CMM2)
+
+| PicoMite | Logical size, colours | CMM2 | Note |
+|---|---|---|---|
+| 640x480 `MODE 1` | 640x480, 2 colours plus `TILE` cell colours | `MODE 8, 8` | `TILE` emulated by colouring text cells; the default under the switch |
+| 640x480 `MODE 2` | 320x240, 16 colours, layers L and T | `MODE 7, 12` | the 12-bit mode's second page is the L layer in hardware |
+| 640x480 `MODE 3` | 640x480, 16 colours, layer L | `MODE 8, 12` | |
+| 640x480 `MODE 4` | 320x240, RGB555 | `MODE 7, 16` | |
+| 640x480 `MODE 5` | 320x240, 256-colour palette | `MODE 7, 8` + `MAP` | PicoMite `MAP(0-255)` is the CMM2 CLUT |
+| 720x400 modes | 720x400 / 360x200 | `MODE 2, x` / `MODE 3, x` | width 640/320: `MM.HRES` tells the program |
+| 800x600 `MODE 1`/`3`; `2`/`5` | 800x600; 400x300 | `MODE 1, x`; `MODE 13, x` | |
+| 848x480 `MODE 1`/`3`; `2`/`5` | 848x480; 424x240 | `MODE 10, x`; nearest `MODE 17` (384x240) | or a new CMM2 mode |
+| 1280x720 `MODE 1`; `2`/`5`; `3` | 1280x720; 320x180; 640x360 | `MODE 11, 8`; none; none | new CMM2 modes if wanted (the LTDC can do them) |
+| 1024x768 `MODE 1`; `2`/`5`; `3` | 1024x768; 256x192; 512x384 | `MODE 9, 8`; nearest `MODE 6`; nearest `MODE 13` | |
+| 1024x600, 800x480 | | none | nearest 1024x768 / 848x480 |
+| LCD `MODE 400`/`800` | | error | |
+
+The CMM2's LTDC can generate any of the PicoMite geometries from SDRAM pages, so the "none" rows are a matter of adding CMM2 modes, not of hardware.
+
+### 6.4 Pin mapping (PicoMite `GPnn` to the CMM2 connector)
+
+By peripheral function, because the CMM2's peripherals are on fixed pins: COM1 TX/RX (GP0/GP12/GP16/GP28, GP1/GP13/GP17) to pins 8/10; COM2 TX/RX (GP4/GP8/GP20, GP5/GP9/GP21) to 16/11; I2C SDA/SCL to 3/5; I2C2 SDA/SCL to 27/28; SPI RX/TX/CLK to 21/19/23; SPI2 to 35/38/40; counting inputs GP6-GP9 to 7/13/15/24 and `FFIN` to 18; ADC GP26-GP29 to four of the twelve AIN pins; PWM outputs to 12, 22, 29, 36, 31 in order of first use; IR to 41; DS18B20 to 42. Plain digital `GPn` through a 30-entry table of the general-purpose pins; `GP30`-`GP47` refused; Pico physical numbers converted to `GPnn` first; `"GPn"` strings parsed as the PicoMite does. The table is a constant in `cmm2/IOPorts.h` and `OPTION PICOMITE PINS` could let a user override single entries (decision 6 in 7.2).
+
+### 6.5 Drives and program files
+
+Under the switch, `B:` is the SD card root, `A:` is a directory on the SD card (default `A:/FLASH/`, so the PicoMite's two drives do not collide), `C:` is "USB drive not available" unless TinyUSB MSC is in; `DRIVE` and the `A:`/`B:`/`C:` prompt shortcuts set the prefix; `MM.INFO$(DRIVE)` reports the virtual letter. Under strategy B the PicoMite's program memory, `FLASH` slots, `LIBRARY` and `SAVE/LOAD CONTEXT` are native (bank 2 sectors and SDRAM); under A they map to files (`A:/FLASH/SLOTn.BAS`, `A:/FLASH/LIBRARY.BAS` as an implicit `#INCLUDE`), and `CHAIN` loses the variables, which the manual would have to say.
+
+### 6.6 What a PicoMite program cannot have on a CMM2
+
+- **Silently accepted:** `RANDOMIZE`, `MATH RANDOMIZE`, `OPTION AUDIO *`, `MODBUFF`, `SYSTEM SPI/I2C`, `SDCARD`, `CPUSPEED`, `CPU SPEED`, `HEARTBEAT`, `PICO*`, `POWER`, `PSRAM PIN`, `CDC POLL RATE`, `SERIAL CONSOLE`, `VGA/HDMI PINS`, `COUNT`, `FAST AUDIO`, `LCD320`, `AUTOREFRESH`, `REFRESH`, `BACKLIGHT`, `KEYBOARD ON|OFF`, `SETPIN GP25, HEARTBEAT`, `FRAMEBUFFER WAIT/SYNC` (wait for blanking), `OPTION SCREEN KEYBOARD`, `OPTION LOGGING` (and, until P1/P5 land them, `OPTION SYMBOLS`, `OPTION COMPILE`, `OPTION NOCHECK`, `OPTION LOCAL VARIABLES`).
+- **Errors, "not available on the Colour Maximite 2":** `PIO` and the PIO mnemonics (`JMP`, `WAIT`, `IN`, `OUT`, `PUSH`, `PULL`, `MOV`, `IRQ`, `SET` as commands, so `SET`/`WAIT` only error when PIO is meant), `WEB *` and every WiFi option, `MM.ADDRESS$`/`MM.MESSAGE$`/`MM.TOPIC$`, `BLUETOOTH *`, `CAMERA *`, `STEPPER`/`TMC22XX`/`MM.CODE`, `GAMEPAD *` and `DEVICE(GAMEPAD)` unless TinyUSB brings USB gamepads, `FLASH UF2`, `OPTION LCDPANEL *`, `OPTION TOUCH`, `GUI CALIBRATE`/`TEST TOUCH`/`RESET LCDPANEL`, `POKE DISPLAY`, `MEMORY SHARE`, VS1053-only `PLAY MIDI*`/`NOTE*`/`STREAM`, `OPTION AUDIO BLUETOOTH`, `COM7:`, `DRIVE "C:"` without MSC, `MODE 400|800`, `MM.INFO(PSRAM SIZE)` reports the SDRAM, `MM.INFO(MAX GP)` reports 29.
+- **Behaviour to document:** PicoMite sprites and blits are 16-colour RGB121, CMM2 ones are full colour, so colour fidelity differs (the 12-bit CMM2 modes give index 0 as alpha 0, the closest match); `GETSCANLINE` is rescaled; `KEYDOWN` shifted F-keys differ unless the switch is on; the `PLAY VOLUME` curve; `MM.VER`; `CHAIN` semantics under strategy A.
+
+---
+
+## 7. The plan
+
+### 7.0 Two ways to get there, and a recommendation
+
+**A. Evolve the CMM2 tree.** Keep `CMM2V1.5` as the base and bring each V7 mechanism across by hand: symbols, the compact variable table, the name index, the interrupt ready word, the IF table, the DO fast path, structures, arrays, libraries, slots, Route B, the bug fixes, then each missing command. Every one of these was built in the PicoMite tree with its own test, and would be rebuilt here without one until the harness exists.
+
+**B. Add the CMM2 as a variant of the PicoMite tree.** Keep the PicoMite repository as the one source of the interpreter, graphics engine, editor, file manager and tools, add `COMPILE=CMM2` with an STM32 toolchain file, a `cmm2/` directory holding the hardware layer ported from `CMM2V1.5` (LTDC video and the page model, USB host, SD card, audio, I/O, CAN, RTC, flash, timers, console), and a thin platform header that gives the shared code what it takes from the pico-sdk today. CMM2-only commands (`PAGE`, `MODE n`, `IMAGE`, `CAN`, `DAC`, SAM speech, GIF, JPEG hardware...) are added as a `CMM2`-gated extension of the shared tables, as `PICOMITEWEB` or `HDMI` gate theirs.
+
+| | A: evolve the CMM2 tree | B: CMM2 variant of the PicoMite tree |
+|---|---|---|
+| Work to reach V7 parity | re-implement about 23,000 changed lines of V7 plus everything from 6.00 to 6.04 (structures, libraries, arrays, FM, editor, ZMODEM, sprites compositor...) in a different code base | port the hardware layer (28,000 lines, of which perhaps 12,000 are CubeMX boiler-plate, HAL glue and things the shared code now provides) and abstract 164 pico-sdk include sites: 36 in `core/` (7 files, mostly `time_us_64`, flash erase/program, interrupt masking, GPIO and DMA for `BLIT`/`MEMORY`, PIO), 40 in `graphics/`, 55 in `misc/`, 31 in `io/` |
+| Parity after that | re-opens with every PicoMite release (613 commits in September alone) | every release builds a CMM2 image; shared code stays shared |
+| Tests and tools | none until written for the CMM2 | the goldens corpus, `Testfiles/`, the bench drivers, `gen_help.py`, the pre-flight script, all usable once a serial driver talks to the CMM2 |
+| Route B | a 5,750-line port of RP2350-specific RAM, flash and PSRAM assumptions into a tree without symbols or the compact table it depends on | works once `RBInPsram`, the stream area and the RAM placement are mapped to SDRAM and ITCM |
+| Risk of losing CMM2 behaviour | low: nothing moves unless touched | real: every CMM2-specific behaviour has to be identified and re-added; the page model, 32-bit colour, the 60-page limit, `MODE` interrupts, the mouse state machine, the line profiler are the ones to watch |
+| Risk to the PicoMite | none | the shared tree gains a non-pico-sdk target: every sdk call in shared code goes behind a macro or a platform function, which is a change to the PicoMite build too (and a tidy-up it has been edging towards: `safe_flash_range_*`, `GetSRAMMemory`, `routinechecks`) |
+| Flash | fits as it grows, feature by feature, until it does not | must fit from the first link: budget decided up front (7.1 P0) |
+| Compatibility mode | PicoMite dialect built on top of the CMM2 one: every PicoMite keyword is new code, conflicts resolved towards the CMM2 by default | PicoMite dialect native, CMM2 dialect preserved: conflicts resolved by the switch in section 6, CMM2 programs need the CMM2 setting (saved option, default on a CMM2) |
+
+**Recommendation: B.** The deciding facts are the size of the delta (the CMM2 core is 20,000 lines; the PicoMite core it would have to become is 48,000, built over 978 commits with a test behind each), that the hardware layer has to be reworked for the new core under either plan, and that the user wants parity to hold in future, not just once. The cost is a careful inventory of CMM2-only behaviour (section 3.5 and 6) and a platform abstraction in the shared tree that the PicoMite must accept. If B is rejected, the phases below still apply with the "port" steps replaced by "re-implement", and P1 becomes the longest phase by far.
+
+### 7.1 Phases
+
+Each phase ends at a gate that is run on the board through the harness; a phase does not start until the previous gate is met. Estimates are guesses in weeks of focused work.
+
+#### P0: foundations (2-3 weeks)
+
+- **Git.** `git init` the CMM2 tree, commit the 6.00.00b7 state as the baseline tag, and from then on one mechanism per commit, as the PicoMite does.
+- **Fix the placement regression.** Replace the object-name patterns in `STM32H743II_FLASH.ld` with section-name rules (`.itcm.*`, `.dtcm.*`) and tag the functions that belong in ITCM; add a post-link check that `.ITCMSection` is not empty (the PicoMite's `assert_gpio_irq_in_ram.cmake` is the model). Decide the fate of `.ramcode`.
+- **Serial harness for the CMM2.** Port `Bas/bench/runbas.py`, `goldens.py`, `goldcmp.py`, `se_bench.py` and the micro suite driver to the CMM2 console (same prompt, same `XMODEM`, programs can also be put on the SD card). Record the goldens corpus and `bench_micro.bas` / `perfguide.bas` on the current firmware at 400 and 504 MHz: this is the baseline every later number is judged against, and the first hardware-verified list of what the CMM2 cannot run.
+- **ZMODEM, early, on the current tree (Peter, 14 Oct). Done the same day:** `Src/ZModem.c` is the PicoMite engine with the CMM2's console ring, `Getuptime`, a local CRC-32 table and FatFs calls (5.5 KB of code); `ZMODEM` is aliased onto the `XMODEM` token in `tokenise` and dispatched on the leading `Z` in `cmd_xmodem`; `ZMODEM SEND [file$]` and `ZMODEM RECEIVE [file$ | "dir/*"]` with no name meaning the current program's file and a batch into the current directory. Tested with `tools/ztest.py` (PC side: `tools/zmodem_pc.py`, a small ZMODEM sender and receiver): a 3-file batch in, sizes checked, each file sent back and compared byte for byte, a named receive, five full runs clean. At 460800 baud (now the firmware default, `CONSOLE_BAUDRATE`) the board sends at 25-31 KB/s and receives at 22-25 KB/s (a 46 KB/s line, the rest being ZMODEM framing, the SD card writes and the Python tool); at 115200 both directions ran at 7.6-9 KB/s. One unexplained software reset was seen once in seven runs, right after a transfer; it did not recur. Note for every reflash: the first boot after a firmware load runs the "first time" path in `main()`, which keeps the keyboard, RTC, console port, SD speed, mode, mouse and GUI options and resets the rest to their defaults, baud rate included. Test programs and goldens go to the board far faster with `ZMODEM` (batch receive, CRC-32, recovery) than with `XMODEM`, so it comes first. Port `misc/ZModem.c` (1,284 lines, TeraTerm-derived, BSD) as it is: its platform surface is small (`SerialConsolePutC`, `getConsole` and the console receive ring, `time_us_64`, a CRC-32, `BasicFileOpen`/`FileClose`/file size, `GetTempMemory`, and `SaveProgramToFlash` for a program), all of which the CMM2 has or can wrap in a few lines. The full command table is not an obstacle: `ZMODEM` is aliased in the tokeniser onto the `XMODEM` token (`STR_REPLACE(inpbuf, "ZMODEM", "XMODEM Z", 0)` beside the existing `HUMID` and `SPRITE` aliases at `MMBasic.c:1460-1473`) and `cmd_xmodem` dispatches on the leading `Z`, so no slot is consumed and the PicoMite spelling works unchanged in programs and at the prompt. If a real slot is ever needed before the 14-bit tokens arrive, the least painful temporary omissions are `AUTOSAVE2` and `MMDEBUG` (both prompt-level conveniences), not `BITBANG`, which other aliases depend on. On the CMM2's disk model `ZMODEM RECEIVE` with no name saves under the sender's name in the current directory (the PicoMite's `"*"` batch form is the natural default) and `ZMODEM SEND` with no name sends the current program file. Raise `OPTION BAUDRATE` for the session: the CMM2 console goes to 1,000,000, and the PicoMite notes CH340 adapters lose data at 921600 but are reliable at 750000.
+- **Crashers on the current tree.** Fix the two that can take the board down today (`tknbuf` bound, `rti[4]`) so the baseline firmware is safe to test against. The rest of section 2.1 is fixed by the port.
+- **Flash and RAM budget (decision).** The firmware will be 1,100 to 1,300 KB. Proposal: one contiguous `FLASH` region of 1,280 KB (bank 1 plus bank 2 sectors 0-1), the program at bank 2 sectors 2-4 (384 KB; today 512 KB), one flash slot at sector 5, the library at sector 6, options at sector 7; RAM slots, the RAM library, image slots and the Route B stream in SDRAM; the context-save area in SDRAM (G1 5 MB heap: 3 program sizes of stream fit; G2 24 MB). Alternatives: 256 KB program with two flash slots; or keep 512 KB and accept 1,152 KB of firmware. The CMM2's `progstart[]` (program start sector) becomes `FLASH` slots.
+- **CSUB ABI (decision).** Keep the `CallTable` at 0x80002a0 for existing CMM2 CSUBs (the first 46 vectors in the V1.6 order), and append the PicoMite vectors after them so one table serves both headers; or break with the old ABI and publish `ARMCFunctions.h` V2.0 = `PicoCFunctions.h` layout found through VTOR slot 7. The latter is what mmb2csub expects.
+
+Gate: goldens and micro suite recorded; ITCM section non-empty and measured; budget and ABI decided.
+
+#### P1: the CMM2 variant, console only (4-8 weeks, B) / the interpreter port (12-20 weeks, A)
+
+- `COMPILE=CMM2` in `CMakeLists.txt`: `cmake/arm-none-eabi.cmake`, the HAL and CMSIS sources (updated, see P6), the linker script, no pico-sdk; `cmm2/platform.h` and `cmm2/platform.c` provide what the shared code calls: `time_us_64/32` (TIM5+TIM16 as today), `busy_wait_us`, `save_and_disable_interrupts`/`restore_interrupts` (PRIMASK), `safe_flash_range_erase/program` (HAL flash, 128 KB sectors, 32-byte flash words: the save path buffers a sector), `__not_in_flash_func(x)` → `__attribute__((section(".itcm.x")))`, `GetSRAMMemory` → the internal D2 heap, PSRAM → SDRAM (`PSRAMsize`, `PSRAMbase`), console put/get, watchdog, RTC, RNG, `CPU_Speed`, `MM.INFO` platform keys. Every `#include "hardware/..."` in shared code moves behind `#ifdef PICOMITE_SDK` or into the platform header.
+- Memory layout: `HEAP_MEMORY_SIZE` = the D2 pool (about 200 KB), `MAX_PROG_SIZE` from the budget, the compact variable table's chunks in D2 (`GetSRAMMemory`), symbol bindings' hot block in DTCM or D2, the rest in SDRAM, as the PC3 does with PSRAM.
+- Program storage: `SaveProgramToFlash` writes bank 2 sectors; the editor and `LOAD` buffers come from SDRAM (as the PC3 takes them from PSRAM), so a 384 KB program can be edited.
+- The program model stays source-on-disk (2.2): `RUN file$` loads, crunches and tokenises; `EDIT`, `LIST` and `AUTOSAVE` work on the file; the line marker is replaced by the 5-byte line header and a file-name table, and the symbol table keeps one canonical spelling per name. The PicoMite's program-memory commands map onto the current file and its image as section 6.5 says.
+- Route B: `RBInPsram()` true, `PSRAMstream` in SDRAM, the executor (`RBRun`, `RunStream`, `RBFind`, about 7 KB) and the interpreter's `__not_in_flash_func` set in ITCM (64 KB; the RP2350 builds hold 83 KB of RAM-resident code and data, so an ITCM priority list is needed: executor, `findvar`, `evaluate`/`doexpr`/`getvalue`, operators, `ExecuteProgram`, `cmd_let/for/next/do/loop/if`, `makeargs`, then measure).
+- Bring-up on the serial console with no video: `PRINT`, the goldens corpus, `Testfiles/`, `symchain.py`, `rbdepth.py`, `rbp2a`-`rbp5d` with `OPTION COMPILE ON|OFF|SHADOW`, `bench_micro`, `perfguide`.
+
+Gate: goldens match the PICORP2350 references except where the CMM2 lacks hardware; shadow mode clean; `perfguide` numbers recorded text and compiled; firmware within budget.
+
+#### P2: the hardware layer (6-10 weeks)
+
+In the order the goldens and the games need them:
+
+1. **Video.** `ltdc.c`, `dma2d.c`, the page allocator, `MODE 1-18` with 8/12/16/32-bit colour, `PAGE`, the LTDC second layer, the mouse cursor, `GETSCANLINE`, the frame interrupt. Hooked in through the function pointers the drawing engine already uses (`DrawRectangle`, `DrawBitmap`, `DrawBuffer`, `ReadBuffer`, `ScrollLCD`, `DrawPixel`, `SetPixel`), so `Draw.c`, `DrawFill.c`, `Blit.c`, `Sprite.c`, `TileMap.c`, `Draw3D.c`, `Raycaster.c`, `Turtle.c`, `GUI.c`, `Pointer.c` work unchanged. `PageTable` stays; `FRAMEBUFFER` is mapped onto it (section 6). D-cache: pages that the LTDC reads stay non-cacheable or are cleaned after drawing, as `MPU_Config_nCacheable` does today; DMA2D for `PAGE COPY`, `BLIT` and `FRAMEBUFFER MERGE`.
+2. **Keyboard and mouse.** Decision: TinyUSB host on the OTG FS controller (dwc2 driver; the PicoMite's `input/USBKeyboard.c`, `KeyboardMap.c`, CDC host and MSC come with it; hub support; TinyUSB 0.19 added STM32 data-cache handling to dwc2) or the ST host library updated to 3.5.5 (HID only, no hub, the existing `keyboard.c`). Recommend TinyUSB, with the ST path as the fallback if dwc2 host on the H7 FS port proves immature. The PS/2-style mouse (`mouse.c`) and the Wii controllers stay.
+3. **Storage.** SD card on SPI (`mmc_stm32.c` as `cmm2/SDCard.c`), FatFs R0.16; drive letters per section 6; USB flash drive as `C:` if TinyUSB MSC is in; `OPTION SDSPEED`.
+4. **Audio.** The DAC/DMA output path with the PicoMite audio engine (`io/Audio.c`: tones, `PLAY SOUND`, `NOTE`, `SAMPLE`, `ARRAY`, `STREAM`, WAV/FLAC/MP3/MOD through the new decoders, BBC sound), plus SAM speech (`PLAY TTS`) and `PLAY EFFECT` from the CMM2. The connect/remove chime WAVs come with USB.
+5. **I/O.** The CMM2 pin table (`PinDef40`, 46 pins) as `cmm2/IOPorts.h`, `SETPIN`/`PIN(`/`PORT`/`PULSE`/`PWM`/`SERVO`/`COUNT`/`IR`/`ONESHOT`/`SETTICK`/`KEYPAD`/`WS2812`/`DS18B20`/`HUMID`/`LCD`/`I2C LCD`/`RTC`/`GPS` on TIM/EXTI/DMA; `I2C` (three), `SPI` (three), serial `COM1-4`, `CAN`, `ADC`/`DAC`, `BAUDRATE(`, `BITBANG`; pin naming per section 6.
+6. **System.** Options in sector 7 (the 896-byte struct plus the CMM2 fields: `CPUmode`, `RTC_Calibrate`, `rtcdrive`, `MaxCtrls`, `Y_AXIS`, `profile`...), saved variables in backup SRAM, watchdog, `CPU SPEED` (400/480/504 and the G1/G2 rules), boot cause, `OPTION RESET`, `UPDATE FIRMWARE` (DFU), `MM.INFO` keys, the line profiler (`OPTION PROFILE`), `MMDEBUG`.
+
+Gate: every program in the goldens corpus and `Testfiles/` that uses the display runs; the CMM2's own demo and game programs (the SD card image) run under the CMM2 setting; `inttests` pass on the CMM2's interrupt sources.
+
+#### P3: graphics parity and the two dialects (4-8 weeks)
+
+- `FRAMEBUFFER` on pages, `LAYER` on LTDC layer 2, `MERGE` with DMA2D and the vertical blank; `SPRITE` (PicoMite engine) and the CMM2 `BLIT` sprite aliases through one handler; `TILEMAP`, `RAY`, `FRAME`, `BEZIER`, `FILL`, `TRIANGLE SAVE/RESTORE`, `DRAW3D` at `MAX3D` 128, `GUI LISTBOX/SLIDER/CURSOR` driven by the mouse, `TURTLE`; `LOAD PNG` streaming; `LOAD JPG` through the hardware decoder with the software decoder as the fallback for progressive files; `LOAD GIF`, `LOAD FONT`, `IMAGE`; the font tables and their numbering; `MAP`/`COLOUR MAP`/`CLUT` for the 8-bit modes.
+- The dialect switch of section 6: `OPTION PLATFORM CMM2 | PICOMITE` (saved; `CMM2` is the default on a CMM2), the per-program override, the mapping tables (pins, drives, fonts, modes, device strings) and the stubs for hardware the CMM2 lacks.
+
+Gate: the CMM2 demo programs under `CMM2`; the PicoMite's `Bas/` games (Exile, Elite, Prince of Pico, Arkanoid, Thrust, Chuckie Egg) and `Testfiles/` under `PICOMITE`, with their checks; a LIST round trip of every program.
+
+#### P4: editor, file manager, transfers, help (2-4 weeks)
+
+- Decision: the PicoMite `Editor.c` (long lines, find/replace, beautify, `EDIT FILE`, mouse) replaces `kilo.c`, or `kilo.c` gains those features. The PicoMite editor is what every other variant uses and the harness exercises; recommend it, keeping the CMM2's colour scheme and mouse behaviour.
+- `FM`; `YMODEM` (`ZMODEM` is already in from P0); `LOAD ,C`; `AUTOSAVE N`; `OPTION DISK SAVE/LOAD`; `HELP` from `help.txt` on the SD card, generated by `tools/gen_help.py` from the manual with a CMM2 filter (the CMM2 `help.h` retired, 599 lines of flash back); `CALC` mode; `LIST` variants; `MM.INFO` completeness.
+
+#### P5: performance (3-6 weeks)
+
+- ITCM placement policy measured with the sampler (`OPTION PROFILING ON, SAMPLE` on a TIM alarm) and `pcs_report.py`.
+- Route B on the M7: the dispatch table and value stack in DTCM, `RBRun` in ITCM, the stream in SDRAM; compare `OPTION COMPILE OFF/ON` on the anchor, the games and the micro suite; D-cache effects on the SDRAM stream.
+- mmb2csub for the CMM2: `armcfgen.py` with a `--cpu cortex-m7` profile (`-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard`): doubles and 64-bit multiply/divide inline, no `FMul`/`LMul` helpers; the CallTable through VTOR slot 7; the blob is CMM2-only (an M0+ blob still runs on the M7, so PicoMite-built CSUBs also work, slower).
+- DMA2D for `PAGE COPY`, `BLIT`, `SPRITE` compositing and `FRAMEBUFFER MERGE`; the hardware JPEG path; `MATH` on the FPU.
+- Publish the CMM2 column of the Performance Guide.
+
+Gate: no goldens regression; the anchor, games and micro suite recorded for the manual.
+
+#### P6: third-party and vendor updates (1-2 weeks, can run alongside P2-P5)
+
+In this order, each a commit with the goldens run after it: STM32CubeH7 v1.13.0 (HAL 1.11.6, CMSIS device, CMSIS core, JPEG utilities; regenerate `main.c`'s `MX_*_Init` from a refreshed `.ioc` or retire the `.ioc`); the USB host decision of P2; FatFs R0.16 + ff16p1 in `third_party_mod/` for both the PicoMite and the CMM2 (re-apply the `mycpy`/`MMPrintString` hooks); cJSON 1.7.19; dr_flac 0.13.3, dr_mp3 0.7.3, dr_wav 0.14.5 (API changes in `io/Audio.c`, both boards); tiny-regex-c, tiny-AES-c, hxcmod, picojpeg, uPNG from the PicoMite copies; decide the GNU regex engine; toolchain 14.3.Rel1 or 15.3.Rel1 for both trees with a size and `perfguide` check.
+
+#### P7: documentation and release (2-3 weeks)
+
+- The CMM2 manual regenerated from the PicoMite manual sources with a CMM2 chapter (hardware, pages and modes, the CMM2-only commands, the dialect switch) and Appendix K's version applicability extended with a CMM2 column; `help.txt` for the SD card; release notes; the pre-flight script's variant list; the goldens references committed for the CMM2; firmware upload instructions (DFU / CubeProgrammer).
+
+### 7.2 Decisions needed
+
+1. Strategy A or B (7.0).
+2. Flash budget: program size, number of flash slots, library slot (P0).
+3. CSUB ABI: keep the fixed-address `CallTable` for old CMM2 CSUBs, or move to the PicoMite layout (P0).
+4. USB host stack: TinyUSB or the ST library (P2).
+5. Drive letters under each dialect (section 6).
+6. Pin naming under the PicoMite dialect: a fixed `GPn`-to-connector-pin map, a user-settable map (`OPTION PICOMITE PINS`), or `GPn` refused (section 6).
+7. The default dialect on a CMM2 (`CMM2`) and how a PicoMite program selects the other (saved option, `OPTION PLATFORM PICOMITE` as the first line, or `LOAD file$, P`).
+8. Editor: PicoMite `Editor.c` or `kilo.c` (P4).
+9. The GNU regex engine: keep or replace (P6).
+10. Line attribution: the 5-byte line header with a file-name table (recommended, 2.2), or keep the trailing `'|file,line` marker.
+11. An on-chip `A:` drive: none (recommended; the SD card is `A:` under the CMM2 dialect), or littlefs on two spare 128 KB sectors (tiny, slow to erase), or on a battery-backed SDRAM image (lost at power-off).
+
+### 7.3 Risks
+
+- **Flash.** The variant may not fit the budget once video, USB, audio and the CMM2 extras are in. Mitigations: the budget decided first; `-Os` on the cold paths as today; `help.h` and the GNU regex engine retired; the 3D, raycaster and GUI code gated if needed as `PICOMITEMIN` gates them.
+- **Platform abstraction in the shared tree.** The PicoMite must accept a non-sdk target in its core; done piecemeal it will break PicoMite builds. Mitigation: do it as a PicoMite refactor first (every sdk call behind one header), with all 18 variants built and the goldens run, before the CMM2 directory exists.
+- **LTDC and cache coherency.** Drawing into SDRAM pages that the LTDC scans needs the same MPU/cache discipline the CMM2 has today; the PicoMite engine assumes plain memory. Mitigation: keep the page allocator and MPU setup from `ltdc.c` and `MPU_Config_nCacheable`, and test tearing and `PAGE COPY` early.
+- **Behaviour drift between the dialects.** A keyword that means two things in one handler is a bug factory. Mitigation: the conflict table of section 6 is the specification; every entry gets a test under both settings in `Testfiles/`.
+- **Route B on a new core.** Its design assumes the RP2350's memory model. Mitigation: it ships off by default on the CMM2 until shadow mode is clean on the full corpus; P1's gate.
+- **Stale images at boot.** Any change to the image format (skip byte, `T_LABEL`, symbols, the line header) makes an image written by older firmware unreadable, and the CMM2 runs its stored image at boot under `OPTION AUTORUN`. Mitigation: a format stamp in every image, and a reload from the source file named on the image's first line when the stamp does not match (2.3).
+- **Two trees during the transition.** Until B is done, `CMM2V1.5` keeps shipping. Mitigation: only P0 fixes go into the old tree; no feature work there.
+
+---
+
+## Appendix A. Keyword table diff (`Inc/allcommands.h` against `AllCommands.h`)
+
+In PicoMite, not CMM2 (115): `*/`, `/*`, `ARRAY ADD`, `ARRAY INSERT`, `ARRAY SET`, `ARRAY SLICE`, `ASTRO`, `BACKLIGHT`, `BEZIER`, `BIN$(`, `BIT(`, `BITSTREAM`, `BLIT MEMORY`, `BLUETOOTH`, `BYTE(`, `CALC`, `CAMERA`, `CAT`, `CHAIN`, `CMM2 LOAD`, `CMM2 RUN`, `COLOR`, `COLOUR MAP`, `CONFIGURE`, `DEVICE`, `DEVICE(`, `DRIVE`, `EDIT FILE`, `ELSE IF`, `END IF`, `END TYPE`, `ERASE`, `EXIT DO`, `FILL`, `FLAG(`, `FLAGS`, `FLASH`, `FLUSH`, `FM`, `FRAME`, `FRAME(`, `GAMEPAD`, `GPS(`, `HEX$(`, `HUMID`, `I2C2`, `I2CLCD`, `IN`, `INTERRUPT`, `IRQ`, `IRQ CLEAR`, `IRQ NEXT`, `IRQ NOWAIT`, `IRQ PREV`, `IRQ SET`, `IRQ WAIT`, `JMP`, `KEYBOARD`, `KEYPAD`, `LCD`, `LIBRARY`, `LINPUT(`, `LMID(`, `LOCATION`, `MANDELBROT`, `MOUSE`, `MOV`, `NOP`, `ONESHOT`, `OUT`, `PIO`, `PIO(`, `PULL`, `PUSH`, `RAM`, `RANDOMIZE`, `RAY`, `RAY(`, `REDIM`, `REFRESH`, `RESOLUTION`, `RTC`, `SCHANGE$(`, `SET`, `SLEW`, `SPI2`, `SPRITE`, `STAR`, `STEPPER`, `STRUCT`, `STRUCT(`, `SYNC`, `TILE`, `TILEMAP`, `TILEMAP(`, `TMC22XX`, `TOPBOTTOM(`, `TOUCH(`, `TYPE`, `VAR`, `WAIT`, `WEB`, `WII`, `WII CLASSIC`, `WII NUNCHUCK`, `WS2812`, `YMODEM`, `ZMODEM`, `_END PROGRAM`, `_LABEL`, `_LINE`, `_PROGRAM`, `_SIDE SET`, `_WRAP`, `_WRAP TARGET`. (`ELSE IF`, `END IF`, `EXIT DO`, `COLOR`, `SPRITE`, `WII` are produced by the CMM2 tokeniser from other tokens.)
+
+In CMM2, not PicoMite (17): `>>>`, `AUTOSAVE2`, `BAUDRATE(`, `BITBANG`, `CAN`, `CLASSIC(`, `CONTROLLER`, `DAC`, `IMAGE`, `MM.CMDLINE$`, `MM.HRES`, `MM.VRES`, `MM.WATCHDOG`, `MMDEBUG`, `MOUSE(`, `NUNCHUK(`, `PAGE`. (`MM.HRES`/`MM.VRES` are read-only variables handled elsewhere on the PicoMite.)
+
+Handlers in the PicoMite tree with no CMM2 counterpart (`cmd_`/`fun_`, 130): `cmd_Classic`, `cmd_DHT22`, `cmd_FFT`, `cmd_LoadImage`, `cmd_Nunchuck`, `cmd_PIOline`, `cmd_ReadTriangle`, `cmd_RestoreTriangle`, `cmd_RunCMM2`, `cmd_SensorFusion`, `cmd_Servo`, `cmd_TMC22xx`, `cmd_WS2812`, `cmd_adc`, `cmd_add`, `cmd_arrayset`, `cmd_backlight`, `cmd_bezier`, `cmd_bit`, `cmd_bitstream`, `cmd_blitmemory`, `cmd_bluetooth`, `cmd_byte`, `cmd_calc`, `cmd_camera`, `cmd_chain`, `cmd_colourmap`, `cmd_comment`, `cmd_configure`, `cmd_csubinterrupt`, `cmd_device`, `cmd_drive`, `cmd_edit`, `cmd_editfile`, `cmd_endcomment`, `cmd_endprogram`, `cmd_erase`, `cmd_exec_star`, `cmd_fill`, `cmd_flag`, `cmd_flags`, `cmd_flash`, `cmd_flush`, `cmd_fm`, `cmd_frame`, `cmd_gamepad`, `cmd_i2clcd`, `cmd_in`, `cmd_insert`, `cmd_irq*`, `cmd_jmp`, `cmd_keyboard`, `cmd_keyscan`, `cmd_label`, `cmd_library`, `cmd_lmid`, `cmd_loadCMM2`, `cmd_localvars`, `cmd_locate`, `cmd_mandelbrot`, `cmd_map`, `cmd_mov`, `cmd_mqtt`, `cmd_nop`, `cmd_ntp`, `cmd_oneshot`, `cmd_out`, `cmd_ping`, `cmd_pio`, `cmd_program`, `cmd_psram`, `cmd_pull`, `cmd_push`, `cmd_randomize`, `cmd_ray`, `cmd_redim`, `cmd_refresh`, `cmd_resolution`, `cmd_rtc`, `cmd_set`, `cmd_share_client`, `cmd_share_host`, `cmd_sideset`, `cmd_slew`, `cmd_slice`, `cmd_sprite`, `cmd_star`, `cmd_stepper`, `cmd_stepper_home_axes`, `cmd_sync`, `cmd_tcpclient`, `cmd_tcpserver`, `cmd_tftp_server_init`, `cmd_tile`, `cmd_tilemap`, `cmd_timer`, `cmd_tls`, `cmd_transmit`, `cmd_udp`, `cmd_update`, `cmd_wait`, `cmd_web`, `cmd_wrap`, `cmd_wraptarget`, `cmd_zmodem`, `fun_bin`, `fun_bit`, `fun_byte`, `fun_click`, `fun_dev`, `fun_errmsg`, `fun_errno`, `fun_flag`, `fun_frame`, `fun_hex`, `fun_linputstr`, `fun_map`, `fun_math`, `fun_max_min`, `fun_mmOW`, `fun_mmcharwidth`, `fun_mmhpos`, `fun_mmi2c`, `fun_oct`, `fun_pio`, `fun_ray`, `fun_schange`, `fun_tilemap`. (Some of these exist on the CMM2 under another name; `cmd_math`, `fun_max_min`, `fun_errno` etc. are present but defined through a wrapper macro the script did not match.)
+
+Handlers in the CMM2 tree with no PicoMite counterpart: `cmd_ADC`, `cmd_Controller`, `cmd_DAC`, `cmd_JumpToBootloader`, `cmd_autosave2`, `cmd_bitbang`, `cmd_can`, `cmd_classic`, `cmd_clut`, `cmd_cursor`, `cmd_debug`, `cmd_erasevar`, `cmd_fasttick`, `cmd_i2c1`, `cmd_i2c3`, `cmd_image`, `cmd_listfiles`, `cmd_longString`, `cmd_newedit`, `cmd_nunchuck`, `cmd_page`, `cmd_spi1`, `cmd_tts`, `cmd_uSec`, `fun_baudrate`, `fun_classic`, `fun_clut`, `fun_cmdline`, `fun_mouse`, `fun_nunchuck`, `fun_uSec` (and the `op_*` operator functions, which the PicoMite defines through a RAM-placement macro).
+
+## Appendix B. Sub-keyword diff inside shared handlers (`checkstring` literals; `+` only in PicoMite, `-` only in CMM2)
+
+- `cmd_autosave`: +`APPEND` -`N`
+- `cmd_blit`: +`LOADBMP`, `MERGE`, `RESIZE` -`CLOSE ALL`, `COPY`, `HIDE`, `HIDE ALL`, `HIDE SAFE`, `INTERRUPT`, `LOADARRAY`, `LOADPNG`, `MOVE`, `NEXT`, `NOINTERRUPT`, `RESTORE`, `SCROLL`, `SCROLLR`, `SHOW`, `SHOW SAFE`, `SWAP`, `TRANSPARENCY` (on the PicoMite these are `SPRITE` sub-commands)
+- `cmd_box`: -`AND_PIXELS`, `OR_PIXELS`, `XOR_PIXELS`
+- `cmd_clear`: -`VARS`
+- `cmd_copy`: +`A2A`, `A2B`, `B2A`, `B2B`
+- `cmd_cpu`: +`SLEEP`, `SPEED`
+- `cmd_framebuffer`: +`2`, `COPY`, `CREATE 2`, `F`, `L`, `LAYER`, `LAYER TOP`, `MERGE`, `N`, `SYNC`, `T`, `WAIT` -`BACKUP`, `RESTORE`, `WINDOW`
+- `cmd_gui`: +`LISTBOX`, `SLIDER`; `cmd_guiMX170`: +`BEEP`, `CALIBRATE`, `LCDPANEL`, `RESET`, `TEST`, `TOUCH` -`CURSOR`
+- `cmd_i2c`: +`CHECK`, `CLOSE`, `OPEN`, `READ`, `SLAVE CLOSE`, `SLAVE OPEN`, `SLAVE READ`, `SLAVE WRITE`, `WRITE` -`1`, `2`, `3`
+- `cmd_list`: +`COLLISIONS`, `OPTIONS`, `PINS`, `SYSTEM I2C`, `TYPE`, `VARIABLES` -`COMMANDS V`, `FILES`, `FLASH`, `FLASH ALL`, `FUNCTIONS V`, `PAGES`, `PROFILE`, `PROFILE CSV`
+- `cmd_load`: +`CONTEXT`, `IMAGE`, `KEEP` -`FONT`, `GIF`
+- `cmd_memory`: +`SHARE CLIENT`, `SHARE HOST`, `SHARE STOP`, `SHARE STOP CLIENT`, `SHARE STOP HOST`
+- `cmd_mode`: +`400`, `800`
+- `cmd_mouse`: +`INTERRUPT DISABLE`, `INTERRUPT ENABLE`, `SET`
+- `cmd_on`: +`PS2`, `RESTART`
+- `cmd_option`: +`BOTH`, `CDC POLL RATE`, `COMPILE`, `CONSOLE`, `DEFAULT COLORS`, `DEFAULT COLOURS`, `ENABLE`, `F1`, `F5`, `F6`, `F7`, `F8`, `F9`, `FAST AUDIO`, `GPS`, `HDMI PINS`, `HEARTBEAT`, `KEYBOARD`, `KEYBOARD PINS`, `KEYBOARD REPEAT`, `LCD320`, `LOCAL KEYBOARD`, `LOCAL VARIABLES`, `LOGGING`, `MOUSE`, `MOUSE SENSITIVITY`, `NOCHECK`, `PICO`, `PICO PLUS 2`, `PLATFORM`, `PROFILING`, `PS2 PINS`, `PSRAM PIN`, `SCREEN`, `SCREEN KEYBOARD`, `SERIAL`, `SERIAL CONSOLE`, `SHADOW`, `SYMBOLS` -`2`, `3`, `4`, `8`, `CASE`, `COLORCODE`, `COLOURCODE`, `CR`, `CRLF`, `DOWN`, `F11`, `F12`, `LEGACY`, `LF`, `LOWER`, `PIN`, `REVERSE`, `SEARCH PATH`, `STATUS`, `TAB`, `TITLE`, `UP`, `UPPER`, `VCC`, `Y_AXIS`
+- `cmd_pixel`: -`FILL`
+- `cmd_play`: +`ARRAY`, `BBC ENVELOPE`, `BBC SOUND`, `CMD`, `CONTINUE`, `HALT`, `LOAD SOUND`, `MIDI`, `MIDIFILE`, `NOTE`, `OFF`, `ON`, `RELEASE`, `SAMPLE`, `STREAM`, `TEST` -`EFFECT`, `TTS`
+- `cmd_poke`: +`DISPLAY`, `HRES`, `VRES`
+- `cmd_pwm`: +`SYNC`
+- `cmd_save`: +`CLEAR`, `COMPRESSED IMAGE`, `CONTEXT`, `PERSISTENT`
+- `cmd_spi`: +`CLOSE`, `OPEN`, `READ`, `WRITE` -`1`, `2`
+- `cmd_triangle`: +`RESTORE`, `SAVE`
+- `cmd_turtle`: +`CURSOR COLOR`, `CURSORCOLOUR`, `FILL COLOR`, `FILLCOLOUR`, `PEN COLOR`, `PENCOLOUR`
+- `cmd_watchdog`: +`HW`
+- `fun_GPS`: +`JULIAN`, `SIDEREAL`
+- `fun_info`: +`ADC`, `ADC DMA`, `AUDIO`, `AUTOREFRESH`, `BATTERY`, `BBC BUFFER`, `BIOS`, `BLUETOOTH`, `BOOT`, `BOOT COUNT`, `CALLTABLE`, `CHARGING`, `CHEAPMAX`, `CHEAPTOTAL`, `COMPILE`, `DEBUG`, `DRIVE`, `FLASH`, `FLASH ADDRESS`, `FLASH SIZE`, `FLASHTOP`, `HEAPEND`, `HEIGHT`, `INTERRUPTS`, `IP ADDRESS`, `LCD320`, `LCDPANEL`, `MAX CONNECTIONS`, `MAX GP`, `MAX VARS`, `MODBUFF ADDRESS`, `PERSISTENT`, `PINNO`, `PIO RX DMA`, `PIO TX DMA`, `PLATFORM`, `PS2`, `PSRAM SIZE`, `PWM COUNT`, `PWM DUTY`, `PWM SLICE`, `SCREENBUFF`, `SCROLL`, `SPI SPEED`, `SSID`, `STACKPEAK`, `SYSTEM HEAP`, `SYSTEM I2C`, `SYSTICK`, `TCP PORT`, `TCP REQUEST`, `TCPIP STATUS`, `TELNET`, `TILE HEIGHT`, `TLSHEAP`, `TLSHEAPERR`, `TLSHEAPMAX`, `TOUCH`, `UDP PORT`, `USB`, `USB PID`, `USB VID`, `VALID CPUSPEED`, `WIDTH`, `WIFI STATUS`, `WRITEBUFF` -`CODE SIZE`, `CONSOLE PORT`, `DIRECTORY`, `FRAMEBUFFER`, `FRAMEH`, `FRAMEV`, `HARDWARE`, `I2C`, `ID48`, `IHEAP`, `LEGACY`, `LINES`, `MAX PAGES`, `MINHEAP`, `MODE`, `MOUSE`, `OVERRUN`, `PAGE ADDRESS`, `PROFILING`, `RESET`, `RTC`, `SAMPLE PLAYING`, `SEARCH PATH`, `SHEAP`, `USBKEYBOARD`, `WRITE PAGE`, `Y_AXIS`
+- `fun_peek`: +`A`, `ACTIVE`, `BUFFER`, `STATUS`, `X`, `Y`, `Z`
+- `fun_pin`: +`BOOTSEL` -`BAT`, `DAC1`, `DAC2`, `IREF`, `SREF`
+- `fun_touch`: +gesture keywords (`TAP`, `DTAP`, `SWIPE`, `PINCH`...)
+
+(`cmd_math` could not be diffed by the script because the CMM2 defines it through a wrapper; diff `MATHS.c` by hand in P1.)
+
+## Appendix C. Sources read
+
+PicoMite: `README.md`, `docs/CODEMAP.md`, `docs/Interpreter_Performance_Plan.html`, `docs/Interpreter_RouteB_Design.html`, `docs/Interpreter_S5S6_Symbols_Design.html`, `docs/Variable_Table_Redesign.html`, `docs/SubFun_Label_Redesign.html`, `docs/String_Core_Refactor_Plan.md`, `docs/MMBasic_Structures_Implementation_Overview.md`, `docs/option-profiling-cache.md`, `docs/MMBasic_Performance_Guide.md`, `docs/Main_Bug_Report_2026-09.html`, `docs/Help_File_Plan.md`, `docs/HELP_File_Format.md`, `docs/Boot_Robustness_Review.md`, `docs/mmb2csub.md`, `docs/armcfgen.md`, `docs/V7.00.00_release_notes.md`, `docs/V6.04.00_release_notes.md`, the V6.01.00, V6.03.00 and V6.03.01 release notes, `Bas/bench/README.md`, `core/MMBasic.h`, `core/Symbols.h`, `core/Stream.h`, `core/Stream.c`, `core/MMBasic.c` (`ExecuteProgram`, `FindSubFun`), `misc/FileIO.c` (`loadCMM2`), `AllCommands.h`, `CMakeLists.txt`, `Version.h`, `third_party_mod/*`, the git log and tags, `buildRP2350L/PicoMite.elf.map`, `docs/PicoMite_User_Manual.docx`.
+
+CMM2: `Inc/Version.h`, `Inc/MMBasic.h`, `Inc/Configuration.h`, `Inc/Hardware_Includes.h`, `Inc/Flash.h`, `Inc/Memory.h`, `Inc/allcommands.h`, `Inc/ARMCFunctions.h`, `Src/MMBasic.c`, `Src/Memory.c`, `Src/main.c`, `Src/MM_Misc.c`, `Src/Functions.c`, `Src/Operators.c`, `Src/CFunctions.c`, `Src/ltdc.c`, `Src/keyboard.c`, `Src/usbh_conf.c`, `Src/flash.c`, `Src/MiscSTM32.c`, `STM32H743II_FLASH.ld`, `CMakeLists.txt`, `CMakePresets.json`, `build/Release/CMM2V1.5.map` and `.elf` sizes, `FATFS/ffconf.h`, the HAL, CMSIS and USB host library headers, `D:/Dropbox/Colour_Maximite_2_User_Manual.pdf`.
+
+Upstream versions: FatFs R0.16 (elm-chan, Jul 2025; CVE-2026-6682/6686/6687), STM32CubeH7 v1.13.0 and stm32h7xx-hal-driver v1.11.6 (GitHub tags), stm32_mw_usb_host v3.5.5 (GitHub tags), cJSON 1.7.19 (Sep 2025), dr_libs (dr_flac 0.13.3, dr_mp3 0.7.3, dr_wav 0.14.5), littlefs 2.11.3, Arm GNU Toolchain 14.3.Rel1 / 15.2.Rel1 / 15.3.Rel1, TinyUSB 0.19.0 and 0.20.0 changelogs.
