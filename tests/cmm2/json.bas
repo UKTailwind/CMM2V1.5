@@ -1,16 +1,17 @@
-' json.bas - JSON$ (the PicoMite's, with its faults fixed): values of every type; a second index read
-' (it was always 0); the long string read by its own length (after LONGSTRING CLEAR the old bytes were parsed);
-' the result's own buffer (true/false went into the last string function's); the errors.
+' json.bas - JSON$ (the PicoMite's, 9749c83): values of every type; a second index read (it was always 0); a path
+' that ends with an index, or starts with one (a document that is an array); the long string read by its own length
+' (after LONGSTRING CLEAR the old bytes were parsed); the result's own buffer (true/false went into the last string
+' function's); the heap unchanged after many calls and after the errors; the errors.
 Option Explicit
 Dim integer tests, pass, i, n
-Dim integer j%(200), k%(100)
+Dim integer j%(200), k%(100), m%(20)
 Dim s$
 
 LongString Append j%(), "{" + Chr$(34) + "a" + Chr$(34) + ":1," + Chr$(34) + "b" + Chr$(34) + ":" + Chr$(34) + "two" + Chr$(34) + ","
 LongString Append j%(), Q$("c") + ":true," + Q$("d") + ":false," + Q$("e") + ":null," + Q$("f") + ":1.5," + Q$("Name") + ":" + Q$("N") + ","
 LongString Append j%(), Q$("obj") + ":{" + Q$("in") + ":3},"
 LongString Append j%(), Q$("rows") + ":[{" + Q$("cells") + ":[{" + Q$("v") + ":1},{" + Q$("v") + ":2},{" + Q$("v") + ":3}]},"
-LongString Append j%(), "{" + Q$("cells") + ":[{" + Q$("v") + ":4},{" + Q$("v") + ":5},{" + Q$("v") + ":6}]}]}"
+LongString Append j%(), "{" + Q$("cells") + ":[{" + Q$("v") + ":4},{" + Q$("v") + ":5},{" + Q$("v") + ":6}]}]," + Q$("nums") + ":[10,20,30]}"
 
 ' ---- values -----------------------------------------------------------------------------------
 CheckS "an integer", Json$(j%(), "a"), "1"
@@ -24,6 +25,9 @@ CheckS "a nested object's item", Json$(j%(), "obj.in"), "3"
 CheckS "no such item", Json$(j%(), "nosuch"), ""
 CheckS "an index", Json$(j%(), "rows[0].cells[1].v"), "2"
 CheckS "a second index (it read cells[0])", Json$(j%(), "rows[1].cells[2].v"), "6"
+CheckS "a path that ends with an index", Json$(j%(), "nums[2]"), "30"
+LongString Append m%(), "[{" + Q$("x") + ":5},{" + Q$("x") + ":6}]"
+CheckS "a path that starts with one (a document that is an array)", Json$(m%(), "[1].x"), "6"
 CheckS "true after a string function (it was written into that one's buffer)", LCase$("AB") + Json$(j%(), "c"), "abtrue"
 s$ = Json$(j%(), "a")
 i = MM.Info(Heap)
@@ -43,8 +47,18 @@ s$ = Json$(j%(), 5)
 Check "a path that is not a string", MM.ErrNo <> 0, 1
 CheckS "and then JSON$ works again", Json$(j%(), "a"), "1"
 On Error Skip 1
-s$ = Json$(j%(), String$(40, "k"))
-CheckS "an item name over 31", ErrText$(), "Item name too long"
+s$ = Json$(j%(), String$(70, "k"))
+CheckS "a key over 63 characters", ErrText$(), "Invalid JSON path"
+CheckS "a key of 40 is fine (not found)", Json$(j%(), String$(40, "k")), ""
+On Error Skip 1
+s$ = Json$(j%(), "rows[12345678].x")
+CheckS "an index over 7 digits", ErrText$(), "Invalid JSON path"
+On Error Skip 1
+s$ = Json$(j%(), "rows[].x")
+CheckS "an empty []", ErrText$(), "Invalid JSON path"
+On Error Skip 1
+s$ = Json$(j%(), "rows[1")
+CheckS "a missing ]", ErrText$(), "Invalid JSON path"
 
 ' a string value over 255 characters
 LongString Append k%(), "{" + Q$("s") + ":" + Chr$(34) + String$(200, "x")

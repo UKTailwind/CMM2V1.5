@@ -9,15 +9,21 @@ ok  a nested object's item
 ok  no such item
 ok  an index
 ok  a second index (it read cells[0])
+ok  a path that ends with an index
+ok  a path that starts with one (a document that is an array)
 ok  true after a string function (it was written into that one's buffer)
 ok  the heap is the same after 200 calls (the arena is freed each time)
 ok  an object is not an item
 ok  the argument count
 ok  a path that is not a string
 ok  and then JSON$ works again
-ok  an item name over 31
+ok  a key over 63 characters
+ok  a key of 40 is fine (not found)
+ok  an index over 7 digits
+ok  an empty []
+ok  a missing ]
 ok  a string over 255
 ok  nesting deeper than 128
 ok  a cleared long string is empty (its old bytes were parsed)
 ok  and the heap is the same after the errors
-json: 22 of 22 passed
+json: 28 of 28 passed

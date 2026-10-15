@@ -4295,12 +4295,10 @@ static void *json_malloc_hook(size_t sz) {
 static void json_free_hook(void *ptr) { (void)ptr; }               // json_arena_reset() frees the lot
 
 // JSON$(array%(), path$): the item at path$ ("a.b", "list[4].weather[0].description") in the JSON held as a long
-// string in array%().  The PicoMite's, with: the long string copied by its own length (strlen read past its end,
-// and after LONGSTRING CLEAR or RESIZE the old bytes); the result buffer taken before it is written ("true" and
-// "false" went into whatever the last string function left); the path read before the parse, so an error in it
-// cannot leave the arena allocated; every index read (an index after the first was always 0: the ']' before it
-// went into its digits); the argument count, the path's buffers and a string over 255 checked; nesting limited to
-// CJSON_NESTING_LIMIT 128 (CMakeLists.txt), well inside the stack.
+// string in array%().  The PicoMite's (9749c83): the long string copied by its own length, at most the array's
+// room; the result buffer taken before it is written; the path read before the parse, so an error in it cannot
+// leave the arena allocated; a path that starts or ends with an index; the argument count, the path's buffers
+// and a string over 255 checked; nesting limited to CJSON_NESTING_LIMIT 128 (CMakeLists.txt), inside the stack.
 void fun_json(void){
     char *json_string = NULL;
     const cJSON *root = NULL;
@@ -4309,8 +4307,8 @@ void fun_json(void){
     char *p, *a;
     int64_t *dest = NULL, slen, cap;
     MMFLOAT tempd;
-    int i, j, k, mode, index, len;
-    char field[32], num[6];
+    int i, j, k, len;
+    char field[64], num[8];
     getargs(&ep, 3, ",");
     if(argc != 3) error("Argument count");
     sret = GetTempStrMemory();
@@ -4343,42 +4341,34 @@ void fun_json(void){
         error("Invalid JSON data");
     }
     root = parse;
-    memset(field, 0, sizeof(field));
-    memset(num, 0, sizeof(num));
-    i = j = k = mode = 0;
-    while(i < len) {
-        if(p[i] == '[') {                                           // an index: the item named so far is an array
-            mode = 1;
-            field[j] = 0;
-            root = cJSON_GetObjectItemCaseSensitive(root, field);
-            memset(field, 0, sizeof(field));
-            j = 0;
-        }
-        if(p[i] == ']') {
-            num[k] = 0;
-            index = atoi(num);
-            root = cJSON_GetArrayItem(root, index);
-            memset(num, 0, sizeof(num));
+    /* Walk the path: keys separated by '.', each followed by any number of [index], in any order, so a path may
+       start with an index (a document that is an array) or end with one.  A key is matched exactly, except the
+       last one, which is matched regardless of case, as it always was.  A key or an index longer than its buffer,
+       an empty [] or a missing ] is "Invalid JSON path".  (The PicoMite's, 9749c83.) */
+    i = 0;
+    while(i < len && root != NULL) {
+        if(p[i] == '[') {
             k = 0;
+            i++;
+            while(i < len && p[i] != ']') {
+                if(k >= (int)sizeof(num) - 1) { json_arena_reset(); error("Invalid JSON path"); }
+                num[k++] = p[i++];
+            }
+            if(i >= len || k == 0) { json_arena_reset(); error("Invalid JSON path"); }   // no ] or an empty []
+            num[k] = 0;
+            i++;                                                    // past the ]
+            root = cJSON_GetArrayItem(root, atoi(num));
+        } else {
+            if(p[i] == '.') i++;                                    // the separator before a key
+            j = 0;
+            while(i < len && p[i] != '.' && p[i] != '[') {
+                if(j >= (int)sizeof(field) - 1) { json_arena_reset(); error("Invalid JSON path"); }
+                field[j++] = p[i++];
+            }
+            field[j] = 0;
+            if(j) root = (i >= len) ? cJSON_GetObjectItem(root, field) : cJSON_GetObjectItemCaseSensitive(root, field);
         }
-        if(p[i] == '.') {                                           // a new field
-            if(mode == 0) {
-                field[j] = 0;
-                root = cJSON_GetObjectItemCaseSensitive(root, field);
-                memset(field, 0, sizeof(field));
-                j = 0;
-            } else
-                mode = 0;                                           // (the dot after a closing bracket)
-        } else if(mode == 0) {
-            if(j >= (int)sizeof(field) - 1) { json_arena_reset(); error("Item name too long"); }
-            field[j++] = p[i];
-        } else if(p[i] != '[' && p[i] != ']') {                     // (the ']' is not one of the index's digits)
-            if(k >= (int)sizeof(num) - 1) { json_arena_reset(); error("Index too long"); }
-            num[k++] = p[i];
-        }
-        i++;
     }
-    root = cJSON_GetObjectItem(root, field);
 
     if(cJSON_IsObject(root) || cJSON_IsInvalid(root)) {
         json_arena_reset();
