@@ -1,0 +1,16 @@
+[
+ {
+  "name": "bench_micro",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 5.6,
+  "note": ""
+ },
+ {
+  "name": "perfguide",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 37.8,
+  "note": ""
+ }
+]

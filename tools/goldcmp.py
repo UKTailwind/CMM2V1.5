@@ -6,7 +6,7 @@ appeared or vanished.  A step that is not meant to change behaviour must show
 none (except where a program depends on files an earlier one wrote, e.g. rtest
 reads the w1.bmp that wtest writes).
 """
-import os, re, sys
+import json, os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from goldens import norm  # noqa: E402
@@ -25,10 +25,19 @@ for f in sorted(r & n):
     b = norm(open(os.path.join(new, f), encoding="utf-8", errors="replace").read())
     if a != b:
         changed.append(f)
-print("compared %d outputs: %d changed, %d only in reference, %d only in new run"
-      % (len(r & n), len(changed), len(r - n), len(n - r)))
+# Programs the reference run itself saw vary between its two runs (RND, timings), or that ran
+# into the time cap, change from run to run anyway: listed apart, so a real change stands out.
+unstable = set()
+summary = os.path.join(ref, "summary.json")
+if os.path.exists(summary):
+    for row in json.load(open(summary)):
+        if row.get("deterministic") is False or row.get("class") == "TIMEOUT":
+            unstable.add(row["name"])
+real = [f for f in changed if f.rsplit(".", 1)[0] not in unstable]
+print("compared %d outputs: %d changed (%d of them in programs that vary from run to run), %d only in reference, %d only in new run"
+      % (len(r & n), len(changed), len(changed) - len(real), len(r - n), len(n - r)))
 for f in changed:
-    print("  CHANGED", f)
+    print("  CHANGED" if f in real else "  varies ", f)
 for f in sorted(r - n):
     print("  MISSING", f)
 for f in sorted(n - r):

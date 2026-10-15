@@ -1,4 +1,5 @@
-"""goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--put] [--dir A:/g] [--nomodemap]
+"""goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--from NAME] [--put] [--dir A:/g]
+                         [--cap SECONDS] [--nomodemap]
 goldens.py --recompare OUTDIR [--corpus DIR]     re-diff saved outputs against .expected
 goldens.py --reclassify OUTDIR [--corpus DIR]    score saved outputs again from scratch
 
@@ -330,6 +331,8 @@ def main():
         return
     port, outdir = sys.argv[1], sys.argv[2]
     baud = int(arg("--baud", "460800"))
+    global CAP
+    CAP = float(arg("--cap", CAP))                      # seconds a run may take before Ctrl-C (perfguide needs more)
     corpus = arg("--corpus", CORPUS)
     only = arg("--only").split(",") if "--only" in sys.argv else None
     gdir = arg("--dir", "A:/g").rstrip("/")

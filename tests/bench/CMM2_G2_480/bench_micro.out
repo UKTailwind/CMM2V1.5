@@ -1,0 +1,39 @@
+BENCHSTART Colour Maximite 2 G2  6.000007  480 MHz
+BENCH empty_for_loop 0.700 336
+BENCH a%=b% (1-char names) 2.531 1215
+BENCH 30-char name = 30-char name 6.440 3091
+BENCH a%=a%+1 3.431 1647
+BENCH a%=a%+1 + 40-char comment 3.422 1642
+BENCH a%=a%+1 + 40 trailing spaces 3.455 1658
+BENCH s%=(s%+i%) AND 65535 5.178 2485
+BENCH fx=fx*1.000001+0.5 5.489 2635
+BENCH fy=fx (float) 2.657 1275
+BENCH fy=1.23456789 (literal) 3.271 1570
+BENCH fy=K1 (CONST) 2.659 1276
+BENCH y%=arr%(i% AND 1023) 7.103 3410
+BENCH arr%(i% AND 1023)=y% 7.031 3375
+BENCH y%=arr2%(i% AND 31,7) 7.526 3613
+BENCH fy=ABS(fx) 4.641 2228
+BENCH fy=ABS nested 5 deep 10.212 4902
+BENCH fy=SIN(fx) 5.237 2514
+BENCH st$=STR$(i%) 7.383 3544
+BENCH st$=LEFT$(t$,3) 6.763 3246
+BENCH st$=t$+u$ 4.917 2360
+BENCH IF i% AND 1 THEN a%=1 ELSE a%=2 8.683 4168
+BENCH multi-line IF/ELSE/ENDIF (per pass) 7.534 3616
+BENCH SELECT 8 arms, first matches 6.695 3213
+BENCH SELECT 8 arms, last matches 10.844 5205
+BENCH call SUB with no arguments 6.913 3318
+BENCH y%=FUNCTION f%(a%,b%) 22.406 10755
+BENCH call SUB, 6 params + 4 LOCALs 32.850 15768
+BENCH call SUB creating 3 LOCAL arrays 28.462 13662
+BENCH GOSUB/RETURN 2.318 1113
+BENCH [sub] empty_for_loop 0.704 338
+BENCH [sub] la=lb (LOCALs) 2.717 1304
+BENCH [sub] la=b% (global read from a SUB) 2.762 1326
+BENCH [sub] ly=K1 (CONST read from a SUB) 2.843 1365
+BENCH [sub] ly=lx*1.000001+0.5 5.568 2673
+BENCH [sub] ly=SIN(lx) 5.054 2426
+BENCH [sub] la=arr%(li AND 1023) (global array) 7.280 3495
+BENCHEND
+
