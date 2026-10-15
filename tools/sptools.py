@@ -9,9 +9,9 @@ goldens corpus tests the PicoMite's.
 
 The tree is fetched at the commit pinned below (or taken from --src) and kept in A:/sptools,
 where its tools expect to be; only files missing there, or of a different size, are sent
-(--put sends them all), directory by directory over ZMODEM.  Each group (src/splib, src/sptrans,
-...) is run from its own directory with RUN "/sptools/sptest.bas", --catch-errors --verbose,
-which chains through every tst_*.bas below it; the tests write their scratch files in A:/tmp.
+(--put sends them all), directory by directory over ZMODEM.  Every tst_*.bas of each group
+(src/splib, src/sptrans, ...) is run from its own directory with RUN "tst_x.bas", --catch-errors
+--verbose; it runs again by itself with --base=1.  The tests write their scratch files in A:/tmp.
 
 Writes OUTDIR/<group>.out (the console output) and OUTDIR/results.json (file, options and test
 name -> PASS / FAIL / ...).  With --baseline, or --compare, lists every test that passed in the
@@ -40,6 +40,28 @@ def fetch(commit):
         subprocess.run(["git", "clone", "-q", REPO, d], check=True)
     subprocess.run(["git", "-C", d, "checkout", "-q", commit], check=True)
     return d
+
+
+# Local fixes to the pinned commit, each a (file, wrong, right) applied after the checkout.
+PATCHES = [
+    # sys.is_platform%: the G2's entry lacks its closing "|", so a G2 never matches "cmm2*" and the
+    # test runner reruns a file with RUN expr$, args$, which the CMM2 reads as literal text: the
+    # same file again, for ever.  (Reported upstream?  Not yet.)
+    ("src/splib/system.inc", 'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*"\n',
+     'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*|"\n'),
+]
+
+
+def patch(src):
+    for name, wrong, right in PATCHES:
+        p = os.path.join(src, name)
+        t = open(p, encoding="latin-1", newline="").read()
+        nl = "\r\n" if "\r\n" in t else "\n"
+        w, r = wrong.replace("\n", nl), right.replace("\n", nl)
+        if w in t:
+            open(p, "w", encoding="latin-1", newline="").write(t.replace(w, r))
+        elif r not in t:
+            sys.exit("patch for %s does not apply: has the pinned commit changed?" % name)
 
 
 def board_sizes(b, bdir):
@@ -72,18 +94,28 @@ def upload(b, src, force):
     return sent
 
 
-def run_group(b, group, cap):
-    """RUN sptest in the group's directory and collect the console until the prompt comes back."""
+def run_file(b, rel, cap):
+    """RUN one test file from its own directory and collect the console until the prompt comes
+    back.  Each file is run on its own, not through sptest's chain (RUN file, --all): an error
+    outside a test, which --catch-errors cannot catch, ends the program and would lose every file
+    after it.  A file still reruns itself once with --base=1."""
     b.attention()
-    b.cmd('CHDIR "%s/%s"' % (ROOT, group), 10)
+    d, name = rel.rsplit("/", 1)
+    b.cmd('CHDIR "%s/%s"' % (ROOT, d), 10)
     b.drain(0.2)
-    b.send_line('RUN "%s/sptest.bas", --catch-errors --verbose' % ROOT)
+    b.send_line('RUN "%s", --catch-errors --verbose' % name)
     buf, t0, last = "", time.time(), time.time()
+    how = "TIMEOUT"
     while time.time() - t0 < cap:
         t = b._read()
         if t:
             buf += t
             last = time.time()
+            # a file run more than three times with the same options means the chain is going round
+            heads = re.findall(r"(?m)^A:/sptools/\S+\.bas[^\r\n]*", ANSI.sub("", buf), re.I)
+            if heads and max(heads.count(h) for h in set(heads)) > 3:
+                how = "LOOP"
+                break
         elif re.search(r"\n> ?$", ANSI.sub("", buf)) and time.time() - last > 3:
             return ANSI.sub("", buf), "DONE"
         else:
@@ -91,7 +123,7 @@ def run_group(b, group, cap):
     b.s.write(b"\x03")
     time.sleep(0.5)
     b.s.write(b"\x03")
-    return ANSI.sub("", buf + b.drain(1)), "TIMEOUT"
+    return ANSI.sub("", buf + b.drain(1)), how
 
 
 def parse(out, group):
@@ -142,6 +174,7 @@ def main():
     cap = float(arg("--cap", "1800"))
     groups = arg("--only").split(",") if "--only" in sys.argv else GROUPS
     src = arg("--src") or fetch(COMMIT)
+    patch(src)
     os.makedirs(outdir, exist_ok=True)
     b = Board(port, 460800)
     b.attention()
@@ -150,13 +183,23 @@ def main():
     results = {}
     for g in groups:
         t0 = time.time()
-        out, how = run_group(b, g, cap)
-        open(os.path.join(outdir, g.replace("/", "_") + ".out"), "w", encoding="utf-8").write(out)
-        r = parse(out, g)
-        results.update(r)
-        n = sum(len(v) for v in r.values())
-        p = sum(1 for v in r.values() for s in v.values() if s.startswith("PASS"))
-        print("%-16s %s %4.0f s  %d of %d tests pass" % (g, how, time.time() - t0, p, n), flush=True)
+        files = sorted(os.path.relpath(os.path.join(h, f), src).replace("\\", "/")
+                       for h, _, fs in os.walk(os.path.join(src, g)) for f in fs
+                       if f.lower().startswith("tst_") and f.lower().endswith(".bas"))
+        outs, notes = [], []
+        for rel in files:
+            out, how = run_file(b, rel, cap)
+            outs.append(out)
+            r = parse(out, rel)
+            if not any(r.values()) or how != "DONE":
+                notes.append("%s %s" % (rel.rsplit("/", 1)[1], how if how != "DONE" else "no test output"))
+            results.update(r)
+        open(os.path.join(outdir, g.replace("/", "_") + ".out"), "w", encoding="utf-8").write("\n".join(outs))
+        mine = {k: v for k, v in results.items() if k.lower().startswith(g.lower() + "/")}
+        n = sum(len(v) for v in mine.values())
+        p = sum(1 for v in mine.values() for st in v.values() if st.startswith("PASS"))
+        print("%-16s %4.0f s  %d files, %d of %d tests pass%s" % (g, time.time() - t0, len(files), p, n,
+              ("; " + ", ".join(notes)) if notes else ""), flush=True)
     json.dump(results, open(os.path.join(outdir, "results.json"), "w"), indent=1, sort_keys=True)
     b.cmd('CHDIR "A:/"', 10)
     b.close()
