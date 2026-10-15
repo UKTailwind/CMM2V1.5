@@ -376,7 +376,7 @@ extern int TraceBuffIndex;
 // used to store commonly used tokens for faster token checking
 extern char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
 extern CommandToken cmdIF, cmdENDIF, cmdELSEIF, cmdELSE, cmdLOOP, cmdWHILE, cmdFOR, cmdNEXT, cmdENDSUB, cmdLOCAL, cmdSTATIC, cmdENDFUNCTION, cmdDO, cmdSELECT_CASE, cmdCASE, cmdCASE_ELSE, cmdEND_SELECT;
-extern CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET, cmdTYPE, cmdEND_TYPE;
+extern CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET, cmdTYPE, cmdEND_TYPE, cmdSTRUCT;
 
 // void error(char *msg) ;
 void error(char *, ...);

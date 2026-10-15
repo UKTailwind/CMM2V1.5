@@ -26,6 +26,7 @@ provisions:
 #include <string.h>
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "re.h"
 
 // The TYPE table: a GetMemory block for each type, numbered in the order the program defines them (a nested type
 // must be defined before the type that uses it).  PrepareProgram makes it from the program once for a heap, as it
@@ -560,3 +561,1430 @@ char *StructInit(char *p, int sidx, char *data, int n) {
     if(*p != ')') error("Too many initialisation values");
     return p + 1;
 }
+
+
+// STRUCT LOAD: count bytes from the open disk file fnbr (FilePutStr writes); the number read
+static unsigned int StructFileRead(int fnbr, void *buff, int count) {
+    unsigned int nbr = 0;
+    InitSDCard();
+    FSerror = f_read(FileTable[fnbr].fptr, buff, count, &nbr);
+    ErrorCheck(fnbr);
+    return nbr;
+}
+
+// STRUCT command - operations on structure variables
+// Syntax:
+//   STRUCT COPY source TO destination
+//   STRUCT COPY source() TO destination()  - copy entire array
+//   (future: STRUCT PRINT var, STRUCT CLEAR var, etc.)
+void cmd_struct(void)
+{
+	char *p;
+
+	if ((p = checkstring(cmdline, (char *)"COPY")) != NULL)
+	{
+		// STRUCT COPY source TO destination
+		// STRUCT COPY source() TO destination()  - copy entire array
+		char *src_ptr, *dst_ptr;
+		int src_idx, dst_idx, src_struct_type, dst_struct_type;
+		char *tp;
+		int src_is_array = 0, dst_is_array = 0;
+		int src_num_elements = 1, dst_num_elements = 1;
+
+		skipspace(p);
+
+		// Get source variable - V_EMPTY_OK allows empty () for arrays
+		src_ptr = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		src_idx = VarIndex;
+
+		// Check source is a struct (not a member access)
+		if (!(VREC(src_idx)->type & T_STRUCT))
+			error("Source must be a structure variable");
+
+		// For struct arrays, the pointer returned is to the specific element
+		// but we need to verify this is a whole struct, not a member
+		if (g_StructMemberType != 0)
+			error("Cannot copy structure member, use whole structure");
+
+		src_struct_type = (int)VREC(src_idx)->size; // struct type index stored in size field
+
+		// Check if source is an array with empty parentheses (whole array copy)
+		// V_EMPTY_OK returns base pointer when () is empty
+		if (DimIsAllocated(RAW_DIM((*VREC(src_idx)), 0)))
+		{
+			// It's an array - check if empty parentheses were used
+			char *paren = (char *)strchr((char *)p, '(');
+			if (paren)
+			{
+				paren++;
+				skipspace(paren);
+				if (*paren == ')')
+				{
+					// Empty parentheses - whole array copy
+					src_is_array = 1;
+					for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(src_idx)), d)); d++)
+					{
+						src_num_elements *= DimElements(RAW_DIM((*VREC(src_idx)), d));
+					}
+				}
+			}
+		}
+
+		// Skip past the source variable to find TO
+		tp = skipvar(p, false);
+		skipspace(tp);
+
+		// Check for TO keyword (tokenized)
+		if (*tp != tokenTO)
+			error("Expected TO");
+		tp++; // skip TO token
+		skipspace(tp);
+
+		// Get destination variable
+		dst_ptr = findvar(tp, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		dst_idx = VarIndex;
+
+		// Check destination is a struct
+		if (!(VREC(dst_idx)->type & T_STRUCT))
+			error("Destination must be a structure variable");
+
+		if (g_StructMemberType != 0)
+			error("Cannot copy to structure member, use whole structure");
+
+		dst_struct_type = (int)VREC(dst_idx)->size;
+
+		// Check if destination is an array with empty parentheses
+		if (DimIsAllocated(RAW_DIM((*VREC(dst_idx)), 0)))
+		{
+			char *paren = (char *)strchr((char *)tp, '(');
+			if (paren)
+			{
+				paren++;
+				skipspace(paren);
+				if (*paren == ')')
+				{
+					dst_is_array = 1;
+					for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(dst_idx)), d)); d++)
+					{
+						dst_num_elements *= DimElements(RAW_DIM((*VREC(dst_idx)), d));
+					}
+				}
+			}
+		}
+
+		// Validate same struct type
+		if (src_struct_type != dst_struct_type)
+			error("Structure types must match");
+
+		// Validate array copy consistency
+		if (src_is_array != dst_is_array)
+			error("Both source and destination must be arrays or both must be single structs");
+
+		// For array copy, destination must be at least as large as source
+		if (src_is_array && dst_num_elements < src_num_elements)
+			error("Destination array too small");
+
+		// Perform the copy
+		int struct_size = g_structtbl[src_struct_type]->total_size;
+		int copy_size = struct_size * src_num_elements;
+		memcpy(dst_ptr, src_ptr, copy_size);
+	}
+	else if ((p = checkstring(cmdline, (char *)"SORT")) != NULL)
+	{
+		// STRUCT SORT array().membername [, flags]
+		// flags: bit0=reverse, bit1=case insensitive (strings), bit2=empty strings at end (strings)
+		int arr_idx, struct_type;
+		char *tp;
+		int flags = 0;
+		int member_type, member_offset, member_size;
+		int num_elements;
+		int struct_size;
+
+		skipspace(p);
+
+		// Get array variable with member access: array().membername
+		// findvar will resolve the member access and set g_StructMemberType/Offset/Size
+		findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		arr_idx = VarIndex;
+
+		// Check it's a struct array with member access
+		if (!(VREC(arr_idx)->type & T_STRUCT))
+			error("Expected a structure array");
+		if (DimIsScalar(RAW_DIM((*VREC(arr_idx)), 0)))
+			error("Expected a structure array");
+		if (g_StructMemberType == 0)
+			error("Expected structarray().membername syntax");
+
+		// Get member info from globals set by findvar
+		member_type = g_StructMemberType;
+		member_offset = g_StructMemberOffset;
+		member_size = g_StructMemberSize;
+		(void)member_size; // Used for validation, suppress unused warning
+
+		// Member cannot be a nested struct
+		if (member_type == T_STRUCT)
+			error("Cannot sort by nested structure member");
+
+		struct_type = (int)VREC(arr_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+
+		// Calculate number of elements
+		num_elements = 1;
+		for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(arr_idx)), d)); d++)
+		{
+			num_elements *= DimElements(RAW_DIM((*VREC(arr_idx)), d));
+		}
+
+		// Skip past array().membername to find optional flags
+		tp = skipvar(p, false);
+		skipspace(tp);
+
+		// Check for optional flags parameter
+		if (*tp == ',')
+		{
+			tp++;
+			skipspace(tp);
+			flags = (int)getint(tp, 0, 7);
+		}
+
+		// Get pointer to array data
+		char *base_ptr = VREC(arr_idx)->val.s;
+
+		// Allocate temporary buffer for swap
+		char *temp = GetTempMemory(struct_size);
+
+		// Shell sort implementation (efficient for medium arrays, in-place)
+		int gap, i, j;
+		int reverse = flags & 1;
+		int case_insensitive = flags & 2;
+		int empty_at_end = flags & 4;
+
+		for (gap = num_elements / 2; gap > 0; gap /= 2)
+		{
+			for (i = gap; i < num_elements; i++)
+			{
+				memcpy(temp, base_ptr + i * struct_size, struct_size);
+
+				for (j = i; j >= gap; j -= gap)
+				{
+					char *elem_j_gap = base_ptr + (j - gap) * struct_size;
+					char *val_a = elem_j_gap + member_offset;
+					char *val_b = temp + member_offset;
+					int cmp = 0;
+
+					// Compare based on member type
+					if (member_type & T_INT)
+					{
+						long long int a = *(long long int *)val_a;
+						long long int b = *(long long int *)val_b;
+						if (a < b)
+							cmp = -1;
+						else if (a > b)
+							cmp = 1;
+						else
+							cmp = 0;
+					}
+					else if (member_type & T_NBR)
+					{
+						MMFLOAT a = *(MMFLOAT *)val_a;
+						MMFLOAT b = *(MMFLOAT *)val_b;
+						if (a < b)
+							cmp = -1;
+						else if (a > b)
+							cmp = 1;
+						else
+							cmp = 0;
+					}
+					else if (member_type & T_STR)
+					{
+						// MMBasic strings: first byte is length
+						int len_a = *val_a;
+						int len_b = *val_b;
+
+						// Handle empty strings at end option
+						if (empty_at_end)
+						{
+							if (len_a == 0 && len_b != 0)
+							{
+								cmp = 1; // Empty string a goes after b
+							}
+							else if (len_a != 0 && len_b == 0)
+							{
+								cmp = -1; // Non-empty a goes before empty b
+							}
+							else if (len_a == 0 && len_b == 0)
+							{
+								cmp = 0; // Both empty, equal
+							}
+							else
+							{
+								// Both non-empty, compare normally
+								int minlen = (len_a < len_b) ? len_a : len_b;
+								if (case_insensitive)
+								{
+									for (int k = 1; k <= minlen; k++)
+									{
+										int ca = toupper(val_a[k]);
+										int cb = toupper(val_b[k]);
+										if (ca < cb)
+										{
+											cmp = -1;
+											break;
+										}
+										if (ca > cb)
+										{
+											cmp = 1;
+											break;
+										}
+									}
+								}
+								else
+								{
+									for (int k = 1; k <= minlen; k++)
+									{
+										if (val_a[k] < val_b[k])
+										{
+											cmp = -1;
+											break;
+										}
+										if (val_a[k] > val_b[k])
+										{
+											cmp = 1;
+											break;
+										}
+									}
+								}
+								if (cmp == 0)
+								{
+									if (len_a < len_b)
+										cmp = -1;
+									else if (len_a > len_b)
+										cmp = 1;
+								}
+							}
+						}
+						else
+						{
+							// Normal string comparison
+							int minlen = (len_a < len_b) ? len_a : len_b;
+							if (case_insensitive)
+							{
+								for (int k = 1; k <= minlen; k++)
+								{
+									int ca = toupper(val_a[k]);
+									int cb = toupper(val_b[k]);
+									if (ca < cb)
+									{
+										cmp = -1;
+										break;
+									}
+									if (ca > cb)
+									{
+										cmp = 1;
+										break;
+									}
+								}
+							}
+							else
+							{
+								for (int k = 1; k <= minlen; k++)
+								{
+									if (val_a[k] < val_b[k])
+									{
+										cmp = -1;
+										break;
+									}
+									if (val_a[k] > val_b[k])
+									{
+										cmp = 1;
+										break;
+									}
+								}
+							}
+							if (cmp == 0)
+							{
+								if (len_a < len_b)
+									cmp = -1;
+								else if (len_a > len_b)
+									cmp = 1;
+							}
+						}
+					}
+
+					// Apply reverse flag
+					if (reverse)
+						cmp = -cmp;
+
+					// If elem[j-gap] > temp, shift it up
+					if (cmp > 0)
+					{
+						memcpy(base_ptr + j * struct_size, elem_j_gap, struct_size);
+					}
+					else
+					{
+						break;
+					}
+				}
+				memcpy(base_ptr + j * struct_size, temp, struct_size);
+			}
+		}
+	}
+	else if ((p = checkstring(cmdline, (char *)"CLEAR")) != NULL)
+	{
+		// STRUCT CLEAR var or STRUCT CLEAR array()
+		// Resets all members to defaults (0 for numbers, "" for strings)
+		int var_idx, struct_type;
+		char *var_ptr;
+		int struct_size;
+
+		skipspace(p);
+
+		// Get variable - V_EMPTY_OK allows empty () for arrays
+		var_ptr = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		var_idx = VarIndex;
+
+		// Check it's a struct
+		if (!(VREC(var_idx)->type & T_STRUCT))
+			error("Expected a structure variable");
+
+		if (g_StructMemberType != 0)
+			error("Cannot clear a structure member, use whole structure");
+
+		struct_type = (int)VREC(var_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+
+		// Calculate total size if array
+		int num_elements = 1;
+		if (DimIsAllocated(RAW_DIM((*VREC(var_idx)), 0)))
+		{
+			for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(var_idx)), d)); d++)
+			{
+				num_elements *= DimElements(RAW_DIM((*VREC(var_idx)), d));
+			}
+		}
+
+		// Zero the memory
+		memset(var_ptr, 0, struct_size * num_elements);
+	}
+	else if ((p = checkstring(cmdline, (char *)"SWAP")) != NULL)
+	{
+		// STRUCT SWAP var1, var2
+		// Swaps two struct variables (must be same type)
+		char *src_ptr, *dst_ptr;
+		int src_idx, dst_idx;
+		int src_struct_type, dst_struct_type;
+		char *tp;
+
+		skipspace(p);
+
+		// Get first variable
+		src_ptr = findvar(p, V_FIND | V_NOFIND_ERR);
+		src_idx = VarIndex;
+
+		if (!(VREC(src_idx)->type & T_STRUCT))
+			error("First argument must be a structure variable");
+
+		if (g_StructMemberType != 0)
+			error("Cannot swap structure member, use whole structure");
+
+		src_struct_type = (int)VREC(src_idx)->size;
+
+		// Skip past first variable to find comma
+		tp = skipvar(p, false);
+		skipspace(tp);
+
+		if (*tp != ',')
+			error("Expected comma");
+		tp++;
+		skipspace(tp);
+
+		// Get second variable
+		dst_ptr = findvar(tp, V_FIND | V_NOFIND_ERR);
+		dst_idx = VarIndex;
+
+		if (!(VREC(dst_idx)->type & T_STRUCT))
+			error("Second argument must be a structure variable");
+
+		if (g_StructMemberType != 0)
+			error("Cannot swap structure member, use whole structure");
+
+		dst_struct_type = (int)VREC(dst_idx)->size;
+
+		// Validate same struct type
+		if (src_struct_type != dst_struct_type)
+			error("Structure types must match");
+
+		// Perform the swap using temp memory
+		int swap_size = g_structtbl[src_struct_type]->total_size;
+		char *temp = GetTempMemory(swap_size);
+		memcpy(temp, src_ptr, swap_size);
+		memcpy(src_ptr, dst_ptr, swap_size);
+		memcpy(dst_ptr, temp, swap_size);
+	}
+	else if ((p = checkstring(cmdline, (char *)"SAVE")) != NULL)
+	{
+		// STRUCT SAVE #n, var or STRUCT SAVE #n, array() or STRUCT SAVE #n, array(i)
+		// Writes struct data as binary to open file
+		int fnbr;
+		int var_idx, struct_type, struct_size;
+		char *var_ptr;
+
+		skipspace(p);
+
+		// Get file number
+		if (*p != '#')
+			error("Expected #filenumber");
+		p++;
+		fnbr = getinteger(p);
+
+		// Validate file number and that it's a disk file
+		if (fnbr < 1 || fnbr > MAXOPENFILES)
+			error("Invalid file number");
+		if (FileTable[fnbr].com == 0)
+			error("File not open");
+		if (FileTable[fnbr].com <= MAXCOMPORTS)
+			error("Not a disk file");
+
+		// Skip past file number to comma
+		while (*p && *p != ',')
+			p++;
+		if (*p != ',')
+			error("Expected comma");
+		p++;
+		skipspace(p);
+
+		// Save pointer to variable name for parenthesis check
+		char *varname = p;
+
+		// Get variable - V_EMPTY_OK allows empty () for arrays
+		var_ptr = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		var_idx = VarIndex;
+
+		if (!(VREC(var_idx)->type & T_STRUCT))
+			error("Expected a structure variable");
+
+		if (g_StructMemberType != 0)
+			error("Cannot save a structure member, use whole structure");
+
+		struct_type = (int)VREC(var_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+
+		// Determine if it's an array and how to handle it
+		int num_elements = 1;
+		int is_array = DimIsAllocated(RAW_DIM((*VREC(var_idx)), 0));
+
+		if (is_array)
+		{
+			// Check for parentheses
+			char *paren = (char *)strchr((char *)varname, '(');
+			if (!paren)
+				error("Array variable requires () or (index)");
+
+			paren++;
+			skipspace(paren);
+			if (*paren == ')')
+			{
+				// Empty brackets - save entire array
+				for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(var_idx)), d)); d++)
+				{
+					num_elements *= DimElements(RAW_DIM((*VREC(var_idx)), d));
+				}
+			}
+			else
+			{
+				// Has index - findvar already resolved to the correct element
+				// var_ptr points to the specific element, save just one
+				num_elements = 1;
+			}
+		}
+
+		// Write struct data to file
+		FilePutStr(struct_size * num_elements, (char *)var_ptr, fnbr);
+	}
+	else if ((p = checkstring(cmdline, (char *)"LOAD")) != NULL)
+	{
+		// STRUCT LOAD #n, var or STRUCT LOAD #n, array() or STRUCT LOAD #n, array(i)
+		// Reads struct data as binary from open file
+		int fnbr;
+		int var_idx, struct_type, struct_size;
+		char *var_ptr;
+		unsigned int bytes_read;
+
+		skipspace(p);
+
+		// Get file number
+		if (*p != '#')
+			error("Expected #filenumber");
+		p++;
+		fnbr = getinteger(p);
+
+		// Validate file number and that it's a disk file
+		if (fnbr < 1 || fnbr > MAXOPENFILES)
+			error("Invalid file number");
+		if (FileTable[fnbr].com == 0)
+			error("File not open");
+		if (FileTable[fnbr].com <= MAXCOMPORTS)
+			error("Not a disk file");
+
+		// Skip past file number to comma
+		while (*p && *p != ',')
+			p++;
+		if (*p != ',')
+			error("Expected comma");
+		p++;
+		skipspace(p);
+
+		// Save pointer to variable name for parenthesis check
+		char *varname = p;
+
+		// Get variable - V_EMPTY_OK allows empty () for arrays
+		var_ptr = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		var_idx = VarIndex;
+
+		if (!(VREC(var_idx)->type & T_STRUCT))
+			error("Expected a structure variable");
+
+		if (g_StructMemberType != 0)
+			error("Cannot load into a structure member, use whole structure");
+
+		struct_type = (int)VREC(var_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+
+		// Determine if it's an array and how to handle it
+		int num_elements = 1;
+		int is_array = DimIsAllocated(RAW_DIM((*VREC(var_idx)), 0));
+
+		if (is_array)
+		{
+			// Check for parentheses
+			char *paren = (char *)strchr((char *)varname, '(');
+			if (!paren)
+				error("Array variable requires () or (index)");
+
+			paren++;
+			skipspace(paren);
+			if (*paren == ')')
+			{
+				// Empty brackets - load entire array
+				for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(var_idx)), d)); d++)
+				{
+					num_elements *= DimElements(RAW_DIM((*VREC(var_idx)), d));
+				}
+			}
+			else
+			{
+				// Has index - findvar already resolved to the correct element
+				// var_ptr points to the specific element, load just one
+				num_elements = 1;
+			}
+		}
+
+		// Read struct data from file
+		bytes_read = StructFileRead(fnbr, var_ptr, struct_size * num_elements);
+		if(bytes_read != struct_size * num_elements) error("Not enough data in the file");   // (a structure left part loaded)
+	}
+	else if ((p = checkstring(cmdline, (char *)"PRINT")) != NULL)
+	{
+		// STRUCT PRINT var or STRUCT PRINT array() or STRUCT PRINT array(n)
+		// Prints all members of a structure for debugging
+		int var_idx, struct_type, struct_size;
+		char *var_ptr;
+		struct s_structdef *sd;
+
+		skipspace(p);
+
+		// Get variable - V_EMPTY_OK allows empty () for arrays
+		var_ptr = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		var_idx = VarIndex;
+
+		if (!(VREC(var_idx)->type & T_STRUCT))
+			error("Expected a structure variable");
+
+		if (g_StructMemberType != 0)
+			error("Cannot print a structure member, use whole structure");
+
+		struct_type = (int)VREC(var_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+		sd = g_structtbl[struct_type];
+
+		// Calculate number of elements to print
+		int num_elements = 1;
+		int is_array = DimIsAllocated(RAW_DIM((*VREC(var_idx)), 0));
+		int single_element = 0;
+
+		// Check if this is an indexed array access (e.g., arr(2)) vs whole array (arr())
+		// If findvar resolved to a specific element, var_ptr points to that element
+		// We detect this by checking if parentheses contain a value
+		char *paren = (char *)strchr((char *)p, '(');
+		if (paren && is_array)
+		{
+			paren++;
+			skipspace(paren);
+			if (*paren != ')')
+			{
+				// Has an index - print single element
+				single_element = 1;
+				num_elements = 1;
+			}
+		}
+
+		if (is_array && !single_element)
+		{
+			for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(var_idx)), d)); d++)
+			{
+				num_elements *= DimElements(RAW_DIM((*VREC(var_idx)), d));
+			}
+		}
+
+		// Print structure type name
+		MMPrintString((char *)sd->name);
+		if (is_array && !single_element)
+		{
+			char buf[32];
+			sprintf(buf, " array (%d elements):\r\n", num_elements);
+			MMPrintString(buf);
+		}
+		else if (single_element)
+		{
+			MMPrintString(":\r\n");
+		}
+		else
+		{
+			MMPrintString(":\r\n");
+		}
+
+		// Print each element
+		for (int elem = 0; elem < num_elements; elem++)
+		{
+			char *elem_ptr = var_ptr + (elem * struct_size);
+
+			if (is_array && !single_element)
+			{
+				char buf[32];
+				sprintf(buf, "[%d]:\r\n", elem + OptionBase);
+				MMPrintString(buf);
+			}
+
+			// Print each member
+			for (int m = 0; m < sd->num_members; m++)
+			{
+				struct s_structmember *sm = &sd->members[m];
+				char *member_ptr = elem_ptr + sm->offset;
+				char buf[STRINGSIZE];
+
+				// Calculate array elements for this member
+				int member_elements = 1;
+				for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM(*sm, d)); d++)
+				{
+					member_elements *= DimElements(RAW_DIM(*sm, d));
+				}
+
+				if (sm->type == T_STRUCT)
+				{
+					// Nested structure - print recursively with indentation
+					struct s_structdef *nested_sd = g_structtbl[sm->size];
+					sprintf(buf, "  .%s = %s:\r\n", sm->name, nested_sd->name);
+					MMPrintString(buf);
+
+					// Print nested members with extra indent
+					for (int nm = 0; nm < nested_sd->num_members; nm++)
+					{
+						struct s_structmember *nsm = &nested_sd->members[nm];
+						char *nested_ptr = member_ptr + nsm->offset;
+
+						sprintf(buf, "    .%s = ", nsm->name);
+						MMPrintString(buf);
+
+						if (nsm->type == T_INT)
+						{
+							long long int val = *(long long int *)nested_ptr;
+							IntToStr(buf, val, 10);                         // (newlib nano has no %lld: it printed "ld")
+							MMPrintString(buf);
+						}
+						else if (nsm->type == T_NBR)
+						{
+							MMFLOAT val = *(MMFLOAT *)nested_ptr;
+							FloatToStr(buf, val, 0, STR_AUTO_PRECISION, ' '); // pico printf %g is broken; use MMBasic's formatter
+							MMPrintString(buf);								  // FloatToStr emits '-' for negatives and no leading char for positives
+						}
+						else if (nsm->type == T_STR)
+						{
+							MMPrintString("\"");
+							int len = *nested_ptr;
+							for (int c = 0; c < len; c++)
+							{
+								char ch[2] = {nested_ptr[c + 1], 0};
+								MMPrintString(ch);
+							}
+							MMPrintString("\"");
+						}
+						else if (nsm->type == T_STRUCT)
+						{
+							MMPrintString("(nested struct - use deeper access)");
+						}
+						MMPrintString("\r\n");
+					}
+				}
+				else if (member_elements == 1)
+				{
+					// Simple member (not an array)
+					sprintf(buf, "  .%s = ", sm->name);
+					MMPrintString(buf);
+
+					if (sm->type == T_INT)
+					{
+						long long int val = *(long long int *)member_ptr;
+						IntToStr(buf, val, 10);                         // (newlib nano has no %lld: it printed "ld")
+						MMPrintString(buf);
+					}
+					else if (sm->type == T_NBR)
+					{
+						MMFLOAT val = *(MMFLOAT *)member_ptr;
+						FloatToStr(buf, val, 0, STR_AUTO_PRECISION, ' '); // pico printf %g is broken; use MMBasic's formatter
+						MMPrintString(buf);								  // FloatToStr emits '-' for negatives and no leading char for positives
+					}
+					else if (sm->type == T_STR)
+					{
+						MMPrintString("\"");
+						// String: first byte is length
+						int len = *member_ptr;
+						for (int c = 0; c < len; c++)
+						{
+							char ch[2] = {member_ptr[c + 1], 0};
+							MMPrintString(ch);
+						}
+						MMPrintString("\"");
+					}
+					MMPrintString("\r\n");
+				}
+				else
+				{
+					// Array member
+					sprintf(buf, "  .%s() = ", sm->name);
+					MMPrintString(buf);
+
+					int elem_size;
+					if (sm->type == T_STR)
+						elem_size = sm->size + 1; // +1 for length byte
+					else
+						elem_size = sm->size;
+
+					for (int ai = 0; ai < member_elements; ai++)
+					{
+						char *arr_ptr = member_ptr + (ai * elem_size);
+
+						if (ai > 0)
+							MMPrintString(", ");
+
+						if (sm->type == T_INT)
+						{
+							long long int val = *(long long int *)arr_ptr;
+							IntToStr(buf, val, 10);                         // (newlib nano has no %lld: it printed "ld")
+							MMPrintString(buf);
+						}
+						else if (sm->type == T_NBR)
+						{
+							MMFLOAT val = *(MMFLOAT *)arr_ptr;
+							FloatToStr(buf, val, 0, STR_AUTO_PRECISION, ' '); // pico printf %g is broken; use MMBasic's formatter
+							MMPrintString(buf);								  // FloatToStr emits '-' for negatives and no leading char for positives
+						}
+						else if (sm->type == T_STR)
+						{
+							MMPrintString("\"");
+							int len = *arr_ptr;
+							for (int c = 0; c < len; c++)
+							{
+								char ch[2] = {arr_ptr[c + 1], 0};
+								MMPrintString(ch);
+							}
+							MMPrintString("\"");
+						}
+					}
+					MMPrintString("\r\n");
+				}
+			}
+		}
+	}
+	else if ((p = checkstring(cmdline, (char *)"EXTRACT")) != NULL)
+	{
+		// STRUCT EXTRACT structarray().membername, destarray()
+		// Extracts a single member from each structure in an array into a simple array
+		// This allows structure data to be used with commands that expect contiguous arrays
+		// (e.g., LINE PLOT, MATH commands)
+		int src_idx, dst_idx, struct_type, struct_size;
+		char *tp;
+		int member_type, member_offset, member_size;
+		int src_num_elements, dst_num_elements;
+		char *src_base, *dst_base;
+
+		skipspace(p);
+
+		// Get source struct array with member access: structarray().membername
+		// findvar will resolve the member access and set g_StructMemberType/Offset/Size
+		findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		src_idx = VarIndex;
+
+		// Check it's a struct array with member access
+		if (!(VREC(src_idx)->type & T_STRUCT))
+			error("Expected a structure array");
+		if (DimIsScalar(RAW_DIM((*VREC(src_idx)), 0)))
+			error("Expected a structure array, not a single structure");
+		if (!DimIsEnd(RAW_DIM((*VREC(src_idx)), 1)))
+			error("Only 1-dimensional structure arrays are supported");
+		if (g_StructMemberType == 0)
+			error("Expected structarray().membername syntax");
+
+		// Get member info from globals set by findvar
+		member_type = g_StructMemberType;
+		member_offset = g_StructMemberOffset;
+		member_size = g_StructMemberSize;
+
+		// Member cannot be a nested struct
+		if (member_type == T_STRUCT)
+			error("Cannot extract nested structure member");
+
+		struct_type = (int)VREC(src_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+
+		// Calculate number of source elements
+		src_num_elements = DimElements(RAW_DIM((*VREC(src_idx)), 0));
+		src_base = VREC(src_idx)->val.s;
+
+		// Skip past structarray().membername to find the comma
+		tp = skipvar(p, false);
+		skipspace(tp);
+
+		if (*tp != ',')
+			error("Expected comma and destination array");
+		tp++;
+		skipspace(tp);
+
+		// Get destination array with empty ()
+		dst_base = findvar(tp, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		dst_idx = VarIndex;
+
+		// Check destination is a simple array (not struct)
+		if (VREC(dst_idx)->type & T_STRUCT)
+			error("Destination must be a simple array, not a structure");
+		if (DimIsScalar(RAW_DIM((*VREC(dst_idx)), 0)))
+			error("Destination must be an array");
+		if (!DimIsEnd(RAW_DIM((*VREC(dst_idx)), 1)))
+			error("Destination must be a 1-dimensional array");
+
+		// Calculate destination array size
+		dst_num_elements = DimElements(RAW_DIM((*VREC(dst_idx)), 0));
+
+		// Check cardinality matches
+		if (dst_num_elements != src_num_elements)
+			error("Arrays must have the same size (source=%, dest=%)", src_num_elements, dst_num_elements);
+
+		// Check types match
+		int dst_type = VREC(dst_idx)->type & (T_INT | T_NBR | T_STR);
+		if (dst_type != member_type)
+			error("Type mismatch: structure member and destination array must have same type");
+
+		// For strings, check length matches
+		if (member_type == T_STR)
+		{
+			int dst_str_size = VREC(dst_idx)->size; // max string length for dest array
+			if (dst_str_size != member_size)
+				error("String length mismatch: member length=%, array length=%", member_size, dst_str_size);
+		}
+
+		// Perform the extraction
+		if (member_type == T_INT)
+		{
+			long long int *dst = (long long int *)dst_base;
+			for (int i = 0; i < src_num_elements; i++)
+			{
+				char *src_elem = src_base + (i * struct_size) + member_offset;
+				dst[i] = *(long long int *)src_elem;
+			}
+		}
+		else if (member_type == T_NBR)
+		{
+			MMFLOAT *dst = (MMFLOAT *)dst_base;
+			for (int i = 0; i < src_num_elements; i++)
+			{
+				char *src_elem = src_base + (i * struct_size) + member_offset;
+				dst[i] = *(MMFLOAT *)src_elem;
+			}
+		}
+		else if (member_type == T_STR)
+		{
+			int str_size = member_size + 1; // +1 for length byte
+			for (int i = 0; i < src_num_elements; i++)
+			{
+				char *src_elem = src_base + (i * struct_size) + member_offset;
+				char *dst_elem = dst_base + (i * str_size);
+				memcpy(dst_elem, src_elem, str_size);
+			}
+		}
+	}
+	else if ((p = checkstring(cmdline, (char *)"INSERT")) != NULL)
+	{
+		// STRUCT INSERT srcarray(), structarray().membername
+		// Inserts values from a simple array into the specified member of each structure element
+		// This is the reverse of STRUCT EXTRACT
+		int src_idx, dst_idx, struct_type, struct_size;
+		char *tp;
+		int member_type, member_offset, member_size;
+		int src_num_elements, dst_num_elements;
+		char *src_base, *dst_base;
+
+		skipspace(p);
+
+		// Get source simple array variable with empty ()
+		src_base = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		src_idx = VarIndex;
+
+		// Check source is a simple array (not struct)
+		if (VREC(src_idx)->type & T_STRUCT)
+			error("Source must be a simple array, not a structure");
+		if (DimIsScalar(RAW_DIM((*VREC(src_idx)), 0)))
+			error("Source must be an array");
+		if (!DimIsEnd(RAW_DIM((*VREC(src_idx)), 1)))
+			error("Source must be a 1-dimensional array");
+
+		// Calculate source array size
+		src_num_elements = DimElements(RAW_DIM((*VREC(src_idx)), 0));
+		int src_type = VREC(src_idx)->type & (T_INT | T_NBR | T_STR);
+		int src_str_size = VREC(src_idx)->size; // for strings
+
+		// Skip past source array to find comma
+		tp = skipvar(p, false);
+		skipspace(tp);
+
+		if (*tp != ',')
+			error("Expected comma after source array");
+		tp++;
+		skipspace(tp);
+
+		// Get destination struct array with member access: structarray().membername
+		// findvar will resolve the member access and set g_StructMemberType/Offset/Size
+		dst_base = findvar(tp, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		dst_idx = VarIndex;
+
+		// Check it's a struct array with member access
+		if (!(VREC(dst_idx)->type & T_STRUCT))
+			error("Expected a structure array");
+		if (DimIsScalar(RAW_DIM((*VREC(dst_idx)), 0)))
+			error("Expected a structure array, not a single structure");
+		if (!DimIsEnd(RAW_DIM((*VREC(dst_idx)), 1)))
+			error("Only 1-dimensional structure arrays are supported");
+		if (g_StructMemberType == 0)
+			error("Expected structarray().membername syntax");
+
+		// Get member info from globals set by findvar
+		member_type = g_StructMemberType;
+		member_offset = g_StructMemberOffset;
+		member_size = g_StructMemberSize;
+
+		// Member cannot be a nested struct
+		if (member_type == T_STRUCT)
+			error("Cannot insert into nested structure member");
+
+		struct_type = (int)VREC(dst_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+
+		// Calculate number of destination elements
+		dst_num_elements = DimElements(RAW_DIM((*VREC(dst_idx)), 0));
+
+		// Use dst_base from the struct variable, not from member resolution
+		dst_base = VREC(dst_idx)->val.s;
+
+		// Check cardinality matches
+		if (src_num_elements != dst_num_elements)
+			error("Arrays must have the same size (source=%, dest=%)", src_num_elements, dst_num_elements);
+
+		// Check types match
+		if (src_type != member_type)
+			error("Type mismatch: source array and structure member must have same type");
+
+		// For strings, check length matches
+		if (member_type == T_STR)
+		{
+			if (src_str_size != member_size)
+				error("String length mismatch: array length=%, member length=%", src_str_size, member_size);
+		}
+
+		// Perform the insertion
+		if (member_type == T_INT)
+		{
+			long long int *src = (long long int *)src_base;
+			for (int i = 0; i < dst_num_elements; i++)
+			{
+				char *dst_elem = dst_base + (i * struct_size) + member_offset;
+				*(long long int *)dst_elem = src[i];
+			}
+		}
+		else if (member_type == T_NBR)
+		{
+			MMFLOAT *src = (MMFLOAT *)src_base;
+			for (int i = 0; i < dst_num_elements; i++)
+			{
+				char *dst_elem = dst_base + (i * struct_size) + member_offset;
+				*(MMFLOAT *)dst_elem = src[i];
+			}
+		}
+		else if (member_type == T_STR)
+		{
+			int str_size = member_size + 1; // +1 for length byte
+			for (int i = 0; i < dst_num_elements; i++)
+			{
+				char *src_elem = src_base + (i * str_size);
+				char *dst_elem = dst_base + (i * struct_size) + member_offset;
+				memcpy(dst_elem, src_elem, str_size);
+			}
+		}
+	}
+	else
+	{
+		error("Unknown STRUCT subcommand");
+	}
+}
+
+
+// STRUCT(FIND array(), membername$, value [, start])
+// General structure function with subfunctions
+// FIND: Searches a struct array for an element where the specified member equals the value
+//       Returns the index of the first match (starting from 'start'), or -1 if not found
+//       Optional 'start' parameter allows iteration through multiple matches
+void fun_struct(void)
+{
+	char *p;
+
+	// Check for FIND subfunction: STRUCT(FIND array().member, value [, start] [, size])
+	// argc==3: array().member, value (simple match)
+	// argc==5: array().member, value, start (simple match with start index)
+	// argc==7: array().member, value [, start], size (regex match, start optional)
+	if ((p = checkstring(ep, (char *)"FIND")) != NULL)
+	{
+		char *member_base;
+		int var_idx, struct_type, struct_size;
+		int member_type, member_offset, member_size;
+		int num_elements, i, start_idx;
+		int use_regex = 0;
+		void *size_var = NULL;
+		int64_t *size_var_int = NULL;
+		MMFLOAT *size_var_float = NULL;
+
+		// Parse remaining arguments: array().member, value [, start] [, size]
+		getargs(&p, 7, ","); // array().member, value [, start] [, size] = up to 7 tokens
+		if (argc != 3 && argc != 5 && argc != 7)
+			error("Syntax: STRUCT(FIND array().member, value [, start] [, size])");
+
+		// Determine if regex mode (argc==7 means regex with size variable)
+		if (argc == 7)
+		{
+			use_regex = 1;
+		}
+
+		// Get the struct array member variable (argv[0])
+		// This uses findvar which will populate g_StructMemberOffset and g_StructMemberSize
+		member_base = findvar(argv[0], V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		var_idx = VarIndex;
+
+		if (!(VREC(var_idx)->type & T_STRUCT))
+			error("Expected a structure array");
+
+		if (DimIsScalar(RAW_DIM((*VREC(var_idx)), 0)))
+			error("Expected an array of structures");
+
+		// Check that a member was specified (findvar sets g_StructMemberOffset)
+		if (g_StructMemberOffset < 0)
+			error("Must specify a member (e.g., array().membername)");
+
+		struct_type = (int)VREC(var_idx)->size;
+		struct_size = g_structtbl[struct_type]->total_size;
+		member_offset = g_StructMemberOffset;
+		member_size = g_StructMemberSize;
+
+		// Get array base pointer (member_base points to member in element 0)
+		char *array_base = member_base - member_offset;
+
+		// Calculate number of elements
+		num_elements = 1;
+		for (int d = 0; d < MAXDIM && !DimIsEnd(RAW_DIM((*VREC(var_idx)), d)); d++)
+		{
+			num_elements *= DimElements(RAW_DIM((*VREC(var_idx)), d));
+		}
+
+		// Determine member type from member_size and structure definition
+		// member_size > 8 means string (includes length byte)
+		if (member_size > 8)
+		{
+			member_type = T_STR;
+		}
+		else
+		{
+			// Check if the member is integer or float by looking at the structure definition
+			struct s_structdef *sd = g_structtbl[struct_type];
+			member_type = T_NBR; // default
+			for (int m = 0; m < sd->num_members; m++)
+			{
+				if (sd->members[m].offset == member_offset)
+				{
+					member_type = sd->members[m].type & (T_INT | T_NBR | T_STR);
+					break;
+				}
+			}
+		}
+
+		// Get search value and determine its type (argv[2])
+		MMFLOAT f;
+		long long int i64;
+		char *s = NULL;
+		int t = T_NOTYPE;
+		evaluate(argv[2], &f, &i64, &s, &t, false);
+
+		// Get optional start index (argv[4] if provided and non-empty)
+		// For regex mode (argc==7): start is in argv[4] (optional), size var is in argv[6]
+		// For simple mode (argc==5): start is in argv[4]
+		start_idx = 0;
+		if (argc >= 5 && *argv[4])
+		{
+			start_idx = getint(argv[4], OptionBase, OptionBase + num_elements) - OptionBase;
+			// If start is past end of array, return -1 immediately
+			if (start_idx >= num_elements)
+			{
+				targ = T_INT;
+				iret = -1;
+				return;
+			}
+		}
+
+		// For regex mode, get the size variable (argv[6])
+		if (use_regex)
+		{
+			if (member_type != T_STR)
+				error("Regex search only works with string members");
+			if (!(t & T_STR))
+				error("Regex pattern must be a string");
+
+			int size_vtype;
+			size_var = findvar(argv[6], V_FIND);
+			size_vtype = VREC(VarIndex)->type;
+			if (g_StructMemberType != 0)
+				size_vtype = g_StructMemberType;
+			if (!(size_vtype & (T_NBR | T_INT)))
+				error("Size variable must be numeric");
+			if (size_vtype & T_INT)
+				size_var_int = size_var;
+			else
+				size_var_float = size_var;
+		}
+
+		// Search the array starting from start_idx
+		targ = T_INT;
+		for (i = start_idx; i < num_elements; i++)
+		{
+			char *elem_ptr = array_base + (i * struct_size);
+			char *member_ptr = elem_ptr + member_offset;
+
+			if (member_type == T_INT)
+			{
+				long long int val = *(long long int *)member_ptr;
+				long long int search_val = 0;
+				if (t & T_INT)
+					search_val = i64;
+				else if (t & T_NBR)
+					search_val = (long long int)f;
+				else
+					error("Type mismatch: expected numeric value");
+
+				if (val == search_val)
+				{
+					iret = i + OptionBase;
+					return;
+				}
+			}
+			else if (member_type == T_NBR)
+			{
+				MMFLOAT val = *(MMFLOAT *)member_ptr;
+				MMFLOAT search_val = 0;
+				if (t & T_NBR)
+					search_val = f;
+				else if (t & T_INT)
+					search_val = (MMFLOAT)i64;
+				else
+					error("Type mismatch: expected numeric value");
+
+				if (val == search_val)
+				{
+					iret = i + OptionBase;
+					return;
+				}
+			}
+			else if (member_type == T_STR)
+			{
+				char *val = member_ptr; // Points to length byte
+
+				if (use_regex)
+				{
+					// Regex search mode
+					int match_length;
+					char *text_cstr = GetTempMemory(STRINGSIZE);
+					char *pattern_cstr = GetTempMemory(STRINGSIZE);
+
+					// Convert MMBasic string to C string
+					memcpy(text_cstr, val + 1, *val);
+					text_cstr[(unsigned char)*val] = '\0';
+
+					// Convert pattern (s is MMBasic string)
+					memcpy(pattern_cstr, s + 1, *s);
+					pattern_cstr[(unsigned char)*s] = '\0';
+
+					int tmp = OptionEscape;
+					OptionEscape = 0;
+					int match_idx = re_match(pattern_cstr, text_cstr, &match_length);
+					OptionEscape = tmp;
+
+					if (match_idx != -1)
+					{
+						// Found a match - update size variable with match length
+						if (size_var_float)
+							*size_var_float = (MMFLOAT)match_length;
+						else
+							*size_var_int = (int64_t)match_length;
+						iret = i + OptionBase;
+						return;
+					}
+				}
+				else
+				{
+					// Simple string match
+					if (!(t & T_STR))
+						error("Type mismatch: expected string value");
+
+					// Compare strings (MMBasic string format: first byte is length)
+					if (*val == *s && memcmp(val + 1, s + 1, *s) == 0)
+					{
+						iret = i + OptionBase;
+						return;
+					}
+				}
+			}
+		}
+
+		// Not found - set size to 0 for regex mode
+		if (use_regex)
+		{
+			if (size_var_float)
+				*size_var_float = 0.0;
+			else
+				*size_var_int = 0;
+		}
+		iret = -1;
+		return;
+	}
+
+	// Check for OFFSET subfunction: STRUCT(OFFSET typename$, element$)
+	if ((p = checkstring(ep, (char *)"OFFSET")) != NULL)
+	{
+		char *typename_str, *element_str;
+		int i, member_type, member_offset, member_size;
+
+		// Parse remaining arguments: typename$, element$
+		getargs(&p, 3, ","); // typename$, element$ = 3 tokens
+		if (argc != 3)
+			error("Syntax: STRUCT(OFFSET typename$, element$)");
+
+		// Get the structure type name (argv[0])
+		typename_str = getstring(argv[0]);
+
+		// Get the element/member name (argv[2])
+		element_str = getstring(argv[2]);
+
+		// Search for the structure type by name
+		for (i = 0; i < g_structcnt; i++)
+		{
+			if (g_structtbl[i] != NULL &&
+				strlen((char *)g_structtbl[i]->name) == *typename_str &&
+				strncasecmp((char *)g_structtbl[i]->name, (char *)(typename_str + 1), *typename_str) == 0)
+			{
+				// Found the structure type, now find the member
+				int member_idx = FindStructMember(i, element_str + 1, &member_type, &member_offset, &member_size, NULL);
+				if (member_idx < 0)
+					error("Member not found in structure");
+				targ = T_INT;
+				iret = member_offset;
+				return;
+			}
+		}
+
+		error("Structure type not found");
+	}
+
+	// Check for SIZEOF subfunction: STRUCT(SIZEOF typename$)
+	if ((p = checkstring(ep, (char *)"SIZEOF")) != NULL)
+	{
+		char *typename_str;
+		int i;
+
+		// Parse remaining argument: typename$
+		getargs(&p, 1, ","); // typename$ = 1 token
+		if (argc != 1)
+			error("Syntax: STRUCT(SIZEOF typename$)");
+
+		// Get the structure type name (argv[0])
+		typename_str = getstring(argv[0]);
+
+		// Search for the structure type by name
+		for (i = 0; i < g_structcnt; i++)
+		{
+			if (g_structtbl[i] != NULL &&
+				strlen((char *)g_structtbl[i]->name) == *typename_str &&
+				strncasecmp((char *)g_structtbl[i]->name, (char *)(typename_str + 1), *typename_str) == 0)
+			{
+				targ = T_INT;
+				iret = g_structtbl[i]->total_size;
+				return;
+			}
+		}
+
+		error("Structure type not found");
+	}
+
+	// Check for TYPE subfunction: STRUCT(TYPE typename$, element$)
+	// Returns T_INT, T_NBR or T_STR for the base type of the element
+	if ((p = checkstring(ep, (char *)"TYPE")) != NULL)
+	{
+		char *typename_str, *element_str;
+		int i, member_type, member_offset, member_size;
+
+		// Parse remaining arguments: typename$, element$
+		getargs(&p, 3, ","); // typename$, element$ = 3 tokens
+		if (argc != 3)
+			error("Syntax: STRUCT(TYPE typename$, element$)");
+
+		// Get the structure type name (argv[0])
+		typename_str = getstring(argv[0]);
+
+		// Get the element/member name (argv[2])
+		element_str = getstring(argv[2]);
+
+		// Search for the structure type by name
+		for (i = 0; i < g_structcnt; i++)
+		{
+			if (g_structtbl[i] != NULL &&
+				strlen((char *)g_structtbl[i]->name) == *typename_str &&
+				strncasecmp((char *)g_structtbl[i]->name, (char *)(typename_str + 1), *typename_str) == 0)
+			{
+				// Found the structure type, now find the member
+				int member_idx = FindStructMember(i, element_str + 1, &member_type, &member_offset, &member_size, NULL);
+				if (member_idx < 0)
+					error("Member not found in structure");
+				targ = T_INT;
+				// Return only the base type (T_INT, T_NBR or T_STR)
+				iret = member_type & (T_INT | T_NBR | T_STR);
+				return;
+			}
+		}
+
+		error("Structure type not found");
+	}
+
+	error("Unknown STRUCT subfunction");
+}
+

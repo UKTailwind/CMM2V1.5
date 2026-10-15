@@ -81,6 +81,8 @@ void cmd_const(void);
 void cmd_type(void);
 void cmd_endtype(void);
 void fun_GPS(void);
+void cmd_struct(void);
+void fun_struct(void);
 void cmd_select(void);
 void cmd_case(void);
 void cmd_mid(void);
@@ -438,6 +440,7 @@ void op_inv(void);
 	{ "Type",	        T_CMD,				0, cmd_type	},
 	{ "End Type",	    T_CMD,				0, cmd_endtype	},
 	{ "Var",	    	T_CMD,				0, cmd_var	},                     // VAR SAVE/RESTORE/CLEAR (flash.c: the backup SRAM); its entry in Flash.h was never in this table
+	{ "Struct",	    T_CMD,				0, cmd_struct	},
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
@@ -576,6 +579,7 @@ void op_inv(void);
 	{ "~(",	    T_FUN | T_INT | T_NBR | T_STR ,		0, fun_tilde },
 	{ "Trim$(",            T_FUN | T_STR,		0, fun_trim        },
 	{ "GPS(",	    T_FUN | T_NBR | T_INT| T_STR,		0, fun_GPS	},       // its entry in GPS.h was never in this table
+	{ "Struct(",	    T_FUN | T_INT,		0, fun_struct	},
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
