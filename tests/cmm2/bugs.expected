@@ -1,0 +1,43 @@
+ok  MAX of two below -3.4e38
+ok  MIN of two above 3.4e38
+ok  MAX of one value
+ok  1^4000000000 is quick
+ok  1^4000000000
+ok  3^40 wraps as before
+ok  (-2)^63
+ok  0^0
+ok  2^10
+ok  ABS(-1e19)
+ok  ABS(-5)
+ok  a(4294967297) is out of bounds, not a(1)
+ok  STR$ of +infinity
+ok  STR$ of -infinity
+ok  STR$ of NaN
+ok  INT(NaN) is an error
+ok  INT(1e30) is an error
+ok  FIX(-1e30) is an error
+ok  2^63 into an integer is an error
+ok  INT(-7.5)
+ok  FIX(-7.5)
+ok  DATA &h10
+ok  DATA &hff
+ok  a FUNCTION called as a statement does not run
+ok  and is an error
+ok  a SUB in an expression does not run
+ok  CALL() runs a FUNCTION
+ok  CALL with a 251-character name is refused
+ok  one-letter SUB alone on a line ran
+ok  and the next line ran
+ok  STATIC after a call to another SUB
+ok  STATIC after a FUNCTION call
+ok  STATIC in a SUB that an interrupt SUB calls
+ok  GOSUB a label that shares a SUB's name, then the SUB
+ok  RESTORE to a label that shares a SUB's name
+ok  GOTO a name that is only a SUB is an error
+ok  GOSUB a 32-character label
+ok  VARCNT after CLEAR VARS of one array
+ok  VARCNT in a SUB with two LOCALs
+ok  VARCNT after the SUB returned
+ok  50 skipped errors in arguments leave the heap as it was
+ok  and the FUNCTIONs still work
+bugs: 42 of 42 passed
