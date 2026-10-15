@@ -32,10 +32,6 @@ provisions:
 #include "ff.h"
 #include "dma2d.h"
 #include "ltdc.h"
-	#include "usbh_core.h"
-	#include "usbh_hid.h"
-	#include "usbh_hid_parser.h"
-	#include "usb_host.h"
     // global variables
     extern int MMCharPos;
     extern char *InterruptReturn;

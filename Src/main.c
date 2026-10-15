@@ -20,7 +20,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_host.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -275,7 +274,6 @@ static void MX_JPEG_Init(void);
 static void MX_LTDC_Init(void);
 static void MX_FDCAN1_Init(void);   //CAN added
 //static void MX_DMA2D_Init(void);
-void MX_USB_HOST_Process(void);
 static int getVersion(void);
 //static uint32_t TimeoutCalculation(uint32_t timevalue);
 /* USER CODE BEGIN PFP */
@@ -570,7 +568,6 @@ if(_excep_code == RESTART_BOOT0){
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
-  MX_USB_HOST_Init();
   MX_DAC1_Init();
   MX_FMC_Init();
   MX_I2C1_Init();
@@ -668,15 +665,7 @@ InitBasic();
 InitFileIO();
 BasicRunning = true;
 if(Option.USBKeyboard != NO_KEYBOARD){
-  clearrepeat();
-  MX_USB_HOST_Init();
-  HID_MenuInit();
-  i=20;
-  while(i--){
-		HID_MenuProcess();
-		MX_USB_HOST_Process();
-		HAL_Delay(Option.USBPolling);
-  }
+  USBKeyboardInit();                                          // TinyUSB host: devices enumerate from routinechecks()
 }
 _excep_keys=10;
 HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
@@ -1017,7 +1006,6 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
       mymemset(inpbuf,0,STRINGSIZE);
   }
     /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
     {

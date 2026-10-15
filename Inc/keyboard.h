@@ -3,66 +3,54 @@
  *
  *  Created on: 2 Jul 2018
  *      Author: Peter
+ *
+ * The USB keyboard, through the TinyUSB host stack (USBKeyboard.c) and the
+ * PicoMite's report decoder (KeyboardMap.c).  This header is included
+ * everywhere through Hardware_Includes.h, so it declares only plain types:
+ * the decoder's own header, KeyboardMap.h, is included after tusb.h by the
+ * two files that need it.
  */
 
 #ifndef KEYBOARD_H_
 #define KEYBOARD_H_
 
-typedef enum {
-   HID_DEMO_IDLE = 0,
-   HID_DEMO_WAIT,
-   HID_DEMO_START,
-   HID_DEMO_MOUSE,
-   HID_DEMO_KEYBOARD,
-   HID_DEMO_REENUMERATE,
- }HID_Demo_State;
+#include <stdint.h>
+#include <stdbool.h>
 
- typedef enum {
-   HID_MOUSE_IDLE = 0,
-   HID_MOUSE_WAIT,
-   HID_MOUSE_START,
- }HID_mouse_State;
+/* One HID interface the host is servicing (the PicoMite's struct s_HID,
+   keyboard fields only for now).  report_timer counts milliseconds since
+   the last report (USBKeyboardTick); hid_app_task() asks for the next
+   report when it reaches report_rate. */
+typedef struct s_HID
+{
+	uint8_t Device_address;
+	uint8_t Device_instance;
+	uint8_t Device_type;            /* HID_ITF_PROTOCOL_KEYBOARD, or 0 when the slot is free */
+	uint8_t report_rate;
+	int16_t report_timer;
+	uint16_t vid;
+	uint16_t pid;
+	bool active;
+	bool report_requested;
+	bool notfirsttime;
+	uint8_t sendlights;             /* the boot keyboard's LED output report */
+	uint8_t report[65];             /* the last report: length, then its bytes */
+} a_HID;
 
- typedef enum {
-   HID_KEYBOARD_IDLE = 0,
-   HID_KEYBOARD_WAIT,
-   HID_KEYBOARD_START,
- }HID_keyboard_State;
+#define HID_SLOTS 4
+extern volatile struct s_HID HID[HID_SLOTS];
 
- typedef struct _DemoStateMachine {
-   __IO HID_Demo_State     state;
-   __IO HID_mouse_State    mouse_state;
-   __IO HID_keyboard_State keyboard_state;
-   __IO uint8_t            select;
-   __IO uint8_t            lock;
- }HID_DEMO_StateMachine;
-
-
-// void Error_Handler(void);
- /* Private variables --------------------------------------------------------- */
-extern HID_DEMO_StateMachine hid_demo;
-extern uint8_t *DEMO_KEYBOARD_menu[];
-extern uint8_t prev_select;
-extern uint32_t hid_demo_ready;
-extern ApplicationTypeDef Appli_state ;
-extern USBH_HandleTypeDef hUsbHostFS;
-extern void HID_SelectItem(uint8_t ** menu, uint8_t item);
-extern void HID_KeyboardMenuProcess(void);
-extern void USR_KEYBRD_ProcessData(uint8_t data);
-extern void HID_MenuInit(void);
-extern void HID_MenuProcess(void);
-extern const int UKkeyValue[];
-extern const int USkeyValue[];
-extern const int *keylayout;
-extern uint8_t APP_MapKeyToUsage(HID_KEYBD_Info_TypeDef *info, int keyno);
-extern HID_KEYBD_Info_TypeDef last_k_info;
-extern HID_KEYBD_Info_TypeDef *k_pinfo;
-extern int KeyDown[7];
-extern void CheckKeyboard(void);
-extern void clearrepeat(void);
 extern int caps_lock;
 extern int num_lock;
 extern int scroll_lock;
+extern int KeyDown[7];
 extern int keyselect;
+extern volatile int keyboardseen;
+
+void USBKeyboardInit(void);         /* bring the host up (OPTION USBKEYBOARD set) */
+void CheckKeyboard(void);           /* run the host stack and the keyboard; from routinechecks() */
+void USBKeyboardTick(void);         /* every millisecond, from Timer1msHandler() */
+void clearrepeat(void);             /* forget the held key, so it does not repeat */
+void USR_KEYBRD_ProcessData(uint8_t data);
 
 #endif /* KEYBOARD_H_ */

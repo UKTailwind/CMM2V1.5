@@ -121,6 +121,7 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 		nunTimer++;
     	AHRSTimer++;
 		keytimer++;
+		USBKeyboardTick();                                              // the USB keyboard's report timers
 		mousestruct[0].type++;
 		mousestruct[1].type++;
 		mousestruct[2].type++;

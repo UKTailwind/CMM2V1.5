@@ -1,0 +1,40 @@
+index 09878a2..8a8d3cb 100644
+--- a/src/portable/synopsys/dwc2/hcd_dwc2.c
++++ b/src/portable/synopsys/dwc2/hcd_dwc2.c
+@@ -34,6 +34,18 @@
+ 
+ TU_VERIFY_STATIC(CFG_TUH_DWC2_ENDPOINT_MAX <= 255, "currently only use 8-bit for index");
+ 
++#ifndef CFG_TUH_DWC2_REFUSE_LS_BEHIND_FS_HUB
++  #define CFG_TUH_DWC2_REFUSE_LS_BEHIND_FS_HUB 0
++#endif
++
++#if CFG_TUH_DWC2_REFUSE_LS_BEHIND_FS_HUB
++// Invoked when a low-speed device behind a hub is refused (see hcd_edpt_open), from the host task
++TU_ATTR_WEAK void tuh_dwc2_ls_hub_refused_cb(uint8_t hub_addr, uint8_t hub_port) {
++  (void) hub_addr;
++  (void) hub_port;
++}
++#endif
++
+ enum {
+   HPRT_W1_MASK = HPRT_CONN_DETECT | HPRT_ENABLE | HPRT_ENABLE_CHANGE | HPRT_OVER_CURRENT_CHANGE | HPRT_SUSPEND
+ };
+@@ -607,6 +619,17 @@ bool hcd_edpt_open(uint8_t rhport, uint8_t dev_addr, const tusb_desc_endpoint_t*
+   tuh_bus_info_t bus_info;
+   tuh_bus_info_get(dev_addr, &bus_info);
+ 
++#if CFG_TUH_DWC2_REFUSE_LS_BEHIND_FS_HUB
++  // STM32 OTG cores on a full-speed PHY: "Host packet transmission may hang when connecting the full speed interface
++  // through a hub to a low-speed device" (e.g. STM32H743 errata ES0392 2.25.3, no workaround). The first PRE-preambled
++  // OUT can hang the transmitter for good, and every transfer to every device with it, until the root port is reset.
++  // Refuse such a device before any packet is sent to it; its hub and the other devices on it carry on.
++  if (bus_info.hub_addr != 0 && bus_info.speed == TUSB_SPEED_LOW && rh_speed != TUSB_SPEED_HIGH) {
++    tuh_dwc2_ls_hub_refused_cb(bus_info.hub_addr, bus_info.hub_port);
++    return false;
++  }
++#endif
++
+   // find a free endpoint
+   const uint8_t ep_id = edpt_alloc();
+   TU_ASSERT(ep_id < CFG_TUH_DWC2_ENDPOINT_MAX);
