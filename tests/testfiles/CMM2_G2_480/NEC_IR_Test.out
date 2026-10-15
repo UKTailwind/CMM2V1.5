@@ -1,0 +1,10 @@
+NEC IR Test with AND Logic
+Address:  123 (0x7B)
+Command:  107 (0x6B)
+Envelope transitions:  68
+Carrier transitions:  4850
+Total time:  62405 us
+
+Transmitting on GP 15...
+Error in line 128: Unknown command
+

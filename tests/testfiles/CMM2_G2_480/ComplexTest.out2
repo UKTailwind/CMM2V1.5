@@ -1,0 +1,237 @@
+=============================================
+ MMBasic Complex Number Function Test Suite
+=============================================
+
+--- Section 1: C_CPLX Construction & C_REAL / C_IMAG Extraction ---
+  PASS: C_CPLX/C_REAL(3+4i)
+  PASS: C_CPLX/C_IMAG(3+4i)
+  PASS: C_CPLX/C_REAL(-2.5-7.1i)
+  PASS: C_CPLX/C_IMAG(-2.5-7.1i)
+  PASS: C_CPLX/C_REAL(0+0i)
+  PASS: C_CPLX/C_IMAG(0+0i)
+  PASS: C_REAL(5+0i)
+  PASS: C_IMAG(5+0i)
+  PASS: C_REAL(0+3i)
+  PASS: C_IMAG(0+3i)
+  PASS: C_REAL(1e6-1e6i)
+  PASS: C_IMAG(1e6-1e6i)
+  PASS: C_REAL(1e-6+2e-6i)
+  PASS: C_IMAG(1e-6+2e-6i)
+
+--- Section 2: C_POLAR Construction ---
+  PASS: C_POLAR(1,0) real
+  PASS: C_POLAR(1,0) imag
+  PASS: C_POLAR(1,pi/2) real
+  PASS: C_POLAR(1,pi/2) imag
+  PASS: C_POLAR(2,pi) real
+  PASS: C_POLAR(2,pi) imag
+  PASS: C_POLAR(5,pi/4) real
+  PASS: C_POLAR(5,pi/4) imag
+  PASS: C_POLAR(0,1.234) real
+  PASS: C_POLAR(0,1.234) imag
+
+--- Section 3: C_MOD, C_PHASE, C_CARG ---
+  PASS: C_MOD(3+4i)
+  PASS: C_MOD(0+0i)
+  PASS: C_MOD(5+0i)
+  PASS: C_MOD(0+3i)
+  PASS: C_MOD(-3-4i)
+  PASS: C_PHASE(1+1i)
+  PASS: C_PHASE(1+0i)
+  PASS: C_PHASE(0+1i)
+  PASS: C_PHASE(-1+0i)
+  PASS: C_CARG(1+1i)
+  PASS: C_CARG(-1-1i)
+
+--- Section 4: C_ADD ---
+  PASS: C_ADD real (3+4i)+(1+2i)
+  PASS: C_ADD imag (3+4i)+(1+2i)
+  PASS: C_ADD real z+0
+  PASS: C_ADD imag z+0
+  PASS: C_ADD real z+(-z)
+  PASS: C_ADD imag z+(-z)
+
+--- Section 5: C_SUB ---
+  PASS: C_SUB real (3+4i)-(1+2i)
+  PASS: C_SUB imag (3+4i)-(1+2i)
+  PASS: C_SUB real z-0
+  PASS: C_SUB imag z-0
+  PASS: C_SUB real z-z
+  PASS: C_SUB imag z-z
+
+--- Section 6: C_MUL ---
+  PASS: C_MUL real (3+4i)*(1+2i)
+  PASS: C_MUL imag (3+4i)*(1+2i)
+  PASS: C_MUL real z*0
+  PASS: C_MUL imag z*0
+  PASS: C_MUL real z*1
+  PASS: C_MUL imag z*1
+  PASS: C_MUL real i*i=-1
+  PASS: C_MUL imag i*i=0
+
+--- Section 7: C_DIV ---
+  PASS: C_DIV real (3+4i)/(1+2i)
+  PASS: C_DIV imag (3+4i)/(1+2i)
+  PASS: C_DIV real z/1
+  PASS: C_DIV imag z/1
+  PASS: C_DIV real z/z=1
+  PASS: C_DIV imag z/z=0
+
+--- Section 8: C_POW ---
+  PASS: C_POW real (1+i)^2
+  PASS: C_POW imag (1+i)^2
+  PASS: C_POW real z^1=z
+  PASS: C_POW imag z^1=z
+  PASS: C_POW real z^0=1
+  PASS: C_POW imag z^0=0
+
+--- Section 9: C_CONJ ---
+  PASS: C_CONJ real (3+4i)
+  PASS: C_CONJ imag (3+4i)
+  PASS: C_CONJ real (0+0i)
+  PASS: C_CONJ imag (0+0i)
+  PASS: C_CONJ(C_CONJ(z)) real
+  PASS: C_CONJ(C_CONJ(z)) imag
+  PASS: z*conj(z) real=25
+  PASS: z*conj(z) imag=0
+
+--- Section 10: C_ABS ---
+  PASS: C_ABS(3+4i) real
+  PASS: C_ABS(3+4i) imag
+  PASS: C_ABS(0+0i) real
+
+--- Section 11: C_SQRT ---
+  PASS: C_SQRT(-1) real
+  PASS: C_SQRT(-1) imag
+  PASS: C_SQRT(2i)^2 real
+  PASS: C_SQRT(2i)^2 imag
+  PASS: C_SQRT(3+4i)^2 real
+  PASS: C_SQRT(3+4i)^2 imag
+  PASS: C_SQRT(4) real
+  PASS: C_SQRT(4) imag
+
+--- Section 12: C_EXP ---
+  PASS: C_EXP(0) real
+  PASS: C_EXP(0) imag
+  PASS: C_EXP(1) real=e
+  PASS: C_EXP(1) imag=0
+  PASS: Euler: exp(i*pi) real=-1
+  PASS: Euler: exp(i*pi) imag=0
+  PASS: exp(i*pi/2) real=0
+  PASS: exp(i*pi/2) imag=1
+
+--- Section 13: C_LOG ---
+  PASS: C_LOG(1) real=0
+  PASS: C_LOG(1) imag=0
+  PASS: C_LOG(e) real=1
+  PASS: C_LOG(e) imag=0
+  PASS: C_LOG(-1) real=0
+  PASS: C_LOG(-1) imag=pi
+  PASS: exp(log(3+4i)) real
+  PASS: exp(log(3+4i)) imag
+
+--- Section 14: C_SIN, C_COS, C_TAN ---
+  PASS: C_SIN(0) real
+  PASS: C_SIN(0) imag
+  PASS: C_COS(0) real
+  PASS: C_COS(0) imag
+  PASS: C_SIN(pi/2) real=1
+  PASS: C_SIN(pi/2) imag=0
+  PASS: C_COS(pi) real=-1
+  PASS: C_COS(pi) imag=0
+  PASS: C_TAN(0) real=0
+  PASS: C_TAN(0) imag=0
+  PASS: sin^2+cos^2 real=1
+  PASS: sin^2+cos^2 imag=0
+  PASS: C_SIN(1+2i) real
+  PASS: C_SIN(1+2i) imag
+  PASS: tan=sin/cos real
+  PASS: tan=sin/cos imag
+
+--- Section 15: C_ASIN, C_ACOS, C_ATAN ---
+  PASS: asin(sin(z)) real
+  PASS: asin(sin(z)) imag
+  PASS: acos(cos(z)) real
+  PASS: acos(cos(z)) imag
+  PASS: atan(tan(z)) real
+  PASS: atan(tan(z)) imag
+  PASS: C_ASIN(0) real=0
+  PASS: C_ASIN(0) imag=0
+  PASS: C_ACOS(1) real=0
+  PASS: C_ACOS(1) imag=0
+  PASS: C_ATAN(0) real=0
+  PASS: C_ATAN(0) imag=0
+
+--- Section 16: C_SINH, C_COSH, C_TANH ---
+  PASS: C_SINH(0) real=0
+  PASS: C_SINH(0) imag=0
+  PASS: C_COSH(0) real=1
+  PASS: C_COSH(0) imag=0
+  PASS: C_TANH(0) real=0
+  PASS: C_TANH(0) imag=0
+  PASS: C_SINH(1) real
+  PASS: C_SINH(1) imag=0
+  PASS: C_COSH(1) real
+  PASS: C_COSH(1) imag=0
+  PASS: cosh^2-sinh^2 real=1
+  PASS: cosh^2-sinh^2 imag=0
+  PASS: tanh=sinh/cosh real
+  PASS: tanh=sinh/cosh imag
+
+--- Section 17: C_ASINH, C_ACOSH, C_ATANH ---
+  PASS: asinh(sinh(z)) real
+  PASS: asinh(sinh(z)) imag
+  PASS: acosh(cosh(z)) real
+  PASS: acosh(cosh(z)) imag
+  PASS: atanh(tanh(z)) real
+  PASS: atanh(tanh(z)) imag
+  PASS: C_ASINH(0) real=0
+  PASS: C_ASINH(0) imag=0
+  PASS: C_ACOSH(1) real=0
+  PASS: C_ACOSH(1) imag=0
+  PASS: C_ATANH(0) real=0
+  PASS: C_ATANH(0) imag=0
+
+--- Section 18: C_PROJ ---
+  PASS: C_PROJ(3+4i) real
+  PASS: C_PROJ(3+4i) imag
+  PASS: C_PROJ(0+0i) real
+  PASS: C_PROJ(0+0i) imag
+
+--- Section 19: Chained / Composite Operations ---
+  PASS: chain (a+b)-b real
+  PASS: chain (a+b)-b imag
+  PASS: chain (a*b)/b real
+  PASS: chain (a*b)/b imag
+  PASS: exp(log(z)) real
+  PASS: exp(log(z)) imag
+  PASS: sqrt(z)^2 real
+  PASS: sqrt(z)^2 imag
+  PASS: z+conj(z) real=14
+  PASS: z+conj(z) imag=0
+  PASS: z-conj(z) real=0
+  PASS: z-conj(z) imag=-6
+
+--- Section 20: Edge Cases & Special Values ---
+  PASS: real+real
+  PASS: real+real imag=0
+  PASS: imag*imag real=-6
+  PASS: imag*imag imag=0
+  PASS: mod(1+tiny*i)~1
+  PASS: distrib real
+  PASS: distrib imag
+  PASS: a+b=b+a real
+  PASS: a+b=b+a imag
+  PASS: a*b=b*a real
+  PASS: a*b=b*a imag
+
+=============================================
+ TEST SUMMARY
+=============================================
+ Total tests:  183
+ Passed:       183
+ Failed:       0
+=============================================
+ ALL TESTS PASSED
+=============================================
+

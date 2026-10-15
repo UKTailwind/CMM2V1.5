@@ -1,0 +1,9 @@
+=== MMBasic Recursion Limits Test ===
+
+Two limits affect recursion:
+  1. MAXGOSUB (~50) - nested call depth
+  2. MAXLOCALVARS (~240) - total local vars across all levels
+
+Test 1: No local vars - hits MAXGOSUB limit
+Error in line 90: Too many nested SUB/FUN
+

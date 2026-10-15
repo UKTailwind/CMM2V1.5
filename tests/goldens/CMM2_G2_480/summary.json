@@ -680,10 +680,10 @@
  },
  {
   "name": "text",
-  "class": "DIFF",
+  "class": "ERROR",
   "deterministic": true,
   "secs": 1.5,
-  "note": ""
+  "note": "Error in line 69: GREYSCALE is not declared"
  },
  {
   "name": "tiger",

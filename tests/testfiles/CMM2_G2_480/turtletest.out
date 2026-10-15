@@ -1,0 +1,20 @@
+7TURTLE GRAPHICS TEST SUITE
+==========================
+
+1.  Basic Movement Tests
+2.  Pen Control Tests
+3.  Position Tests
+4.  Shape Tests (Circles)
+5.  Shape Tests (Rectangles)
+6.  Arc Tests
+7.  Fill Pattern Tests
+8.  Polygon Fill Tests
+9.  Stack (PUSH/POP) Tests
+10. Cursor Tests
+11. Complex Drawing Tests
+12. Stress Tests
+13. Run All Tests
+0.  Exit
+
+Select test: 
+> 

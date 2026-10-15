@@ -1,0 +1,19 @@
+SELECT CASE Memory Test
+========================
+
+Test 1: Match at position 5... Test 2: Match at position 50... Test 3: Match at position 100... Test 4: Match at position 150... Test 5: Match at position 199... Test 6: CASE ELSE (no match)... 
+Test 7: Repeated calls (100x) to check memory... PASS
+Test 8: Integer SELECT with 200 cases... 
+========================
+Tests complete. Failures: 0
+
+Check MEMORY command for heap usage
+Program:
+  13K ( 2%) Program (475 lines)
+ 503K (98%) Free
+
+Data:
+   1K ( 1%) 4 Variables
+   0K ( 0%) General
+24799K (99%) Free
+

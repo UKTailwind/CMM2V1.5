@@ -1,0 +1,454 @@
+[
+ {
+  "name": "ArrayCopyStructTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 23: Unknown command"
+ },
+ {
+  "name": "ArrayCopyTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 29: Dimensions"
+ },
+ {
+  "name": "ArrayFuncBoundTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 36: Dimensions"
+ },
+ {
+  "name": "ArrayFuncTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 32: Dimensions"
+ },
+ {
+  "name": "Bitstream_Test",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 27: Pin 20 is invalid"
+ },
+ {
+  "name": "BoxStructTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "Breakout",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.0,
+  "note": "Error in line 88: Unknown command"
+ },
+ {
+  "name": "ComplexTest",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 2.0,
+  "note": ""
+ },
+ {
+  "name": "ErrLineTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 18: MM.ERRLINE is not declared"
+ },
+ {
+  "name": "ExilePhysicsBench",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.5,
+  "note": "Error in line 47: Unknown command"
+ },
+ {
+  "name": "ExileTeleportSound",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": "Error in line 177: Unknown command"
+ },
+ {
+  "name": "FishFeeder",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.0,
+  "note": "Error in line 646: Syntax"
+ },
+ {
+  "name": "FrameTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.9,
+  "note": "Error in line 18: Unknown command"
+ },
+ {
+  "name": "FramebufferMergeTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 9: Unknown command"
+ },
+ {
+  "name": "IR_Carrier_Test",
+  "class": "TIMEOUT",
+  "deterministic": true,
+  "secs": 61.5,
+  "note": ">"
+ },
+ {
+  "name": "InverseTrigTest",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "LinePlotTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.8,
+  "note": "Error in line 10: Unknown command"
+ },
+ {
+  "name": "LoadCrunchTest",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "LocalParamDiag",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "MandelbrotTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 13: Unknown command"
+ },
+ {
+  "name": "MathClampTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 9: Unknown command"
+ },
+ {
+  "name": "MathStructTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 15: Unknown command"
+ },
+ {
+  "name": "MinTriTest",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "MultiFileLibraryTest",
+  "class": "SKIPPED",
+  "note": "PicoMite CSUB code in libcsub.bas"
+ },
+ {
+  "name": "NEC_IR_Test",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 128: Unknown command"
+ },
+ {
+  "name": "NestedStructArrayTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "NestedStructTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 18: Unknown command"
+ },
+ {
+  "name": "PS2_ScanCode_Test",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 27: Pin 20 is invalid"
+ },
+ {
+  "name": "Platform",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.2,
+  "note": "Error in line 208: Unknown command"
+ },
+ {
+  "name": "RamImageSlotTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": "Error in line 21: Syntax"
+ },
+ {
+  "name": "RamLibraryTest",
+  "class": "SKIPPED",
+  "note": "PicoMite CSUB code in ramlib_lib.bas"
+ },
+ {
+  "name": "SdCopyBTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.9,
+  "note": "Error in line 63: Syntax"
+ },
+ {
+  "name": "SeekBulkReadTest",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "SelectCaseTest",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.8,
+  "note": ""
+ },
+ {
+  "name": "ShareClient",
+  "class": "TIMEOUT",
+  "deterministic": false,
+  "secs": 61.5,
+  "note": ">"
+ },
+ {
+  "name": "ShareHost",
+  "class": "TIMEOUT",
+  "deterministic": false,
+  "secs": 61.5,
+  "note": ">"
+ },
+ {
+  "name": "SimpleStructArrayTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "StackRecursionTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 90: Too many nested SUB/FUN"
+ },
+ {
+  "name": "StaticStructTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 2: Unknown command"
+ },
+ {
+  "name": "StepperTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 111: Nothing to return to"
+ },
+ {
+  "name": "StrStructTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "StringLengthTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 16: Unknown command"
+ },
+ {
+  "name": "StructMemberPassTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "StructParamTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 22: Unknown command"
+ },
+ {
+  "name": "StructTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.5,
+  "note": "Error in line 15: Unknown command"
+ },
+ {
+  "name": "SubParamTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 22: Unknown command"
+ },
+ {
+  "name": "TilemapLoadTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.2,
+  "note": "Error in line 23: Unknown command"
+ },
+ {
+  "name": "TilemapTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.1,
+  "note": "Error in line 60: Unknown command"
+ },
+ {
+  "name": "UntypedParamTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "VBufTest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 42: Unknown command"
+ },
+ {
+  "name": "bginterrupt_demo",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.8,
+  "note": "Error in line 55: Syntax"
+ },
+ {
+  "name": "brownian_bg_demo",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": "Error in line 36: Syntax"
+ },
+ {
+  "name": "cursortest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 32: Not open"
+ },
+ {
+  "name": "demo",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 1: The logical drive number is invalid"
+ },
+ {
+  "name": "doloop_test",
+  "class": "TIMEOUT",
+  "deterministic": true,
+  "secs": 61.4,
+  "note": ">"
+ },
+ {
+  "name": "example",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.9,
+  "note": "Error in line 87: Expression syntax"
+ },
+ {
+  "name": "libcsub",
+  "class": "SKIPPED",
+  "note": "PicoMite CSUB code in libcsub.bas"
+ },
+ {
+  "name": "libfn",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "libfont",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "libjoined",
+  "class": "SKIPPED",
+  "note": "PicoMite CSUB code in libjoined.bas"
+ },
+ {
+  "name": "play_sample_demo",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 41: Unknown command"
+ },
+ {
+  "name": "ramlib_lib",
+  "class": "SKIPPED",
+  "note": "PicoMite CSUB code in ramlib_lib.bas"
+ },
+ {
+  "name": "raycaster_demo",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.8,
+  "note": "Error in line 93: Unknown command"
+ },
+ {
+  "name": "single_element_matrix_demo",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 29: Dimensions"
+ },
+ {
+  "name": "solar_eclipse",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 11.8,
+  "note": ""
+ },
+ {
+  "name": "turtletest",
+  "class": "TIMEOUT",
+  "deterministic": true,
+  "secs": 61.4,
+  "note": ">"
+ }
+]

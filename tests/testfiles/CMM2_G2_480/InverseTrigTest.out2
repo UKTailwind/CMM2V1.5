@@ -1,0 +1,51 @@
+=============================================
+ Inverse Complex Function Diagnostic
+=============================================
+
+Input z =  0.5 +  0.5i
+
+--- C_ASIN ---
+  sin(z)  =  0.5406126976 +  0.4573041201i
+  asin(sin(z)) =  0.5 +  0.5i
+  expected      = 0.5 + 0.5i
+
+  asin(0.5+0i)  =  0.5235987902 +  0i
+  expected       =  0.5235987756 + 0i
+
+--- C_ACOS (control - should pass) ---
+  cos(z)  =  0.9895848632 + -0.2498263866i
+  acos(cos(z)) =  0.5000001192 +  0.4999999702i
+  expected      = 0.5 + 0.5i
+
+--- C_ATAN ---
+  tan(z)  =  0.403896451 +  0.564083159i
+  atan(tan(z)) =  0.4999999702 +  0.5i
+  expected      = 0.5 + 0.5i
+
+--- C_ASINH ---
+  sinh(z) =  0.4573041201 +  0.5406126976i
+  asinh(sinh(z)) =  0.5 +  0.5i
+  expected        = 0.5 + 0.5i
+
+  asinh(0+0i)  =  0 +  0i
+  expected      = 0 + 0i
+
+--- C_ACOSH ---
+  cosh(z) =  0.9895848632 +  0.2498263866i
+  acosh(cosh(z)) =  0.4999999702 +  0.5i
+  expected        = 0.5 + 0.5i
+
+  acosh(1+0i)  =  0 +  0i
+  expected      = 0 + 0i
+
+--- Direct inverse calls with computed inputs ---
+  Computed sin(0.5+0.5i) =  1 +  0i
+  asin(above) =  1.570796371 +  0i
+  expected    = 0.5 + 0.5i
+
+=============================================
+ If values above show 0+0i instead of 0.5+0.5i,
+ then the Pico SDK C library functions
+ (casinf/catanf/casinhf/cacoshf) have bugs.
+=============================================
+

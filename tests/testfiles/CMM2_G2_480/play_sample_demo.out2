@@ -1,0 +1,4 @@
+Example 1: Clean 440 Hz sine, 2 seconds...
+  Attack=0  Decay=0  Sustain=100%  Release=0
+Error in line 41: Unknown command
+

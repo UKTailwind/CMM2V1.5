@@ -1,0 +1,19 @@
+Exile teleport sound: 151 steps of 20 ms = 3020 ms
+frequency 1582 to 3205 Hz, loudness starts at 12 of 15
+worst quarter-semitone rounding: 12.2 cents
+first steps (loudness, period, Hz, BBC pitch):
+  12  45  2777  217
+  12  43  2906  220
+  12  41  3048  223
+  12  39  3205  227
+  12  41  3048  223
+  12  43  2906  220
+  12  45  2777  217
+  12  47  2659  214
+  12  49  2551  211
+  12  47  2659  214
+  12  45  2777  217
+  12  43  2906  220
+A: through PLAY BBC SOUND ...
+Error in line 177: Unknown command
+

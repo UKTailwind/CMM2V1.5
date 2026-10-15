@@ -1,6 +1,6 @@
 # Goldens on Colour Maximite 2 G2  6.000007 480000000 (PicoMite MODEs mapped)
 
-DIFF 4 ERROR 72 MATCH 27 NO-EXPECTED 8 TIMEOUT 1
+DIFF 3 ERROR 73 MATCH 27 NO-EXPECTED 8 TIMEOUT 1
 
 | program | class | deterministic | secs | note |
 |---|---|---|---|---|
@@ -101,7 +101,7 @@ DIFF 4 ERROR 72 MATCH 27 NO-EXPECTED 8 TIMEOUT 1
 | t6 | DIFF | True | 2.7 |  |
 | t7 | ERROR | True | 1.5 | Error in line 136: Unknown command |
 | t8 | ERROR | True | 1.8 | Error in line 85: Dimensions |
-| text | DIFF | True | 1.5 |  |
+| text | ERROR | True | 1.5 | Error in line 69: GREYSCALE is not declared |
 | tiger | ERROR | True | 1.7 | Error in line 5: Syntax |
 | tilemap | ERROR | True | 1.9 | Error in line 19: Unknown command |
 | tri | MATCH | True | 1.7 |  |

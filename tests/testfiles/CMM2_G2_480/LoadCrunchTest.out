@@ -1,0 +1,9 @@
+current file: A:/T/LoadCrunchTest.bas
+indented code keeps working
+two  spaces>  <and a quote ' inside
+a	b	c
+loop	 1
+loop	 2
+loop	 3
+done
+

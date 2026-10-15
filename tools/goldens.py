@@ -1,5 +1,6 @@
 """goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--put] [--dir A:/g] [--nomodemap]
-goldens.py --recompare OUTDIR [--corpus DIR]
+goldens.py --recompare OUTDIR [--corpus DIR]     re-diff saved outputs against .expected
+goldens.py --reclassify OUTDIR [--corpus DIR]    score saved outputs again from scratch
 
 Run the mmb2c test corpus (or any directory of .bas programs) on a CMM2 and keep what
 this firmware prints as the golden for later builds, and compare it with each program's
@@ -36,7 +37,7 @@ import zmodem_pc
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 CORPUS = r"\\wsl.localhost\Ubuntu\home\peter\src\FUZIX\Applications\mmb2c\tests"
-ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>]|\r")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>78]|\r")     # ESC 7 / ESC 8 (save, restore cursor) come before CMM2 error messages
 CAP = 60.0
 MODEMAP = {"1": "8,8", "2": "7,12", "3": "8,12", "4": "7,16", "5": "7,8"}   # PicoMite 640x480 modes -> CMM2
 
@@ -188,6 +189,57 @@ def recompare(outdir, corpus):
     return rows
 
 
+def score(n, s1, o1, o2, t1, inputs, corpus, outdir):
+    """The result row for one program from its two outputs and how the first run ended."""
+    det = norm(o1, inputs) == norm(o2, inputs)
+    exp = os.path.join(corpus, n + ".expected")
+    dpath = os.path.join(outdir, n + ".diff")
+    if os.path.exists(dpath):
+        os.remove(dpath)
+    cls = s1
+    note = ""
+    if s1 == "OK" and os.path.exists(exp):
+        want = norm(open(exp, encoding="latin-1").read())
+        got = norm(o1, inputs)
+        if want == got:
+            cls = "MATCH"
+        else:
+            cls = "DIFF"
+            d = difflib.unified_diff(want.split("\n"), got.split("\n"), "expected", "board", lineterm="")
+            open(dpath, "w", encoding="utf-8").write("\n".join(d))
+    elif s1 == "OK":
+        cls = "NO-EXPECTED"
+    if s1 in ("ERROR", "NEEDS-INPUT", "TIMEOUT"):
+        errs = re.findall(r"[^\n]*\bError\b[^\n]*", o1)        # the last one is what stopped it
+        note = (errs[-1] if errs else o1.strip().split("\n")[-1])[-160:]
+    if "MMBasic Version" in o1 + o2:
+        note = "RESET " + note                          # the sign-on banner: the board restarted (MM.DEVICE$ alone is not one)
+    return {"name": n, "class": cls, "deterministic": det, "secs": t1, "note": note.replace("\n", " | ")}
+
+
+def reclassify(outdir, corpus):
+    """Score the saved outputs again, without the board: for when the scoring itself changes
+    (e.g. an escape sequence that hid an "Error").  Runs that timed out, hung, needed input
+    or were skipped keep their class."""
+    rows = json.load(open(os.path.join(outdir, "summary.json")))
+    for i, r in enumerate(rows):
+        n = r["name"]
+        if r["class"] in ("TIMEOUT", "NEEDS-INPUT", "SKIPPED", "HUNG"):
+            continue
+        o = []
+        for ext in (".out", ".out2"):
+            p = os.path.join(outdir, n + ext)
+            t = ANSI.sub("", open(p, encoding="utf-8").read()) if os.path.exists(p) else ""
+            open(p, "w", encoding="utf-8").write(t)
+            o.append(t)
+        inp = os.path.join(corpus, n + ".in")
+        inputs = open(inp, encoding="latin-1").read().splitlines() if os.path.exists(inp) else []
+        s1 = "ERROR" if re.search(r"\bError\b", o[0]) else "OK"
+        rows[i] = score(n, s1, o[0], o[1], r.get("secs", ""), inputs, corpus, outdir)
+    json.dump(rows, open(os.path.join(outdir, "summary.json"), "w"), indent=1)
+    return rows
+
+
 def run_program(b, run, inputs):
     """RUN a program; return (class, output, seconds)."""
     b.drain(0.2)
@@ -265,11 +317,11 @@ def arg(name, default=None):
 
 
 def main():
-    if sys.argv[1] == "--recompare":
+    if sys.argv[1] in ("--recompare", "--reclassify"):
         outdir = sys.argv[2]
         corpus = arg("--corpus", CORPUS)
         device = open(os.path.join(outdir, "SUMMARY.md"), encoding="utf-8").readline().replace("# Goldens on", "").strip()
-        rows = recompare(outdir, corpus)
+        rows = (recompare if sys.argv[1] == "--recompare" else reclassify)(outdir, corpus)
         write_summary(outdir, rows, device)
         counts = {}
         for r in rows:
@@ -357,27 +409,7 @@ def main():
         if not alive(b):
             s2 = "HUNG"
             o2 += "\n[no prompt after Ctrl-C, reset through the ST-Link]\n"
-        det = norm(o1, inputs) == norm(o2, inputs)
-        exp = os.path.join(corpus, n + ".expected")
-        cls = s1
-        note = ""
-        if s1 == "OK" and os.path.exists(exp):
-            want = norm(open(exp, encoding="latin-1").read())
-            got = norm(o1, inputs)
-            if want == got:
-                cls = "MATCH"
-            else:
-                cls = "DIFF"
-                d = difflib.unified_diff(want.split("\n"), got.split("\n"), "expected", "board", lineterm="")
-                open(os.path.join(outdir, n + ".diff"), "w", encoding="utf-8").write("\n".join(d))
-        elif s1 == "OK":
-            cls = "NO-EXPECTED"
-        if s1 in ("ERROR", "NEEDS-INPUT", "TIMEOUT"):
-            errs = re.findall(r"[^\n]*\bError\b[^\n]*", o1)     # the last one is what stopped it
-            note = (errs[-1] if errs else o1.strip().split("\n")[-1])[-160:]
-        if "MMBasic Version" in o1 + o2:
-            note = "RESET " + note                       # the sign-on banner: the board restarted (MM.DEVICE$ alone is not one)
-        rows.append({"name": n, "class": cls, "deterministic": det, "secs": t1, "note": note.replace("\n", " | ")})
+        rows.append(score(n, s1, o1, o2, t1, inputs, corpus, outdir))
         keep(rows[-1])
     write_summary(outdir, rows, device)
     json.dump(rows, open(os.path.join(outdir, "summary.json"), "w"), indent=1)

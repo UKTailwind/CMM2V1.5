@@ -1,0 +1,6 @@
+Single element dimensions - matrix multiplication
+=================================================
+
+1. Dot product   (1x3) . (3x1) -> 1x1
+Error in line 29: Dimensions
+

@@ -1,0 +1,6 @@
+Dual Bitstream Test - Open Collector
+Pin  19: 4 @ 100us
+Pin  20: 2 @ 200us
+
+Error in line 27: Pin 20 is invalid
+

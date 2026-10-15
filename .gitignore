@@ -2,4 +2,4 @@
 build/
 # Python bytecode from the tools
 __pycache__/
-tests/goldens/*/rows.jsonl
+tests/*/*/rows.jsonl
