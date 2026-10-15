@@ -1155,10 +1155,12 @@ void cmd_ir(void) {
         if(argc%2 == 0 || argc == 0) error("Invalid syntax");
         IrVarType = 0;
         IrDev = findvar(argv[0], V_FIND);
+        RequireGlobal(IrDev);                                       // the timer interrupt writes through it (IR is not open yet)
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
         if(FoundType() & T_STR)  error("Invalid variable");
         if(FoundType() & T_NBR) IrVarType |= 0b01;
         IrCmd = findvar(argv[2], V_FIND);
+        RequireGlobal(IrCmd);
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
         if(FoundType() & T_STR)  error("Invalid variable");
         if(FoundType() & T_NBR) IrVarType |= 0b10;
@@ -1466,7 +1468,6 @@ void cmd_bitbang(void){
 }
 /* Added type W for  support for SK6812 RGBW Leds */
 void WS2812(char *q){
-       void *ptr1 = NULL;
         int64_t *dest=NULL;
         uint32_t pin, red , green, blue,white, colour;
         short T0H=0,T0L=0,T1H=0,T1L=0;
@@ -1501,17 +1502,8 @@ void WS2812(char *q){
 
             nbr=getint(argv[4],1,512);
             if(nbr>1){
-                ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK);
-                CHECK_STRUCT_MEMBER_ARRAY();
-                if(VREC(VarIndex)->type & T_INT) {
-                    if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-                    if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-                        error("Argument 1 must be integer array");
-                    } else {
-                        if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase + 1)<nbr)error("Array size");
-                    }
-                    dest = (long long int *)ptr1;
-                } else error("Argument 1 must be integer array");
+                // the array whole (a%(k) read nbr values from element k, past the end), with its size checked
+                if(parseintegerarray(argv[6], &dest, 4, 1, NULL, false, NULL) < nbr) error("Array size");
             } else {
                 colour=getint(argv[6],0,0xFFFFFF);
                 dest = (long long int *)&colour;
@@ -1794,6 +1786,7 @@ void cmd_keypad(void) {
         if(argc%2 == 0 || argc < 17) error("Invalid syntax");
         if(KeypadInterrupt != NULL) error("Already open");
         KeypadVar = findvar(argv[0], V_FIND);
+        RequireGlobal(KeypadVar);                                   // written on every key (the keypad is not armed yet)
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
         if(!(FoundType() & T_NBR)) error("Floating point variable required");
         InterruptUsed = true;

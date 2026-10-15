@@ -276,9 +276,6 @@ void cmd_ADC(void){
 	ADC_ChannelConfTypeDef sConfigA, sConfigB, sConfigC;
 	int ADCb;
     MMFLOAT freq=0.0;
-    void *ptr1 = NULL;
-    void *ptr2 = NULL;
-    void *ptr3 = NULL;
 	tp = checkstring(cmdline, "OPEN");
 	if(tp) {
      	getargs(&tp, 9, ",");
@@ -391,44 +388,23 @@ void cmd_ADC(void){
         a1float=NULL; a2float=NULL; a3float=NULL;
         ADCmax=0;
         ADCpos=0;
-        ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-        CHECK_STRUCT_MEMBER_ARRAY();
-        if(VREC(VarIndex)->type & T_NBR) {
-            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-                error("Argument 1 must be float array");
-            }
-            a1point = (uint64_t *)ptr1;
-            a1float = (MMFLOAT *)ptr1;
-        } else error("Argument 1 must be float array");
-        ADCmax=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
+        // each array whole (a!(5) filled ADCmax+1 samples from element 5, past the end) and not a constant; with an
+        // interrupt the command returns at once and the ADC fills them later, so they must be a global's
+        MMFLOAT *af;
+        ADCmax = parsefloatarray(argv[0], &af, 1, 1, NULL, true, NULL) - 1;
+        if(ADCInterrupt) RequireGlobal(af);
+        a1float = af; a1point = (uint64_t *)af;
         if(argc>=3){
-           if(!ADCchannelB)error("Second channel not open");
-           ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-           CHECK_STRUCT_MEMBER_ARRAY();
-            if(VREC(VarIndex)->type & T_NBR) {
-                if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-                if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-                    error("Argument 2 must be float array");
-                }
-                a2point = (uint64_t *)ptr2;
-                a2float = (MMFLOAT *)ptr2;
-            } else error("Argument 2 must be float array");
-            if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) !=ADCmax)error("Arrays should be the same size");
+            if(!ADCchannelB)error("Second channel not open");
+            if(parsefloatarray(argv[2], &af, 2, 1, NULL, true, NULL) - 1 != ADCmax) error("Arrays should be the same size");
+            if(ADCInterrupt) RequireGlobal(af);
+            a2float = af; a2point = (uint64_t *)af;
         }
         if(argc>=5){
-           if(!ADCchannelC)error("Third channel not open");
-           ptr3 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-           CHECK_STRUCT_MEMBER_ARRAY();
-            if(VREC(VarIndex)->type & T_NBR) {
-                if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-                if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-                    error("Argument 3 must be float array");
-                }
-                a3point = (uint64_t *)ptr3;
-                a3float = (MMFLOAT *)ptr3;
-            } else error("Argument 3 must be float array");
-            if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) !=ADCmax)error("Arrays should be the same size");
+            if(!ADCchannelC)error("Third channel not open");
+            if(parsefloatarray(argv[4], &af, 3, 1, NULL, true, NULL) - 1 != ADCmax) error("Arrays should be the same size");
+            if(ADCInterrupt) RequireGlobal(af);
+            a3float = af; a3point = (uint64_t *)af;
         }
 		if (HAL_ADC_Start(&hadc1) != HAL_OK)
 		{
@@ -549,9 +525,11 @@ void cmd_DAC(void){
         d1pos=0;
         d2pos=0;
         d1max=parseintegerarray(argv[2],&d1point,1,1, NULL, false, NULL)-1;
+        RequireGlobal(d1point);                                     // the DAC interrupt reads it after the command returns
                //PInt(d1max);
         if(argc==5){
            d2max=parseintegerarray(argv[4],&d2point,2,1, NULL, false, NULL)-1;
+           RequireGlobal(d2point);
               // PInt(d2max);
         }
        /*

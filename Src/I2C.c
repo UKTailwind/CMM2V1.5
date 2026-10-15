@@ -294,6 +294,7 @@ void i2cSend(char *p) {
 		CHECK_STRUCT_MEMBER_ARRAY();
 		if(ptr == NULL) error("Invalid variable");
 		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
+			if(*(unsigned char *)ptr < sendlen) error("Insufficient data");	// (it sent what followed the string)
 			cptr = (unsigned char *)ptr;
 			cptr++;																	// skip the length byte in a MMBasic string
 			for (i = 0; i < sendlen; i++) {
@@ -349,6 +350,7 @@ void i2c2Send(char *p) {
 		CHECK_STRUCT_MEMBER_ARRAY();
 		if(ptr == NULL) error("Invalid variable");
 		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
+			if(*(unsigned char *)ptr < sendlen) error("Insufficient data");	// (it sent what followed the string)
 			cptr = (unsigned char *)ptr;
 			cptr++;																	// skip the length byte in a MMBasic string
 			for (i = 0; i < sendlen; i++) {
@@ -404,6 +406,7 @@ void i2c3Send(char *p) {
 		CHECK_STRUCT_MEMBER_ARRAY();
 		if(ptr == NULL) error("Invalid variable");
 		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
+			if(*(unsigned char *)ptr < sendlen) error("Insufficient data");	// (it sent what followed the string)
 			cptr = (unsigned char *)ptr;
 			cptr++;																	// skip the length byte in a MMBasic string
 			for (i = 0; i < sendlen; i++) {

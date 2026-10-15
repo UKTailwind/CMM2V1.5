@@ -995,7 +995,7 @@ void cmd_longString(void){
         int i=0,j;
         getargs(&tp, 3, (char *)",");
         if(argc != 3)error("Argument count");
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL);
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;   // element 0 holds the length (the PicoMite's d8fc39f)
         q=(char *)&dest[1];
         dest[0]=0;
         parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
@@ -1220,6 +1220,7 @@ void fun_LGetStr(void){
         nbr = getinteger(argv[4]);
         if(nbr < 1 || nbr > MAXSTRLEN) error("Number out of bounds");
         if(start+nbr>src[0])nbr=src[0]-start+1;
+        if(nbr < 0) nbr = 0;                                            // start past the end: an empty string (it wrote ~4 GB)
         sret = GetTempMemory(STRINGSIZE);                                       // this will last for the life of the command
         s=(char *)&src[1];
         s+=(start-1);
@@ -1243,107 +1244,69 @@ void fun_LGetByte(void){
         targ = T_INT;
 }
 
-// Fixes bug in LINSTR changing the regular expression if a variable - from picomite 6.00.02
-// new parsing used
-// Allows alternate form which evaluates the search string as a regular expression
-//see fun_Instr
+// LINSTR(array%(), search$ [, start [, size]]): the PicoMite's.  With size, search$ is a regular expression and
+// size receives the match's length (an integer or a float).  The regex runs on a terminated copy of the long string
+// from start (it ran on the array itself, unterminated: stale bytes past the length matched, or it ran off the end);
+// search$ is copied by its length (Mstrcpy: a CHR$(0) in it ended a strcpy) and read with OPTION ESCAPE off.
 void fun_LInstr(void){
-	    int64_t *src=NULL;
-	   // void *ptr1 = NULL;
-       // int64_t *dest=NULL;
-        //char *srch;
-        char srch[STRINGSIZE];
-        char *str=NULL;
-        int slen,found=0,i,j,n;
-        getargs(&ep, 7, ",");
-        if(argc <3  || argc > 7)error("Argument count");
-        int64_t start;
-        if(argc>=5 && *argv[4])start=getinteger(argv[4])-1;
-        else start=0;
-        /*
-        ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-        if(VREC(VarIndex)->type & T_INT) {
-            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {      // Not an array
-                error("Argument 1 must be integer array");
-            }
-            dest = (long long int *)ptr1;
-            str=(char *)&dest[0];
-        } else error("Argument 1 must be integer array");
-        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
-        srch=getstring(argv[2]);
-        */
-        j=(parseintegerarray(argv[0],&src,2,1,NULL,false, NULL)-1);
-        str=(char *)&src[0];
-       // srch=(char *)getstring(argv[2]);
-       strcpy((char *)srch,( char *)getstring(argv[2]));
-        if(argc<7){
-            slen=*srch;
-            iret=0;
-            //if(start>dest[0] || start<0 || slen==0 || dest[0]==0 || slen>dest[0]-start)found=1;
-            if(start>src[0] || start<0 || slen==0 || src[0]==0 || slen>src[0]-start)found=1;
-            if(!found){
-                //n=dest[0]- slen - start;
-                n=src[0]- slen - start;
-
-                for(i = start; i <= n + start; i++) {
-                    if(str[i + 8] == srch[1]) {
-                        for(j = 0; j < slen; j++)
-                            if(str[j + i + 8] != srch[j + 1])
-                                break;
-                        if(j == slen) {iret= i + 1; break;}
-                    }
+    int64_t *src = NULL;
+    char srch[STRINGSIZE];
+    char *str = NULL;
+    int slen, found = 0, i, j, n;
+    getargs(&ep, 7, ",");
+    if(argc < 3 || argc > 7) error("Argument count");
+    int64_t start;
+    if(argc >= 5 && *argv[4]) start = getinteger(argv[4]) - 1;
+    else start = 0;
+    j = (parseintegerarray(argv[0], &src, 2, 1, NULL, false, NULL) - 1);
+    str = (char *)&src[0];
+    if(argc < 7) {
+        Mstrcpy(srch, getstring(argv[2]));
+        slen = *srch;
+        iret = 0;
+        if(start > src[0] || start < 0 || slen == 0 || src[0] == 0 || slen > src[0] - start) found = 1;
+        if(!found) {
+            n = src[0] - slen - start;
+            for(i = start; i <= n + start; i++) {
+                if(str[i + 8] == srch[1]) {
+                    for(j = 0; j < slen; j++)
+                        if(str[j + i + 8] != srch[j + 1]) break;
+                    if(j == slen) { iret = i + 1; break; }
                 }
             }
-        } else { //search string is a regular expression
-          // Alternate regex library as used in Armmite H7
-        	int match_length;
-            MMFLOAT *temp=NULL;
-            MtoC(srch);
-            temp = findvar(argv[6], V_FIND);
-            if(!(FoundType() & T_NBR)) error("Invalid variable");
-
-         	int match_idx = re_match(srch, &str[start+8], &match_length);
-         	if (match_idx != -1){
-              // PInt(match_idx); PInt(match_length);
-       		    if(temp)*temp=(MMFLOAT)(match_length);
-          		//iret=match_idx;
-           		iret=match_idx+1+start;
-           		if(temp)*temp=(MMFLOAT)(match_length);
-           	}else{
-                //MMPrintString("No Match");
-              	iret=0;
-             	if(temp)*temp=0.0;
-          	}
-        /*
-
-            regex_t regex;
-            int reti;
-            regmatch_t pmatch;
-            MMFLOAT *temp=NULL;
-            MtoC(srch);
-            temp = findvar(argv[6], V_FIND);
-            if(!(FoundType() & T_NBR)) error("Invalid variable");
-            reti = regcomp(&regex, srch, 0);
-            if( reti ) error("Could not compile regex");
-	        reti = regexec(&regex, &str[start+8], 1, &pmatch, 0);
-            if( !reti ){
-                iret=pmatch.rm_so+1+start;
-                if(temp)*temp=(MMFLOAT)(pmatch.rm_eo-pmatch.rm_so);
-            }
-            else if( reti == REG_NOMATCH ){
-                iret=0;
-                if(temp)*temp=0.0;
-            }
-            else{
-                error("Regex execution error");
-            }
-         */
-
-	    }
-        targ = T_INT;
+        }
+    } else {                                                        // search$ is a regular expression
+        int tmp = OptionEscape;
+        OptionEscape = 0;
+        Mstrcpy(srch, getstring(argv[2]));
+        OptionEscape = tmp;
+        int match_length;
+        void *temp;
+        MMFLOAT *tempf = NULL;
+        int64_t *tempi = NULL;
+        MtoC(srch);
+        temp = findvar(argv[6], V_FIND);
+        if(!(FoundType() & (T_NBR | T_INT))) error("Invalid variable");
+        if(FoundType() & T_INT) tempi = temp;
+        else tempf = temp;
+        int hay_len = (int)src[0] - (int)start;                     // the long string from start, terminated
+        if(hay_len < 0) hay_len = 0;
+        char *hay = GetTempMemory(hay_len + 1);
+        if(hay_len) memcpy(hay, &str[start + 8], hay_len);
+        hay[hay_len] = 0;
+        int match_idx = re_match(srch, hay, &match_length);
+        if(match_idx != -1) {
+            if(tempf) *tempf = (MMFLOAT)match_length;
+            else *tempi = (int64_t)match_length;
+            iret = match_idx + 1 + start;
+        } else {
+            iret = 0;
+            if(tempf) *tempf = 0.0;
+            else *tempi = 0;
+        }
+    }
+    targ = T_INT;
 }
-
 
 void fun_LCompare(void){
     int64_t *dest, *src;

@@ -304,7 +304,8 @@ unsigned int *GetSendDataList(char *p, unsigned int *nbr) {
         if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
         if(*nbr > 1) {
             if(DimIsScalar(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
-            if(*nbr > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase)) error("Insufficient data");
+            // from the element given (a%(6) of eight read past the end): both array types are 8 bytes an element
+            if(((char *)ptr - VREC(VarIndex)->val.s) / 8 + *nbr > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase)) error("Insufficient data");
         }
 
         // now check if it is a MMFLOAT
@@ -347,10 +348,13 @@ long long int *GetReceiveDataBuffer(char *p, unsigned int *nbr) {
 
     getargs(&p, 3, ",");
     if(argc != 3) error("Invalid syntax");
-    *nbr = getinteger(argv[0]);
+    int n = getinteger(argv[0]);
+    if(n < 1) error("Number out of bounds");                      // (a negative count became a huge unsigned one)
+    *nbr = n;
     ptr = findvar(argv[2], V_NOFIND_NULL | V_EMPTY_OK);
     CHECK_STRUCT_MEMBER_ARRAY();
     if(ptr == NULL) error("Invalid variable");
+    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 	if((VREC(VarIndex)->type & T_INT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// integer array
         if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + *nbr) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
             error("Insufficient array size");

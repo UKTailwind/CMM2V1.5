@@ -597,7 +597,6 @@ void loadarray(char *p){
     int bnbr,w,h, size,i;
 	int maxH=PageTable[WritePage].ymax;
     int maxW=PageTable[WritePage].xmax;
-    void *ptr1 = NULL;
     MMFLOAT *a3float=NULL;
     int64_t *a3int=NULL;
     char *q;
@@ -609,22 +608,8 @@ void loadarray(char *p){
     if(blitbuff[bnbr].blitbuffptr==NULL){
     	w=getint(argv[2],1,maxW);
     	h=getint(argv[4],1,maxH);
-        ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-        CHECK_STRUCT_MEMBER_ARRAY();
-        if(VREC(VarIndex)->type & T_NBR) {
-            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-                error("Argument 1 must be array");
-            }
-            a3float = (MMFLOAT *)ptr1;
-        } else if(VREC(VarIndex)->type & T_INT) {
-            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-                error("Argument 1 must be array");
-            }
-            a3int = (int64_t *)ptr1;
-        } else error("Argument 1 must be array");
-        size=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
+        // the array whole, as the PicoMite's: a!(5) read w*h values from element 5, past the end
+        size = parsenumberarray(argv[6], &a3float, &a3int, 4, 1, NULL, true, NULL) - 1;
         if(size<w*h-1)error("Array Dimensions");
         blitbuff[bnbr].blitbuffptr = GetMemory(w*h*PageTable[WritePage].nbytes);
         blitbuff[bnbr].blitstoreptr = GetMemory(w*h*PageTable[WritePage].nbytes);

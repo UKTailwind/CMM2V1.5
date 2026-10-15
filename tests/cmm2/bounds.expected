@@ -1,0 +1,14 @@
+ok  LGETSTR$ from past the end is empty (it wrote about 4 GB)
+ok  LINSTR's regex stops at the long string's length (w.r matched past it)
+ok  LINSTR's regex inside it
+ok  and the match's length into an integer variable (it needed a float)
+ok  LONGSTRING COPY of 30 bytes into 24 bytes of room (it allowed 32)
+ok  BLIT LOADARRAY takes its array whole (from f!(5) it read past the end)
+ok  so does WS2812
+ok  and it keeps its size check
+ok  I2C WRITE of a string shorter than the count (it sent what followed it)
+ok  SPI WRITE counts from the element given (w%(6) of eight read past the end)
+ok  SPI READ of no bytes
+ok  DAC START with a LOCAL array (the DAC interrupt read it after the SUB)
+ok  IR with LOCAL variables (the timer interrupt wrote through them)
+bounds: 13 of 13 passed
