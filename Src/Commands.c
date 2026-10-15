@@ -1295,7 +1295,14 @@ retest_an_if:
 						nextstmt = findline(getinteger(argv[4]), true);
 					else {
 						// there is a statement after the ELSE clause  so just point to it (the byte after the ELSE token)
-						for(p = cmdline; *p && *p != ss[1]; p++);	// search for the token
+						// Find THEN, step over the command token the THEN clause starts with, then look for ELSE:
+						// scanning from the start stopped at a command whose token has the ELSE token's value
+						// (ERROR), so IF 0 THEN ERROR "x" ELSE ... ran "x" ELSE ... as a statement.
+						for(p = cmdline; *p && *p != ss[0]; p++);	// find the THEN
+						if(*p) p++;									// step over it
+						skipspace(p);
+						if(*p) p++;									// and over the command token
+						for(; *p && *p != ss[1]; p++);				// then search for the ELSE
 						nextstmt = p + 1;							// and point to the byte after
 					}
                 } else {
