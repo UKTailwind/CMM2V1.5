@@ -2166,9 +2166,9 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 		// if it is a numeric constant starting with the & character then get its base and convert to an integer
 		else if(*p == '&') {
 			p++; i64 = 0;
-			switch((*p++)) {
+			switch(toupper(*p++)) {                                 // &h as well as &H: DATA keeps its case
 				case 'H':   while(IsxDigit(*p)) {
-								i64 = (i64 << 4) | (((*p) >= 'A') ? (*p) - 'A' + 10 : *p - '0');
+								i64 = (i64 << 4) | ((toupper(*p) >= 'A') ? toupper(*p) - 'A' + 10 : *p - '0');
 								p++;
 							} break;
 				case 'O':   while(*p >= '0' && *p <= '7') {
