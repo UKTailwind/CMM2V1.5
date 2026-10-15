@@ -1,0 +1,20 @@
+ok  a float
+ok  an integer
+ok  a string
+ok  an empty string
+ok  an integer array
+ok  a single element array
+ok  a float array
+ok  VAR SAVE again replaces its entry
+ok  and keeps the others
+ok  a structure is refused
+ok  an unknown variable is an error
+varsave: 11 of 11 passed
+ok  after RUN: a float
+ok  an integer
+ok  a string
+ok  an integer array
+ok  a single element array
+ok  a float array
+ok  VAR CLEAR leaves nothing to restore
+varsave.inc: 7 of 7 passed

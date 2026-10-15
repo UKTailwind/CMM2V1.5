@@ -208,7 +208,7 @@ void FlashWriteClose(void) {
 ********************************************************************************************************************/
 void cmd_var(void) {
     char *p, *buf, *bufp, *varp, *vdata, lastc;
-    int i, j, nbr = 1, nbr2=1, array, type, SaveDefaultType;
+    int i, j, nbr = 1, nbr2=1, array, implied, type, SaveDefaultType;
     int VarList[MAX_ARG_COUNT];
     char *VarDataList[MAX_ARG_COUNT];
     char *SavedVarsFlash;
@@ -226,7 +226,7 @@ void cmd_var(void) {
         bufp = SavedVarsFlash;   // point to where the variables were saved
         while(*bufp != 0xff) {                                      // 0xff is the end of the variable list
             type = *bufp++;                                         // get the variable type
-            array = type & 0x80;  type &= 0x6f;                     // set array to true if it is an array
+            array = type & 0x80;  implied = type & T_IMPLIED;  type &= 0x6f;   // set array to true if it is an array
             if(!(type==T_INT || type==T_STR || type==T_NBR)){
             	ClearSavedVars();
             	error("Saved VARS corrupt - memory cleared %",type);
@@ -235,9 +235,9 @@ void cmd_var(void) {
             if(array) {
                 strcpy(b, bufp);
                 strcat(b, "()");
-                vdata = findvar(b, type | V_EMPTY_OK | V_NOFIND_ERR);     // find an array
+                vdata = findvar(b, type | implied | V_EMPTY_OK | V_NOFIND_ERR);     // find an array
             } else
-                vdata = findvar(bufp, type | V_FIND);               // find or create a non arrayed variable
+                vdata = findvar(bufp, type | implied | V_FIND);     // find or make a non arrayed variable (DIM INTEGER n stays implied: the PicoMite keeps the flag too)
             if(TypeMask(VREC(VarIndex)->type) != TypeMask(type)) error("$ type conflict", bufp);
             if(VREC(VarIndex)->type & T_CONST) error("$ is a constant", bufp);
             bufp += strlen((char *)bufp) + 1;                       // step over the name and the terminating zero byte
@@ -295,7 +295,7 @@ void cmd_var(void) {
         varp = SavedVarsFlash;   // point to where the variables were saved
         while(*varp != 0 && *varp != 0xff) {                        // 0 or 0xff is the end of the variable list
             type = *varp++;                                         // get the variable type
-            array = type & 0x80;  type &= 0x6f;                     // set array to true if it is an array
+            array = type & 0x80;  implied = type & T_IMPLIED;  type &= 0x6f;   // set array to true if it is an array
             if(!(type==T_INT || type==T_STR || type==T_NBR)){
             	ClearSavedVars();
             	error("Saved VARS corrupt - memory cleared");
@@ -323,7 +323,7 @@ void cmd_var(void) {
             // finished scanning the argument list, did we find a matching variable?
             // if not, copy this entry to RAM
             if(i < 9999) {
-                *bufp++ = type | array;
+                *bufp++ = type | array | implied;
                 while(*vdata) *bufp++ = *vdata++;                   // copy the name
                 *bufp++ = *vdata++;                                 // and the terminating zero byte
                 while(nbr--) *bufp++ = *varp++;                     // copy the data

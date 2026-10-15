@@ -436,6 +436,7 @@ void op_inv(void);
 	{ "CAN",	        T_CMD,				0, cmd_can	},
 	{ "Type",	        T_CMD,				0, cmd_type	},
 	{ "End Type",	    T_CMD,				0, cmd_endtype	},
+	{ "Var",	    	T_CMD,				0, cmd_var	},                     // VAR SAVE/RESTORE/CLEAR (flash.c: the backup SRAM); its entry in Flash.h was never in this table
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
