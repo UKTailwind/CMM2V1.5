@@ -496,3 +496,35 @@ void *StructMemberAt(char *struct_ptr, int struct_idx, char **pp) {
     *pp = p;
     return r;
 }
+
+// DefinedSubFun: a parameter AS a TYPE's name (vindex, which findvar made with data of its own) takes the caller's
+// structure, by reference.  argtype and argstruct are the argument's type and structure type, which for a member
+// (r.topLeft) are the member's own: the PicoMite's checked the base variable's, the outer type.  A whole array of
+// structures given for it (arr()) makes it that array, as on the PicoMite.
+void StructParam(int vindex, int argvindex, char *data, int argtype, int argstruct, char *argname) {
+    char *p;
+    if(!(argtype & T_PTR) || !(argtype & T_STRUCT)) error("Expected a structure variable: $", argname);
+    if(VREC(vindex)->size != argstruct) error("Structure type mismatch: $", argname);
+    if(VREC(vindex)->val.s != NULL) FreeMemorySafe((void **)&VREC(vindex)->val.s);
+    VREC(vindex)->val.s = data;
+    VREC(vindex)->type |= T_PTR;                                    // (ClearVars does not free it)
+    if(DimIsAllocated(VREC(argvindex)->dimtbl[0]) && (p = strchr(argname, '(')) != NULL) {
+        p++;
+        skipspace(p);
+        if(*p == ')')
+            for(int j = 0; j < MAXDIM; j++) VREC(vindex)->dimtbl[j] = VREC(argvindex)->dimtbl[j];
+    }
+}
+
+// DefinedSubFun: a FUNCTION's structure, copied to temporary memory at the caller's level (its own goes with its
+// locals), with g_ExprStructType its type for the assignment that takes it
+char *StructReturn(char *data, int type) {
+    int n = g_structtbl[type]->total_size;
+    char *t;
+    LocalIndex--;
+    t = GetTempMemory(n);
+    LocalIndex++;
+    memcpy(t, data, n);
+    g_ExprStructType = type;
+    return t;
+}

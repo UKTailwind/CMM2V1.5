@@ -30,6 +30,14 @@ ok  a LOCAL structure
 ok  the LOCAL starts at zero
 ok  and again (freed and made again)
 ok  a STATIC structure keeps its value
+ok  a structure by reference
+ok  a nested member as a structure (its own type, not the outer one)
+ok  and changed through it
+ok  a FUNCTION returning a structure
+ok  an array of structures as a parameter
+ok  an element of one
+ok  a structure of another type
+ok  a number for a structure
 ok  structure types must match
 ok  a number is not a structure
 ok  an unknown member
@@ -37,4 +45,4 @@ ok  a member array's bounds
 ok  a member array needs its index
 ok  an array of structures' bounds
 ok  ERASE, then DIM the name as another type
-structs: 39 of 39 passed
+structs: 47 of 47 passed

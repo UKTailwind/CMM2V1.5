@@ -20,7 +20,7 @@ Type TRect
   weights(1,2) As FLOAT
 End Type
 
-Dim p As TPoint, q As TPoint
+Dim p As TPoint, q As TPoint, q2 As TPoint
 Dim r As TRect, s As TRect
 Dim pts(4) As TPoint
 Dim grid(2,3) As TPoint
@@ -90,6 +90,22 @@ Check "and again (freed and made again)", LocalSum(2), 2 * 5
 For i = 1 To 3 : x = Counter() : Next
 Check "a STATIC structure keeps its value", x, 3
 
+' ---- whole structures as parameters, and FUNCTIONs that return them ----------------------------
+Check "a structure by reference", SumPoint(p), p.x + p.y
+Check "a nested member as a structure (its own type, not the outer one)", SumPoint(r.topLeft), 30
+MovePoint r.topLeft, 5
+Check "and changed through it", r.topLeft.x, 15
+q2 = MakePoint(7, 8)
+Check "a FUNCTION returning a structure", q2.x * 10 + q2.y, 78
+Check "an array of structures as a parameter", SumAll(pts()), 13
+Check "an element of one", SumPoint(pts(4)), 20
+On Error Skip 1
+x = SumPoint(r)
+Check "a structure of another type", Instr(MM.ErrMsg$, "mismatch") > 0, 1
+On Error Skip 1
+x = SumPoint(5)
+Check "a number for a structure", Instr(MM.ErrMsg$, "structure variable") > 0, 1
+
 ' ---- errors ------------------------------------------------------------------------------------
 On Error Skip 1
 p = r
@@ -118,6 +134,25 @@ Check "ERASE, then DIM the name as another type", q.colour, 5
 
 Print "structs:"; pass; " of"; tests; " passed"
 End
+
+Function SumPoint(a As TPoint) As INTEGER
+  SumPoint = a.x + a.y
+End Function
+
+Sub MovePoint(a As TPoint, d As INTEGER)
+  a.x = a.x + d
+End Sub
+
+Function MakePoint(x As INTEGER, y As INTEGER) As TPoint
+  MakePoint.x = x : MakePoint.y = y
+End Function
+
+Function SumAll(a() As TPoint) As INTEGER
+  Local integer k
+  For k = 0 To Bound(a())
+    SumAll = SumAll + a(k).x
+  Next
+End Function
 
 Function LocalSum(n As INTEGER) As INTEGER
   Local t As TPoint, u(2) As TPoint

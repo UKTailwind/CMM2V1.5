@@ -205,6 +205,8 @@ int FindStructMember(int struct_idx, char *membername, int *member_type, int *me
 void ListTypes(char *p);
 void *ResolveStructMember(char *struct_ptr, int struct_idx, char *member_path, char **pp, int *member_type);
 void *StructMemberAt(char *struct_ptr, int struct_idx, char **pp);
+void StructParam(int vindex, int argvindex, char *data, int argtype, int argstruct, char *argname);
+char *StructReturn(char *data, int type);
 extern int varcnt;
 extern int Localvarcnt;                              // number of LOCAL variables defined (eg, largest index into the variable table)
 extern int Globalvarcnt;                              // number of GLOBAL variables defined (eg, largest index into the variable table)

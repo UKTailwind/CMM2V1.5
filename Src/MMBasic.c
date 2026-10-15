@@ -678,6 +678,7 @@ struct s_subparam {
     char *name;                 // the parameter's text as findvar is given it (to its AS, terminated)
     int type;                   // its AS type, or T_NOTYPE
     int by;                     // SL_BYVAL, SL_BYREF or 0
+    int structarg;              // AS a TYPE's name: its number, else -1
 };
 struct s_sublayout {
     char *def;                  // subfun[] as it was read (a stale layout is read again)
@@ -752,6 +753,7 @@ static struct s_sublayout *SubLayoutBuild(int index, char *p, char *argbuf2, cha
                 sp->name = names;
                 names += tp - q + 1;
                 sp->type = type;
+                sp->structarg = (type & T_STRUCT) ? g_StructArg : -1;   // (CheckIfTypeSpecified left it, above)
                 sp->by = by;
             }
         }
@@ -798,6 +800,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     union u_argval *argval;
     int *argVarIndex;
     int *argsize;                                                   // a variable argument's size (a string's length: a member's own)
+    int FunStruct = -1;                                             // a FUNCTION AS a TYPE's name: its number
     struct s_sublayout *L;                                          // the definition's parameter list, as read on its first call (P6 F1)
     // Any errors generated after gosubindex is incremented need to restore the original value
     // Any variables created if LocalIndex was incremented also need to be cleared
@@ -847,6 +850,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
             ttp++;                                                  // step over the AS token
             ttp = CheckIfTypeSpecified(ttp, &FunType, true);        // get the type
             if(!(FunType & T_IMPLIED)) error("Variable type");
+            FunStruct = g_StructArg;                                // AS a TYPE's name (reading the parameters changes g_StructArg)
         }
         FunType |= (V_FIND | V_DIM_VAR | V_LOCAL | V_EMPTY_OK);
     }
@@ -1012,6 +1016,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     LocalIndex++;
     for(i = 0; i < argc2; i += 2) {                                 // count through the arguments in the definition of the sub/fun
         ArgType = L->p[i >> 1].type;                                // its AS type, as read on the first call
+        g_StructArg = L->p[i >> 1].structarg;                       // (and a TYPE's number)
         ArgType |= (V_FIND | V_DIM_VAR | V_LOCAL | V_EMPTY_OK);
         tp = findvar(L->p[i >> 1].name, ArgType);                   // declare the local variable
         if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])){error("Argument list"); }   // if it is an array it must be an empty array
@@ -1023,10 +1028,14 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
             if(DimIsScalar(VREC(argVarIndex[i])->dimtbl[0]))  { error("Expected an array");}
 
             if(TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])){error("Incompatible type: $", argv1[i]);}
+            if((VREC(VarIndex)->type & T_STRUCT) && VREC(VarIndex)->size != argsize[i]) error("Structure type mismatch: $", argv1[i]);
             VREC(VarIndex)->val.s = NULL;
             for(j = 0; j < MAXDIM; j++)                             // copy the dimensions of the supplied variable into our local variable
                 VREC(VarIndex)->dimtbl[j] = VREC(argVarIndex[i])->dimtbl[j];
 
+        } else if(VREC(VarIndex)->type & T_STRUCT) {                // a structure, by reference: the caller's (Struct.c)
+            StructParam(VarIndex, argVarIndex[i], argval[i].s, argtype[i], argsize[i], argv1[i]);
+            continue;
         }
 
 
@@ -1089,6 +1098,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     //   - When that returns we need to restore the global variables
     //   - Get the variable's value and save that in the return value globals (fret or sret)
     //   - Return to the expression parser
+    g_StructArg = FunStruct;
     tp = findvar(fun_name, FunType | V_FUNCT);                      // declare the local variable
     FunType = VREC(VarIndex)->type;
     if(FunType & T_STR) {
@@ -1116,6 +1126,8 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         *fa = *(MMFLOAT *)tp;
     else if(FunType & T_INT)
         *i64a = *(long long int *)tp;
+    else if(FunType & T_STRUCT)
+        *sa = StructReturn(tp, FunStruct);                          // a structure: copied out of the locals (Struct.c)
     else
         *sa = tp;                                                   // for a string we just need to return the local memory
     *typ = FunType;                                                 // save the function type for the caller
