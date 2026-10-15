@@ -1,0 +1,6 @@
+ok  STATIC C in SUB AB counts its own calls
+ok  and STATIC BC in SUB A its own (they shared ABC)
+ok  a long STATIC declaration keeps its value between calls
+ok  STATIC s$ LENGTH 10 = an initial value, kept between calls
+ok  an AS type in a STATIC list does not carry to the next name (second call)
+static: 5 of 5 passed

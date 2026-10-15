@@ -67,8 +67,9 @@ One commit each. The full regression must be unchanged apart from the fixes.
    - `NEXT JI` closes `FOR I` (FOR's NEXT search, `Commands.c:1771`);
    - the `SPI`/`SPI2` substitutions break `SPI(`/`SPI2(`;
    - a DATA-first line keeps lower-case names, which READ then looks up case-exactly;
-   - `importfile` never drops MMDEBUG lines;
-   - a program with a CSUB is reflashed on every RUN, because `SaveProgramToMemory` stores SDRAM addresses in the records.
+   - `importfile` never drops MMDEBUG lines.
+
+   (The inventory's sixth, a CSUB program reflashed on every RUN, is not so: `FileLoadProgram` compares only the text part of the image, not the CSUB records.)
 
    Each is checked on the board first, then fixed or noted.
 
@@ -89,6 +90,7 @@ One commit each. The full regression must be unchanged apart from the fixes.
 - **The savers.** Both `SaveProgramToMemory` and `SaveProgramToFlash` run the PicoMite's sequence: `SymBegin`, `SymCount` (pass 1), `SymRetry`, `SymRank`, then the emit pass, `SymTableWrite` and `SymEnd`.
   - `SymCount` must read exactly the lines the saver reads, so it reuses `LineSource` and the name-line pass rather than a copy of them.
   - Both builds must give the same bytes, or every RUN reflashes.
+  - `FileLoadProgram`'s comparison (`FileIO.c:679-699`) covers only the text part. It must take in the table: renaming a variable throughout can leave the text bytes the same and change only the table.
   - The table is written after the marker and before the CSUB records.
   - The table is skipped by `PrepareProgramExt` (with the strict-aliasing read of `e0515d3`), by MEMORY (which counts it as program) and by the boot image check.
 - **Every reader of names.**

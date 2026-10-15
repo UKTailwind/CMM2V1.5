@@ -71,6 +71,7 @@ Data 1, 2
 Sub WalkImage
   Local a%, k%, sk%, f%, l%, last1%, last2%, nxt%, nm$
   If Peek(PROGMEM, 0) <> 1 Or Peek(PROGMEM, 2) <> 5 Or Peek(PROGMEM, 3) <> 5 Or Peek(PROGMEM, 4) <> 5 Or Peek(PROGMEM, 5) <> 39 Then bad% = bad% Or 1
+  If Peek(PROGMEM, 6) <> Asc("*") Or Peek(PROGMEM, 7) <> Asc("2") Then bad% = bad% Or 1   ' the format's stamp
   asc1% = 1 : asc2% = 1 : last1% = 0 : last2% = 0
   Do While Peek(PROGMEM, a%) = 1
     sk% = Peek(PROGMEM, a% + 1)
@@ -79,7 +80,7 @@ Sub WalkImage
     nlines% = nlines% + 1
     If l% = 0 Then
       nnames% = nnames% + 1
-      nm$ = "" : k% = a% + 6
+      nm$ = "" : k% = a% + 8
       Do While Peek(PROGMEM, k%) <> 0
         nm$ = nm$ + Chr$(Peek(PROGMEM, k%)) : k% = k% + 1
       Loop

@@ -1,0 +1,7 @@
+a FOR that does not run skips to its own NEXT: []
+SPI( is a function
+a name in a lower-case DATA line: y = 6
+an #INCLUDE file's MMDEBUG line is dropped
+[25][26][26][27]
+TRACE LIST after END TYPE:
+[28] [29] [30] 

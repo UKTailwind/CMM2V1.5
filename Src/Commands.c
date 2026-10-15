@@ -1767,9 +1767,10 @@ void cmd_for(void) {
             CommandToken tkn = commandtbl_at(p);
             if(tkn == cmdFOR) t++;                                  // count the FOR
             if(tkn == cmdNEXT) {                                    // is it NEXT
-                xp = p + sizeof(CommandToken);                      // point to after the NEXT token
-                while(*xp && strncasecmp(xp, vname, vlen)) xp++;    // step through looking for our variable
-                if(*xp && !isnamechar(xp[vlen]))                    // is it terminated correctly?
+                char *nx = xp = p + sizeof(CommandToken);           // point to after the NEXT token
+                // step through looking for our variable as a whole name (NEXT JI is not NEXT I)
+                while(*xp && (strncasecmp(xp, vname, vlen) || (xp > nx && isnamechar(xp[-1])) || isnamechar(xp[vlen]))) xp++;
+                if(*xp)                                             // found
                     t = 0;                                          // yes, found the matching NEXT
                 else
                     t--;                                            // no luck, just decrement our stack counter
@@ -2768,10 +2769,31 @@ char *SetValue(char *p, int t, void *v, int size) {
 // define a variable
 // DIM [AS INTEGER|FLOAT|STRING] var[(d1 [,d2,...]] [AS INTEGER|FLOAT|STRING] [, ..., ...]
 // LOCAL also uses this function the routines only differ in that LOCAL can only be used in a sub/fun
+// STATIC's hidden global: the name of the SUB or FUNCTION it is in, 0x1E, then the variable's own text (its
+// bounds and LENGTH too).  The SUB is the innermost call frame that has a definition (a GOSUB has none), so
+// neither a call made earlier in the SUB nor an interrupt changes it.  0x1E is a name character that no source
+// holds (tokenise makes control characters spaces): without it STATIC C in SUB AB and STATIC BC in SUB A shared
+// the global ABC.  VarName holds STRINGSIZE bytes, so the bounds and LENGTH of a long declaration fit (the
+// PicoMite's holds 65, and the CMM2's copy into 65 was unchecked); findvar limits the name.  The PicoMite's
+// StaticVarName (74ed383, b0f448e).
+static void StaticVarName(char *VarName, char *arg) {
+    char *def = NULL;
+    int k, n;
+    for(k = gosubindex - 1; k >= 0 && def == NULL; k--) def = substack[k];
+    if(def == NULL) error("Invalid here");
+    def += sizeof(CommandToken);                                    // the name as the definition spells it, without a type suffix
+    skipspace(def);
+    for(k = 0; k < MAXVARLEN && isnamechar(def[k]); k++) VarName[k] = def[k];
+    VarName[k++] = 0x1e;
+    n = strlen(arg);
+    if(k + n >= STRINGSIZE) error("Line is too long");
+    memcpy(VarName + k, arg, n + 1);
+}
+
 void MIPS16 cmd_dim(void) {
     int i, j, k, type, typeSave, ImpliedType = 0, VIndexSave, StaticVar = false, ImpliedStruct, StructArg;
-    char *p, chSave, *chPosit;
-    char VarName[(MAXVARLEN * 2) + 1];
+    char *p, chSave, *chPosit, *vn;
+    char VarName[STRINGSIZE];                                       // STATIC's hidden name
     void *v, *tv;
 
     if(*cmdline == tokenAS) cmdline++;                              // this means that we can use DIM AS INTEGER a, b, etc
@@ -2802,29 +2824,20 @@ void MIPS16 cmd_dim(void) {
             }
 
             if(cmdtoken == cmdSTATIC) {
-                char *def = NULL;
                 if(LocalIndex == 0) error("Invalid here");
-                // create a unique global name from the name of the SUB/FUNCTION this runs in: the innermost
-                // call frame that has one (a GOSUB has none), so neither a call made earlier in the SUB nor
-                // an interrupt changes it
-                for(k = gosubindex - 1; k >= 0 && def == NULL; k--) def = substack[k];
-                if(def == NULL) error("Invalid here");
-                def += sizeof(CommandToken);                        // the name as the definition spells it, without a type suffix
-                skipspace(def);
-                for(k = 0; k < MAXVARLEN && isnamechar(def[k]); k++) VarName[k] = def[k];
-                VarName[k] = 0;
-                strcat(VarName, argv[i]);                           // by prefixing the var name with the sub/fun name
+                StaticVarName(VarName, argv[i]);
+                vn = VarName;
                 StaticVar = true;
             } else
-                strcpy(VarName, argv[i]);
+                vn = argv[i];                                       // (it was copied into VarName, unchecked)
 
             g_StructArg = StructArg;
-            v = findvar(VarName, type | V_NOFIND_NULL);             // check if the variable exists
+            v = findvar(vn, type | V_NOFIND_NULL);               // check if the variable exists
             typeSave = type;
             VIndexSave = VarIndex;
             if(v == NULL) {                                         // if not found
                 g_StructArg = StructArg;
-                v = findvar(VarName, type | V_FIND | V_DIM_VAR);    // create the variable
+                v = findvar(vn, type | V_FIND | V_DIM_VAR);      // create the variable
                 type = TypeMask(VREC(VarIndex)->type);
                 VIndexSave = VarIndex;
                 *chPosit = chSave;                                  // restore the char previously removed
@@ -2861,12 +2874,15 @@ void MIPS16 cmd_dim(void) {
                 }
                 type = ImpliedType;
             } else {
-                if(!StaticVar) error("$ already declared", VarName);
+                if(!StaticVar) error("$ already declared", vn);
             }
 
 
             // if it is a STATIC var create a local var pointing to the global var
             if(StaticVar) {
+                *chPosit = 0;                                       // the declaration without "= value", which was put back to set the
+                                                                    // global ("Incompatible types": the value read as part of LENGTH;
+                                                                    // the PicoMite's 74ed383)
                 g_StructArg = StructArg;
                 tv = findvar(argv[i], typeSave | V_LOCAL | V_NOFIND_NULL);                        // check if the local variable exists
                 if(tv != NULL) error("$ already declared", argv[i]);

@@ -155,9 +155,10 @@ const char namestart[256]={
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0xE0
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  //0xF0
 };
+// 0x1E is a name character: STATIC's hidden name holds it between the SUB's name and the variable's
 const char namein[256]={
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0
-		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x10
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0, //0x10
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0, //0x20
 		1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0, //0x30
 		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x40
@@ -175,7 +176,7 @@ const char namein[256]={
 };
 const char nameend[256]={
 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0
-		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, //0x10
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0, //0x10
 		0,1,0,0,1,1,0,0,0,0,0,0,0,0,1,0, //0x20
 		1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0, //0x30
 		0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, //0x40
@@ -1455,7 +1456,8 @@ void str_replace(char *target, const char *needle, const char *replacement, uint
 
     if(needle_len == 0) return;                                     // (an empty #DEFINE name: it would match forever)
     while((p = fstrstr(tmp, needle)) != NULL) {
-        whole = (p == target || !isnamechar(p[-1]) || (ignoresurround & 1)) && (!isnameend(p[needle_len]) || (ignoresurround & 2));
+        whole = (p == target || !isnamechar(p[-1]) || (ignoresurround & 1)) && (!isnameend(p[needle_len]) || (ignoresurround & 2))
+            && !((ignoresurround & 4) && p[needle_len] == '(');    // 4: not a function of that name (SPI()
         from = whole ? replacement : p;                             // (not replaced: the text as it was, in its case)
         n = whole ? repl_len : needle_len;
         if(insert_point + (p - tmp) + n > limit) goto toolong;
@@ -1603,9 +1605,9 @@ int MIPS16 tokenise(int console) {
             str_replace(inpbuf,"I2C","I2C 1",0);
             str_replace(inpbuf,"I2C3","I2C 3",0);
             str_replace(inpbuf,"I2C2","I2C 2",0);
-            str_replace(inpbuf,"SPI","SPI 1",0);
+            str_replace(inpbuf,"SPI","SPI 1",4);                   // (4: not the function SPI(, which became SPI 1()
             str_replace(inpbuf,"ERASE","CLEAR VARS",0);
-            str_replace(inpbuf,"SPI2","SPI 2",0);
+            str_replace(inpbuf,"SPI2","SPI 2",4);
             str_replace(inpbuf,"ZMODEM","XMODEM Z",0);              // ZMODEM has no token of its own (the table is full): cmd_xmodem dispatches on the Z
             SubstShow(inpbuf, comment);
         }
@@ -2042,16 +2044,18 @@ char *getstring(char *p) {
 // evaluate an expression to get a string using the C style for a string
 // as against the MMBasic style returned by getstring()
 // Program memory holds an image of the current format: its first line is the program's name line, whose
-// header carries file 1 and line 0 (see T_NEWLINE_HDR).  An image written by an older firmware has the
-// name's ' straight after its T_NEWLINE.
+// header carries file 1 and line 0, and whose text is ' IMAGE_TAG IMAGE_FORMAT name (see T_NEWLINE_HDR).
+// An image written by an older firmware has another format digit, or the name straight after the ' (the
+// header of 15 Oct), or the name's ' straight after its T_NEWLINE (before that).
 int ImageIsCurrent(void) {
     unsigned char *p = (unsigned char *)ProgMemory;
-    return p[0] == T_NEWLINE && p[2] == LHDR_MIN && p[3] == LHDR_MIN && p[4] == LHDR_MIN && p[5] == '\'';
+    return p[0] == T_NEWLINE && p[2] == LHDR_MIN && p[3] == LHDR_MIN && p[4] == LHDR_MIN && p[5] == '\''
+        && p[6] == IMAGE_TAG && p[7] == IMAGE_FORMAT;
 }
 
 // the program's file name as the image records it (for example "/DIR/PROG.BAS"), or NULL
 char *ProgName(void) {
-    return ImageIsCurrent() ? (char *)ProgMemory + T_NEWLINE_HDR + 1 : NULL;
+    return ImageIsCurrent() ? (char *)ProgMemory + T_NEWLINE_HDR + IMAGE_NAME : NULL;
 }
 
 // the line after the one starting at 'line' (its T_NEWLINE), or the zero that ends the program: by the
@@ -2074,7 +2078,7 @@ char *LineFileName(int file) {
     char *p = (char *)ProgMemory;
     if(!ImageIsCurrent()) return "?";
     while(*p == T_NEWLINE && LHDR_LINE(p) == 0) {                   // the name lines come first
-        if(LHDR_FILE(p) == file) return p + T_NEWLINE_HDR + 1;
+        if(LHDR_FILE(p) == file) return p + T_NEWLINE_HDR + IMAGE_NAME;
         if(LHDR_SKIP(p) > LHDR_SKIPMAX) break;                      // (a name line is never that long)
         p += LHDR_SKIP(p);
     }
@@ -2804,18 +2808,19 @@ char *findlabel(char *labelptr) {
 
 // count the number of lines up to and including the line pointed to by the argument
 // used for error reporting in programs that do not use line numbers
+// TRACE LIST: print the line that starts at target.  The image is walked by lines (NextLine): a walk byte by
+// byte stopped at any 0xFF, which END TYPE's command token starts with, so every line after the first END TYPE
+// printed nothing.
 int MIPS16 TraceLines(char *target) {
-    char *p;
+    char *p, *next;
     int cnt;
 
     p = (char *)ProgMemory;
     cnt = 0;
     if(target==NULL)return cnt;
-    while(1) {
-        if(*p == 0xff || (p[0] == 0 && p[1] == 0))                   // end of the program
-            return cnt;
-
-        if(*p == T_NEWLINE) {
+    while(*p == T_NEWLINE) {
+        next = NextLine(p);
+        {
             if(p >= target) {                                       // the line TRACE LIST is asking about
                 if(LHDR_LINE(p)) {                                  // (line 0: a file name line)
                     char buff[10];
@@ -2830,23 +2835,11 @@ int MIPS16 TraceLines(char *target) {
                 }
                 return cnt;
             }
-            p += T_NEWLINE_HDR;                                     // step over the line's header
-            continue;
         }
-
-        if(*p == T_LINENBR) {
-            p += 3;                                                 // and step over the line number
-            continue;
-        }
-
-        if(*p == T_LABEL) {
-            p += p[1] + 2;                                          // still looking! skip over the label (T_LABEL, length, name)
-            continue;
-        }
-
-        if(p++ > target) return cnt;
-
+        if(next > target) return cnt;                               // target is inside this line, not at a line's start
+        p = next;
     }
+    return cnt;
 }
 
 
@@ -3065,10 +3058,11 @@ void *findvar(char *p, int action) {
 
     // copy the variable name into name
     s = name; namelen = 0;
-	do {
-		hash ^= *p;
+	do {                                                            // in capitals, whatever the text (a DATA-first
+		char c = toupper(*p++);                                     // line keeps its case: READ evaluates its numbers)
+		hash ^= c;
 		hash*=FNV_prime;
-		*s++ = (*p++);
+		*s++ = c;
 		if(++namelen > MAXVARLEN) error("Variable name too long");
 	} while(isnamechar(*p));
 	GlobalhashIndex = MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1));   // the global slot the probe starts at
@@ -4180,7 +4174,7 @@ long long int FloatToInt64(MMFLOAT x) {
 // make a string uppercase
 void makeupper(char *p) {
     while(*p) {
-        *p = (*p);
+        *p = toupper(*p);                                           // (it copied each character to itself)
         p++;
     }
 }

@@ -57,7 +57,8 @@ provisions:
 #define T_CMDEND    0                               // end of a command
 #define T_NEWLINE   1                               // the start of a line: the first byte of its header
 #define T_LINENBR   2                               // three bytes for a line number
-#define T_LABEL     4                               // variable length indicating a label
+#define T_LABEL     3                               // variable length indicating a label (the PicoMite's value: 0x04-0x07
+                                                    // are its symbol introducers)
 
 // Every line of a program image starts with a header of T_NEWLINE_HDR bytes:
 //   T_NEWLINE, skip, file, line_hi, line_lo
@@ -68,6 +69,11 @@ provisions:
 // an image byte by byte looking for them steps over a header unharmed.  file and the line bytes are
 // stored as LHDR_MIN + value, the line number in base 250.  A line number of 0 marks the comment lines
 // at the top of the image that hold the file names; on the first it is also the format's stamp.
+// A name line is ' then IMAGE_TAG then the image format IMAGE_FORMAT, then the file name: format 1 (the
+// header of 15 Oct) had ' then the name straight away, with T_LABEL 4.
+#define IMAGE_TAG     '*'                           // (a character no FAT file name holds)
+#define IMAGE_FORMAT  '2'                           // 2: T_LABEL 3
+#define IMAGE_NAME    3                             // the file name's offset after the header: ' IMAGE_TAG IMAGE_FORMAT
 #define T_NEWLINE_HDR 5
 #define LHDR_MIN      5                             // the smallest value a header byte after T_NEWLINE takes
 #define LHDR_MAXLINE  62499                         // the largest line number a header can hold

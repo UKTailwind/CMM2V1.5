@@ -415,6 +415,11 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 			*sbuff='\'';
 			continue;
 		}
+		if(strncasecmp(sbuff,"mmdebug ",7)==0 && convertdebug==1){   // as the program's own (it was never dropped here)
+			sbuff+=6;
+			*sbuff='\'';
+			continue;
+		}
 		if(strncasecmp(sbuff,"data ",5)==0)data=1;
 		slen=len;
 		op=sbuff;

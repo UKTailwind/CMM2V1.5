@@ -618,10 +618,14 @@ FMC_Bank1_R->BTCR[1] = 0x000030D2;
 if(Option.ProgramStartCode>=0){
 	ProgMemory=(char *)((uint32_t)progstart[Option.ProgramStartCode]);
 	if(!(*ProgMemory==0 || ImageIsCurrent())){                  // erased, or an image from another format
-		if(ProgMemory[0]==T_NEWLINE && ProgMemory[1]=='\'') {     // older firmware's: its first line names its file
+		char *nm = NULL;                                            // an older firmware's image: the file its first line names
+		if(ProgMemory[0]==T_NEWLINE && ProgMemory[1]=='\'') nm = ProgMemory + 2;              // before the line header
+		else if(ProgMemory[0]==T_NEWLINE && ProgMemory[5]=='\'')                               // with it
+			nm = ProgMemory + T_NEWLINE_HDR + (ProgMemory[6] == IMAGE_TAG ? IMAGE_NAME : 1);
+		if(nm) {
 			int k=0;
-			while(k < sizeof(staleimage)-1 && ProgMemory[2+k] >= ' ' && ProgMemory[2+k] < 0x7f && ProgMemory[2+k] != '"') {
-				staleimage[k] = ProgMemory[2+k]; k++;
+			while(k < sizeof(staleimage)-1 && nm[k] >= ' ' && nm[k] < 0x7f && nm[k] != '"') {
+				staleimage[k] = nm[k]; k++;
 			}
 			staleimage[k] = 0;
 		}
@@ -3652,12 +3656,12 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     // this is used to count the number of bytes written to flash
     CollectIncludes(pm);                                        // number the #INCLUDE files first
     for(int f = 0; f <= nincludes; f++) {                       // the name lines: the program's, then its #INCLUDE files'
-        inpbuf[0]=39;
+        inpbuf[0]=39; inpbuf[1]=IMAGE_TAG; inpbuf[2]=IMAGE_FORMAT;   // ' then the format's stamp (see IMAGE_TAG)
         if(f == 0)
-            memcpy(&inpbuf[1],fname,strlen(fname)+1);
+            memcpy(&inpbuf[IMAGE_NAME],fname,strlen(fname)+1);
         else {
             int len = strchr(includes[f - 1], ',') - includes[f - 1];
-            memcpy(&inpbuf[1], includes[f - 1], len); inpbuf[1 + len] = 0;
+            memcpy(&inpbuf[IMAGE_NAME], includes[f - 1], len); inpbuf[IMAGE_NAME + len] = 0;
         }
         tknfile = f + 1; tknline = 0; tknfilename = NULL;       // line 0 marks a name line (and on the first, the format)
         if(tokenise(false)) goto toolong;                       // turn into executable code
@@ -3715,6 +3719,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     	routinechecks(1);
     }
     FlashWriteByte(0);
+    for(int z = 0; z < 4; z++) FlashWriteByte(0);                 // a word of zeros after the end, so a scan from the last line never meets the 0xFF marker (the PicoMite's bc0c157)
     FlashWriteAlign();                                            // this will flush the buffer and step the flash write pointer to the next word boundary
     // now we must scan the program looking for CFUNCTION/CSUB/DEFINEFONT statements, extract their data and program it into the flash used by  CFUNCTIONs
      // programs are terminated with two zero bytes and one or more bytes of 0xff.  The CFunction area starts immediately after that.
@@ -3959,12 +3964,12 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     // this is used to count the number of bytes written to flash
     CollectIncludes(pm);                                        // number the #INCLUDE files first
     for(int f = 0; f <= nincludes; f++) {                       // the name lines: the program's, then its #INCLUDE files'
-        inpbuf[0]=39;
+        inpbuf[0]=39; inpbuf[1]=IMAGE_TAG; inpbuf[2]=IMAGE_FORMAT;   // ' then the format's stamp (see IMAGE_TAG)
         if(f == 0)
-            memcpy(&inpbuf[1],fname,strlen(fname)+1);
+            memcpy(&inpbuf[IMAGE_NAME],fname,strlen(fname)+1);
         else {
             int len = strchr(includes[f - 1], ',') - includes[f - 1];
-            memcpy(&inpbuf[1], includes[f - 1], len); inpbuf[1 + len] = 0;
+            memcpy(&inpbuf[IMAGE_NAME], includes[f - 1], len); inpbuf[IMAGE_NAME + len] = 0;
         }
         tknfile = f + 1; tknline = 0; tknfilename = NULL;       // line 0 marks a name line (and on the first, the format)
         if(tokenise(false)) goto toolong;                       // turn into executable code
@@ -4021,6 +4026,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     	routinechecks(1);
     }
     MemWriteByte(0);
+    for(int z = 0; z < 4; z++) MemWriteByte(0);                   // a word of zeros after the end (as SaveProgramToFlash)
     MemWriteAlign();                                            // this will flush the buffer and step the flash write pointer to the next word boundary
     retvalue=((uint32_t)realmempointer-(uint32_t)SDMemory);
     // now we must scan the program looking for CFUNCTION/CSUB/DEFINEFONT statements, extract their data and program it into the flash used by  CFUNCTIONs
