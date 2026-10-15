@@ -289,7 +289,7 @@ unsigned int *GetSendDataList(char *p, unsigned int *nbr) {
 
         // now check if it is a non array string
 		if(VREC(VarIndex)->type & T_STR) {
-            if(VREC(VarIndex)->dims[0] != 0) error("Invalid variable");
+            if(DimIsAllocated(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
             if(*((char *)ptr) < *nbr) error("Insufficient data");
             ptr += sizeof(char);                                    // skip the length byte in a MMBasic string
             for (i = 0; i < *nbr; i++) {
@@ -300,10 +300,10 @@ unsigned int *GetSendDataList(char *p, unsigned int *nbr) {
 		}
 
         // if it is a MMFLOAT or integer do some sanity checks
-        if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
         if(*nbr > 1) {
-            if(VREC(VarIndex)->dims[0] == 0) error("Invalid variable");
-            if(*nbr > (VREC(VarIndex)->dims[0] + 1 - OptionBase)) error("Insufficient data");
+            if(DimIsScalar(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
+            if(*nbr > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase)) error("Insufficient data");
         }
 
         // now check if it is a MMFLOAT
@@ -349,8 +349,8 @@ long long int *GetReceiveDataBuffer(char *p, unsigned int *nbr) {
     *nbr = getinteger(argv[0]);
     ptr = findvar(argv[2], V_NOFIND_NULL | V_EMPTY_OK);
     if(ptr == NULL) error("Invalid variable");
-	if((VREC(VarIndex)->type & T_INT) && VREC(VarIndex)->dims[0] > 0 && VREC(VarIndex)->dims[1] == 0) {		// integer array
-        if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + *nbr) > (VREC(VarIndex)->dims[0] + 1 - OptionBase) )
+	if((VREC(VarIndex)->type & T_INT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// integer array
+        if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + *nbr) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
             error("Insufficient array size");
 	}
         else error("Invalid variable");

@@ -593,9 +593,9 @@ int parseintegerarray(char *tp, int64_t **a1int, int argno, int dimensions, int 
 	int i,j;
 	ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
-	if(dims==NULL)dims=VREC(VarIndex)->dims;
+	if(dims==NULL)dims=VREC(VarIndex)->dimtbl;
 	if(VREC(VarIndex)->type & T_INT) {
-		memcpy(dims,VREC(VarIndex)->dims, MAXDIM * sizeof(short));
+		memcpy(dims,VREC(VarIndex)->dimtbl, MAXDIM * sizeof(short));
 		*a1int = (int64_t *)ptr1;
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be an integer array",argno);
@@ -613,9 +613,9 @@ int parsenumberarray(char *tp, MMFLOAT **a1float, int64_t **a1int, int argno, in
 	int i,j;
 	ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
-	if(dims==NULL)dims=VREC(VarIndex)->dims;
+	if(dims==NULL)dims=VREC(VarIndex)->dimtbl;
 	if(VREC(VarIndex)->type & (T_INT | T_NBR)) {
-		memcpy(dims,VREC(VarIndex)->dims,  MAXDIM * sizeof(short));
+		memcpy(dims,VREC(VarIndex)->dimtbl,  MAXDIM * sizeof(short));
 		if(VREC(VarIndex)->type & T_NBR) *a1float = (MMFLOAT *)ptr1;
 		else *a1int=(int64_t *)ptr1;
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
@@ -634,9 +634,9 @@ int parsefloatrarray(char *tp, MMFLOAT **a1float, int argno, int dimensions, int
 	int i,j;
 	ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
-	if(dims==NULL)dims=VREC(VarIndex)->dims;
+	if(dims==NULL)dims=VREC(VarIndex)->dimtbl;
 	if(VREC(VarIndex)->type & T_NBR) {
-		memcpy(dims,VREC(VarIndex)->dims,  MAXDIM * sizeof(short));
+		memcpy(dims,VREC(VarIndex)->dimtbl,  MAXDIM * sizeof(short));
 		*a1float = (MMFLOAT *)ptr1;
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be a floating point array",argno);
@@ -664,21 +664,21 @@ int parseany(char *tp, MMFLOAT **a1float, int64_t **a1int, unsigned char ** a1st
 	void *ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	int arraylength;
 	if(VREC(VarIndex)->type & T_NBR) {
-		if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-		if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 			error("Argument 1 must be a numerical array");
 		}
-		arraylength=VREC(VarIndex)->dims[0] - OptionBase + 1;
+		arraylength=DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase + 1;
 		if(*length==0)*length=arraylength;
 		if(*length>arraylength)error("Array size");
 		*a1float = (MMFLOAT *)ptr1;
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else if(ptr1 && VREC(VarIndex)->type & T_INT) {
-		if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-		if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 			error("Argument 1 must be a numerical array");
 		}
-		arraylength=VREC(VarIndex)->dims[0] - OptionBase + 1;
+		arraylength=DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase + 1;
 		if(*length==0)*length=arraylength;
 		if(*length>arraylength)error("Array size");
 		*a1int = (int64_t *)ptr1;
@@ -688,11 +688,11 @@ int parseany(char *tp, MMFLOAT **a1float, int64_t **a1int, unsigned char ** a1st
 		if(*length==0)*length=**a1str;
 		if(**a1str<*length)error("String size");
 	} else if(ptr1 && VREC(VarIndex)->type & T_STR && stringarray) {
-		if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-		if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 			error("Argument 1 must be a string array");
 		}
-		arraylength=VREC(VarIndex)->dims[0] - OptionBase + 1;
+		arraylength=DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase + 1;
 		if(*length==0)*length=arraylength;
 		if(*length>arraylength)error("Array size");
 		*a1str=(unsigned char *)ptr1;

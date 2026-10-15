@@ -249,7 +249,7 @@ void fun_bound(void){
 	if(argc==3)which=getint(argv[2],0,MAXDIM);
     findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	if(which==0)iret=OptionBase;
-	else iret=VREC(VarIndex)->dims[which-1];
+	else iret=DimUpper(VREC(VarIndex)->dimtbl[which-1]);
 	if(iret==-1)iret=0;
 	targ=T_INT;
 }

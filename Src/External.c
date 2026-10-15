@@ -1423,18 +1423,18 @@ void cmd_bitbang(void){
 	   /*
 		ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		if(VREC(VarIndex)->type & T_NBR) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
+			if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
 			a1float = (MMFLOAT *)ptr1;
 		} else if(VREC(VarIndex)->type & T_INT) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
+			if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
 			a1int = (int64_t *)ptr1;
 		} else error("Argument 2 must be an array");
         */
@@ -1503,11 +1503,11 @@ void WS2812(char *q){
             if(nbr>1){
                 ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK);
                 if(VREC(VarIndex)->type & T_INT) {
-                    if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-                    if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+                    if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+                    if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                         error("Argument 1 must be integer array");
                     } else {
-                        if((VREC(VarIndex)->dims[0] - OptionBase + 1)<nbr)error("Array size");
+                        if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase + 1)<nbr)error("Array size");
                     }
                     dest = (long long int *)ptr1;
                 } else error("Argument 1 must be integer array");
@@ -1596,18 +1596,18 @@ void cmd_bitbang(void){
     	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
 		ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		if(VREC(VarIndex)->type & T_NBR) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
+			if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
 			a1float = (MMFLOAT *)ptr1;
 		} else if(VREC(VarIndex)->type & T_INT) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
+			if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
 			a1int = (int64_t *)ptr1;
 		} else error("Argument 2 must be an array");
 		data=GetTempMemory(num * sizeof(unsigned short));
@@ -1667,11 +1667,11 @@ void WS2812(char *q){
             if(nbr>1){
                 ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK);
                 if(VREC(VarIndex)->type & T_INT) {
-                    if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-                    if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+                    if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+                    if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                         error("Argument 1 must be integer array");
                     } else {
-                        if((VREC(VarIndex)->dims[0] - OptionBase + 1)<nbr)error("Array size");
+                        if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase + 1)<nbr)error("Array size");
                     }
                     dest = (long long int *)ptr1;
                 } else error("Argument 1 must be integer array");
@@ -1682,11 +1682,11 @@ void WS2812(char *q){
     	} else {
 			ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK);
 			if(VREC(VarIndex)->type & T_INT) {
-				if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-				if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+				if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+				if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 					error("Argument 1 must be integer array");
 				}
-				nbr=(VREC(VarIndex)->dims[0] - OptionBase)+1;
+				nbr=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase)+1;
 				dest = (long long int *)ptr1;
 			} else error("Argument 1 must be integer array");
 			}

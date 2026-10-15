@@ -247,8 +247,8 @@ void cmd_var(void) {
                 nbr |= (*bufp++) << 16;
                 nbr |= (*bufp++) << 24;
                 nbr2 = 1;
-                for(j = 0; VREC(VarIndex)->dims[j] != 0 && j < MAXDIM; j++)
-                    nbr2 *= (VREC(VarIndex)->dims[j] + 1 - OptionBase);
+                for(j = 0; !DimIsEnd(VREC(VarIndex)->dimtbl[j]) && j < MAXDIM; j++)
+                    nbr2 *= (DimUpper(VREC(VarIndex)->dimtbl[j]) + 1 - OptionBase);
                 if(type & T_STR) nbr2 *= VREC(VarIndex)->size +1;
                 if(type & T_NBR) nbr2 *= sizeof(MMFLOAT);
                 if(type & T_INT) nbr2 *= sizeof(long long int);
@@ -348,12 +348,12 @@ void cmd_var(void) {
             vdata = VarDataList[i/2];                               // pointer to the variable's data
             type = TypeMask(VREC(VarIndex)->type);                 // get the variable's type
             type |= (VREC(VarIndex)->type & T_IMPLIED);            // set the implied flag
-            array = (VREC(VarIndex)->dims[0] != 0);
+            array = (DimIsAllocated(VREC(VarIndex)->dimtbl[0]));
 
             nbr = 1;                                                // number of elements to save
             if(array) {                                             // if this is an array calculate the number of elements
-                for(j = 0; VREC(VarIndex)->dims[j] != 0 && j < MAXDIM; j++)
-                    nbr *= (VREC(VarIndex)->dims[j] + 1 - OptionBase);
+                for(j = 0; !DimIsEnd(VREC(VarIndex)->dimtbl[j]) && j < MAXDIM; j++)
+                    nbr *= (DimUpper(VREC(VarIndex)->dimtbl[j]) + 1 - OptionBase);
                 type |= 0x80;                                       // an array has the top bit set
             }
 

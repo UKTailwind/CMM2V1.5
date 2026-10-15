@@ -957,7 +957,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
               	    //Only if not an array remove any pointer flag in the caller
               	    argtype[i] = 0;
                     // Trap an array but remove pointer if an array element
-                	if(VREC(argVarIndex[i])->dims[0] > 0){
+                	if(DimIsRealArray(VREC(argVarIndex[i])->dimtbl[0])){
               	    	/*
               	    	 * Set tp to point to the current parameter
               	    	 * See if we have an array or an array element
@@ -1001,18 +1001,18 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         ArgType = L->p[i >> 1].type;                                // its AS type, as read on the first call
         ArgType |= (V_FIND | V_DIM_VAR | V_LOCAL | V_EMPTY_OK);
         tp = findvar(L->p[i >> 1].name, ArgType);                   // declare the local variable
-        if(VREC(VarIndex)->dims[0] > 0){error("Argument list"); }   // if it is an array it must be an empty array
+        if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])){error("Argument list"); }   // if it is an array it must be an empty array
         CurrentLinePtr = CallersLinePtr;                            // report errors at the caller
 
         // if the definition called for an array, special processing and checking will be required
-       	if(VREC(VarIndex)->dims[0] == -1) {
+       	if(DimIsEmptyParam(VREC(VarIndex)->dimtbl[0])) {
         	int j;
-            if(VREC(argVarIndex[i])->dims[0] == 0)  { error("Expected an array");}
+            if(DimIsScalar(VREC(argVarIndex[i])->dimtbl[0]))  { error("Expected an array");}
 
             if(TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])){error("Incompatible type: $", argv1[i]);}
             VREC(VarIndex)->val.s = NULL;
             for(j = 0; j < MAXDIM; j++)                             // copy the dimensions of the supplied variable into our local variable
-                VREC(VarIndex)->dims[j] = VREC(argVarIndex[i])->dims[j];
+                VREC(VarIndex)->dimtbl[j] = VREC(argVarIndex[i])->dimtbl[j];
 
         }
 
@@ -1299,18 +1299,18 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         }
         ArgType |= (V_FIND | V_DIM_VAR | V_LOCAL | V_EMPTY_OK);
         tp = findvar(argv2[i], ArgType);                            // declare the local variable
-        if(VREC(VarIndex)->dims[0] > 0) error("Argument list");    // if it is an array it must be an empty array
+        if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])) error("Argument list");    // if it is an array it must be an empty array
 
         CurrentLinePtr = CallersLinePtr;                            // report errors at the caller
 
         // if the definition called for an array, special processing and checking will be required
-        if(VREC(VarIndex)->dims[0] == -1) {
+        if(DimIsEmptyParam(VREC(VarIndex)->dimtbl[0])) {
             int j;
-            if(VREC(argVarIndex[i])->dims[0] == 0) error("Expected an array");
+            if(DimIsScalar(VREC(argVarIndex[i])->dimtbl[0])) error("Expected an array");
             if(TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])) error("Incompatible type: $", argv1[i]);
             VREC(VarIndex)->val.s = NULL;
             for(j = 0; j < MAXDIM; j++)                             // copy the dimensions of the supplied variable into our local variable
-                VREC(VarIndex)->dims[j] = VREC(argVarIndex[i])->dims[j];
+                VREC(VarIndex)->dimtbl[j] = VREC(argVarIndex[i])->dimtbl[j];
         }
 
         // if this is a pointer check and the type is NOT the same as that requested in the sub/fun definition
@@ -3178,7 +3178,7 @@ void *findvar(char *p, int action) {
         VarIndex = vindex = i;
 
         // check that the dimensions match
-        for(i = 0; i < MAXDIM && VREC(vindex)->dims[i] != 0; i++);
+        for(i = 0; i < MAXDIM && !DimIsEnd(VREC(vindex)->dimtbl[i]); i++);
         if(dnbr == -1) {
             if(i == 0) error("Array dimensions");
         } else {
@@ -3192,7 +3192,7 @@ void *findvar(char *p, int action) {
         }
 
         // if it is a non arrayed variable or an empty array it is easy, just calculate and return a pointer to the value
-        if(dnbr == -1 || VREC(vindex)->dims[0] == 0) {
+        if(dnbr == -1 || DimIsScalar(VREC(vindex)->dimtbl[0])) {
             if(dnbr == -1 || VREC(vindex)->type & (T_PTR | T_STR))
                 return VREC(vindex)->val.s;                        // if it is a string or pointer just return the pointer to the data
             else
@@ -3206,7 +3206,7 @@ void *findvar(char *p, int action) {
         // check that we are not using DIM and that all parameters are within the dimensions
         if(action & V_DIM_VAR) error("Cannot re dimension array");
         for(i = 0; i < dnbr; i++) {
-            if(dim[i] > VREC(vindex)->dims[i] || dim[i] < OptionBase)
+            if(dim[i] > DimUpper(VREC(vindex)->dimtbl[i]) || dim[i] < OptionBase)
                 error("Index out of bounds");
         }
 
@@ -3214,7 +3214,7 @@ void *findvar(char *p, int action) {
         nbr = dim[0] - OptionBase;
         j = 1;
         for(i = 1; i < dnbr; i++) {
-            j *= (VREC(vindex)->dims[i - 1] + 1 - OptionBase);
+            j *= (DimUpper(VREC(vindex)->dimtbl[i - 1]) + 1 - OptionBase);
             nbr += (dim[i] - OptionBase) * j;
         }
         // finally return a pointer to the value
@@ -3295,8 +3295,8 @@ void *findvar(char *p, int action) {
         localtop = ifree + 1;                                       // the stack's next slot (P6 F2)
         VREC(ifree)->level = LocalIndex;
     } else VREC(ifree)->level = 0;
-//    cleardims(&VREC(ifree)->dims[0]);
-    for(j = 0; j < MAXDIM; j++) VREC(ifree)->dims[j] = 0;
+//    cleardims(&VREC(ifree)->dimtbl[0]);
+    for(j = 0; j < MAXDIM; j++) VREC(ifree)->dimtbl[j] = 0;
 //    MMPrintString("Creating variable : ");MMPrintString(VREC(ifree)->name);MMPrintString(", at depth : ");PInt(VREC(ifree)->level);MMPrintString(", hash key : ");PInt(ifree);PRet();
     // the easy request is for is a non array numeric variable, so just initialise to
     // zero and return the pointer
@@ -3312,7 +3312,7 @@ void *findvar(char *p, int action) {
 
     // if this is a definition of an empty array (only used in the parameter list for a sub/function)
     if(dnbr == -1) {
-        VREC(vindex)->dims[0] = -1;                                // let the caller know that this is an empty array and needs more work
+        VREC(vindex)->dimtbl[0] = -1;                                // let the caller know that this is an empty array and needs more work
         return VREC(vindex)->val.s;                                // just return a pointer to the data element as it will be replaced in the sub/fun with a pointer
     }
 
@@ -3320,7 +3320,7 @@ void *findvar(char *p, int action) {
     // for a non array string this will leave nbr = 1 which is just what we want
     for(nbr = 1, i = 0; i < dnbr; i++) {
         if(dim[i] <= OptionBase) error("Dimensions");
-        VREC(vindex)->dims[i] = dim[i];
+        VREC(vindex)->dimtbl[i] = dim[i];
         nbr *= (dim[i] + 1 - OptionBase);
     }
 
@@ -3333,7 +3333,7 @@ void *findvar(char *p, int action) {
     VREC(ifree)->val.s = NULL;
     VREC(ifree)->type = T_BLOCKED;
     i = *VREC(ifree)->name;   *VREC(ifree)->name = 0;
-	j = VREC(ifree)->dims[0]; VREC(ifree)->dims[0] = 0;
+	j = VREC(ifree)->dimtbl[0]; VREC(ifree)->dimtbl[0] = 0;
 
 
 	// Now, grab the memory
@@ -3343,8 +3343,8 @@ void *findvar(char *p, int action) {
         else mptr = GetMemory(tmp);
     }  else {
     	tmp=(nbr * (size + 1));
-    	if(tmp<=16 && j==0)mptr = (void *)&VREC(ifree)->dims[1];
-    	else if(tmp<=12 && VREC(ifree)->dims[1]==0)mptr = (void *)&VREC(ifree)->dims[2];  // Strings <=12 into vartbl
+    	if(tmp<=16 && j==0)mptr = (void *)&VREC(ifree)->dimtbl[1];
+    	else if(tmp<=12 && DimIsEnd(VREC(ifree)->dimtbl[1]))mptr = (void *)&VREC(ifree)->dimtbl[2];  // Strings <=12 into vartbl
     	else if(tmp<=256)mptr = GetStringMemoryBottom();  // <=256 into Heap
         else mptr = GetMemory(tmp);                 // else SDRAM
     }
@@ -3357,7 +3357,7 @@ void *findvar(char *p, int action) {
     // allocated memory
     VREC(ifree)->type = vtype | (action & (T_IMPLIED | T_CONST));
     *VREC(ifree)->name = i;
-    VREC(ifree)->dims[0] = j;
+    VREC(ifree)->dimtbl[0] = j;
     VREC(ifree)->size = size;
     VREC(ifree)->val.s = mptr;
     return mptr;
@@ -3909,7 +3909,7 @@ void MIPS16 ClearVars(int level) {
 		for(i=hashlistpointer-1;i>=0;i--){
 			if(hashlist[i].level>= level){
 				hashcurrent = hashlist[i].hash;
-				if(((VREC(hashcurrent)->type & T_STR) || VREC(hashcurrent)->dims[0] != 0) && !(VREC(hashcurrent)->type & T_PTR) && !VAR_INLINE_STR(VREC(hashcurrent)) && ((uint32_t)VREC(hashcurrent)->val.s>0x24000000)) {
+				if(((VREC(hashcurrent)->type & T_STR) || DimIsAllocated(VREC(hashcurrent)->dimtbl[0])) && !(VREC(hashcurrent)->type & T_PTR) && !VAR_INLINE_STR(VREC(hashcurrent)) && ((uint32_t)VREC(hashcurrent)->val.s>0x24000000)) {
 					FreeMemorySafe((void *)&VREC(hashcurrent)->val.s);
 					// free any memory (if allocated)
 				}
@@ -3926,7 +3926,7 @@ void MIPS16 ClearVars(int level) {
 	} else {
 		for(i = 0; i < MAXVARS; i++) {
 			if(!VarRecordReal(VREC(i))) continue;                   // a free or blocked global slot: a placeholder, nothing of its own
-			if(((VREC(i)->type & T_STR) || VREC(i)->dims[0] != 0) && !(VREC(i)->type & T_PTR) && !VAR_INLINE_STR(VREC(i))) {
+			if(((VREC(i)->type & T_STR) || DimIsAllocated(VREC(i)->dimtbl[0])) && !(VREC(i)->type & T_PTR) && !VAR_INLINE_STR(VREC(i))) {
 				if((uint32_t)VREC(i)->val.s>0x24000000) FreeMemorySafe((void *)&VREC(i)->val.s);                        // free any memory (if allocated)
 			}
 			if(i < MAXLOCALVARS) clearvar(VREC(i));                 // (a global's record goes back with its chunk)

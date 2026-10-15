@@ -495,10 +495,10 @@ void MIPS16 cmd_memory(void) {
         VarCnt++;  vsize += sizeof(struct s_vartbl);
         if(VREC(var)->val.s == NULL) continue;
         if(VREC(var)->type & T_PTR) continue;
-        nbr = VREC(var)->dims[0] + 1 - OptionBase;
-        if(VREC(var)->dims[0]) {
-            for(j = 1; j < MAXDIM && VREC(var)->dims[j]; j++)
-                nbr *= (VREC(var)->dims[j] + 1 - OptionBase);
+        nbr = DimUpper(VREC(var)->dimtbl[0]) + 1 - OptionBase;
+        if(DimIsAllocated(VREC(var)->dimtbl[0])) {
+            for(j = 1; j < MAXDIM && !DimIsEnd(VREC(var)->dimtbl[j]); j++)
+                nbr *= (DimUpper(VREC(var)->dimtbl[j]) + 1 - OptionBase);
             if(VREC(var)->type & T_NBR)
                 i += MRoundUp(nbr * sizeof(MMFLOAT));
             else if(VREC(var)->type & T_INT)

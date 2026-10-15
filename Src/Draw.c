@@ -1317,11 +1317,11 @@ void cmd_3D(void){
 		vertex = (MMFLOAT *)findvar(argv[8], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		if((uint32_t)vertex!=(uint32_t)VREC(VarIndex)->val.s)error("Vertex array must be a 2D floating point array");
 		if(VREC(VarIndex)->type & T_NBR) {
-			if(VREC(VarIndex)->dims[2] != 0) error("Vertex array must be a 2D floating point array");
-			if(VREC(VarIndex)->dims[0] - OptionBase!= 2) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[2])) error("Vertex array must be a 2D floating point array");
+			if(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase!= 2) {		// Not an array
 				error("Vertex array must have 3 elements in first dimension");
 			}
-			if(VREC(VarIndex)->dims[1] - OptionBase < nv-1) {		// Not an array
+			if(DimUpper(VREC(VarIndex)->dimtbl[1]) - OptionBase < nv-1) {		// Not an array
 				error("Vertex array too small");
 			}
 		} else error("Vertex array must be a 2D floating point array");
@@ -1329,8 +1329,8 @@ void cmd_3D(void){
 		facecount = (long long int *)findvar(argv[10], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		if((uint32_t)facecount!=(uint32_t)VREC(VarIndex)->val.s)error("Vertex count array must be a 1D integer array");
 		if(VREC(VarIndex)->type & T_INT) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Vertex count array must be a 1D integer array");
-			if(VREC(VarIndex)->dims[0] - OptionBase< nf-1) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Vertex count array must be a 1D integer array");
+			if(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase< nf-1) {		// Not an array
 				error("Vertex count array too small");
 			}
 		} else error("Vertex count array must be a 1D integer array");
@@ -1340,8 +1340,8 @@ void cmd_3D(void){
 		faces = (long long int *)findvar(argv[12], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		if((uint32_t)faces!=(uint32_t)VREC(VarIndex)->val.s)error("Face/vertex array must be a 1D integer array");
 		if(VREC(VarIndex)->type & T_INT) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Face/vertex array must be a 1D integer array");
-			if(VREC(VarIndex)->dims[0] - OptionBase< fc-1) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Face/vertex array must be a 1D integer array");
+			if(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase< fc-1) {		// Not an array
 				error("Face/vertex array too small");
 			}
 		} else error("Face/vertex array must be a 1D integer array");
@@ -1349,8 +1349,8 @@ void cmd_3D(void){
 		colours = (long long int *)findvar(argv[14], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		if((uint32_t)colours!=(uint32_t)VREC(VarIndex)->val.s)error("Colour array must be a 1D integer array");
 		if(VREC(VarIndex)->type & T_INT) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Colour array must be a 1D integer array");
-			colourcount=VREC(VarIndex)->dims[0] - OptionBase + 1;
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Colour array must be a 1D integer array");
+			colourcount=DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase + 1;
 		} else error("Colour array must be a 1D integer array");
 
 
@@ -1358,8 +1358,8 @@ void cmd_3D(void){
 			linecolour = (long long int *)findvar(argv[16], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 			if((uint32_t)linecolour!=(uint32_t)VREC(VarIndex)->val.s)error("Line colour array must be a 1D integer array");
 			if(VREC(VarIndex)->type & T_INT) {
-				if(VREC(VarIndex)->dims[1] != 0) error("Line colour  array must be a 1D integer array");
-				if(VREC(VarIndex)->dims[0] - OptionBase< nf-1) {		// Not an array
+				if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Line colour  array must be a 1D integer array");
+				if(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase< nf-1) {		// Not an array
 					error("Line colour  array too small");
 				}
 			} else error("Line colour must be a 1D integer array");
@@ -1369,8 +1369,8 @@ void cmd_3D(void){
 			fillcolour = (long long int *)findvar(argv[18], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 			if((uint32_t)fillcolour!=(uint32_t)VREC(VarIndex)->val.s)error("Fill colour array must be a 1D integer array");
 			if(VREC(VarIndex)->type & T_INT) {
-				if(VREC(VarIndex)->dims[1] != 0) error("Fill colour array must be a 1D integer array");
-				if(VREC(VarIndex)->dims[0] - OptionBase< nf-1) {		// Not an array
+				if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Fill colour array must be a 1D integer array");
+				if(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase< nf-1) {		// Not an array
 					error("Fill colour array too small");
 				}
 			} else error("Fill colour must be a 1D integer array");
@@ -1572,11 +1572,11 @@ void cmd_3D(void){
 		if((argc & 0x01 || argc<3) == 0) error("Argument count");
 		ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		if(VREC(VarIndex)->type & T_NBR) {
-			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 				error("Argument 1 must be a 5 element floating point array");
 			}
-			if(VREC(VarIndex)->dims[0] - OptionBase!=4)error("Argument 1 must be a 5 element floating point array");
+			if(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase!=4)error("Argument 1 must be a 5 element floating point array");
 			q = (MMFLOAT *)ptr1;
 			if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 		} else error("Argument 1 must be a 5 element floating point array");
@@ -3074,12 +3074,12 @@ void  getargaddress (volatile char *p, long long int **ip, MMFLOAT **fp, volatil
     }
     ptr = findvar(pp, V_FIND | V_EMPTY_OK | V_NOFIND_NULL);
     if(ptr && VREC(VarIndex)->type & T_NBR) {
-        if(VREC(VarIndex)->dims[0] <= 0){ //simple variable
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])){ //simple variable
             *n=1;
             return;
         } else { // array or array element
-            if(*n == 0)*n=VREC(VarIndex)->dims[0] + 1 - OptionBase;
-            else *n = (VREC(VarIndex)->dims[0] + 1 - OptionBase)< *n ? (VREC(VarIndex)->dims[0] + 1 - OptionBase) : *n;
+            if(*n == 0)*n=DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase;
+            else *n = (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase)< *n ? (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) : *n;
             skipspace(p);
             do {
                 p++;
@@ -3094,15 +3094,15 @@ void  getargaddress (volatile char *p, long long int **ip, MMFLOAT **fp, volatil
                 }
             }
         }
-        if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
         *fp = (MMFLOAT*)ptr;
     } else if(ptr && VREC(VarIndex)->type & T_INT) {
-        if(VREC(VarIndex)->dims[0] <= 0){
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])){
             *n=1;
             return;
         } else {
-            if(*n == 0)*n=VREC(VarIndex)->dims[0] + 1 - OptionBase;
-            else *n = (VREC(VarIndex)->dims[0] + 1 - OptionBase)< *n ? (VREC(VarIndex)->dims[0] + 1 - OptionBase) : *n;
+            if(*n == 0)*n=DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase;
+            else *n = (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase)< *n ? (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) : *n;
             skipspace(p);
             do {
                 p++;
@@ -3117,7 +3117,7 @@ void  getargaddress (volatile char *p, long long int **ip, MMFLOAT **fp, volatil
                 }
             }
         }
-        if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
         *ip = (long long int *)ptr;
     } else {
     	*n=1; //may be a function call

@@ -393,39 +393,39 @@ void cmd_ADC(void){
         ADCpos=0;
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
         if(VREC(VarIndex)->type & T_NBR) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be float array");
             }
             a1point = (uint64_t *)ptr1;
             a1float = (MMFLOAT *)ptr1;
         } else error("Argument 1 must be float array");
-        ADCmax=(VREC(VarIndex)->dims[0] - OptionBase);
+        ADCmax=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         if(argc>=3){
            if(!ADCchannelB)error("Second channel not open");
            ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
             if(VREC(VarIndex)->type & T_NBR) {
-                if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-                if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+                if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+                if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                     error("Argument 2 must be float array");
                 }
                 a2point = (uint64_t *)ptr2;
                 a2float = (MMFLOAT *)ptr2;
             } else error("Argument 2 must be float array");
-            if((VREC(VarIndex)->dims[0] - OptionBase) !=ADCmax)error("Arrays should be the same size");
+            if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) !=ADCmax)error("Arrays should be the same size");
         }
         if(argc>=5){
            if(!ADCchannelC)error("Third channel not open");
            ptr3 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
             if(VREC(VarIndex)->type & T_NBR) {
-                if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-                if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+                if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+                if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                     error("Argument 3 must be float array");
                 }
                 a3point = (uint64_t *)ptr3;
                 a3float = (MMFLOAT *)ptr3;
             } else error("Argument 3 must be float array");
-            if((VREC(VarIndex)->dims[0] - OptionBase) !=ADCmax)error("Arrays should be the same size");
+            if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) !=ADCmax)error("Arrays should be the same size");
         }
 		if (HAL_ADC_Start(&hadc1) != HAL_OK)
 		{
@@ -554,23 +554,23 @@ void cmd_DAC(void){
        /*
         ptr1 = findvar(argv[2], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 2 must be integer array");
             }
             d1point = (uint64_t *)ptr1;
         } else error("Argument 2 must be integer array");
-        d1max=(VREC(VarIndex)->dims[0] - OptionBase);
+        d1max=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         if(argc>=5 && *argv[4]){
             ptr2 = findvar(argv[4], V_FIND | V_EMPTY_OK);
             if(VREC(VarIndex)->type & T_INT) {
-                if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-                if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+                if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+                if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                     error("Argument 3 must be integer array");
                 }
                 d2point = (uint64_t *)ptr2;
             } else error("Argument 3 must be integer array");
-            d2max=(VREC(VarIndex)->dims[0] - OptionBase);
+            d2max=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         }
        */
     	if(argc == 7) {

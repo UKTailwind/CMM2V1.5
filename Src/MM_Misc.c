@@ -392,37 +392,37 @@ void cmd_sort(void){
 	getargs(&cmdline,9,",");
     ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
     if(VREC(VarIndex)->type & T_NBR) {
-        if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-        if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
             error("Argument 1 must be array");
         }
         a3float = (MMFLOAT *)ptr1;
     } else if(VREC(VarIndex)->type & T_INT) {
-        if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-        if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
             error("Argument 1 must be array");
         }
         a3int = (int64_t *)ptr1;
     } else if(VREC(VarIndex)->type & T_STR) {
-        if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-        if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
             error("Argument 1 must be array");
         }
         a3str = (unsigned char *)ptr1;
         maxsize=VREC(VarIndex)->size;
     } else error("Argument 1 must be array");
 	if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Argument 1 must be array");
-    truesize=size=(VREC(VarIndex)->dims[0] - OptionBase);
+    truesize=size=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
     if(argc>=3 && *argv[2]){
     	ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
     	if(VREC(VarIndex)->type & T_INT) {
-    		if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-    		if(VREC(VarIndex)->dims[0] <= 0 ) {		// Not an array
+    		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+    		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0]) ) {		// Not an array
     			error("Argument 2 must be integer array");
     		}
     		a4int = (int64_t *)ptr2;
     	} else error("Argument 2 must be integer array");
-    	if((VREC(VarIndex)->dims[0] - OptionBase) !=size)error("Arrays should be the same size");
+    	if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) !=size)error("Arrays should be the same size");
 		if((uint32_t)ptr2!=(uint32_t)VREC(VarIndex)->val.s)error("Argument 2 must be array");
     }
     if(argc>=5 && *argv[4])flags=getint(argv[4],0,3);
@@ -1263,14 +1263,14 @@ void fun_LInstr(void){
         /*
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {      // Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {      // Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
             str=(char *)&dest[0];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         srch=getstring(argv[2]);
         */
         j=(parseintegerarray(argv[0],&src,2,1,NULL,false)-1);
@@ -1394,11 +1394,11 @@ void cmd_longString(void){
         if(argc != 5)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
-            j=(VREC(VarIndex)->dims[0] - OptionBase)*8-1;
+            j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase)*8-1;
             dest = (long long int *)ptr1;
             q=(uint8_t *)&dest[1];
         } else error("Argument 1 must be integer array");
@@ -1418,15 +1418,15 @@ void cmd_longString(void){
         if(argc != 3)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
             q=(char *)&dest[1];
             q+=dest[0];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         p=getstring(argv[2]);
         nbr = i = *p++;
          if(j*8 < dest[0]+i)error("Integer array too small");
@@ -1445,8 +1445,8 @@ void cmd_longString(void){
         if(argc != 3)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
@@ -1470,8 +1470,8 @@ void cmd_longString(void){
         if(argc != 5)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
@@ -1497,15 +1497,15 @@ void cmd_longString(void){
         i=nbr;
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
             dest[0]=0;
             q=(char *)&dest[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         p=getstring(argv[4]);
         if(nbr> *p)nbr=*p;
         p++;
@@ -1526,18 +1526,18 @@ void cmd_longString(void){
         if(argc != 5)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (int64_t *)ptr1;
             q=(char *)&dest[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 2 must be integer array");
             }
             src = (int64_t *)ptr2;
@@ -1562,18 +1562,18 @@ void cmd_longString(void){
         if(argc != 5)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (int64_t *)ptr1;
             q=(char *)&dest[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 2 must be integer array");
             }
             src = (int64_t *)ptr2;
@@ -1600,18 +1600,18 @@ void cmd_longString(void){
         if(argc != 7)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (int64_t *)ptr1;
             q=(char *)&dest[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 2 must be integer array");
             }
             src = (int64_t *)ptr2;
@@ -1637,8 +1637,8 @@ void cmd_longString(void){
         if(argc != 1)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
@@ -1655,11 +1655,11 @@ void cmd_longString(void){
         if(argc != 3)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
-            j=(VREC(VarIndex)->dims[0] - OptionBase)*8;
+            j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase)*8;
             dest = (long long int *)ptr1;
         } else error("Argument 1 must be integer array");
         dest[0] = getint(argv[2], 0, j);
@@ -1675,8 +1675,8 @@ void cmd_longString(void){
         if(argc != 1)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
@@ -1711,8 +1711,8 @@ void cmd_longString(void){
         if(argc>=1){
             ptr1 = findvar(argv[i], V_FIND | V_EMPTY_OK);
             if(VREC(VarIndex)->type & T_INT) {
-                if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-                if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+                if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+                if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                     error("Argument must be integer array");
                 }
                 dest = (long long int *)ptr1;
@@ -1740,8 +1740,8 @@ void cmd_longString(void){
         if(argc != 1)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
@@ -1767,19 +1767,19 @@ void cmd_longString(void){
         if(argc != 3)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (int64_t *)ptr1;
             dest[0]=0;
             q=(char *)&dest[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 2 must be integer array");
             }
             src = (int64_t *)ptr2;
@@ -1803,19 +1803,19 @@ void cmd_longString(void){
         if(argc != 3)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (int64_t *)ptr1;
             d=dest[0];
             q=(char *)&dest[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 2 must be integer array");
             }
             src = (int64_t *)ptr2;
@@ -1844,14 +1844,14 @@ void fun_LGetStr(void){
         if(argc != 5)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             src = (int64_t *)ptr1;
             s=(char *)&src[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase)*8;
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase)*8;
         start = getint(argv[2],1,j);
 	nbr = getinteger(argv[4]);
 	if(nbr < 1 || nbr > MAXSTRLEN) error("Number out of bounds");
@@ -1874,14 +1874,14 @@ void fun_LGetByte(void){
         if(argc != 3)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             src = (int64_t *)ptr1;
             s=(uint8_t *)&src[1];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase)*8-1;
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase)*8-1;
         start = getint(argv[2],OptionBase,j-OptionBase);
         iret=s[start-OptionBase];
         targ = T_INT;
@@ -1901,14 +1901,14 @@ void fun_LInstr(void){
         else start=0;
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {      // Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {      // Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (long long int *)ptr1;
             str=(char *)&dest[0];
         } else error("Argument 1 must be integer array");
-        j=(VREC(VarIndex)->dims[0] - OptionBase);
+        j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         srch=getstring(argv[2]);
         if(argc<7){
             slen=*srch;
@@ -1964,8 +1964,8 @@ void fun_LCompare(void){
         if(argc != 3)error("Argument count");
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 1 must be integer array");
             }
             dest = (int64_t *)ptr1;
@@ -1974,8 +1974,8 @@ void fun_LCompare(void){
         } else error("Argument 1 must be integer array");
         ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK);
         if(VREC(VarIndex)->type & T_INT) {
-            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+            if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+            if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
                 error("Argument 2 must be integer array");
             }
             src = (int64_t *)ptr2;
@@ -2000,8 +2000,8 @@ void fun_LLen(void) {
     if(argc != 1)error("Argument count");
     ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
     if(VREC(VarIndex)->type & T_INT) {
-        if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-        if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
             error("Argument 1 must be integer array");
         }
         dest = (long long int *)ptr1;
@@ -4261,8 +4261,8 @@ void fun_json(void){
     char *a=GetTempStrMemory();
     ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
     if(VREC(VarIndex)->type & T_INT) {
-    if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
-    if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
+    if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+    if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
         error("Argument 1 must be integer array");
     }
     dest = (long long int *)ptr1;

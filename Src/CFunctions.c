@@ -152,7 +152,7 @@ long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *Calle
                 if(typ[i/2] != 0 && !(TypeMask(VREC(VarIndex)->type) & typ[i/2])) error("Incompatible type");
 #if defined(MX170)
                 // if we are using double floats we must make special provision when a non array float variable is in the argument list (we don't touch arrays of floats)
-                if(typ[i/2] == T_NBR && VREC(VarIndex)->dims[0] == 0) {
+                if(typ[i/2] == T_NBR && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {
                   ffarg[i/2] = (MMFLOAT *)arg[i/2];                 // save a pointer to the arg
                   ff[i/2] = *(MMFLOAT *)arg[i/2];                   // convert to a single precision value and save for the CFun
                     arg[i/2] = &ff[i/2];                            // place a pointer to it in the CFun's parameter list

@@ -2135,7 +2135,7 @@ void cmd_read(void) {
 			card=1;
 			if(emptyarray){ //empty array
 				for(k=0;k<MAXDIM;k++){
-					j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
+					j=(DimUpper(VREC(VarIndex)->dimtbl[k]) - OptionBase + 1);
 					if(j)card *= j;
 				}
 			}
@@ -2151,7 +2151,7 @@ void cmd_read(void) {
 		card=1;
 		if(emptyarray){
 			for(k=0;k<MAXDIM;k++){
-				j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
+				j=(DimUpper(VREC(VarIndex)->dimtbl[k]) - OptionBase + 1);
 				if(j)card *= j;
 			}
 		}
@@ -2336,10 +2336,10 @@ void cmd_read(void) {
 			findvar(argv[i], V_FIND | V_EMPTY_OK);
 			if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 			card=1;
-//			PInt((uint32_t)ptr);PIntComma((uint32_t)VREC(VarIndex)->val.s);PIntComma((uint32_t)VREC(VarIndex)->dims[0]);PRet();
+//			PInt((uint32_t)ptr);PIntComma((uint32_t)VREC(VarIndex)->val.s);PIntComma((uint32_t)VREC(VarIndex)->dimtbl[0]);PRet();
 			if(emptyarray){ //empty array
 				for(k=0;k<MAXDIM;k++){
-					j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
+					j=(DimUpper(VREC(VarIndex)->dimtbl[k]) - OptionBase + 1);
 					if(j)card *= j;
 				}
 			}
@@ -2356,7 +2356,7 @@ void cmd_read(void) {
 		card=1;
 		if(emptyarray){
 			for(k=0;k<MAXDIM;k++){
-				j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
+				j=(DimUpper(VREC(VarIndex)->dimtbl[k]) - OptionBase + 1);
 				if(j)card *= j;
 			}
 		}
@@ -2492,12 +2492,12 @@ void cmd_restore(void) {
 			void *ptr=findvar(cmdline,V_NOFIND_NULL);
 			if(ptr){
 				if(VREC(VarIndex)->type & T_NBR) {
-					if(VREC(VarIndex)->dims[0] > 0) {		// Not an array
+					if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 						error("Syntax");
 					}
 					NextDataLine = findline(getinteger(cmdline), true);
 				} else if(VREC(VarIndex)->type & T_INT) {
-					if(VREC(VarIndex)->dims[0] > 0) {		// Not an array
+					if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
 						error("Syntax");
 					}
 					NextDataLine = findline(getinteger(cmdline), true);
@@ -2744,8 +2744,8 @@ void MIPS16 cmd_dim(void) {
                 type = TypeMask(VREC(VarIndex)->type);
                 VIndexSave = VarIndex;
                 *chPosit = chSave;                                  // restore the char previously removed
-                if(VREC(VarIndex)->dims[0] == -1) error("Array dimensions");
-                if(VREC(VarIndex)->dims[0] > 0) {
+                if(DimIsEmptyParam(VREC(VarIndex)->dimtbl[0])) error("Array dimensions");
+                if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {
                     DimUsed = true;                                 // prevent OPTION BASE from being used
                     v = VREC(VarIndex)->val.s;
                 }
@@ -2753,10 +2753,10 @@ void MIPS16 cmd_dim(void) {
                 if(tokenfunction(*p) == op_equal) {
                     p++;                                            // step over the equals sign
                     skipspace(p);
-                    if(VREC(VarIndex)->dims[0] > 0 && *p == '(') {
+                    if(DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && *p == '(') {
                         // calculate the overall size of the array
-                        for(j = 1, k = 0; k < MAXDIM && VREC(VIndexSave)->dims[k]; k++) {
-                            j *= (VREC(VIndexSave)->dims[k] + 1 - OptionBase);
+                        for(j = 1, k = 0; k < MAXDIM && !DimIsEnd(VREC(VIndexSave)->dimtbl[k]); k++) {
+                            j *= (DimUpper(VREC(VIndexSave)->dimtbl[k]) + 1 - OptionBase);
                         }
                         do {
                             p++;                                    // step over the opening bracket or terminating comma
@@ -2782,14 +2782,14 @@ void MIPS16 cmd_dim(void) {
                 tv = findvar(argv[i], typeSave | V_LOCAL | V_NOFIND_NULL);                        // check if the local variable exists
                 if(tv != NULL) error("$ already declared", argv[i]);
                 tv = findvar(argv[i], typeSave | V_LOCAL | V_FIND | V_DIM_VAR);                   // create the variable
-                if(VREC(VIndexSave)->dims[0] > 0 || (VREC(VIndexSave)->type & T_STR)) {
+                if(DimIsRealArray(VREC(VIndexSave)->dimtbl[0]) || (VREC(VIndexSave)->type & T_STR)) {
                     if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemory(tv);                           // we don't need the memory allocated to the local
                     VREC(VarIndex)->val.s = VREC(VIndexSave)->val.s;                            // point to the memory of the global variable
                 } else
                     VREC(VarIndex)->val.ia = &(VREC(VIndexSave)->val.i);                        // point to the data of the variable
                 VREC(VarIndex)->type = VREC(VIndexSave)->type | T_PTR;                          // set the type to a pointer
                 VREC(VarIndex)->size = VREC(VIndexSave)->size;                                  // just in case it is a string copy the size
-                for(j = 0; j < MAXDIM; j++) VREC(VarIndex)->dims[j] = VREC(VIndexSave)->dims[j];// just in case it is an array copy the dimensions
+                for(j = 0; j < MAXDIM; j++) VREC(VarIndex)->dimtbl[j] = VREC(VIndexSave)->dimtbl[j];// just in case it is an array copy the dimensions
             }
         }
     }
@@ -2814,7 +2814,7 @@ void MIPS16 cmd_const(void) {
         type |= V_FIND | V_DIM_VAR | T_CONST | T_IMPLIED;
         if(LocalIndex != 0) type |= V_LOCAL;                        // local if defined in a sub/fun
         findvar(argv[i], type);                                     // create the variable
-        if(VREC(VarIndex)->dims[0] != 0) error("Invalid constant");
+        if(DimIsAllocated(VREC(VarIndex)->dimtbl[0])) error("Invalid constant");
         if(TypeMask(VREC(VarIndex)->type) != TypeMask(type)) error("Invalid constant");
         else {
             if(type & T_NBR) VREC(VarIndex)->val.f = *(MMFLOAT *)v;           // and set its value
@@ -2822,9 +2822,9 @@ void MIPS16 cmd_const(void) {
             //if(type & T_STR) Mstrcpy(VREC(VarIndex)->val.s, (char *)v);
             // CONST string from Picomite 6.00.02RC5
             if(type & T_STR) {
- 				if((char)*(char *)v<(MAXDIM-1)*sizeof(VREC(VarIndex)->dims[1])){
+ 				if((char)*(char *)v<(MAXDIM-1)*sizeof(VREC(VarIndex)->dimtbl[1])){
  					if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemorySafe((void **)&VREC(VarIndex)->val.s);
- 					VREC(VarIndex)->val.s=(void *)&VREC(VarIndex)->dims[1];
+ 					VREC(VarIndex)->val.s=(void *)&VREC(VarIndex)->dimtbl[1];
  			   }
  			   Mstrcpy(VREC(VarIndex)->val.s, (char *)v);
             }
@@ -2854,7 +2854,7 @@ void cmd_erasevar(char *erase) {
             }
             if(!(len == 0 && (*x == 0 || strlen(p) == MAXVARLEN))) continue;
     		// found the variable
-			if(((VREC(j)->type & T_STR) || VREC(j)->dims[0] != 0) && !(VREC(j)->type & T_PTR) && !VAR_INLINE_STR(VREC(j))) {
+			if(((VREC(j)->type & T_STR) || DimIsAllocated(VREC(j)->dimtbl[0])) && !(VREC(j)->type & T_PTR) && !VAR_INLINE_STR(VREC(j))) {
 				FreeMemory(VREC(j)->val.s);                        // free any memory (if allocated)
 				VREC(j)->val.s=NULL;
 			}
