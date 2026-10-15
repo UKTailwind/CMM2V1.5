@@ -1,0 +1,36 @@
+before the block
+after the block
+TYPE POINT
+    X AS INTEGER  ' offset=0
+    Y AS INTEGER  ' offset=8
+END TYPE  ' size=16 bytes
+
+TYPE PERSON
+    AGE AS INTEGER  ' offset=0
+    NAME AS STRING LENGTH 20  ' offset=8
+    HEIGHT AS FLOAT  ' offset=32
+END TYPE  ' size=40 bytes
+
+TYPE SHAPE
+    COLOUR AS INTEGER  ' offset=0
+    TEXT AS STRING LENGTH 5  ' offset=8
+    ORIGIN AS POINT  ' offset=16
+    PTS(3) AS POINT  ' offset=32
+    TAG AS STRING LENGTH 3  ' offset=96
+    FLAGS(1,2) AS INTEGER  ' offset=104
+END TYPE  ' size=152 bytes
+
+TYPE INLINE
+    A AS FLOAT  ' offset=0
+END TYPE  ' size=8 bytes
+
+TYPE PERSON
+    AGE AS INTEGER  ' offset=0
+    NAME AS STRING LENGTH 20  ' offset=8
+    HEIGHT AS FLOAT  ' offset=32
+END TYPE  ' size=40 bytes
+
+type = 3
+type(1) = 4
+type$ = five
+type% = 6

@@ -370,3 +370,129 @@ void ListTypes(char *p) {
         MMPrintString(" bytes\r\n\r\n");
     }
 }
+
+// p is at a bracket: the character after its closing bracket (a bracket in a string is not counted)
+static char *SkipBrackets(char *p) {
+    int depth = 0;
+    do {
+        if(*p == '"') {
+            while(*++p && *p != '"');
+            if(*p == 0) break;
+        } else if(*p == '(' || (tokentype(*p) & T_FUN))
+            depth++;
+        else if(*p == ')')
+            depth--;
+        p++;
+    } while(depth && *p);
+    if(depth) error("Expected closing bracket");
+    return p;
+}
+
+// the element (i [, j ...]) at *pp of a member array with dimensions dims: its number in the array, bounds
+// checked.  *pp is left after the closing bracket.
+static int StructElement(char **pp, int *dims) {
+    int i, n, mult, ndims, index[MAXDIM];
+    char *p = *pp;
+    {
+        getargs(&p, MAXDIM * 2, "(,");
+        if((argc & 0x01) == 0) error("Dimensions");
+        ndims = argc / 2 + 1;
+        for(i = 0; i < argc; i += 2) {
+            MMFLOAT f;
+            long long int in;
+            char *s;
+            int targ = T_NOTYPE;
+            evaluate(argv[i], &f, &in, &s, &targ, false);
+            if(targ == T_STR) error("Dimensions");
+            if(targ == T_NBR) in = FloatToInt32(f);
+            else if(in != (int)in) error("Index out of bounds");    // too big for any array: must not wrap to a small index
+            index[i / 2] = in;
+        }
+    }
+    for(n = 0; n < MAXDIM && !DimIsEnd(dims[n]); n++);
+    if(ndims != n) error("Wrong number of dimensions");
+    for(i = 0; i < ndims; i++)
+        if(index[i] < OptionBase || index[i] > DimUpper(dims[i])) error("Index out of bounds");
+    n = index[0] - OptionBase;
+    for(mult = 1, i = 1; i < ndims; i++) {
+        mult *= DimElements(dims[i - 1]);
+        n += (index[i] - OptionBase) * mult;
+    }
+    *pp = SkipBrackets(*pp);
+    return n;
+}
+
+// The member of the structure of type struct_idx at struct_ptr named by member_path ("X", or "INNER.X" when the
+// name held more of the path), continued in the program at *pp: an index for an array member, and more members
+// after it (pts(1).corner(2).x).  Returns a pointer to its data, with *member_type its type (a nested structure is
+// T_STRUCT), g_StructMemberOffset its offset in the structure and g_StructMemberSize its size (a string's length, a
+// nested structure's type).  *pp is left after the path.
+void *ResolveStructMember(char *struct_ptr, int struct_idx, char *member_path, char **pp, int *member_type) {
+    char name[MAXVARLEN + 1], cont[MAXVARLEN + 1], *p = *pp, *member = member_path, *next, *q;
+    int depth = 0, offset = 0, element = 0, len, more, m_type, m_offset, m_size, m_dims[MAXDIM];
+
+    while(1) {
+        if(++depth > MAX_STRUCT_NEST_DEPTH) error("Structure nesting too deep (max %)", MAX_STRUCT_NEST_DEPTH);
+        for(len = 0; member[len] && member[len] != '.' && member[len] != '(' && len < MAXVARLEN; len++) name[len] = member[len];
+        name[len] = 0;
+        next = (member[len] == '.') ? member + len + 1 : NULL;     // more of the path in the name
+        if(FindStructMember(struct_idx, name, &m_type, &m_offset, &m_size, m_dims) < 0) error("Unknown structure member");
+        offset += m_offset;
+
+        // is there more: in the name, or in the program after this member (and its index)
+        skipspace(p);
+        more = (next != NULL || *p == '.');
+        if(!more && m_type == T_STRUCT && DimIsAllocated(m_dims[0]) && *p == '(') {
+            q = SkipBrackets(p);
+            skipspace(q);
+            more = (*q == '.');
+        }
+        if(more) {
+            if(m_type != T_STRUCT) error("Not a nested structure");
+            if(DimIsAllocated(m_dims[0])) {                         // an array of structures: the element
+                if(*p != '(') error("Array of nested structures requires index");
+                offset += StructElement(&p, m_dims) * g_structtbl[m_size]->total_size;
+            }
+            struct_idx = m_size;
+            if(next != NULL)
+                member = next;
+            else {                                                  // the rest of the path is in the program
+                skipspace(p);
+                for(p++, len = 0; isnamechar(*p) && len < MAXVARLEN; len++) cont[len] = *p++;
+                cont[len] = 0;
+                if(*p == '$' || *p == '%' || *p == '!') p++;
+                member = cont;                                      // (a local: an index evaluated below may resolve another path)
+            }
+            continue;
+        }
+
+        // the last member: an element of it if it is an array
+        if(*p == '(') {
+            if(!DimIsAllocated(m_dims[0])) error("Not an array member");
+            if(m_type == T_STR) len = m_size + 1;
+            else if(m_type == T_STRUCT) len = g_structtbl[m_size]->total_size;
+            else len = m_size;
+            element = StructElement(&p, m_dims) * len;
+        } else if(DimIsAllocated(m_dims[0]) && m_type != T_STRUCT)
+            error("Array member requires index");
+        g_StructMemberOffset = offset;
+        g_StructMemberSize = m_size;
+        *member_type = m_type;
+        *pp = p;
+        return struct_ptr + offset + element;
+    }
+}
+
+// findvar: the member that *pp ('.' and the path) names in the structure of type struct_idx at struct_ptr
+void *StructMemberAt(char *struct_ptr, int struct_idx, char **pp) {
+    char name[MAXVARLEN + 1], *p = *pp + 1;
+    int n = 0, type;
+    void *r;
+    while(isnamechar(*p) && n < MAXVARLEN) name[n++] = *p++;
+    name[n] = 0;
+    if(*p == '$' || *p == '%' || *p == '!') p++;
+    r = ResolveStructMember(struct_ptr, struct_idx, name, &p, &type);
+    g_StructMemberType = type;
+    *pp = p;
+    return r;
+}

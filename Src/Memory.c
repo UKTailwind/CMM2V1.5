@@ -503,11 +503,14 @@ void MIPS16 cmd_memory(void) {
                 i += MRoundUp(nbr * sizeof(MMFLOAT));
             else if(VREC(var)->type & T_INT)
                 i += MRoundUp(nbr * sizeof(long long int));
+            else if(VREC(var)->type & T_STRUCT)
+                i += VREC(var)->size < g_structcnt ? MRoundUp(nbr * g_structtbl[VREC(var)->size]->total_size) : 0;
             else
                 i += MRoundUp(nbr * (VREC(var)->size + 1));
-        } else
-            if(VREC(var)->type & T_STR)
-                i += STRINGSIZE;
+        } else if(VREC(var)->type & T_STR)
+            i += STRINGSIZE;
+        else if((VREC(var)->type & T_STRUCT) && VREC(var)->size < g_structcnt)
+            i += MRoundUp(g_structtbl[VREC(var)->size]->total_size);
     }
     VarSize = (vsize + i + 512)/1024;                               // this is the memory allocated to variables
     VarPercent = ((vsize + i) * 100)/CurrentRAM;

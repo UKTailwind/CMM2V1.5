@@ -1,0 +1,40 @@
+ok  p.x
+ok  p.y
+ok  q = p copies the structure
+ok  and q is a copy
+ok  r.topLeft.x
+ok  r.size.y
+ok  r.colour
+ok  r.name
+ok  r.corners(3).y
+ok  r.weights(1,2)
+ok  r.corners(i).x in an expression
+ok  s = r copies the nested parts
+ok  and the string
+ok  s.topLeft = p, a nested member assigned whole
+ok  and only that member
+ok  s.size = r.topLeft, nested to nested
+ok  and the members after it are untouched
+ok  a string member's LENGTH is kept
+ok  pts(4).y
+ok  pts(0) = pts(3)
+ok  grid(2,3)
+ok  grid(1,2)
+ok  a member array's element assigned whole
+ok  a(p.x) is the float
+ok  b$(p.x) is the string
+ok  a(p.x) = 2.5 stores the float
+ok  pts(p.x).y
+ok  the LOCAL starts at zero
+ok  a LOCAL structure
+ok  the LOCAL starts at zero
+ok  and again (freed and made again)
+ok  a STATIC structure keeps its value
+ok  structure types must match
+ok  a number is not a structure
+ok  an unknown member
+ok  a member array's bounds
+ok  a member array needs its index
+ok  an array of structures' bounds
+ok  ERASE, then DIM the name as another type
+structs: 39 of 39 passed

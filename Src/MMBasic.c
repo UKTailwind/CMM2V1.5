@@ -797,6 +797,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     int *argtype;
     union u_argval *argval;
     int *argVarIndex;
+    int *argsize;                                                   // a variable argument's size (a string's length: a member's own)
     struct s_sublayout *L;                                          // the definition's parameter list, as read on its first call (P6 F1)
     // Any errors generated after gosubindex is incremented need to restore the original value
     // Any variables created if LocalIndex was incremented also need to be cleared
@@ -917,7 +918,8 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     argv1 = (void *)argbuf1+STRINGSIZE;
     argbuf2 = (void *)argv1+MAX_ARG_COUNT * sizeof(char *);
     argv2 = (void *)argbuf2+STRINGSIZE;
-    argbyref=(void *)argv2+MAX_ARG_COUNT * sizeof(char *);
+    argsize = (void *)argv2+MAX_ARG_COUNT * sizeof(char *);        // (in buffneeded's third char * slot)
+    argbyref=(void *)argsize+MAX_ARG_COUNT * sizeof(int);
 
     // now split up the arguments in the caller
     CurrentLinePtr = CallersLinePtr;                                // report errors at the caller
@@ -948,6 +950,11 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
                      // yes, this is a valid variable.  set argvalue to point to the variable's data and argtype to its type
                 	 argval[i].s = findvar(argv1[i], V_FIND | V_EMPTY_OK);        // get a pointer to the variable's data
                      argtype[i] = VREC(VarIndex)->type;                          // and the variable's type
+                     argsize[i] = VREC(VarIndex)->size;
+                     if((argtype[i] & T_STRUCT) && g_StructMemberType != 0) {    // a structure's member: its own type and size
+                         argtype[i] = g_StructMemberType;
+                         argsize[i] = g_StructMemberSize;
+                     }
                      argVarIndex[i] = VarIndex;
                      if(argtype[i] & T_CONST) {
                          argtype[i] = 0;                                          // we don't want to point to a constant
@@ -1028,12 +1035,9 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         	if(argbyref[i]) {error("BYREF requires same types: $", argv1[i]);}          //BYREF requires same types.
         	if((TypeMask(VREC(VarIndex)->type) & T_STR) || (TypeMask(argtype[i]) & T_STR))
         	   {error("Incompatible type: $", argv1[i]);}
-            // make this into an ordinary argument
-            if(VREC(argVarIndex[i])->type & T_PTR) {
-                argval[i].i = *VREC(argVarIndex[i])->val.ia;       // get the value if the supplied argument is a pointer
-            } else {
-                argval[i].i = *(long long int *)argval[i].s;        // get the value if the supplied argument is an ordinary variable
-            }
+            // make this into an ordinary argument: argval[i].s points at the data (findvar resolved an element, a
+            // member, or what a pointer variable points to; reading the variable's own pointer read element 0)
+            argval[i].i = *(long long int *)argval[i].s;
             argtype[i] &= ~T_PTR;                                   // and remove the pointer flag
         }
 
@@ -1046,7 +1050,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
             }
             VREC(VarIndex)->val.s = argval[i].s;                              // point to the data of the variable supplied as an argument
             VREC(VarIndex)->type |= T_PTR;                                    // set the type to a pointer
-            VREC(VarIndex)->size = VREC(argVarIndex[i])->size;               // just in case it is a string copy the size
+            VREC(VarIndex)->size = argsize[i];                                // just in case it is a string copy the size (a member's own)
         // this is not a pointer
         } else if(argtype[i] != 0) {                                           // in getting the memory argtype[] is initialised to zero
             // the parameter was an expression or a just straight variables with different types (therefore not a pointer))
@@ -2312,7 +2316,14 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 				CurrentLinePtr = SaveCurrentLinePtr;
 			} else {
 				s = (char *)findvar(p, V_FIND);                         // if it is a string then the string pointer is automatically set
-				t = TypeMask(VREC(VarIndex)->type);
+				g_ExprStructType = -1;
+				if(g_StructMemberType != 0) {                           // a structure's member
+					t = TypeMask(g_StructMemberType);
+					if(t & T_STRUCT) g_ExprStructType = g_StructMemberSize;    // a nested structure: its own type
+				} else {
+					t = TypeMask(VREC(VarIndex)->type);
+					if(t & T_STRUCT) g_ExprStructType = VREC(VarIndex)->size;  // a whole structure (or element): its type
+				}
 				if(t & T_NBR) f = (*(MMFLOAT *)s);
 				if(t & T_INT) i64 = (*(long long int *)s);
 			}
@@ -3049,13 +3060,32 @@ static int probe_global_slot(char *name, int namelen, int slot, int *gfree) {
     return slot;
 }
 
+// the structure variable named basename (baselen characters, in capitals) that a member path starts with, found as
+// findvar finds a variable (this level's locals, then the globals): its type, with *pvindex its slot; or -1
+static int FindStructBase(char *basename, int baselen, int *pvindex) {
+    int i, vindex = -1, gfree;
+    uint32_t hash = FNV_offset_basis;
+    for(i = 0; i < baselen; i++) {
+        hash ^= basename[i];
+        hash *= FNV_prime;
+    }
+    if(LocalIndex) vindex = find_local_slot(basename, baselen);
+    if(vindex < 0) {
+        vindex = probe_global_slot(basename, baselen, MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1)), &gfree);
+        if(gfree != -1) return -1;                                  // no such variable
+    }
+    if(!(VREC(vindex)->type & T_STRUCT)) return -1;
+    *pvindex = vindex;
+    return VREC(vindex)->size;
+}
+
 void *findvar(char *p, int action) {
     char name[MAXVARLEN + 1];
     int i=0, j, size, ifree, globalifree, localifree, nbr, vtype, vindex, namelen, tmp;
     char *s, *x;
-    void *mptr;
+    void *mptr = NULL;
 //    int hashIndex=0;
-    int GlobalhashIndex;
+    int GlobalhashIndex, structarg;
     int LocalhashIndex;
     uint32_t hash=FNV_offset_basis;
     int dim[MAXDIM]={0}, dnbr;
@@ -3063,6 +3093,8 @@ void *findvar(char *p, int action) {
 //		error("Expression is too complex at depth %",LocalIndex);
 //	}
     vtype = dnbr = emptyarray = 0;
+    g_StructMemberType = g_StructMemberOffset = g_StructMemberSize = 0;    // not a structure's member (yet)
+    structarg = g_StructArg;                                        // a declaration's type (a FUNCTION in a bound can change it)
     // first zero the array used for holding the dimension values
 //    for(i = 0; i < MAXDIM; i++) dim[i] = 0;
     ifree = -1;
@@ -3098,6 +3130,23 @@ void *findvar(char *p, int action) {
         error("Variable type not specified");
     else
         vtype = 0;
+
+    // a structure's member: '.' can be in a name, so the name holds the path (P.X, A.B.C).  Only when the program
+    // has types: otherwise a dot is just part of a name.
+    if(g_structcnt > 0) {
+        char *dot = memchr(name, '.', namelen);
+        int struct_idx, member_type;
+        if(dot != NULL && (struct_idx = FindStructBase(name, dot - name, &vindex)) >= 0) {
+            char path[MAXVARLEN + 1];
+            j = namelen - (dot - name) - 1;
+            memcpy(path, dot + 1, j);
+            path[j] = 0;
+            mptr = ResolveStructMember(VREC(vindex)->val.s, struct_idx, path, &p, &member_type);
+            VarIndex = vindex;
+            g_StructMemberType = member_type;
+            return mptr;
+        }                                                           // (else not a structure: a name with a dot)
+    }
 
     // check if this is an array
     if(*p == '(') {
@@ -3137,6 +3186,7 @@ void *findvar(char *p, int action) {
             }
         }
     }
+    g_StructMemberType = 0;                                         // (an index may have been a structure's member: a(p.x))
 
     // we now have the variable name and, if it is an array, the parameters
     // search the table looking for a match
@@ -3201,6 +3251,16 @@ void *findvar(char *p, int action) {
 
         // if it is a non arrayed variable or an empty array it is easy, just calculate and return a pointer to the value
         if(dnbr == -1 || DimIsScalar(VREC(vindex)->dimtbl[0])) {
+            if(VREC(vindex)->type & T_STRUCT) {
+                if(dnbr == -1 && *p == '(') {                       // a(): followed by a member in each element, a().x
+                    p++;
+                    skipspace(p);
+                    if(*p == ')') p++;
+                    skipspace(p);
+                }
+                if(*p == '.') return StructMemberAt(VREC(vindex)->val.s, VREC(vindex)->size, &p);
+                return VREC(vindex)->val.s;                         // the whole structure
+            }
             if(dnbr == -1 || VREC(vindex)->type & (T_PTR | T_STR))
                 return VREC(vindex)->val.s;                        // if it is a string or pointer just return the pointer to the data
             else
@@ -3225,6 +3285,13 @@ void *findvar(char *p, int action) {
             j *= (DimUpper(VREC(vindex)->dimtbl[i - 1]) + 1 - OptionBase);
             nbr += (dim[i] - OptionBase) * j;
         }
+        // an element of an array of structures, or its member: points(1).x
+        if(VREC(vindex)->type & T_STRUCT) {
+            char *sp = VREC(vindex)->val.s + nbr * g_structtbl[VREC(vindex)->size]->total_size;
+            skipspace(p);
+            if(*p == '.') return StructMemberAt(sp, VREC(vindex)->size, &p);
+            return sp;
+        }
         // finally return a pointer to the value
         if(VREC(vindex)->type & T_NBR)
             return VREC(vindex)->val.s + (nbr * sizeof(MMFLOAT));
@@ -3242,7 +3309,7 @@ void *findvar(char *p, int action) {
         error("$ is not declared", name);
     if(vtype == 0) {
         if(action & T_IMPLIED)
-            vtype = (action & (T_NBR | T_INT | T_STR));
+            vtype = (action & (T_NBR | T_INT | T_STR | T_STRUCT));
         else
             vtype = DefaultType;
     }
@@ -3289,6 +3356,10 @@ void *findvar(char *p, int action) {
         if(dim[i] <= OptionBase)
 #endif
             error("Dimensions");
+    if((vtype & T_STRUCT) && dnbr != -1) {                          // (DIM ... AS type gave it; a parameter's comes with the call)
+        if(structarg < 0 || structarg >= g_structcnt) error("Invalid structure type");
+        if(dnbr == 0) mptr = GetMemory(g_structtbl[structarg]->total_size);    // a structure's data (zeroed)
+    }
 
  // if we are adding to the top, increment the number of vars
 	if(ifree>=MAXLOCALVARS){                                        // the limit is tested before counting: a refused variable is not counted
@@ -3325,12 +3396,17 @@ void *findvar(char *p, int action) {
         } else if(vtype & T_INT) {
             VREC(ifree)->val.i = 0;
             return &(VREC(ifree)->val.i);
+        } else if(vtype & T_STRUCT) {
+            VREC(ifree)->size = structarg;                          // a structure's size is its type
+            VREC(ifree)->val.s = mptr;
+            return mptr;
         }
     }
 
     // if this is a definition of an empty array (only used in the parameter list for a sub/function)
     if(dnbr == -1) {
         VREC(vindex)->dimtbl[0] = -1;                                // let the caller know that this is an empty array and needs more work
+        if(vtype & T_STRUCT) VREC(vindex)->size = structarg;        // an array of structures as a parameter: its type
         return VREC(vindex)->val.s;                                // just return a pointer to the data element as it will be replaced in the sub/fun with a pointer
     }
 
@@ -3358,6 +3434,9 @@ void *findvar(char *p, int action) {
     	tmp=(nbr * sizeof(MMFLOAT));
         if(tmp<=256)mptr = GetStringMemoryBottom();
         else mptr = GetMemory(tmp);
+    } else if(vtype & T_STRUCT) {                                   // an array of structures
+        mptr = GetMemory(nbr * g_structtbl[structarg]->total_size);
+        size = structarg;                                           // its size is its type
     }  else {
     	tmp=(nbr * (size + 1));
     	if(tmp<=16 && j==0)mptr = (void *)&VREC(ifree)->dimtbl[1];
@@ -3926,7 +4005,7 @@ void MIPS16 ClearVars(int level) {
 		for(i=hashlistpointer-1;i>=0;i--){
 			if(hashlist[i].level>= level){
 				hashcurrent = hashlist[i].hash;
-				if(((VREC(hashcurrent)->type & T_STR) || DimIsAllocated(VREC(hashcurrent)->dimtbl[0])) && !(VREC(hashcurrent)->type & T_PTR) && !VAR_INLINE_STR(VREC(hashcurrent)) && ((uint32_t)VREC(hashcurrent)->val.s>0x24000000)) {
+				if(((VREC(hashcurrent)->type & (T_STR | T_STRUCT)) || DimIsAllocated(VREC(hashcurrent)->dimtbl[0])) && !(VREC(hashcurrent)->type & T_PTR) && !VAR_INLINE_STR(VREC(hashcurrent)) && ((uint32_t)VREC(hashcurrent)->val.s>0x24000000)) {
 					FreeMemorySafe((void *)&VREC(hashcurrent)->val.s);
 					// free any memory (if allocated)
 				}
@@ -3943,7 +4022,7 @@ void MIPS16 ClearVars(int level) {
 	} else {
 		for(i = 0; i < MAXVARS; i++) {
 			if(!VarRecordReal(VREC(i))) continue;                   // a free or blocked global slot: a placeholder, nothing of its own
-			if(((VREC(i)->type & T_STR) || DimIsAllocated(VREC(i)->dimtbl[0])) && !(VREC(i)->type & T_PTR) && !VAR_INLINE_STR(VREC(i))) {
+			if(((VREC(i)->type & (T_STR | T_STRUCT)) || DimIsAllocated(VREC(i)->dimtbl[0])) && !(VREC(i)->type & T_PTR) && !VAR_INLINE_STR(VREC(i))) {
 				if((uint32_t)VREC(i)->val.s>0x24000000) FreeMemorySafe((void *)&VREC(i)->val.s);                        // free any memory (if allocated)
 			}
 			if(i < MAXLOCALVARS) clearvar(VREC(i));                 // (a global's record goes back with its chunk)
@@ -4196,6 +4275,42 @@ char *skipvar(char *p, int noerror) {
             p++;
         }
         p++;        // step over the closing bracket
+    }
+
+    // a structure's member, perhaps an element of it, perhaps more members: pts(0).x, p.a(1).b.  Whether the
+    // variable is a structure is not known here (the tokeniser finds the = of pts(0).x = 1 with this), but
+    // nothing else can follow a variable with a '.'
+    while(1) {
+        pp = p; skipspace(pp);
+        if(*pp != '.') break;
+        p = pp + 1;
+        if(!isnamestart(*p)) {
+            if(noerror) return p;
+            error("Expected member name after '.'");
+        }
+        do {
+            p++;
+        } while(isnamechar(*p));
+        if(*p == '$' || *p == '%' || *p == '!') p++;
+        pp = p; skipspace(pp);
+        if(*pp == '(') {
+            p = pp + 1;
+            i = 1;
+            inquote = false;
+            while(1) {
+                if(*p == '\"') inquote = !inquote;
+                if(*p == 0) {
+                    if(noerror) return p;
+                    error("Expected closing bracket");
+                }
+                if(!inquote) {
+                    if(*p == ')') if(--i == 0) break;
+                    if(*p == '(' || (tokentype(*p) & T_FUN)) i++;
+                }
+                p++;
+            }
+            p++;
+        }
     }
     return p;
 }

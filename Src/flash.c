@@ -275,6 +275,7 @@ void cmd_var(void) {
             VarDataList[i/2] = findvar(argv[i], V_NOFIND_ERR | V_EMPTY_OK);
             VarList[i/2] = VarIndex;
             if((VREC(VarIndex)->type & (T_CONST | T_PTR)) || VREC(VarIndex)->level != 0) error("Invalid variable");
+            if(VREC(VarIndex)->type & T_STRUCT) error("A structure cannot be saved");
             p = &argv[i][strlen(argv[i]) - 1];                      // pointer to the last char
             if(*p == ')') {                                         // strip off any empty brackets which indicate an array
                 p--;

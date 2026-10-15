@@ -437,7 +437,7 @@ void command_print(char *cmd) {
 // it ends up as the place where mistyped commands are discovered.  This is why
 // the error message is "Unknown command"
 void cmd_let(void) {
-	int t, size;
+	int t, size, vartype;
 	MMFLOAT f;
     long long int i64;
 	char *s;
@@ -458,16 +458,28 @@ void cmd_let(void) {
 	p2 = findvar(cmdline, V_FIND);
     size = VREC(VarIndex)->size;
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+    vartype = VREC(VarIndex)->type;
+    if(g_StructMemberType != 0) {                                   // a structure's member
+        vartype = g_StructMemberType;
+        size = g_StructMemberSize;                                  // a string's length, a nested structure's type
+    }
 
 	// step over the equals sign, evaluate the rest of the command and save in the variable
 	p1++;
-	if(VREC(VarIndex)->type & T_STR) {
+	if(vartype & T_STRUCT) {                                        // a whole structure, from one of the same type
+		t = T_NOTYPE;
+		p1 = evaluate(p1, &f, &i64, &s, &t, false);
+		if(!(t & T_STRUCT)) error("Expected a structure value");
+		if(g_ExprStructType != size) error("Structure types must match");
+		memmove(p2, s, g_structtbl[size]->total_size);
+	}
+	else if(vartype & T_STR) {
 		t = T_STR;
 		p1 = evaluate(p1, &f, &i64, &s, &t, false);
 		if(*s > size) error("String too long");
 		Mstrcpy(p2, s);
 	}
-	else if(VREC(VarIndex)->type & T_NBR) {
+	else if(vartype & T_NBR) {
 		t = T_NBR;
 		p1 = evaluate(p1, &f, &i64, &s, &t, false);
 		if(t & T_NBR)
@@ -2646,6 +2658,7 @@ void cmd_on(void) {
 char *CheckIfTypeSpecified(char *p, int *type, int AllowDefaultType) {
     char *tp;
 
+    g_StructArg = -1;
     if((tp = checkstring(p, "INTEGER")) != NULL)
         *type = T_INT | T_IMPLIED;
     else if((tp = checkstring(p, "STRING")) != NULL)
@@ -2653,6 +2666,14 @@ char *CheckIfTypeSpecified(char *p, int *type, int AllowDefaultType) {
     else if((tp = checkstring(p, "FLOAT")) != NULL)
         *type = T_NBR | T_IMPLIED;
     else {
+        tp = p;
+        skipspace(tp);
+        if(g_structcnt > 0 && (g_StructArg = FindStructType(tp)) >= 0) {
+            *type = T_STRUCT | T_IMPLIED;                           // a TYPE's name: g_StructArg is its number
+            while(isnamechar(*tp)) tp++;
+            skipspace(tp);
+            return tp;
+        }
         if(!AllowDefaultType) error("Variable type");
         tp = p;
         *type = DefaultType;                                        // if the type is not specified use the default
@@ -2692,7 +2713,7 @@ char *SetValue(char *p, int t, void *v) {
 // DIM [AS INTEGER|FLOAT|STRING] var[(d1 [,d2,...]] [AS INTEGER|FLOAT|STRING] [, ..., ...]
 // LOCAL also uses this function the routines only differ in that LOCAL can only be used in a sub/fun
 void MIPS16 cmd_dim(void) {
-    int i, j, k, type, typeSave, ImpliedType = 0, VIndexSave, StaticVar = false;
+    int i, j, k, type, typeSave, ImpliedType = 0, VIndexSave, StaticVar = false, ImpliedStruct, StructArg;
     char *p, chSave, *chPosit;
     char VarName[(MAXVARLEN * 2) + 1];
     void *v, *tv;
@@ -2700,6 +2721,7 @@ void MIPS16 cmd_dim(void) {
     if(*cmdline == tokenAS) cmdline++;                              // this means that we can use DIM AS INTEGER a, b, etc
     p = CheckIfTypeSpecified(cmdline, &type, true);                 // check for DIM FLOAT A, B, ...
     ImpliedType = type;
+    ImpliedStruct = g_StructArg;
     {                                                               // getargs macro must be the first executable stmt in a block
         getargs(&p, (MAX_ARG_COUNT * 2) - 1, ",");
         if((argc & 0x01) == 0) error("Syntax");
@@ -2714,7 +2736,9 @@ void MIPS16 cmd_dim(void) {
                 p++;                                                // step over the AS token
                 p = CheckIfTypeSpecified(p, &type, true);           // and get the type
                 if(!(type & T_IMPLIED)) error("Variable type");
-            }
+                StructArg = g_StructArg;
+            } else
+                StructArg = ImpliedStruct;
 
             if(cmdtoken == cmdLOCAL) {
                 if(LocalIndex == 0) error("Invalid here");
@@ -2738,10 +2762,12 @@ void MIPS16 cmd_dim(void) {
             } else
                 strcpy(VarName, argv[i]);
 
+            g_StructArg = StructArg;
             v = findvar(VarName, type | V_NOFIND_NULL);             // check if the variable exists
             typeSave = type;
             VIndexSave = VarIndex;
             if(v == NULL) {                                         // if not found
+                g_StructArg = StructArg;
                 v = findvar(VarName, type | V_FIND | V_DIM_VAR);    // create the variable
                 type = TypeMask(VREC(VarIndex)->type);
                 VIndexSave = VarIndex;
@@ -2781,10 +2807,12 @@ void MIPS16 cmd_dim(void) {
 
             // if it is a STATIC var create a local var pointing to the global var
             if(StaticVar) {
+                g_StructArg = StructArg;
                 tv = findvar(argv[i], typeSave | V_LOCAL | V_NOFIND_NULL);                        // check if the local variable exists
                 if(tv != NULL) error("$ already declared", argv[i]);
+                g_StructArg = StructArg;
                 tv = findvar(argv[i], typeSave | V_LOCAL | V_FIND | V_DIM_VAR);                   // create the variable
-                if(DimIsRealArray(VREC(VIndexSave)->dimtbl[0]) || (VREC(VIndexSave)->type & T_STR)) {
+                if(DimIsRealArray(VREC(VIndexSave)->dimtbl[0]) || (VREC(VIndexSave)->type & (T_STR | T_STRUCT))) {
                     if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemory(tv);                           // we don't need the memory allocated to the local
                     VREC(VarIndex)->val.s = VREC(VIndexSave)->val.s;                            // point to the memory of the global variable
                 } else
@@ -2856,7 +2884,7 @@ void cmd_erasevar(char *erase) {
             }
             if(!(len == 0 && (*x == 0 || strlen(p) == MAXVARLEN))) continue;
     		// found the variable
-			if(((VREC(j)->type & T_STR) || DimIsAllocated(VREC(j)->dimtbl[0])) && !(VREC(j)->type & T_PTR) && !VAR_INLINE_STR(VREC(j))) {
+			if(((VREC(j)->type & (T_STR | T_STRUCT)) || DimIsAllocated(VREC(j)->dimtbl[0])) && !(VREC(j)->type & T_PTR) && !VAR_INLINE_STR(VREC(j))) {
 				FreeMemory(VREC(j)->val.s);                        // free any memory (if allocated)
 				VREC(j)->val.s=NULL;
 			}

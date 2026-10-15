@@ -203,6 +203,8 @@ const char *ParseStructMember(char *p, struct s_structdef *sd);
 int FindStructType(char *name);
 int FindStructMember(int struct_idx, char *membername, int *member_type, int *member_offset, int *member_size, int *member_dims);
 void ListTypes(char *p);
+void *ResolveStructMember(char *struct_ptr, int struct_idx, char *member_path, char **pp, int *member_type);
+void *StructMemberAt(char *struct_ptr, int struct_idx, char **pp);
 extern int varcnt;
 extern int Localvarcnt;                              // number of LOCAL variables defined (eg, largest index into the variable table)
 extern int Globalvarcnt;                              // number of GLOBAL variables defined (eg, largest index into the variable table)
