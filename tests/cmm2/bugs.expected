@@ -35,7 +35,7 @@ ok  GOSUB a label that shares a SUB's name, then the SUB
 ok  RESTORE to a label that shares a SUB's name
 ok  GOTO a name that is only a SUB is an error
 ok  GOSUB a 32-character label
-ok  VARCNT after CLEAR VARS of one array
+ok  VARCNT after ERASE of one array
 ok  VARCNT in a SUB with two LOCALs
 ok  VARCNT after the SUB returned
 ok  50 skipped errors in arguments leave the heap as it was

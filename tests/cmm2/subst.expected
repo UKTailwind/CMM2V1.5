@@ -1,0 +1,18 @@
+ok  ERASE in a string
+ok  a file name in a string
+ok  keywords in a string
+ok  a #DEFINE name in a string
+ok  and in a string given to EXECUTE
+ok  HEX$(
+ok  BIN$(
+ok  OCT$(
+ok  =>
+ok  a FUNCTION whose name ends in HEX$
+ok  ERASE starting the line, then MyErase( after it
+ok  a #DEFINE starting the line, then inside a longer name
+ok  a line starting REMAINING is not a REM
+ok  DATA keeps its words
+ok  and after a colon
+ok  a #DEFINE in DATA
+ok  DATA MM.HRES/2 read as a number
+subst: 17 of 17 passed

@@ -47,7 +47,7 @@ ok  ? for PRINT
 ok  CAT
 ok  INC
 ok  COLOUR and COLOR
-ok  CLEAR VARS (CLEAR VARS)
+ok  ERASE (CLEAR VARS)
 ok  EVAL
 ok  implied LET
 ok  @( outside PRINT is an error

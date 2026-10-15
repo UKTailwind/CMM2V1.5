@@ -1421,176 +1421,118 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 
 #endif
 
-// Every target is a line buffer of STRINGSIZE bytes (inpbuf, or the loader's line).  A result that would
-// not fit leaves the target as it was and sets strreplace_overflow, which the callers report as "Line ...
-// is too long".  Unchecked, it ran past buffer[] and then past the target: one 251-character line of
-// DHT22s (each becomes BITBANG DHT22) typed at the prompt hung the board.
+// The substitutions made on a line before it is tokenised (the PicoMite's, corrected: PicoMite issue #8).  Every
+// target is a line buffer of STRINGSIZE bytes (inpbuf, or the loader's line).  A result that would not fit leaves
+// the target as it was and sets strreplace_overflow, which the callers report as "Line ... is too long" (one
+// 251-character line of DHT22s, each made BITBANG DHT22, ran past the buffers and hung the board).
 int strreplace_overflow = 0;
+extern char *fstrstr(const char *s1, const char *s2);                // strstr blind to case (kilo.c): a DATA line keeps its case
+
+// Replace each needle in target that is a whole word: no name character before it (bit 0 of ignoresurround waives
+// that, as the start of the line does) and nothing after it that could continue a name (bit 1 waives that).  An
+// occurrence that is not a whole word is left as it was.
 void str_replace(char *target, const char *needle, const char *replacement, uint8_t ignoresurround)
 {
-    char buffer[288] = { 0 };
-    char *insert_point = &buffer[0];
+    char buffer[STRINGSIZE];
+    char *insert_point = buffer;
     const char *limit = &buffer[STRINGSIZE - 1];                    // the most a line buffer holds, less its zero
-    const char *tmp = target;
-    size_t needle_len = strlen(needle);
-    size_t repl_len = strlen(replacement);
+    const char *tmp = target, *p, *from;
+    size_t needle_len = strlen(needle), repl_len = strlen(replacement), n;
+    int whole;
 
-    while (1) {
-        const char *p = strstr(tmp, needle);
-
-        // walked past last occurrence of needle; copy remaining part
-        if (p == NULL) {
-            if(insert_point + strlen(tmp) > limit) goto toolong;
-            strcpy(insert_point, tmp);
-            break;
-        }
-        char *q;
-        if(p==target){
-            ignoresurround|=1;
-            q=(char *)p;
-        } else q=(char *)p-1;
-        if( (isnamechar(*q) && !(ignoresurround & 1)) || (isnameend(p[strlen(needle)]) && !(ignoresurround & 2))){
-            if(insert_point + (p - tmp) + needle_len > limit) goto toolong;
-            // copy part before needle
-            memcpy(insert_point, tmp, p - tmp);
-            insert_point += p - tmp;
-
-            // copy replacement string
-            memcpy(insert_point, needle, needle_len);
-            insert_point += needle_len;
-
-            // adjust pointers, move on
-            tmp = p + needle_len;
-        } else {
-            if(insert_point + (p - tmp) + repl_len > limit) goto toolong;
-            // copy part before needle
-            memcpy(insert_point, tmp, p - tmp);
-            insert_point += p - tmp;
-
-            // copy replacement string
-            memcpy(insert_point, replacement, repl_len);
-            insert_point += repl_len;
-
-            // adjust pointers, move on
-            tmp = p + needle_len;
-        }
+    if(needle_len == 0) return;                                     // (an empty #DEFINE name: it would match forever)
+    while((p = fstrstr(tmp, needle)) != NULL) {
+        whole = (p == target || !isnamechar(p[-1]) || (ignoresurround & 1)) && (!isnameend(p[needle_len]) || (ignoresurround & 2));
+        from = whole ? replacement : p;                             // (not replaced: the text as it was, in its case)
+        n = whole ? repl_len : needle_len;
+        if(insert_point + (p - tmp) + n > limit) goto toolong;
+        memcpy(insert_point, tmp, p - tmp);                         // the part before the needle
+        insert_point += p - tmp;
+        memcpy(insert_point, from, n);
+        insert_point += n;
+        tmp = p + needle_len;
     }
-
-    // write altered string back to target
+    if(insert_point + strlen(tmp) > limit) goto toolong;            // the rest
+    strcpy(insert_point, tmp);
     strcpy(target, buffer);
     return;
 
 toolong:
     strreplace_overflow = 1;                                        // the target is unchanged
 }
-/*void str_replace(char *target, const char *needle, const char *replacement)
-{
-    char buffer[288] = { 0 };
-    char *insert_point = &buffer[0];
-    const char *tmp = target;
-    size_t needle_len = strlen(needle);
-    size_t repl_len = strlen(replacement);
 
-    while (1) {
-        const char *p = strstr(tmp, needle);
-
-        // walked past last occurrence of needle; copy remaining part
-        if (p == NULL) {
-            strcpy(insert_point, tmp);
-            break;
-        }
-
-        // copy part before needle
-        memcpy(insert_point, tmp, p - tmp);
-        insert_point += p - tmp;
-
-        // copy replacement string
-        memcpy(insert_point, replacement, repl_len);
-        insert_point += repl_len;
-
-        // adjust pointers, move on
-        tmp = p + needle_len;
-    }
-
-    // write altered string back to target
-    strcpy(target, buffer);
+// is the word (in capitals) at p, and not the start of a longer name?
+static int IsWordAt(const char *p, const char *word) {
+    int n = strlen(word);
+    return strncasecmp(p, word, n) == 0 && !isnamechar(p[n]);
 }
 
-void STR_REPLACE(char *target, const char *needle, const char *replacement){
-	char *ip=target;
-	int toggle=0;
-	while(*ip){
-		if(*ip==34){
-			if(toggle==0)toggle=1;
-			else toggle=0;
-		}
-		if(toggle && *ip==' '){
-			*ip=0xFF;
-		}
-		if(toggle && *ip=='.'){
-			*ip=0xFE;
-		}
-		if(toggle && *ip=='='){
-			*ip=0xFD;
-		}
-		ip++;
-	}
-	str_replace(target, needle, replacement);
-	ip=target;
-	while(*ip){
-		if(*ip==0xFF)*ip=' ';
-		if(*ip==0xFE)*ip='.';
-		if(*ip==0xFD)*ip='=';
-		ip++;
-	}
-
-}*/
-void STR_REPLACE(char *target, const char *needle, const char *replacement, uint8_t ignoresurround){
-	char *ip=target;
-	int toggle=0;
-    char comment[STRINGSIZE]={0};
+// Hide from the substitutions what they must not change: each character of a string gets bit 7 (the line holds
+// only 7-bit characters by now), which no needle can match; a ' comment, and with stmts (tokenise) a REM statement,
+// is taken off the line into comment.  False for a REM line, which needs no substitutions.
+static int SubstHide(char *target, char *comment, int stmts) {
+    char *ip = target;
+    int inquote = false, stmt = true;
+    *comment = 0;
     skipspace(ip);
-    if(!(toupper(*ip)=='R' && toupper(ip[1])=='E' && toupper(ip[2])=='M' )){
-        while(*ip){
-            if(*ip==34){
-                if(toggle==0)toggle=1;
-                else toggle=0;
-            }
-            if(toggle && *ip==' '){
-                *ip=0xFF;
-            }
-            if(toggle && *ip=='.'){
-                *ip=0xFE;
-            }
-            if(toggle && *ip=='='){
-                *ip=0xFD;
-            }
-            if(toggle && *ip=='\\'){
-                *ip=0xFC;
-            }
-            if(toggle==0 && *ip=='\''){
-                strcpy(comment,ip);
-                *ip=0;
-                break;
-            }
-            ip++;
+    if(IsWordAt(ip, "REM")) return false;
+    for( ; *ip; ip++) {
+        if(*ip == '"') {
+            inquote = !inquote;
+            continue;
         }
-        str_replace(target, needle, replacement, ignoresurround);
-        ip=target;
-        if(comment[0]=='\''){
-            if(strlen(target) + strlen(comment) > STRINGSIZE - 1)
-                strreplace_overflow = 1;                            // the substitution left no room for the comment
-            else
-                strcat(target,comment);
+        if(inquote) {
+            *ip |= 0x80;
+            continue;
         }
-        while(*ip){
-            if(*ip==0xFF)*ip=' ';
-            if(*ip==0xFE)*ip='.';
-            if(*ip==0xFD)*ip='=';
-            if(*ip==0xFC)*ip='\\';
-            ip++;
+        if(*ip == '\'' || (stmts && stmt && IsWordAt(ip, "REM"))) {
+            strcpy(comment, ip);                                    // a comment: the rest of the line
+            *ip = 0;
+            break;
+        }
+        if(*ip == ':')
+            stmt = true;
+        else if(*ip != ' ')
+            stmt = false;
+    }
+    return true;
+}
+
+// and hide each DATA statement too, to the next : (one in a string is hidden already)
+static void SubstHideData(char *target) {
+    char *ip = target;
+    int stmt = true;
+    for( ; *ip; ip++) {
+        if(*ip == ':')
+            stmt = true;
+        else if(stmt && *ip != ' ') {
+            stmt = false;
+            if(IsWordAt(ip, "DATA"))
+                for( ; *ip && *ip != ':'; ip++) *ip |= 0x80;
+            if(*ip == ':') stmt = true;
+            if(*ip == 0) break;
         }
     }
+}
+
+// and show it again
+static void SubstShow(char *target, char *comment) {
+    char *ip;
+    for(ip = target; *ip; ip++) *ip &= 0x7f;
+    if(*comment) {
+        if(strlen(target) + strlen(comment) > STRINGSIZE - 1)
+            strreplace_overflow = 1;                                // the substitution left no room for the comment
+        else
+            strcat(target, comment);
+    }
+}
+
+// one substitution (the loader's #DEFINEs and its spacing), never in a string or a comment
+void STR_REPLACE(char *target, const char *needle, const char *replacement, uint8_t ignoresurround){
+    char comment[STRINGSIZE];
+    if(!SubstHide(target, comment, false)) return;
+    str_replace(target, needle, replacement, ignoresurround);
+    SubstShow(target, comment);
 }
 
 /********************************************************************************************************************************************
@@ -1620,37 +1562,42 @@ int MIPS16 tokenise(int console) {
     int labelvalid;
     routinechecks(1);
     strreplace_overflow = 0;
-    while(i<MMEND){
-        char buff[]="~( )";
-        buff[2]=i+'A';
-        STR_REPLACE((char *)inpbuf,overlaid_functions[i],buff, false);
-        i++;
-    }
-    //first make function substitutions
-    STR_REPLACE(inpbuf,"MM.INFO$","MM.INFO",0);
-    STR_REPLACE(inpbuf,"BIN$(","BASE$(2,",3);
-    STR_REPLACE(inpbuf,"OCT$(","BASE$(8,",3);
-    STR_REPLACE(inpbuf,"HEX$(","BASE$(16,",3);
-    STR_REPLACE(inpbuf,"DHT22","BITBANG DHT22",0);
-    STR_REPLACE(inpbuf,"HUMID","BITBANG DHT22",0);
-    STR_REPLACE(inpbuf,"I2C","I2C 1",0);
-    STR_REPLACE(inpbuf,"I2C3","I2C 3",0);
-    STR_REPLACE(inpbuf,"I2C2","I2C 2",0);
-    STR_REPLACE(inpbuf,"SPI","SPI 1",0);
-    STR_REPLACE(inpbuf,"ERASE","CLEAR VARS",0);
-    STR_REPLACE(inpbuf,"SPI2","SPI 2",0);
-    STR_REPLACE(inpbuf,"=>",">=", 3);
-    STR_REPLACE(inpbuf,"=<","<=", 3);
-    STR_REPLACE(inpbuf,"ZMODEM","XMODEM Z",0);                      // ZMODEM has no token of its own (the table is full): cmd_xmodem dispatches on the Z
-    if(strreplace_overflow) goto toolong;                           // a substitution would not fit in the line
-    p = inpbuf;
-//    MMPrintString(inpbuf);PRet();
-    // second, make sure that only printable characters are in the line
-    while(*p) {
+    // first, make sure that only printable characters are in the line (the substitutions mark text with bit 7)
+    for(p = inpbuf; *p; p++) {
         *p = *p & 0x7f;
         if(*p < ' ' || *p == 0x7f)  *p = ' ';
-        p++;
     }
+    // then the substitutions, none of them in a string, a comment or a REM statement (hidden once for all)
+    {
+        char comment[STRINGSIZE];
+        if(SubstHide(inpbuf, comment, true)) {
+            // the functions and operators, in a DATA statement too: READ evaluates a number there (DATA MM.HRES/2)
+            for(i = 0; i < MMEND; i++) {
+                char buff[]="~( )";
+                buff[2]=i+'A';
+                str_replace(inpbuf,overlaid_functions[i],buff, false);
+            }
+            str_replace(inpbuf,"MM.INFO$","MM.INFO",0);
+            str_replace(inpbuf,"BIN$(","BASE$(2,",2);               // (2: not the end of a longer name, such as a FUNCTION TOHEX$()
+            str_replace(inpbuf,"OCT$(","BASE$(8,",2);
+            str_replace(inpbuf,"HEX$(","BASE$(16,",2);
+            str_replace(inpbuf,"=>",">=", 3);
+            str_replace(inpbuf,"=<","<=", 3);
+            // the commands, which a word in a DATA statement is not (DATA spi, erase)
+            SubstHideData(inpbuf);
+            str_replace(inpbuf,"DHT22","BITBANG DHT22",0);
+            str_replace(inpbuf,"HUMID","BITBANG DHT22",0);
+            str_replace(inpbuf,"I2C","I2C 1",0);
+            str_replace(inpbuf,"I2C3","I2C 3",0);
+            str_replace(inpbuf,"I2C2","I2C 2",0);
+            str_replace(inpbuf,"SPI","SPI 1",0);
+            str_replace(inpbuf,"ERASE","CLEAR VARS",0);
+            str_replace(inpbuf,"SPI2","SPI 2",0);
+            str_replace(inpbuf,"ZMODEM","XMODEM Z",0);              // ZMODEM has no token of its own (the table is full): cmd_xmodem dispatches on the Z
+            SubstShow(inpbuf, comment);
+        }
+    }
+    if(strreplace_overflow) goto toolong;                           // a substitution would not fit in the line
 
     // setup the input and output buffers
     p = inpbuf;
