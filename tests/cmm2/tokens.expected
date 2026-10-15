@@ -1,0 +1,59 @@
+ok  IF THEN ELSE, true
+ok  IF THEN ELSE, false
+ok  IF THEN two statements
+ok  IF THEN false skips the rest
+ok  IF THEN PRINT
+ok  IF THEN GOTO
+ok  IF GOTO
+ok  IF THEN IF
+ok  multi-line IF arm 1
+ok  multi-line IF arm 2
+ok  multi-line IF arm 3
+ok  multi-line IF arm 4
+ok  nested IF
+ok  SELECT 1
+ok  SELECT 2
+ok  SELECT 3
+ok  SELECT 4
+ok  SELECT 5
+ok  SELECT 6
+ok  nested SELECT
+ok  DO WHILE
+ok  LOOP UNTIL
+ok  LOOP WHILE
+ok  EXIT DO
+ok  CONTINUE DO
+ok  DO inside FOR
+ok  FOR STEP -3
+ok  EXIT FOR, NEXT without a name
+ok  CONTINUE FOR
+ok  nested FOR on one line
+ok  GOSUB
+ok  ON GOSUB
+ok  ON GOTO
+ok  LOCAL hides the global
+ok  STATIC
+ok  recursive FUNCTION
+ok  FUNCTION in an expression
+ok  string FUNCTION
+ok  EXIT SUB
+ok  EXIT FUNCTION
+ok  FUNCTION with empty brackets
+ok  SUB with no arguments
+ok  READ after RESTORE label
+ok  READ string
+ok  RESTORE to the first DATA
+ok  ? for PRINT
+ok  CAT
+ok  INC
+ok  COLOUR and COLOR
+ok  CLEAR VARS (CLEAR VARS)
+ok  EVAL
+ok  implied LET
+ok  @( outside PRINT is an error
+ok  DefineFont block skipped
+ok  SETTICK SUB ran
+ok  SETTICK label with IRETURN ran
+ok  SETTICK stopped
+ok  IF THEN ERROR ELSE, false
+tokens: 58 of 58 passed

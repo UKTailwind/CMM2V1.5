@@ -61,6 +61,7 @@ d = tempfile.mkdtemp()
 for name, lines in PROGS.items():
     open(os.path.join(d, name), 'w', newline='\r\n').write('\n'.join(lines) + '\n')
 for name in PROGS: cmd('KILL "A:/%s"' % name, 0.5)
+cmd('CHDIR "A:/"', 0.5)                                 # ZMODEM RECEIVE writes to the current directory
 s.write(b'ZMODEM RECEIVE\r'); time.sleep(0.5)
 zmodem_pc.send(s, baud, [os.path.join(d, n) for n in PROGS], 32768)
 rd(2)

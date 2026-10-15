@@ -24,6 +24,7 @@ files = {'zs1.bas': 'FOR i=1 TO 2000 : a=a+SIN(i) : NEXT : PRINT "done"\n',
          'zs3.dat': ''.join(chr(32 + (i * 7) % 90) for i in range(20000)) + '\n'}
 for n, c in files.items(): open(os.path.join(d, n), 'w', newline='\r\n').write(c)
 s.write(b'\x03'); time.sleep(0.2); s.write(b'\r'); rd(1)
+cmd('CHDIR "A:/"', 0.5)                                 # ZMODEM RECEIVE writes to the current directory
 resets = probe = 0; t0 = time.time()
 for r in range(rounds):
     log = ''
