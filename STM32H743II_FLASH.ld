@@ -46,8 +46,11 @@ AXIRAM (rw)     : ORIGIN = 0x24000000, LENGTH = 512K
 RAM_D2 (rw)     : ORIGIN = 0x30000000, LENGTH = 288K
 RAM_D3 (rw)     : ORIGIN = 0x38000000, LENGTH = 64K
 ITCMRAM (xrw)   : ORIGIN = 0x00000000, LENGTH = 64K
+FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 1024K
+/* with .extra in sector 7 (see .extra below), in place of the line above:
 FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 896K
 FLASH7 (rx)	    : ORIGIN = 0x080E0000, LENGTH = 128K
+*/
 FLASH2 (r)      : ORIGIN = 0x08100000, LENGTH = 1024K
 /*RAM_D5 (rw)     : ORIGIN = 0x38800000, LENGTH = 4K*/
 }
@@ -100,6 +103,7 @@ SECTIONS
        Both the CubeIDE (*.o) and CMake (*.c.obj) object names are listed. */
     EXCLUDE_FILE(*stm32h7xx_it.o *stm32h7xx_it.c.obj *Timers.o *Timers.c.obj *stm32h7xx_hal_ltdc.o *stm32h7xx_hal_ltdc.c.obj *stm32h7xx_hal_hcd.o *stm32h7xx_hal_hcd.c.obj) *(.text)    /* .text sections (code) */
     EXCLUDE_FILE(*stm32h7xx_it.o *stm32h7xx_it.c.obj *Timers.o *Timers.c.obj *stm32h7xx_hal_ltdc.o *stm32h7xx_hal_ltdc.c.obj *stm32h7xx_hal_hcd.o *stm32h7xx_hal_hcd.c.obj) *(.text*)   /* .text* sections (code) */
+    KEEP(*(.extra))    /* the code marked .extra, in .text for now: see .extra below */
     *(.glue_7)         /* glue arm to thumb code */
     *(.glue_7t)        /* glue thumb to arm code */
     *(.eh_frame)
@@ -111,13 +115,18 @@ SECTIONS
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
 
+/* .extra: the code marked __attribute__((section(".extra"))) (MATHS.c, OtherDisplays.c) had bank 1's sector 7
+   to itself, because with everything in .text the system was unstable, which seemed to be the ST USB host
+   stack's doing.  That stack has gone, so it is in .text again (15 Oct 2026), on trial.  To put it back in
+   sector 7: FLASH 896K and FLASH7 in MEMORY above, delete the KEEP(*(.extra)) line in .text, and uncomment this.
 .extra :
 {
     . = ALIGN(4);
-    KEEP(*(.extra))     /* <-- explicitly pull in .extra */
+    KEEP(*(.extra))
     . = ALIGN(4);
     _etext7 = .;
 } >FLASH7
+*/
  
   /* Zero-wait-state code: the interrupt handlers, the timers, and the LTDC and USB host HAL.
      Copied from flash by the startup code (LoopCopyITCMInit).  CMake names objects *.c.obj,
