@@ -2712,11 +2712,11 @@ int MIPS16 TraceLines(char *target) {
         if(*p == T_NEWLINE) {
             p++;                                                 // and step over the line number
             if(p >= target){
-            	char buf[STRINGSIZE],buff[10];
+            	char buf[TKNBUFSIZE],buff[10];                     // a tokenised line can be longer than STRINGSIZE
            		char *ename, *cpos=NULL;
-            	memcpy(buf,p,STRINGSIZE);
+            	memcpy(buf,p,TKNBUFSIZE);
            		i=0;
-           		while(!(buf[i]==0 && buf[i+1]==0))i++;
+           		while(i < TKNBUFSIZE - 2 && !(buf[i]==0 && buf[i+1]==0))i++;
            		while(i>0){
            			if(buf[i]=='|')cpos=&buf[i];
            			i--;
@@ -2747,7 +2747,7 @@ int MIPS16 TraceLines(char *target) {
         }
 
         if(*p == T_LABEL) {
-            p += p[0] + 2;                                          // still looking! skip over the label
+            p += p[1] + 2;                                          // still looking! skip over the label (T_LABEL, length, name)
             continue;
         }
 
