@@ -815,6 +815,10 @@ if(setjmp(mark) != 0) {
     // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
     ContinuePoint = nextstmt;                                   // in case the user wants to use the continue command
     *tknbuf = 0;                                                // we do not want to run whatever is in the token buffer
+    {   // a call whose arguments were being processed (a CTRL-C in them) is gone: a later error must not free its block
+        extern uint32_t DefinedSubFunMem;
+        DefinedSubFunMem = 0;
+    }
 } else {
 	ClearProgram();
 	PrepareProgram(true);

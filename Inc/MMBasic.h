@@ -233,8 +233,6 @@ extern int MMerrno;
 extern char *MMErrMsg;
 
 extern char *subfun[];                          // Table of subroutines and functions built when the program starts running
-extern char __attribute__ ((aligned (4))) CurrentSubFunName[MAXVARLEN + 1];   // the name of the current sub or fun
-extern char CurrentInterruptName[MAXVARLEN + 1];// the name of the current interrupt function
 struct s_tokentbl {                             // structure of the token table
 	char name[16];                                 // the string (eg, PRINT, FOR, ASC(, etc)
     char type;                                  // the type returned (T_NBR, T_STR, T_INT)

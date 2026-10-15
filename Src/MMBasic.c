@@ -72,8 +72,6 @@ char DefaultType;                                                   // the defau
 int emptyarray=0;
 struct s_hash hashlist[MAXVARS/2];
 char *subfun[MAXSUBFUN];                                            // table used to locate all subroutines and functions
-char __attribute__ ((aligned (4))) CurrentSubFunName[MAXVARLEN + 1];                              // the name of the current sub or fun
-char CurrentInterruptName[MAXVARLEN + 1];                           // the name of the current interrupt function
 jmp_buf run;                                                       // longjump to recover from an error and abort
 jmp_buf mark;                                                       // longjump to recover from an error and abort
 jmp_buf ErrNext;                                                    // longjump to recover from an error and continue
@@ -205,7 +203,10 @@ const char digit[256]={
 void getexpr(char *);
 void checktype(int *, int);
 char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta);
-void hashlabels(void);
+void hashlabels(int ErrAbort);
+// entries in funtbl (SUBs, FUNCTIONs and labels): at most MAXSUBFUN - 1, so that there is always an
+// empty slot and every search of the table ends
+static int funtbl_used;
 char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
 CommandToken cmdIF, cmdENDIF,  cmdELSEIF, cmdELSE, cmdSELECT_CASE, cmdFOR, cmdNEXT, cmdWHILE, cmdENDSUB, cmdENDFUNCTION, cmdLOCAL, cmdSTATIC, cmdCASE, cmdDO, cmdLOOP, cmdCASE_ELSE, cmdEND_SELECT;
 CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET;
@@ -445,6 +446,7 @@ void MIPS16 PrepareProgram(int ErrAbort) {
     NbrFuncts = 0;
     CFunctionFlash  = NULL;
     mymemset(funtbl,0,sizeof(struct s_funtbl)*MAXSUBFUN);
+    funtbl_used = 0;
     PrepareProgramExt((char *)ProgMemory, NbrFuncts, &CFunctionFlash, ErrAbort);
     // check the sub/fun table for duplicates
     for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
@@ -466,6 +468,14 @@ void MIPS16 PrepareProgram(int ErrAbort) {
 
     	} while(isnamechar(*p1));
     	if(namelen!=MAXVARLEN)*p2=0;
+        if(funtbl_used >= MAXSUBFUN - 1) {                          // the table must keep an empty slot, or a search never ends
+            if(ErrAbort) {
+                CurrentLinePtr = subfun[i];
+                error("Too many subroutines, functions and labels");
+            }
+            break;                                                  // at the prompt: RUN reports it
+        }
+        funtbl_used++;
     	hash &= MAXHASH; //scale to size of table
 		while(funtbl[hash].name[0]!=0){
 			hash++;
@@ -474,7 +484,7 @@ void MIPS16 PrepareProgram(int ErrAbort) {
 		funtbl[hash].index=i;
 		memcpy(funtbl[hash].name,printvar,(namelen == MAXVARLEN ? namelen :namelen+1));
     }
-    hashlabels();
+    hashlabels(ErrAbort);
     if(!ErrAbort) return;
     for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
 //    	MMPrintString(printvar);PIntComma(i);PRet();
@@ -584,9 +594,12 @@ int FindSubFun(char *p, int type) {
 				j--; ip++; tp++;
 			}
 			if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN) && funtbl[hash].index<MAXSUBFUN) {       // found a matching name
-//				MMPrintString("Found : ");MMPrintString(name);MMPrintString(", hash key : ");PInt(hash);PRet();
-					return funtbl[hash].index;
-					break;
+				// it must also be the kind asked for: a SUB or CSUB for a statement (type 0), a FUNCTION for
+				// an expression (type 1).  Otherwise a FUNCTION called as a statement, or a SUB used in an
+				// expression, ran part way and failed inside itself with a misleading error.
+				CommandToken tkn = commandtbl_at(subfun[funtbl[hash].index]);
+				if(type ? tkn == cmdFUN : (tkn == cmdSUB || tkn == cmdCSUB)) return funtbl[hash].index;
+				return -1;
 			}
 		}
 		hash++;
@@ -595,6 +608,15 @@ int FindSubFun(char *p, int type) {
     return -1;
 }
 
+
+// the value of each argument while DefinedSubFun() processes a call's arguments (also read by error()'s cleanup)
+union u_argval {
+    MMFLOAT f;                                                    // the value if it is a float
+    long long int i;                                            // the value if it is an integer
+    MMFLOAT *fa;                                                  // pointer to the allocated memory if it is an array of floats
+    long long int *ia;                                          // pointer to the allocated memory if it is an array of integers
+    char *s;                                                    // pointer to the allocated memory if it is a string
+};
 
 // This function is responsible for executing a defined subroutine or function.
 // As these two are similar they are processed in the one lump of code.
@@ -619,13 +641,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 	int i=0;
     int ArgType, FunType;
     int *argtype;
-    union u_argval {
-        MMFLOAT f;                                                    // the value if it is a float
-        long long int i;                                            // the value if it is an integer
-        MMFLOAT *fa;                                                  // pointer to the allocated memory if it is an array of floats
-        long long int *ia;                                          // pointer to the allocated memory if it is an array of integers
-        char *s;                                                    // pointer to the allocated memory if it is a string
-    } *argval;
+    union u_argval *argval;
     int *argVarIndex;
     // Any errors generated after gosubindex is incremented need to restore the original value
     // Any variables created if LocalIndex was incremented also need to be cleared
@@ -731,6 +747,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 
 
     errorstack[gosubindex] = CallersLinePtr;
+    substack[gosubindex] = SubLinePtr;                              // for STATIC: the variables belong to this SUB/FUNCTION
 	gosubstack[gosubindex++] = isfun ? NULL : nextstmt;             // NULL signifies that this is returned to by ending ExecuteProgram()
 
 	#define buffneeded MAX_ARG_COUNT*(sizeof(union u_argval)+ 2*sizeof(int)+3*sizeof(char *)+sizeof(char))+ 2*STRINGSIZE
@@ -830,13 +847,15 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
              // if argument is present and is not a pointer to a variable then evaluate it as an expression
             if(argtype[i] == 0) {
                 long long int ia;
-                evaluate(argv1[i], &argval[i].f, &ia, &s, &argtype[i], false);   // get the value and type of the argument
-                if(argtype[i] & T_INT)
+                int argt = T_NOTYPE;
+                evaluate(argv1[i], &argval[i].f, &ia, &s, &argt, false);   // get the value and type of the argument
+                if(argt & T_INT)
                     argval[i].i = ia;
-                else if(argtype[i] & T_STR) {
+                else if(argt & T_STR) {
                     argval[i].s = GetMemory(STRINGSIZE);
                     Mstrcpy(argval[i].s, s);
                 }
+                argtype[i] = argt;                                  // only now: error() frees argval[i].s of a T_STR argument
             }
 
         }
@@ -936,7 +955,6 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     // temp memory used in setting up the arguments can be deleted now
     FreeMemory((void*)argval);
     DefinedSubFunMem=0;                                             //we got here so we wont need to cleanup any memory
-    strcpy(CurrentSubFunName, fun_name);
     // if it is a defined command we simply point to the first statement in our command and allow ExecuteProgram() to carry on as before
     // exit from the sub is via cmd_return which will decrement LocalIndex
     if(!isfun) {
@@ -2579,7 +2597,7 @@ char *findline(int nbr, int mustfind) {
         error("Line number");
     return p;
 }
-void hashlabels(void){
+void hashlabels(int ErrAbort){
     char *p = (char *)ProgMemory;
     int j, namelen;
     uint32_t hash=FNV_offset_basis;
@@ -2609,6 +2627,14 @@ void hashlabels(void){
         		hash*=FNV_prime;
         		namelen++;
         	}
+            if(funtbl_used >= MAXSUBFUN - 1) {                      // the table must keep an empty slot, or a search never ends
+                if(ErrAbort) {
+                    CurrentLinePtr = lastp;
+                    error("Too many subroutines, functions and labels");
+                }
+                return;                                             // at the prompt: RUN reports it
+            }
+            funtbl_used++;
         	hash &= MAXHASH; //scale to size of table
     		while(funtbl[hash].name[0]!=0){
      			hash++;
@@ -2660,7 +2686,7 @@ char *findlabel(char *labelptr) {
 				while(i > 0 && *ip == *tp) {                              // compare each letter
 					i--; ip++; tp++;
 				}
-				if(i == 0  && (*(char *)tp == 0)) {       // found a matching name
+				if(i == 0  && (*(char *)tp == 0 || label[0] == MAXVARLEN)) {       // found a matching name (a 32-character name has no zero after it)
 					return (char *)funtbl[hash].index;
 				}
 			}
@@ -2874,6 +2900,7 @@ void *findvar(char *p, int action) {
                 evaluate(argv[i], &f, &in, &s, &targ, false);       // get the value and type of the argument
                 if(targ == T_STR) dnbr = MAXDIM;                    // force an error to be thrown later (with the correct message)
                 if(targ == T_NBR) in = FloatToInt32(f);
+                else if(targ == T_INT && in != (int)in) error("Index out of bounds");   // a(4294967297) must not be a(1)
                 dim[i/2] = in;
                 if(dim[i/2] < OptionBase) error("Dimensions");
             }
@@ -2975,6 +3002,7 @@ void *findvar(char *p, int action) {
 				}
 				GlobalhashIndex++;
 				if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXVARS/2;
+				if(GlobalhashIndex==OriginalGlobalHash)error("Too many global variables");   // full of variables and markers: no empty slot ends the search
 			}
 			if(vartbl[GlobalhashIndex].name[0]==0){ // not found
 				globalifree=GlobalhashIndex;
@@ -3127,12 +3155,12 @@ void *findvar(char *p, int action) {
     // as a result of the previous search ifree is the index to the entry that we should use
 
  // if we are adding to the top, increment the number of vars
-	if(ifree>=MAXVARS/2){
+	if(ifree>=MAXVARS/2){                                           // the limit is tested before counting: a refused variable is not counted
+		if(Globalvarcnt+1>=MAXVARS/2)error("Not enough Global variable memory");
 		Globalvarcnt++;
-		if(Globalvarcnt>=MAXVARS/2)error("Not enough Global variable memory");
 	} else {
+		if(Localvarcnt+1>=MAXVARS/2)error("Not enough Local variable memory");
 		Localvarcnt++;
-		if(Localvarcnt>=MAXVARS/2)error("Not enough Local variable memory");
 	}
 	varcnt=Globalvarcnt+Localvarcnt;
     VarIndex = vindex = ifree;
@@ -3353,6 +3381,9 @@ inline void makeargs(char **p, int maxargs, char *argbuf, char *argv[], int *arg
     if(expect_bracket && *tp != ')') error("Syntax");
     while(op - 1 > argbuf && *(op-1) == ' ') --op;                  // trim any trailing spaces on the last argument
     *op = 0;                                                        // terminate the last argument
+    // argv[] past argc held whatever the stack did: a command that read an argument it was not given
+    // (FRAMEBUFFER CREATE with no size) evaluated garbage and could fault.  They are empty strings now.
+    for(int i = *argc; i < maxargs; i++) argv[i] = op;
 }
 void MMErrorString(char *msg){
 	char *c=&errstring[errpos];
@@ -3472,6 +3503,13 @@ void error(char *msg, ...) {
     if(DefinedSubFunMem){
        	if(LocalIndex != DefinedSubFunLocalIndex) ClearVars(LocalIndex);
     	gosubindex--;
+    	{   // free the string arguments copied so far (GetMemory(STRINGSIZE) each), or every error skipped
+    		// by ON ERROR SKIP/IGNORE leaks them.  argtype[] follows argval[] in the block, as in DefinedSubFun().
+    		union u_argval *av = (union u_argval *)DefinedSubFunMem;
+    		int *at = (int *)((char *)av + MAX_ARG_COUNT * sizeof(union u_argval));
+    		for(int i = 0; i < MAX_ARG_COUNT; i++)
+    			if((at[i] & T_STR) && !(at[i] & T_PTR)) FreeMemorySafe((void *)&av[i].s);
+    	}
     	FreeMemory((void*)DefinedSubFunMem);
     	DefinedSubFunMem=0;
     }
@@ -3631,14 +3669,17 @@ void IntToStrPad(char *p, long long int nbr, signed char padch, int maxch, int r
     sign = 0;
     if((nbr < 0 && radix == 10)|| padch < 0) {                      // if the number is negative or we are forced to use a - symbol
         sign = '-';                                                 // set the sign
-        nbr *= -1;                                                  // convert to a positive nbr
+        if(nbr != LLONG_MIN) nbr *= -1;                             // convert to a positive nbr (-LLONG_MIN does not fit)
         padch = abs(padch);
     } else {
         if(nbr >= 0 && maxch < 0 && radix == 10)                    // should we display the + sign?
             sign = '+';
     }
 
-    IntToStr(buf, nbr, radix);
+    if(nbr == LLONG_MIN && radix == 10)
+        strcpy(buf, "9223372036854775808");                         // its digits: negated it stayed negative and printed "--9223..."
+    else
+        IntToStr(buf, nbr, radix);
     j = abs(maxch) - strlen(buf);                                   // calc padding required
     if(j <= 0) j = 0;
     else mymemset(p, padch, abs(maxch));                              // fill the buffer with the padding char
@@ -3666,6 +3707,10 @@ void FloatToStr(char *p, MMFLOAT f, int m, int n, unsigned char ch) {
     MMFLOAT rounding;
     char *pp;
 
+    if(isinf(f) || isnan(f)) {                                      // the code below cannot format these
+        strcpy(p, isnan(f) ? "NAN" : (f > 0 ? "INF" : "-INF"));
+        return;
+    }
     ch &= 0x7f;                                                     // make sure that ch is an ASCII char
     if(f == 0)
         exp = 0;
@@ -3768,6 +3813,17 @@ void MIPS16 ClearVars(int level) {
 				if(vartbl[hashnext].type){
 					vartbl[hashcurrent].type = T_BLOCKED ;                                // block slot
 					vartbl[hashcurrent].name[0] = '~';                                      // safety precaution
+				} else {
+					// The slot after this one is empty, so no search can pass through this slot, or through a
+					// run of markers just before it, to reach a live variable: empty those markers too.  Without
+					// this every local freed newest-first stays a marker for good, and unwinding a deep recursion
+					// leaves the local half of vartbl full of them ("Too many local variables").
+					int k = hashcurrent;
+					while(1) {
+						k = (k == 0 ? MAXVARS/2 : k) - 1;
+						if(vartbl[k].type != T_BLOCKED) break;
+						clearvar(&vartbl[k]);
+					}
 				}
 				Localvarcnt--;
 			}
@@ -3925,7 +3981,7 @@ void MIPS16 ClearProgram(void) {
 
 // round a float to an integer
 int FloatToInt32(MMFLOAT x) {
-    if(x < LONG_MIN - 0.5 || x > LONG_MAX + 0.5)
+    if(isnan(x) || x < LONG_MIN - 0.5 || x > LONG_MAX + 0.5)          // NaN fails every comparison
         error("Number too large");
     return (x >= 0 ? (int)(x + 0.5) : (int)(x - 0.5)) ;
 }
@@ -3933,7 +3989,9 @@ int FloatToInt32(MMFLOAT x) {
 
 
 long long int FloatToInt64(MMFLOAT x) {
-    if(x < (-(0x7fffffffffffffffLL) -1) - 0.5 || x > 0x7fffffffffffffffLL + 0.5)
+    // NaN fails every comparison, and 2^63 itself is out of range: as a double the old bound
+    // 0x7fffffffffffffff + 0.5 rounded to 2^63 and let it through
+    if(isnan(x) || x < -9223372036854775808.0 || x >= 9223372036854775808.0)
         error("Number too large");
     if ((x < -0xfffffffffffff) || (x > 0xfffffffffffff))
         return (long long int)(x);

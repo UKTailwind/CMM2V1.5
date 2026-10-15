@@ -59,7 +59,6 @@ void op_invalid(void) {
 
 
 void op_exp(void) {
-    long long int i;
     errno = 0;
     if(targ & T_NBR)
         fret = (MMFLOAT)pow(farg1, farg2);
@@ -67,8 +66,17 @@ void op_exp(void) {
         if(iarg2 < 0) {
             targ = T_NBR;
             fret = (MMFLOAT)pow((MMFLOAT)iarg1, (MMFLOAT)iarg2);
-        } else
-            for(iret = i = 1; i <= iarg2; i++) iret *= iarg1;
+        } else {
+            // by squaring: at most 64 steps (one per unit ran for minutes on a big exponent, with no
+            // CTRL-C), and unsigned so the wrap-around is the same as before, but defined
+            unsigned long long r = 1, b = (unsigned long long)iarg1, e = (unsigned long long)iarg2;
+            while(e) {
+                if(e & 1) r *= b;
+                b *= b;
+                e >>= 1;
+            }
+            iret = (long long int)r;
+        }
     }
     if(errno) error("Overflow");
 }

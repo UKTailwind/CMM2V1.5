@@ -49,6 +49,7 @@ void ListNewLine(int *ListCnt, int all);
 // stack to keep track of GOSUBs, SUBs and FUNCTIONs
 char *gosubstack[MAXGOSUB];
 char *errorstack[MAXGOSUB];
+char *substack[MAXGOSUB];                   // the SUB/FUNCTION definition each frame runs, NULL for a GOSUB: STATIC names its variable after the innermost one
 int gosubindex;
 char runcmd[STRINGSIZE];
 
@@ -1157,6 +1158,7 @@ void cmd_call(void){
 	}
 	if(*q==',')q++;
 	i = FindSubFun(p, false);                   // it could be a defined command
+	if(strlen(p) + 1 + strlen(q) >= STRINGSIZE) error("Line is too long");   // p is a STRINGSIZE temporary
 	strcat(p," ");
 	strcat(p,q);
 //	MMPrintString(p);PRet();
@@ -2005,6 +2007,7 @@ void cmd_subfun(void) {
 void cmd_gosub(void) {
 	if(gosubindex >= MAXGOSUB) error("Too many nested GOSUB");
     errorstack[gosubindex] = CurrentLinePtr;
+    substack[gosubindex] = NULL;                                    // a GOSUB runs in the SUB it was called from
 	gosubstack[gosubindex++] = nextstmt;
 	LocalIndex++;
 	routinechecks(1);
@@ -2613,6 +2616,7 @@ void cmd_on(void) {
 			// this is a GOSUB, same as a GOTO but we need to first push the return pointer
 			if(gosubindex >= MAXGOSUB) error("Too many nested GOSUB");
             errorstack[gosubindex] = CurrentLinePtr;
+            substack[gosubindex] = NULL;                            // a GOSUB runs in the SUB it was called from
 			gosubstack[gosubindex++] = nextstmt;
         	LocalIndex++;
 		}
@@ -2651,8 +2655,6 @@ char *SetValue(char *p, int t, void *v) {
     MMFLOAT f;
     long long int i64;
     char *s;
-    char __attribute__ ((aligned (4))) TempCurrentSubFunName[MAXVARLEN + 1];
-    varnamecopy(TempCurrentSubFunName, CurrentSubFunName);			    // save the current sub/fun name
 	if(t & T_STR) {
 		p = evaluate(p, &f, &i64, &s, &t, true);
 		Mstrcpy(v, s);
@@ -2670,7 +2672,6 @@ char *SetValue(char *p, int t, void *v) {
         else
             (*(long long int *)v) = FloatToInt64(f);
 	}
-	varnamecopy(CurrentSubFunName, TempCurrentSubFunName);			    // restore the current sub/fun name
     return p;
 }
 
@@ -2710,16 +2711,17 @@ void MIPS16 cmd_dim(void) {
             }
 
             if(cmdtoken == cmdSTATIC) {
+                char *def = NULL;
                 if(LocalIndex == 0) error("Invalid here");
-                // create a unique global name
-                if(*CurrentInterruptName)
-                    strcpy(VarName, CurrentInterruptName);          // we must be in an interrupt sub
-                else
-                    strcpy(VarName, CurrentSubFunName);             // normal sub/fun
-                for(k = 1; k <= MAXVARLEN; k++) if(!isnamechar(VarName[k])) {
-                    VarName[k] = 0;                                 // terminate the string on a non valid char
-                    break;
-                }
+                // create a unique global name from the name of the SUB/FUNCTION this runs in: the innermost
+                // call frame that has one (a GOSUB has none), so neither a call made earlier in the SUB nor
+                // an interrupt changes it
+                for(k = gosubindex - 1; k >= 0 && def == NULL; k--) def = substack[k];
+                if(def == NULL) error("Invalid here");
+                def += sizeof(CommandToken);                        // the name as the definition spells it, without a type suffix
+                skipspace(def);
+                for(k = 0; k < MAXVARLEN && isnamechar(def[k]); k++) VarName[k] = def[k];
+                VarName[k] = 0;
                 strcat(VarName, argv[i]);                           // by prefixing the var name with the sub/fun name
                 StaticVar = true;
             } else

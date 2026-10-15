@@ -2315,7 +2315,6 @@ void cmd_ireturn(void){
   nextstmt = InterruptReturn;
   if(LocalIndex)    ClearVars(LocalIndex--);                        // delete any local variables
     TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
-    *CurrentInterruptName = 0;                                        // for static vars we are not in an interrupt
     InterruptReturn = NULL;
     if(DelayedDrawKeyboard) {
         DelayedDrawKeyboard = false;
@@ -3117,7 +3116,7 @@ void fun_info(void){
 		iret=i;
 		rettype='I';
 	} else if(checkstring(ep, "VARCNT")){
-		iret=(int64_t)((uint32_t)varcnt);
+		iret=(int64_t)(Globalvarcnt + Localvarcnt);                 // live counts: ERASE, CLEAR and a SUB's return lower them
 		rettype='I';
 	} else if(checkstring(ep, "MINHEAP")){
 		iret=(int64_t)((uint32_t)minMMheap);
@@ -4226,11 +4225,11 @@ GotAnInterrupt:
     InterruptReturn = nextstmt;                                     // for when IRETURN is executed
     // if the interrupt is pointing to a SUB token we need to call a subroutine
     if(commandtbl_at(intaddr) == cmdSUB) {
-        strncpy(CurrentInterruptName, intaddr + sizeof(CommandToken), MAXVARLEN);
         memset(rti, 0, sizeof(rti));
         commandtbl_put(rti, cmdIRET);                               // setup a dummy IRETURN command
         if(gosubindex >= MAXGOSUB) error("Too many SUBs for interrupt");
         errorstack[gosubindex] = CurrentLinePtr;
+        substack[gosubindex] = intaddr;                             // for STATIC: the interrupt SUB is the SUB running
     	gosubstack[gosubindex++] = rti;                             // return from the subroutine to the dummy IRETURN command
         LocalIndex++;                                               // return from the subroutine will decrement LocalIndex
         skipelement(intaddr);                                       // point to the body of the subroutine

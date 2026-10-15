@@ -69,6 +69,7 @@ extern int doindex;
 
 extern char *gosubstack[MAXGOSUB];
 extern char *errorstack[MAXGOSUB];
+extern char *substack[MAXGOSUB];
 extern int gosubindex;
 extern char DimUsed;
 

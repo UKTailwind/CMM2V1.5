@@ -275,7 +275,8 @@ void fun_call(void){
 		q++;
 	}
 	if(*q==',')q++;
-	i = FindSubFun(p, false);                   // it could be a defined command
+	i = FindSubFun(p, true);                    // CALL() runs a FUNCTION
+	if(strlen(p) + 1 + strlen(q) >= STRINGSIZE) error("Line is too long");   // p is a STRINGSIZE temporary
 	strcat(p," ");
 	strcat(p,q);
     targ= T_NOTYPE;
@@ -485,8 +486,9 @@ void fun_abs(void) {
     MMFLOAT f;
     long long int i64;
 
-    targ = T_INT;
+    targ = T_NOTYPE;                                            // not T_INT: that converts a float, "Number too large" from 2^63
     evaluate(ep, &f, &i64, &s, &targ, false);                   // get the value and type of the argument
+    if(targ & T_STR) error("Expected a number");
     if(targ & T_NBR)
         fret = fabs(f);
     else {
@@ -862,7 +864,7 @@ void fun_instr(void) {
 
 // Truncate an expression to the next whole number less than or equal to the argument.
 void fun_int(void) {
-	iret = floor(getnumber(ep));
+	iret = FloatToInt64(floor(getnumber(ep)));                     // range-checked: a plain cast turned NaN, INF and 1e30 into 9223372036854775807
     targ = T_INT;
 }
 
@@ -870,7 +872,7 @@ void fun_int(void) {
 // Truncate a number to a whole number by eliminating the decimal point and all characters
 // to the right of the decimal point.
 void fun_fix(void) {
-	iret = getnumber(ep);
+	iret = FloatToInt64(trunc(getnumber(ep)));                     // range-checked, as INT
     targ = T_INT;
 }
 
@@ -1355,8 +1357,8 @@ void do_max_min(int cmp) {
     MMFLOAT nbr, f;
     getargs(&ep, (MAX_ARG_COUNT * 2) - 1, ",");
     if((argc & 1) != 1) error("Syntax");
-    if(cmp) nbr = -FLT_MAX; else nbr = FLT_MAX;
-    for(i = 0; i < argc; i += 2) {
+    nbr = getnumber(argv[0]);                                       // start from the first value: a starting bound
+    for(i = 2; i < argc; i += 2) {                                  // (FLT_MAX) clamped MAX(-1e300, -2e300) at -3.4e38
         f = getnumber(argv[i]);
 		if(cmp && f > nbr) nbr = f;
 		if(!cmp && f < nbr) nbr = f;
