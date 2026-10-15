@@ -160,7 +160,7 @@ extern const char namestart[], namein[], nameend[];
 // bytes, each 0x80 plus seven bits of its index in commandtbl, the low seven bits first; a CommandToken
 // holds the index itself.  Function and operator tokens stay one byte, 0x80 plus the index in tokentbl.
 // Every byte of a command token is 0x80 or more, and the bytes of a line's text are below 0x80.
-typedef uint8_t CommandToken;                       // becomes uint16_t when commands are stored as two bytes
+typedef uint16_t CommandToken;                      // two bytes: up to 16384 commands
 #define CMD_NOTOKEN ((CommandToken)~0)              // what commandtbl_at() returns when p holds no command
 
 // the index of the command whose token starts at p
@@ -210,8 +210,8 @@ extern char *ContinuePoint;                     // Where to continue from if usi
 
 extern char inpbuf[];                           // used to store user keystrokes until we have a line
 extern char tknbuf[];                           // used to store the tokenised representation of the users input line
-// tknbuf holds twice a source line: the most a 255-character line can tokenise to is 509 bytes (a line
-// of colons), so no line is refused for its length once it fits in a line buffer
+// tknbuf holds twice a source line, room for what a line that fits in a line buffer tokenises to,
+// two-byte command tokens and all; tokenise() refuses anything longer rather than run past the end
 #define TKNBUFSIZE (2 * STRINGSIZE)
 extern char tknerrmsg[];                        // why tokenise() refused a line ("Line 12 is too long")
 extern int strreplace_overflow;                 // set when a substitution would overflow its line buffer
