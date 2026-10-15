@@ -773,20 +773,24 @@ void MIPS16 cmd_list(void) {
     	char b[STRINGSIZE],fn[FF_MAX_LFN]={0};
     	char *pp;
     	p=ProgMemory;
-    	if(*p != 1)return;
-    	if(p[1] != 39)return;
+    	if(!ImageIsCurrent())return;
         int fnbr=0;
     	while(!(*p == 0 || *p == 0xff)) {                               // normally a LIST ends at the break so this is a safety precaution
             if(*p == T_NEWLINE) {
 				uint32_t *profileadd=(uint32_t *)((uint32_t)(p-firststmt+(G1Hardware? 0xD0300000 : 0xD0700000)) & (~3));
 				if((uint32_t)profileadd-(uint32_t)lastprofile==4)profileadd++;
 				lastprofile=profileadd;
+				if(p!=firststmt && LHDR_LINE(p)==0){                // an #INCLUDE file's name line
+					p = NextLine(p);
+					continue;
+				}
+				int lfile = LHDR_FILE(p), lline = LHDR_LINE(p);
 				if(p!=firststmt){
 					PIntFixedFile(profileadd[0],10, fnbr);
 					PFltFixedFile((MMFLOAT)profileadd[1]/(MMFLOAT)profileadd[0], fnbr);
 					FilePutStr(3,"  \"",fnbr);
 				} else {
-					strcpy(fn,&p[2]);
+					strcpy(fn,ProgName());
 					fn[strlen(fn)-3]='C';
 					fn[strlen(fn)-2]='S';
 					fn[strlen(fn)-1]='V';
@@ -804,15 +808,15 @@ void MIPS16 cmd_list(void) {
 					if((*pp=='\'' && pp[1]=='/')){
 						pp++;
 					}
-					else if(!(*pp=='\'' && pp[1]=='|')){
-						FilePutChar(*pp++,fnbr);
-					}
-					else {
-						FilePutChar('"',fnbr);
-						FilePutChar(',',fnbr);
-						pp+=2;
-						if(IsDigit(*pp))FilePutChar(',',fnbr);
-					}
+					else FilePutChar(*pp++,fnbr);
+				}
+				if(lline){                                          // the line's source: "text",,line or "text",file,line
+					FilePutChar('"',fnbr);
+					FilePutChar(',',fnbr);
+					if(lfile > 1) FilePutStr(strlen(LineFileName(lfile)),LineFileName(lfile),fnbr);
+					FilePutChar(',',fnbr);
+					IntToStr(b,lline,10);
+					FilePutStr(strlen(b),b,fnbr);
 				}
 				FilePutStr(2,"\r\n",fnbr);
 				routinechecks(1);
@@ -829,13 +833,17 @@ void MIPS16 cmd_list(void) {
     	char *pp;
         int ListCnt = 1;
     	p=ProgMemory;
-    	if(*p != 1)return;
-    	if(p[1] != 39)return;
+    	if(!ImageIsCurrent())return;
     	while(!(*p == 0 || *p == 0xff)) {                               // normally a LIST ends at the break so this is a safety precaution
             if(*p == T_NEWLINE) {
 				uint32_t *profileadd=(uint32_t *)((uint32_t)(p-firststmt+(G1Hardware? 0xD0300000 : 0xD0700000)) & (~3));
 				if((uint32_t)profileadd-(uint32_t)lastprofile==4)profileadd++;
 				lastprofile=profileadd;
+				if(p!=firststmt && LHDR_LINE(p)==0){                // an #INCLUDE file's name line
+					p = NextLine(p);
+					continue;
+				}
+				int lfile = LHDR_FILE(p), lline = LHDR_LINE(p);
 				if(p!=firststmt){
 					PIntFixed(profileadd[0],10);
 					PFltFixed((MMFLOAT)profileadd[1]/(MMFLOAT)profileadd[0]);
@@ -848,14 +856,17 @@ void MIPS16 cmd_list(void) {
 					if((*pp=='\'' && pp[1]=='/')){
 						pp++;
 					}
-					else if(!(*pp=='\'' && pp[1]=='|')){
+					else MMputchar(*pp++);
+				}
+				if(lline){                                          // the line's source: "text",,line or "text",file,line
+					char src[FF_MAX_LFN + 16];
+					strcpy(src, "\",");
+					if(lfile > 1) strncat(src, LineFileName(lfile), FF_MAX_LFN - 1);
+					strcat(src, ",");
+					IntToStr(src + strlen(src), lline, 10);
+					for(pp = src; *pp; ) {
+						if(MMCharPos >= Option.Width) ListNewLine(&ListCnt, 0);
 						MMputchar(*pp++);
-					}
-					else {
-						MMputchar('"');
-						MMputchar(',');
-						pp+=2;
-						if(IsDigit(*pp))MMputchar(',');
 					}
 				}
 				routinechecks(1);
@@ -1019,8 +1030,7 @@ void MIPS16 ListProgram(char *pp, int all) {
     FILINFO fno;
     int fnbr;
     int i,ListCnt = 1;
-	if(*pp++ != 1)return;
-	if(*pp++ != 39)return;
+	if(pp != (char *)ProgMemory || (pp = ProgName()) == NULL)return;   // the program's own file
     fr = f_stat(pp, &fno);
     if(fr == FR_OK  && !(fno.fattrib & AM_DIR)){
     	fnbr = FindFreeFileNbr();
@@ -1087,9 +1097,8 @@ void MIPS16 cmd_run(void) {
 	if(*cmdline == 34){
 		if(!FileLoadProgram(cmdline,1)) return;
 	} else {
-		if(*c++ != 1)error("Nothing to run");
-		if(*c++ != 39)error("Nothing to run");
-		if(!FileLoadProgram((char *)&ProgMemory[2],0)) return;
+		if((c = ProgName()) == NULL)error("Nothing to run");
+		if(!FileLoadProgram(c,0)) return;
 	}
 	ClearRuntime();
     WatchdogSet = false;
@@ -2169,7 +2178,7 @@ search_again:
     while(1) {
         if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
         if(*p == 0 /*|| *p == 0xff*/) error("No DATA to read");     // 2nd 0 so end of the program and we still need more data
-        if(*p == T_NEWLINE) lineptr = p++;                          // fix as per picomite if token 255 in use
+        if(*p == T_NEWLINE) { lineptr = p; p += T_NEWLINE_HDR; }   // and step over the line's header
         if(*p == T_LINENBR) p += 3;
         skipspace(p);
         if(*p == T_LABEL) {                                         // if there is a label here
@@ -2934,7 +2943,7 @@ char MIPS16 *llist(char *b, char *p) {
 
     while(1) {
         if(*p == T_NEWLINE) {
-            p++;
+            p += T_NEWLINE_HDR;                                     // step over the line's header
             firstnonwhite = true;
             continue;
         }

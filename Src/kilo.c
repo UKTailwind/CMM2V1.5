@@ -1963,9 +1963,7 @@ void cmd_newedit(void) {
 	    }
 	    StartEditLine = StartEditCharacter = 0;
     } else {
-		c=(char *)ProgMemory;
-		if(*c++ != 1)error("Nothing to edit");
-		if(*c++ != 39)error("Nothing to edit");
+		if((c = ProgName()) == NULL)error("Nothing to edit");
 		strcpy(q,c);
 	    fr = f_stat(q, &fno);
 	    if(fr != FR_OK || (fno.fattrib & AM_DIR))error("File not found");

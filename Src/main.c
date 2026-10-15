@@ -238,6 +238,7 @@ extern void rcvr_bitbang_multi (
 	UINT cnt		// Number of bytes to receive
 );
 extern char *firststmt;
+static char staleimage[200];                                        // an image older firmware wrote: the file AUTORUN reloads it from
 extern char *nextstmt;
 
 /* USER CODE END PV */
@@ -619,7 +620,14 @@ RAMSETUP();
 FMC_Bank1_R->BTCR[1] = 0x000030D2;
 if(Option.ProgramStartCode>=0){
 	ProgMemory=(char *)((uint32_t)progstart[Option.ProgramStartCode]);
-	if(!(*ProgMemory==0 || *ProgMemory==1)){
+	if(!(*ProgMemory==0 || ImageIsCurrent())){                  // erased, or an image from another format
+		if(ProgMemory[0]==T_NEWLINE && ProgMemory[1]=='\'') {     // older firmware's: its first line names its file
+			int k=0;
+			while(k < sizeof(staleimage)-1 && ProgMemory[2+k] >= ' ' && ProgMemory[2+k] < 0x7f && ProgMemory[2+k] != '"') {
+				staleimage[k] = ProgMemory[2+k]; k++;
+			}
+			staleimage[k] = 0;
+		}
 		int i=3;
 		while(FlashWriteInit((uint32_t)ProgMemory) && i)i--;                     // erase program memory
 		if(i==0)error("Failed to erase flash memory");
@@ -827,8 +835,15 @@ if(setjmp(mark) != 0) {
 	ExecuteProgram("MM.STARTUP\0");
 	}
 	_excep_cause = CAUSE_NOTHING;
-	if(Option.Autorun && *ProgMemory == 0x01 && _excep_code != RESTART_NOAUTORUN) {
+	if(Option.Autorun && ImageIsCurrent() && _excep_code != RESTART_NOAUTORUN) {
 	  strcpy(inpbuf,"RUN\r\n");
+	  tokenise(true);                                             // turn into executable code
+	  ExecuteProgram(tknbuf);                                     // execute the line straight away
+	} else if(Option.Autorun && Option.ProgramStartCode >= 0 && *staleimage && _excep_code != RESTART_NOAUTORUN) {
+	  strcpy(inpbuf,"RUN \"");                                   // the image was erased at boot: load the program again from its file
+	  strcat(inpbuf,staleimage);
+	  strcat(inpbuf,"\"\r\n");
+	  *staleimage = 0;
 	  tokenise(true);                                             // turn into executable code
 	  ExecuteProgram(tknbuf);                                     // execute the line straight away
 	}
@@ -3118,8 +3133,7 @@ void PrintStatus(int now){
 	   cursorhidden=1;
 	}
 	GUIPrintString(0, maxH-gui_font_height, gui_font, JUSTIFY_LEFT, JUSTIFY_TOP, ORIENT_NORMAL, BROWN, gui_bcolour, &buff[255-len]);
-	c=(char *)ProgMemory;
-	if(*c++ == 1 && *c++ == 39){
+	if((c = ProgName()) != NULL){
 	    FRESULT fr=0;
 	    FILINFO fno;
 	    mymemset(&fno,0,sizeof(FILINFO));
@@ -3542,6 +3556,80 @@ void SoftReset(void){
 	NVIC_SystemReset();
 }
 
+// The loader's text: every line ends with its source, "'|n" (line n of the program) or "'|name,n" (line
+// n of an #INCLUDE file).  The image keeps the source in each line's header instead (see T_NEWLINE_HDR),
+// and the file names in comment lines at its top: the program's (file 1), then each #INCLUDE file's in the
+// order they appear (files 2 on).  CollectIncludes() numbers them before the first line is written,
+// LineSource() takes the marker off a line into tknfile/tknline/tknfilename, and the name lines are
+// written after the program's own.
+#define MAXINCLUDES 249
+static int nincludes;
+static char *includes[MAXINCLUDES];                                 // in the loader's text, each "name," unterminated
+static char includename[FF_MAX_LFN];
+
+static char *FindMarker(char *line, char *end) {                    // the last "'|" in the line: the loader's marker
+    char *m = NULL;
+    for(char *q = line; q + 1 < end; q++) if(q[0] == '\'' && q[1] == '|') m = q;
+    return m;
+}
+
+static int IncludeIndex(char *name, int len) {                      // 2 for the first #INCLUDE file, 0 if unknown
+    for(int i = 0; i < nincludes; i++)
+        if(strncmp(includes[i], name, len) == 0 && includes[i][len] == ',') return i + 2;
+    return 0;
+}
+
+static void CollectIncludes(char *pm) {
+    nincludes = 0;
+    while(*pm) {
+        char *end = pm, *m, *c;
+        while(*end && *end != '\n' && *end != '\r') end++;
+        if((m = FindMarker(pm, end)) != NULL) {
+            for(c = m + 2; c < end && *c != ','; c++);
+            if(c < end && !IncludeIndex(m + 2, c - (m + 2))) {
+                if(nincludes >= MAXINCLUDES) error("Too many #INCLUDE files");
+                includes[nincludes++] = m + 2;
+            }
+        }
+        pm = end;
+        while(*pm == '\n' || *pm == '\r') pm++;
+    }
+}
+
+static void LineSource(char *line) {
+    char *m = FindMarker(line, line + strlen(line)), *c;
+    tknfile = 1; tknline = 0; tknfilename = NULL;
+    if(m == NULL) return;
+    *m = 0;                                                         // the line ends where its marker began
+    if((c = strchr(m + 2, ',')) != NULL) {
+        int len = c - (m + 2);
+        tknfile = IncludeIndex(m + 2, len);
+        if(len >= FF_MAX_LFN) len = FF_MAX_LFN - 1;
+        memcpy(includename, m + 2, len); includename[len] = 0;
+        tknfilename = includename;
+        tknline = atoi(c + 1);
+    } else
+        tknline = atoi(m + 2);
+    if(tknline > LHDR_MAXLINE) error("More than % lines in a file", LHDR_MAXLINE);
+    if(Option.profile) while(strlen(line) < 4) strcat(line, " ");   // the profiler counts in 8-byte slots: keep lines apart
+}
+
+// start a hand-built line with its header for tknfile/tknline (the skip byte is set by SetLineSkip)
+static char *PutLineHeader(char *q) {
+    *q++ = T_NEWLINE;
+    *q++ = LHDR_SKIPMAX + 1;
+    *q++ = LHDR_MIN + tknfile - 1;
+    *q++ = LHDR_MIN + tknline / 250;
+    *q++ = LHDR_MIN + tknline % 250;
+    return q;
+}
+
+static void SetLineSkip(char *line) {                               // as tokenise() does at the end of a line
+    int k = 0;
+    while(!(line[k] == 0 && line[k + 1] == 0)) k++;
+    line[1] = (k + 1 > LHDR_SKIPMAX) ? LHDR_SKIPMAX + 1 : k + 1;
+}
+
 // takes a pointer to RAM containing a program (in clear text) and writes it to program flash in tokenised format
 void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
@@ -3574,17 +3662,26 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     }
     nbr = 0;
     // this is used to count the number of bytes written to flash
-    inpbuf[0]=39;
-    memcpy(&inpbuf[1],fname,strlen(fname)+1);
-    if(tokenise(false)) goto toolong;                           // turn into executable code
-    p = tknbuf;
-    while(!(p[0] == 0 && p[1] == 0)) {
-        FlashWriteByte(*p++); nbr++;
+    CollectIncludes(pm);                                        // number the #INCLUDE files first
+    for(int f = 0; f <= nincludes; f++) {                       // the name lines: the program's, then its #INCLUDE files'
+        inpbuf[0]=39;
+        if(f == 0)
+            memcpy(&inpbuf[1],fname,strlen(fname)+1);
+        else {
+            int len = strchr(includes[f - 1], ',') - includes[f - 1];
+            memcpy(&inpbuf[1], includes[f - 1], len); inpbuf[1 + len] = 0;
+        }
+        tknfile = f + 1; tknline = 0; tknfilename = NULL;       // line 0 marks a name line (and on the first, the format)
+        if(tokenise(false)) goto toolong;                       // turn into executable code
+        p = tknbuf;
+        while(!(p[0] == 0 && p[1] == 0)) {
+            FlashWriteByte(*p++); nbr++;
 
-        if((realflashpointer - (uint32_t)ProgMemory) >= PROG_FLASH_SIZE - 5)
-            goto exiterror1;
+            if((realflashpointer - (uint32_t)ProgMemory) >= PROG_FLASH_SIZE - 5)
+                goto exiterror1;
+        }
+        FlashWriteByte(0); nbr++;                              // terminate that line in flash
     }
-    FlashWriteByte(0); nbr++;                              // terminate that line in flash
 	routinechecks(1);
     while(*pm) {
         p = inpbuf;
@@ -3605,6 +3702,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         *p = 0;                                                     // terminate the string in inpbuf
 
         if(*inpbuf == 0 && (*pm == 0 || (!IsPrint(*pm) && pm[1] == 0))) break; // don't save a trailing newline
+        LineSource(inpbuf);                                         // its file and line go into its header
 
         if(toupper(inpbuf[0])=='R' && toupper(inpbuf[1])=='U' && toupper(inpbuf[2])=='N' && (strlen(inpbuf)==3 || inpbuf[3]==' ')){
 			// RUN keeps its argument as text (a file name must not be tokenised), so the line is built
@@ -3612,10 +3710,11 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 			// zeros.  It used to be strcpy'd without the header or the zeros, so the copy below ran on
 			// into whatever an earlier line had left in tknbuf, and a bare RUN memmove'd (size_t)-1 bytes.
 			char *q = tknbuf, *arg = inpbuf + (inpbuf[3] ? 4 : 3);
-			*q++ = T_NEWLINE;
+			q = PutLineHeader(q);
 			q = commandtbl_put(q, GetCommandValue("RUN"));
 			while(*arg) *q++ = *arg++;
 			*q++ = 0; *q++ = 0; *q++ = 0;
+			SetLineSkip(tknbuf);
         } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
@@ -3649,7 +3748,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         if(*p == 0) break;                                          // end of the program
         if(*p == T_NEWLINE) {
             CurrentLinePtr = p;
-            p++;                                                    // skip the newline token
+            p += T_NEWLINE_HDR;                                                    // skip the newline token (and its header)
         }
         if(*p == T_LINENBR) p += 3;                                 // step over the line number
 
@@ -3694,7 +3793,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
                      p++;
                     if(*p == T_NEWLINE) {
                         CurrentLinePtr = p;
-                        p++;                                        // skip the newline token
+                        p += T_NEWLINE_HDR;                                        // skip the newline token (and its header)
                     }
                     if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  }
@@ -3726,7 +3825,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
                  if(*p == 0) error("Missing END declaration");
                  if(*p == T_NEWLINE) {
                      CurrentLinePtr = p;
-                     p++;                                            // skip the newline token
+                     p += T_NEWLINE_HDR;                                            // skip the newline token (and its header)
                  }
                  if(*p == T_LINENBR) p += 3;                         // skip over the line number
                  skipspace(p);
@@ -3747,7 +3846,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
          if(*p == 0) break;                                          // end of the program
          if(*p == T_NEWLINE) {
              CurrentLinePtr = p;
-             p++;                                                    // skip the newline token
+             p += T_NEWLINE_HDR;                                                    // skip the newline token (and its header)
          }
          if(*p == T_LINENBR) p += 3;                                 // step over the line number
 
@@ -3789,7 +3888,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
                      p++;
                     if(*p == T_NEWLINE) {
                         CurrentLinePtr = p;
-                        p++;                                        // skip the newline token
+                        p += T_NEWLINE_HDR;                                        // skip the newline token (and its header)
                     }
                     if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  }
@@ -3818,7 +3917,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
                  if(*p == 0) error("Missing END declaration");
                  if(*p == T_NEWLINE) {
                     CurrentLinePtr = p;
-                    p++;                                        // skip the newline token
+                    p += T_NEWLINE_HDR;                                        // skip the newline token (and its header)
                  }
                  if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  skipspace(p);
@@ -3870,17 +3969,26 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     mymemset(SDMemory,0xFF,512*1024);
     nbr = 0;
     // this is used to count the number of bytes written to flash
-    inpbuf[0]=39;
-    memcpy(&inpbuf[1],fname,strlen(fname)+1);
-    if(tokenise(false)) goto toolong;                           // turn into executable code
-    p = tknbuf;
-    while(!(p[0] == 0 && p[1] == 0)) {
-        MemWriteByte(*p++); nbr++;
+    CollectIncludes(pm);                                        // number the #INCLUDE files first
+    for(int f = 0; f <= nincludes; f++) {                       // the name lines: the program's, then its #INCLUDE files'
+        inpbuf[0]=39;
+        if(f == 0)
+            memcpy(&inpbuf[1],fname,strlen(fname)+1);
+        else {
+            int len = strchr(includes[f - 1], ',') - includes[f - 1];
+            memcpy(&inpbuf[1], includes[f - 1], len); inpbuf[1 + len] = 0;
+        }
+        tknfile = f + 1; tknline = 0; tknfilename = NULL;       // line 0 marks a name line (and on the first, the format)
+        if(tokenise(false)) goto toolong;                       // turn into executable code
+        p = tknbuf;
+        while(!(p[0] == 0 && p[1] == 0)) {
+            MemWriteByte(*p++); nbr++;
 
-        if((realmempointer - (uint32_t)SDMemory) >= PROG_FLASH_SIZE - 5)
-            goto exiterror1;
+            if((realmempointer - (uint32_t)SDMemory) >= PROG_FLASH_SIZE - 5)
+                goto exiterror1;
+        }
+        MemWriteByte(0); nbr++;                              // terminate that line in flash
     }
-    MemWriteByte(0); nbr++;                              // terminate that line in flash
 	routinechecks(1);
     while(*pm) {
         p = inpbuf;
@@ -3901,16 +4009,18 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
         *p = 0;                                                     // terminate the string in inpbuf
 
         if(*inpbuf == 0 && (*pm == 0 || (!IsPrint(*pm) && pm[1] == 0))) break; // don't save a trailing newline
+        LineSource(inpbuf);                                         // its file and line go into its header
         if(toupper(inpbuf[0])=='R' && toupper(inpbuf[1])=='U' && toupper(inpbuf[2])=='N' && (strlen(inpbuf)==3 || inpbuf[3]==' ')){
 			// RUN keeps its argument as text (a file name must not be tokenised), so the line is built
 			// here as tokenise() would build it: the line header, the token, the argument and three
 			// zeros.  It used to be strcpy'd without the header or the zeros, so the copy below ran on
 			// into whatever an earlier line had left in tknbuf, and a bare RUN memmove'd (size_t)-1 bytes.
 			char *q = tknbuf, *arg = inpbuf + (inpbuf[3] ? 4 : 3);
-			*q++ = T_NEWLINE;
+			q = PutLineHeader(q);
 			q = commandtbl_put(q, GetCommandValue("RUN"));
 			while(*arg) *q++ = *arg++;
 			*q++ = 0; *q++ = 0; *q++ = 0;
+			SetLineSkip(tknbuf);
         } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
@@ -3944,7 +4054,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
         if(*p == 0) break;                                          // end of the program
         if(*p == T_NEWLINE) {
             CurrentLinePtr = p;
-            p++;                                                    // skip the newline token
+            p += T_NEWLINE_HDR;                                                    // skip the newline token (and its header)
         }
         if(*p == T_LINENBR) p += 3;                                 // step over the line number
 
@@ -3991,7 +4101,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
                      p++;
                     if(*p == T_NEWLINE) {
                         CurrentLinePtr = p;
-                        p++;                                        // skip the newline token
+                        p += T_NEWLINE_HDR;                                        // skip the newline token (and its header)
                     }
                     if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  }
@@ -4025,7 +4135,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
                  }
                  if(*p == T_NEWLINE) {
                      CurrentLinePtr = p;
-                     p++;                                            // skip the newline token
+                     p += T_NEWLINE_HDR;                                            // skip the newline token (and its header)
                  }
                  if(*p == T_LINENBR) p += 3;                         // skip over the line number
                  skipspace(p);
@@ -4046,7 +4156,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
          if(*p == 0) break;                                          // end of the program
          if(*p == T_NEWLINE) {
              CurrentLinePtr = p;
-             p++;                                                    // skip the newline token
+             p += T_NEWLINE_HDR;                                                    // skip the newline token (and its header)
          }
          if(*p == T_LINENBR) p += 3;                                 // step over the line number
 
@@ -4091,7 +4201,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
                      p++;
                     if(*p == T_NEWLINE) {
                         CurrentLinePtr = p;
-                        p++;                                        // skip the newline token
+                        p += T_NEWLINE_HDR;                                        // skip the newline token (and its header)
                     }
                     if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  }
@@ -4125,7 +4235,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
                  }
                  if(*p == T_NEWLINE) {
                     CurrentLinePtr = p;
-                    p++;                                        // skip the newline token
+                    p += T_NEWLINE_HDR;                                        // skip the newline token (and its header)
                  }
                  if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  skipspace(p);

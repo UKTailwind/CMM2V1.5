@@ -137,7 +137,7 @@ static int scan_for_delimiter(int start, char *p, char *delims, char *quotes) {
 // function (which looks like a pre defined variable) to return MM.CMDLINE$
 // it uses the command line for a shortcut RUN (the + symbol) which was stored in tknbuf[]
 void fun_cmdline(void){
-	char *q,*p=runcmd;
+	char *p=runcmd;
 	sret = GetTempStrMemory();									// this buffer is automatically zeroed so the string is zero size
 	skipspace(p);
 	if(*p==34){
@@ -151,11 +151,7 @@ void fun_cmdline(void){
 			skipspace(p);
 		}
 	}
-	if((q=strchr(p,'|'))){
-		q--;
-		*q=0;
-	}
-	strcpy(sret, p);                                   // copy the string
+	strcpy(sret, p);                                   // copy the string (the line's source is in its header, not its text)
 	CtoM(sret);
 	targ=T_STR;
 }

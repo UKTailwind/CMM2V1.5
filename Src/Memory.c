@@ -574,8 +574,8 @@ void MIPS16 cmd_memory(void) {
         if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
         if(*p == 0) break;                                          // end of the program or module
         if(*p == T_NEWLINE) {
-            i++;                                                    // count the line
-            p++;                                                    // skip over the newline token
+            if(LHDR_LINE(p) || LHDR_FILE(p) == 1) i++;              // count the line (not an #INCLUDE file's name line)
+            p += T_NEWLINE_HDR;                                     // skip over the line's header
         }
         if(*p == T_LINENBR) p += 3;                                 // skip over the line number
         skipspace(p);
@@ -638,7 +638,7 @@ void MIPS16 cmd_memory(void) {
 	while(*p != 0xff) {                                             // skip if program memory is erased
         if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
         if(*p == 0) break;                                          // end of the program or module
-        if(*p == T_NEWLINE) p++;                                    // skip over the newline token
+        if(*p == T_NEWLINE) p += T_NEWLINE_HDR;                     // skip over the line's header
         if(*p == T_LINENBR) p += 3;                                 // skip over the line number
 		skipspace(p);
 		if(p[0] == T_LABEL) p += p[1] + 2;							// skip over the label

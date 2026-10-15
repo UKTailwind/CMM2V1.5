@@ -54,9 +54,26 @@ provisions:
 
 // flags used in the program lines
 #define T_CMDEND    0                               // end of a command
-#define T_NEWLINE   1                               // Single byte indicating the start of a new line
+#define T_NEWLINE   1                               // the start of a line: the first byte of its header
 #define T_LINENBR   2                               // three bytes for a line number
 #define T_LABEL     4                               // variable length indicating a label
+
+// Every line of a program image starts with a header of T_NEWLINE_HDR bytes:
+//   T_NEWLINE, skip, file, line_hi, line_lo
+// skip is the distance to the next line's T_NEWLINE (or 0xFE when that is more than 0xFD), file the
+// index of its source file (1 = the main program, then the #INCLUDE files in the order they appear),
+// and line its line in that file.  The four bytes after T_NEWLINE are never 0, 1-4 or 0xFF, the values
+// that mark structure (end of element, T_NEWLINE, T_LINENBR, T_LABEL, end of program): code that walks
+// an image byte by byte looking for them steps over a header unharmed.  file and the line bytes are
+// stored as LHDR_MIN + value, the line number in base 250.  A line number of 0 marks the comment lines
+// at the top of the image that hold the file names; on the first it is also the format's stamp.
+#define T_NEWLINE_HDR 5
+#define LHDR_MIN      5                             // the smallest value a header byte after T_NEWLINE takes
+#define LHDR_MAXLINE  62499                         // the largest line number a header can hold
+#define LHDR_SKIPMAX  0xFD                          // a longer line stores LHDR_SKIPMAX + 1
+#define LHDR_SKIP(p)  ((unsigned char)(p)[1])
+#define LHDR_FILE(p)  ((unsigned char)(p)[2] - LHDR_MIN + 1)
+#define LHDR_LINE(p)  (((unsigned char)(p)[3] - LHDR_MIN) * 250 + ((unsigned char)(p)[4] - LHDR_MIN))
 
 #define E_END       255                             // dummy last operator in an expression
 
@@ -214,6 +231,12 @@ extern char tknbuf[];                           // used to store the tokenised r
 // two-byte command tokens and all; tokenise() refuses anything longer rather than run past the end
 #define TKNBUFSIZE (2 * STRINGSIZE)
 extern char tknerrmsg[];                        // why tokenise() refused a line ("Line 12 is too long")
+extern int tknfile, tknline;                    // the source of the line tokenise() makes for an image
+extern char *tknfilename;
+int ImageIsCurrent(void);                       // does program memory hold an image of this format?
+char *ProgName(void);                           // the program's file name from the image, or NULL
+char *LineFileName(int file);                   // the name of source file 'file' (1 = the program)
+char *NextLine(char *line);                     // the line after the one at 'line'
 extern int strreplace_overflow;                 // set when a substitution would overflow its line buffer
 extern char lastcmd[];                          // used to store the command history in case the user uses the up arrow at the command prompt
 

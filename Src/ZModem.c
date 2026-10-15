@@ -1182,12 +1182,12 @@ static void zbasename(char *to, const char *from)
     strncpy(to, p, FF_MAX_LFN - 1);
 }
 
-// the file the current program was loaded from, as MM.INFO$(CURRENT) finds it: the loader puts
-// '#name on the program's first line
+// the file the current program was loaded from, as MM.INFO$(CURRENT) finds it: the image's first
+// line names it ("/DIR/PROG.BAS")
 static char *zcurrentprogram(char *buf)
 {
-    char *tp = (char *)ProgMemory;
-    if (*tp++ == 1 && *tp++ == 39 && *tp == '#' && tp[1])
+    char *tp = ProgName();
+    if (tp != NULL && tp[0] && tp[1])
     {
         strcpy(buf, "A:/");
         strncat(buf, tp + 1, FF_MAX_LFN - 4);

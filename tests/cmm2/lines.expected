@@ -1,0 +1,21 @@
+ok  the long lines kept their text
+ok  the image starts with the program's name line
+ok  each skip byte lands where the elements end
+ok  every line starts with T_NEWLINE and ends the image with a zero
+ok  the program's lines ascend
+ok  the #INCLUDE file's lines ascend
+ok  two name lines
+ok  some lines are longer than 0xFD bytes
+ok  the name lines
+ok  an error in the program
+ok  an error in the #INCLUDE file
+[39][40][lines.inc:17][lines.inc:18][lines.inc:19][41]
+[lines.inc:19] [41] [42] [43] 
+ok  READ after RESTORE to a label in the program
+ok  READ after RESTORE to a label in the #INCLUDE file
+ok  READ from the top finds the program's first DATA
+ok  GOSUB a label in the #INCLUDE file
+ok  a FUNCTION in the #INCLUDE file
+ok  MM.INFO$(CURRENT) names the program
+ok  MM.CMDLINE$ is empty
+lines: 18 of 18 passed

@@ -3088,14 +3088,12 @@ void fun_info(void){
 		iret= LastPage;
 		rettype='I';
 	} else if(checkstring(ep, "CURRENT")){
-		tp=(char *)ProgMemory;
-		if(*tp++ == 1 && *tp++ == 39){
+		if((tp = ProgName()) != NULL){
 			strcpy(sret,"A:/");
 			strcat(sret,&tp[1]);
 		} else strcpy(sret,"NONE");
 	} else if(checkstring(ep, "PATH")){
-		tp=(char *)ProgMemory;
-		if(*tp++ == 1 && *tp++ == 39){
+		if((tp = ProgName()) != NULL){
 			strcpy(sret,"A:/");
 			strcat(sret,&tp[1]);
 			int linelen = strlen(sret);
@@ -3254,7 +3252,7 @@ void cmd_cfunction(void) {
     while(*p != 0xff) {
         if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
         if(*p == 0) error("Missing END declaration");               // end of the program
-        if(*p == T_NEWLINE) p++;                                    // skip over the newline token
+        if(*p == T_NEWLINE) p += T_NEWLINE_HDR;                     // skip over the line's header
         if(*p == T_LINENBR) p += 3;                                 // skip over the line number
         skipspace(p);
         if(*p == T_LABEL) {

@@ -311,36 +311,19 @@ void ExecuteProgram(char *p) {
             		lastp=p;
             	}
             }
-            if(TraceOn && p < ProgMemory+PROG_FLASH_SIZE) {
-            	char buf[STRINGSIZE],buff[10];
+            if(TraceOn && p < ProgMemory+PROG_FLASH_SIZE && LHDR_LINE(p)) {   // (line 0: a file name line)
+            	char buff[10];
           		MMPrintString("[");
-          		mycpy(buf,p,STRINGSIZE);
-           		char *ename, *cpos=NULL;
-           		i=0;
-           		while(!(buf[i]==0 && buf[i+1]==0))i++;
-           		while(i>0){
-           			if(buf[i]=='|')cpos=&buf[i];
-           			i--;
-           		}
-           		if(cpos!=NULL){
-           			if((ename=strchr(cpos,','))!= NULL){
-           				*ename=0;
-           				cpos++;
-           				ename++;
-           				if(*cpos=='\'')cpos++;
-           				MMPrintString(cpos);
-           				MMPrintString(":");
-           				MMPrintString(ename);
-           			} else {
-           				cpos++;
-           				IntToStr(buff, atoi(cpos), 10);
-           				MMPrintString(buff);
-           			}
-           		}
+          		if(LHDR_FILE(p) > 1) {                              // an #INCLUDE file: [name:line]
+          			MMPrintString(LineFileName(LHDR_FILE(p)));
+          			MMPrintString(":");
+          		}
+          		IntToStr(buff, LHDR_LINE(p), 10);
+          		MMPrintString(buff);
        			MMPrintString("]");
                 uSec(1000);
             }
-            p++;                                                    // and step over the token
+            p += T_NEWLINE_HDR;                                     // and step over the line's header
         }
         if(*p == T_LINENBR) p += 3;                                 // and step over the number
         skipspace(p);                                               // and skip any trailing white space
@@ -1490,6 +1473,10 @@ void STR_REPLACE(char *target, const char *needle, const char *replacement, uint
 #define TKNPUT(c) do { if(op >= tknend) goto toolong; *op++ = (c); } while(0)
 #define TKNPUTCMD(i) do { if(op + sizeof(CommandToken) > tknend) goto toolong; op = commandtbl_put(op, (i)); } while(0)
 char tknerrmsg[80];
+// the source of the line being tokenised for a program image: its file (1 = the main program) and line,
+// which go into the line's header, and the file's name (NULL for the main program) for messages
+int tknfile = 1, tknline = 0;
+char *tknfilename = NULL;
 int MIPS16 tokenise(int console) {
     char *p, *op, *tp, *tknend = tknbuf + TKNBUFSIZE - 3;       // room for the three terminating zeros
     int i=0;
@@ -1532,7 +1519,14 @@ int MIPS16 tokenise(int console) {
     // setup the input and output buffers
     p = inpbuf;
     op = tknbuf;
-    if(!console) TKNPUT(T_NEWLINE);
+    if(!console) {                                                  // a program line starts with its header (T_NEWLINE_HDR)
+        if(tknfile < 1 || tknfile > 250 || tknline < 0 || tknline > LHDR_MAXLINE) goto toolong;
+        TKNPUT(T_NEWLINE);
+        TKNPUT(LHDR_SKIPMAX + 1);                                   // skip: filled in when the line is complete
+        TKNPUT(LHDR_MIN + tknfile - 1);
+        TKNPUT(LHDR_MIN + tknline / 250);
+        TKNPUT(LHDR_MIN + tknline % 250);
+    }
 
     // get the line number if it exists
     tp = p;
@@ -1547,6 +1541,7 @@ int MIPS16 tokenise(int console) {
         }
         p = tp;
     }
+    char *body = op;                                                // the header and line number end here: nothing looks back past it
 
     // process the rest of the line
     firstnonwhite = true;
@@ -1566,11 +1561,10 @@ int MIPS16 tokenise(int console) {
                 TKNPUT(*p++);
                 if(!*p){
                  	MMPrintString("Parsing error: No Closing quote - ");
-                 	char *q=strchr(inpbuf,'|');
-                 	q--;
-                 	*q++=' ';
-                 	*q=':';
-                 	MMPrintString(inpbuf);
+                 	MMPrintString(inpbuf);                      // (this used the loader's '|n marker, found with
+                 	if(!console) {                              // strchr, and wrote to NULL-1 for a line without one)
+                 	    MMPrintString(" in line "); PInt(tknline);
+                 	}
                  	MMPrintString("\r\n");
                     _excep_code = RESTART_NOAUTORUN;                            // otherwise do an automatic reset
                 	while(ConsoleTxBufTail != ConsoleTxBufHead);
@@ -1753,9 +1747,9 @@ int MIPS16 tokenise(int console) {
         // this enables the programmer to put spaces after a function name or array identifier without causing a confusing error
         if(*p == '(') {
             tp = op - 1;
-            if(*tp == ' ') {
-                while(*tp == ' ') tp--;
-                if(isnameend(*tp)) op = tp + 1;
+            if(tp >= body && *tp == ' ') {
+                while(tp >= body && *tp == ' ') tp--;
+                if(tp >= body && isnameend(*tp)) op = tp + 1;
             }
         }
 
@@ -1765,24 +1759,25 @@ int MIPS16 tokenise(int console) {
        firstnonwhite = false;
 
     }
-    // end of loop, trim any trailing blanks (but not part of a line number)
-    if(Option.profile==0) while(*(op - 1) == ' ' && op > tknbuf + 3) *--op = 0;
+    // end of loop, trim any trailing blanks (but not part of the header or a line number)
+    if(Option.profile==0) while(op > body && *(op - 1) == ' ') *--op = 0;
     // make sure that it is terminated properly
     *op++ = 0;  *op++ = 0;  *op++ = 0;                              // terminate with  zero chars
+    if(!console) {                                                  // skip: the line's length as the image will hold it -
+        int k = 0;                                                  // the writer copies up to the first pair of zeros and adds one
+        while(!(tknbuf[k] == 0 && tknbuf[k + 1] == 0)) k++;
+        tknbuf[1] = (k + 1 > LHDR_SKIPMAX) ? LHDR_SKIPMAX + 1 : k + 1;
+    }
     return 0;
 
-    // the line will not fit: name it by the loader's '|line or '|file,line marker at its end, if it has one
+    // the line will not fit: name it by its file and line
 toolong:
-    {
-        char *m = NULL, *q = inpbuf, *c;
-        while((q = strstr(q, "'|")) != NULL) { m = q; q += 2; }
-        if(m && !console && (c = strchr(m + 2, ',')) != NULL)
-            snprintf(tknerrmsg, 80, "Line %d of %.*s is too long", atoi(c + 1), (int)(c - (m + 2)) > 40 ? 40 : (int)(c - (m + 2)), m + 2);
-        else if(m && !console)
-            snprintf(tknerrmsg, 80, "Line %d is too long", atoi(m + 2));
-        else
-            strcpy(tknerrmsg, "Line is too long");
-    }
+    if(!console && tknfilename)
+        snprintf(tknerrmsg, 80, "Line %d of %.40s is too long", tknline, tknfilename);
+    else if(!console)
+        snprintf(tknerrmsg, 80, "Line %d is too long", tknline);
+    else
+        strcpy(tknerrmsg, "Line is too long");
     tknbuf[0] = tknbuf[1] = tknbuf[2] = 0;
     if(console) error("$", tknerrmsg);
     return 1;                                                       // a program being saved: the writer closes its image first
@@ -1933,6 +1928,46 @@ char *getstring(char *p) {
 
 // evaluate an expression to get a string using the C style for a string
 // as against the MMBasic style returned by getstring()
+// Program memory holds an image of the current format: its first line is the program's name line, whose
+// header carries file 1 and line 0 (see T_NEWLINE_HDR).  An image written by an older firmware has the
+// name's ' straight after its T_NEWLINE.
+int ImageIsCurrent(void) {
+    unsigned char *p = (unsigned char *)ProgMemory;
+    return p[0] == T_NEWLINE && p[2] == LHDR_MIN && p[3] == LHDR_MIN && p[4] == LHDR_MIN && p[5] == '\'';
+}
+
+// the program's file name as the image records it (for example "/DIR/PROG.BAS"), or NULL
+char *ProgName(void) {
+    return ImageIsCurrent() ? (char *)ProgMemory + T_NEWLINE_HDR + 1 : NULL;
+}
+
+// the line after the one starting at 'line' (its T_NEWLINE), or the zero that ends the program: by the
+// line's skip byte, or for a longer line by walking its elements (a T_LINENBR's bytes can be zero)
+char *NextLine(char *line) {
+    char *p;
+    if(LHDR_SKIP(line) <= LHDR_SKIPMAX) return line + LHDR_SKIP(line);
+    p = line + T_NEWLINE_HDR;
+    if(*p == T_LINENBR) p += 3;
+    while(1) {
+        while(*p) p++;                                              // the zero that ends this element
+        if(p[1] == T_NEWLINE || p[1] == 0) return p + 1;
+        p++;
+    }
+}
+
+// the name of source file 'file' (1 = the program, then its #INCLUDE files), from the name lines at the
+// top of the image; "?" if it is not there
+char *LineFileName(int file) {
+    char *p = (char *)ProgMemory;
+    if(!ImageIsCurrent()) return "?";
+    while(*p == T_NEWLINE && LHDR_LINE(p) == 0) {                   // the name lines come first
+        if(LHDR_FILE(p) == file) return p + T_NEWLINE_HDR + 1;
+        if(LHDR_SKIP(p) > LHDR_SKIPMAX) break;                      // (a name line is never that long)
+        p += LHDR_SKIP(p);
+    }
+    return "?";
+}
+
 char *getCstring(char *p) {
     char *tp;
     tp = GetTempStrMemory();                                        // this will last for the life of the command
@@ -2571,7 +2606,7 @@ char *findline(int nbr, int mustfind) {
         }
 
         if(p[0] == T_NEWLINE) {
-            p++;
+            p += T_NEWLINE_HDR;                                     // step over the line's header
             continue;
         }
 
@@ -2609,7 +2644,7 @@ void hashlabels(int ErrAbort){
 
         if(p[0] == T_NEWLINE) {
             lastp = p;                                              // save in case this is the right line
-            p++;                                                    // and step over the line number
+            p += T_NEWLINE_HDR;                                     // and step over the line's header
             continue;
         }
 
@@ -2736,7 +2771,7 @@ char *findlabel(char *labelptr) {
 // used for error reporting in programs that do not use line numbers
 int MIPS16 TraceLines(char *target) {
     char *p;
-    int i,cnt;
+    int cnt;
 
     p = (char *)ProgMemory;
     cnt = 0;
@@ -2746,34 +2781,21 @@ int MIPS16 TraceLines(char *target) {
             return cnt;
 
         if(*p == T_NEWLINE) {
-            p++;                                                 // and step over the line number
-            if(p >= target){
-            	char buf[TKNBUFSIZE],buff[10];                     // a tokenised line can be longer than STRINGSIZE
-           		char *ename, *cpos=NULL;
-            	memcpy(buf,p,TKNBUFSIZE);
-           		i=0;
-           		while(i < TKNBUFSIZE - 2 && !(buf[i]==0 && buf[i+1]==0))i++;
-           		while(i>0){
-           			if(buf[i]=='|')cpos=&buf[i];
-           			i--;
-           		}
-           		if(cpos!=NULL){
-           			MMPrintString("[");
-           			if((ename=strchr(cpos,','))!= NULL){
-           				*ename=0;
-           				cpos++;
-           				ename++;
-           				MMPrintString(cpos);
-           				MMPrintString(":");
-           				MMPrintString(ename);
-           			} else {
-           				cpos++;
-           				IntToStr(buff, atoi(cpos), 10);
-           				MMPrintString(buff);
-           			}
-           			MMPrintString("] ");
-           		}
+            if(p >= target) {                                       // the line TRACE LIST is asking about
+                if(LHDR_LINE(p)) {                                  // (line 0: a file name line)
+                    char buff[10];
+                    MMPrintString("[");
+                    if(LHDR_FILE(p) > 1) {                          // an #INCLUDE file: [name:line]
+                        MMPrintString(LineFileName(LHDR_FILE(p)));
+                        MMPrintString(":");
+                    }
+                    IntToStr(buff, LHDR_LINE(p), 10);
+                    MMPrintString(buff);
+                    MMPrintString("] ");
+                }
+                return cnt;
             }
+            p += T_NEWLINE_HDR;                                     // step over the line's header
             continue;
         }
 
@@ -3405,8 +3427,6 @@ void MMErrorchar(char c){
 // the optional data to be inserted is the second argument to this function
 // this uses longjump to skip back to the command input and cleanup the stack
 void error(char *msg, ...) {
-    char *p, *tp;
-    char *cpos;
     va_list ap;
 	ScrewUpTimer=0;
     if(MMerrno == 0) MMerrno = 16;                                  // indicate an error
@@ -3422,51 +3442,32 @@ void error(char *msg, ...) {
 
     if(MMCharPos > 1 && !OptionErrorSkip) MMErrorString("\r\n");
     if(CurrentLinePtr) {
-        tp = p = (char *)ProgMemory;
         if(*CurrentLinePtr != T_NEWLINE && CurrentLinePtr < ProgMemory + PROG_FLASH_SIZE) {
             // normally CurrentLinePtr points to a T_NEWLINE token but in this case it does not
             // so we have to search for the start of the line and set CurrentLinePtr to that
-          while(*p != 0xff) {
-              while(*p) p++;                                        // look for the zero marking the start of an element
-              if(p >= CurrentLinePtr || p[1] == 0) {                // the previous line was the one that we wanted
-                  CurrentLinePtr = tp;
-                  break;
-                }
-              if(p[1] == T_NEWLINE) {
-                  tp = ++p;                                         // save because it might be the line we want
-              }
-         		p++;                                                // step over the zero marking the start of the element
-        		skipspace(p);
-        		if(p[0] == T_LABEL) p += p[1] + 2;					// skip over the label
+            char *line = (char *)ProgMemory, *next;
+            while(*line == T_NEWLINE) {
+                next = NextLine(line);
+                if(CurrentLinePtr < next) { CurrentLinePtr = line; break; }
+                line = next;
             }
         }
-       // we now have CurrentLinePtr pointing to the start of the line
-        llist(tknbuf, CurrentLinePtr);
-        p = tknbuf; skipspace(p);
-       	if(CurrentLinePtr < ProgMemory +  PROG_FLASH_SIZE) {
+        // the line's header names its file and line (see T_NEWLINE_HDR)
+       	if(CurrentLinePtr < ProgMemory +  PROG_FLASH_SIZE && *CurrentLinePtr == T_NEWLINE) {
        		if(MMCharPos > 1)MMErrorString("\r\n");
        		MMErrorString("Error in ");
-       		char *ename;
-       		if((cpos=strchr(tknbuf,'|'))!=NULL){
-       			if((ename=strchr(cpos,','))!= NULL){
-       				*ename=0;
-       				cpos++;
-       				ename++;
-       				MMErrorString(cpos);
-       				MMErrorString(" line ");
-       				MMErrorString(ename);
-       			} else {
-       				cpos++;
-       				MMErrorString("line ");
-       				IntToStr(inpbuf, atoi(cpos), 10);
-       				MMErrorString(inpbuf);
-       				if(!OptionErrorSkip){
-						StartEditLine =  atoi(cpos)-1;
-						StartEditCharacter = 0;
-       				}
-       			}
-       			MMErrorString(": ");
+       		if(LHDR_FILE(CurrentLinePtr) > 1) {                     // an #INCLUDE file
+       			MMErrorString(LineFileName(LHDR_FILE(CurrentLinePtr)));
+       			MMErrorString(" ");
        		}
+       		MMErrorString("line ");
+       		IntToStr(inpbuf, LHDR_LINE(CurrentLinePtr), 10);
+       		MMErrorString(inpbuf);
+       		if(LHDR_FILE(CurrentLinePtr) == 1 && !OptionErrorSkip) {
+       			StartEditLine = LHDR_LINE(CurrentLinePtr) - 1;     // EDIT opens the program at the line
+       			StartEditCharacter = 0;
+       		}
+       		MMErrorString(": ");
         }
     }
 //    if(!OptionErrorSkip)MMErrorString("Error");
@@ -4124,7 +4125,7 @@ char *GetNextCommand(char *p, char **CLine, char *EOFMsg) {
         }
         if(*p == T_NEWLINE) {
             if(CLine) *CLine = p;                                   // and a pointer to the line also for error reporting
-            p++;
+            p += T_NEWLINE_HDR;                                     // step over the line's header
         }
         if(*p == T_LINENBR) p += 3;
 
