@@ -1301,7 +1301,7 @@ void fun_LInstr(void){
             MMFLOAT *temp=NULL;
             MtoC(srch);
             temp = findvar(argv[6], V_FIND);
-            if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
+            if(!(FoundType() & T_NBR)) error("Invalid variable");
 
          	int match_idx = re_match(srch, &str[start+8], &match_length);
          	if (match_idx != -1){
@@ -1323,7 +1323,7 @@ void fun_LInstr(void){
             MMFLOAT *temp=NULL;
             MtoC(srch);
             temp = findvar(argv[6], V_FIND);
-            if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
+            if(!(FoundType() & T_NBR)) error("Invalid variable");
             reti = regcomp(&regex, srch, 0);
             if( reti ) error("Could not compile regex");
 	        reti = regexec(&regex, &str[start+8], 1, &pmatch, 0);
@@ -1933,7 +1933,7 @@ void fun_LInstr(void){
             MMFLOAT *temp=NULL;
             MtoC(srch);
             temp = findvar(argv[6], V_FIND);
-            if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
+            if(!(FoundType() & T_NBR)) error("Invalid variable");
             reti = regcomp(&regex, srch, 0);
             if( reti ) error("Could not compile regex");
 	        reti = regexec(&regex, &str[start+8], 1, &pmatch, 0);

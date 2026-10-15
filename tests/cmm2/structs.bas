@@ -106,6 +106,47 @@ On Error Skip 1
 x = SumPoint(5)
 Check "a number for a structure", Instr(MM.ErrMsg$, "structure variable") > 0, 1
 
+' ---- statements that write a member: INC, FOR, MID$, READ ----------------------------------------
+p.x = 1
+Inc p.x
+Inc p.x, 10
+Check "INC p.x and INC p.x, 10", p.x, 12
+r.name = "abc"
+Inc r.name, "de"
+CheckS "INC of a string member", r.name, "abcde"
+On Error Skip 1
+Inc r.name, "0123456789"
+Check "INC keeps the member's LENGTH", Instr(MM.ErrMsg$, "too long") > 0, 1
+j = 0
+For p.y = 1 To 4 : j = j + p.y : Next p.y
+Check "FOR with a member", j * 100 + p.y, 1005
+Mid$(r.name, 2, 2) = "XY"
+CheckS "MID$= on a string member", r.name, "aXYde"
+Restore Pdata
+Read pts(1).x, pts(1).y, r.name, r.weights(1, 1)
+Check "READ into members", pts(1).x * 100 + pts(1).y, 4243
+CheckS "a string member", r.name, "read"
+Check "a member array's element", r.weights(1, 1), 0.5
+On Error Skip 1
+Read pts().x
+Check "READ into a member array is refused", Instr(MM.ErrMsg$, "not supported") > 0, 1
+
+' ---- DIM with initial values --------------------------------------------------------------------
+Dim i1 As TPoint = (5, 6)
+Check "DIM p AS TPoint = (5, 6)", i1.x * 10 + i1.y, 56
+Dim i2(1) As TPoint = (1, 2, 3, 4)
+Check "an array of structures", i2(0).x * 1000 + i2(0).y * 100 + i2(1).x * 10 + i2(1).y, 1234
+Check "a LOCAL initialised", LocalInit(), 30
+On Error Skip 1
+Dim i3 As TPoint = (1)
+Check "not enough values", Instr(MM.ErrMsg$, "Not enough") > 0, 1
+On Error Skip 1
+Dim i4 As TPoint = (1, 2, 3)
+Check "too many values", Instr(MM.ErrMsg$, "Too many") > 0, 1
+On Error Skip 1
+Dim short$ Length 3 = "abcdefgh"
+Check "DIM s$ LENGTH 3 = a longer string is an error (it ran past the string)", Instr(MM.ErrMsg$, "too long") > 0, 1
+
 ' ---- errors ------------------------------------------------------------------------------------
 On Error Skip 1
 p = r
@@ -134,6 +175,11 @@ Check "ERASE, then DIM the name as another type", q.colour, 5
 
 Print "structs:"; pass; " of"; tests; " passed"
 End
+
+Function LocalInit() As INTEGER
+  Local t As TPoint = (10, 20)
+  LocalInit = t.x + t.y
+End Function
 
 Function SumPoint(a As TPoint) As INTEGER
   SumPoint = a.x + a.y
@@ -166,6 +212,9 @@ Function Counter() As INTEGER
   c.x = c.x + 1
   Counter = c.x
 End Function
+
+Pdata:
+Data 42, 43, "read", 0.5
 
 Sub Check(n$, got, want)
   tests = tests + 1

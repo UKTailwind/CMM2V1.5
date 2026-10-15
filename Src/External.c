@@ -1156,12 +1156,12 @@ void cmd_ir(void) {
         IrVarType = 0;
         IrDev = findvar(argv[0], V_FIND);
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        if(VREC(VarIndex)->type & T_STR)  error("Invalid variable");
-        if(VREC(VarIndex)->type & T_NBR) IrVarType |= 0b01;
+        if(FoundType() & T_STR)  error("Invalid variable");
+        if(FoundType() & T_NBR) IrVarType |= 0b01;
         IrCmd = findvar(argv[2], V_FIND);
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        if(VREC(VarIndex)->type & T_STR)  error("Invalid variable");
-        if(VREC(VarIndex)->type & T_NBR) IrVarType |= 0b10;
+        if(FoundType() & T_STR)  error("Invalid variable");
+        if(FoundType() & T_NBR) IrVarType |= 0b10;
         InterruptUsed = true;
         IrInterrupt = GetIntAddress(argv[4]);							// get the interrupt location
         IrInit();
@@ -1337,9 +1337,9 @@ void DHT22(char *p) {
 
     // get the two variables
 	temp = findvar(argv[2], V_FIND);
-	if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
+	if(!(FoundType() & T_NBR)) error("Invalid variable");
 	humid = findvar(argv[4], V_FIND);
-	if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
+	if(!(FoundType() & T_NBR)) error("Invalid variable");
 
     // get the pin number and set it up
     pin = getinteger(argv[0]);
@@ -1794,7 +1794,7 @@ void cmd_keypad(void) {
         if(KeypadInterrupt != NULL) error("Already open");
         KeypadVar = findvar(argv[0], V_FIND);
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        if(!(VREC(VarIndex)->type & T_NBR)) error("Floating point variable required");
+        if(!(FoundType() & T_NBR)) error("Floating point variable required");
         InterruptUsed = true;
         KeypadInterrupt = GetIntAddress(argv[2]);					// get the interrupt location
         for(i = 0; i < 8; i++) {

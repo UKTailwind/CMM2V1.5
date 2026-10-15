@@ -295,7 +295,7 @@ void owRead(char *p) {
     for (i = 0; i < len; i++) {
         ptr = findvar(argv[i + i + 6], V_FIND);
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        if (!(VREC(VarIndex)->type & (T_NBR | T_INT)) || DimIsAllocated(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
+        if (!(FoundType() & (T_NBR | T_INT)) || (!g_StructMemberType && DimIsAllocated(VREC(VarIndex)->dimtbl[0]))) error("Invalid variable");
     }
 
 // set up initial pin status (open drain, output, high)
@@ -319,7 +319,7 @@ void owRead(char *p) {
 
 	for (i = 0; i < len; i++) {
 			ptr = findvar(argv[i + i + 6], V_FIND);
-            if(VREC(VarIndex)->type & T_NBR)
+            if(FoundType() & T_NBR)
                 *((MMFLOAT *)ptr) = buf[i];
             else
                 *((long long int *)ptr) = buf[i];

@@ -264,7 +264,7 @@ void cmd_inc(void){
 	if(argc==1){
 		p = findvar(argv[0], V_FIND);
 		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(VREC(VarIndex)->type);
+        vtype = TypeMask(FoundType());
         if(vtype & T_STR) error("Invalid variable");                // sanity check
 		if(vtype & T_NBR)
             (*(MMFLOAT *)p) = (*(MMFLOAT *)p) + 1.0;
@@ -273,9 +273,9 @@ void cmd_inc(void){
 	} else {
 		p = findvar(argv[0], V_FIND);
 		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(VREC(VarIndex)->type);
+        vtype = TypeMask(FoundType());
         if(vtype & T_STR){
-        	int size=VREC(VarIndex)->size;
+        	int size=FoundSize();
         	q=getstring(argv[2]);
         	//if(*p + *q > MAXSTRLEN) error("String too long");
         	if(*p + *q > size) error("String too long");
@@ -296,7 +296,7 @@ void cmd_inc(void){
 	if(argc==1){
 		p = findvar(argv[0], V_FIND);
 		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(VREC(VarIndex)->type);
+        vtype = TypeMask(FoundType());
         if(vtype & T_STR) error("Invalid variable");                // sanity check
 		if(vtype & T_NBR)
             (*(MMFLOAT *)p) = (*(MMFLOAT *)p) + 1.0;
@@ -305,7 +305,7 @@ void cmd_inc(void){
 	} else {
 		p = findvar(argv[0], V_FIND);
 		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(VREC(VarIndex)->type);
+        vtype = TypeMask(FoundType());
         if(vtype & T_STR){
         	q=getstring(argv[2]);
     		if(*p + *q > MAXSTRLEN) error("String too long");
@@ -1588,12 +1588,12 @@ void cmd_input(void) {
 		*sp = 0;													// terminate the string
 		tp = findvar(argv[i], V_FIND);								// get the variable and save its new value
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-		if(VREC(VarIndex)->type & T_STR) {
-    		if(strlen(s) > VREC(VarIndex)->size) error("String too long");
+		if(FoundType() & T_STR) {
+    		if(strlen(s) > FoundSize()) error("String too long");
 			strcpy(tp, s);
 			CtoM(tp);												// convert to a MMBasic string
 		} else
-		if(VREC(VarIndex)->type & T_INT) {
+		if(FoundType() & T_INT) {
     		*((long long int *)tp) = strtoll(s, &sp, 10);			// convert to an integer
 		}
 		else
@@ -1659,7 +1659,7 @@ void cmd_for(void) {
         vlen = strlen(vname);
         vptr = findvar(argv[0], V_FIND);                            // create the variable
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(VREC(VarIndex)->type);
+        vtype = TypeMask(FoundType());
         if(vtype & T_STR) error("Invalid variable");                // sanity check
 
         // check if the FOR variable is already in the stack and remove it if it is
@@ -2046,8 +2046,8 @@ void cmd_mid(void){
 	getargs(&cmdline,5,",");
 	findvar(argv[0], V_NOFIND_ERR);
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-	if(!(VREC(VarIndex)->type & T_STR)) error("Not a string");
-	int size=VREC(VarIndex)->size;
+	if(!(FoundType() & T_STR)) error("Not a string");
+	int size=FoundSize();
 	char *sourcestring=getstring(argv[0]);
 	int start=getint(argv[2],1,sourcestring[0]);
 	int num=0;
@@ -2075,7 +2075,7 @@ void cmd_mid(void){
 	getargs(&cmdline,5,",");
 	findvar(argv[0], V_NOFIND_ERR);
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-	if(!(VREC(VarIndex)->type & T_STR)) error("Not a string");
+	if(!(FoundType() & T_STR)) error("Not a string");
 	char *sourcestring=getstring(argv[0]);
 	int start=getint(argv[2],1,sourcestring[0]);
 	int num=0;
@@ -2146,6 +2146,7 @@ void cmd_read(void) {
         } else {
 			findvar(argv[i], V_FIND | V_EMPTY_OK);
 			if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+			if(emptyarray && g_StructMemberType) error("Structure member arrays are not supported here");   // (each element's is in a structure of its own)
 			card=1;
 			if(emptyarray){ //empty array
 				for(k=0;k<MAXDIM;k++){
@@ -2171,12 +2172,12 @@ void cmd_read(void) {
 		}
 		for(k=0;k<card;k++){
 			if(k){
-				if(VREC(VarIndex)->type & (T_INT | T_NBR))ptr+=8;
-				else ptr+=VREC(VarIndex)->size+1;
+				if(FoundType() & (T_INT | T_NBR))ptr+=8;
+				else ptr+=FoundSize()+1;
 				vtbl[vcnt]=ptr;
 			}
-			vtype[vcnt] = TypeMask(VREC(VarIndex)->type);
-			vsize[vcnt] = VREC(VarIndex)->size;
+			vtype[vcnt] = TypeMask(FoundType());
+			vsize[vcnt] = FoundSize();
 			vcnt++;
 		}
     }
@@ -2349,6 +2350,7 @@ void cmd_read(void) {
         } else {
 			findvar(argv[i], V_FIND | V_EMPTY_OK);
 			if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+			if(emptyarray && g_StructMemberType) error("Structure member arrays are not supported here");   // (each element's is in a structure of its own)
 			card=1;
 //			PInt((uint32_t)ptr);PIntComma((uint32_t)VREC(VarIndex)->val.s);PIntComma((uint32_t)VREC(VarIndex)->dimtbl[0]);PRet();
 			if(emptyarray){ //empty array
@@ -2558,9 +2560,9 @@ void cmd_lineinput(void) {
 	if(argc - i != 1) error("Syntax");
 	vp = findvar(argv[i], V_FIND);
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-	if(!(VREC(VarIndex)->type & T_STR)) error("Invalid variable");
+	if(!(FoundType() & T_STR)) error("Invalid variable");
 	MMgetline(fnbr, inpbuf);									    // get the input line
-	if(strlen(inpbuf) > VREC(VarIndex)->size) error("String too long");
+	if(strlen(inpbuf) > FoundSize()) error("String too long");
 	strcpy(vp, inpbuf);
 	CtoM(vp);														// convert to a MMBasic string
 }
@@ -2683,12 +2685,14 @@ char *CheckIfTypeSpecified(char *p, int *type, int AllowDefaultType) {
 
 
 
-char *SetValue(char *p, int t, void *v) {
+// a DIM's initialising value at p into v, of type t: a string no longer than size (it ran into what followed)
+char *SetValue(char *p, int t, void *v, int size) {
     MMFLOAT f;
     long long int i64;
     char *s;
 	if(t & T_STR) {
 		p = evaluate(p, &f, &i64, &s, &t, true);
+		if(*s > size) error("String too long");
 		Mstrcpy(v, s);
 	}
 	else if(t & T_NBR) {
@@ -2781,14 +2785,18 @@ void MIPS16 cmd_dim(void) {
                 if(tokenfunction(*p) == op_equal) {
                     p++;                                            // step over the equals sign
                     skipspace(p);
-                    if(DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && *p == '(') {
+                    if(VREC(VIndexSave)->type & T_STRUCT) {              // DIM p AS type = (v1, v2 ...), an array's elements in turn (Struct.c)
+                        for(j = 1, k = 0; k < MAXDIM && DimIsRealArray(VREC(VIndexSave)->dimtbl[k]); k++)
+                            j *= DimElements(VREC(VIndexSave)->dimtbl[k]);
+                        StructInit(p, VREC(VIndexSave)->size, v, j);
+                    } else if(DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && *p == '(') {
                         // calculate the overall size of the array
                         for(j = 1, k = 0; k < MAXDIM && !DimIsEnd(VREC(VIndexSave)->dimtbl[k]); k++) {
                             j *= (DimUpper(VREC(VIndexSave)->dimtbl[k]) + 1 - OptionBase);
                         }
                         do {
                             p++;                                    // step over the opening bracket or terminating comma
-                            p = SetValue(p, type, v);
+                            p = SetValue(p, type, v, VREC(VIndexSave)->size);
                             if(type & T_STR) v = (char *)v + VREC(VIndexSave)->size + 1;
                             if(type & T_NBR) v = (char *)v + sizeof(MMFLOAT);
                             if(type & T_INT) v = (char *)v + sizeof(long long int);
@@ -2797,7 +2805,7 @@ void MIPS16 cmd_dim(void) {
                         if(*p != ')') error("Number of initialising values");
                         if(j != 0) error("Number of initialising values");
                     } else
-                        SetValue(p, type, v);
+                        SetValue(p, type, v, VREC(VIndexSave)->size);
                 }
                 type = ImpliedType;
             } else {

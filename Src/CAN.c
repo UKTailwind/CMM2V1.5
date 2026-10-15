@@ -234,7 +234,7 @@ void cmd_can(void) {
     	 msg = (uint8_t *)ptr1;
 
     	 ret = findvar(argv[10], V_FIND);
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for ret");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for ret");
 
 
     	 //TxHeader.Identifier = 0x111;
@@ -333,19 +333,19 @@ void cmd_can(void) {
     	 fifo=getint(argv[0],0,1);
     	 // get the  variables
     	 id = findvar(argv[2], V_FIND);
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for id");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for id");
     	 eid = findvar(argv[4], V_FIND);
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for eid");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for eid");
     	 rtr = findvar(argv[6], V_FIND);
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for rtr");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for rtr");
     	 dlc = findvar(argv[8], V_FIND);
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for dl");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for dl");
     	 msg = findvar(argv[10], V_FIND | V_EMPTY_OK);
     	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for msg");
     	 fmi = findvar(argv[12], V_FIND);
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for fmi");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for fmi");
     	 ret = findvar(argv[14], V_FIND);
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for ret");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for ret");
     	 adj=0;
         if (fifo==0){
     	    /* Retrieve next message from Rx FIFO 0 */

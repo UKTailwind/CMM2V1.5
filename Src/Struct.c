@@ -528,3 +528,35 @@ char *StructReturn(char *data, int type) {
     g_ExprStructType = type;
     return t;
 }
+
+// DIM ... AS type = (v1, v2 ...): a value for each member of each of the n structures at data, in order, a member
+// array's elements in turn, each string no longer than its member's LENGTH.  p is at the '('; returns after the ')'.
+char *StructInit(char *p, int sidx, char *data, int n) {
+    struct s_structdef *sd = g_structtbl[sidx];
+    struct s_structmember *sm;
+    int e, m, k, count, esize;
+    char *mp;
+    if(*p != '(') error("Expected '(' for structure initialisation");
+    p++;
+    for(e = 0; e < n; e++, data += sd->total_size) {
+        for(m = 0; m < sd->num_members; m++) {
+            sm = &sd->members[m];
+            if(sm->type == T_STRUCT) error("A nested structure cannot be initialised");
+            esize = (sm->type == T_STR) ? sm->size + 1 : 8;
+            for(count = 1, k = 0; k < MAXDIM && !DimIsEnd(sm->dimtbl[k]); k++) count *= DimElements(sm->dimtbl[k]);
+            for(mp = data + sm->offset; count--; mp += esize) {
+                skipspace(p);
+                if(*p == ')' || *p == 0) error("Not enough initialisation values");
+                p = SetValue(p, sm->type, mp, sm->size);
+                skipspace(p);
+                if(*p == ',')
+                    p++;
+                else if(*p != ')')
+                    error("Expected ',' or ')' in structure initialisation");
+            }
+        }
+    }
+    skipspace(p);
+    if(*p != ')') error("Too many initialisation values");
+    return p + 1;
+}

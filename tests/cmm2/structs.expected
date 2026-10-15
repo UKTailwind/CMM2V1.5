@@ -38,6 +38,21 @@ ok  an array of structures as a parameter
 ok  an element of one
 ok  a structure of another type
 ok  a number for a structure
+ok  INC p.x and INC p.x, 10
+ok  INC of a string member
+ok  INC keeps the member's LENGTH
+ok  FOR with a member
+ok  MID$= on a string member
+ok  READ into members
+ok  a string member
+ok  a member array's element
+ok  READ into a member array is refused
+ok  DIM p AS TPoint = (5, 6)
+ok  an array of structures
+ok  a LOCAL initialised
+ok  not enough values
+ok  too many values
+ok  DIM s$ LENGTH 3 = a longer string is an error (it ran past the string)
 ok  structure types must match
 ok  a number is not a structure
 ok  an unknown member
@@ -45,4 +60,4 @@ ok  a member array's bounds
 ok  a member array needs its index
 ok  an array of structures' bounds
 ok  ERASE, then DIM the name as another type
-structs: 47 of 47 passed
+structs: 62 of 62 passed

@@ -206,7 +206,12 @@ void ListTypes(char *p);
 void *ResolveStructMember(char *struct_ptr, int struct_idx, char *member_path, char **pp, int *member_type);
 void *StructMemberAt(char *struct_ptr, int struct_idx, char **pp);
 void StructParam(int vindex, int argvindex, char *data, int argtype, int argstruct, char *argname);
+// what the last findvar() found: a structure member's own type and size (a string's length), else the variable's
+#define FoundType() (g_StructMemberType ? g_StructMemberType : VREC(VarIndex)->type)
+#define FoundSize() ((g_StructMemberType & T_STR) ? g_StructMemberSize : VREC(VarIndex)->size)
 char *StructReturn(char *data, int type);
+char *StructInit(char *p, int sidx, char *data, int n);
+char *SetValue(char *p, int t, void *v, int size);
 extern int varcnt;
 extern int Localvarcnt;                              // number of LOCAL variables defined (eg, largest index into the variable table)
 extern int Globalvarcnt;                              // number of GLOBAL variables defined (eg, largest index into the variable table)
