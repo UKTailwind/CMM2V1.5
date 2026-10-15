@@ -2990,16 +2990,51 @@ static inline int find_local_slot(const char *name, int namelen) {
     return -1;
 }
 
+// The global named name (namelen characters, in capitals), probed from its hash slot: returns its slot with
+// *gfree -1, or, when there is none, the slot that ended the probe with *gfree the slot a new global takes (the
+// last blocked slot passed, else that empty one).  The structure code looks a base variable up the same way.
+static int probe_global_slot(char *name, int namelen, int slot, int *gfree) {
+    int j, blocked = -1, stop = slot - 1;
+    char *ip, *tp;
+    if(stop < MAXLOCALVARS) stop += MAXGLOBALVARS;
+    *gfree = -1;
+    if(VREC(slot)->type == T_NOTYPE) {
+        *gfree = slot;
+        return slot;
+    }
+    while(VREC(slot)->name[0] != 0) {
+        ip = name;
+        tp = VREC(slot)->name;
+        if(VREC(slot)->type == T_BLOCKED) blocked = slot;
+        if(*ip++ == *tp++) {                                        // preliminary quick check
+            j = namelen - 1;
+            while(j > 0 && *ip == *tp) {                            // compare each letter
+                j--; ip++; tp++;
+            }
+            if(j == 0 && (*(char *)tp == 0 || namelen == MAXVARLEN)) return slot;    // found a matching name
+        }
+        slot++;
+        if(slot == MAXVARS) slot = MAXLOCALVARS;
+        if(slot == stop) error("Too many global variables");       // full of variables and markers: no empty slot ends the search
+    }
+    *gfree = slot;                                                  // not found
+    if(blocked != -1) {
+        *gfree = blocked;
+        VREC(slot)->type = T_NOTYPE;
+        VREC(slot)->name[0] = 0;
+    }
+    return slot;
+}
+
 void *findvar(char *p, int action) {
     char name[MAXVARLEN + 1];
     int i=0, j, size, ifree, globalifree, localifree, nbr, vtype, vindex, namelen, tmp;
     char *s, *x;
     void *mptr;
 //    int hashIndex=0;
-    int GlobalhashIndex, OriginalGlobalHash;
+    int GlobalhashIndex;
     int LocalhashIndex;
     uint32_t hash=FNV_offset_basis;
-	char  *tp, *ip;
     int dim[MAXDIM]={0}, dnbr;
 //	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
 //		error("Expression is too complex at depth %",LocalIndex);
@@ -3069,6 +3104,14 @@ void *findvar(char *p, int action) {
                 dim[i/2] = in;
                 if(dim[i/2] < OptionBase) error("Dimensions");
             }
+            // getargs leaves p at the bracket: step past the indices, to what follows them (a structure's .member)
+            for(i = 1, p++; i && *p; p++) {
+                if(*p == '"') {                                     // a bracket in a string is not one
+                    while(*++p && *p != '"');
+                    if(!*p) break;
+                } else if(*p == '(' || (tokentype(*p) & T_FUN)) i++;
+                else if(*p == ')') i--;
+            }
         }
     }
 
@@ -3077,78 +3120,16 @@ void *findvar(char *p, int action) {
 
     LocalhashIndex=-1;
     localifree=-1;
-    OriginalGlobalHash=GlobalhashIndex-1;
-    if(OriginalGlobalHash<MAXLOCALVARS)OriginalGlobalHash+=MAXGLOBALVARS;
 	globalifree=-1;
-	tmp=-1;
     if(LocalIndex){ //search
         // this level's locals first: the top of the local stack (P6 F2)
         if((LocalhashIndex = find_local_slot(name, namelen)) < 0)
             localifree = localtop;                                  // where a new local would go
-		if(LocalhashIndex < 0 && !(action & V_LOCAL)){ // not a local here, so try the global (a local being made has no use for it: P6 F3)
-			tmp=-1;
-			globalifree=-1;
-			if(VREC(GlobalhashIndex)->type == T_NOTYPE){
-				globalifree = GlobalhashIndex;
-			} else {
-				while(VREC(GlobalhashIndex)->name[0]!=0){
-					ip=name;
-					tp=VREC(GlobalhashIndex)->name;
-					if(VREC(GlobalhashIndex)->type==T_BLOCKED)tmp=GlobalhashIndex;
-					if(*ip++ == *tp++) {                 // preliminary quick check
-						j = namelen-1;
-						while(j > 0 && *ip == *tp) {                              // compare each letter
-							j--; ip++; tp++;
-						}
-						if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN)) {       // found a matching name
-							break; //matching global while not in a subroutine
-						}
-					}
-					GlobalhashIndex++;
-					if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXLOCALVARS;
-                    if(GlobalhashIndex==OriginalGlobalHash)error("Too many global variables");
-				}
-				if(VREC(GlobalhashIndex)->name[0]==0){ // not found
-					globalifree=GlobalhashIndex;
-					if(tmp!=-1){
-						globalifree=tmp;
-						VREC(GlobalhashIndex)->type=T_NOTYPE;
-						VREC(GlobalhashIndex)->name[0]=0;
-					}
-				}
-			}
-		}
+		if(LocalhashIndex < 0 && !(action & V_LOCAL))               // not a local here, so try the global (a local being made has no use for it: P6 F3)
+            GlobalhashIndex = probe_global_slot(name, namelen, GlobalhashIndex, &globalifree);
     } else {
     	localifree=9999; //set a marker that a local variable is irrelevant
-		if(VREC(GlobalhashIndex)->type == T_NOTYPE){
-			globalifree = GlobalhashIndex;
-		} else {
-			while(VREC(GlobalhashIndex)->name[0]!=0){
-				ip=name;
-				tp=VREC(GlobalhashIndex)->name;
-				if(VREC(GlobalhashIndex)->type==T_BLOCKED)tmp=GlobalhashIndex;
-				if(*ip++ == *tp++) {                 // preliminary quick check
-					j = namelen-1;
-					while(j > 0 && *ip == *tp) {                              // compare each letter
-						j--; ip++; tp++;
-					}
-					if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN)) {       // found a matching name
-						break; //matching global while not in a subroutine
-					}
-				}
-				GlobalhashIndex++;
-				if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXLOCALVARS;
-				if(GlobalhashIndex==OriginalGlobalHash)error("Too many global variables");   // full of variables and markers: no empty slot ends the search
-			}
-			if(VREC(GlobalhashIndex)->name[0]==0){ // not found
-				globalifree=GlobalhashIndex;
-				if(tmp!=-1){
-					globalifree=tmp;
-					VREC(GlobalhashIndex)->type=T_NOTYPE;
-					VREC(GlobalhashIndex)->name[0]=0;
-				}
-			}
-		}
+        GlobalhashIndex = probe_global_slot(name, namelen, GlobalhashIndex, &globalifree);
     }
 	//MMPrintString("search status : ");PInt(LocalIndex);PIntComma(localifree);PIntComma(LocalhashIndex);PIntComma(globalifree);PIntComma(GlobalhashIndex);
 	//MMPrintString((action & V_LOCAL ? " LOCAL" : "      "));MMPrintString((action & V_LOCAL ? " DIM" : "    "));PRet();
