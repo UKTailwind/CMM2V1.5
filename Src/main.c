@@ -3610,10 +3610,15 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         if(*inpbuf == 0 && (*pm == 0 || (!IsPrint(*pm) && pm[1] == 0))) break; // don't save a trailing newline
 
         if(toupper(inpbuf[0])=='R' && toupper(inpbuf[1])=='U' && toupper(inpbuf[2])=='N' && (strlen(inpbuf)==3 || inpbuf[3]==' ')){
-			inpbuf[0]=GetCommandValue("RUN");
-			memmove(&inpbuf[1],&inpbuf[4],strlen(inpbuf)-4);
-			inpbuf[strlen(inpbuf)-3]=0;
- 			strcpy(tknbuf,inpbuf);
+			// RUN keeps its argument as text (a file name must not be tokenised), so the line is built
+			// here as tokenise() would build it: the line header, the token, the argument and three
+			// zeros.  It used to be strcpy'd without the header or the zeros, so the copy below ran on
+			// into whatever an earlier line had left in tknbuf, and a bare RUN memmove'd (size_t)-1 bytes.
+			char *q = tknbuf, *arg = inpbuf + (inpbuf[3] ? 4 : 3);
+			*q++ = T_NEWLINE;
+			*q++ = GetCommandValue("RUN");
+			while(*arg) *q++ = *arg++;
+			*q++ = 0; *q++ = 0; *q++ = 0;
         } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
@@ -3895,10 +3900,15 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
 
         if(*inpbuf == 0 && (*pm == 0 || (!IsPrint(*pm) && pm[1] == 0))) break; // don't save a trailing newline
         if(toupper(inpbuf[0])=='R' && toupper(inpbuf[1])=='U' && toupper(inpbuf[2])=='N' && (strlen(inpbuf)==3 || inpbuf[3]==' ')){
-			inpbuf[0]=GetCommandValue("RUN");
-			memmove(&inpbuf[1],&inpbuf[4],strlen(inpbuf)-4);
-			inpbuf[strlen(inpbuf)-3]=0;
- 			strcpy(tknbuf,inpbuf);
+			// RUN keeps its argument as text (a file name must not be tokenised), so the line is built
+			// here as tokenise() would build it: the line header, the token, the argument and three
+			// zeros.  It used to be strcpy'd without the header or the zeros, so the copy below ran on
+			// into whatever an earlier line had left in tknbuf, and a bare RUN memmove'd (size_t)-1 bytes.
+			char *q = tknbuf, *arg = inpbuf + (inpbuf[3] ? 4 : 3);
+			*q++ = T_NEWLINE;
+			*q++ = GetCommandValue("RUN");
+			while(*arg) *q++ = *arg++;
+			*q++ = 0; *q++ = 0; *q++ = 0;
         } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
         p = tknbuf;
         while(!(p[0] == 0 && p[1] == 0)) {
