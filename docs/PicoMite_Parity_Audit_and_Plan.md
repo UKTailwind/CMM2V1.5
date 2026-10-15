@@ -402,6 +402,13 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
      - `GPS(`, also missing from the table, with the PicoMite's GPS fixes (303142e). Not run against a receiver: GPS is tested when Peter has a test environment.
      - MEMORY's General figure (9ee8c9e).
 6. **Symbols** (S5/S6): names tokenised to symbol ids with a symbol table after the image, bound lazily to slots, locals through the per-frame shadow stack; one canonical spelling per name (the CMM2 image is crunched, 2.2); `T_LABEL` moves from 4 to 3; `OPTION SYMBOLS OFF` kept as the escape hatch.
+6a. **Function-token folds** (Peter, 16 Oct: next after symbols). Use the PicoMite's approach to free one-byte function tokens:
+   - **`SCHANGE$(`** stands for `LCASE$(`, `UCASE$(`, `LEFT$(` and `RIGHT$(`. The tokeniser writes them as `SCHANGE$(L,`, `U,`, `E,` and `R,` (P `MMBasic.c:2002-2007`), and `fun_schange` (P `Functions.c:1676`) dispatches on the letter.
+   - **`TOPBOTTOM(`** stands for `MIN(` and `MAX(`, written as `TOPBOTTOM(I,` and `TOPBOTTOM(A,`.
+   - **LIST** turns them back (P `Commands.c:11128-11133`).
+   - **The keyword list** for the editor and autocomplete skips the two stubs and adds the user-facing names (P `Commands.c:2976`).
+
+   That saves four tokens. The CMM2 already folds `BIN$(`/`OCT$(`/`HEX$(` into `BASE$(` the same way. The PicoMite's other folds named in step 1 (`fun_tilde` for the remaining `MM.` names, `DEVICE(` for the controller readers) are for when the space is needed.
 7. **The statement loop.** The interrupt-ready word, the `routinechecks` cadence, the sorted IF jump table, the DO fast path, `EXIT DO`/`CONTINUE DO`/`NEXT i, j`.
 8. **Language parity** (3.1): ~~the `ARRAY` commands~~ and ~~whole-array assignment~~ (done with structures, 5b.6; ARRAY passes to the CMM2's MATH until the MATH update), `REDIM [PRESERVE]`, `ERASE` as a command, FUNCTIONs returning arrays, `BIT(`/`BYTE(`/`FLAG(`, `MM.ERRLINE`, `ON ERROR RESTART`, `CHAIN`, `SAVE/LOAD CONTEXT`, the `MM.STARTUP`/`MM.PROMPT`/`MM.END` hooks.
 8a. **MATH** (Peter, 15 Oct: a separate exercise, as there is more than structures to do): a complete comparison of the PicoMite's MATH with the CMM2's, porting its fixes and new subcommands. **Done 15 Oct:** the PicoMite's MATHS.c ported whole, with the CMM2's fixes (`docs/MATH_Update_Plan.md`); MathStructTest 33/33, MathClampTest 10/10, `tests/cmm2/math.bas` 49/49. With it:
