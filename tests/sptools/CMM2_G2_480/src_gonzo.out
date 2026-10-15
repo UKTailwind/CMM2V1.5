@@ -1,0 +1,140 @@
+RUN "tst_gonzo.bas", --catch-errors --verbose
+A:/SPTOOLS/SRC/GONZO/TESTS/tst_gonzo.bas --catch-errors --verbose
+  test_parse_cl_given_empty:                         PASS (3/3)
+  test_parse_cl_given_0_args:                        PASS (3/3)
+  test_parse_cl_given_1_arg:                         PASS (3/3)
+  test_parse_cl_given_10_args:                       PASS (3/3)
+  test_parse_cl_given_11_args:                       PASS (3/3)
+  test_parse_cl_given_bang:                          PASS (3/3)
+  test_parse_cl_ignores_star:                        PASS (3/3)
+  test_parse_cl_ignores_xs_ws:                       PASS (3/3)
+  Execution time: 0.205112 s
+  PASS (8/8)
+A:/SPTOOLS/SRC/GONZO/TESTS/tst_gonzo.bas --catch-errors --verbose --base=1
+  test_parse_cl_given_empty:                         PASS (3/3)
+  test_parse_cl_given_0_args:                        PASS (3/3)
+  test_parse_cl_given_1_arg:                         PASS (3/3)
+  test_parse_cl_given_10_args:                       PASS (3/3)
+  test_parse_cl_given_11_args:                       PASS (3/3)
+  test_parse_cl_given_bang:                          PASS (3/3)
+  test_parse_cl_ignores_star:                        PASS (3/3)
+  test_parse_cl_ignores_xs_ws:                       PASS (3/3)
+  Execution time: 0.205444 s
+  PASS (8/8)
+
+> 
+RUN "tst_history.bas", --catch-errors --verbose
+A:/SPTOOLS/SRC/GONZO/TESTS/tst_history.bas --catch-errors --verbose
+  test_clear:                                        PASS (1/1)
+  test_count:                                        FAIL (1/2)
+    2: Assert equals failed, expected 4 but actually 13
+  test_fill:                                         FAIL (5/8)
+    1: Assert equals failed, expected 2 but actually 3
+    4: Assert equals failed, expected 4 but actually 10
+    6: Assert equals failed, expected "wombat" but actually "womba<6>"
+    7: Assert equals failed, expected "foo" but actually "omba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>"
+    8: Assert equals failed, expected "bar" but actually "omba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>"
+  test_get:                                          FAIL (4/7)
+    3: Assert equals failed, expected "bar" but actually "<5>sn"
+    4: Assert equals failed, expected "foo" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    5: Assert equals failed, expected "" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    7: MMBasic Error in ../history.inc line 89: index out of bounds: -1
+  test_get_given_overlow:                            FAIL (1/11)
+    10: Assert equals failed, expected "wombat" but actually "w<6>w<6>w<6>"
+  test_load:                                         FAIL (3/5)
+    1: Assert equals failed, expected 4 but actually 13
+    4: Assert equals failed, expected "bar" but actually "<5>sn"
+    5: Assert equals failed, expected "foo" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+  test_load_given_empty:                             PASS (1/1)
+  test_load_trims_long_file:                         PASS (2/2)
+  test_newest:                                       PASS (3/3)
+  test_newest_given_overlow:                         PASS (2/2)
+  test_pop:                                          FAIL (10/19)
+    5: Assert equals failed, expected 2 but actually 12
+    9: Assert equals failed, expected 1 but actually 11
+    11: Assert equals failed, expected "foo" but actually "fo<3>"
+    12: Assert equals failed, expected "foo" but actually "fo<3>"
+    13: Assert equals failed, expected 0 but actually 10
+    15: Assert equals failed, expected "" but actually "ar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>b"
+    16: Assert equals failed, expected "" but actually "ar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>b"
+    17: Assert equals failed, expected 0 but actually 10
+    18: Assert equals failed, expected 0 but actually 65535
+    19: Assert equals failed, expected "" but actually "r<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>b"
+  test_pop_given_overflow:                           PASS (1/1)
+  test_push:                                         FAIL (1/18)
+    18: Assert failed, byte 14 of h%() is non-zero
+  test_push_appends_to_file:                         PASS (7/7)
+  test_push_ignores_bangs:                           PASS (1/1)
+  test_push_ignores_empty:                           PASS (1/1)
+  test_push_given_duplicate:                         FAIL (1/10)
+    10: Assert failed, byte 10 of h%() is non-zero
+  test_push_trims_spaces:                            PASS (1/1)
+  test_save:                                         FAIL (5/5)
+    1: Assert equals failed, expected "foo" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    2: Assert equals failed, expected "bar" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    3: Assert equals failed, expected "snafu" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    4: Assert equals failed, expected "wombat" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    5: Assert equals failed, expected 1 but actually 0
+  test_save_given_empty:                             PASS (2/2)
+  test_trim:                                         FAIL (1/8)
+    4: Assert equals failed, expected "bar" but actually "<5>sn"
+  Execution time: 3.438289 s
+  FAIL (10/21)
+A:/SPTOOLS/SRC/GONZO/TESTS/tst_history.bas --catch-errors --verbose --base=1
+  test_clear:                                        PASS (1/1)
+  test_count:                                        FAIL (1/2)
+    2: Assert equals failed, expected 4 but actually 13
+  test_fill:                                         FAIL (5/8)
+    1: Assert equals failed, expected 2 but actually 3
+    4: Assert equals failed, expected 4 but actually 10
+    6: Assert equals failed, expected "wombat" but actually "womba<6>"
+    7: Assert equals failed, expected "foo" but actually "omba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>"
+    8: Assert equals failed, expected "bar" but actually "omba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>womba<6>"
+  test_get:                                          FAIL (4/7)
+    3: Assert equals failed, expected "bar" but actually "<5>sn"
+    4: Assert equals failed, expected "foo" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    5: Assert equals failed, expected "" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    7: MMBasic Error in ../history.inc line 89: index out of bounds: -1
+  test_get_given_overlow:                            FAIL (1/11)
+    10: Assert equals failed, expected "wombat" but actually "w<6>w<6>w<6>"
+  test_load:                                         FAIL (3/5)
+    1: Assert equals failed, expected 4 but actually 13
+    4: Assert equals failed, expected "bar" but actually "<5>sn"
+    5: Assert equals failed, expected "foo" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+  test_load_given_empty:                             PASS (1/1)
+  test_load_trims_long_file:                         PASS (2/2)
+  test_newest:                                       PASS (3/3)
+  test_newest_given_overlow:                         PASS (2/2)
+  test_pop:                                          FAIL (10/19)
+    5: Assert equals failed, expected 2 but actually 12
+    9: Assert equals failed, expected 1 but actually 11
+    11: Assert equals failed, expected "foo" but actually "fo<3>"
+    12: Assert equals failed, expected "foo" but actually "fo<3>"
+    13: Assert equals failed, expected 0 but actually 10
+    15: Assert equals failed, expected "" but actually "ar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>b"
+    16: Assert equals failed, expected "" but actually "ar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>b"
+    17: Assert equals failed, expected 0 but actually 10
+    18: Assert equals failed, expected 0 but actually 65535
+    19: Assert equals failed, expected "" but actually "r<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>bar<3>fo<3>b"
+  test_pop_given_overflow:                           PASS (1/1)
+  test_push:                                         FAIL (1/18)
+    18: Assert failed, byte 14 of h%() is non-zero
+  test_push_appends_to_file:                         PASS (7/7)
+  test_push_ignores_bangs:                           PASS (1/1)
+  test_push_ignores_empty:                           PASS (1/1)
+  test_push_given_duplicate:                         FAIL (1/10)
+    10: Assert failed, byte 10 of h%() is non-zero
+  test_push_trims_spaces:                            PASS (1/1)
+  test_save:                                         FAIL (5/5)
+    1: Assert equals failed, expected "foo" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    2: Assert equals failed, expected "bar" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    3: Assert equals failed, expected "snafu" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    4: Assert equals failed, expected "wombat" but actually "fu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>snafu<3><5>sn"
+    5: Assert equals failed, expected 1 but actually 0
+  test_save_given_empty:                             PASS (2/2)
+  test_trim:                                         FAIL (1/8)
+    4: Assert equals failed, expected "bar" but actually "<5>sn"
+  Execution time: 3.435776 s
+  FAIL (10/21)
+
+> 

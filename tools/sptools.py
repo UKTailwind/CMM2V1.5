@@ -1,5 +1,6 @@
 """sptools.py PORT OUTDIR [--src DIR] [--put] [--cap SECONDS] [--only GROUP,...] [--baseline DIR]
 sptools.py --compare BASEDIR NEWDIR
+sptools.py --reparse OUTDIR
 
 Run the unit tests of Thomas Williams' SP Tools (https://github.com/thwill1000/mmbasic-sptools,
 MIT licence) on the CMM2: some 600 tests of a large body of CMM2 BASIC (string, array, file,
@@ -136,7 +137,7 @@ def parse(out, group):
             key = (m.group(1)[len(ROOT) + 1:] + " " + opts).strip()
             res.setdefault(key, {})
             continue
-        m = re.match(r"^  (\w+):\s+(PASS|FAIL|NO ASSERTIONS|ERROR)(.*)$", line)
+        m = re.match(r"^  (\S.*?):\s+(PASS|FAIL|NO ASSERTIONS|ERROR)(.*)$", line)      # names can be phrases
         if m and key:
             res[key][m.group(1)] = m.group(2) + m.group(3).rstrip()
     if not res:
@@ -166,6 +167,16 @@ def compare(base, new):
 
 
 def main():
+    if sys.argv[1] == "--reparse":                      # results.json again from the saved .out files
+        outdir = sys.argv[2]
+        results = {}
+        for name in sorted(os.listdir(outdir)):
+            if name.endswith(".out"):
+                results.update(parse(open(os.path.join(outdir, name), encoding="utf-8").read(), name))
+        json.dump(results, open(os.path.join(outdir, "results.json"), "w"), indent=1, sort_keys=True)
+        n = sum(len(v) for v in results.values())
+        print("%d of %d tests pass" % (sum(1 for v in results.values() for st in v.values() if st.startswith("PASS")), n))
+        return
     if sys.argv[1] == "--compare":
         base = json.load(open(os.path.join(sys.argv[2], "results.json")))
         new = json.load(open(os.path.join(sys.argv[3], "results.json")))

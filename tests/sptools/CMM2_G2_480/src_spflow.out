@@ -1,0 +1,36 @@
+RUN "tst_cmdline.bas", --catch-errors --verbose
+A:/SPTOOLS/SRC/SPFLOW/TESTS/tst_cmdline.bas --catch-errors --verbose
+  test_no_input_file:                                PASS (1/1)
+  test_input_file:                                   PASS (4/4)
+  test_output_file:                                  PASS (6/6)
+  test_all:                                          PASS (3/3)
+  test_brief:                                        PASS (3/3)
+  test_no_location:                                  PASS (3/3)
+  test_unknown_option:                               PASS (1/1)
+  test_too_many_arguments:                           PASS (1/1)
+  Execution time: 0.21329 s
+  PASS (8/8)
+
+> 
+RUN "tst_options.bas", --catch-errors --verbose
+A:/SPTOOLS/SRC/SPFLOW/TESTS/tst_options.bas --catch-errors --verbose
+  test_all:                                          PASS (14/14)
+  test_brief:                                        PASS (14/14)
+  test_no_location:                                  PASS (14/14)
+  test_infile:                                       PASS (3/3)
+  test_outfile:                                      PASS (3/3)
+  test_unknown:                                      PASS (1/1)
+  Execution time: 0.143285 s
+  PASS (6/6)
+
+> 
+RUN "tst_process.bas", --catch-errors --verbose
+A:/SPTOOLS/SRC/SPFLOW/TESTS/tst_process.bas --catch-errors --verbose
+  test_simple_sub:                                   PASS (24/24)
+  test_simple_fn:                                    PASS (15/15)
+  test_self_recursive_sub:                           PASS (16/16)
+  test_self_recursive_fn:                            PASS (16/16)
+  Execution time: 0.45316 s
+  PASS (4/4)
+
+> 
