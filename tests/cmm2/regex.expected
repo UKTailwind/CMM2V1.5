@@ -1,0 +1,11 @@
+ok  A{2} in BAAAB: where
+ok  and exactly 2 (it matched 3)
+ok  [A]{3}: where
+ok  and its length
+ok  A{2,} is still 2 or more
+ok  \bcat\b finds the word, not the end of concat
+ok  \Bcat finds it inside concat
+ok  [0-9]+: where
+ok  and its length
+ok  no match
+regex: 10 of 10 passed
