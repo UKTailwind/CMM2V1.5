@@ -39,7 +39,7 @@
 #define Vector_SoftReset          (*(int*)0x80002f4)       // void SoftReset(void)
 #define Vector_error              (*(int*)0x80002f8)       // void error(char *msg)
 #define Vector_ProgFlash          (*(int*)0x80002fc)       // ProgFlash
-#define Vector_vartbl             (*(int*)0x8000300)       // vartbl
+#define Vector_vartbl             (*(int*)0x8000300)       // &slotrec: a struct s_vartbl ** of each variable number's record (was &vartbl; the records are not one table now)
 #define Vector_varcnt             (*(int*)0x8000304)       // varcnt
 #define Vector_DrawBuffer         *(unsigned int *)(int*)0x8000308          // void DrawRectangle(int x1, int y1, int x2, int y2, int c)
 #define Vector_ReadBuffer         *(unsigned int *)(int*)0x800030c          // void DrawRectangle(int x1, int y1, int x2, int y2, int c)
@@ -149,7 +149,8 @@
 //#define Interrupt                       (*(unsigned int *) Vector_CSubComplete)
 
 
-// the structure of the variable table, passed to the CFunction as a pointer Vector_vartbl which is #defined as vartbl
+// the structure of a variable's record.  Vector_vartbl gives the address of slotrec, an array of a pointer to each
+// variable number's record (a free global slot points at an empty record): walk it, not a table of records.
 struct s_vartbl {                               // structure of the variable table
 	char name[MAXVARLEN];                       // variable's name
     char type;                                  // its type (T_NUM, T_INT or T_STR)

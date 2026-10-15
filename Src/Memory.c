@@ -491,28 +491,28 @@ void MIPS16 cmd_memory(void) {
 
     // calculate the space allocated to variables on the heap
     for(i = VarCnt = vsize = var = 0; var < MAXVARS; var++) {
-        if(vartbl[var].type == T_NOTYPE) continue;
+        if(VREC(var)->type == T_NOTYPE || VREC(var)->type == T_BLOCKED) continue;   // (a blocked slot is no variable)
         VarCnt++;  vsize += sizeof(struct s_vartbl);
-        if(vartbl[var].val.s == NULL) continue;
-        if(vartbl[var].type & T_PTR) continue;
-        nbr = vartbl[var].dims[0] + 1 - OptionBase;
-        if(vartbl[var].dims[0]) {
-            for(j = 1; j < MAXDIM && vartbl[var].dims[j]; j++)
-                nbr *= (vartbl[var].dims[j] + 1 - OptionBase);
-            if(vartbl[var].type & T_NBR)
+        if(VREC(var)->val.s == NULL) continue;
+        if(VREC(var)->type & T_PTR) continue;
+        nbr = VREC(var)->dims[0] + 1 - OptionBase;
+        if(VREC(var)->dims[0]) {
+            for(j = 1; j < MAXDIM && VREC(var)->dims[j]; j++)
+                nbr *= (VREC(var)->dims[j] + 1 - OptionBase);
+            if(VREC(var)->type & T_NBR)
                 i += MRoundUp(nbr * sizeof(MMFLOAT));
-            else if(vartbl[var].type & T_INT)
+            else if(VREC(var)->type & T_INT)
                 i += MRoundUp(nbr * sizeof(long long int));
             else
-                i += MRoundUp(nbr * (vartbl[var].size + 1));
+                i += MRoundUp(nbr * (VREC(var)->size + 1));
         } else
-            if(vartbl[var].type & T_STR)
+            if(VREC(var)->type & T_STR)
                 i += STRINGSIZE;
     }
     VarSize = (vsize + i + 512)/1024;                               // this is the memory allocated to variables
     VarPercent = ((vsize + i) * 100)/CurrentRAM;
     if(VarCnt && VarSize == 0) VarPercent = VarSize = 1;            // adjust if it is zero and we have some variables
-    i = UsedHeap() - i;
+    i = UsedHeap() - i - VarChunkBytes();                           // (the globals' records are counted above, not as General)
     if(i < 0) i = 0;
     GeneralSize = (i + 512)/1024; GeneralPercent = (i * 100)/CurrentRAM;
     // count the space used by saved variables (in flash)
@@ -1187,10 +1187,10 @@ void mycopysafe(void *out, const void *in, int n){
 
 void m_alloc(int size) {
     // every time the variable table is increased this must be called to verify that enough memory is free
-    vartbl = (struct s_vartbl *)SRAMBASE;
+    vartbl = (struct s_vartbl *)SRAMBASE;                           // the locals' records,
+    slotrec = (struct s_vartbl **)(SRAMBASE + MAXLOCALVARS * sizeof(struct s_vartbl));   // then each variable number's record
     memset(vartbl,0,SRAMEND-SRAMBASE);
-    funtbl = (struct s_funtbl *)FUNBASE;
-    mymemset(funtbl,0,sizeof(struct s_funtbl)*MAXSUBFUN);
+    VarChunksForget();                                              // the globals' records went with the heap
     /*    VarTableTop = (unsigned char *)vartbl + MRoundUp(size);
     if(SBitsGet(VarTableTop) & PUSED) {
         LocalIndex = 0;
@@ -1320,6 +1320,8 @@ void InitHeap(void) {
     StrTmpIndex = TempMemoryIsChanged = 0;
     minMMheap=(void *)SDRAMEND;
     m_alloc(0);
+    SubLayoutForget();                                              // the SUBs' parameter layouts were in the heap (P6 F1)
+    NameIndexForget();                                              // and the index of SUBs, FUNCTIONs and labels
 }
 
 void *ReAllocMemory(void *addr, size_t msize){
@@ -1442,6 +1444,29 @@ void *GetInternalMemory(size_t size){
     return NULL;                                                    // keep the compiler happy
 }
 */
+
+// GetInternalMemory below, but NULL when the on-chip heap has no room (the variables' chunks then use SDRAM)
+void *GetInternalMemoryNull(size_t size) {
+    int n=0, k;
+    unsigned char *addr;
+    k= (size + RAMPAGESIZE - 1)/RAMPAGESIZE;                         // nbr of pages rounded up
+    for(addr = (unsigned char *)RAMBASE; addr < (unsigned char *)RAMEND - RAMPAGESIZE; addr += RAMPAGESIZE) {
+        if(!(MBitsGet(addr) & PUSED)) {
+            if(++n == k) {                                          // found a free slot
+                k--;
+                MBitsSet(addr , PUSED | PLAST);                     // show that this is used and the last in the chain of pages
+                while(k--){
+                    addr-=RAMPAGESIZE;
+                    MBitsSet(addr,PUSED);
+                }
+                mymemset(addr , 0, size);                           // zero the memory
+                SCB_CleanInvalidateDCache_by_Addr((uint32_t *)addr, size);
+                return (void *)addr;
+            }
+        } else n = 0;                                               // not enough space here so reset our count
+    }
+    return NULL;
+}
 
 // Performance enhancement from Picomites.
 // gets memory from the bottom up, does not need to jump any allocated variables.

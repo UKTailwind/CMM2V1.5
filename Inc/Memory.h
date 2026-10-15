@@ -42,6 +42,7 @@ extern void *GetTempMemory(int NbrBytes);
 extern void *GetTempStrMemory(void);
 extern void *GetMemory(size_t NbrBytes);
 extern void *GetInternalMemory(size_t NbrBytes);
+extern void *GetInternalMemoryNull(size_t size);
 //extern void *GetSystemMemory(int  msize);
 extern void ClearTempMemory(void);
 extern void ClearSpecificTempMemory(void *addr);
@@ -81,7 +82,7 @@ extern void *minMMheap;
 extern uint32_t RAMBASE;
 #define RAMEND          	0x30040000
 #define FUNBASE				0x30040000
-#define FUNEND				FUNBASE+sizeof(struct s_funtbl)*(MAXSUBFUN+1)
+#define FUNEND				(FUNBASE+36*(MAXSUBFUN+1))   // where funtbl ended (the name index replaced it): the buffers after it stay put; the 18 KB is free
 #define SRAMBASE         	0x38000000
 #define SRAMEND         	0x38010000
 #define SDRAMBASE         	(G1Hardware ? ((Option.ProgramStartCode<0 || Option.profile) ? 0xD0380000: 0xD0300000) : 0xD0800000)

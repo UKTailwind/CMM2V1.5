@@ -75,9 +75,10 @@ provisions:
 #define MAX3D				128						// Maximum number of 3D objects
 #define MAXCAM				6						// Maximum number of cameras
 #define MAXDEFINES			256						// Maximum number of #define in file
-#define MAXVARS				1024
-#define MAXHASH				MAXVARS/2-1
-#define MAXSUBFUN           MAXVARS/2               // maximum nbr of defined subroutines or functions in a program. each entry takes up 4 bytes
+#define MAXLOCALVARS		512                     // the local stack: variable numbers 0 to 511, their records in vartbl (D3 SRAM)
+#define MAXGLOBALVARS		1024                    // global slots, numbers 512 up: 4 bytes each, a record only for a variable that exists
+#define MAXVARS				(MAXLOCALVARS + MAXGLOBALVARS)
+#define MAXSUBFUN           512                     // maximum nbr of defined subroutines or functions in a program. each entry takes up 4 bytes
 // define the maximum number of arguments to PRINT, INPUT, WRITE, ON, DIM, ERASE, DATA and READ
 // each entry uses zero bytes.  The number is limited by the length of a command line
 #define MAX_ARG_COUNT       32

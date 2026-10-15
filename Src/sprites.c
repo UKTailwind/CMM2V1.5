@@ -610,20 +610,20 @@ void loadarray(char *p){
     	w=getint(argv[2],1,maxW);
     	h=getint(argv[4],1,maxH);
         ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-        if(vartbl[VarIndex].type & T_NBR) {
-            if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-            if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+        if(VREC(VarIndex)->type & T_NBR) {
+            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
                 error("Argument 1 must be array");
             }
             a3float = (MMFLOAT *)ptr1;
-        } else if(vartbl[VarIndex].type & T_INT) {
-            if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-            if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+        } else if(VREC(VarIndex)->type & T_INT) {
+            if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+            if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
                 error("Argument 1 must be array");
             }
             a3int = (int64_t *)ptr1;
         } else error("Argument 1 must be array");
-        size=(vartbl[VarIndex].dims[0] - OptionBase);
+        size=(VREC(VarIndex)->dims[0] - OptionBase);
         if(size<w*h-1)error("Array Dimensions");
         blitbuff[bnbr].blitbuffptr = GetMemory(w*h*PageTable[WritePage].nbytes);
         blitbuff[bnbr].blitstoreptr = GetMemory(w*h*PageTable[WritePage].nbytes);

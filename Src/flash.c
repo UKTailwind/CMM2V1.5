@@ -238,8 +238,8 @@ void cmd_var(void) {
                 vdata = findvar(b, type | V_EMPTY_OK | V_NOFIND_ERR);     // find an array
             } else
                 vdata = findvar(bufp, type | V_FIND);               // find or create a non arrayed variable
-            if(TypeMask(vartbl[VarIndex].type) != TypeMask(type)) error("$ type conflict", bufp);
-            if(vartbl[VarIndex].type & T_CONST) error("$ is a constant", bufp);
+            if(TypeMask(VREC(VarIndex)->type) != TypeMask(type)) error("$ type conflict", bufp);
+            if(VREC(VarIndex)->type & T_CONST) error("$ is a constant", bufp);
             bufp += strlen((char *)bufp) + 1;                       // step over the name and the terminating zero byte
             if(array) {                                             // an array has the data size in the next two bytes
                 nbr = *bufp++;
@@ -247,9 +247,9 @@ void cmd_var(void) {
                 nbr |= (*bufp++) << 16;
                 nbr |= (*bufp++) << 24;
                 nbr2 = 1;
-                for(j = 0; vartbl[VarIndex].dims[j] != 0 && j < MAXDIM; j++)
-                    nbr2 *= (vartbl[VarIndex].dims[j] + 1 - OptionBase);
-                if(type & T_STR) nbr2 *= vartbl[VarIndex].size +1;
+                for(j = 0; VREC(VarIndex)->dims[j] != 0 && j < MAXDIM; j++)
+                    nbr2 *= (VREC(VarIndex)->dims[j] + 1 - OptionBase);
+                if(type & T_STR) nbr2 *= VREC(VarIndex)->size +1;
                 if(type & T_NBR) nbr2 *= sizeof(MMFLOAT);
                 if(type & T_INT) nbr2 *= sizeof(long long int);
                 if(nbr2!=nbr)error("Array size");
@@ -274,7 +274,7 @@ void cmd_var(void) {
             checkend(skipvar(argv[i], false));
             VarDataList[i/2] = findvar(argv[i], V_NOFIND_ERR | V_EMPTY_OK);
             VarList[i/2] = VarIndex;
-            if((vartbl[VarIndex].type & (T_CONST | T_PTR)) || vartbl[VarIndex].level != 0) error("Invalid variable");
+            if((VREC(VarIndex)->type & (T_CONST | T_PTR)) || VREC(VarIndex)->level != 0) error("Invalid variable");
             p = &argv[i][strlen(argv[i]) - 1];                      // pointer to the last char
             if(*p == ')') {                                         // strip off any empty brackets which indicate an array
                 p--;
@@ -346,20 +346,20 @@ void cmd_var(void) {
         for(i = 0; i < argc; i += 2) {
             VarIndex = VarList[i/2];                                // previously saved index to the variable
             vdata = VarDataList[i/2];                               // pointer to the variable's data
-            type = TypeMask(vartbl[VarIndex].type);                 // get the variable's type
-            type |= (vartbl[VarIndex].type & T_IMPLIED);            // set the implied flag
-            array = (vartbl[VarIndex].dims[0] != 0);
+            type = TypeMask(VREC(VarIndex)->type);                 // get the variable's type
+            type |= (VREC(VarIndex)->type & T_IMPLIED);            // set the implied flag
+            array = (VREC(VarIndex)->dims[0] != 0);
 
             nbr = 1;                                                // number of elements to save
             if(array) {                                             // if this is an array calculate the number of elements
-                for(j = 0; vartbl[VarIndex].dims[j] != 0 && j < MAXDIM; j++)
-                    nbr *= (vartbl[VarIndex].dims[j] + 1 - OptionBase);
+                for(j = 0; VREC(VarIndex)->dims[j] != 0 && j < MAXDIM; j++)
+                    nbr *= (VREC(VarIndex)->dims[j] + 1 - OptionBase);
                 type |= 0x80;                                       // an array has the top bit set
             }
 
             if(type & T_STR) {
                 if(array)
-                    nbr *= (vartbl[VarIndex].size + 1);
+                    nbr *= (VREC(VarIndex)->size + 1);
                 else
                     nbr = *vdata + 1;                               // for a simple string variable just save the string
             }
@@ -372,7 +372,7 @@ void cmd_var(void) {
                 error("Not enough memory");
             }
             *w++=type;                              // save its type
-            for(j = 0, p = vartbl[VarIndex].name; *p && j < MAXVARLEN; p++, j++)
+            for(j = 0, p = VREC(VarIndex)->name; *p && j < MAXVARLEN; p++, j++)
                 *w++=*p;                            // save the name
             *w++=0;                                 // terminate the name
             if(array) {                                             // if it is an array save the number of data bytes

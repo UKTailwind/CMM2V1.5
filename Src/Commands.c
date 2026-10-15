@@ -263,8 +263,8 @@ void cmd_inc(void){
 	getargs(&cmdline,3,",");
 	if(argc==1){
 		p = findvar(argv[0], V_FIND);
-		if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(vartbl[VarIndex].type);
+		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        vtype = TypeMask(VREC(VarIndex)->type);
         if(vtype & T_STR) error("Invalid variable");                // sanity check
 		if(vtype & T_NBR)
             (*(MMFLOAT *)p) = (*(MMFLOAT *)p) + 1.0;
@@ -272,10 +272,10 @@ void cmd_inc(void){
 		else error("Syntax");
 	} else {
 		p = findvar(argv[0], V_FIND);
-		if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(vartbl[VarIndex].type);
+		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        vtype = TypeMask(VREC(VarIndex)->type);
         if(vtype & T_STR){
-        	int size=vartbl[VarIndex].size;
+        	int size=VREC(VarIndex)->size;
         	q=getstring(argv[2]);
         	//if(*p + *q > MAXSTRLEN) error("String too long");
         	if(*p + *q > size) error("String too long");
@@ -295,8 +295,8 @@ void cmd_inc(void){
 	getargs(&cmdline,3,",");
 	if(argc==1){
 		p = findvar(argv[0], V_FIND);
-		if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(vartbl[VarIndex].type);
+		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        vtype = TypeMask(VREC(VarIndex)->type);
         if(vtype & T_STR) error("Invalid variable");                // sanity check
 		if(vtype & T_NBR)
             (*(MMFLOAT *)p) = (*(MMFLOAT *)p) + 1.0;
@@ -304,8 +304,8 @@ void cmd_inc(void){
 		else error("Syntax");
 	} else {
 		p = findvar(argv[0], V_FIND);
-		if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(vartbl[VarIndex].type);
+		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        vtype = TypeMask(VREC(VarIndex)->type);
         if(vtype & T_STR){
         	q=getstring(argv[2]);
     		if(*p + *q > MAXSTRLEN) error("String too long");
@@ -456,18 +456,18 @@ void cmd_let(void) {
 
 	// create the variable and get the length if it is a string
 	p2 = findvar(cmdline, V_FIND);
-    size = vartbl[VarIndex].size;
-    if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
+    size = VREC(VarIndex)->size;
+    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 
 	// step over the equals sign, evaluate the rest of the command and save in the variable
 	p1++;
-	if(vartbl[VarIndex].type & T_STR) {
+	if(VREC(VarIndex)->type & T_STR) {
 		t = T_STR;
 		p1 = evaluate(p1, &f, &i64, &s, &t, false);
 		if(*s > size) error("String too long");
 		Mstrcpy(p2, s);
 	}
-	else if(vartbl[VarIndex].type & T_NBR) {
+	else if(VREC(VarIndex)->type & T_NBR) {
 		t = T_NBR;
 		p1 = evaluate(p1, &f, &i64, &s, &t, false);
 		if(t & T_NBR)
@@ -1573,13 +1573,13 @@ void cmd_input(void) {
 		}
 		*sp = 0;													// terminate the string
 		tp = findvar(argv[i], V_FIND);								// get the variable and save its new value
-        if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-		if(vartbl[VarIndex].type & T_STR) {
-    		if(strlen(s) > vartbl[VarIndex].size) error("String too long");
+        if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+		if(VREC(VarIndex)->type & T_STR) {
+    		if(strlen(s) > VREC(VarIndex)->size) error("String too long");
 			strcpy(tp, s);
 			CtoM(tp);												// convert to a MMBasic string
 		} else
-		if(vartbl[VarIndex].type & T_INT) {
+		if(VREC(VarIndex)->type & T_INT) {
     		*((long long int *)tp) = strtoll(s, &sp, 10);			// convert to an integer
 		}
 		else
@@ -1644,8 +1644,8 @@ void cmd_for(void) {
         while(*vname && vname[strlen(vname) - 1] == ' ') vname[strlen(vname) - 1] = 0;
         vlen = strlen(vname);
         vptr = findvar(argv[0], V_FIND);                            // create the variable
-        if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        vtype = TypeMask(vartbl[VarIndex].type);
+        if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        vtype = TypeMask(VREC(VarIndex)->type);
         if(vtype & T_STR) error("Invalid variable");                // sanity check
 
         // check if the FOR variable is already in the stack and remove it if it is
@@ -2031,9 +2031,9 @@ void cmd_mid(void){
 	char *p;
 	getargs(&cmdline,5,",");
 	findvar(argv[0], V_NOFIND_ERR);
-    if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-	if(!(vartbl[VarIndex].type & T_STR)) error("Not a string");
-	int size=vartbl[VarIndex].size;
+    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+	if(!(VREC(VarIndex)->type & T_STR)) error("Not a string");
+	int size=VREC(VarIndex)->size;
 	char *sourcestring=getstring(argv[0]);
 	int start=getint(argv[2],1,sourcestring[0]);
 	int num=0;
@@ -2060,8 +2060,8 @@ void cmd_mid(void){
 	unsigned char *p;
 	getargs(&cmdline,5,",");
 	findvar(argv[0], V_NOFIND_ERR);
-    if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-	if(!(vartbl[VarIndex].type & T_STR)) error("Not a string");
+    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+	if(!(VREC(VarIndex)->type & T_STR)) error("Not a string");
 	char *sourcestring=getstring(argv[0]);
 	int start=getint(argv[2],1,sourcestring[0]);
 	int num=0;
@@ -2131,11 +2131,11 @@ void cmd_read(void) {
             if(*argv[i] != ',') error("Syntax");
         } else {
 			findvar(argv[i], V_FIND | V_EMPTY_OK);
-			if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
+			if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 			card=1;
 			if(emptyarray){ //empty array
 				for(k=0;k<MAXDIM;k++){
-					j=(vartbl[VarIndex].dims[k] - OptionBase + 1);
+					j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
 					if(j)card *= j;
 				}
 			}
@@ -2151,18 +2151,18 @@ void cmd_read(void) {
 		card=1;
 		if(emptyarray){
 			for(k=0;k<MAXDIM;k++){
-				j=(vartbl[VarIndex].dims[k] - OptionBase + 1);
+				j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
 				if(j)card *= j;
 			}
 		}
 		for(k=0;k<card;k++){
 			if(k){
-				if(vartbl[VarIndex].type & (T_INT | T_NBR))ptr+=8;
-				else ptr+=vartbl[VarIndex].size+1;
+				if(VREC(VarIndex)->type & (T_INT | T_NBR))ptr+=8;
+				else ptr+=VREC(VarIndex)->size+1;
 				vtbl[vcnt]=ptr;
 			}
-			vtype[vcnt] = TypeMask(vartbl[VarIndex].type);
-			vsize[vcnt] = vartbl[VarIndex].size;
+			vtype[vcnt] = TypeMask(VREC(VarIndex)->type);
+			vsize[vcnt] = VREC(VarIndex)->size;
 			vcnt++;
 		}
     }
@@ -2334,12 +2334,12 @@ void cmd_read(void) {
             if(*argv[i] != ',') error("Syntax");
         } else {
 			findvar(argv[i], V_FIND | V_EMPTY_OK);
-			if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
+			if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 			card=1;
-//			PInt((uint32_t)ptr);PIntComma((uint32_t)vartbl[VarIndex].val.s);PIntComma((uint32_t)vartbl[VarIndex].dims[0]);PRet();
+//			PInt((uint32_t)ptr);PIntComma((uint32_t)VREC(VarIndex)->val.s);PIntComma((uint32_t)VREC(VarIndex)->dims[0]);PRet();
 			if(emptyarray){ //empty array
 				for(k=0;k<MAXDIM;k++){
-					j=(vartbl[VarIndex].dims[k] - OptionBase + 1);
+					j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
 					if(j)card *= j;
 				}
 			}
@@ -2356,18 +2356,18 @@ void cmd_read(void) {
 		card=1;
 		if(emptyarray){
 			for(k=0;k<MAXDIM;k++){
-				j=(vartbl[VarIndex].dims[k] - OptionBase + 1);
+				j=(VREC(VarIndex)->dims[k] - OptionBase + 1);
 				if(j)card *= j;
 			}
 		}
 		for(k=0;k<card;k++){
 			if(k){
-				if(vartbl[VarIndex].type & (T_INT | T_NBR))ptr+=8;
-				else ptr+=vartbl[VarIndex].size+1;
+				if(VREC(VarIndex)->type & (T_INT | T_NBR))ptr+=8;
+				else ptr+=VREC(VarIndex)->size+1;
 				vtbl[vcnt]=ptr;
 			}
-			vtype[vcnt] = TypeMask(vartbl[VarIndex].type);
-			vsize[vcnt] = vartbl[VarIndex].size;
+			vtype[vcnt] = TypeMask(VREC(VarIndex)->type);
+			vsize[vcnt] = VREC(VarIndex)->size;
 			vcnt++;
 		}
     }
@@ -2491,13 +2491,13 @@ void cmd_restore(void) {
 		} else {
 			void *ptr=findvar(cmdline,V_NOFIND_NULL);
 			if(ptr){
-				if(vartbl[VarIndex].type & T_NBR) {
-					if(vartbl[VarIndex].dims[0] > 0) {		// Not an array
+				if(VREC(VarIndex)->type & T_NBR) {
+					if(VREC(VarIndex)->dims[0] > 0) {		// Not an array
 						error("Syntax");
 					}
 					NextDataLine = findline(getinteger(cmdline), true);
-				} else if(vartbl[VarIndex].type & T_INT) {
-					if(vartbl[VarIndex].dims[0] > 0) {		// Not an array
+				} else if(VREC(VarIndex)->type & T_INT) {
+					if(VREC(VarIndex)->dims[0] > 0) {		// Not an array
 						error("Syntax");
 					}
 					NextDataLine = findline(getinteger(cmdline), true);
@@ -2543,10 +2543,10 @@ void cmd_lineinput(void) {
 
 	if(argc - i != 1) error("Syntax");
 	vp = findvar(argv[i], V_FIND);
-    if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-	if(!(vartbl[VarIndex].type & T_STR)) error("Invalid variable");
+    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+	if(!(VREC(VarIndex)->type & T_STR)) error("Invalid variable");
 	MMgetline(fnbr, inpbuf);									    // get the input line
-	if(strlen(inpbuf) > vartbl[VarIndex].size) error("String too long");
+	if(strlen(inpbuf) > VREC(VarIndex)->size) error("String too long");
 	strcpy(vp, inpbuf);
 	CtoM(vp);														// convert to a MMBasic string
 }
@@ -2741,27 +2741,27 @@ void MIPS16 cmd_dim(void) {
             VIndexSave = VarIndex;
             if(v == NULL) {                                         // if not found
                 v = findvar(VarName, type | V_FIND | V_DIM_VAR);    // create the variable
-                type = TypeMask(vartbl[VarIndex].type);
+                type = TypeMask(VREC(VarIndex)->type);
                 VIndexSave = VarIndex;
                 *chPosit = chSave;                                  // restore the char previously removed
-                if(vartbl[VarIndex].dims[0] == -1) error("Array dimensions");
-                if(vartbl[VarIndex].dims[0] > 0) {
+                if(VREC(VarIndex)->dims[0] == -1) error("Array dimensions");
+                if(VREC(VarIndex)->dims[0] > 0) {
                     DimUsed = true;                                 // prevent OPTION BASE from being used
-                    v = vartbl[VarIndex].val.s;
+                    v = VREC(VarIndex)->val.s;
                 }
                 while(*p && *p != '\'' && tokenfunction(*p) != op_equal) p++;   // search through the line looking for the equals sign
                 if(tokenfunction(*p) == op_equal) {
                     p++;                                            // step over the equals sign
                     skipspace(p);
-                    if(vartbl[VarIndex].dims[0] > 0 && *p == '(') {
+                    if(VREC(VarIndex)->dims[0] > 0 && *p == '(') {
                         // calculate the overall size of the array
-                        for(j = 1, k = 0; k < MAXDIM && vartbl[VIndexSave].dims[k]; k++) {
-                            j *= (vartbl[VIndexSave].dims[k] + 1 - OptionBase);
+                        for(j = 1, k = 0; k < MAXDIM && VREC(VIndexSave)->dims[k]; k++) {
+                            j *= (VREC(VIndexSave)->dims[k] + 1 - OptionBase);
                         }
                         do {
                             p++;                                    // step over the opening bracket or terminating comma
                             p = SetValue(p, type, v);
-                            if(type & T_STR) v = (char *)v + vartbl[VIndexSave].size + 1;
+                            if(type & T_STR) v = (char *)v + VREC(VIndexSave)->size + 1;
                             if(type & T_NBR) v = (char *)v + sizeof(MMFLOAT);
                             if(type & T_INT) v = (char *)v + sizeof(long long int);
                             skipspace(p); j--;
@@ -2782,14 +2782,14 @@ void MIPS16 cmd_dim(void) {
                 tv = findvar(argv[i], typeSave | V_LOCAL | V_NOFIND_NULL);                        // check if the local variable exists
                 if(tv != NULL) error("$ already declared", argv[i]);
                 tv = findvar(argv[i], typeSave | V_LOCAL | V_FIND | V_DIM_VAR);                   // create the variable
-                if(vartbl[VIndexSave].dims[0] > 0 || (vartbl[VIndexSave].type & T_STR)) {
-                    FreeMemory(tv);                                                               // we don't need the memory allocated to the local
-                    vartbl[VarIndex].val.s = vartbl[VIndexSave].val.s;                            // point to the memory of the global variable
+                if(VREC(VIndexSave)->dims[0] > 0 || (VREC(VIndexSave)->type & T_STR)) {
+                    if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemory(tv);                           // we don't need the memory allocated to the local
+                    VREC(VarIndex)->val.s = VREC(VIndexSave)->val.s;                            // point to the memory of the global variable
                 } else
-                    vartbl[VarIndex].val.ia = &(vartbl[VIndexSave].val.i);                        // point to the data of the variable
-                vartbl[VarIndex].type = vartbl[VIndexSave].type | T_PTR;                          // set the type to a pointer
-                vartbl[VarIndex].size = vartbl[VIndexSave].size;                                  // just in case it is a string copy the size
-                for(j = 0; j < MAXDIM; j++) vartbl[VarIndex].dims[j] = vartbl[VIndexSave].dims[j];// just in case it is an array copy the dimensions
+                    VREC(VarIndex)->val.ia = &(VREC(VIndexSave)->val.i);                        // point to the data of the variable
+                VREC(VarIndex)->type = VREC(VIndexSave)->type | T_PTR;                          // set the type to a pointer
+                VREC(VarIndex)->size = VREC(VIndexSave)->size;                                  // just in case it is a string copy the size
+                for(j = 0; j < MAXDIM; j++) VREC(VarIndex)->dims[j] = VREC(VIndexSave)->dims[j];// just in case it is an array copy the dimensions
             }
         }
     }
@@ -2814,19 +2814,19 @@ void MIPS16 cmd_const(void) {
         type |= V_FIND | V_DIM_VAR | T_CONST | T_IMPLIED;
         if(LocalIndex != 0) type |= V_LOCAL;                        // local if defined in a sub/fun
         findvar(argv[i], type);                                     // create the variable
-        if(vartbl[VarIndex].dims[0] != 0) error("Invalid constant");
-        if(TypeMask(vartbl[VarIndex].type) != TypeMask(type)) error("Invalid constant");
+        if(VREC(VarIndex)->dims[0] != 0) error("Invalid constant");
+        if(TypeMask(VREC(VarIndex)->type) != TypeMask(type)) error("Invalid constant");
         else {
-            if(type & T_NBR) vartbl[VarIndex].val.f = *(MMFLOAT *)v;           // and set its value
-            if(type & T_INT) vartbl[VarIndex].val.i = *(long long int *)v;
-            //if(type & T_STR) Mstrcpy(vartbl[VarIndex].val.s, (char *)v);
+            if(type & T_NBR) VREC(VarIndex)->val.f = *(MMFLOAT *)v;           // and set its value
+            if(type & T_INT) VREC(VarIndex)->val.i = *(long long int *)v;
+            //if(type & T_STR) Mstrcpy(VREC(VarIndex)->val.s, (char *)v);
             // CONST string from Picomite 6.00.02RC5
             if(type & T_STR) {
- 				if((char)*(char *)v<(MAXDIM-1)*sizeof(vartbl[VarIndex].dims[1])){
- 					FreeMemorySafe((void **)&vartbl[VarIndex].val.s);
- 					vartbl[VarIndex].val.s=(void *)&vartbl[VarIndex].dims[1];
+ 				if((char)*(char *)v<(MAXDIM-1)*sizeof(VREC(VarIndex)->dims[1])){
+ 					if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemorySafe((void **)&VREC(VarIndex)->val.s);
+ 					VREC(VarIndex)->val.s=(void *)&VREC(VarIndex)->dims[1];
  			   }
- 			   Mstrcpy(vartbl[VarIndex].val.s, (char *)v);
+ 			   Mstrcpy(VREC(VarIndex)->val.s, (char *)v);
             }
         }
     }
@@ -2847,28 +2847,20 @@ void cmd_erasevar(char *erase) {
         while(!isnamechar(p[strlen(p) - 1])) p[strlen(p) - 1] = 0;
 
 		makeupper(p);                                               // all variables are stored as uppercase
-		for(j = MAXVARS/2; j < MAXVARS; j++) {
-            s = p;  x = vartbl[j].name; len = strlen(p);
+		for(j = MAXLOCALVARS; j < MAXVARS; j++) {
+            s = p;  x = VREC(j)->name; len = strlen(p);
             while(len > 0 && *s == *x) {                            // compare the variable to the name that we have
                 len--; s++; x++;
             }
             if(!(len == 0 && (*x == 0 || strlen(p) == MAXVARLEN))) continue;
     		// found the variable
-			if(((vartbl[j].type & T_STR) || vartbl[j].dims[0] != 0) && !(vartbl[j].type & T_PTR)) {
-				FreeMemory(vartbl[j].val.s);                        // free any memory (if allocated)
-				vartbl[j].val.s=NULL;
+			if(((VREC(j)->type & T_STR) || VREC(j)->dims[0] != 0) && !(VREC(j)->type & T_PTR) && !VAR_INLINE_STR(VREC(j))) {
+				FreeMemory(VREC(j)->val.s);                        // free any memory (if allocated)
+				VREC(j)->val.s=NULL;
 			}
 			k=j+1;
-			if(k==MAXVARS)k=MAXVARS/2;
-			if(vartbl[k].type){
-				vartbl[j].name[0]='~';
-				vartbl[j].type=T_BLOCKED;
-			} else {
-				vartbl[j].name[0]=0;
-				vartbl[j].type=T_NOTYPE;
-			}
-			vartbl[j].dims[0] = 0;                                    // and again
-			vartbl[j].level = 0;
+			if(k==MAXVARS)k=MAXLOCALVARS;
+			VarRecordRelease(j, VREC(k)->type != T_NOTYPE);         // its record to the free list; the slot blocked if a probe may have passed it
 			Globalvarcnt--;
 			break;
 		}

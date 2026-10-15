@@ -1,0 +1,12 @@
+ok  150 globals across five chunks keep their values
+ok  and are counted
+ok  75 erased
+ok  the others keep their values
+ok  new globals in the erased records, the old ones untouched
+ok  a short CONST
+ok  40 strings of LENGTH 10 in their records
+ok  erasing in-record and heap strings leaves the heap as it was
+ok  and the count
+ok  PEEK(VARHEADER) is the record: the name
+ok  PEEK(VARTBL) has gone
+vartable: 11 of 11 passed

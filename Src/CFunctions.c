@@ -56,7 +56,7 @@ const void * const CallTable[] __attribute__((section(".cspace")))  = {	(void *)
 																		(void *)SoftReset,
 																		(void *)error,
 																		(void *)&ProgMemory,
-																		(void *)&vartbl,
+																		(void *)&slotrec,                   // each variable number's record (VREC); was &vartbl
 																		(void *)&varcnt,
 																		(void *)&DrawBuffer,
 																		(void *)&ReadBuffer,
@@ -149,10 +149,10 @@ long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *Calle
             // if this is a straight variable we want to pass a pointer to its value in RAM
             if(isnamestart(*argv[i]) && (*skipvar(argv[i], false) == 0 || *skipvar(argv[i], false) == ')') && !(FindSubFun(argv[i], 1) >= 0 && strchr(argv[i], '(') != NULL)) {
                 arg[i/2] = findvar(argv[i], V_FIND | V_EMPTY_OK /* | V_NOFIND_ERR */ );   // if the argument
-                if(typ[i/2] != 0 && !(TypeMask(vartbl[VarIndex].type) & typ[i/2])) error("Incompatible type");
+                if(typ[i/2] != 0 && !(TypeMask(VREC(VarIndex)->type) & typ[i/2])) error("Incompatible type");
 #if defined(MX170)
                 // if we are using double floats we must make special provision when a non array float variable is in the argument list (we don't touch arrays of floats)
-                if(typ[i/2] == T_NBR && vartbl[VarIndex].dims[0] == 0) {
+                if(typ[i/2] == T_NBR && VREC(VarIndex)->dims[0] == 0) {
                   ffarg[i/2] = (MMFLOAT *)arg[i/2];                 // save a pointer to the arg
                   ff[i/2] = *(MMFLOAT *)arg[i/2];                   // convert to a single precision value and save for the CFun
                     arg[i/2] = &ff[i/2];                            // place a pointer to it in the CFun's parameter list

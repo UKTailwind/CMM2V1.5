@@ -1,0 +1,43 @@
+ok  recursive FUNCTION with locals, depth 20
+ok  each frame's locals survive the deeper calls
+ok  VARCNT back after deep recursion
+ok  a local hides the global G%
+ok  and the global is untouched
+ok  60 locals made and freed 20 times: VARCNT
+ok  and the heap
+ok  the locals were all there
+ok  an error 5 levels down was skipped
+ok  VARCNT after the skipped error
+ok  calls work afterwards
+ok  too many locals is an error
+  the message: Not enough Local variable memory
+  depth reached: 63
+ok  it went deep first
+ok  VARCNT back after the overflow
+ok  calls work after the overflow
+ok  BYVAL leaves the caller's variable (call 1)
+ok  BYREF changes it (call 1)
+ok  AS INTEGER and AS FLOAT parameters
+ok  string parameter and string FUNCTION
+ok  array parameter
+ok  a missing argument is zero
+ok  string array parameter
+ok  BYVAL leaves the caller's variable (call 2)
+ok  BYREF changes it (call 2)
+ok  AS INTEGER and AS FLOAT parameters
+ok  string parameter and string FUNCTION
+ok  array parameter
+ok  a missing argument is zero
+ok  string array parameter
+ok  BYVAL leaves the caller's variable (call 3)
+ok  BYREF changes it (call 3)
+ok  AS INTEGER and AS FLOAT parameters
+ok  string parameter and string FUNCTION
+ok  array parameter
+ok  a missing argument is zero
+ok  string array parameter
+ok  string array parameter (filled)
+ok  BYVAL on an array element
+ok  the element is unchanged
+ok  STATIC counted every frame
+locals: 40 of 40 passed

@@ -1155,13 +1155,13 @@ void cmd_ir(void) {
         if(argc%2 == 0 || argc == 0) error("Invalid syntax");
         IrVarType = 0;
         IrDev = findvar(argv[0], V_FIND);
-        if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        if(vartbl[VarIndex].type & T_STR)  error("Invalid variable");
-        if(vartbl[VarIndex].type & T_NBR) IrVarType |= 0b01;
+        if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        if(VREC(VarIndex)->type & T_STR)  error("Invalid variable");
+        if(VREC(VarIndex)->type & T_NBR) IrVarType |= 0b01;
         IrCmd = findvar(argv[2], V_FIND);
-        if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        if(vartbl[VarIndex].type & T_STR)  error("Invalid variable");
-        if(vartbl[VarIndex].type & T_NBR) IrVarType |= 0b10;
+        if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        if(VREC(VarIndex)->type & T_STR)  error("Invalid variable");
+        if(VREC(VarIndex)->type & T_NBR) IrVarType |= 0b10;
         InterruptUsed = true;
         IrInterrupt = GetIntAddress(argv[4]);							// get the interrupt location
         IrInit();
@@ -1337,9 +1337,9 @@ void DHT22(char *p) {
 
     // get the two variables
 	temp = findvar(argv[2], V_FIND);
-	if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+	if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
 	humid = findvar(argv[4], V_FIND);
-	if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+	if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
 
     // get the pin number and set it up
     pin = getinteger(argv[0]);
@@ -1422,19 +1422,19 @@ void cmd_bitbang(void){
     	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
 	   /*
 		ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-		if(vartbl[VarIndex].type & T_NBR) {
-			if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-			if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+		if(VREC(VarIndex)->type & T_NBR) {
+			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((vartbl[VarIndex].dims[0] - OptionBase) < num-1)error("Array too small");
+			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
 			a1float = (MMFLOAT *)ptr1;
-		} else if(vartbl[VarIndex].type & T_INT) {
-			if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-			if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+		} else if(VREC(VarIndex)->type & T_INT) {
+			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((vartbl[VarIndex].dims[0] - OptionBase) < num-1)error("Array too small");
+			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
 			a1int = (int64_t *)ptr1;
 		} else error("Argument 2 must be an array");
         */
@@ -1502,12 +1502,12 @@ void WS2812(char *q){
             nbr=getint(argv[4],1,512);
             if(nbr>1){
                 ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK);
-                if(vartbl[VarIndex].type & T_INT) {
-                    if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-                    if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+                if(VREC(VarIndex)->type & T_INT) {
+                    if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+                    if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
                         error("Argument 1 must be integer array");
                     } else {
-                        if((vartbl[VarIndex].dims[0] - OptionBase + 1)<nbr)error("Array size");
+                        if((VREC(VarIndex)->dims[0] - OptionBase + 1)<nbr)error("Array size");
                     }
                     dest = (long long int *)ptr1;
                 } else error("Argument 1 must be integer array");
@@ -1595,19 +1595,19 @@ void cmd_bitbang(void){
         if(IsInvalidPin(pin)) error("Invalid pin");
     	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
 		ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-		if(vartbl[VarIndex].type & T_NBR) {
-			if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-			if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+		if(VREC(VarIndex)->type & T_NBR) {
+			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((vartbl[VarIndex].dims[0] - OptionBase) < num-1)error("Array too small");
+			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
 			a1float = (MMFLOAT *)ptr1;
-		} else if(vartbl[VarIndex].type & T_INT) {
-			if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-			if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+		} else if(VREC(VarIndex)->type & T_INT) {
+			if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+			if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 				error("Argument 2 must be an array");
 			}
-			if((vartbl[VarIndex].dims[0] - OptionBase) < num-1)error("Array too small");
+			if((VREC(VarIndex)->dims[0] - OptionBase) < num-1)error("Array too small");
 			a1int = (int64_t *)ptr1;
 		} else error("Argument 2 must be an array");
 		data=GetTempMemory(num * sizeof(unsigned short));
@@ -1666,12 +1666,12 @@ void WS2812(char *q){
             nbr=getint(argv[4],1,64);
             if(nbr>1){
                 ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK);
-                if(vartbl[VarIndex].type & T_INT) {
-                    if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-                    if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+                if(VREC(VarIndex)->type & T_INT) {
+                    if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+                    if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
                         error("Argument 1 must be integer array");
                     } else {
-                        if((vartbl[VarIndex].dims[0] - OptionBase + 1)<nbr)error("Array size");
+                        if((VREC(VarIndex)->dims[0] - OptionBase + 1)<nbr)error("Array size");
                     }
                     dest = (long long int *)ptr1;
                 } else error("Argument 1 must be integer array");
@@ -1681,12 +1681,12 @@ void WS2812(char *q){
             }
     	} else {
 			ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK);
-			if(vartbl[VarIndex].type & T_INT) {
-				if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-				if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+			if(VREC(VarIndex)->type & T_INT) {
+				if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+				if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 					error("Argument 1 must be integer array");
 				}
-				nbr=(vartbl[VarIndex].dims[0] - OptionBase)+1;
+				nbr=(VREC(VarIndex)->dims[0] - OptionBase)+1;
 				dest = (long long int *)ptr1;
 			} else error("Argument 1 must be integer array");
 			}
@@ -1793,8 +1793,8 @@ void cmd_keypad(void) {
         if(argc%2 == 0 || argc < 17) error("Invalid syntax");
         if(KeypadInterrupt != NULL) error("Already open");
         KeypadVar = findvar(argv[0], V_FIND);
-        if(vartbl[VarIndex].type & T_CONST) error("Cannot change a constant");
-        if(!(vartbl[VarIndex].type & T_NBR)) error("Floating point variable required");
+        if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+        if(!(VREC(VarIndex)->type & T_NBR)) error("Floating point variable required");
         InterruptUsed = true;
         KeypadInterrupt = GetIntAddress(argv[2]);					// get the interrupt location
         for(i = 0; i < 8; i++) {

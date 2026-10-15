@@ -1,0 +1,17 @@
+ok  GOSUB a label
+ok  GOTO a label
+ok  RESTORE a label
+ok  ON GOSUB to three labels
+ok  ON GOTO to a label
+ok  call a SUB
+ok  call a FUNCTION
+ok  CALL a SUB by name
+ok  CALL a SUB by a name in lower case
+ok  CALL( a FUNCTION
+ok  EXECUTE a SUB call
+ok  a variable named like a SUB is an error
+ok  and says so
+ok  SETTICK to a SUB
+ok  SETTICK to a label
+names: 15 of 15 passed
+names: 600 labels and 300 SUBs reached, 600 300

@@ -110,12 +110,21 @@ typedef struct s_vartbl {                               // structure of the vari
     }  __attribute__ ((aligned (8))) val;
 } __attribute__ ((aligned (8))) xval;
 
-struct s_funtbl {
-	char name[MAXVARLEN];                       // variable's name
-	uint32_t index;
-};
-extern struct s_funtbl *funtbl;
-extern struct s_vartbl *vartbl;
+/* A variable's record is reached through its number: VREC(i) (the PicoMite's compact variable table).
+   The locals' records are vartbl, in D3 SRAM.  A global's record is in a chunk of VARCHUNK records taken
+   from the heap (on-chip RAM first) as globals are made, and never moves while the variable exists; a
+   free or blocked global slot points at a shared placeholder record, so every probe and walker reads a
+   slot the same way.  slotrec holds each number's record, beside vartbl. */
+extern struct s_vartbl *vartbl;                 // the locals' records (MAXLOCALVARS)
+extern struct s_vartbl **slotrec;               // the record of each variable number (MAXVARS)
+#define VREC(i) (slotrec[(i)])                  // the record of variable i
+#define VARCHUNK 32                             // globals' records per chunk (2 KB)
+// a string kept inside its own record (DIM s$ LENGTH 16 or less, a short CONST), not in the heap: never free it
+#define VAR_INLINE_STR(r) ((char *)(r)->val.s >= (char *)(r) && (char *)(r)->val.s < (char *)((r) + 1))
+void InitVarSlots(void);
+void VarChunksForget(void);
+void VarRecordRelease(int slot, int blocked);   // ERASE: a global's record back to the free list
+int VarChunkBytes(void);                        // the heap the globals' record chunks take (MEMORY)
 extern int varcnt;
 extern int Localvarcnt;                              // number of LOCAL variables defined (eg, largest index into the variable table)
 extern int Globalvarcnt;                              // number of GLOBAL variables defined (eg, largest index into the variable table)
@@ -234,6 +243,8 @@ extern char tknerrmsg[];                        // why tokenise() refused a line
 extern int tknfile, tknline;                    // the source of the line tokenise() makes for an image
 extern char *tknfilename;
 int ImageIsCurrent(void);                       // does program memory hold an image of this format?
+void SubLayoutForget(void);                     // the SUBs' parameter layouts are gone with the heap (P6 F1)
+void NameIndexForget(void);                     // the index of SUBs, FUNCTIONs and labels is gone with the heap
 char *ProgName(void);                           // the program's file name from the image, or NULL
 char *LineFileName(int file);                   // the name of source file 'file' (1 = the program)
 char *NextLine(char *line);                     // the line after the one at 'line'

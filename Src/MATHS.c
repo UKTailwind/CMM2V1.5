@@ -592,12 +592,12 @@ int parseintegerarray(char *tp, int64_t **a1int, int argno, int dimensions, int 
 	void *ptr1 = NULL;
 	int i,j;
 	ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-	if((vartbl[VarIndex].type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
-	if(dims==NULL)dims=vartbl[VarIndex].dims;
-	if(vartbl[VarIndex].type & T_INT) {
-		memcpy(dims,vartbl[VarIndex].dims, MAXDIM * sizeof(short));
+	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
+	if(dims==NULL)dims=VREC(VarIndex)->dims;
+	if(VREC(VarIndex)->type & T_INT) {
+		memcpy(dims,VREC(VarIndex)->dims, MAXDIM * sizeof(short));
 		*a1int = (int64_t *)ptr1;
-		if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
+		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be an integer array",argno);
 	int card=1;
 	if(dimensions==1 && (dims[0]<=0 || dims[1]>0))error("Argument % must be a 1D integer array",argno);
@@ -612,13 +612,13 @@ int parsenumberarray(char *tp, MMFLOAT **a1float, int64_t **a1int, int argno, in
 	void *ptr1 = NULL;
 	int i,j;
 	ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-	if((vartbl[VarIndex].type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
-	if(dims==NULL)dims=vartbl[VarIndex].dims;
-	if(vartbl[VarIndex].type & (T_INT | T_NBR)) {
-		memcpy(dims,vartbl[VarIndex].dims,  MAXDIM * sizeof(short));
-		if(vartbl[VarIndex].type & T_NBR) *a1float = (MMFLOAT *)ptr1;
+	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
+	if(dims==NULL)dims=VREC(VarIndex)->dims;
+	if(VREC(VarIndex)->type & (T_INT | T_NBR)) {
+		memcpy(dims,VREC(VarIndex)->dims,  MAXDIM * sizeof(short));
+		if(VREC(VarIndex)->type & T_NBR) *a1float = (MMFLOAT *)ptr1;
 		else *a1int=(int64_t *)ptr1;
-		if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
+		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be a numerical array",argno);
 	int card=1;
 	if(dimensions==1 && (dims[0]<=0 || dims[1]>0))error("Argument % must be a 1D numerical array",argno);
@@ -633,12 +633,12 @@ int parsefloatrarray(char *tp, MMFLOAT **a1float, int argno, int dimensions, int
 	void *ptr1 = NULL;
 	int i,j;
 	ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-	if((vartbl[VarIndex].type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
-	if(dims==NULL)dims=vartbl[VarIndex].dims;
-	if(vartbl[VarIndex].type & T_NBR) {
-		memcpy(dims,vartbl[VarIndex].dims,  MAXDIM * sizeof(short));
+	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
+	if(dims==NULL)dims=VREC(VarIndex)->dims;
+	if(VREC(VarIndex)->type & T_NBR) {
+		memcpy(dims,VREC(VarIndex)->dims,  MAXDIM * sizeof(short));
 		*a1float = (MMFLOAT *)ptr1;
-		if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
+		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be a floating point array",argno);
 	int card=1;
 	if(dimensions==1 && (dims[0]<=0 || dims[1]>0))error("Argument % must be a 1D floating point array",argno);
@@ -663,41 +663,41 @@ int parsearrays(char *tp, MMFLOAT **a1float, MMFLOAT **a2float,MMFLOAT **a3float
 int parseany(char *tp, MMFLOAT **a1float, int64_t **a1int, unsigned char ** a1str, int *length, bool stringarray){
 	void *ptr1 = findvar(tp, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	int arraylength;
-	if(vartbl[VarIndex].type & T_NBR) {
-		if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-		if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+	if(VREC(VarIndex)->type & T_NBR) {
+		if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+		if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 			error("Argument 1 must be a numerical array");
 		}
-		arraylength=vartbl[VarIndex].dims[0] - OptionBase + 1;
+		arraylength=VREC(VarIndex)->dims[0] - OptionBase + 1;
 		if(*length==0)*length=arraylength;
 		if(*length>arraylength)error("Array size");
 		*a1float = (MMFLOAT *)ptr1;
-		if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
-	} else if(ptr1 && vartbl[VarIndex].type & T_INT) {
-		if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-		if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
+	} else if(ptr1 && VREC(VarIndex)->type & T_INT) {
+		if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+		if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 			error("Argument 1 must be a numerical array");
 		}
-		arraylength=vartbl[VarIndex].dims[0] - OptionBase + 1;
+		arraylength=VREC(VarIndex)->dims[0] - OptionBase + 1;
 		if(*length==0)*length=arraylength;
 		if(*length>arraylength)error("Array size");
 		*a1int = (int64_t *)ptr1;
-		if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
-	} else if(ptr1 && vartbl[VarIndex].type & T_STR && !stringarray) {
+		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
+	} else if(ptr1 && VREC(VarIndex)->type & T_STR && !stringarray) {
 		*a1str=(unsigned char *)ptr1;
 		if(*length==0)*length=**a1str;
 		if(**a1str<*length)error("String size");
-	} else if(ptr1 && vartbl[VarIndex].type & T_STR && stringarray) {
-		if(vartbl[VarIndex].dims[1] != 0) error("Invalid variable");
-		if(vartbl[VarIndex].dims[0] <= 0) {		// Not an array
+	} else if(ptr1 && VREC(VarIndex)->type & T_STR && stringarray) {
+		if(VREC(VarIndex)->dims[1] != 0) error("Invalid variable");
+		if(VREC(VarIndex)->dims[0] <= 0) {		// Not an array
 			error("Argument 1 must be a string array");
 		}
-		arraylength=vartbl[VarIndex].dims[0] - OptionBase + 1;
+		arraylength=VREC(VarIndex)->dims[0] - OptionBase + 1;
 		if(*length==0)*length=arraylength;
 		if(*length>arraylength)error("Array size");
 		*a1str=(unsigned char *)ptr1;
-		if((uint32_t)ptr1!=(uint32_t)vartbl[VarIndex].val.s)error("Syntax");
-		*length=vartbl[VarIndex].size;
+		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
+		*length=VREC(VarIndex)->size;
 		return arraylength;
 	} else error("Syntax");
 	return *length;
@@ -1800,12 +1800,12 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			}
 			if(argc==11){
 				void *ptr1 = findvar(argv[8], V_FIND);
-				if(!(vartbl[VarIndex].type & (T_NBR | T_INT))) error("Invalid variable");
-				if(vartbl[VarIndex].type==T_INT)*(long long int *)ptr1=(long long int)inmin;
+				if(!(VREC(VarIndex)->type & (T_NBR | T_INT))) error("Invalid variable");
+				if(VREC(VarIndex)->type==T_INT)*(long long int *)ptr1=(long long int)inmin;
 				else *(MMFLOAT *)ptr1=inmin;
 				void *ptr2 = findvar(argv[10], V_FIND);
-				if(!(vartbl[VarIndex].type & (T_NBR | T_INT))) error("Invalid variable");
-				if(vartbl[VarIndex].type==T_INT)*(long long int *)ptr2=(long long int)inmax;
+				if(!(VREC(VarIndex)->type & (T_NBR | T_INT))) error("Invalid variable");
+				if(VREC(VarIndex)->type==T_INT)*(long long int *)ptr2=(long long int)inmax;
 				else *(MMFLOAT *)ptr2=inmax;
 			}
 			if(a2float!=NULL && a1float!=NULL){ //in and out are floats
@@ -2495,7 +2495,7 @@ void __attribute__((section(".extra"))) fun_math(void){
 					error("Argument 1 must be a 1D numerical array");
 				}
 				temp = findvar(argv[2], V_FIND);
-				if(!(vartbl[VarIndex].type & T_INT)) error("Invalid variable");
+				if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable");
 			}
 
 			if(a1float!=NULL){
@@ -2537,7 +2537,7 @@ void __attribute__((section(".extra"))) fun_math(void){
 					error("Argument 1 must be a 1D numerical array");
 				}
 				temp = findvar(argv[2], V_FIND);
-				if(!(vartbl[VarIndex].type & T_INT)) error("Invalid variable");
+				if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable");
 			}
 			if(a1float!=NULL){
 				for(i=0; i< card1;i++){
@@ -2895,11 +2895,11 @@ void __attribute__((section(".extra"))) cmd_SensorFusion(char *passcmdline){
         my=getnumber(argv[14]);
         mz=getnumber(argv[16]);
         pitch = findvar(argv[18], V_FIND);
-        if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+        if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
         roll = findvar(argv[20], V_FIND);
-        if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+        if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
         yaw = findvar(argv[22], V_FIND);
-        if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+        if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
         beta = 0.5;
         if(argc == 25) beta=getnumber(argv[24]);
         t=(MMFLOAT)AHRSTimer/1000.0;
@@ -2925,11 +2925,11 @@ void __attribute__((section(".extra"))) cmd_SensorFusion(char *passcmdline){
         my=getnumber(argv[14]);
         mz=getnumber(argv[16]);
         pitch = findvar(argv[18], V_FIND);
-        if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+        if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
         roll = findvar(argv[20], V_FIND);
-        if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+        if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
         yaw = findvar(argv[22], V_FIND);
-        if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+        if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
         Kp=10.0 ; Ki=0.0;
         if(argc >= 25)Kp=getnumber(argv[24]);
         if(argc == 27)Ki=getnumber(argv[26]);

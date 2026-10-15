@@ -60,8 +60,17 @@ const struct s_tokentbl tokentbl[] = {
 
 // these are initialised at startup
 int CommandTableSize, TokenTableSize;
-struct s_funtbl *funtbl = (struct s_funtbl *)FUNBASE;											// this table stores all the subroutines and functions
-struct s_vartbl *vartbl;                                            // this table stores all variables
+struct s_vartbl *vartbl;                                            // the locals' records (MAXLOCALVARS), in D3 SRAM
+struct s_vartbl **slotrec;                                          // the record of each variable number (VREC), beside them
+static struct s_vartbl emptyrec;                                    // every free global slot's record
+static struct s_vartbl blockedrec = {.name = "~", .type = T_BLOCKED};   // every blocked one's (see VarRecordRelease)
+static struct {                                                     // the globals' record chunks, in the heap
+    struct s_vartbl *chunk[MAXGLOBALVARS / VARCHUNK + 1];
+    int chunks;
+    int cur;                                                        // the chunk records are being handed out from
+    struct s_vartbl *next, *end;                                    // its records not yet used
+    struct s_vartbl *free;                                          // erased globals' records (newest first, linked through the name)
+} varmem;
 int varcnt;
 int Localvarcnt;                                                         // number of LOCAL variables
 int Globalvarcnt;                                                         // number of GLOBAL variables
@@ -70,7 +79,7 @@ int LocalIndex;                                                     // used to t
 char OptionExplicit,OptionEscape;                                                // used to force the declaration of variables before their use
 char DefaultType;                                                   // the default type if a variable is not specifically typed
 int emptyarray=0;
-struct s_hash hashlist[MAXVARS/2];
+struct s_hash hashlist[MAXLOCALVARS];
 char *subfun[MAXSUBFUN];                                            // table used to locate all subroutines and functions
 jmp_buf run;                                                       // longjump to recover from an error and abort
 jmp_buf mark;                                                       // longjump to recover from an error and abort
@@ -78,6 +87,10 @@ jmp_buf ErrNext;                                                    // longjump 
 char __attribute__ ((aligned (8))) inpbuf[STRINGSIZE];                                            // used to store user keystrokes until we have a line
 char __attribute__ ((aligned (8))) tknbuf[TKNBUFSIZE];                                          // used to store the tokenised representation of the users input line
 int hashlistpointer=0;
+/* P6 F2 (the PicoMite's a7154a1): the local region (slots 0 to MAXLOCALVARS - 1) is a stack.  Each local is
+   made in the next slot up, and hashlist lists the live ones in the order they were made, each with its
+   level: a level's locals are the topmost entries of that level.  localtop is the next slot to use. */
+static int localtop = 0;
 int NextData;                                                       // used to track the next item to read in DATA & READ stmts
 char *NextDataLine;                                                 // used to track the next line to read in DATA & READ stmts
 int OptionBase;
@@ -203,10 +216,6 @@ const char digit[256]={
 void getexpr(char *);
 void checktype(int *, int);
 char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta);
-void hashlabels(int ErrAbort);
-// entries in funtbl (SUBs, FUNCTIONs and labels): at most MAXSUBFUN - 1, so that there is always an
-// empty slot and every search of the table ends
-static int funtbl_used;
 char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
 CommandToken cmdIF, cmdENDIF,  cmdELSEIF, cmdELSE, cmdSELECT_CASE, cmdFOR, cmdNEXT, cmdWHILE, cmdENDSUB, cmdENDFUNCTION, cmdLOCAL, cmdSTATIC, cmdCASE, cmdDO, cmdLOOP, cmdCASE_ELSE, cmdEND_SELECT;
 CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET;
@@ -414,87 +423,164 @@ void cleanup(void){
 
 
 
+/* ---------------------------------------------------------------------------------------------------------
+   The name index (the PicoMite's 825ade6): every SUB, FUNCTION, CSUB and label of the program, by name, for
+   FindSubFun, findlabel and findvar's check that a new variable is not named like a SUB.  Made in the heap
+   by PrepareProgram, a power of two of 8-byte slots at most half full.  A slot keeps the top half of the
+   name's FNV-1a hash (of the name in capitals, without a type suffix), its length, its kind and where it
+   is; not the name, which is read from the definition when the rest matches.  It replaces funtbl (18 KB,
+   a copy of every name) and hashlabels.  Labels are not counted against MAXSUBFUN.
+   --------------------------------------------------------------------------------------------------------- */
+#define NK_SUB 1                                                    // a SUB or CSUB: target is its subfun[] index
+#define NK_FUN 2                                                    // a FUNCTION: likewise
+#define NK_LABEL 3                                                  // a label: target is its line's T_NEWLINE
+struct s_nameslot {
+    uint16_t hash16;
+    uint8_t len;
+    uint8_t kind;                                                   // 0: empty
+    uint32_t target;
+};
+static struct s_nameslot NameNone[1];                               // the index of a program with no names: one empty slot
+static struct s_nameslot *NameIndex = NameNone;                     // in the heap, or NameNone
+static uint32_t NameMask;                                           // its slots - 1
+static int NameSubs;                                                // the SUBs, FUNCTIONs and CSUBs in subfun[]
+static int NameBuilt;                                               // made for this heap (PrepareProgram makes it once)
+
+// the heap has been wiped: the index went with it
+void NameIndexForget(void) {
+    NameIndex = NameNone;
+    NameMask = 0;
+    NameBuilt = 0;
+}
+
+static inline uint32_t NameHash(const char *nm, int nl) {
+    uint32_t hash = FNV_offset_basis;
+    while(nl--) {
+        hash ^= toupper(*nm++);
+        hash *= FNV_prime;
+    }
+    return hash;
+}
+
+// a label's name, from its line's T_NEWLINE (tokenise puts a label first on its line, after any line number)
+static const char *NameOfLabel(char *line, int *len) {
+    char *q = line + T_NEWLINE_HDR;
+    while(*q == ' ') q++;
+    if(*q == T_LINENBR) {
+        q += 3;
+        while(*q == ' ') q++;
+    }
+    *len = (unsigned char)q[1];                                     // (q[0] is T_LABEL)
+    return q + 2;
+}
+
+// the spelling of SUB/FUNCTION i (without a type suffix)
+static const char *NameOfSub(int i, int *len) {
+    char *p = subfun[i] + sizeof(CommandToken), *q;
+    skipspace(p);
+    for(q = p; isnamechar(*q); q++);
+    *len = q - p;
+    return p;
+}
+
+// is slot s the name nm (nl characters)?
+static inline int NameIs(const struct s_nameslot *s, const char *nm, int nl, uint32_t hash) {
+    int l;
+    const char *sv;
+    if(s->hash16 != (hash >> 16) || s->len != nl) return 0;
+    sv = s->kind == NK_LABEL ? NameOfLabel((char *)s->target, &l) : NameOfSub(s->target, &l);
+    while(nl--)
+        if(toupper(*sv++) != toupper(*nm++)) return 0;
+    return 1;
+}
+
+// put a name in the index: returns the slot of the same name already there (a duplicate, left as it was), or
+// NULL when it was added.  SUBs, FUNCTIONs and CSUBs share one set of names, labels have their own.
+static struct s_nameslot *NameAdd(const char *nv, int nl, int kind, uint32_t target) {
+    uint32_t i, hash = NameHash(nv, nl);
+    for(i = hash & NameMask; NameIndex[i].kind; i = (i + 1) & NameMask)
+        if((NameIndex[i].kind == NK_LABEL) == (kind == NK_LABEL) && NameIs(&NameIndex[i], nv, nl, hash))
+            return &NameIndex[i];                                   // (a SUB and a FUNCTION may not share a name either)
+    NameIndex[i].hash16 = hash >> 16;
+    NameIndex[i].len = nl;
+    NameIndex[i].kind = kind;
+    NameIndex[i].target = target;
+    return NULL;
+}
+
+// "Error: Duplicate ... NAME" as PrepareProgram has always reported a SUB defined twice
+static void NameDuplicate(const char *what, const char *nv, int nl) {
+    MMPrintString((char *)what);
+    while(nl--) MMputchar(*nv++);
+    cleanup();
+}
+
+// the labels of the program: counted (add == 0) or added
+static int NameLabels(int add, int ErrAbort) {
+    char *p = (char *)ProgMemory;
+    int n = 0;
+    while(*p == T_NEWLINE) {
+        char *q = p + T_NEWLINE_HDR;
+        while(*q == ' ') q++;
+        if(*q == T_LINENBR) {
+            q += 3;
+            while(*q == ' ') q++;
+        }
+        if(*q == T_LABEL) {
+            n++;
+            if(add && NameAdd(q + 2, (unsigned char)q[1], NK_LABEL, (uint32_t)p) != NULL && ErrAbort)
+                NameDuplicate("Error: Duplicate label ", q + 2, (unsigned char)q[1]);
+        }
+        p = NextLine(p);
+    }
+    return n;
+}
+
+// make the index for the nsubs entries of subfun[] and the labels of the program; with ErrAbort a name
+// defined twice is an error.  Its memory: on-chip RAM while there is room, then the SDRAM heap.
+static void NameIndexBuild(int nsubs, int ErrAbort) {
+    int n, size, i, nl;
+    const char *nv;
+    NameIndexForget();                                              // (a heap wipe or a new heap: nothing to free)
+    NameBuilt = 1;
+    NameSubs = nsubs;
+    n = nsubs + NameLabels(0, 0);
+    if(n == 0) return;                                              // (NameNone)
+    for(size = 16; size < 2 * n; size <<= 1);
+    if((NameIndex = GetInternalMemoryNull(size * sizeof(struct s_nameslot))) == NULL)
+        NameIndex = GetMemory(size * sizeof(struct s_nameslot));
+    NameMask = size - 1;
+    for(i = 0; i < nsubs; i++) {
+        nv = NameOfSub(i, &nl);
+        if(NameAdd(nv, nl, commandtbl_at(subfun[i]) == cmdFUN ? NK_FUN : NK_SUB, i) != NULL && ErrAbort)
+            NameDuplicate("Error: Duplicate name ", nv, nl);
+    }
+    NameLabels(1, ErrAbort);
+}
+
+// the first slot of a name of the kinds in kinds (a bit per kind), or NULL
+static struct s_nameslot *NameFind(const char *nm, int nl, int kinds) {
+    uint32_t hash = NameHash(nm, nl);
+    for(uint32_t i = hash & NameMask; NameIndex[i].kind; i = (i + 1) & NameMask)
+        if(((kinds >> NameIndex[i].kind) & 1) && NameIs(&NameIndex[i], nm, nl, hash))
+            return &NameIndex[i];
+    return NULL;
+}
+
 // Scan through the program loaded in flash and build a table pointing to the definition of all user defined subroutines and functions.
 // This pre processing speeds up the program when using defined subroutines and functions
 // this routine also looks for embedded fonts and adds them to the font table
 void MIPS16 PrepareProgram(int ErrAbort) {
     int MIPS16 PrepareProgramExt(char *, int, unsigned char **, int);
-    int i, j, NbrFuncts, namelen;
-    uint32_t hash=FNV_offset_basis;
-    char *p1, *p2;
-    char printvar[MAXVARLEN+1];
+    int i, NbrFuncts;
     for(i = FONT_BUILTIN_NBR; i < FONT_TABLE_SIZE; i++)
         FontTable[i] = NULL;                                        // clear the font table
 
-    NbrFuncts = 0;
     CFunctionFlash  = NULL;
-    mymemset(funtbl,0,sizeof(struct s_funtbl)*MAXSUBFUN);
-    funtbl_used = 0;
-    PrepareProgramExt((char *)ProgMemory, NbrFuncts, &CFunctionFlash, ErrAbort);
-    // check the sub/fun table for duplicates
-    for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
-    	// First we will hash the function name and add it to the function table
-    	// This allows for a fast check of a variable name being the same as a function name
-    	// It also allows a hash look up for function name matching
-    	p1 = subfun[i] + sizeof(CommandToken);                     // step over the SUB/FUNCTION token
-        skipspace(p1);
-        p2 = printvar; namelen = 0;
-        hash=FNV_offset_basis;
-    	do {
-    		hash ^= *p1;
-    		hash*=FNV_prime;
-    		*p2++ = (*p1++);
-    		if(++namelen > MAXVARLEN){
-    			MMPrintString("Error: Function name too long");
-    			cleanup();
-    		}
-
-    	} while(isnamechar(*p1));
-    	if(namelen!=MAXVARLEN)*p2=0;
-        if(funtbl_used >= MAXSUBFUN - 1) {                          // the table must keep an empty slot, or a search never ends
-            if(ErrAbort) {
-                CurrentLinePtr = subfun[i];
-                error("Too many subroutines, functions and labels");
-            }
-            break;                                                  // at the prompt: RUN reports it
-        }
-        funtbl_used++;
-    	hash &= MAXHASH; //scale to size of table
-		while(funtbl[hash].name[0]!=0){
-			hash++;
-			if(hash==MAXSUBFUN)hash=0;
-		}
-		funtbl[hash].index=i;
-		memcpy(funtbl[hash].name,printvar,(namelen == MAXVARLEN ? namelen :namelen+1));
-    }
-    hashlabels(ErrAbort);
-    if(!ErrAbort) return;
-    for(i = 0; i < MAXSUBFUN && subfun[i] != NULL; i++) {
-//    	MMPrintString(printvar);PIntComma(i);PRet();
-        for(j = i + 1; j < MAXSUBFUN && subfun[j] != NULL; j++) {
-            CurrentLinePtr = p1 = subfun[i];
-            p1 += sizeof(CommandToken);                             // step over the SUB/FUNCTION tokens
-            skipspace(p1);
-            p2 = subfun[j] + sizeof(CommandToken);
-            skipspace(p2);
-            while(1) {
-                if(!isnamechar(*p1) && !isnamechar(*p2)) {
-                	char *nm = subfun[j] + sizeof(CommandToken);  // the name, not the SUB/FUNCTION token before it
-                	skipspace(nm);
-                	MMPrintString("Error: Duplicate name ");
-                	while(isnamechar(*nm)) MMputchar(*nm++);
-                	cleanup();
-                }
-                if((*p1) != (*p2)) break;
-                p1++; p2++;
-            }
-        }
-    }
-//    for(i=0;i<MAXSUBFUN;i++){
-//    	if(funtbl[i].name[0]!=0){
-//    		MMPrintString(funtbl[i].name);PIntHC(funtbl[i].index);PIntComma(i);PRet();
-//    	}
-//    }
+    NbrFuncts = PrepareProgramExt((char *)ProgMemory, 0, &CFunctionFlash, ErrAbort);
+    // the index of every SUB, FUNCTION, CSUB and label by name, which also finds a name defined twice: made
+    // once for a heap (RUN and loading a program wipe it), not before every line typed at the prompt
+    if(!NameBuilt) NameIndexBuild(NbrFuncts, ErrAbort);
     copy_clock();
 }
 
@@ -550,45 +636,19 @@ int MIPS16 PrepareProgramExt(char *p, int i, unsigned char **CFunPtr, int ErrAbo
 // returns with the index of the sub/function in the table or -1 if not found
 // if type = 0 then look for a sub otherwise a function
 int FindSubFun(char *p, int type) {
-    char *s;
     char name[MAXVARLEN + 1];
-    int j, namelen;
-    unsigned int hash=FNV_offset_basis;
-	char *tp, *ip;
-
-// copy the variable name into name
-    s = name; namelen = 0;
-	do {
-		hash ^= *p;
-		hash*=FNV_prime;
-		*s++ = (*p++);
-		if(++namelen > MAXVARLEN) error("Variable name too long");
-	} while(isnamechar(*p));
-	*s=0;
-	hash &= MAXHASH; //scale 0-512
-//	MMPrintString("Searching for function: ");MMPrintString(name);PIntComma(hash);PRet();
-	while(funtbl[hash].name[0]!=0){
-		ip=name;
-		tp=funtbl[hash].name;
-//		MMPrintString("Testing : ");MMPrintString(tp);PRet();
-		if(*ip++ == *tp++) {                 // preliminary quick check
-			j = namelen-1;
-			while(j > 0 && *ip == *tp) {                              // compare each letter
-				j--; ip++; tp++;
-			}
-			if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN) && funtbl[hash].index<MAXSUBFUN) {       // found a matching name
-				// it must also be the kind asked for: a SUB or CSUB for a statement (type 0), a FUNCTION for
-				// an expression (type 1).  Otherwise a FUNCTION called as a statement, or a SUB used in an
-				// expression, ran part way and failed inside itself with a misleading error.
-				CommandToken tkn = commandtbl_at(subfun[funtbl[hash].index]);
-				if(type ? tkn == cmdFUN : (tkn == cmdSUB || tkn == cmdCSUB)) return funtbl[hash].index;
-				return -1;
-			}
-		}
-		hash++;
-		if(hash==MAXSUBFUN)hash=0;
-	}
-    return -1;
+    int nl = 0;
+    struct s_nameslot *n;
+    do {
+        if(nl >= MAXVARLEN) error("Variable name too long");
+        name[nl++] = *p++;
+    } while(isnamechar(*p));
+    if((n = NameFind(name, nl, (1 << NK_SUB) | (1 << NK_FUN))) == NULL) return -1;
+    // it must also be the kind asked for: a SUB or CSUB for a statement (type 0), a FUNCTION for an
+    // expression (type 1).  Otherwise a FUNCTION called as a statement, or a SUB used in an expression, ran
+    // part way and failed inside itself with a misleading error.
+    if(n->kind != (type ? NK_FUN : NK_SUB)) return -1;
+    return n->target;
 }
 
 
@@ -600,6 +660,111 @@ union u_argval {
     long long int *ia;                                          // pointer to the allocated memory if it is an array of integers
     char *s;                                                    // pointer to the allocated memory if it is a string
 };
+
+/* P6 F1 (the PicoMite's 960ba97, packed as in a856559): a SUB's or FUNCTION's parameter list as
+   DefinedSubFun reads it, read on its first call by the code that read it on every call before, and kept
+   for the run: each parameter's name (to its AS, terminated), its BYVAL or BYREF and its AS type, and where
+   the body starts.  The layouts go one after another into 1 KB heap blocks linked through their first word;
+   InitHeap() forgets them with the rest of the heap (SubLayoutForget). */
+#define SL_BYVAL 1
+#define SL_BYREF 2
+struct s_subparam {
+    char *name;                 // the parameter's text as findvar is given it (to its AS, terminated)
+    int type;                   // its AS type, or T_NOTYPE
+    int by;                     // SL_BYVAL, SL_BYREF or 0
+};
+struct s_sublayout {
+    char *def;                  // subfun[] as it was read (a stale layout is read again)
+    char *body;                 // the body's first statement
+    int argc2;                  // makeargs' count for the parameter list
+    struct s_subparam p[];      // each parameter, (argc2 + 1) / 2 of them
+};
+static struct s_sublayout **SubLay;                                 // per subfun[] index (SubLayN of them), NULL = not read yet
+static int SubLayN;                                                 // the table's entries: the program's SUBs when it was made
+#define SL_BLOCK 1024
+static char *SubLayBlock;                                           // the newest block, or NULL
+static char *SubLayNext;                                            // where in it the next layout goes
+static int SubLayRoom;                                              // and the bytes left after that
+
+void SubLayoutForget(void) {
+    SubLay = NULL;
+    SubLayN = 0;
+    SubLayBlock = SubLayNext = NULL;
+    SubLayRoom = 0;
+}
+
+// room for a layout of size bytes in the blocks (a new block if the newest has too little left)
+static struct s_sublayout *SubLayoutPlace(int size) {
+    size = (size + 7) & ~7;
+    if(size > SubLayRoom) {
+        int n = size + (int)sizeof(void *) > SL_BLOCK ? size + (int)sizeof(void *) : SL_BLOCK;
+        char *b = GetMemory(n);
+        *(char **)b = SubLayBlock;
+        SubLayBlock = b;
+        SubLayNext = b + 8;                                         // (8: the layouts stay 8-aligned)
+        SubLayRoom = n - 8;
+    }
+    SubLayNext += size;
+    SubLayRoom -= size;
+    return (struct s_sublayout *)(SubLayNext - size);
+}
+
+// The parameter list at p of subfun[index], read as DefinedSubFun read it, errors and all (in the argument
+// buffers it passes), and kept.
+static struct s_sublayout *SubLayoutBuild(int index, char *p, char *argbuf2, char **argv2) {
+    struct s_sublayout *L = NULL;
+    char *q, *tp, *names = NULL;
+    int argc2 = 0, i, n, size, pass, by, type;
+    if(*p) makeargs(&p, MAX_ARG_COUNT, argbuf2, argv2, &argc2, (*p == '(') ? "(," : ",");
+    if(argc2 && (argc2 & 1) == 0) error("Argument list");
+    n = (argc2 + 1) / 2;
+    size = sizeof(struct s_sublayout) + n * sizeof(struct s_subparam);
+    for(pass = 0; pass < 2; pass++) {                               // twice: reading (every error raised) and sizing, then filling
+        for(i = 0; i < argc2; i += 2) {
+            q = argv2[i];
+            skipspace(q);
+            by = 0;
+            if(toupper(*q) == 'B' && toupper(q[1]) == 'Y') {        // BYVAL or BYREF
+                if(checkstring(q + 2, "VAL") != NULL) by = SL_BYVAL;
+                else if(checkstring(q + 2, "REF") != NULL) by = SL_BYREF;
+                if(by) { q += 5; skipspace(q); }                    // skip to the variable start
+            }
+            type = T_NOTYPE;
+            tp = skipvar(q, false);                                 // point to after the variable
+            skipspace(tp);
+            if(*tp == tokenAS) {                                    // are we using Microsoft syntax (eg, AS INTEGER)?
+                CheckIfTypeSpecified(tp + 1, &type, true);          // and get the type
+                if(!(type & T_IMPLIED)) error("Variable type");
+            } else
+                tp = q + strlen(q);                                 // (the text findvar is given ends at AS, or at the end)
+            if(pass == 0)
+                size += tp - q + 1;
+            else {
+                struct s_subparam *sp = &L->p[i >> 1];
+                memcpy(names, q, tp - q);
+                names[tp - q] = 0;
+                sp->name = names;
+                names += tp - q + 1;
+                sp->type = type;
+                sp->by = by;
+            }
+        }
+        if(pass == 0) {
+            if(SubLay == NULL) {
+                SubLayN = NameSubs;                                 // (index is one of them)
+                SubLay = GetMemory(SubLayN * sizeof(*SubLay));
+            }
+            if(index < SubLayN) L = SubLay[index] = SubLayoutPlace(size);   // a stale layout's space is left until the heap is wiped
+            else L = GetTempMemory(size);                           // (not in the table: read again on each call)
+            L->def = subfun[index];
+            L->argc2 = argc2;
+            names = (char *)&L->p[n];
+        }
+    }
+    skipelement(p);                                                 // point to the body of the sub/fun
+    L->body = p;
+    return L;
+}
 
 // This function is responsible for executing a defined subroutine or function.
 // As these two are similar they are processed in the one lump of code.
@@ -626,6 +791,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     int *argtype;
     union u_argval *argval;
     int *argVarIndex;
+    struct s_sublayout *L;                                          // the definition's parameter list, as read on its first call (P6 F1)
     // Any errors generated after gosubindex is incremented need to restore the original value
     // Any variables created if LocalIndex was incremented also need to be cleared
     // Memory allocated to *argval needs to be recovered.
@@ -752,13 +918,12 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     argc1 = 0;
     if(*tp) makeargs(&tp, MAX_ARG_COUNT, argbuf1, argv1, &argc1, (*tp == '(') ? "(," : ",");
 
-    // split up the arguments in the definition
+    // the arguments in the definition, as read on its first call (P6 F1)
     CurrentLinePtr = SubLinePtr;                                    // any errors must be at the definition
-    argc2 = 0;
-    if(*p) makeargs(&p, MAX_ARG_COUNT, argbuf2, argv2, &argc2, (*p == '(') ? "(," : ",");
+    L = (SubLay != NULL && index < SubLayN && SubLay[index] != NULL && SubLay[index]->def == subfun[index]) ? SubLay[index] : SubLayoutBuild(index, p, argbuf2, argv2);
+    argc2 = L->argc2;
 
     // error checking
-    if(argc2 && (argc2 & 1) == 0){ error("Argument list");}
     CurrentLinePtr = CallersLinePtr;                                // report errors at the caller
     if(argc1 > argc2 || (argc1 && (argc1 & 1) == 0)) { error("Argument list");}
 
@@ -776,7 +941,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
                  if(!(FindSubFun(argv1[i], 1) >= 0 && strchr(argv1[i], '(') != NULL)) {
                      // yes, this is a valid variable.  set argvalue to point to the variable's data and argtype to its type
                 	 argval[i].s = findvar(argv1[i], V_FIND | V_EMPTY_OK);        // get a pointer to the variable's data
-                     argtype[i] = vartbl[VarIndex].type;                          // and the variable's type
+                     argtype[i] = VREC(VarIndex)->type;                          // and the variable's type
                      argVarIndex[i] = VarIndex;
                      if(argtype[i] & T_CONST) {
                          argtype[i] = 0;                                          // we don't want to point to a constant
@@ -786,15 +951,13 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
                  }
              }
 
-            // check for BYVAL or BYREF in sub/fun definition
+            // BYVAL or BYREF in the sub/fun definition (as read on its first call)
              argbyref[i]=0;
-             skipspace(argv2[i]);
-             if(toupper(*argv2[i]) == 'B' && toupper(*(argv2[i]+1)) == 'Y') {
-              	if((checkstring(argv2[i] + 2, "VAL")) != NULL) {      // if BYVAL
+             if(L->p[i >> 1].by == SL_BYVAL) {                      // if BYVAL
               	    //Only if not an array remove any pointer flag in the caller
               	    argtype[i] = 0;
                     // Trap an array but remove pointer if an array element
-                	if(vartbl[argVarIndex[i]].dims[0] > 0){
+                	if(VREC(argVarIndex[i])->dims[0] > 0){
               	    	/*
               	    	 * Set tp to point to the current parameter
               	    	 * See if we have an array or an array element
@@ -805,27 +968,10 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
                   	    skipspace(tp);
                   	    if(*tp == ')') error("Array as BYVAL not allowed $",argv1[i]);
                  	}
-              	    argv2[i] += 5;										// skip to the variable start
-
-              	} else {
-                	if((checkstring(argv2[i] + 2, "REF")) != NULL) {    // if BYREF
+             } else if(L->p[i >> 1].by == SL_BYREF) {               // if BYREF
                 	  if((argtype[i] & T_PTR) == 0)error("Variable required for BYREF $", argv1[i]);
-                	  /*
-                	  // Trap an array element trying for BYREF
-                  	  if(vartbl[argVarIndex[i]].dims[0] > 0){
-                  	     tp=argv1[i];
-                  	     do {tp++;} while(*tp != '(');
-                  	     tp++;
-                  	     skipspace(tp);
-                  	     if(!(*tp == ')') ) error("Array Element as BYREF not allowed $",argv1[i]);
-                  	  }
-                  	  */
-
-            	      argv2[i] += 5;									// skip to the variable start
             	      argbyref[i]=1;
-               	    }
-            	}
-   			}
+             }
 
              // if argument is present and is not a pointer to a variable then evaluate it as an expression
             if(argtype[i] == 0) {
@@ -852,52 +998,33 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     CurrentLinePtr = SubLinePtr;                                    // any errors must be at the definition
     LocalIndex++;
     for(i = 0; i < argc2; i += 2) {                                 // count through the arguments in the definition of the sub/fun
-        ArgType = T_NOTYPE;
-        //skip BYVAL/BYREF keywords
-
-        if(toupper(*argv2[i]) == 'B' && toupper(*(argv2[i]+1)) == 'Y') {
-        	if((checkstring(argv2[i] + 2, "VAL")) != NULL) {
-        		argv2[i] += 5;
-           	}else if((checkstring(argv2[i] + 2, "REF")) != NULL) {    // if BYREF
-        		argv2[i] += 5;									// skip to the variable start
-           	}
-        }
-
-        tp = skipvar(argv2[i], false);                              // point to after the variable
-        skipspace(tp);
-        if(*tp == tokenAS) {                                        // are we using Microsoft syntax (eg, AS INTEGER)?
-            *tp++ = 0;                                              // terminate the string and step over the AS token
-            tp = CheckIfTypeSpecified(tp, &ArgType, true);          // and get the type
-            if(!(ArgType & T_IMPLIED)){error("Variable type");}
-
-        }
-
+        ArgType = L->p[i >> 1].type;                                // its AS type, as read on the first call
         ArgType |= (V_FIND | V_DIM_VAR | V_LOCAL | V_EMPTY_OK);
-        tp = findvar(argv2[i], ArgType);                            // declare the local variable
-        if(vartbl[VarIndex].dims[0] > 0){error("Argument list"); }   // if it is an array it must be an empty array
+        tp = findvar(L->p[i >> 1].name, ArgType);                   // declare the local variable
+        if(VREC(VarIndex)->dims[0] > 0){error("Argument list"); }   // if it is an array it must be an empty array
         CurrentLinePtr = CallersLinePtr;                            // report errors at the caller
 
         // if the definition called for an array, special processing and checking will be required
-       	if(vartbl[VarIndex].dims[0] == -1) {
+       	if(VREC(VarIndex)->dims[0] == -1) {
         	int j;
-            if(vartbl[argVarIndex[i]].dims[0] == 0)  { error("Expected an array");}
+            if(VREC(argVarIndex[i])->dims[0] == 0)  { error("Expected an array");}
 
-            if(TypeMask(vartbl[VarIndex].type) != TypeMask(argtype[i])){error("Incompatible type: $", argv1[i]);}
-            vartbl[VarIndex].val.s = NULL;
+            if(TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])){error("Incompatible type: $", argv1[i]);}
+            VREC(VarIndex)->val.s = NULL;
             for(j = 0; j < MAXDIM; j++)                             // copy the dimensions of the supplied variable into our local variable
-                vartbl[VarIndex].dims[j] = vartbl[argVarIndex[i]].dims[j];
+                VREC(VarIndex)->dims[j] = VREC(argVarIndex[i])->dims[j];
 
         }
 
 
         // if this is a pointer check if the type is NOT the same as that requested in the sub/fun definition
-        if((argtype[i] & T_PTR) && TypeMask(vartbl[VarIndex].type) != TypeMask(argtype[i])) {
+        if((argtype[i] & T_PTR) && TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])) {
         	if(argbyref[i]) {error("BYREF requires same types: $", argv1[i]);}          //BYREF requires same types.
-        	if((TypeMask(vartbl[VarIndex].type) & T_STR) || (TypeMask(argtype[i]) & T_STR))
+        	if((TypeMask(VREC(VarIndex)->type) & T_STR) || (TypeMask(argtype[i]) & T_STR))
         	   {error("Incompatible type: $", argv1[i]);}
             // make this into an ordinary argument
-            if(vartbl[argVarIndex[i]].type & T_PTR) {
-                argval[i].i = *vartbl[argVarIndex[i]].val.ia;       // get the value if the supplied argument is a pointer
+            if(VREC(argVarIndex[i])->type & T_PTR) {
+                argval[i].i = *VREC(argVarIndex[i])->val.ia;       // get the value if the supplied argument is a pointer
             } else {
                 argval[i].i = *(long long int *)argval[i].s;        // get the value if the supplied argument is an ordinary variable
             }
@@ -908,26 +1035,26 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         // if this is a pointer (note: at this point the caller type and the required type must be the same)
         if(argtype[i] & T_PTR) {
             // the argument supplied was a variable so we must setup the local variable as a pointer
-            if((vartbl[VarIndex].type & T_STR) && vartbl[VarIndex].val.s != NULL) {
-                FreeMemorySafe((void *)&vartbl[VarIndex].val.s);     // free up the local variable's memory if it is a pointer to a string
+            if((VREC(VarIndex)->type & T_STR) && VREC(VarIndex)->val.s != NULL) {
+                if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemorySafe((void *)&VREC(VarIndex)->val.s);     // free up the local variable's memory if it is a pointer to a string
             }
-            vartbl[VarIndex].val.s = argval[i].s;                              // point to the data of the variable supplied as an argument
-            vartbl[VarIndex].type |= T_PTR;                                    // set the type to a pointer
-            vartbl[VarIndex].size = vartbl[argVarIndex[i]].size;               // just in case it is a string copy the size
+            VREC(VarIndex)->val.s = argval[i].s;                              // point to the data of the variable supplied as an argument
+            VREC(VarIndex)->type |= T_PTR;                                    // set the type to a pointer
+            VREC(VarIndex)->size = VREC(argVarIndex[i])->size;               // just in case it is a string copy the size
         // this is not a pointer
         } else if(argtype[i] != 0) {                                           // in getting the memory argtype[] is initialised to zero
             // the parameter was an expression or a just straight variables with different types (therefore not a pointer))
-            if((vartbl[VarIndex].type & T_STR) && (argtype[i] & T_STR)) {      // both are a string
-                Mstrcpy(vartbl[VarIndex].val.s, argval[i].s);
+            if((VREC(VarIndex)->type & T_STR) && (argtype[i] & T_STR)) {      // both are a string
+                Mstrcpy(VREC(VarIndex)->val.s, argval[i].s);
                 FreeMemorySafe((void *)&argval[i].s);
-            } else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_NBR)) // both are a float
-                vartbl[VarIndex].val.f = argval[i].f;
-            else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_INT))   // need a float but supplied an integer
-                vartbl[VarIndex].val.f = argval[i].i;
-            else if((vartbl[VarIndex].type & T_INT) && (argtype[i] & T_INT))   // both are integers
-                vartbl[VarIndex].val.i = argval[i].i;
-            else if((vartbl[VarIndex].type & T_INT) && (argtype[i] & T_NBR))   // need an integer but was supplied with a MMFLOAT
-                vartbl[VarIndex].val.i = FloatToInt64(argval[i].f);
+            } else if((VREC(VarIndex)->type & T_NBR) && (argtype[i] & T_NBR)) // both are a float
+                VREC(VarIndex)->val.f = argval[i].f;
+            else if((VREC(VarIndex)->type & T_NBR) && (argtype[i] & T_INT))   // need a float but supplied an integer
+                VREC(VarIndex)->val.f = argval[i].i;
+            else if((VREC(VarIndex)->type & T_INT) && (argtype[i] & T_INT))   // both are integers
+                VREC(VarIndex)->val.i = argval[i].i;
+            else if((VREC(VarIndex)->type & T_INT) && (argtype[i] & T_NBR))   // need an integer but was supplied with a MMFLOAT
+                VREC(VarIndex)->val.i = FloatToInt64(argval[i].f);
             else
                 { error("Incompatible type: $", argv1[i]);}
         }
@@ -941,8 +1068,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     // if it is a defined command we simply point to the first statement in our command and allow ExecuteProgram() to carry on as before
     // exit from the sub is via cmd_return which will decrement LocalIndex
     if(!isfun) {
-        skipelement(p);
-        nextstmt = p;                                               // point to the body of the subroutine
+        nextstmt = L->body;                                         // point to the body of the subroutine
         return;
     }
 
@@ -954,15 +1080,15 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     //   - Get the variable's value and save that in the return value globals (fret or sret)
     //   - Return to the expression parser
     tp = findvar(fun_name, FunType | V_FUNCT);                      // declare the local variable
-    FunType = vartbl[VarIndex].type;
+    FunType = VREC(VarIndex)->type;
     if(FunType & T_STR) {
-        FreeMemorySafe((void *)&vartbl[VarIndex].val.s);                         // free the memory if it is a string
-        vartbl[VarIndex].type |= T_PTR;
+        if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemorySafe((void *)&VREC(VarIndex)->val.s);   // free the memory if it is a string
+        VREC(VarIndex)->type |= T_PTR;
         LocalIndex--;                                               // allocate the memory at the previous level
-        vartbl[VarIndex].val.s = tp = GetTempMemory(STRINGSIZE);    // and use our own memory
+        VREC(VarIndex)->val.s = tp = GetTempMemory(STRINGSIZE);    // and use our own memory
         LocalIndex++;
     }
-    skipelement(p);                                                 // point to the body of the function
+    p = L->body;                                                    // point to the body of the function
 
     ttp = nextstmt;                                                 // save the globals used by commands
     tcmdtoken = cmdtoken;
@@ -1117,7 +1243,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
                 if(!(FindSubFun(argv1[i], 1) >= 0 && strchr(argv1[i], '(') != NULL)) {
                     // yes, this is a valid variable.  set argvalue to point to the variable's data and argtype to its type
                     argval[i].s = findvar(argv1[i], V_FIND | V_EMPTY_OK);        // get a pointer to the variable's data
-                    argtype[i] = vartbl[VarIndex].type;                          // and the variable's type
+                    argtype[i] = VREC(VarIndex)->type;                          // and the variable's type
                     argVarIndex[i] = VarIndex;
                     if(argtype[i] & T_CONST) {
                         argtype[i] = 0;                                          // we don't want to point to a constant
@@ -1173,28 +1299,28 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         }
         ArgType |= (V_FIND | V_DIM_VAR | V_LOCAL | V_EMPTY_OK);
         tp = findvar(argv2[i], ArgType);                            // declare the local variable
-        if(vartbl[VarIndex].dims[0] > 0) error("Argument list");    // if it is an array it must be an empty array
+        if(VREC(VarIndex)->dims[0] > 0) error("Argument list");    // if it is an array it must be an empty array
 
         CurrentLinePtr = CallersLinePtr;                            // report errors at the caller
 
         // if the definition called for an array, special processing and checking will be required
-        if(vartbl[VarIndex].dims[0] == -1) {
+        if(VREC(VarIndex)->dims[0] == -1) {
             int j;
-            if(vartbl[argVarIndex[i]].dims[0] == 0) error("Expected an array");
-            if(TypeMask(vartbl[VarIndex].type) != TypeMask(argtype[i])) error("Incompatible type: $", argv1[i]);
-            vartbl[VarIndex].val.s = NULL;
+            if(VREC(argVarIndex[i])->dims[0] == 0) error("Expected an array");
+            if(TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])) error("Incompatible type: $", argv1[i]);
+            VREC(VarIndex)->val.s = NULL;
             for(j = 0; j < MAXDIM; j++)                             // copy the dimensions of the supplied variable into our local variable
-                vartbl[VarIndex].dims[j] = vartbl[argVarIndex[i]].dims[j];
+                VREC(VarIndex)->dims[j] = VREC(argVarIndex[i])->dims[j];
         }
 
         // if this is a pointer check and the type is NOT the same as that requested in the sub/fun definition
-        if((argtype[i] & T_PTR) && TypeMask(vartbl[VarIndex].type) != TypeMask(argtype[i])) {
+        if((argtype[i] & T_PTR) && TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])) {
             if(argbyref[i]){ error("BYREF requires same types: $", argv1[i]);}
-            if((TypeMask(vartbl[VarIndex].type) & T_STR) || (TypeMask(argtype[i]) & T_STR))
+            if((TypeMask(VREC(VarIndex)->type) & T_STR) || (TypeMask(argtype[i]) & T_STR))
                 error("Incompatible type: $", argv1[i]);
             // make this into an ordinary argument
-            if(vartbl[argVarIndex[i]].type & T_PTR) {
-                argval[i].i = *vartbl[argVarIndex[i]].val.ia;       // get the value if the supplied argument is a pointer
+            if(VREC(argVarIndex[i])->type & T_PTR) {
+                argval[i].i = *VREC(argVarIndex[i])->val.ia;       // get the value if the supplied argument is a pointer
             } else {
                 argval[i].i = *(long long int *)argval[i].s;        // get the value if the supplied argument is an ordinary variable
             }
@@ -1204,26 +1330,26 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         // if this is a pointer (note: at this point the caller type and the required type must be the same)
         if(argtype[i] & T_PTR) {
             // the argument supplied was a variable so we must setup the local variable as a pointer
-            if((vartbl[VarIndex].type & T_STR) && vartbl[VarIndex].val.s != NULL) {
-                FreeMemorySafe((void *)&vartbl[VarIndex].val.s);                            // free up the local variable's memory if it is a pointer to a string
+            if((VREC(VarIndex)->type & T_STR) && VREC(VarIndex)->val.s != NULL) {
+                FreeMemorySafe((void *)&VREC(VarIndex)->val.s);                            // free up the local variable's memory if it is a pointer to a string
                 }
-            vartbl[VarIndex].val.s = argval[i].s;                              // point to the data of the variable supplied as an argument
-            vartbl[VarIndex].type |= T_PTR;                                    // set the type to a pointer
-            vartbl[VarIndex].size = vartbl[argVarIndex[i]].size;               // just in case it is a string copy the size
+            VREC(VarIndex)->val.s = argval[i].s;                              // point to the data of the variable supplied as an argument
+            VREC(VarIndex)->type |= T_PTR;                                    // set the type to a pointer
+            VREC(VarIndex)->size = VREC(argVarIndex[i])->size;               // just in case it is a string copy the size
         // this is not a pointer
         } else if(argtype[i] != 0) {                                           // in getting the memory argtype[] is initialised to zero
             // the parameter was an expression or a just straight variables with different types (therefore not a pointer))
-            if((vartbl[VarIndex].type & T_STR) && (argtype[i] & T_STR)) {      // both are a string
-                Mstrcpy(vartbl[VarIndex].val.s, argval[i].s);
+            if((VREC(VarIndex)->type & T_STR) && (argtype[i] & T_STR)) {      // both are a string
+                Mstrcpy(VREC(VarIndex)->val.s, argval[i].s);
                 FreeMemorySafe((void *)&argval[i].s);
-            } else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_NBR)) // both are a float
-                vartbl[VarIndex].val.f = argval[i].f;
-            else if((vartbl[VarIndex].type & T_NBR) && (argtype[i] & T_INT))   // need a float but supplied an integer
-                vartbl[VarIndex].val.f = argval[i].i;
-            else if((vartbl[VarIndex].type & T_INT) && (argtype[i] & T_INT))   // both are integers
-                vartbl[VarIndex].val.i = argval[i].i;
-            else if((vartbl[VarIndex].type & T_INT) && (argtype[i] & T_NBR))   // need an integer but was supplied with a MMFLOAT
-                vartbl[VarIndex].val.i = FloatToInt64(argval[i].f);
+            } else if((VREC(VarIndex)->type & T_NBR) && (argtype[i] & T_NBR)) // both are a float
+                VREC(VarIndex)->val.f = argval[i].f;
+            else if((VREC(VarIndex)->type & T_NBR) && (argtype[i] & T_INT))   // need a float but supplied an integer
+                VREC(VarIndex)->val.f = argval[i].i;
+            else if((VREC(VarIndex)->type & T_INT) && (argtype[i] & T_INT))   // both are integers
+                VREC(VarIndex)->val.i = argval[i].i;
+            else if((VREC(VarIndex)->type & T_INT) && (argtype[i] & T_NBR))   // need an integer but was supplied with a MMFLOAT
+                VREC(VarIndex)->val.i = FloatToInt64(argval[i].f);
             else
                 error("Incompatible type: $", argv1[i]);
         }
@@ -1249,12 +1375,12 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     //   - Get the variable's value and save that in the return value globals (fret or sret)
     //   - Return to the expression parser
     tp = findvar(fun_name, FunType | V_FUNCT);                      // declare the local variable
-    FunType = vartbl[VarIndex].type;
+    FunType = VREC(VarIndex)->type;
     if(FunType & T_STR) {
-        FreeMemorySafe((void *)&vartbl[VarIndex].val.s);                         // free the memory if it is a string
-        vartbl[VarIndex].type |= T_PTR;
+        if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemorySafe((void *)&VREC(VarIndex)->val.s);   // free the memory if it is a string
+        VREC(VarIndex)->type |= T_PTR;
         LocalIndex--;                                               // allocate the memory at the previous level
-        vartbl[VarIndex].val.s = tp = GetTempStrMemory();    // and use our own memory
+        VREC(VarIndex)->val.s = tp = GetTempStrMemory();    // and use our own memory
         LocalIndex++;
     }
     skipelement(p);                                                 // point to the body of the function
@@ -2163,7 +2289,7 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 				CurrentLinePtr = SaveCurrentLinePtr;
 			} else {
 				s = (char *)findvar(p, V_FIND);                         // if it is a string then the string pointer is automatically set
-				t = TypeMask(vartbl[VarIndex].type);
+				t = TypeMask(VREC(VarIndex)->type);
 				if(t & T_NBR) f = (*(MMFLOAT *)s);
 				if(t & T_INT) i64 = (*(long long int *)s);
 			}
@@ -2464,7 +2590,7 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 				CurrentLinePtr = SaveCurrentLinePtr;
 			} else {
 				s = (char *)findvar(p, V_FIND);                         // if it is a string then the string pointer is automatically set
-				t = TypeMask(vartbl[VarIndex].type);
+				t = TypeMask(VREC(VarIndex)->type);
 				if(t & T_NBR) f = (*(MMFLOAT *)s);
 				if(t & T_INT) i64 = (*(long long int *)s);
 			}
@@ -2632,105 +2758,20 @@ char *findline(int nbr, int mustfind) {
         error("Line number");
     return p;
 }
-void hashlabels(int ErrAbort){
-    char *p = (char *)ProgMemory;
-    int j, namelen;
-    uint32_t hash=FNV_offset_basis;
-    char *lastp = (char *)ProgMemory + 1;
-    // now do the search
-    while(1) {
-        if(p[0] == 0 && p[1] == 0)                                  // end of the program
-            break;
-
-        if(p[0] == T_NEWLINE) {
-            lastp = p;                                              // save in case this is the right line
-            p += T_NEWLINE_HDR;                                     // and step over the line's header
-            continue;
-        }
-
-        if(p[0] == T_LINENBR) {
-            p += 3;                                                 // and step over the line number
-            continue;
-        }
-
-        if(p[0] == T_LABEL) {
-            p++;                                                    // point to the length of the label
-            hash=FNV_offset_basis;
-            namelen=0;
-        	for(j=1;j<=p[0];j++) {
-        		hash ^= p[j];
-        		hash*=FNV_prime;
-        		namelen++;
-        	}
-            if(funtbl_used >= MAXSUBFUN - 1) {                      // the table must keep an empty slot, or a search never ends
-                if(ErrAbort) {
-                    CurrentLinePtr = lastp;
-                    error("Too many subroutines, functions and labels");
-                }
-                return;                                             // at the prompt: RUN reports it
-            }
-            funtbl_used++;
-        	hash &= MAXHASH; //scale to size of table
-    		while(funtbl[hash].name[0]!=0){
-     			hash++;
-     			hash %= MAXSUBFUN;
-    		}
-    		funtbl[hash].index=(uint32_t)lastp;
-    		memcpy(funtbl[hash].name,&p[1],p[0]);
-            p += p[0] + 1;                                          // still looking! skip over the label
-            continue;
-        }
-        p++;
-    }
-}
-
-// search through program memory looking for a label.
-// returns a pointer to the T_NEWLINE token or throws an error if not found
-// non cached version
 char *findlabel(char *labelptr) {
-//    char *p, *lastp = (char *)ProgMemory + 1;
-	char  *tp, *ip;
-    int i;
-    uint32_t hash=FNV_offset_basis;
-    char label[MAXVARLEN + 1];
-
+    char name[MAXVARLEN + 1];
+    int nl = 0;
+    struct s_nameslot *n;
     // first, just exit we have a NULL argument
     if(labelptr == NULL) return NULL;
-
-    // convert the label to the token format and load into label[]
     // this assumes that the first character has already been verified as a valid label character
-    label[1] = *labelptr++;
-	hash ^= label[1];
-	hash*=FNV_prime;
-    for(i = 2; ; i++) {
-        if(!isnamechar(*labelptr)) break;                           // the end of the label
-        if(i > MAXVARLEN ) error("Label too long");                 // too long, not a correctly formed label
-        label[i] = *labelptr++;
-		hash ^= label[i];
-		hash*=FNV_prime;
+    name[nl++] = *labelptr++;
+    while(isnamechar(*labelptr)) {
+        if(nl >= MAXVARLEN) error("Label too long");                // too long, not a correctly formed label
+        name[nl++] = *labelptr++;
     }
-    label[0] = i - 1;                                               // the length byte
-	hash &= MAXHASH; //scale to size of table
-	if(funtbl[hash].name[0]==0)error("Cannot find label");
-	while(funtbl[hash].name[0]!=0){
-		if(funtbl[hash].index>=(uint32_t)ProgMemory){
-			tp=funtbl[hash].name;
-			ip=&label[1];
-			if(*ip++ == *tp++) {                 // preliminary quick check
-				i = label[0]-1;
-				while(i > 0 && *ip == *tp) {                              // compare each letter
-					i--; ip++; tp++;
-				}
-				if(i == 0  && (*(char *)tp == 0 || label[0] == MAXVARLEN)) {       // found a matching name (a 32-character name has no zero after it)
-					return (char *)funtbl[hash].index;
-				}
-			}
-		}
-		hash++;
-		hash %= MAXSUBFUN;
-	}
-	if(funtbl[hash].name[0]==0)error("Cannot find label");
-	return 0;
+    if((n = NameFind(name, nl, 1 << NK_LABEL)) == NULL) error("Cannot find label");
+    return (char *)n->target;
 
 /*
 
@@ -2847,6 +2888,104 @@ routines for storing and manipulating variables
 
 
 //__attribute__((section(".fastcode")))
+/* The compact variable table (the PicoMite's 509622a): a global's record is taken from a chunk when the
+   global is made, and a free or blocked slot points at a placeholder. */
+
+// every variable number's record with no global made: a local's in vartbl, a global slot free
+void InitVarSlots(void) {
+    for(int i = 0; i < MAXVARS; i++) slotrec[i] = i < MAXLOCALVARS ? &vartbl[i] : &emptyrec;
+}
+
+// a record of its own, not one of the placeholders shared by free and blocked slots
+static inline int VarRecordReal(struct s_vartbl *r) {
+    return r != &emptyrec && r != &blockedrec;
+}
+
+// the heap has been wiped: the chunks went with it, and so did every global
+void VarChunksForget(void) {
+    memset(&varmem, 0, sizeof(varmem));
+    InitVarSlots();
+}
+
+// the globals have gone (CLEAR, RUN...; their data already freed): every slot free, and the chunks' records
+// handed out again from the first.  The chunks stay until the heap is wiped: an interrupt (SETPIN, IR,
+// KEYPAD...) may still be writing to a global's value, so that memory must not become something else's.
+static void VarRecordsReset(void) {
+    varmem.free = NULL;
+    varmem.cur = 0;
+    varmem.next = varmem.chunks ? varmem.chunk[0] : NULL;
+    varmem.end = varmem.chunks ? varmem.chunk[0] + VARCHUNK : NULL;
+    InitVarSlots();
+}
+
+// a chunk of globals' records: on-chip RAM while there is room, then the SDRAM heap
+static struct s_vartbl *VarChunkMemory(void) {
+    struct s_vartbl *r = GetInternalMemoryNull(VARCHUNK * sizeof(struct s_vartbl));
+    if(r == NULL) r = GetMemory(VARCHUNK * sizeof(struct s_vartbl));
+    return r;
+}
+
+// a zeroed record for the global about to be made in slot: an erased global's, else the next unused one in
+// the chunks, else one of a new chunk.  Called before anything else is allocated for the variable or counted,
+// so "not enough memory" leaves nothing behind; a record already in the slot (a failed DIM's) is used again.
+static void VarRecordTake(int slot) {
+    struct s_vartbl *r = slotrec[slot];
+    if(!VarRecordReal(r)) {
+        if((r = varmem.free) != NULL)
+            memcpy(&varmem.free, r->name, sizeof(varmem.free));
+        else {
+            if(varmem.next == varmem.end) {
+                if(varmem.cur + 1 < varmem.chunks)
+                    r = varmem.chunk[++varmem.cur];                 // one a CLEAR left
+                else {
+                    r = VarChunkMemory();
+                    varmem.chunk[varmem.chunks] = r;
+                    varmem.cur = varmem.chunks++;
+                }
+                varmem.next = r;
+                varmem.end = r + VARCHUNK;
+            }
+            r = varmem.next++;
+        }
+        slotrec[slot] = r;
+    }
+    memset(r, 0, sizeof(struct s_vartbl));
+}
+
+// the heap the globals' record chunks take (MEMORY counts them as variables, not General)
+int VarChunkBytes(void) {
+    return varmem.chunks * VARCHUNK * sizeof(struct s_vartbl);
+}
+
+// ERASE: the global in slot has gone, its data freed; its record goes on the free list and the slot is left
+// free, or blocked when a probe must pass it.  The link is kept in the name, which no interrupt writes.
+void VarRecordRelease(int slot, int blocked) {
+    struct s_vartbl *r = slotrec[slot];
+    memcpy(r->name, &varmem.free, sizeof(varmem.free));
+    varmem.free = r;
+    slotrec[slot] = blocked ? &blockedrec : &emptyrec;
+}
+
+// P6 F2: the local named name (in capitals, as findvar holds it) at the current level: the creation list
+// walked down from the newest local while the levels are not below the current one, passing over a deeper
+// level's (left by an error).  Its slot, or -1.
+static inline int find_local_slot(const char *name, int namelen) {
+    for(int k = hashlistpointer - 1; k >= 0; k--) {
+        int lev = hashlist[k].level;
+        if(lev < LocalIndex) break;                                 // the frames below this one
+        if(lev != LocalIndex) continue;
+        const char *ip = name, *tp = VREC(hashlist[k].hash)->name;
+        if(*ip++ == *tp++) {                                        // preliminary quick check
+            int j = namelen - 1;
+            while(j > 0 && *ip == *tp) {                            // compare each letter
+                j--; ip++; tp++;
+            }
+            if(j == 0 && (*tp == 0 || namelen == MAXVARLEN)) return hashlist[k].hash;   // a matching local at this level
+        }
+    }
+    return -1;
+}
+
 void *findvar(char *p, int action) {
     char name[MAXVARLEN + 1];
     int i=0, j, size, ifree, globalifree, localifree, nbr, vtype, vindex, namelen, tmp;
@@ -2854,7 +2993,7 @@ void *findvar(char *p, int action) {
     void *mptr;
 //    int hashIndex=0;
     int GlobalhashIndex, OriginalGlobalHash;
-    int LocalhashIndex, OriginalLocalHash;
+    int LocalhashIndex;
     uint32_t hash=FNV_offset_basis;
 	char  *tp, *ip;
     int dim[MAXDIM]={0}, dnbr;
@@ -2878,7 +3017,7 @@ void *findvar(char *p, int action) {
 		*s++ = (*p++);
 		if(++namelen > MAXVARLEN) error("Variable name too long");
 	} while(isnamechar(*p));
-	hash &= MAXHASH; //scale 0-512
+	GlobalhashIndex = MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1));   // the global slot the probe starts at
 	if(namelen!=MAXVARLEN)*s=0;
     // check the terminating char and set the type
     if(*p == '$') {
@@ -2932,55 +3071,26 @@ void *findvar(char *p, int action) {
     // we now have the variable name and, if it is an array, the parameters
     // search the table looking for a match
 
-    LocalhashIndex=hash;
-    OriginalLocalHash=LocalhashIndex-1;
-    if(OriginalLocalHash<0)OriginalLocalHash+=MAXVARS/2;
+    LocalhashIndex=-1;
     localifree=-1;
-    GlobalhashIndex=hash+MAXVARS/2;
     OriginalGlobalHash=GlobalhashIndex-1;
-    if(OriginalGlobalHash<MAXVARS/2)OriginalGlobalHash+=MAXVARS/2;
+    if(OriginalGlobalHash<MAXLOCALVARS)OriginalGlobalHash+=MAXGLOBALVARS;
 	globalifree=-1;
 	tmp=-1;
     if(LocalIndex){ //search
-		if(vartbl[LocalhashIndex].type == T_NOTYPE){
-			localifree = LocalhashIndex;
-		} else {
-			while(vartbl[LocalhashIndex].name[0]!=0){
-				ip=name;
-				tp=vartbl[LocalhashIndex].name;
-				if(vartbl[LocalhashIndex].type==T_BLOCKED)tmp=LocalhashIndex;
-				if(*ip++ == *tp++) {                 // preliminary quick check
-					j = namelen-1;
-					while(j > 0 && *ip == *tp) {                              // compare each letter
-						j--; ip++; tp++;
-					}
-					if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN)) {       // found a matching name
-						if(vartbl[LocalhashIndex].level == LocalIndex) break; //matching global while not in a subroutine
-					}
-				}
-				LocalhashIndex++;
-				LocalhashIndex %= MAXVARS/2;
-                if(LocalhashIndex==OriginalLocalHash)error("Too many local variables");
-			}
-			if(vartbl[LocalhashIndex].name[0]==0){ // not found
-				localifree=LocalhashIndex;
-				if(tmp!=-1){
-					localifree=tmp;
-					vartbl[LocalhashIndex].type=T_NOTYPE;
-					vartbl[LocalhashIndex].name[0]=0;
-				}
-			}
-		}
-		if(vartbl[LocalhashIndex].name[0]==0){ // not found in the local table so try the global
+        // this level's locals first: the top of the local stack (P6 F2)
+        if((LocalhashIndex = find_local_slot(name, namelen)) < 0)
+            localifree = localtop;                                  // where a new local would go
+		if(LocalhashIndex < 0 && !(action & V_LOCAL)){ // not a local here, so try the global (a local being made has no use for it: P6 F3)
 			tmp=-1;
 			globalifree=-1;
-			if(vartbl[GlobalhashIndex].type == T_NOTYPE){
+			if(VREC(GlobalhashIndex)->type == T_NOTYPE){
 				globalifree = GlobalhashIndex;
 			} else {
-				while(vartbl[GlobalhashIndex].name[0]!=0){
+				while(VREC(GlobalhashIndex)->name[0]!=0){
 					ip=name;
-					tp=vartbl[GlobalhashIndex].name;
-					if(vartbl[GlobalhashIndex].type==T_BLOCKED)tmp=GlobalhashIndex;
+					tp=VREC(GlobalhashIndex)->name;
+					if(VREC(GlobalhashIndex)->type==T_BLOCKED)tmp=GlobalhashIndex;
 					if(*ip++ == *tp++) {                 // preliminary quick check
 						j = namelen-1;
 						while(j > 0 && *ip == *tp) {                              // compare each letter
@@ -2991,28 +3101,28 @@ void *findvar(char *p, int action) {
 						}
 					}
 					GlobalhashIndex++;
-					if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXVARS/2;
+					if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXLOCALVARS;
                     if(GlobalhashIndex==OriginalGlobalHash)error("Too many global variables");
 				}
-				if(vartbl[GlobalhashIndex].name[0]==0){ // not found
+				if(VREC(GlobalhashIndex)->name[0]==0){ // not found
 					globalifree=GlobalhashIndex;
 					if(tmp!=-1){
 						globalifree=tmp;
-						vartbl[GlobalhashIndex].type=T_NOTYPE;
-						vartbl[GlobalhashIndex].name[0]=0;
+						VREC(GlobalhashIndex)->type=T_NOTYPE;
+						VREC(GlobalhashIndex)->name[0]=0;
 					}
 				}
 			}
 		}
     } else {
     	localifree=9999; //set a marker that a local variable is irrelevant
-		if(vartbl[GlobalhashIndex].type == T_NOTYPE){
+		if(VREC(GlobalhashIndex)->type == T_NOTYPE){
 			globalifree = GlobalhashIndex;
 		} else {
-			while(vartbl[GlobalhashIndex].name[0]!=0){
+			while(VREC(GlobalhashIndex)->name[0]!=0){
 				ip=name;
-				tp=vartbl[GlobalhashIndex].name;
-				if(vartbl[GlobalhashIndex].type==T_BLOCKED)tmp=GlobalhashIndex;
+				tp=VREC(GlobalhashIndex)->name;
+				if(VREC(GlobalhashIndex)->type==T_BLOCKED)tmp=GlobalhashIndex;
 				if(*ip++ == *tp++) {                 // preliminary quick check
 					j = namelen-1;
 					while(j > 0 && *ip == *tp) {                              // compare each letter
@@ -3023,15 +3133,15 @@ void *findvar(char *p, int action) {
 					}
 				}
 				GlobalhashIndex++;
-				if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXVARS/2;
+				if(GlobalhashIndex==MAXVARS)GlobalhashIndex=MAXLOCALVARS;
 				if(GlobalhashIndex==OriginalGlobalHash)error("Too many global variables");   // full of variables and markers: no empty slot ends the search
 			}
-			if(vartbl[GlobalhashIndex].name[0]==0){ // not found
+			if(VREC(GlobalhashIndex)->name[0]==0){ // not found
 				globalifree=GlobalhashIndex;
 				if(tmp!=-1){
 					globalifree=tmp;
-					vartbl[GlobalhashIndex].type=T_NOTYPE;
-					vartbl[GlobalhashIndex].name[0]=0;
+					VREC(GlobalhashIndex)->type=T_NOTYPE;
+					VREC(GlobalhashIndex)->name[0]=0;
 				}
 			}
 		}
@@ -3048,6 +3158,7 @@ void *findvar(char *p, int action) {
     }
 	// we are not declaring the variable but it may need to be created
     if(action & V_LOCAL) {
+        if(localifree >= MAXLOCALVARS) error("Too many local variables");   // the local stack is full (P6 F2)
     	ifree = i = localifree;
     } else if(localifree==-1){ // can only happen when a local variable has been found so we can ignore everything global
 		ifree= -1;
@@ -3063,11 +3174,11 @@ void *findvar(char *p, int action) {
 
     // if we found an existing and matching variable
     // set the global VarIndex indicating the index in the table
-    if(ifree==-1 && vartbl[i].name[0] != 0) {
+    if(ifree==-1 && VREC(i)->name[0] != 0) {
         VarIndex = vindex = i;
 
         // check that the dimensions match
-        for(i = 0; i < MAXDIM && vartbl[vindex].dims[i] != 0; i++);
+        for(i = 0; i < MAXDIM && VREC(vindex)->dims[i] != 0; i++);
         if(dnbr == -1) {
             if(i == 0) error("Array dimensions");
         } else {
@@ -3075,27 +3186,27 @@ void *findvar(char *p, int action) {
         }
 
         if(vtype == 0) {
-            if(!(vartbl[vindex].type & (DefaultType | T_IMPLIED))) error("$ Different type already declared", name);
+            if(!(VREC(vindex)->type & (DefaultType | T_IMPLIED))) error("$ Different type already declared", name);
         } else {
-            if(!(vartbl[vindex].type & vtype)) error("$ Different type already declared", name);
+            if(!(VREC(vindex)->type & vtype)) error("$ Different type already declared", name);
         }
 
         // if it is a non arrayed variable or an empty array it is easy, just calculate and return a pointer to the value
-        if(dnbr == -1 || vartbl[vindex].dims[0] == 0) {
-            if(dnbr == -1 || vartbl[vindex].type & (T_PTR | T_STR))
-                return vartbl[vindex].val.s;                        // if it is a string or pointer just return the pointer to the data
+        if(dnbr == -1 || VREC(vindex)->dims[0] == 0) {
+            if(dnbr == -1 || VREC(vindex)->type & (T_PTR | T_STR))
+                return VREC(vindex)->val.s;                        // if it is a string or pointer just return the pointer to the data
             else
-                if(vartbl[vindex].type & (T_INT))
-                    return &(vartbl[vindex].val.i);                 // must be an integer, point to its value
+                if(VREC(vindex)->type & (T_INT))
+                    return &(VREC(vindex)->val.i);                 // must be an integer, point to its value
                 else
-                    return &(vartbl[vindex].val.f);                 // must be a straight number (float), point to its value
+                    return &(VREC(vindex)->val.f);                 // must be a straight number (float), point to its value
          }
 
         // if we reached this point it must be a reference to an existing array
         // check that we are not using DIM and that all parameters are within the dimensions
         if(action & V_DIM_VAR) error("Cannot re dimension array");
         for(i = 0; i < dnbr; i++) {
-            if(dim[i] > vartbl[vindex].dims[i] || dim[i] < OptionBase)
+            if(dim[i] > VREC(vindex)->dims[i] || dim[i] < OptionBase)
                 error("Index out of bounds");
         }
 
@@ -3103,17 +3214,17 @@ void *findvar(char *p, int action) {
         nbr = dim[0] - OptionBase;
         j = 1;
         for(i = 1; i < dnbr; i++) {
-            j *= (vartbl[vindex].dims[i - 1] + 1 - OptionBase);
+            j *= (VREC(vindex)->dims[i - 1] + 1 - OptionBase);
             nbr += (dim[i] - OptionBase) * j;
         }
         // finally return a pointer to the value
-        if(vartbl[vindex].type & T_NBR)
-            return vartbl[vindex].val.s + (nbr * sizeof(MMFLOAT));
+        if(VREC(vindex)->type & T_NBR)
+            return VREC(vindex)->val.s + (nbr * sizeof(MMFLOAT));
         else
-            if(vartbl[vindex].type & T_INT)
-                return vartbl[vindex].val.s + (nbr * sizeof(long long int));
+            if(VREC(vindex)->type & T_INT)
+                return VREC(vindex)->val.s + (nbr * sizeof(long long int));
             else
-                return vartbl[vindex].val.s + (nbr * (vartbl[vindex].size + 1));
+                return VREC(vindex)->val.s + (nbr * (VREC(vindex)->size + 1));
     }
 
     // we reached this point if no existing variable has been found
@@ -3129,23 +3240,8 @@ void *findvar(char *p, int action) {
     }
 
     // now scan the sub/fun table to make sure that there is not a sub/fun with the same name
-    if(!(action & V_FUNCT) && (funtbl[hash].name[0])) {                                       // don't do this if we are defining the local variable for a function name
-		while(funtbl[hash].name[0]!=0){
-			ip=name;
-			tp=funtbl[hash].name;
-			if(*ip++ == *tp++) {                 // preliminary quick check
-				j = namelen-1;
-				while(j > 0 && *ip == *tp) {                              // compare each letter
-					j--; ip++; tp++;
-				}
-				if(j == 0  && (*(char *)tp == 0 || namelen == MAXVARLEN)) {       // found a matching name
-					if(funtbl[hash].index<MAXSUBFUN)error("A sub/fun has the same name: $", name);
-				}
-			}
-			hash++;
-			if(hash==MAXSUBFUN)hash=0;
-		}
-    }
+    if(!(action & V_FUNCT) && NameFind(name, namelen, (1 << NK_SUB) | (1 << NK_FUN)) != NULL)   // (not for a FUNCTION's own local)
+        error("A sub/fun has the same name: $", name);
 
     // set a default string size
     size = MAXSTRLEN;
@@ -3177,52 +3273,54 @@ void *findvar(char *p, int action) {
     // as a result of the previous search ifree is the index to the entry that we should use
 
  // if we are adding to the top, increment the number of vars
-	if(ifree>=MAXVARS/2){                                           // the limit is tested before counting: a refused variable is not counted
-		if(Globalvarcnt+1>=MAXVARS/2)error("Not enough Global variable memory");
+	if(ifree>=MAXLOCALVARS){                                        // the limit is tested before counting: a refused variable is not counted
+		if(Globalvarcnt+1>=MAXGLOBALVARS)error("Not enough Global variable memory");
+		VarRecordTake(ifree);                                       // its record, before anything is counted or allocated
 		Globalvarcnt++;
 	} else {
-		if(Localvarcnt+1>=MAXVARS/2)error("Not enough Local variable memory");
+		if(Localvarcnt+1>=MAXLOCALVARS)error("Not enough Local variable memory");
 		Localvarcnt++;
 	}
 	varcnt=Globalvarcnt+Localvarcnt;
     VarIndex = vindex = ifree;
 
     // initialise it: save the name, set the initial value to zero and set the type
-    s = name;  x = vartbl[ifree].name; j = namelen;
+    s = name;  x = VREC(ifree)->name; j = namelen;
     while(j--) *x++ = *s++;
     if(namelen < MAXVARLEN)*x++ = 0;
-    vartbl[ifree].type = vtype | (action & (T_IMPLIED | T_CONST));
-    if(ifree<MAXVARS/2){
+    VREC(ifree)->type = vtype | (action & (T_IMPLIED | T_CONST));
+    if(ifree<MAXLOCALVARS){
     	hashlist[hashlistpointer].level=LocalIndex;
     	hashlist[hashlistpointer++].hash=ifree;
-        vartbl[ifree].level = LocalIndex;
-    } else vartbl[ifree].level = 0;
-//    cleardims(&vartbl[ifree].dims[0]);
-    for(j = 0; j < MAXDIM; j++) vartbl[ifree].dims[j] = 0;
-//    MMPrintString("Creating variable : ");MMPrintString(vartbl[ifree].name);MMPrintString(", at depth : ");PInt(vartbl[ifree].level);MMPrintString(", hash key : ");PInt(ifree);PRet();
+        localtop = ifree + 1;                                       // the stack's next slot (P6 F2)
+        VREC(ifree)->level = LocalIndex;
+    } else VREC(ifree)->level = 0;
+//    cleardims(&VREC(ifree)->dims[0]);
+    for(j = 0; j < MAXDIM; j++) VREC(ifree)->dims[j] = 0;
+//    MMPrintString("Creating variable : ");MMPrintString(VREC(ifree)->name);MMPrintString(", at depth : ");PInt(VREC(ifree)->level);MMPrintString(", hash key : ");PInt(ifree);PRet();
     // the easy request is for is a non array numeric variable, so just initialise to
     // zero and return the pointer
     if(dnbr == 0) {
         if(vtype & T_NBR) {
-            vartbl[ifree].val.f = 0;
-            return &(vartbl[ifree].val.f);
+            VREC(ifree)->val.f = 0;
+            return &(VREC(ifree)->val.f);
         } else if(vtype & T_INT) {
-            vartbl[ifree].val.i = 0;
-            return &(vartbl[ifree].val.i);
+            VREC(ifree)->val.i = 0;
+            return &(VREC(ifree)->val.i);
         }
     }
 
     // if this is a definition of an empty array (only used in the parameter list for a sub/function)
     if(dnbr == -1) {
-        vartbl[vindex].dims[0] = -1;                                // let the caller know that this is an empty array and needs more work
-        return vartbl[vindex].val.s;                                // just return a pointer to the data element as it will be replaced in the sub/fun with a pointer
+        VREC(vindex)->dims[0] = -1;                                // let the caller know that this is an empty array and needs more work
+        return VREC(vindex)->val.s;                                // just return a pointer to the data element as it will be replaced in the sub/fun with a pointer
     }
 
     // if this is an array copy the array dimensions and calculate the overall size
     // for a non array string this will leave nbr = 1 which is just what we want
     for(nbr = 1, i = 0; i < dnbr; i++) {
         if(dim[i] <= OptionBase) error("Dimensions");
-        vartbl[vindex].dims[i] = dim[i];
+        VREC(vindex)->dims[i] = dim[i];
         nbr *= (dim[i] + 1 - OptionBase);
     }
 
@@ -3232,10 +3330,10 @@ void *findvar(char *p, int action) {
     // First, set the important characteristics of the variable to indicate that the
     // variable is not allocated.  Thus, if GetMemory() fails with "not enough memory",
     // the variable will remain not allocated
-    vartbl[ifree].val.s = NULL;
-    vartbl[ifree].type = T_BLOCKED;
-    i = *vartbl[ifree].name;   *vartbl[ifree].name = 0;
-	j = vartbl[ifree].dims[0]; vartbl[ifree].dims[0] = 0;
+    VREC(ifree)->val.s = NULL;
+    VREC(ifree)->type = T_BLOCKED;
+    i = *VREC(ifree)->name;   *VREC(ifree)->name = 0;
+	j = VREC(ifree)->dims[0]; VREC(ifree)->dims[0] = 0;
 
 
 	// Now, grab the memory
@@ -3245,8 +3343,8 @@ void *findvar(char *p, int action) {
         else mptr = GetMemory(tmp);
     }  else {
     	tmp=(nbr * (size + 1));
-    	if(tmp<=16 && j==0)mptr = (void *)&vartbl[ifree].dims[1];
-    	else if(tmp<=12 && vartbl[ifree].dims[1]==0)mptr = (void *)&vartbl[ifree].dims[2];  // Strings <=12 into vartbl
+    	if(tmp<=16 && j==0)mptr = (void *)&VREC(ifree)->dims[1];
+    	else if(tmp<=12 && VREC(ifree)->dims[1]==0)mptr = (void *)&VREC(ifree)->dims[2];  // Strings <=12 into vartbl
     	else if(tmp<=256)mptr = GetStringMemoryBottom();  // <=256 into Heap
         else mptr = GetMemory(tmp);                 // else SDRAM
     }
@@ -3257,11 +3355,11 @@ void *findvar(char *p, int action) {
     // If we reached here the memory request was successful, so restore the details of
     // the variable that were saved previously and set the variables pointer to the
     // allocated memory
-    vartbl[ifree].type = vtype | (action & (T_IMPLIED | T_CONST));
-    *vartbl[ifree].name = i;
-    vartbl[ifree].dims[0] = j;
-    vartbl[ifree].size = size;
-    vartbl[ifree].val.s = mptr;
+    VREC(ifree)->type = vtype | (action & (T_IMPLIED | T_CONST));
+    *VREC(ifree)->name = i;
+    VREC(ifree)->dims[0] = j;
+    VREC(ifree)->size = size;
+    VREC(ifree)->val.s = mptr;
     return mptr;
 }
 
@@ -3792,51 +3890,48 @@ Various routines to clear memory or the interpreter's state
 // clear (or delete) variables
 // if level is not zero it will only delete local variables at that level or greater
 // if level is zero to will delete all variables and reset global settings
-void MIPS16 ClearVars(int level) {
-    int i, newhashpointer,hashcurrent,hashnext;
+// P6 F2: after ClearVars freed a local below one that stays (a deeper level's local, left by an error, under a
+// local of the level that goes on): keep the ones that stay, in order.  The list's length.
+static int LocalListCompact(void) {
+    int i, top;
+    for(i = 0, top = 0; i < hashlistpointer; i++)
+        if(hashlist[i].level != -1) hashlist[top++] = hashlist[i];
+    return top;
+}
 
-    // first step through the variable table and delete local variables at that level or greater
+void MIPS16 ClearVars(int level) {
+    int i, top, compact, hashcurrent;
+
+    // first delete the local variables at that level or greater: the top of the local stack, newest first (P6 F2)
 	if(level){
-		newhashpointer=hashlistpointer; //save the current number of stored values
-		for(i=hashlistpointer-1;i>=0;i--){ //delete in reverse order of creation
+		top = hashlistpointer;
+		compact = 0;
+		for(i=hashlistpointer-1;i>=0;i--){
 			if(hashlist[i].level>= level){
-				hashnext = hashcurrent = hashlist[i].hash;
-				hashnext++;
-				hashnext %= MAXVARS/2;
-				if(((vartbl[hashcurrent].type & T_STR) || vartbl[hashcurrent].dims[0] != 0) && !(vartbl[hashcurrent].type & T_PTR) && ((uint32_t)vartbl[hashcurrent].val.s>0x24000000)) {
-					FreeMemorySafe((void *)&vartbl[hashcurrent].val.s);
+				hashcurrent = hashlist[i].hash;
+				if(((VREC(hashcurrent)->type & T_STR) || VREC(hashcurrent)->dims[0] != 0) && !(VREC(hashcurrent)->type & T_PTR) && !VAR_INLINE_STR(VREC(hashcurrent)) && ((uint32_t)VREC(hashcurrent)->val.s>0x24000000)) {
+					FreeMemorySafe((void *)&VREC(hashcurrent)->val.s);
 					// free any memory (if allocated)
 				}
-//				MMPrintString("Deleting ");MMPrintString(vartbl[hashlist[i].hash].name);PIntComma(hashlist[i].level);PIntComma(hashlist[i].hash);PRet();
 				hashlist[i].level=-1;
-				newhashpointer=i; //set the new highest index
-				clearvar(&vartbl[hashcurrent]);
-				if(vartbl[hashnext].type){
-					vartbl[hashcurrent].type = T_BLOCKED ;                                // block slot
-					vartbl[hashcurrent].name[0] = '~';                                      // safety precaution
-				} else {
-					// The slot after this one is empty, so no search can pass through this slot, or through a
-					// run of markers just before it, to reach a live variable: empty those markers too.  Without
-					// this every local freed newest-first stays a marker for good, and unwinding a deep recursion
-					// leaves the local half of vartbl full of them ("Too many local variables").
-					int k = hashcurrent;
-					while(1) {
-						k = (k == 0 ? MAXVARS/2 : k) - 1;
-						if(vartbl[k].type != T_BLOCKED) break;
-						clearvar(&vartbl[k]);
-					}
-				}
+				clearvar(VREC(hashcurrent));
 				Localvarcnt--;
+				if(i == top - 1) top--;                             // still the top of the stack
+				else compact = 1;                                   // below one that stays: a deeper level's local left by an error
 			}
 		}
-		hashlistpointer=newhashpointer;
+		if(compact) top = LocalListCompact();
+		hashlistpointer = top;
+		localtop = top ? hashlist[top - 1].hash + 1 : 0;
 	} else {
 		for(i = 0; i < MAXVARS; i++) {
-			if(((vartbl[i].type & T_STR) || vartbl[i].dims[0] != 0) && !(vartbl[i].type & T_PTR)) {
-				if((uint32_t)vartbl[i].val.s>0x24000000) FreeMemorySafe((void *)&vartbl[i].val.s);                        // free any memory (if allocated)
+			if(!VarRecordReal(VREC(i))) continue;                   // a free or blocked global slot: a placeholder, nothing of its own
+			if(((VREC(i)->type & T_STR) || VREC(i)->dims[0] != 0) && !(VREC(i)->type & T_PTR) && !VAR_INLINE_STR(VREC(i))) {
+				if((uint32_t)VREC(i)->val.s>0x24000000) FreeMemorySafe((void *)&VREC(i)->val.s);                        // free any memory (if allocated)
 			}
-			clearvar(&vartbl[i]);
+			if(i < MAXLOCALVARS) clearvar(VREC(i));                 // (a global's record goes back with its chunk)
 		}
+		VarRecordsReset();                                          // every global slot free again, the records to be used again
 	}
    // then step through the for...next table and remove any loops at the level or greater
     for(i = 0; i < forindex; i++) {
@@ -3865,6 +3960,7 @@ void MIPS16 ClearVars(int level) {
     OptionBase = 0;
     DimUsed = false;
     hashlistpointer=0;
+    localtop = 0;
 }
 
 
@@ -3927,10 +4023,6 @@ void MIPS16 ClearRuntime(void) {
 	for(i=0;i<TRACE_BUFF_SIZE;i++)TraceBuff[i]=0;
 	TraceBuffIndex=0;
 	SetFont(Option.DefaultFont);
-    for(i=0; i<MAXSUBFUN;i++){
-    	funtbl[i].index=0;
-    	funtbl[i].name[0]=0;
-    }
     memset(datastore, 0, sizeof(struct sa_data) * MAXRESTORE);
     restorepointer = 0;
 //Refresh the tokens to get them into cache

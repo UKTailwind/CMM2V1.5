@@ -249,7 +249,7 @@ void fun_bound(void){
 	if(argc==3)which=getint(argv[2],0,MAXDIM);
     findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	if(which==0)iret=OptionBase;
-	else iret=vartbl[VarIndex].dims[which-1];
+	else iret=VREC(VarIndex)->dims[which-1];
 	if(iret==-1)iret=0;
 	targ=T_INT;
 }
@@ -755,7 +755,7 @@ void fun_instr(void) {
 		strcpy(p,getCstring(argv[2+n]));
 		if(argc==5+n){  // This is the passed variable to return the match length
 			temp = findvar(argv[4+n], V_FIND);
-			if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+			if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
 		}
 		targ=T_INT;
 
@@ -825,13 +825,13 @@ void fun_instr(void) {
 		regmatch_t pmatch;
 		MMFLOAT *temp=NULL;
 		temp = findvar(argv[6], V_FIND);
-		if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+		if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
 		char *s=GetTempMemory(STRINGSIZE), *p=GetTempMemory(STRINGSIZE);
 		strcpy(s,getCstring(argv[0+n]));
 		strcpy(p,getCstring(argv[2+n]));
 		if(argc==5+n){
 			temp = findvar(argv[4+n], V_FIND);
-			if(!(vartbl[VarIndex].type & T_NBR)) error("Invalid variable");
+			if(!(VREC(VarIndex)->type & T_NBR)) error("Invalid variable");
 		}
 		reti = regcomp(&regex, p, 0);
 		if( reti ) error("Could not compile regex");

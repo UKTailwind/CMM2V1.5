@@ -1,11 +1,12 @@
-' globals7.bas - item 7 part 2: the search of the global half of vartbl at the top level had no
-' bound.  511 globals is the most there can be (one slot stays empty).  ERASE of a variable whose
+' globals7.bas - item 7 part 2: the search of the global slots at the top level had no
+' bound.  1023 globals is the most there can be (one of the 1024 slots stays empty; 511 of 512
+' before the compact variable table).  ERASE of a variable whose
 ' next slot is in use leaves a marker; a new variable can then take the last empty slot, and a
 ' search for any missing name went round the table for ever, with no Ctrl-C.  Now it is an error.
 ' Before the fix this HANGS (by a simulation of the CMM2's hash, at k% = 3); run it after.
 Option Explicit
 Dim n%, k%, e
-Do While MM.Info(VARCNT) < 511
+Do While MM.Info(VARCNT) < 1023
   n% = n% + 1
   Execute "Dim V" + Str$(n%)
 Loop
