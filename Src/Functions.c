@@ -249,8 +249,15 @@ void fun_bound(void){
 	if(argc==3)which=getint(argv[2],0,MAXDIM);
     findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 	if(which==0)iret=OptionBase;
-	else iret=DimUpper(VREC(VarIndex)->dimtbl[which-1]);
-	if(iret==-1)iret=0;
+	else {
+		// A single element dimension has an upper bound of 0 under OPTION BASE 0,
+		// so 0 can no longer double as "no such dimension" - asking for one the
+		// variable does not have has to be an error rather than a silent 0.
+		if(DimIsScalar(VREC(VarIndex)->dimtbl[0]))error("Expected an array");
+		if(DimIsEnd(VREC(VarIndex)->dimtbl[which-1]))error("Dimensions");
+		iret=DimUpper(VREC(VarIndex)->dimtbl[which-1]);
+		if(iret==-1)iret=0;                                         // unbound empty array parameter
+	}
 	targ=T_INT;
 }
 void fun_call(void){

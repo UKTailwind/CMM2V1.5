@@ -595,7 +595,7 @@ int parseintegerarray(char *tp, int64_t **a1int, int argno, int dimensions, int 
 	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
 	if(dims==NULL)dims=VREC(VarIndex)->dimtbl;
 	if(VREC(VarIndex)->type & T_INT) {
-		memcpy(dims,VREC(VarIndex)->dimtbl, MAXDIM * sizeof(short));
+		memcpy(dims,VREC(VarIndex)->dimtbl, MAXDIM * sizeof(VREC(VarIndex)->dimtbl[0]));
 		*a1int = (int64_t *)ptr1;
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be an integer array",argno);
@@ -615,7 +615,7 @@ int parsenumberarray(char *tp, MMFLOAT **a1float, int64_t **a1int, int argno, in
 	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
 	if(dims==NULL)dims=VREC(VarIndex)->dimtbl;
 	if(VREC(VarIndex)->type & (T_INT | T_NBR)) {
-		memcpy(dims,VREC(VarIndex)->dimtbl,  MAXDIM * sizeof(short));
+		memcpy(dims,VREC(VarIndex)->dimtbl,  MAXDIM * sizeof(VREC(VarIndex)->dimtbl[0]));
 		if(VREC(VarIndex)->type & T_NBR) *a1float = (MMFLOAT *)ptr1;
 		else *a1int=(int64_t *)ptr1;
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
@@ -636,7 +636,7 @@ int parsefloatrarray(char *tp, MMFLOAT **a1float, int argno, int dimensions, int
 	if((VREC(VarIndex)->type & T_CONST) && ConstantNotAllowed) error("Cannot change a constant");
 	if(dims==NULL)dims=VREC(VarIndex)->dimtbl;
 	if(VREC(VarIndex)->type & T_NBR) {
-		memcpy(dims,VREC(VarIndex)->dimtbl,  MAXDIM * sizeof(short));
+		memcpy(dims,VREC(VarIndex)->dimtbl,  MAXDIM * sizeof(VREC(VarIndex)->dimtbl[0]));
 		*a1float = (MMFLOAT *)ptr1;
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be a floating point array",argno);
@@ -1034,7 +1034,7 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			if(!a1int)a1int=(int64_t *)afloat;
 			if(!DimIsRealArray(dims[1]))error("Argument 1 must be a 2D or more numerical array");
 			for(i=0;i<MAXDIM;i++){
-				if(dims[i]-OptionBase>0){
+				if(DimIsRealArray(dims[i])){
 					dimcount++;
 					dim[i]=DimUpper(dims[i])-OptionBase;
 				} else dim[i]=0;
@@ -1882,7 +1882,7 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			if(!a1int)a1int=(int64_t *)afloat;
 			if(!DimIsRealArray(dims[1]))error("Argument 1 must be a 2D or more numerical array");
 			for(i=0;i<MAXDIM;i++){
-				if(dims[i]-OptionBase>0){
+				if(DimIsRealArray(dims[i])){
 					dimcount++;
 					dim[i]=DimUpper(dims[i])-OptionBase;
 				} else dim[i]=0;
@@ -2365,11 +2365,14 @@ void __attribute__((section(".extra"))) fun_math(void){
 				getargs(&tp, 1,",");
 				if(!(argc == 1)) error("Argument count");
 				parsenumberarray(argv[0],&a1float,&a1int,1,2,dims, false);
-				numcols=DimUpper(dims[0]);
-				numrows=DimUpper(dims[1]);
-				df=numcols*numrows;
-				numcols+=(1-OptionBase);
-				numrows+=(1-OptionBase);
+				numcols=DimUpper(dims[0])+1-OptionBase;
+				numrows=DimUpper(dims[1])+1-OptionBase;
+				df=(numcols-1)*(numrows-1);
+				// chitable[] carries critical values for df 1..50 only.  df 0 is a
+				// single row or column, which has no degrees of freedom and would
+				// read the probability header row as if it were critical values.
+				if(df<1)error("Needs at least 2 rows and 2 columns");
+				if(df>50)error("Too many degrees of freedom (max 50)");
 				MMFLOAT **observed=alloc2df(numcols,numrows);
 				MMFLOAT **expected=alloc2df(numcols,numrows);
 				rows=alloc1df(numrows);

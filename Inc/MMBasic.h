@@ -133,7 +133,7 @@ typedef struct s_vartbl {                               // structure of the vari
 // Set to 0 and no DIM_ONE is ever stored, every accessor below expands to the
 // expression it replaced, and single element dimensions are refused as they
 // always were - useful for bisecting a regression back to this change.
-#define DIM_DECODE_ENABLED 0
+#define DIM_DECODE_ENABLED 1
 
 #define RAW_DIM(v, i) ((v).dimtbl[i]) // the value as stored
 #define DIM_TABLE(v) ((v).dimtbl)     // the whole table, for copies

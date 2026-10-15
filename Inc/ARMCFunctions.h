@@ -158,6 +158,8 @@ struct s_vartbl {                               // structure of the variable tab
     unsigned char size;                         // the number of chars to allocate for each element in a string array
     char dummy;
     int __attribute__ ((aligned (4))) dims[MAXDIM];                     // the dimensions. it is an array if the first dimension is NOT zero
+                                                // (each is the upper bound; an upper bound of 0, a one element dimension
+                                                // under OPTION BASE 0, is stored as -2, and -1 is an empty array parameter)
     union u_val{
         MMFLOAT f;                              // the value if it is a float
         long long int i;                        // the value if it is an integer

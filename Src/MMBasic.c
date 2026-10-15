@@ -3276,6 +3276,16 @@ void *findvar(char *p, int action) {
     // at this point we need to create the variable
     // as a result of the previous search ifree is the index to the entry that we should use
 
+    // its bounds are checked first: an error from here on would leave a half-made variable behind
+    for(i = 0; i < dnbr; i++)
+#if DIM_DECODE_ENABLED
+        // an upper bound equal to OPTION BASE is a single element dimension
+        if(dim[i] < OptionBase)
+#else
+        if(dim[i] <= OptionBase)
+#endif
+            error("Dimensions");
+
  // if we are adding to the top, increment the number of vars
 	if(ifree>=MAXLOCALVARS){                                        // the limit is tested before counting: a refused variable is not counted
 		if(Globalvarcnt+1>=MAXGLOBALVARS)error("Not enough Global variable memory");
@@ -3323,8 +3333,7 @@ void *findvar(char *p, int action) {
     // if this is an array copy the array dimensions and calculate the overall size
     // for a non array string this will leave nbr = 1 which is just what we want
     for(nbr = 1, i = 0; i < dnbr; i++) {
-        if(dim[i] <= OptionBase) error("Dimensions");
-        VREC(vindex)->dimtbl[i] = dim[i];
+        VREC(vindex)->dimtbl[i] = DimEncode(dim[i]);
         nbr *= (dim[i] + 1 - OptionBase);
     }
 
