@@ -368,9 +368,49 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
 4. **Variable table and name index.** The compact variable table (8-byte slots, records in heap chunks; frees the 64 KB `vartbl` in D3), then the SUB/FUNCTION/label index with packed parameter layouts read once per SUB.
    *Built 15 Oct*, in the PicoMite's order, without its symbol parts (step 6) or its struct parts (step 5): **P6 F2** (a7154a1), the locals a stack: a local is made in the next slot up and found by walking the creation list down from the newest; ClearVars pops the stack (compacting past a deeper level's locals left by an error), and the blocked markers and their wrap-round go. **F3a**'s non-symbol part: making a LOCAL skips the global search. **F1** (960ba97, packed as in a856559): each SUB's and FUNCTION's parameter list (names, BYVAL/BYREF, AS types, the body's start) is read on its first call and kept in 1 KB heap blocks, so a call no longer splits its definition with makeargs. **The compact table** (066f80b, d373ce6, 509622a): every `vartbl[i]` goes through `VREC(i)` (634 sites in 16 files); a global's record (64 bytes) is taken from a chunk of 32 when the global is made, on-chip D2 RAM first (`GetInternalMemoryNull`), then SDRAM; a free or blocked slot points at a shared placeholder record; ERASE puts the record on a free list; CLEAR reuses the chunks; strings kept inside their record (LENGTH 16 or less, short CONSTs) are never freed. **1024 global slots** (Peter): globals are numbers 512-1535 (`MAXGLOBALVARS`), 4 bytes each until used, with their own hash (1023) apart from the SUB table's; the 512 locals keep their records in the old D3 block, beside `slotrec[]`. PEEK/POKE VARTBL stop with an error (prefix matching would otherwise read them as PEEK(VAR TBL / POKE VAR TBL); the CSUB vector 0x8000300 is `&slotrec`; MEMORY counts the chunks as variables and skips blocked slots. **The name index** (825ade6): one heap table of 8-byte slots (hash16, length, kind, target), a power of two at most half full, built once per heap by PrepareProgram, serves FindSubFun, findlabel and findvar's SUB-name check; `funtbl` (18 KB in D2, its region now free) and `hashlabels` go, labels are no longer capped at 511 names with the SUBs, CALL takes a name in lower case, and a label defined twice is an error at RUN (Duplicate label), as a SUB always was. The PicoMite's line-number index (39bec4b) is left: CMM2 programs rarely number lines. Tests: `tests/cmm2/locals.bas` (40 checks, the same output as before P6, the overflow included), `vartable.bas` (11), `names.bas` and `dupl.bas`; `globals7` now fills 1023 globals.
 5. **Single-element arrays and structures** (moved ahead of symbols, 15 Oct, Peter).  First the dimension encoding: `dims[0] == 0` means "not an array" on the CMM2, so `DIM a(0)` is refused ("Dimensions", as single_element_matrix_demo in `Testfiles/` shows); the PicoMite stores an upper bound of 0 as `DIM_ONE` (-2) and reads every dimension through `DimUpper`, `DimIsRealArray`, `DimIsScalar`, `DimIsEnd`, `DimElements` and `RAW_DIM` (about 190 sites), which the structure code also uses.  Then structures: `TYPE ... END TYPE`, nested types, arrays of structures, `STRUCT(`, structures as parameters and in LOCAL, and the struct parts of P6 and the compact table that step 4 left out (ClearVars freeing a structure's data, the struct base lookup beside the local search).  They are core, not commands: they change the record, findvar, DIM, LOCAL, parameter passing and ClearVars.  On the PicoMite they were in the June baseline, three months before symbols, which were designed on them (`SYMC_DOT` for a member path, TYPE as a symbol-aware command), so this is the PicoMite's own order and symbols then port with their struct parts.  17 of the 47 `Testfiles/` errors are structures.
+   *Built 15 Oct.*
+   - **Single-element arrays (5a, 570211e, 3b47c39, d66b758):** the accessor layer in the PicoMite's three phases. A and B1 were byte-identical with decoding off; B2 switched it on. Fixed with it:
+     - the parse helpers' dimension copy, `sizeof(short)` on an `int` table;
+     - MATH SLICE/INSERT counting only dimensions of two or more elements;
+     - MATH CHI's degrees of freedom under OPTION BASE 1, and its range;
+     - BOUND past the rank, now an error.
+
+     Tests: `onedim.bas` and `onedim1.bas`; single_element_matrix_demo passes.
+   - **Structures (5b.0 to 5b.6, 958772f to db92816):** TYPE/END TYPE and LIST TYPE; variables, members, nested types, member arrays and arrays of structures; LET, INC, INPUT, FOR, MID$=, READ and the other single-variable commands (`FoundType()`/`FoundSize()`); DIM initialisers; structures as SUB/FUNCTION parameters and FUNCTION results; the STRUCT command and `STRUCT(` function; ARRAY SET/ADD/INSERT/SLICE (passed to the CMM2's MATH); whole-array assignment `a() = b()`; the graphics commands with `boxes().x` (gathered into a temporary array); "Struct member arrays not supported for this command" elsewhere.
+     - PicoMite faults fixed, not copied:
+       - a member as an index (issue #7);
+       - nested member assignment and parameter checks;
+       - the static path buffer;
+       - the duplicate-TYPE loop;
+       - STRUCT PRINT's `%lld`.
+     - CMM2 specifics:
+       - a command's name followed by AS is left as text, so a member can be called COLOUR;
+       - TYPE or STRUCT followed by `=`, `(` or a suffix stays a variable;
+       - `Dim s$ Length 3 = "abcdefgh"` is now "String too long" (it ran past the string).
+     - Tests: `types.bas`, `typeerr1/2`, `structs.bas` (62), `arrays.bas` (18).
+     - Of the PicoMite's `Testfiles/`, these pass:
+       - StructTest: 102 PASS, no FAIL;
+       - StructParamTest: 94 of 94;
+       - NestedStructTest: 67 of 67;
+       - ArrayCopyStructTest: 8 of 8;
+       - the other five.
+
+       StaticStructTest is hard-wrapped at 53 columns in the PicoMite repository and was run from an unwrapped copy. MathStructTest waits for the MATH update.
+   - **Along the way:**
+     - the line substitutions, the PicoMite's STR_REPLACE corrected (50aac7c, issue #8);
+     - VAR, which was never in the command table, and its implied-type fix (ad96e30);
+     - `GPS(`, also missing from the table, with the PicoMite's GPS fixes (303142e). Not run against a receiver: GPS is tested when Peter has a test environment.
+     - MEMORY's General figure (9ee8c9e).
 6. **Symbols** (S5/S6): names tokenised to symbol ids with a symbol table after the image, bound lazily to slots, locals through the per-frame shadow stack; one canonical spelling per name (the CMM2 image is crunched, 2.2); `T_LABEL` moves from 4 to 3; `OPTION SYMBOLS OFF` kept as the escape hatch.
 7. **The statement loop.** The interrupt-ready word, the `routinechecks` cadence, the sorted IF jump table, the DO fast path, `EXIT DO`/`CONTINUE DO`/`NEXT i, j`.
-8. **Language parity** (3.1): the `ARRAY` commands, `REDIM [PRESERVE]`, `ERASE` as a command, whole-array assignment, FUNCTIONs returning arrays, `BIT(`/`BYTE(`/`FLAG(`, `MM.ERRLINE`, `ON ERROR RESTART`, `CHAIN`, `SAVE/LOAD CONTEXT`, the `MM.STARTUP`/`MM.PROMPT`/`MM.END` hooks.
+8. **Language parity** (3.1): ~~the `ARRAY` commands~~ and ~~whole-array assignment~~ (done with structures, 5b.6; ARRAY passes to the CMM2's MATH until the MATH update), `REDIM [PRESERVE]`, `ERASE` as a command, FUNCTIONs returning arrays, `BIT(`/`BYTE(`/`FLAG(`, `MM.ERRLINE`, `ON ERROR RESTART`, `CHAIN`, `SAVE/LOAD CONTEXT`, the `MM.STARTUP`/`MM.PROMPT`/`MM.END` hooks.
+8a. **MATH** (Peter, 15 Oct: a separate exercise, as there is more than structures to do): a complete comparison of the PicoMite's MATH with the CMM2's, porting its fixes and new subcommands. With it:
+   - the stride work for structure members (MATH SCALE, C_ADD, C_SUB, C_MULT, C_DIV, POWER, V_ROTATE, WINDOW and CLAMP; MATH(SUM, MEAN, MAX and MIN; the parse*array helpers), so MathStructTest passes;
+   - members as MATH's single-variable outputs (WINDOW, MAX/MIN, SensorFusion);
+   - "Struct member arrays not supported" in the parse helpers, which SORT and LONGSTRING use;
+   - the PicoMite's own ARRAY SET/ADD/INSERT/SLICE;
+   - two M_INVERSE fixes already found: a bound read without `DimUpper`, so a 1x1 inverse was "Array size mismatch"; and work matrices freed with one row too few, a leak on every call.
+
 9. **Libraries, slots and CSUBs** within the 7.2 budget: `LIBRARY`, one `FLASH` slot, RAM and image slots in SDRAM; the CSUB `CallTable` in the PicoMite layout (7.2 item 3).
 
 Route B (the compiler) moves to P5: it needs symbols (step 6) and the compact table (step 4).
