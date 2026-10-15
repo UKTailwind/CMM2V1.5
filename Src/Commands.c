@@ -372,8 +372,8 @@ void command_print(char *cmd) {
             if(ss[1]!='$' || ss[ss[0]]!='*')error("GPS command must start with dollar and end with star");
             for(i=1;i<=ss[0];i++){
                 SerialPutchar(GPSchannel, s[i]);
-                if(s[i]=='$')xsum=0;
-                if(s[i]!='*')xsum ^=s[i];
+                if(s[i]=='$')xsum=0;                                // (NMEA's checksum is of what is between the $ and the *:
+                else if(s[i]!='*')xsum ^=s[i];                      // the $ was in it, so every sentence sent had a wrong one)
             }
             i=xsum/16;
             i=i+'0';

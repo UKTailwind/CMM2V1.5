@@ -80,6 +80,7 @@ void cmd_trace(void);
 void cmd_const(void);
 void cmd_type(void);
 void cmd_endtype(void);
+void fun_GPS(void);
 void cmd_select(void);
 void cmd_case(void);
 void cmd_mid(void);
@@ -574,6 +575,7 @@ void op_inv(void);
 	{ "sprite(",	    T_FUN | T_INT | T_NBR,		0, fun_sprite 	},
 	{ "~(",	    T_FUN | T_INT | T_NBR | T_STR ,		0, fun_tilde },
 	{ "Trim$(",            T_FUN | T_STR,		0, fun_trim        },
+	{ "GPS(",	    T_FUN | T_NBR | T_INT| T_STR,		0, fun_GPS	},       // its entry in GPS.h was never in this table
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

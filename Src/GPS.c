@@ -74,8 +74,10 @@ MMFLOAT GPSlatitude=0;
 MMFLOAT GPSlongitude=0;
 MMFLOAT GPSspeed=0;
 int GPSvalid=0;
-char GPStime[9]="000:00:0";
-char GPSdate[11]="000-00-200";
+// MMBasic strings: byte 0 is the length.  As "000:00:0" and "000-00-200" it was '0' (48), so until an RMC
+// sentence with a date set them, GPS(TIME) and GPS(DATE) returned 48 bytes of memory (the PicoMite's 774e640)
+char GPStime[9] = {8, '0', '0', ':', '0', '0', ':', '0', '0'};
+char GPSdate[11] = {10, '0', '0', '-', '0', '0', '-', '2', '0', '0', '0'};
 MMFLOAT GPStrack=0;
 MMFLOAT GPSdop=0;
 int GPSsatellites=0;
@@ -353,14 +355,22 @@ void fun_GPS(void){
 }
   
     
+// The PicoMite's (d18b053): the monitor print inside GPS_parse can scroll the screen, and scrolling calls
+// routinechecks(), which calls processgps() again.  So the line is claimed, and gpsready cleared, before it is
+// parsed, and a nested call returns: the old one parsed the same sentence again until the stack overflowed.
 void processgps(void){
+    static int busy = false;
     if(GPSTimer>2000){
         GPSvalid=0;
     }
+    if(busy) return;
     if(gpsready !=NULL){
-        GPS_parse((char *)gpsready);
-        GPSTimer=0;
+        char *line = (char *)gpsready;
         gpsready=NULL;
+        busy = true;
+        GPS_parse(line);
+        GPSTimer=0;
+        busy = false;
     }
 }
 uint8_t parseHex(char c) {
@@ -375,306 +385,181 @@ uint8_t parseHex(char c) {
     // if (c > 'F')
     return 0;
 }
+
+// One NMEA sentence: the PicoMite's parser.  Its trailing CR and LF are taken off, and a sentence without its
+// checksum, or with a wrong one, is refused (the CMM2's looked for the '*' 4 from the end, which with the CRLF a
+// receiver sends is never there, so it parsed every line unchecked: a sentence cut short, at the 128 character
+// limit or by noise, then sent strchr(p, ',') + 1 to address 1).  Latitude and longitude are read in double
+// precision (the old fixed point and single float lost about a metre), and RMC sets GPS(VALID), and the time and
+// date, only from a sentence that has its date.
 void GPS_parse(char *nmea) {
-  uint8_t hour, minute, seconds, year=0, month=0, day=0;
-  uint16_t __attribute__((unused)) milliseconds;
-  // Floating point latitude and longitude value in degrees.
-  float __attribute__((unused)) latitude, longitude;
-  // Fixed point latitude and longitude value with degrees stored in units of 1/100000 degrees,
-  // and minutes stored in units of 1/100000 degrees.  See pull #13 for more details:
-  //   https://github.com/adafruit/Adafruit-GPS-Library/pull/13
-  int32_t __attribute__((unused)) latitude_fixed, longitude_fixed;
-  float latitudeDegrees=0.0, longitudeDegrees=0.0;
-  float geoidheight, altitude;
-  float speed, angle, HDOP;
-  float __attribute__((unused)) magvariation;
-  char __attribute__((unused)) lat, lon;
-  uint8_t fixquality, satellites;
-  struct tm  *tm;
-  struct tm tma;
-  tm=&tma;
-  if(gpsmonitor){
-	  MMPrintString(nmea);
-  }
-  // do checksum check
-  // first look if we even have one
-  if (nmea[strlen(nmea)-4] == '*') {
-    uint16_t sum = parseHex(nmea[strlen(nmea)-3]) * 16;
-    sum += parseHex(nmea[strlen(nmea)-2]);
-    uint8_t i;
-    // check checksum 
-    for (i=2; i < (strlen(nmea)-4); i++) {
-      sum ^= nmea[i];
+    uint8_t hour, minute, seconds, year=0, month=0, day=0;
+    uint16_t __attribute__((unused)) milliseconds;
+    MMFLOAT latitudeDegrees=0.0, longitudeDegrees=0.0;
+    struct tm *tm;
+    struct tm tma;
+    char degreebuff[10];
+    int len;
+    tm=&tma;
+    len = strlen(nmea);
+    while(len > 0 && (nmea[len - 1] == '\r' || nmea[len - 1] == '\n'))
+        nmea[--len] = 0;
+    if(gpsmonitor){
+        MMPrintString(nmea);
+        MMPrintString("\r\n");
     }
-    if (sum != 0) {
-      // bad checksum :(
-      return;
-    }
-  }
-  int32_t degree;
-  long minutes;
-  char degreebuff[10];
-  // look for a few common sentences
-  if (strstr(nmea, "$GPGGA") || strstr(nmea, "$GNGGA")) {
-    // found GGA
-    char *p = nmea;
-    // get time
-    p = strchr(p, ',')+1;
-    float timef = atof(p);
-    uint32_t time = timef;
-    hour = time / 10000;
-    minute = (time % 10000) / 100;
-    seconds = (time % 100);
+    // the checksum: the two hex digits after the '*', the exclusive or of everything between the '$' and the '*'
+    if(len >= 4 && nmea[len - 3] == '*') {
+        uint16_t sum = parseHex(nmea[len - 2]) * 16;
+        sum += parseHex(nmea[len - 1]);
+        for(int i = 1; i < (len - 3); i++) sum ^= nmea[i];
+        if(sum != 0) return;                                        // bad checksum
+    } else
+        return;                                                     // no checksum
 
-    milliseconds = fmod(timef, 1.0) * 1000;
-
-    // parse out latitude
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      strncpy(degreebuff, p, 2);
-      p += 2;
-      degreebuff[2] = '\0';
-      degree = atol(degreebuff) * 10000000;
-      strncpy(degreebuff, p, 2); // minutes
-      p += 3; // skip decimal point
-      strncpy(degreebuff + 2, p, 4);
-      degreebuff[6] = '\0';
-      minutes = 50 * atol(degreebuff) / 3;
-      latitude_fixed = degree + minutes;
-      latitude = degree / 100000 + minutes * 0.000006F;
-      latitudeDegrees = (latitude-100*(float)((int)(latitude/100)))/60.0;
-      latitudeDegrees += (float)((int)(latitude/100));
-    }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      if (p[0] == 'S') latitudeDegrees *= -1.0;
-      if (p[0] == 'N') lat = 'N';
-      else if (p[0] == 'S') lat = 'S';
-      else if (p[0] == ',') lat = 0;
-      else return;
-    }
-    GPSlatitude=(MMFLOAT)latitudeDegrees;
-    
-    // parse out longitude
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      strncpy(degreebuff, p, 3);
-      p += 3;
-      degreebuff[3] = '\0';
-      degree = atol(degreebuff) * 10000000;
-      strncpy(degreebuff, p, 2); // minutes
-      p += 3; // skip decimal point
-      strncpy(degreebuff + 2, p, 4);
-      degreebuff[6] = '\0';
-      minutes = 50 * atol(degreebuff) / 3;
-      longitude_fixed = degree + minutes;
-      longitude = degree / 100000 + minutes * 0.000006F;
-      longitudeDegrees = (longitude-100*(float)((int)(longitude/100)))/60.0;
-      longitudeDegrees += (float)((int)(longitude/100));
-    }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      if (p[0] == 'W') longitudeDegrees *= -1.0;
-      if (p[0] == 'W') lon = 'W';
-      else if (p[0] == 'E') lon = 'E';
-      else if (p[0] == ',') lon = 0;
-      else return;
-    }
-    GPSlongitude=(MMFLOAT)longitudeDegrees;
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      fixquality = atoi(p);
-      GPSfix=(int)fixquality;
-    }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      satellites = atoi(p);
-      GPSsatellites=(int)satellites;
-    }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      HDOP = atof(p);
-      GPSdop=(MMFLOAT)HDOP;
-    }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      altitude = atof(p);
-      GPSaltitude=(MMFLOAT)altitude;
-    }
-    
-    p = strchr(p, ',')+1;
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      geoidheight = atof(p);
-      GPSgeoid=(MMFLOAT)geoidheight;
-    }
-    return;
-  }
-  if (strstr(nmea, "$GPRMC") || strstr(nmea, "$GNRMC")) {
-   // found RMC
-    char *p = nmea;
-    int i;
-    // get time
-    p = strchr(p, ',')+1;
-    float timef = atof(p);
-    uint32_t time = timef;
-    hour = time / 10000;
-    minute = (time % 10000) / 100;
-    seconds = (time % 100);
-    milliseconds = fmod(timef, 1.0) * 1000;
-    i=tm->tm_hour;
-    GPStime[1]=(hour/10) + 48;
-    GPStime[2]=(hour % 10) + 48;
-    i=tm->tm_min;
-    GPStime[4]=(minute/10) + 48;
-    GPStime[5]=(minute % 10) + 48;
-    i=tm->tm_sec;
-    GPStime[7]=(seconds/10) + 48;
-    GPStime[8]=(seconds % 10) + 48;
-
-    p = strchr(p, ',')+1;
-    if (p[0] == 'A') 
-      GPSvalid = 1;
-    else if (p[0] == 'V')
-      GPSvalid = 0;
-    else
-    {
-        GPSvalid=0;
+    if(strstr(nmea, "$GPGGA") || strstr(nmea, "$GNGGA")) {
+        char *p = nmea;
+        // time
+        p = strchr(p, ',')+1;
+        MMFLOAT timef = atof(p);
+        uint32_t time = timef;
+        hour = time / 10000;
+        minute = (time % 10000) / 100;
+        seconds = (time % 100);
+        milliseconds = fmod(timef, 1.0) * 1000;
+        // latitude
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            strncpy(degreebuff, p, 2);
+            p += 2;
+            degreebuff[2] = '\0';
+            latitudeDegrees = atol(degreebuff) + (atof(p) / 60.0);
+        }
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            if(p[0] == 'S') latitudeDegrees *= -1.0;
+        }
+        GPSlatitude = latitudeDegrees;
+        // longitude
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            strncpy(degreebuff, p, 3);
+            p += 3;
+            degreebuff[3] = '\0';
+            longitudeDegrees = atol(degreebuff) + (atof(p) / 60.0);
+        }
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            if(p[0] == 'W') longitudeDegrees *= -1.0;
+        }
+        GPSlongitude = longitudeDegrees;
+        p = strchr(p, ',')+1;
+        if(',' != *p) GPSfix = atoi(p);
+        p = strchr(p, ',')+1;
+        if(',' != *p) GPSsatellites = atoi(p);
+        p = strchr(p, ',')+1;
+        if(',' != *p) GPSdop = (MMFLOAT)atof(p);
+        p = strchr(p, ',')+1;
+        if(',' != *p) GPSaltitude = (MMFLOAT)atof(p);
+        p = strchr(p, ',')+1;                                       // the altitude's units (metres)
+        p = strchr(p, ',')+1;
+        if(',' != *p) GPSgeoid = (MMFLOAT)atof(p);
         return;
     }
-
-    // parse out latitude
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      strncpy(degreebuff, p, 2);
-      p += 2;
-      degreebuff[2] = '\0';
-      long degree = atol(degreebuff) * 10000000;
-      strncpy(degreebuff, p, 2); // minutes
-      p += 3; // skip decimal point
-      strncpy(degreebuff + 2, p, 4);
-      degreebuff[6] = '\0';
-      long minutes = 50 * atol(degreebuff) / 3;
-      latitude_fixed = degree + minutes;
-      latitude = degree / 100000 + minutes * 0.000006F;
-      latitudeDegrees = (latitude-100*(float)((int)(latitude/100)))/60.0;
-      latitudeDegrees += (float)((int)(latitude/100));
+    if(strstr(nmea, "$GPRMC") || strstr(nmea, "$GNRMC")) {
+        char *p = nmea;
+        int i, localGPSvalid = 0;
+        // time
+        p = strchr(p, ',')+1;
+        MMFLOAT timef = atof(p);
+        uint32_t time = timef;
+        hour = time / 10000;
+        minute = (time % 10000) / 100;
+        seconds = (time % 100);
+        milliseconds = fmod(timef, 1.0) * 1000;
+        GPStime[1] = (hour / 10) + 48;
+        GPStime[2] = (hour % 10) + 48;
+        GPStime[4] = (minute / 10) + 48;
+        GPStime[5] = (minute % 10) + 48;
+        GPStime[7] = (seconds / 10) + 48;
+        GPStime[8] = (seconds % 10) + 48;
+        // status
+        p = strchr(p, ',')+1;
+        if(p[0] == 'A') localGPSvalid = 1;
+        else if(p[0] == 'V') localGPSvalid = 0;
+        else {
+            GPSvalid = 0;
+            return;
+        }
+        // latitude
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            strncpy(degreebuff, p, 2);
+            p += 2;
+            degreebuff[2] = '\0';
+            latitudeDegrees = atol(degreebuff) + (atof(p) / 60.0);
+        }
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            if(p[0] == 'S') latitudeDegrees *= -1.0;
+        }
+        GPSlatitude = latitudeDegrees;
+        // longitude
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            strncpy(degreebuff, p, 3);
+            p += 3;
+            degreebuff[3] = '\0';
+            longitudeDegrees = atol(degreebuff) + (atof(p) / 60.0);
+        }
+        p = strchr(p, ',')+1;
+        if(',' != *p) {
+            if(p[0] == 'W') longitudeDegrees *= -1.0;
+        }
+        GPSlongitude = longitudeDegrees;
+        // speed, track
+        p = strchr(p, ',')+1;
+        if(',' != *p) GPSspeed = (MMFLOAT)atof(p);
+        p = strchr(p, ',')+1;
+        if(',' != *p) GPStrack = (MMFLOAT)atof(p);
+        // the date: then the time and date, moved by the time offset of OPEN ... AS GPS
+        p = strchr(p, ',')+1;
+        if(',' != *p && p[6] == ',') {
+            uint32_t fulldate = atoi(p);
+            day = fulldate / 10000;
+            month = (fulldate % 10000) / 100;
+            year = (fulldate % 100);
+            GPStime[0] = 8;
+            tm->tm_year = year + 100;
+            tm->tm_mon = month - 1;
+            tm->tm_mday = day;
+            tm->tm_hour = hour;
+            tm->tm_min = minute;
+            tm->tm_sec = seconds;
+            time_t timestamp = timegm(tm);
+            timestamp += GPSadjust;
+            tm = gmtime(&timestamp);
+            i = tm->tm_hour;
+            GPStime[1] = (i / 10) + 48;
+            GPStime[2] = (i % 10) + 48;
+            i = tm->tm_min;
+            GPStime[4] = (i / 10) + 48;
+            GPStime[5] = (i % 10) + 48;
+            i = tm->tm_sec;
+            GPStime[7] = (i / 10) + 48;
+            GPStime[8] = (i % 10) + 48;
+            i = tm->tm_mday;
+            GPSdate[0] = 10;
+            GPSdate[1] = (i / 10) + 48;
+            GPSdate[2] = (i % 10) + 48;
+            i = tm->tm_mon + 1;
+            GPSdate[4] = (i / 10) + 48;
+            GPSdate[5] = (i % 10) + 48;
+            i = tm->tm_year % 100;
+            GPSdate[9] = (i / 10) + 48;
+            GPSdate[10] = (i % 10) + 48;
+            GPSvalid = localGPSvalid;
+            return;
+        }
     }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      if (p[0] == 'S') latitudeDegrees *= -1.0;
-      if (p[0] == 'N') lat = 'N';
-      else if (p[0] == 'S') lat = 'S';
-      else if (p[0] == ',') lat = 0;
-      else return;
-    }
-    GPSlatitude=(MMFLOAT)latitudeDegrees;
-    
-    // parse out longitude
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      strncpy(degreebuff, p, 3);
-      p += 3;
-      degreebuff[3] = '\0';
-      degree = atol(degreebuff) * 10000000;
-      strncpy(degreebuff, p, 2); // minutes
-      p += 3; // skip decimal point
-      strncpy(degreebuff + 2, p, 4);
-      degreebuff[6] = '\0';
-      minutes = 50 * atol(degreebuff) / 3;
-      longitude_fixed = degree + minutes;
-      longitude = degree / 100000 + minutes * 0.000006F;
-      longitudeDegrees = (longitude-100*(float)((int)(longitude/100)))/60.0;
-      longitudeDegrees += (float)((int)(longitude/100));
-    }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      if (p[0] == 'W') longitudeDegrees *= -1.0;
-      if (p[0] == 'W') lon = 'W';
-      else if (p[0] == 'E') lon = 'E';
-      else if (p[0] == ',') lon = 0;
-      else return;
-    }
-    GPSlongitude=(MMFLOAT)longitudeDegrees;
-    // speed
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      speed = atof(p);
-      GPSspeed=(MMFLOAT)speed;
-    }
-    
-    // angle
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      angle = atof(p);
-      GPStrack=(MMFLOAT)angle;
-    }
-    
-    p = strchr(p, ',')+1;
-    if (',' != *p)
-    {
-      uint32_t fulldate = atof(p);
-      day = fulldate / 10000;
-      month = (fulldate % 10000) / 100;
-      year = (fulldate % 100);
-    }
-    GPStime[0]=8;
-    tm->tm_year = year + 100;
-    tm->tm_mon = month - 1;
-    tm->tm_mday = day;
-    tm->tm_hour = hour;
-    tm->tm_min = minute;
-    tm->tm_sec = seconds;
-    time_t timestamp = timegm(tm); /* See README.md if your system lacks timegm(). */
-    timestamp+=GPSadjust;
-    tm=gmtime(&timestamp);
-    i=tm->tm_hour;
-    GPStime[1]=(i/10) + 48;
-    GPStime[2]=(i % 10) + 48;
-    i=tm->tm_min;
-    GPStime[4]=(i/10) + 48;
-    GPStime[5]=(i % 10) + 48;
-    i=tm->tm_sec;
-    GPStime[7]=(i/10) + 48;
-    GPStime[8]=(i % 10) + 48;
-    i=tm->tm_mday;
-    GPSdate[0]=10;
-    GPSdate[1]=(i/10) + 48;
-    GPSdate[2]=(i % 10) + 48;
-    i=tm->tm_mon+1;
-    GPSdate[4]=(i/10) + 48;
-    GPSdate[5]=(i % 10) + 48;
-    i=tm->tm_year % 100;
-    GPSdate[9]=(i/10) + 48;
-    GPSdate[10]=(i % 10) + 48;
-    // we don't parse the remaining, yet!
-    return;
-  }
-
-  return;
 }
-
-

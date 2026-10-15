@@ -420,7 +420,7 @@ void USART1_IRQHandler(void)
   	            *gpsbuf=cc;
   	            gpsbuf++;
   	            gpscount++;
-  	            if((char)cc==10 || gpscount==128){
+  	            if((char)cc==10 || gpscount==127){
   	               if(gpscurrent){
   	                   *gpsbuf=0;
   	                   gpscurrent=0;
@@ -503,7 +503,7 @@ void USART2_IRQHandler(void)
 				*gpsbuf=cc;
 				gpsbuf++;
 				gpscount++;
-				if((char)cc==10 || gpscount==128){
+				if((char)cc==10 || gpscount==127){
 				   if(gpscurrent){
 					   *gpsbuf=0;
 					   gpscurrent=0;
@@ -586,7 +586,7 @@ void UART4_IRQHandler(void)
 				*gpsbuf=cc;
 				gpsbuf++;
 				gpscount++;
-				if((char)cc==10 || gpscount==128){
+				if((char)cc==10 || gpscount==127){
 				   if(gpscurrent){
 					   *gpsbuf=0;
 					   gpscurrent=0;
