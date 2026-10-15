@@ -1,0 +1,786 @@
+[
+ {
+  "name": "arrsize",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 42: Unknown command"
+ },
+ {
+  "name": "arrslice",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 29: Unknown command"
+ },
+ {
+  "name": "arrslice1",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 17: Unknown command"
+ },
+ {
+  "name": "bench",
+  "class": "TIMEOUT",
+  "deterministic": true,
+  "secs": 61.4,
+  "note": ">"
+ },
+ {
+  "name": "bitbyte",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 12: BIT is not declared"
+ },
+ {
+  "name": "blit",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": "7: Error in line 60: Buffer not in use"
+ },
+ {
+  "name": "box",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": ""
+ },
+ {
+  "name": "byrefelem",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "callname",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "checks",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "circle",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 1.6,
+  "note": ""
+ },
+ {
+  "name": "circrnd",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 2.7,
+  "note": ""
+ },
+ {
+  "name": "cmath",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "console",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 24: Syntax"
+ },
+ {
+  "name": "constonce",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "countpin",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 10: Pin 0 is invalid"
+ },
+ {
+  "name": "dataconst",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 32: LATE Global variable already declared"
+ },
+ {
+  "name": "dynarr",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 57: Unknown command"
+ },
+ {
+  "name": "elseif",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 51: Unexpected text"
+ },
+ {
+  "name": "fbdemo",
+  "class": "ERROR",
+  "deterministic": false,
+  "secs": 1.8,
+  "note": "Error in line 64: Syntax"
+ },
+ {
+  "name": "fbwrite",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 7: Framebuffer not created"
+ },
+ {
+  "name": "flash",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": "Error in line 7: Syntax"
+ },
+ {
+  "name": "fnbyref",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "fnretcat",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "fontdef",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "forktest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 17: Unknown command"
+ },
+ {
+  "name": "framebuf",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 24: Syntax"
+ },
+ {
+  "name": "gpio",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 12: Pin 2 is invalid"
+ },
+ {
+  "name": "i2c0",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 22: I2C not open"
+ },
+ {
+  "name": "i2c2",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 17: 39 is invalid (valid is 1 to 9)"
+ },
+ {
+  "name": "imgfmt",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": "Error in line 9: Syntax"
+ },
+ {
+  "name": "imgloop",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.9,
+  "note": "Error in line 19: Syntax"
+ },
+ {
+  "name": "imgm1",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 7.4,
+  "note": "Error in line 11: Syntax"
+ },
+ {
+  "name": "imgm1b",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 7.4,
+  "note": "Error in line 20: Syntax"
+ },
+ {
+  "name": "imgm1c",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.9,
+  "note": "Error in line 21: Syntax"
+ },
+ {
+  "name": "imgm1d",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 3.2,
+  "note": "Error in line 19: Syntax"
+ },
+ {
+  "name": "imgtrip",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 3.2,
+  "note": "Error in line 14: Syntax"
+ },
+ {
+  "name": "init2d",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "jsonpath",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "justarg",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "1: Error in line 19: Justification"
+ },
+ {
+  "name": "layer",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 21: Syntax"
+ },
+ {
+  "name": "localheap",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "lscomms",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 25: Pin 2 is invalid"
+ },
+ {
+  "name": "matha",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "err dotsize :Error in line 119: Array size mismatch"
+ },
+ {
+  "name": "mathb64",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 6: Variable name"
+ },
+ {
+  "name": "mathcrc",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 28: 0 is invalid (valid is 1 to 65535)"
+ },
+ {
+  "name": "mathm",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "mathm1",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 27: Dimensions"
+ },
+ {
+  "name": "mathq",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "e rot3:Error in line 76: Argument 3 must be a 5 element floating point array"
+ },
+ {
+  "name": "mathr",
+  "class": "ERROR",
+  "deterministic": false,
+  "secs": 1.4,
+  "note": "Error in line 52: Unknown command"
+ },
+ {
+  "name": "mathw",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 27: Syntax"
+ },
+ {
+  "name": "mminfo",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 13: Syntax"
+ },
+ {
+  "name": "negcmp",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 34: Expression syntax"
+ },
+ {
+  "name": "onerror",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 41: Divide by zero"
+ },
+ {
+  "name": "onerrwin",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "onewire",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 22: Argument count"
+ },
+ {
+  "name": "onkey",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.9,
+  "note": ""
+ },
+ {
+  "name": "optangle",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "optbase1",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "optescape",
+  "class": "DIFF",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "order",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 76: Unknown command"
+ },
+ {
+  "name": "palette",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": ""
+ },
+ {
+  "name": "pathmap",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.6,
+  "note": "Error in line 11: The logical drive number is invalid"
+ },
+ {
+  "name": "pinint",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 26: Pin 34 is invalid"
+ },
+ {
+  "name": "pioout",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 8: Unknown command"
+ },
+ {
+  "name": "pixart",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 10.0,
+  "note": ""
+ },
+ {
+  "name": "pixels",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "play",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "7: Error in line 25: Samples play over MOD file"
+ },
+ {
+  "name": "playfile",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "playmp3",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 18: Could not find the path"
+ },
+ {
+  "name": "polypoly",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "port",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 4: Pin 0 is invalid"
+ },
+ {
+  "name": "posflush",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 31: Unknown command"
+ },
+ {
+  "name": "printat",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "pulse",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 13: Pin 0 is invalid"
+ },
+ {
+  "name": "pulsin",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 10: GP4 is not declared"
+ },
+ {
+  "name": "pwm",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 8: 0 is invalid (valid is 1 to 9)"
+ },
+ {
+  "name": "ripple",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 3.0,
+  "note": ""
+ },
+ {
+  "name": "rtcreg",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 10: Unknown command"
+ },
+ {
+  "name": "rtest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 7: Syntax"
+ },
+ {
+  "name": "saveimg",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 3.7,
+  "note": "Error in line 11: Unknown command"
+ },
+ {
+  "name": "settick",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 11.5,
+  "note": ""
+ },
+ {
+  "name": "solar_eclipse",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 11.8,
+  "note": ""
+ },
+ {
+  "name": "sombrero",
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 8.9,
+  "note": ""
+ },
+ {
+  "name": "spi",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 19: Pin 2 is invalid"
+ },
+ {
+  "name": "sprite",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 33: Syntax"
+ },
+ {
+  "name": "strargs",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "4: Error in line 42: Position must be L, R, or B"
+ },
+ {
+  "name": "strlen",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "structtest",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.4,
+  "note": "Error in line 15: Unknown command"
+ },
+ {
+  "name": "t1",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 2.4,
+  "note": "Error: Invalid identifier \u00faS$,CH$)'|100"
+ },
+ {
+  "name": "t2",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 9: Inconsistent type suffix"
+ },
+ {
+  "name": "t3",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 27: Expected closing bracket"
+ },
+ {
+  "name": "t4",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 13: Argument list"
+ },
+ {
+  "name": "t5",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 25: BIT is not declared"
+ },
+ {
+  "name": "t6",
+  "class": "DIFF",
+  "deterministic": true,
+  "secs": 2.7,
+  "note": ""
+ },
+ {
+  "name": "t7",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 136: Unknown command"
+ },
+ {
+  "name": "t8",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.8,
+  "note": "Error in line 85: Dimensions"
+ },
+ {
+  "name": "text",
+  "class": "DIFF",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "tiger",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 5: Syntax"
+ },
+ {
+  "name": "tilemap",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.9,
+  "note": "Error in line 19: Unknown command"
+ },
+ {
+  "name": "tri",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": ""
+ },
+ {
+  "name": "type",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": "Error in line 7: Unknown command"
+ },
+ {
+  "name": "uptime",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "varaddr",
+  "class": "DIFF",
+  "deterministic": true,
+  "secs": 1.5,
+  "note": ""
+ },
+ {
+  "name": "waitint",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.7,
+  "note": "Error in line 24: Pin 1 is invalid"
+ },
+ {
+  "name": "webnpc",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 3.8,
+  "note": ""
+ },
+ {
+  "name": "webpage",
+  "class": "MATCH",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": ""
+ },
+ {
+  "name": "webservz",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 4: Unknown command"
+ },
+ {
+  "name": "webtcpe",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 5: Unknown command"
+ },
+ {
+  "name": "webtlse",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 3: Unknown command"
+ },
+ {
+  "name": "webudp",
+  "class": "ERROR",
+  "deterministic": true,
+  "secs": 1.4,
+  "note": "Error in line 9: Unknown command"
+ },
+ {
+  "name": "wtest",
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 3.2,
+  "note": ""
+ }
+]

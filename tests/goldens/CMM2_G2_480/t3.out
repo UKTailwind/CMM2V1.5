@@ -1,0 +1,11 @@
+colons: 1 2 3
+spaced: 4 5
+empty statements survive
+1 then-only, taken
+3 then branch
+4 else branch
+5 all three ran
+5 b,c = 11 12
+6 b,c = 0 0
+Error in line 27: Expected closing bracket
+

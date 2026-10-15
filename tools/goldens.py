@@ -20,6 +20,12 @@ mapped as in section 6.3 of docs/PicoMite_Parity_Audit_and_Plan.md (MODE 1 -> MO
 MODE 2 -> MODE 7,12, ...), so every program stays on a 640x480 signal; --nomodemap sends
 them unchanged.
 
+A board that no longer answers Ctrl-C after a run is reset through the ST-Link (connect
+under reset) and the program is classed HUNG.
+
+A program holding a CSUB or CFUNCTION, or loading a library or include from the corpus
+that does, is SKIPPED: that code is built for the PicoMite's processors and must not run here.
+
 Writes OUTDIR/<name>.out and .out2, <name>.diff where it differs from .expected, and
 OUTDIR/SUMMARY.md and summary.json.
 """
@@ -33,6 +39,28 @@ CORPUS = r"\\wsl.localhost\Ubuntu\home\peter\src\FUZIX\Applications\mmb2c\tests"
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>]|\r")
 CAP = 60.0
 MODEMAP = {"1": "8,8", "2": "7,12", "3": "8,12", "4": "7,16", "5": "7,8"}   # PicoMite 640x480 modes -> CMM2
+
+
+FOREIGN = re.compile(r"(?im)^[ \t]*(CSUB|CFUNCTION)\b")
+LOADS = re.compile(r"""(?im)^[ \t]*(?:LIBRARY[ \t]+LOAD|#INCLUDE)\b([^\n']*)""")
+
+
+def foreign_code(corpus, name, seen=()):
+    """The file holding a CSUB or CFUNCTION, in this program or in a library or include
+    it loads from the corpus: that code is built for the PicoMite (Cortex-M0+/M33) and its
+    calls into the PicoMite's CallTable land on unrelated CMM2 functions, so it must not run."""
+    path = os.path.join(corpus, name)
+    if name.lower() in seen or not os.path.exists(path):
+        return None
+    text = open(path, encoding="latin-1").read()
+    if FOREIGN.search(text):
+        return name
+    for args in LOADS.findall(text):
+        for ref in re.findall(r'"([^"]+)"', args):
+            hit = foreign_code(corpus, os.path.basename(ref.replace("\\", "/")), tuple(seen) + (name.lower(),))
+            if hit:
+                return hit
+    return None
 
 
 def modemap(text):
@@ -211,6 +239,27 @@ def run_program(b, run, inputs):
     return status, clean, round(time.time() - t0, 1)
 
 
+STLINK = r"C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
+
+
+def alive(b):
+    """True if the board answers Ctrl-C with a prompt.  If it does not, reset it through the
+    ST-Link and return False.  Connect under reset only: a hot-plug connect cannot reach a
+    running CMM2 and leaves the probe wedged."""
+    try:
+        b.attention()
+        return True
+    except TimeoutError:
+        pass
+    print("board not answering: resetting it through the ST-Link", flush=True)
+    import subprocess
+    subprocess.run([STLINK, "-c", "port=SWD", "mode=UR", "freq=1000", "-rst"], capture_output=True, timeout=120)
+    time.sleep(10)
+    b.drain(0.5)
+    b.attention()                                       # still nothing: stop the run here
+    return False
+
+
 def arg(name, default=None):
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
 
@@ -237,6 +286,21 @@ def main():
     names = sorted(f[:-4] for f in os.listdir(corpus) if f.lower().endswith(".bas"))
     if only:
         names = [n for n in names if n in only]
+    # Every result goes to rows.jsonl as it comes, so a run that stops can go on with --from NAME,
+    # keeping the results before NAME.
+    saved = os.path.join(outdir, "rows.jsonl")
+    start = arg("--from")
+    rows = []
+    if start:
+        if os.path.exists(saved):
+            rows = [r for r in (json.loads(l) for l in open(saved, encoding="utf-8") if l.strip()) if r["name"] < start]
+        names = [n for n in names if n >= start]
+    open(saved, "w", encoding="utf-8").write("".join(json.dumps(r) + "\n" for r in rows))
+
+    def keep(r):
+        print(json.dumps(r), flush=True)
+        open(saved, "a", encoding="utf-8").write(json.dumps(r) + "\n")
+
     b = Board(port, baud)
     b.attention()
     device = b.cmd('PRINT MM.DEVICE$; " "; MM.VER', 10).strip()
@@ -270,18 +334,29 @@ def main():
     for i in range(0, len(todo), 40):                   # a few batches, so one bad file does not cost the lot
         b.zmodem_put(todo[i:i + 40])
     print("sent %d of %d files to %s" % (len(todo), len(files), gdir), flush=True)
-    rows = []
     for n in names:
         inp = os.path.join(corpus, n + ".in")
         inputs = open(inp, encoding="latin-1").read().splitlines() if os.path.exists(inp) else []
         b.attention()
         b.cmd('CHDIR "%s"' % gdir, 10)
-        run = 'RUN "%s"' % next(f for f in files if f[:-4] == n)
+        prog = next(f for f in files if f[:-4] == n)
+        foreign = foreign_code(corpus, prog)
+        if foreign:
+            rows.append({"name": n, "class": "SKIPPED", "note": "PicoMite CSUB code in " + foreign})
+            keep(rows[-1])
+            continue
+        run = 'RUN "%s"' % prog
         s1, o1, t1 = run_program(b, run, inputs)
-        b.attention()
-        s2, o2, t2 = run_program(b, run, inputs)
         open(os.path.join(outdir, n + ".out"), "w", encoding="utf-8").write(o1)
+        if not alive(b):
+            rows.append({"name": n, "class": "HUNG", "secs": t1, "note": "no prompt after Ctrl-C, reset through the ST-Link: " + o1.strip()[-120:]})
+            keep(rows[-1])
+            continue
+        s2, o2, t2 = run_program(b, run, inputs)
         open(os.path.join(outdir, n + ".out2"), "w", encoding="utf-8").write(o2)
+        if not alive(b):
+            s2 = "HUNG"
+            o2 += "\n[no prompt after Ctrl-C, reset through the ST-Link]\n"
         det = norm(o1, inputs) == norm(o2, inputs)
         exp = os.path.join(corpus, n + ".expected")
         cls = s1
@@ -300,10 +375,10 @@ def main():
         if s1 in ("ERROR", "NEEDS-INPUT", "TIMEOUT"):
             errs = re.findall(r"[^\n]*\bError\b[^\n]*", o1)     # the last one is what stopped it
             note = (errs[-1] if errs else o1.strip().split("\n")[-1])[-160:]
-        if "Colour Maximite" in o1 + o2:
-            note = "RESET " + note                       # the sign-on banner: the board restarted
+        if "MMBasic Version" in o1 + o2:
+            note = "RESET " + note                       # the sign-on banner: the board restarted (MM.DEVICE$ alone is not one)
         rows.append({"name": n, "class": cls, "deterministic": det, "secs": t1, "note": note.replace("\n", " | ")})
-        print(json.dumps(rows[-1]), flush=True)
+        keep(rows[-1])
     write_summary(outdir, rows, device)
     json.dump(rows, open(os.path.join(outdir, "summary.json"), "w"), indent=1)
     b.cmd("MODE 8", 10)

@@ -1,0 +1,3 @@
+-- write N without a buffer is fine --
+Error in line 7: Framebuffer not created
+

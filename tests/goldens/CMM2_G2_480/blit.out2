@@ -1,0 +1,9 @@
+1: Error in line 16: Existing buffer is incorrect size
+2: Error in line 21: Buffer not in use
+3: Error in line 26: Buffer not in use
+4: 
+5: Error in line 48: 8 is invalid (valid is 0 to 7)
+6: Error in line 54: 65 is invalid (valid is 1 to 64)
+7: Error in line 60: Buffer not in use
+blit surface ok
+

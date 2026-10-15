@@ -38,7 +38,7 @@ for r in range(rounds):
     log += cmd('RUN "A:/zs1.bas"', 3)
     log += cmd('RUN "A:/zs2.bas"', 3)
     log += cmd('? 6*7')
-    hit = 'Colour Maximite' in log
+    hit = 'MMBasic Version' in log                    # the sign-on banner
     resets += hit
     fromprobe = 'outside the firmware' in log          # the boot says so when the reset did not come from SoftReset()
     probe += fromprobe

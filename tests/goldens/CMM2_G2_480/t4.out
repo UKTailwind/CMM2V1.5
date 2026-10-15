@@ -1,0 +1,7 @@
+1 call-colon-call ok
+show 1 2
+show 3 4
+show 9 10
+show 11 12
+Error in line 13: Argument list
+

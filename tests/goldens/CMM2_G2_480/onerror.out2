@@ -1,0 +1,10 @@
+skip1:  99 errno  16 [Error in line 15: Divide by zero]
+cleared:  0 []
+skip2:  7  16
+ignore: still here [Error in line 31: Divide by zero]
+afterclear:  0
+part: 
+
+
+Error in line 41: Divide by zero
+

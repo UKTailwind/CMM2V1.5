@@ -1,0 +1,9 @@
+MODE 2:  320 x  240
+
+20 full-screen fills:
+  screen, SRAM   66.119 ms total
+  buffer, PSRAM  71.87 ms total
+
+100 copies of the buffer to the screen:
+Error in line 64: Syntax
+
