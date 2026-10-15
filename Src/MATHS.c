@@ -600,10 +600,10 @@ int parseintegerarray(char *tp, int64_t **a1int, int argno, int dimensions, int 
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be an integer array",argno);
 	int card=1;
-	if(dimensions==1 && (dims[0]<=0 || dims[1]>0))error("Argument % must be a 1D integer array",argno);
-	if(dimensions==2 && (dims[0]<=0 || dims[1]<=0 || dims[2]>0))error("Argument % must be a 2D integer array",argno);
+	if(dimensions==1 && (!DimIsRealArray(dims[0]) || DimIsRealArray(dims[1])))error("Argument % must be a 1D integer array",argno);
+	if(dimensions==2 && (!DimIsRealArray(dims[0]) || !DimIsRealArray(dims[1]) || DimIsRealArray(dims[2])))error("Argument % must be a 2D integer array",argno);
 	for(i=0;i<MAXDIM;i++){
-		j=(dims[i] - OptionBase + 1);
+		j=(DimUpper(dims[i]) - OptionBase + 1);
 		if(j)card *= j;
 	}
 	return card;
@@ -621,10 +621,10 @@ int parsenumberarray(char *tp, MMFLOAT **a1float, int64_t **a1int, int argno, in
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be a numerical array",argno);
 	int card=1;
-	if(dimensions==1 && (dims[0]<=0 || dims[1]>0))error("Argument % must be a 1D numerical array",argno);
-	if(dimensions==2 && (dims[0]<=0 || dims[1]<=0 || dims[2]>0))error("Argument % must be a 2D numerical array",argno);
+	if(dimensions==1 && (!DimIsRealArray(dims[0]) || DimIsRealArray(dims[1])))error("Argument % must be a 1D numerical array",argno);
+	if(dimensions==2 && (!DimIsRealArray(dims[0]) || !DimIsRealArray(dims[1]) || DimIsRealArray(dims[2])))error("Argument % must be a 2D numerical array",argno);
 	for(i=0;i<MAXDIM;i++){
-		j=(dims[i] - OptionBase + 1);
+		j=(DimUpper(dims[i]) - OptionBase + 1);
 		if(j)card *= j;
 	}
 	return card;
@@ -641,10 +641,10 @@ int parsefloatrarray(char *tp, MMFLOAT **a1float, int argno, int dimensions, int
 		if((uint32_t)ptr1!=(uint32_t)VREC(VarIndex)->val.s)error("Syntax");
 	} else error("Argument % must be a floating point array",argno);
 	int card=1;
-	if(dimensions==1 && (dims[0]<=0 || dims[1]>0))error("Argument % must be a 1D floating point array",argno);
-	if(dimensions==2 && (dims[0]<=0 || dims[1]<=0 || dims[2]>0))error("Argument % must be a 2D floating point array",argno);
+	if(dimensions==1 && (!DimIsRealArray(dims[0]) || DimIsRealArray(dims[1])))error("Argument % must be a 1D floating point array",argno);
+	if(dimensions==2 && (!DimIsRealArray(dims[0]) || !DimIsRealArray(dims[1]) || DimIsRealArray(dims[2])))error("Argument % must be a 2D floating point array",argno);
 	for(i=0;i<MAXDIM;i++){
-		j=(dims[i] - OptionBase + 1);
+		j=(DimUpper(dims[i]) - OptionBase + 1);
 		if(j)card *= j;
 	}
 	return card;
@@ -1032,11 +1032,11 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			if(argc<7)error("Argument count");
 			parsenumberarray(argv[0],&afloat,&a1int,1,0,dims, false);
 			if(!a1int)a1int=(int64_t *)afloat;
-			if(dims[1]<=0)error("Argument 1 must be a 2D or more numerical array");
+			if(!DimIsRealArray(dims[1]))error("Argument 1 must be a 2D or more numerical array");
 			for(i=0;i<MAXDIM;i++){
 				if(dims[i]-OptionBase>0){
 					dimcount++;
-					dim[i]=dims[i]-OptionBase;
+					dim[i]=DimUpper(dims[i])-OptionBase;
 				} else dim[i]=0;
 			}
 			if(((argc-1)/2-1)!=dimcount)error("Argument count");
@@ -1196,12 +1196,12 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			getargs(&tp, 5,",");
 			if(!(argc == 5)) error("Argument count");
 			parsefloatrarray(argv[0],&a1float,1,2,dims,false);
-			numcols=dims[0] - OptionBase;
-			numrows=dims[1] - OptionBase;
+			numcols=DimUpper(dims[0]) - OptionBase;
+			numrows=DimUpper(dims[1]) - OptionBase;
 			parsefloatrarray(argv[2],&a2float,1,1,dims,false);
-			if((dims[0] - OptionBase) != numcols)error("Array size mismatch");
+			if((DimUpper(dims[0]) - OptionBase) != numcols)error("Array size mismatch");
 			parsefloatrarray(argv[4],&a3float,1,1,dims,true);
-			if((dims[0] - OptionBase) != numrows)error("Array size mismatch");
+			if((DimUpper(dims[0]) - OptionBase) != numrows)error("Array size mismatch");
 			if(a3float==a1float || a3float==a2float)error("Destination array same as source");
 			a2sfloat=a2float;
 			numcols++;
@@ -1326,10 +1326,10 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			getargs(&tp, 3,",");
 			if(!(argc == 3)) error("Argument count");
 			parsefloatrarray(argv[0], &a1float, 1,2,dims, false);
-			numcols=dims[0] - OptionBase;
-			numrows=dims[1] - OptionBase;
+			numcols=DimUpper(dims[0]) - OptionBase;
+			numrows=DimUpper(dims[1]) - OptionBase;
 			parsefloatrarray(argv[2], &a2float, 2,2,dims, true);
-			if(dims[0] - OptionBase != numcols || dims[1] - OptionBase!= numrows)error("Array size mismatch");
+			if(dims[0] - OptionBase != numcols || DimUpper(dims[1]) - OptionBase!= numrows)error("Array size mismatch");
 			if(numcols!=numrows)error("Array must be square");
 			if(a1float==a2float)error("Same array specified for input and output");
 			n=numrows+1;
@@ -1363,11 +1363,11 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			getargs(&tp, 3,",");
 			if(!(argc == 3)) error("Argument count");
 			parsefloatrarray(argv[0], &a1float, 1,2,dims, false);
-			numcols1=numrows2=dims[0] - OptionBase;
-			numrows1=numcols2=dims[1] - OptionBase;
+			numcols1=numrows2=DimUpper(dims[0]) - OptionBase;
+			numrows1=numcols2=DimUpper(dims[1]) - OptionBase;
 			parsefloatrarray(argv[2], &a2float,2,2,dims, true);
-			if(numcols2 !=dims[0] - OptionBase)error("Array size mismatch");
-			if(numrows2 !=dims[1] - OptionBase)error("Array size mismatch");
+			if(numcols2 !=DimUpper(dims[0]) - OptionBase)error("Array size mismatch");
+			if(numrows2 !=DimUpper(dims[1]) - OptionBase)error("Array size mismatch");
 			numcols1++;
 			numrows1++;
 			numcols2++;
@@ -1401,15 +1401,15 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			getargs(&tp, 5,",");
 			if(!(argc == 5)) error("Argument count");
 			parsefloatrarray(argv[0], &a1float, 1, 2, dims, false);
-			numcols1=numrows2=dims[0] - OptionBase + 1;
-			numrows1=dims[1] - OptionBase + 1;
+			numcols1=numrows2=DimUpper(dims[0]) - OptionBase + 1;
+			numrows1=DimUpper(dims[1]) - OptionBase + 1;
 			parsefloatrarray(argv[2], &a2float, 2, 2, dims, false);
-			numcols2=dims[0] - OptionBase + 1;
-			numrows2=dims[1] - OptionBase + 1;
+			numcols2=DimUpper(dims[0]) - OptionBase + 1;
+			numrows2=DimUpper(dims[1]) - OptionBase + 1;
 			if(numrows2!=numcols1)error("Input array size mismatch");
 			parsefloatrarray(argv[4], &a3float, 3, 2, dims, true);
-			numcols3=dims[0] - OptionBase + 1;
-			numrows3=dims[1] - OptionBase + 1;
+			numcols3=DimUpper(dims[0]) - OptionBase + 1;
+			numrows3=DimUpper(dims[1]) - OptionBase + 1;
 			if(numcols3!=numcols2 || numrows3!=numrows1)error("Output array size mismatch");
 			if(a3float==a1float || a3float==a2float)error("Destination array same as source");
 //			MMFLOAT **matrix1=alloc2df(numcols1,numrows1);
@@ -1454,8 +1454,8 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			getargs(&tp, 1,",");
 			if(!(argc == 1)) error("Argument count");
 			parsenumberarray(argv[0],&a1float,&a1int,1,2,dims, false);
-			numcols=dims[0]+1-OptionBase;
-			numrows=dims[1]+1-OptionBase;
+			numcols=DimUpper(dims[0])+1-OptionBase;
+			numrows=DimUpper(dims[1])+1-OptionBase;
 //			MMFLOAT **matrix=alloc2df(numcols,numrows);
 //			int64_t **imatrix= (int64_t **)matrix;
 			if(a1float!=NULL){
@@ -1880,11 +1880,11 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			if(argc<7)error("Argument count");
 			parsenumberarray(argv[0],&afloat,&a1int,1,0,dims, false);
 			if(!a1int)a1int=(int64_t *)afloat;
-			if(dims[1]<=0)error("Argument 1 must be a 2D or more numerical array");
+			if(!DimIsRealArray(dims[1]))error("Argument 1 must be a 2D or more numerical array");
 			for(i=0;i<MAXDIM;i++){
 				if(dims[i]-OptionBase>0){
 					dimcount++;
-					dim[i]=dims[i]-OptionBase;
+					dim[i]=DimUpper(dims[i])-OptionBase;
 				} else dim[i]=0;
 			}
 			if(((argc-1)/2-1)!=dimcount)error("Argument count");
@@ -1899,7 +1899,7 @@ void __attribute__((section(".extra"))) cmd_math(void){
 			parsenumberarray(argv[i*2 +2],&afloat,&a2int,i+1,1,dims,true);
 			if(!a2int)a2int=(int64_t *)afloat;
 			if(target==-1)return;
-			if(dim[target]+OptionBase!=dims[0])error("Size mismatch between insert and target array");
+			if(dim[target]+OptionBase!=DimUpper(dims[0]))error("Size mismatch between insert and target array");
 			i=dimcount-1;
 			while(i>=0){
 				off[i]=1;
@@ -2365,8 +2365,8 @@ void __attribute__((section(".extra"))) fun_math(void){
 				getargs(&tp, 1,",");
 				if(!(argc == 1)) error("Argument count");
 				parsenumberarray(argv[0],&a1float,&a1int,1,2,dims, false);
-				numcols=dims[0];
-				numrows=dims[1];
+				numcols=DimUpper(dims[0]);
+				numrows=DimUpper(dims[1]);
 				df=numcols*numrows;
 				numcols+=(1-OptionBase);
 				numrows+=(1-OptionBase);
@@ -2464,8 +2464,8 @@ void __attribute__((section(".extra"))) fun_math(void){
 			getargs(&tp, 1,",");
 			if(!(argc == 1)) error("Argument count");
 			parsefloatrarray(argv[0],&a1float,1,2,dims, false);
-			numcols=dims[0]+1-OptionBase;
-			numrows=dims[1]+1-OptionBase;
+			numcols=DimUpper(dims[0])+1-OptionBase;
+			numrows=DimUpper(dims[1])+1-OptionBase;
 			if(numcols!=numrows)error("Array must be square");
 			n=numrows;
 			MMFLOAT **matrix=alloc2df(n,n);
@@ -2491,7 +2491,7 @@ void __attribute__((section(".extra"))) fun_math(void){
 //			if(!(argc == 1)) error("Argument count");
 			card1=parsenumberarray(argv[0],&a1float,&a1int,1,0,dims, false);
 			if(argc==3){
-				if(dims[1] > 0) {		// Not an array
+				if(DimIsRealArray(dims[1])) {		// Not an array
 					error("Argument 1 must be a 1D numerical array");
 				}
 				temp = findvar(argv[2], V_FIND);
@@ -2533,7 +2533,7 @@ void __attribute__((section(".extra"))) fun_math(void){
 //			if(!(argc == 1)) error("Argument count");
 			card1=parsenumberarray(argv[0],&a1float,&a1int,1,0,dims, false);
 			if(argc==3){
-				if(dims[1] > 0) {		// Not an array
+				if(DimIsRealArray(dims[1])) {		// Not an array
 					error("Argument 1 must be a 1D numerical array");
 				}
 				temp = findvar(argv[2], V_FIND);
@@ -2847,7 +2847,7 @@ void __attribute__((section(".extra"))) cmd_FFT(char *pp){
 	if(tp) {
 		getargs(&tp,3,",");
 		card1=parsefloatrarray(argv[0],&a4float,1,2,dims, false);
-		int size=dims[1] - OptionBase +1;
+		int size=DimUpper(dims[1]) - OptionBase +1;
 		a1cplx=(cplx *)a4float;
 		card2=parsefloatrarray(argv[2],&a3float,2,1,dims, true);
 	    if(card2 !=size)error("Array size mismatch");
@@ -2868,7 +2868,7 @@ void __attribute__((section(".extra"))) cmd_FFT(char *pp){
 	card1=parsefloatrarray(argv[0],&a3float,1,1,dims, false);
 	card2=parsefloatrarray(argv[2],&a4float,2,2,dims, true);
     a2cplx = (cplx *)a4float;
-    if((dims[1] - OptionBase + 1) !=card1)error("Array size mismatch");
+    if((DimUpper(dims[1]) - OptionBase + 1) !=card1)error("Array size mismatch");
     for(i=1;i<65536;i*=2){
     	if(card1==i)powerof2=1;
     }
