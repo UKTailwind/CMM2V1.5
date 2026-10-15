@@ -156,6 +156,7 @@ uint8_t BlinkSpeed = 0;//, str[20];
 extern void printoptions(void);
 void initConsole(void);
 void EditInputLine(void);
+static void PutRunToken(char *p, int n);
 volatile uint64_t Count5High = 0;
 uint32_t ticks_per_microsecond;
 uint32_t PLL3M,PLL3N,PLL3P,PLL3Q,PLL3R,PLL3RGE;
@@ -931,22 +932,13 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 		  executerun=1;
 	      if(!strchr(p,'\"')){
 	    	  if(strlen(p)>3){
-				  p[0]=GetCommandValue("RUN");
-	    		  if(p[4]!=','){
-					  memmove(&p[1],&p[4],strlen(p)-4);
-					  p[strlen(p)-3]=0;
-	    		  } else {
-					  memmove(&p[1],&p[5],strlen(p)-5);
-					  p[strlen(p)-4]=0;
-	    		  }
+	    		  PutRunToken(p, p[4] != ',' ? 4 : 5);           // the RUN token in place of "RUN " (or "RUN ,")
 				  strcpy(tknbuf,inpbuf);
 	    	  } else {
 	    		  tokenise(true);                                             // turn into executable code
 	    	  }
 	      } else {
-		      p[0]=GetCommandValue("RUN");
-			  memmove(&p[1],&p[4],strlen(p)-4);
-			  p[strlen(p)-3]=0;
+		      PutRunToken(p, 4);                              // the RUN token in place of "RUN "
 			  if((q=strchr(p,'\"')) != 0){
 				  char qq[FF_MAX_LFN]={0};
 				  if((s=strchr(&q[1],'\"')) != 0)*s=0;
@@ -3548,7 +3540,8 @@ void SoftReset(void){
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to program flash in tokenised format
 void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
-    char *p, endtoken, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
+    char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
+    CommandToken endtoken;
     int nbr, i, n, SaveSizeAddr;
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realflashsave;
 	SCB_CleanInvalidateDCache();
@@ -3616,7 +3609,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 			// into whatever an earlier line had left in tknbuf, and a bare RUN memmove'd (size_t)-1 bytes.
 			char *q = tknbuf, *arg = inpbuf + (inpbuf[3] ? 4 : 3);
 			*q++ = T_NEWLINE;
-			*q++ = GetCommandValue("RUN");
+			q = commandtbl_put(q, GetCommandValue("RUN"));
 			while(*arg) *q++ = *arg++;
 			*q++ = 0; *q++ = 0; *q++ = 0;
         } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
@@ -3661,10 +3654,11 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
             p += p[1] + 2;                                          // skip over the label
             skipspace(p);                                           // and any following spaces
         }
-        if(*p == cmdCSUB || *p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
-            if(*p == GetCommandValue("DefineFont")) {
+        CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdCSUB || tkn == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+            if(tkn == GetCommandValue("DefineFont")) {
              endtoken = GetCommandValue("End DefineFont");
-             p++;                                                // step over the token
+             p += sizeof(CommandToken);                                                // step over the token
              skipspace(p);
              if(*p == '#') p++;
              fontnbr = getint(p, 1, FONT_TABLE_SIZE);
@@ -3680,6 +3674,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
                 endtoken = GetCommandValue("End CSub");
                 realflashpointer+=4;
                 fontnbr = 0;
+                p += sizeof(CommandToken) - 1;                // the p++ below finishes stepping over the CSUB token
                 firsthex=0;
             }
              SaveSizeAddr = realflashpointer;                                // save where we are so that we can write the CFun size in here
@@ -3731,7 +3726,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
                  }
                  if(*p == T_LINENBR) p += 3;                         // skip over the line number
                  skipspace(p);
-             } while(*p != endtoken);
+             } while(commandtbl_at(p) != endtoken);
              storedupdates[updatecount++]=realflashpointer - SaveSizeAddr - 4;
          }
          while(*p) p++;                                              // look for the zero marking the start of the next element
@@ -3757,10 +3752,11 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
              p += p[1] + 2;                                          // skip over the label
              skipspace(p);                                           // and any following spaces
          }
-         if(*p == cmdCSUB || *p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
-         if(*p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+         CommandToken tkn = commandtbl_at(p);
+         if(tkn == cmdCSUB || tkn == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+         if(tkn == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
              endtoken = GetCommandValue("End DefineFont");
-             p++;                                                // step over the token
+             p += sizeof(CommandToken);                                                // step over the token
              skipspace(p);
              if(*p == '#') p++;
              fontnbr = getint(p, 1, FONT_TABLE_SIZE);
@@ -3774,6 +3770,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
              endtoken = GetCommandValue("End CSub");
              FlashWriteWord((unsigned int)p);               // if a CFunction/CSub save a pointer to the declaration
              fontnbr = 0;
+             p += sizeof(CommandToken) - 1;                // the p++ below finishes stepping over the CSUB token
          }
             SaveSizeAddr = realflashpointer;                                // save where we are so that we can write the CFun size in here
              FlashWriteWord(storedupdates[updatecount++]);                        // leave this blank so that we can later do the write
@@ -3821,7 +3818,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
                  }
                  if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  skipspace(p);
-             } while(*p != endtoken);
+             } while(commandtbl_at(p) != endtoken);
          }
          while(*p) p++;                                              // look for the zero marking the start of the next element
      }
@@ -3857,7 +3854,8 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to memory in tokenised format
 uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
-    char *p, endtoken, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
+    char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
+    CommandToken endtoken;
     int nbr, i, n, SaveSizeAddr;
 	SCB_CleanInvalidateDCache();
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realmemsave, retvalue;
@@ -3906,7 +3904,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
 			// into whatever an earlier line had left in tknbuf, and a bare RUN memmove'd (size_t)-1 bytes.
 			char *q = tknbuf, *arg = inpbuf + (inpbuf[3] ? 4 : 3);
 			*q++ = T_NEWLINE;
-			*q++ = GetCommandValue("RUN");
+			q = commandtbl_put(q, GetCommandValue("RUN"));
 			while(*arg) *q++ = *arg++;
 			*q++ = 0; *q++ = 0; *q++ = 0;
         } else if(tokenise(false)) goto toolong;                           // turn into executable code (or the line is too long)
@@ -3951,10 +3949,11 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
             p += p[1] + 2;                                          // skip over the label
             skipspace(p);                                           // and any following spaces
         }
-        if(*p == cmdCSUB || *p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
-			if(*p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+        CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdCSUB || tkn == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+			if(tkn == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
 				 endtoken = GetCommandValue("End DefineFont");
-				 p++;                                                // step over the token
+				 p += sizeof(CommandToken);                                                // step over the token
 				 skipspace(p);
 				 if(*p == '#') p++;
 				 fontnbr = getint(p, 1, FONT_TABLE_SIZE);
@@ -3970,6 +3969,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
 				endtoken = GetCommandValue("End CSub");
 				realmempointer+=4;
 				fontnbr = 0;
+				p += sizeof(CommandToken) - 1;                // the p++ below finishes stepping over the CSUB token
 			}
              SaveSizeAddr = realmempointer;                                // save where we are so that we can write the CFun size in here
              realmempointer+=4;
@@ -4025,7 +4025,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
                  }
                  if(*p == T_LINENBR) p += 3;                         // skip over the line number
                  skipspace(p);
-             } while(*p != endtoken);
+             } while(commandtbl_at(p) != endtoken);
              storedupdates[updatecount++]=realmempointer - SaveSizeAddr - 4;
          }
          while(*p) p++;                                              // look for the zero marking the start of the next element
@@ -4051,10 +4051,11 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
              p += p[1] + 2;                                          // skip over the label
              skipspace(p);                                           // and any following spaces
          }
-         if(*p == cmdCSUB || *p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
-			 if(*p == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+         CommandToken tkn = commandtbl_at(p);
+         if(tkn == cmdCSUB || tkn == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
+			 if(tkn == GetCommandValue("DefineFont")) {      // found a CFUNCTION, CSUB or DEFINEFONT token
 				 endtoken = GetCommandValue("End DefineFont");
-				 p++;                                                // step over the token
+				 p += sizeof(CommandToken);                                                // step over the token
 				 skipspace(p);
 				 if(*p == '#') p++;
 				 fontnbr = getint(p, 1, FONT_TABLE_SIZE);
@@ -4068,6 +4069,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
 				 endtoken = GetCommandValue("End CSub");
 				 MemWriteWord((unsigned int)p);               // if a CFunction/CSub save a pointer to the declaration
 				 fontnbr = 0;
+				 p += sizeof(CommandToken) - 1;                // the p++ below finishes stepping over the CSUB token
 			 }
              SaveSizeAddr = realmempointer;                                // save where we are so that we can write the CFun size in here
              MemWriteWord(storedupdates[updatecount++]);                        // leave this blank so that we can later do the write
@@ -4123,7 +4125,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
                  }
                  if(*p == T_LINENBR) p += 3;                     // skip over a line number
                  skipspace(p);
-             } while(*p != endtoken);
+             } while(commandtbl_at(p) != endtoken);
          }
          while(*p) p++;                                              // look for the zero marking the start of the next element
      }
@@ -4173,6 +4175,15 @@ int i, slen;
         lastcmd[i] = lastcmd[i - slen];                             // shift the contents of the buffer up
     strcpy(lastcmd, s);                                             // and insert the new string in the beginning
     for(i = STRINGSIZE*4 - 1; lastcmd[i]; i--) lastcmd[i] = 0;             // zero the end of the buffer
+}
+
+// replace the first n characters of the line at p ("RUN " and anything else before the argument) with
+// the RUN token, and close up the rest of the line behind it
+static void PutRunToken(char *p, int n) {
+    int len = strlen(p);
+    char *a = commandtbl_put(p, GetCommandValue("RUN"));
+    if(len < n) n = len;
+    memmove(a, p + n, len - n + 1);                                 // the rest of the line and its terminator
 }
 
 // collect the rest of a console line that has run past the right hand edge of the screen.  It is added to

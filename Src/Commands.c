@@ -226,13 +226,14 @@ void execute(char *mycmd){
 		char fn[FF_MAX_LFN];
 		FRESULT fr;
 		FILINFO fno;
-		p[0]=GetCommandValue("RUN");
-		memmove(&p[1],&p[4],strlen(p)-4);
+		int len = strlen(p);
+		char *a = commandtbl_put(p, GetCommandValue("RUN"));     // the RUN token takes the place of "RUN "
+		if(len > 4) memmove(a, &p[4], len - 4); else len = 4;   // (a bare RUN has nothing to move)
 		if((q=strchr(p,':'))){
 			q--;
 			*q='0';
 		}
-		p[strlen(p)-3]=0;
+		p[len - 4 + sizeof(CommandToken)]=0;
 		if((q=strchr(p,'\"')) != 0){
 			if((s=strchr(&q[1],'\"')) != 0)*s=0;
 			strcpy(fn,&q[1]);
@@ -1195,8 +1196,8 @@ retest_an_if:
 
 
 		// allow for IF statements embedded inside this IF
-		if(argc >= 3 && *argv[2] == cmdIF) argc = 3;                // this is IF xx=yy THEN IF ... so we want to evaluate only the first 3
-		if(argc >= 5 && *argv[4] == cmdIF) argc = 5;                // this is IF xx=yy THEN cmd ELSE IF ... so we want to evaluate only the first 5
+		if(argc >= 3 && commandtbl_at(argv[2]) == cmdIF) argc = 3;  // this is IF xx=yy THEN IF ... so we want to evaluate only the first 3
+		if(argc >= 5 && commandtbl_at(argv[4]) == cmdIF) argc = 5;  // this is IF xx=yy THEN cmd ELSE IF ... so we want to evaluate only the first 5
 
 		if(argc == 4 || (argc == 5 && *argv[3] != ss[1])) error("Syntax");
 
@@ -1239,10 +1240,11 @@ retest_an_if:
 				i = 1; p = nextstmt;
 				while(1) {
                     p = GetNextCommand(p, &rp, "No matching ENDIF");
-					if(*p == cmdtoken) {
+					CommandToken tkn = commandtbl_at(p);
+					if(tkn == cmdtoken) {
 						// found a nested IF command, we now need to determine if it is a single or multiline IF
 						// search for a THEN, then check if only white space follows.  If so, it is multiline.
-						tp = p + 1;
+						tp = p + sizeof(CommandToken);
 						while(*tp && *tp != ss[0]) tp++;
 						if(*tp) tp++;								// step over the THEN
 						skipspace(tp);
@@ -1253,18 +1255,18 @@ retest_an_if:
 						continue;
 					}
 
-					if(*p == cmdELSE && i == 1) {
+					if(tkn == cmdELSE && i == 1) {
 						// found an ELSE at the same level as this IF.  Step over it and continue with the statement after it
 						skipelement(p);
 						nextstmt = p;
 						break;
 					}
 
-					if((*p == cmdELSEIF/* || *p == cmdELSE_IF*/) && i == 1) {
+					if(tkn == cmdELSEIF && i == 1) {
 						// we have found an ELSEIF statement at the same level as our IF statement
 						// setup the environment to make this function evaluate the test following ELSEIF and jump back
 						// to the start of the function.  This is not very clean (it uses the dreaded goto for a start) but it works
-						p++;                                        // step over the token
+						p += sizeof(CommandToken);                  // step over the token
 						skipspace(p);
 						CurrentLinePtr = rp;
 						if(*p == 0) error("Syntax");                // there must be a test after the elseif
@@ -1276,7 +1278,7 @@ retest_an_if:
 						goto retest_an_if;
 					}
 
-					if(*p == cmdENDIF/* || *p == cmdEND_IF*/) i--;						// found an ENDIF so decrement our nested counter
+					if(tkn == cmdENDIF) i--;						// found an ENDIF so decrement our nested counter
 					if(i == 0) {
 						// found our matching ENDIF stmt.  Step over it and continue with the statement after it
 						skipelement(p);
@@ -1301,7 +1303,7 @@ retest_an_if:
 						for(p = cmdline; *p && *p != ss[0]; p++);	// find the THEN
 						if(*p) p++;									// step over it
 						skipspace(p);
-						if(*p) p++;									// and over the command token
+						if(commandtbl_at(p) != CMD_NOTOKEN) p += sizeof(CommandToken);	// and over the command token
 						for(; *p && *p != ss[1]; p++);				// then search for the ELSE
 						nextstmt = p + 1;							// and point to the byte after
 					}
@@ -1328,17 +1330,18 @@ void cmd_else(void) {
 
 	while(1) {
         p = GetNextCommand(p, NULL, "No matching ENDIF");
-		if(*p == cmdIF) {
+		CommandToken tkn = commandtbl_at(p);
+		if(tkn == cmdIF) {
 			// found a nested IF command, we now need to determine if it is a single or multiline IF
 			// search for a THEN, then check if only white space follows.  If so, it is multiline.
-			tp = p + 1;
+			tp = p + sizeof(CommandToken);
 			while(*tp && *tp != tokenTHEN) tp++;
 			if(*tp) tp++;											// step over the THEN
 			skipspace(tp);
 			if(*tp == 0 || *tp == '\'')								// yes, only whitespace follows
 				i++;												// count it as a nested IF
 		}
-		if(*p == cmdENDIF/* || *p == cmdEND_IF*/) i--;				    // found an ENDIF so decrement our nested counter
+		if(tkn == cmdENDIF) i--;				    					// found an ENDIF so decrement our nested counter
 		if(i == 0) break;											// found our matching ENDIF stmt
 	}
 	// found a matching ENDIF.  Step over it and continue with the statement after it
@@ -1379,11 +1382,12 @@ void cmd_select(void) {
     i = 1; p = nextstmt;
     while(1) {
         p = GetNextCommand(p, &rp, "No matching END SELECT");
+        CommandToken tkn = commandtbl_at(p);
 
-        if(*p == cmdSELECT_CASE) i++;                               // found a nested SELECT CASE command, increase the nested count and carry on searching
+        if(tkn == cmdSELECT_CASE) i++;                              // found a nested SELECT CASE command, increase the nested count and carry on searching
 
         // is this a CASE stmt at the same level as this SELECT CASE.
-        if(*p == cmdCASE && i == 1) {
+        if(tkn == cmdCASE && i == 1) {
             int t;
             MMFLOAT ft, ftt;
             long long int i64t, i64tt;
@@ -1391,7 +1395,10 @@ void cmd_select(void) {
 
             CurrentLinePtr = rp;                                    // and report errors at the line we are on
 
-            // loop through the comparison elements on the CASE line.  Each element is separated by a comma
+            // loop through the comparison elements on the CASE line.  Each element is separated by a comma.
+            // The p++ at the top of the loop steps over the comma, or the first time the last byte of the
+            // CASE token: step over the rest of the token here.
+            p += sizeof(CommandToken) - 1;
             do {
                 p++;
                 skipspace(p);
@@ -1456,8 +1463,8 @@ void cmd_select(void) {
 
         // test if we have found a CASE ELSE statement at the same level as this SELECT CASE
         // if true it means that we did not find a matching CASE - so execute this code
-        if(*p == cmdCASE_ELSE && i == 1) {
-            p++;                                                    // step over the token
+        if(tkn == cmdCASE_ELSE && i == 1) {
+            p += sizeof(CommandToken);                              // step over the token
             checkend(p);
             skipelement(p);
             nextstmt = p;
@@ -1465,7 +1472,7 @@ void cmd_select(void) {
             return;
         }
 
-        if(*p == cmdEND_SELECT) i--;                                // found an END SELECT so decrement our nested counter
+        if(tkn == cmdEND_SELECT) i--;                               // found an END SELECT so decrement our nested counter
 
         if(i == 0) {
             // found our matching END SELECT stmt.  Step over it and continue with the statement after it
@@ -1488,10 +1495,11 @@ void cmd_case(void) {
     i = 1; p = nextstmt;
     while(1) {
         p = GetNextCommand(p, NULL, "No matching END SELECT");
+        CommandToken tkn = commandtbl_at(p);
 
-        if(*p == cmdSELECT_CASE) i++;                               // found a nested SELECT CASE command, we now need to search for its END CASE
+        if(tkn == cmdSELECT_CASE) i++;                              // found a nested SELECT CASE command, we now need to search for its END CASE
 
-        if(*p == cmdEND_SELECT) i--;                                // found an END SELECT so decrement our nested counter
+        if(tkn == cmdEND_SELECT) i--;                               // found an END SELECT so decrement our nested counter
         if(i == 0) {
             // found our matching END SELECT stmt.  Step over it and continue with the statement after it
             skipelement(p);
@@ -1678,9 +1686,10 @@ void cmd_for(void) {
         t = 1; p = nextstmt;
         while(1) {
               p = GetNextCommand(p, &tp, "No matching NEXT");
-            if(*p == cmdFOR) t++;                                 // count the FOR
-            if(*p == cmdNEXT) {                                   // is it NEXT
-                xp = p + 1;                                         // point to after the NEXT token
+            CommandToken tkn = commandtbl_at(p);
+            if(tkn == cmdFOR) t++;                                  // count the FOR
+            if(tkn == cmdNEXT) {                                    // is it NEXT
+                xp = p + sizeof(CommandToken);                      // point to after the NEXT token
                 while(*xp && strncasecmp(xp, vname, vlen)) xp++;    // step through looking for our variable
                 if(*xp && !isnamechar(xp[vlen]))                    // is it terminated correctly?
                     t = 0;                                          // yes, found the matching NEXT
@@ -1756,7 +1765,7 @@ void cmd_next(void) {
         // if no variables specified search the for stack looking for an entry with the same program position as
         // this NEXT statement. This cheats by using the cmdline as an identifier and may not work inside an IF THEN ELSE
         for(i = 0; i < forindex; i++) {
-            p = forstack[i].nextptr + 1;
+            p = forstack[i].nextptr + sizeof(CommandToken);         // nextptr points at the NEXT token
             skipspace(p);
             if(p == cmdline) goto breakout;
         }
@@ -1847,8 +1856,9 @@ void cmd_do(void) {
     i = 1; p = nextstmt;
     while(1) {
         p = GetNextCommand(p, &tp, "No matching LOOP");
-        if(*p == cmdtoken) i++;                                     // entered a nested DO or WHILE loop
-        if(*p == cmdLOOP) i--;                                    // exited a nested loop
+        CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdtoken) i++;                                    // entered a nested DO or WHILE loop
+        if(tkn == cmdLOOP) i--;                                     // exited a nested loop
 
         if(i == 0) {                                                // found our matching LOOP or WEND stmt
             dostack[doindex].loopptr = p;
@@ -1859,7 +1869,7 @@ void cmd_do(void) {
     if(dostack[doindex].evalptr != NULL) {
         // if this is a DO WHILE ... LOOP statement
         // search the LOOP statement for a WHILE or UNTIL token (p is pointing to the matching LOOP statement)
-        p++;
+        p += sizeof(CommandToken);                                  // step over the LOOP token
         while(*p && *p < 0x80) p++;
         if(*p == tokenWHILE) error("LOOP has a WHILE test");
         if(*p == tokenUNTIL) error("LOOP has an UNTIL test");
@@ -1886,7 +1896,7 @@ void cmd_loop(void) {
 
     // search the do table looking for an entry with the same program position as this LOOP statement
     for(i = 0; i < doindex ;i++) {
-        p = dostack[i].loopptr + 1;
+        p = dostack[i].loopptr + sizeof(CommandToken);              // loopptr points at the LOOP token
         skipspace(p);
         if(p == cmdline) {
             // found a match
@@ -1965,7 +1975,8 @@ void cmd_error(void) {
 // this is the Sub or Fun command
 // it simply skips over text until it finds the end of it
 void cmd_subfun(void) {
-	char *p, returntoken, errtoken;
+	char *p;
+	CommandToken returntoken, errtoken;
 
     if(gosubindex != 0) error("No matching END declaration");       // we have hit a SUB/FUN while in another SUB or FUN
 	if(cmdtoken == cmdSUB) {
@@ -1978,8 +1989,9 @@ void cmd_subfun(void) {
 	p = nextstmt;
 	while(1) {
         p = GetNextCommand(p, NULL, "No matching END declaration");
-        if(*p == cmdSUB || *p == cmdFUN || *p == errtoken) error("No matching END declaration");
-		if(*p == returntoken) {                                     // found the next return
+        CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdSUB || tkn == cmdFUN || tkn == errtoken) error("No matching END declaration");
+		if(tkn == returntoken) {                                    // found the next return
     		skipelement(p);
     		nextstmt = p;                                           // point to the next command
     		break;
@@ -2079,7 +2091,8 @@ void cmd_endfun(void) {
 //Updated for Optionescape
 void cmd_read(void) {
     int i, j, k, len, card;
-    char *p, datatoken, *lineptr = NULL, *ptr;
+    char *p, *lineptr = NULL, *ptr;
+    CommandToken datatoken;
     int vcnt, vidx, num_to_read=0;
     //Add READ SAVE and READ RESTORE
 	if (checkstring(cmdline, (char*)"SAVE")) {
@@ -2160,11 +2173,11 @@ search_again:
             p += p[1] + 2;                                          // skip over the label
             skipspace(p);                                           // and any following spaces
         }
-        if(*p == datatoken) break;                                  // found a DATA statement
+        if(commandtbl_at(p) == datatoken) break;                    // found a DATA statement
         while(*p) p++;                                              // look for the zero marking the start of the next element
     }
     NextDataLine = lineptr;
-    p++;                                                            // step over the token
+    p += sizeof(CommandToken);                                      // step over the token
     skipspace(p);
     if(!*p || *p == '\'') { CurrentLinePtr = lineptr; error("No DATA to read"); }
 
@@ -2941,15 +2954,17 @@ char MIPS16 *llist(char *b, char *p) {
             }                                                       // this deliberately drops through in case the label is the only thing on the line
 
         if(*p >= C_BASETOKEN) {
-            if(firstnonwhite) {
-                if(*p == GetCommandValue("Let"))
+            if(firstnonwhite && commandtbl_at(p) != CMD_NOTOKEN) {  // a command token starts a statement
+                CommandToken tkn = commandtbl_at(p);
+                if(tkn == GetCommandValue("Let"))
                     *b = 0;                                         // use nothing if it LET
                 else {
-                    strCopyWithCase(b, commandname(*p));            // expand the command (if it is not LET)
+                    strCopyWithCase(b, commandname(tkn));           // expand the command (if it is not LET)
                     b += strlen(b);                                 // update pointer to the end of the buffer
                     if(IsAlpha(*(b - 1))) *b++ = ' ';               // add a space to the end of the command name
                 }
                 firstnonwhite = false;
+                p += sizeof(CommandToken);
             } else {                                                // not a command so must be a token
                 strCopyWithCase(b, tokenname(*p));                  // expand the token
                 b += strlen(b);                                     // update pointer to the end of the buffer
@@ -2957,8 +2972,8 @@ char MIPS16 *llist(char *b, char *p) {
                     firstnonwhite = true;
                 else
                     firstnonwhite = false;
+                p++;
             }
-            p++;
             continue;
         }
 
@@ -2990,18 +3005,19 @@ char MIPS16 *llist(char *b, char *p) {
 
 
 void execute_one_command(char *p) {
-    int cmd, i;
+    int i;
 
     CheckAbort();
     targ = T_CMD;
     skipspace(p);                                                   // skip any whitespace
-    if(*p >= C_BASETOKEN && *p - C_BASETOKEN < CommandTableSize - 1 && (commandtbl[*p - C_BASETOKEN].type & T_CMD)) {
-        cmd = *p  - C_BASETOKEN;
-        if(*p == cmdWHILE || *p == cmdDO || *p == cmdFOR) error("Invalid inside THEN ... ELSE") ;
-        cmdtoken = *p;
-        cmdline = p + 1;
+    CommandToken tkn = commandtbl_at(p);
+    if(tkn != CMD_NOTOKEN && tkn < CommandTableSize - 1 && (commandtbl[tkn].type & T_CMD)) {
+        if(tkn == cmdWHILE || tkn == cmdDO || tkn == cmdFOR) error("Invalid inside THEN ... ELSE") ;
+        cmdtoken = tkn;
+        CmdTokenPtr = p;
+        cmdline = p + sizeof(CommandToken);
         skipspace(cmdline);
-        commandtbl[cmd].fptr();                                     // execute the command
+        commandtbl[tkn].fptr();                                     // execute the command
     } else {
         if(!isnamestart(*p)) error("Invalid character");
         i = FindSubFun(p, false);                                   // it could be a defined command

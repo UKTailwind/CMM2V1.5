@@ -1097,7 +1097,7 @@ void fun_eval(void) {
 		i++;
     }
     tokenise(true);                                                 // and tokenise it (the result is in tknbuf)
-    strcpy(st, tknbuf + 3);
+    strcpy(st, tknbuf + sizeof(CommandToken) + 2);                 // after the LET token, the r and the = token
     targ = T_NOTYPE;
     evaluate(st, &fret, &iret, &s, &targ, false);                   // get the value and type of the argument
     if(targ & T_STR) {

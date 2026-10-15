@@ -681,6 +681,8 @@ void fun_epoch(void){
 }
 void cmd_pause(void) {
 	static int interrupted = false;
+    char *pausetoken = CmdTokenPtr;                                 // this statement, to re-run if an interrupt cuts the pause
+                                                                    // short (taken now: a FUNCTION in the argument moves it)
     MMFLOAT f;
     static int64_t end,count;
     int64_t start, stop, tick;
@@ -719,8 +721,7 @@ void cmd_pause(void) {
 					// to the interrupt routine.  When the interrupt routine finishes we should reexecute
 					// this stmt and because the variable interrupted is static we can see that we need to
 					// resume pausing rather than start a new pause time.
-					while(*cmdline && *cmdline != cmdtoken) cmdline--;	// step back to find the command token
-					InterruptReturn = cmdline;							// point to it
+					InterruptReturn = pausetoken;						// point to this command's token
 					interrupted = true;								    // show that this stmt was interrupted
 					return;											    // and let the interrupt run
 				}
@@ -3246,7 +3247,8 @@ void cmd_cpu(void) {
 
 
 void cmd_cfunction(void) {
-    char *p, EndToken;
+    char *p;
+    CommandToken EndToken;
     EndToken = GetCommandValue("End DefineFont");           // this terminates a DefineFont
     if(cmdtoken == cmdCSUB) EndToken = GetCommandValue("End CSub");                 // this terminates a CSUB
     p = cmdline;
@@ -3260,7 +3262,7 @@ void cmd_cfunction(void) {
             p += p[1] + 2;                                          // skip over the label
             skipspace(p);                                           // and any following spaces
         }
-        if(*p == EndToken) {                                        // found an END token
+        if(commandtbl_at(p) == EndToken) {                          // found an END token
             nextstmt = p;
             skipelement(nextstmt);
             return;
@@ -3417,7 +3419,7 @@ void fun_peek(void) {
         if(argc != 1) error("Syntax");
         i = FindSubFun(p, true);                                    // search for a function first
         if(i == -1) i = FindSubFun(p, false);                       // and if not found try for a subroutine
-        if(i == -1 || !(*subfun[i] == cmdCSUB)) error("Invalid argument");
+        if(i == -1 || commandtbl_at(subfun[i]) != cmdCSUB) error("Invalid argument");
         // search through program flash and the library looking for a match to the function being called
         j = GetCFunAddr((int *)CFunctionFlash, i);
         if(!j) error("Internal fault 6(sorry)");
@@ -3957,8 +3959,7 @@ Tick Interrupts (1 to 4 in that order)
 int check_interrupt(void) {
 	int i, v;
 	char *intaddr;
-	static char rti[2];		// the IRETURN token and its terminating zero: make this rti[4] when command tokens become
-					// two bytes (the PicoMite's rti[2] then held only the token, with nothing to end it)
+	static char rti[4];		// a dummy IRETURN statement: the token (up to two bytes) and zeros to end it
 	if(GUIactive && GUITimer1>=16){
 		if(mousestruct[Option.Mouse].ax!=xcursor || mousestruct[Option.Mouse].ay!=ycursor){
 			hidecursor(0);
@@ -4224,10 +4225,10 @@ GotAnInterrupt:
     else SaveOptionErrorSkip = 0;
     InterruptReturn = nextstmt;                                     // for when IRETURN is executed
     // if the interrupt is pointing to a SUB token we need to call a subroutine
-    if(*intaddr == cmdSUB) {
-        strncpy(CurrentInterruptName, intaddr + 1, MAXVARLEN);
-        rti[0] = cmdIRET;                                           // setup a dummy IRETURN command
-        rti[1] = 0;
+    if(commandtbl_at(intaddr) == cmdSUB) {
+        strncpy(CurrentInterruptName, intaddr + sizeof(CommandToken), MAXVARLEN);
+        memset(rti, 0, sizeof(rti));
+        commandtbl_put(rti, cmdIRET);                               // setup a dummy IRETURN command
         if(gosubindex >= MAXGOSUB) error("Too many SUBs for interrupt");
         errorstack[gosubindex] = CurrentLinePtr;
     	gosubstack[gosubindex++] = rti;                             // return from the subroutine to the dummy IRETURN command

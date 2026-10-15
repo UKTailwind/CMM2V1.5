@@ -25,6 +25,7 @@ provisions:
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 
 	#include "Configuration.h"
 
@@ -155,9 +156,37 @@ extern const char namestart[], namein[], nameend[];
 #define tokenfunction(i)((i >= C_BASETOKEN && i < TokenTableSize - 1 + C_BASETOKEN) ? (tokentbl[i - C_BASETOKEN].fptr) : (tokentbl[0].fptr))    // get the function pointer  of a token
 #define tokenname(i)    ((i >= C_BASETOKEN && i < TokenTableSize - 1 + C_BASETOKEN) ? (char *)(tokentbl[i - C_BASETOKEN].name) : "")            // get the name of a token
 
-#define commandtype(i)  ((i >= C_BASETOKEN && i < CommandTableSize - 1 + C_BASETOKEN) ? (commandtbl[i - C_BASETOKEN].type) : 0)             // get the type of a token
-#define commandfunction(i)((i >= C_BASETOKEN && i < CommandTableSize - 1 + C_BASETOKEN) ? (commandtbl[i - C_BASETOKEN].fptr) : (commandtbl[0].fptr))    // get the function pointer  of a token
-#define commandname(i)  ((i >= C_BASETOKEN && i < CommandTableSize - 1 + C_BASETOKEN) ? (char *)(commandtbl[i - C_BASETOKEN].name) : "")        // get the name of a command
+// Command tokens, in the PicoMite's form.  A command is stored in a program as sizeof(CommandToken)
+// bytes, each 0x80 plus seven bits of its index in commandtbl, the low seven bits first; a CommandToken
+// holds the index itself.  Function and operator tokens stay one byte, 0x80 plus the index in tokentbl.
+// Every byte of a command token is 0x80 or more, and the bytes of a line's text are below 0x80.
+typedef uint8_t CommandToken;                       // becomes uint16_t when commands are stored as two bytes
+#define CMD_NOTOKEN ((CommandToken)~0)              // what commandtbl_at() returns when p holds no command
+
+// the index of the command whose token starts at p
+static inline CommandToken commandtbl_decode(const char *p) {
+    const unsigned char *q = (const unsigned char *)p;
+    if(sizeof(CommandToken) == 1) return (CommandToken)(q[0] & 0x7f);
+    return (CommandToken)((q[0] & 0x7f) | ((q[1] & 0x7f) << 7));
+}
+
+// the command at p, or CMD_NOTOKEN if p does not start with a command token (a name, a number...)
+static inline CommandToken commandtbl_at(const char *p) {
+    const unsigned char *q = (const unsigned char *)p;
+    if(q[0] < C_BASETOKEN || (sizeof(CommandToken) > 1 && q[1] < C_BASETOKEN)) return CMD_NOTOKEN;
+    return commandtbl_decode(p);
+}
+
+// store the token for command i at p and return the address after it
+static inline char *commandtbl_put(char *p, CommandToken i) {
+    *p++ = (char)((i & 0x7f) + C_BASETOKEN);
+    if(sizeof(CommandToken) > 1) *p++ = (char)((i >> 7) + C_BASETOKEN);
+    return p;
+}
+
+#define commandtype(i)  ((i) < CommandTableSize - 1 ? (commandtbl[i].type) : 0)                      // the type of command i
+#define commandfunction(i)((i) < CommandTableSize - 1 ? (commandtbl[i].fptr) : (commandtbl[0].fptr))  // the function of command i
+#define commandname(i)  ((i) < CommandTableSize - 1 ? (char *)(commandtbl[i].name) : "")              // the name of command i
 
 // this macro will allocate temporary memory space and build an argument table in it
 // x = pointer to the basic text to be split up (char *)
@@ -193,7 +222,8 @@ extern long long int iarg1, iarg2, iret;        // Global integer variables used
 extern char *sarg1, *sarg2, *sret;              // Global string pointers used by operators
 extern int targ;                                // Global type of argument (string or MMFLOAT) returned by an operator
 
-extern int cmdtoken;                            // Token number of the command
+extern int cmdtoken;                            // the command being run (its index in commandtbl)
+extern char *CmdTokenPtr;                       // where its token is
 extern char *cmdline;                           // Command line terminated with a zero char and trimmed of spaces
 extern char *nextstmt;                          // Pointer to the next statement to be executed.
 extern char *ep;                                // Pointer to the argument to a function
@@ -226,8 +256,8 @@ extern int TraceBuffIndex;
 
 // used to store commonly used tokens for faster token checking
 extern char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
-extern char cmdIF, cmdENDIF, /*cmdEND_IF, */cmdELSEIF, /*cmdELSE_IF, */cmdELSE, cmdLOOP, cmdWHILE, cmdFOR, cmdNEXT, cmdWHILE, cmdENDSUB, cmdLOCAL, cmdSTATIC, cmdENDFUNCTION, cmdDO, cmdSELECT_CASE, cmdCASE, cmdCASE_ELSE, cmdEND_SELECT;
-extern char cmdSUB, cmdFUN, cmdCSUB, cmdIRET;
+extern CommandToken cmdIF, cmdENDIF, cmdELSEIF, cmdELSE, cmdLOOP, cmdWHILE, cmdFOR, cmdNEXT, cmdENDSUB, cmdLOCAL, cmdSTATIC, cmdENDFUNCTION, cmdDO, cmdSELECT_CASE, cmdCASE, cmdCASE_ELSE, cmdEND_SELECT;
+extern CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET;
 
 // void error(char *msg) ;
 void error(char *, ...);

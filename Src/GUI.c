@@ -2156,8 +2156,9 @@ void HideAllControls(void) {
 // interrupt checking routines in ExecuteProgram() a chance to do their job.
 // This routine should be called repeatedly during long delays.
 void ServiceInterrupts(void) {
-    char *ttp, *s, tcmdtoken;
-    char p[3];
+    char *ttp, *s;
+    int tcmdtoken;
+    char p[4];
 
     CheckAbort();
     LocalIndex++;                                                   // preserve the current temporary string memory allocations
@@ -2165,8 +2166,8 @@ void ServiceInterrupts(void) {
     tcmdtoken = cmdtoken;
     s = cmdline;
 
-    p[0] = cmdENDIF;                                                // setup a short program that does nothing
-    p[1] = p[2] = 0;
+    memset(p, 0, sizeof(p));
+    commandtbl_put(p, cmdENDIF);                                    // setup a short program that does nothing
     ExecuteProgram(p);                                              // execute the program's code
 
     cmdline = s;                                                    // restore the globals
