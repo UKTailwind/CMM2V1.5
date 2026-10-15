@@ -392,6 +392,7 @@ void cmd_ADC(void){
         ADCmax=0;
         ADCpos=0;
         ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+        CHECK_STRUCT_MEMBER_ARRAY();
         if(VREC(VarIndex)->type & T_NBR) {
             if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
             if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
@@ -404,6 +405,7 @@ void cmd_ADC(void){
         if(argc>=3){
            if(!ADCchannelB)error("Second channel not open");
            ptr2 = findvar(argv[2], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+           CHECK_STRUCT_MEMBER_ARRAY();
             if(VREC(VarIndex)->type & T_NBR) {
                 if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
                 if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
@@ -417,6 +419,7 @@ void cmd_ADC(void){
         if(argc>=5){
            if(!ADCchannelC)error("Third channel not open");
            ptr3 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+           CHECK_STRUCT_MEMBER_ARRAY();
             if(VREC(VarIndex)->type & T_NBR) {
                 if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
                 if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array

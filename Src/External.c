@@ -1502,6 +1502,7 @@ void WS2812(char *q){
             nbr=getint(argv[4],1,512);
             if(nbr>1){
                 ptr1 = findvar(argv[6], V_FIND | V_EMPTY_OK);
+                CHECK_STRUCT_MEMBER_ARRAY();
                 if(VREC(VarIndex)->type & T_INT) {
                     if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
                     if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array

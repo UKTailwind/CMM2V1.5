@@ -209,6 +209,9 @@ void StructParam(int vindex, int argvindex, char *data, int argtype, int argstru
 // what the last findvar() found: a structure member's own type and size (a string's length), else the variable's
 #define FoundType() (g_StructMemberType ? g_StructMemberType : VREC(VarIndex)->type)
 #define FoundSize() ((g_StructMemberType & T_STR) ? g_StructMemberSize : VREC(VarIndex)->size)
+// after findvar() of a command's array argument: a member of every element of an array of structures (pts().x) is
+// not an array the command can read (each element's is in a structure apart)
+#define CHECK_STRUCT_MEMBER_ARRAY() do { if(g_StructMemberType && (VREC(VarIndex)->type & T_STRUCT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0])) error("Struct member arrays not supported for this command"); } while(0)
 char *StructReturn(char *data, int type);
 char *StructInit(char *p, int sidx, char *data, int n);
 char *SetValue(char *p, int t, void *v, int size);

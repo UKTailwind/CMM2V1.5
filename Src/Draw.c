@@ -1315,6 +1315,7 @@ void cmd_3D(void){
 		if(nf<1)error("3D object must have a minimum of 1 face");
 		int cam=getint(argv[6],1,MAXCAM);
 		vertex = (MMFLOAT *)findvar(argv[8], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if((uint32_t)vertex!=(uint32_t)VREC(VarIndex)->val.s)error("Vertex array must be a 2D floating point array");
 		if(VREC(VarIndex)->type & T_NBR) {
 			if(!DimIsEnd(VREC(VarIndex)->dimtbl[2])) error("Vertex array must be a 2D floating point array");
@@ -1327,6 +1328,7 @@ void cmd_3D(void){
 		} else error("Vertex array must be a 2D floating point array");
 
 		facecount = (long long int *)findvar(argv[10], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if((uint32_t)facecount!=(uint32_t)VREC(VarIndex)->val.s)error("Vertex count array must be a 1D integer array");
 		if(VREC(VarIndex)->type & T_INT) {
 			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Vertex count array must be a 1D integer array");
@@ -1338,6 +1340,7 @@ void cmd_3D(void){
 		for(f=0;f<nf;f++)fc += (*facecountindex++);
 
 		faces = (long long int *)findvar(argv[12], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if((uint32_t)faces!=(uint32_t)VREC(VarIndex)->val.s)error("Face/vertex array must be a 1D integer array");
 		if(VREC(VarIndex)->type & T_INT) {
 			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Face/vertex array must be a 1D integer array");
@@ -1347,6 +1350,7 @@ void cmd_3D(void){
 		} else error("Face/vertex array must be a 1D integer array");
 
 		colours = (long long int *)findvar(argv[14], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if((uint32_t)colours!=(uint32_t)VREC(VarIndex)->val.s)error("Colour array must be a 1D integer array");
 		if(VREC(VarIndex)->type & T_INT) {
 			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Colour array must be a 1D integer array");
@@ -1356,6 +1360,7 @@ void cmd_3D(void){
 
 		if(argc>=17 && *argv[16]){
 			linecolour = (long long int *)findvar(argv[16], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+			CHECK_STRUCT_MEMBER_ARRAY();
 			if((uint32_t)linecolour!=(uint32_t)VREC(VarIndex)->val.s)error("Line colour array must be a 1D integer array");
 			if(VREC(VarIndex)->type & T_INT) {
 				if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Line colour  array must be a 1D integer array");
@@ -1367,6 +1372,7 @@ void cmd_3D(void){
 
 		if(argc==19){
 			fillcolour = (long long int *)findvar(argv[18], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+			CHECK_STRUCT_MEMBER_ARRAY();
 			if((uint32_t)fillcolour!=(uint32_t)VREC(VarIndex)->val.s)error("Fill colour array must be a 1D integer array");
 			if(VREC(VarIndex)->type & T_INT) {
 				if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Fill colour array must be a 1D integer array");
@@ -1571,6 +1577,7 @@ void cmd_3D(void){
 		getargs(&p, (MAX_ARG_COUNT * 2) - 1, ",");				// getargs macro must be the first executable stmt in a block
 		if((argc & 0x01 || argc<3) == 0) error("Argument count");
 		ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if(VREC(VarIndex)->type & T_NBR) {
 			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
 			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
@@ -3119,6 +3126,35 @@ void  getargaddress (volatile char *p, long long int **ip, MMFLOAT **fp, volatil
         }
         if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
         *ip = (long long int *)ptr;
+    } else if(ptr && (VREC(VarIndex)->type & T_STRUCT) && (g_StructMemberType & (T_NBR | T_INT))) {
+        // a structure's numeric member: one element's (boxes(i).x), or a structure's (b.x), is a value; every
+        // element's (boxes().x) is in a structure apart, so it is gathered into an array of its own, which the
+        // commands read as any other (they never write to their arrays)
+        int i, elements, stride;
+        long long int *a;
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {
+            *n = 1;
+            return;
+        }
+        skipspace(p);
+        while(isnamechar(*p)) p++;
+        skipspace(p);
+        if(*p == '(') {
+            p++;
+            skipspace(p);
+            if(*p != ')') {
+                *n = 1;
+                return;
+            }
+        }
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+        elements = DimElements(VREC(VarIndex)->dimtbl[0]);
+        if(*n == 0 || elements < *n) *n = elements;
+        stride = g_structtbl[VREC(VarIndex)->size]->total_size;
+        a = GetTempMemory(*n * sizeof(long long int));
+        for(i = 0; i < *n; i++) memcpy(&a[i], (char *)ptr + i * stride, sizeof(long long int));
+        if(g_StructMemberType & T_NBR) *fp = (MMFLOAT *)a;
+        else *ip = a;
     } else {
     	*n=1; //may be a function call
     }

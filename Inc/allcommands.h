@@ -82,6 +82,10 @@ void cmd_type(void);
 void cmd_endtype(void);
 void fun_GPS(void);
 void cmd_struct(void);
+void cmd_arrayset(void);
+void cmd_arrayadd(void);
+void cmd_arrayinsert(void);
+void cmd_arrayslice(void);
 void fun_struct(void);
 void cmd_select(void);
 void cmd_case(void);
@@ -441,6 +445,10 @@ void op_inv(void);
 	{ "End Type",	    T_CMD,				0, cmd_endtype	},
 	{ "Var",	    	T_CMD,				0, cmd_var	},                     // VAR SAVE/RESTORE/CLEAR (flash.c: the backup SRAM); its entry in Flash.h was never in this table
 	{ "Struct",	    T_CMD,				0, cmd_struct	},
+	{ "Array Set",	    T_CMD,				0, cmd_arrayset	},       // the PicoMite's names for MATH SET/ADD/INSERT/SLICE
+	{ "Array Add",	    T_CMD,				0, cmd_arrayadd	},
+	{ "Array Insert",   T_CMD,				0, cmd_arrayinsert	},
+	{ "Array Slice",    T_CMD,				0, cmd_arrayslice	},
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

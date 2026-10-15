@@ -1,0 +1,19 @@
+ok  ARRAY SET
+ok  ARRAY ADD
+ok  ARRAY SLICE
+ok  ARRAY INSERT
+ok  b() = a()
+ok  a 6 into a 3x2 (only the count must match)
+ok  strings
+ok  an array of structures
+ok  a() = a()
+ok  string LENGTHs must match
+ok  types must match
+ok  sizes must match
+ok  a number is not an array
+ok  BOX boxes().x ... draws the first
+ok  and the second
+ok  and nothing between
+ok  PIXEL boxes().x, boxes().y
+ok  JSON$(boxes().x, ...) is refused
+arrays: 18 of 18 passed

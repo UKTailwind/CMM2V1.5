@@ -285,6 +285,7 @@ unsigned int *GetSendDataList(char *p, unsigned int *nbr) {
     // check the correct arg count AND that the second argument looks like a variable AND it is not a function
     if(argc == 3 && isnamestart(*argv[2]) && *skipvar(argv[2], false) == 0 && !(FindSubFun(argv[2], 1) >= 0 && strchr(argv[2], '(') != NULL)) {
     	ptr = findvar(argv[2], V_NOFIND_NULL | V_EMPTY_OK);
+    	CHECK_STRUCT_MEMBER_ARRAY();
 		if(ptr == NULL) error("Invalid variable");
 
         // now check if it is a non array string
@@ -348,6 +349,7 @@ long long int *GetReceiveDataBuffer(char *p, unsigned int *nbr) {
     if(argc != 3) error("Invalid syntax");
     *nbr = getinteger(argv[0]);
     ptr = findvar(argv[2], V_NOFIND_NULL | V_EMPTY_OK);
+    CHECK_STRUCT_MEMBER_ARRAY();
     if(ptr == NULL) error("Invalid variable");
 	if((VREC(VarIndex)->type & T_INT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// integer array
         if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + *nbr) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )

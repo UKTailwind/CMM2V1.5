@@ -436,6 +436,48 @@ void command_print(char *cmd) {
 // because the LET is implied (ie, line does not have a recognisable command)
 // it ends up as the place where mistyped commands are discovered.  This is why
 // the error message is "Unknown command"
+// a() = b(): both existing whole arrays of the same type (and string LENGTH, or structure type) with the same
+// number of elements (not necessarily the same shape: a 2x3 can fill a 6), copied in one go (the PicoMite's)
+static void LetArrayCopy(char *p_equals) {
+	void *dst, *src;
+	int dstidx, srcidx, dstcount, srccount, esize, d;
+	char *p, *tq;
+
+	// the destination must exist: plain V_FIND would make an undeclared a() a parameter list's empty array
+	dst = findvar(cmdline, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+	if(g_StructMemberType) error("Struct member arrays not supported for this command");
+	if(!emptyarray) error("Syntax");
+	dstidx = VarIndex;
+	if(VREC(dstidx)->type & T_CONST) error("Cannot change a constant");
+
+	p = p_equals + 1;
+	skipspace(p);
+	if(!isnamestart(*p)) error("Expected an array");
+	for(tq = p + 1; isnamechar(*tq); tq++);
+	if(*tq == '$' || *tq == '%' || *tq == '!') tq++;
+	if(*tq == '(' && FindSubFun(p, 1) >= 0) error("Expected an array");      // (no FUNCTION returns an array here)
+	src = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+	if(g_StructMemberType) error("Struct member arrays not supported for this command");
+	if(!emptyarray) error("Expected an array");
+	srcidx = VarIndex;
+
+	// the same element type (no conversion), string LENGTH or structure type, and number of elements
+	if(TypeMask(VREC(dstidx)->type) != TypeMask(VREC(srcidx)->type)) error("Incompatible type");
+	if(VREC(dstidx)->type & T_STR) {
+		if(VREC(dstidx)->size != VREC(srcidx)->size) error("String length");
+		esize = VREC(dstidx)->size + 1;
+	} else if(VREC(dstidx)->type & T_STRUCT) {
+		if(VREC(dstidx)->size != VREC(srcidx)->size) error("Structure types must match");
+		esize = g_structtbl[VREC(dstidx)->size]->total_size;
+	} else
+		esize = 8;
+	for(dstcount = 1, d = 0; d < MAXDIM && !DimIsEnd(VREC(dstidx)->dimtbl[d]); d++) dstcount *= DimElements(VREC(dstidx)->dimtbl[d]);
+	for(srccount = 1, d = 0; d < MAXDIM && !DimIsEnd(VREC(srcidx)->dimtbl[d]); d++) srccount *= DimElements(VREC(srcidx)->dimtbl[d]);
+	if(dstcount != srccount) error("Array size mismatch");
+	if(dst != src) memcpy(dst, src, (size_t)dstcount * esize);  // (a() = a(), or a parameter its caller's array)
+	checkend(skipvar(p, false));
+}
+
 void cmd_let(void) {
 	int t, size, vartype;
 	MMFLOAT f;
@@ -453,6 +495,17 @@ void cmd_let(void) {
 	p2 = skipvar(cmdline, false);
 	skipspace(p2);
 	if(p1 != p2) error("Syntax");
+
+	// a whole array, a() = b(): only empty brackets put ( against the ) before the = (the byte before cmdline is the
+	// command's token, so the look back cannot match it)
+	{
+		char *q = p1;
+		while(*(q - 1) == ' ') q--;
+		if(*(q - 1) == ')' && *(q - 2) == '(') {
+			LetArrayCopy(p1);
+			return;
+		}
+	}
 
 	// create the variable and get the length if it is a string
 	p2 = findvar(cmdline, V_FIND);
@@ -2146,7 +2199,7 @@ void cmd_read(void) {
         } else {
 			findvar(argv[i], V_FIND | V_EMPTY_OK);
 			if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-			if(emptyarray && g_StructMemberType) error("Structure member arrays are not supported here");   // (each element's is in a structure of its own)
+			if(emptyarray && g_StructMemberType) error("Struct member arrays not supported for this command");   // (each element's is in a structure of its own)
 			card=1;
 			if(emptyarray){ //empty array
 				for(k=0;k<MAXDIM;k++){
@@ -2350,7 +2403,6 @@ void cmd_read(void) {
         } else {
 			findvar(argv[i], V_FIND | V_EMPTY_OK);
 			if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-			if(emptyarray && g_StructMemberType) error("Structure member arrays are not supported here");   // (each element's is in a structure of its own)
 			card=1;
 //			PInt((uint32_t)ptr);PIntComma((uint32_t)VREC(VarIndex)->val.s);PIntComma((uint32_t)VREC(VarIndex)->dimtbl[0]);PRet();
 			if(emptyarray){ //empty array

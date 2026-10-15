@@ -291,6 +291,7 @@ void i2cSend(char *p) {
 		}
 	} else {		// an array of MMFLOAT, integer or a string
 		ptr = findvar(argv[6], V_NOFIND_NULL | V_EMPTY_OK);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if(ptr == NULL) error("Invalid variable");
 		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
 			cptr = (unsigned char *)ptr;
@@ -345,6 +346,7 @@ void i2c2Send(char *p) {
 		}
 	} else {		// an array of MMFLOAT, integer or a string
 		ptr = findvar(argv[6], V_NOFIND_NULL | V_EMPTY_OK);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if(ptr == NULL) error("Invalid variable");
 		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
 			cptr = (unsigned char *)ptr;
@@ -399,6 +401,7 @@ void i2c3Send(char *p) {
 		}
 	} else {		// an array of MMFLOAT, integer or a string
 		ptr = findvar(argv[6], V_NOFIND_NULL | V_EMPTY_OK);
+		CHECK_STRUCT_MEMBER_ARRAY();
 		if(ptr == NULL) error("Invalid variable");
 		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
 			cptr = (unsigned char *)ptr;
@@ -473,6 +476,7 @@ void i2cReceive(char *p) {
 	if(rcvlen < 1 || rcvlen > 255) error("Number out of bounds");
 
 	ptr = findvar(argv[6], V_FIND | V_EMPTY_OK);
+	CHECK_STRUCT_MEMBER_ARRAY();
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 	if(ptr == NULL) error("Invalid variable");
 	if(VREC(VarIndex)->type & T_NBR) {
@@ -523,6 +527,7 @@ void i2c2Receive(char *p) {
 	if(rcvlen < 1 || rcvlen > 255) error("Number out of bounds");
 
 	ptr = findvar(argv[6], V_FIND | V_EMPTY_OK);
+	CHECK_STRUCT_MEMBER_ARRAY();
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 	if(ptr == NULL) error("Invalid variable");
 	if(VREC(VarIndex)->type & T_NBR) {
@@ -573,6 +578,7 @@ void i2c3Receive(char *p) {
 	if(rcvlen < 1 || rcvlen > 255) error("Number out of bounds");
 
 	ptr = findvar(argv[6], V_FIND | V_EMPTY_OK);
+	CHECK_STRUCT_MEMBER_ARRAY();
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 	if(ptr == NULL) error("Invalid variable");
 	if(VREC(VarIndex)->type & T_NBR) {
