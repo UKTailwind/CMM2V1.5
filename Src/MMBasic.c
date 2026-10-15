@@ -2953,8 +2953,12 @@ static void VarRecordTake(int slot) {
 }
 
 // the heap the globals' record chunks take (MEMORY counts them as variables, not General)
+// the SDRAM heap the globals' record chunks take: the chunks in on-chip RAM are not in UsedHeap() (MEMORY)
 int VarChunkBytes(void) {
-    return varmem.chunks * VARCHUNK * sizeof(struct s_vartbl);
+    int i, n = 0;
+    for(i = 0; i < varmem.chunks; i++)
+        if((uint32_t)varmem.chunk[i] >= (uint32_t)SDRAMBASE && (uint32_t)varmem.chunk[i] < (uint32_t)SDRAMEND) n++;
+    return n * VARCHUNK * sizeof(struct s_vartbl);
 }
 
 // ERASE: the global in slot has gone, its data freed; its record goes on the free list and the slot is left

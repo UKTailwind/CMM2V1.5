@@ -171,7 +171,7 @@ extern struct s_vartbl **slotrec;               // the record of each variable n
 void InitVarSlots(void);
 void VarChunksForget(void);
 void VarRecordRelease(int slot, int blocked);   // ERASE: a global's record back to the free list
-int VarChunkBytes(void);                        // the heap the globals' record chunks take (MEMORY)
+int VarChunkBytes(void);                        // the SDRAM heap the globals' record chunks take (MEMORY)
 extern int varcnt;
 extern int Localvarcnt;                              // number of LOCAL variables defined (eg, largest index into the variable table)
 extern int Globalvarcnt;                              // number of GLOBAL variables defined (eg, largest index into the variable table)
