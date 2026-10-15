@@ -78,6 +78,8 @@ void cmd_return(void);
 void cmd_run(void);
 void cmd_trace(void);
 void cmd_const(void);
+void cmd_type(void);
+void cmd_endtype(void);
 void cmd_select(void);
 void cmd_case(void);
 void cmd_mid(void);
@@ -432,6 +434,8 @@ void op_inv(void);
    	{ "Blit",           T_CMD,              0, cmd_blit     },
 	{ "XModem",		    T_CMD,				0, cmd_xmodem		},
 	{ "CAN",	        T_CMD,				0, cmd_can	},
+	{ "Type",	        T_CMD,				0, cmd_type	},
+	{ "End Type",	    T_CMD,				0, cmd_endtype	},
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

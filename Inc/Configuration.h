@@ -56,6 +56,9 @@ provisions:
 #define MAXSTRLEN           255                     // maximum length of a string
 #define STRINGSIZE          256                     // must be 1 more than MAXSTRLEN.  3 of these buffers are staticaly created
 #define MAXDIM              5                       // maximum nbr of dimensions to an array
+#define MAX_STRUCT_TYPES    32                      // maximum nbr of structure types (TYPE ... END TYPE) in a program
+#define MAX_STRUCT_MEMBERS  16                      // maximum nbr of members in a structure type
+#define MAX_STRUCT_NEST_DEPTH 8                     // maximum depth of structures nested in structures
 #define CLIPBOARDSIZE		8192					// maximum size of clipboard for edit
 #define MAXFORLOOPS         100                     // maximum nbr of nested for-next loops, each entry uses 17 bytes
 #define MAXDOLOOPS          100                     // maximum nbr of nested do-loops, each entry uses 12 bytes

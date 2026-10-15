@@ -218,7 +218,7 @@ void checktype(int *, int);
 char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta);
 char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
 CommandToken cmdIF, cmdENDIF,  cmdELSEIF, cmdELSE, cmdSELECT_CASE, cmdFOR, cmdNEXT, cmdWHILE, cmdENDSUB, cmdENDFUNCTION, cmdLOCAL, cmdSTATIC, cmdCASE, cmdDO, cmdLOOP, cmdCASE_ELSE, cmdEND_SELECT;
-CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET;
+CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET, cmdTYPE, cmdEND_TYPE;
 char syscheck;
 
 /********************************************************************************************************************************************
@@ -261,6 +261,8 @@ void MIPS16 InitBasic(void) {
 	cmdFUN = GetCommandValue("Function");
     cmdIRET = GetCommandValue("IReturn");
     cmdCSUB = GetCommandValue("CSub");
+    cmdTYPE = GetCommandValue("Type");
+    cmdEND_TYPE = GetCommandValue("End Type");
     cmdLOCAL = GetCommandValue("Local");
     cmdSTATIC = GetCommandValue("Static");
     cmdENDSUB= GetCommandValue("End Sub");
@@ -570,6 +572,7 @@ static struct s_nameslot *NameFind(const char *nm, int nl, int kinds) {
 // Scan through the program loaded in flash and build a table pointing to the definition of all user defined subroutines and functions.
 // This pre processing speeds up the program when using defined subroutines and functions
 // this routine also looks for embedded fonts and adds them to the font table
+static int ScanTypes;                                               // PrepareProgramExt makes the TYPE table as it goes
 void MIPS16 PrepareProgram(int ErrAbort) {
     int MIPS16 PrepareProgramExt(char *, int, unsigned char **, int);
     int i, NbrFuncts;
@@ -577,6 +580,7 @@ void MIPS16 PrepareProgram(int ErrAbort) {
         FontTable[i] = NULL;                                        // clear the font table
 
     CFunctionFlash  = NULL;
+    ScanTypes = StructTableStart();                                 // the TYPE table too, once for a heap as the index below
     NbrFuncts = PrepareProgramExt((char *)ProgMemory, 0, &CFunctionFlash, ErrAbort);
     // the index of every SUB, FUNCTION, CSUB and label by name, which also finds a name defined twice: made
     // once for a heap (RUN and loading a program wipe it), not before every line typed at the prompt
@@ -612,6 +616,8 @@ int MIPS16 PrepareProgramExt(char *p, int i, unsigned char **CFunPtr, int ErrAbo
                 i--;
                 continue;
             }
+        } else if(tkn == cmdTYPE && ScanTypes) {
+            p = StructDefine(p, ErrAbort);                          // a TYPE block: its type (Struct.c)
         }
         while(*p) p++;                                              // look for the zero marking the start of the next element
     }
@@ -1741,7 +1747,7 @@ int MIPS16 tokenise(int console) {
         // not white space or string or comment or number - see if we can find a label or a token identifier
         if(firstnonwhite) {                                         // first entry on the line must be a command
             // these variables are only used in the search for a command code
-            char *tp2, *match_p = NULL;
+            char *tp2, *match_p = NULL, *cmdstart = p;
             int match_i = -1, match_l = 0;
             // first test if it is a print shortcut char (?) - this needs special treatment
             if(*p == '?') {
@@ -1800,6 +1806,23 @@ int MIPS16 tokenise(int console) {
                         }
                     }
                 }
+            }
+
+            // a command's name used as a name is left as text: a member of a TYPE block (COLOUR AS INTEGER: only
+            // DIM, LOCAL and STATIC have AS straight after them), and a variable called TYPE (type = 3, type(1) = 2,
+            // type$ = "a") as before structures came
+            if(match_i > -1 && isnamestart(*cmdstart)) {
+                char *q = match_p;
+                if(match_i == cmdTYPE && (*q == '$' || *q == '%' || *q == '!'))
+                    match_i = -1;
+                else {
+                    skipspace(q);
+                    if(match_i == cmdTYPE && (*q == '=' || *q == '('))
+                        match_i = -1;
+                    else if(checkstring(q, "AS") != NULL && match_i != cmdLOCAL && match_i != cmdSTATIC && match_i != GetCommandValue("Dim"))
+                        match_i = -1;
+                }
+                if(match_i == -1) p = cmdstart;
             }
 
             if(match_i > -1) {
@@ -4045,6 +4068,8 @@ void MIPS16 ClearRuntime(void) {
 	cmdFUN = GetCommandValue("Function");
     cmdIRET = GetCommandValue("IReturn");
     cmdCSUB = GetCommandValue("CSub");
+    cmdTYPE = GetCommandValue("Type");
+    cmdEND_TYPE = GetCommandValue("End Type");
     cmdLOCAL = GetCommandValue("Local");
     cmdSTATIC = GetCommandValue("Static");
     cmdENDSUB= GetCommandValue("End Sub");

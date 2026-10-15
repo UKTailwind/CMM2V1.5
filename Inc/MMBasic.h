@@ -39,8 +39,9 @@ provisions:
 #define T_IMPLIED   0x10                            // the variables type does not have to be specified with a suffix
 #define T_CONST     0x20                            // the contents of this variable cannot be changed
 #define T_BLOCKED   0x40                            // Hash table entry blocked after ERASE
+#define T_STRUCT    0x80                            // a structure (TYPE ... END TYPE): its record's size is the type's number
 
-#define TypeMask(a) ((a) & (T_NBR | T_INT | T_STR)) // macro to isolate the variable type bits
+#define TypeMask(a) ((a) & (T_NBR | T_INT | T_STR | T_STRUCT)) // macro to isolate the variable type bits
 
 // types of tokens.  These are or'ed with the data types above to fully define a token
 #define T_INV       0                               // an invalid token
@@ -172,6 +173,36 @@ void InitVarSlots(void);
 void VarChunksForget(void);
 void VarRecordRelease(int slot, int blocked);   // ERASE: a global's record back to the free list
 int VarChunkBytes(void);                        // the SDRAM heap the globals' record chunks take (MEMORY)
+
+// a member of a structure type (TYPE ... END TYPE: see Struct.c)
+struct s_structmember {
+    char name[MAXVARLEN + 1];                   // its name, in capitals
+    unsigned char type;                         // T_NBR, T_INT, T_STR or T_STRUCT
+    unsigned char size;                         // a string's maximum length; a nested structure's type number
+    int offset;                                 // its offset in the structure
+    int dimtbl[MAXDIM];                         // its dimensions, as a variable's (read through the accessors); 0 if none
+};
+// a structure type
+struct s_structdef {
+    char name[MAXVARLEN + 1];                   // its name, in capitals
+    int num_members;
+    struct s_structmember members[MAX_STRUCT_MEMBERS];
+    int total_size;                             // its size in bytes, padded so the elements of an array stay aligned
+};
+extern struct s_structdef *g_structtbl[MAX_STRUCT_TYPES];
+extern int g_structcnt;                         // the number of types
+extern int g_StructArg;                         // the type of a structure being declared (AS type), or -1
+extern int g_StructMemberType;                  // the type of the member the last findvar() reached, 0 for none
+extern int g_StructMemberOffset;                // its offset in the structure
+extern int g_StructMemberSize;                  // its size: a string's length, a nested structure's type
+extern int g_ExprStructType;                    // the type of the whole structure an expression gave, or -1
+void StructTableForget(void);
+int StructTableStart(void);
+char *StructDefine(char *p, int ErrAbort);
+const char *ParseStructMember(char *p, struct s_structdef *sd);
+int FindStructType(char *name);
+int FindStructMember(int struct_idx, char *membername, int *member_type, int *member_offset, int *member_size, int *member_dims);
+void ListTypes(char *p);
 extern int varcnt;
 extern int Localvarcnt;                              // number of LOCAL variables defined (eg, largest index into the variable table)
 extern int Globalvarcnt;                              // number of GLOBAL variables defined (eg, largest index into the variable table)
@@ -336,7 +367,7 @@ extern int TraceBuffIndex;
 // used to store commonly used tokens for faster token checking
 extern char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
 extern CommandToken cmdIF, cmdENDIF, cmdELSEIF, cmdELSE, cmdLOOP, cmdWHILE, cmdFOR, cmdNEXT, cmdENDSUB, cmdLOCAL, cmdSTATIC, cmdENDFUNCTION, cmdDO, cmdSELECT_CASE, cmdCASE, cmdCASE_ELSE, cmdEND_SELECT;
-extern CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET;
+extern CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET, cmdTYPE, cmdEND_TYPE;
 
 // void error(char *msg) ;
 void error(char *, ...);

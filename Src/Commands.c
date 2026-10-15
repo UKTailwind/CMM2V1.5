@@ -899,6 +899,8 @@ void MIPS16 cmd_list(void) {
     		putConsole(PageTable[i].expand ? '2' : '1');
     		PRet();
     	}
+    } else if((p = checkstring(cmdline, "TYPE"))) {
+        ListTypes(p);                                               // LIST TYPE [name] (Struct.c)
     } else if((p = checkstring(cmdline, "FLASH"))) {
         ListProgramFlash((char *)ProgMemory, false);
         checkend(p);
