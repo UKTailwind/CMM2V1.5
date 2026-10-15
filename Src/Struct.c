@@ -1987,19 +1987,3 @@ void fun_struct(void)
 
 	error("Unknown STRUCT subfunction");
 }
-
-
-// ARRAY SET, ARRAY ADD, ARRAY INSERT and ARRAY SLICE: the PicoMite's names for MATH SET, ADD, INSERT and SLICE,
-// which they pass the line to (the subcommand's name put in front of it)
-static void ArrayAsMath(const char *sub) {
-    char *buf = GetTempMemory(strlen(cmdline) + strlen(sub) + 2);
-    strcpy(buf, sub);
-    strcat(buf, " ");
-    strcat(buf, cmdline);
-    cmdline = buf;
-    cmd_math();
-}
-void cmd_arrayset(void) { ArrayAsMath("SET"); }
-void cmd_arrayadd(void) { ArrayAsMath("ADD"); }
-void cmd_arrayinsert(void) { ArrayAsMath("INSERT"); }
-void cmd_arrayslice(void) { ArrayAsMath("SLICE"); }

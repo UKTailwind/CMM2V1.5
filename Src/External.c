@@ -1438,7 +1438,7 @@ void cmd_bitbang(void){
 			a1int = (int64_t *)ptr1;
 		} else error("Argument 2 must be an array");
         */
-    	size=parsenumberarray(argv[4],&a1float, &a1int, 3, 1, NULL, false);
+    	size=parsenumberarray(argv[4],&a1float, &a1int, 3, 1, NULL, false, NULL);
     	if(size < num)error("Array too small");
 		data=GetTempMemory(num * sizeof(unsigned short));
 		if(a1float!=NULL){
@@ -1879,6 +1879,7 @@ Utility routines for the external I/O commands and functions in MMBasic
 void ClearExternalIO(void) {
 	int i;
 
+    memset(&PIDchannels, 0, sizeof(s_PIDchan) * (MAXPID + 1));     // a PID channel left running calls into the old program
     PWMClose(0); PWMClose(1);                                       // close any running PWM output
     SerialClose(1); SerialClose(2); SerialClose(3);                             // same for serial ports
     SPIClose();SPI2Close();                                            // and the SPI

@@ -87,4 +87,8 @@ extern unsigned int BusSpeed;
 extern char *OnKeyGOSUB;
 extern char EchoOption;
 extern void do_help(char *p);
+void array_set(char *tp);                       // ARRAY SET / MATH SET (Commands.c)
+void array_add(char *tp);
+void array_insert(char *tp);
+void array_slice(char *tp);
 #endif

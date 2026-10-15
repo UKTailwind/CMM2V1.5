@@ -9,6 +9,48 @@ The sources:
 
 Line numbers are the CMM2's as of 49c373f unless marked P (PicoMite).
 
+## Done (15 Oct 2026): the PicoMite's MATHS.c, ported whole
+
+Rather than patching the CMM2's MATHS.c item by item, the PicoMite's `core/MATHS.c` (at 9749c83) replaced it. That brought every phase at once, and keeps the two files the same for later syncs.
+
+- **Mechanical changes** were made by `tools/port_maths.py`:
+  - `char *` for the PicoMite's `unsigned char *` interpreter text (byte data stays `unsigned char`: the AES, BASE64 and CRC buffers, and `parseany`'s strings);
+  - the CMM2's `VarIndex` and `OptionBase`;
+  - `getargs` for `getcsargs`;
+  - the RP2350's `int` dims.
+- **Platform changes**, at the top of the file:
+  - the hardware RNG for `get_rand_32()` and for both default seeds;
+  - `Getuptime()`, `InterruptUsed`, `routinechecks(1)`;
+  - PRIMASK for `save_and_disable_interrupts()`;
+  - `optionangle != 1.0` for `useoptionangle`.
+- **Ported with it:**
+  - `array_set/add/insert/slice` (Commands.c), which ARRAY SET/ADD/INSERT/SLICE and MATH SET/ADD/INSERT/SLICE both call;
+  - `RequireGlobal` (MMBasic.c; a global's record is found by its address);
+  - StandardError 47 and 48;
+  - `g_myrand` forgotten in `InitHeap`;
+  - the PID channels cleared in `ClearExternalIO`;
+  - the stride argument (NULL) at the 43 calls in other files.
+- **CMM2 fixes not in the PicoMite:**
+  - a member array must be a member of every element (`a().x`): the PicoMite takes `a(2).x` from element 2 with the whole array's count, so past its end, and a scalar structure's `s.x` as an array of one;
+  - the 1D/2D shape check and `dims` for a member array;
+  - `parseany` refuses a member array (SORT gave "Invalid syntax");
+  - Q_CREATE names argument 5.
+- **On the board:**
+  - **tests/cmm2:** `math.bas` 49 of 49.
+  - **Testfiles:** `MathStructTest` 33 of 33, `MathClampTest` 10 of 10.
+  - **Goldens corpus:**
+    - matching before and after: cmath, mathm, optbase1;
+    - fixed: mathcrc (CRC12 masked), mathm1 (1x1 inverse), mathq (Q_CREATE), mathw (CROSSING and on into WINDOW), arrsize and arrslice (string arrays);
+    - differing from their expected output only by a behaviour change below, or by "Error in line n:" in MM.ERRMSG$ (step 8);
+    - mathcrc stops where the reference does not, as before: a CRC length of 0, which the PicoMite refuses too.
+- **Behaviour changes** beyond those listed below:
+  - MATH RANDOMIZE n now repeats MATH(RAND)'s sequence (the CMM2's MATH(RAND) took the hardware RNG every time);
+  - FFT needs at least 2 elements.
+- **Flash:** the image grew by 5.8 KB, all in `.text` after the `.extra` merge (ce0b696).
+
+The phases below are the plan as written; all of them are done.
+
+
 ## Goal and gates
 
 MATH and its array helpers should match the PicoMite's, which means:

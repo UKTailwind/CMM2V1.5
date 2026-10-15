@@ -3121,3 +3121,383 @@ void execute_one_command(char *p) {
     }
     ClearTempMemory();                                              // at the end of each command we need to clear any temporary string vars
 }
+
+// ARRAY SET, ARRAY ADD, ARRAY INSERT and ARRAY SLICE, and MATH SET, ADD, INSERT and SLICE, which are the same
+// commands: the PicoMite's (core/Commands.c), for numbers (a structure member array too: pts().x) and strings
+void cmd_arrayset(void) { array_set(cmdline); }
+void cmd_arrayadd(void) { array_add(cmdline); }
+void cmd_arrayinsert(void) { array_insert(cmdline); }
+void cmd_arrayslice(void) { array_slice(cmdline); }
+void array_set(char *tp)
+{
+	MMFLOAT f;
+	long long int i64;
+	char *s;
+	int dims[MAXDIM] = {0};
+	int i, t, copy, card1 = 1;
+	unsigned char size = 0;
+	MMFLOAT *a1float = NULL;
+	int64_t *a1int = NULL;
+	char *a1str = NULL;
+	int s1; // stride for numeric arrays
+	getargs(&tp, 3, ",");
+	if (!(argc == 3))
+		StandardError(2);
+	findvar(argv[2], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+	t = VREC(VarIndex)->type;
+	evaluate(argv[0], &f, &i64, &s, &t, false);
+	if (t & T_STR)
+	{
+		card1 = parsestringarray(argv[2], &a1str, 2, 0, dims, true, &size);
+		copy = (int)size + 1;
+		memset(a1str, 0, copy * card1);
+		if (*s)
+		{
+			for (i = 0; i < card1; i++)
+			{
+				Mstrcpy(&a1str[i * copy], s);
+			}
+		}
+	}
+	else
+	{
+		card1 = parsenumberarray(argv[2], &a1float, &a1int, 2, 0, dims, true, &s1);
+		if (t & T_STR)
+			SyntaxError();
+		;
+
+		if (a1float != NULL)
+		{
+			for (i = 0; i < card1; i++)
+				STRIDE_FLOAT(a1float, i, s1) = ((t & T_INT) ? (MMFLOAT)i64 : f);
+		}
+		else
+		{
+			for (i = 0; i < card1; i++)
+				STRIDE_INT(a1int, i, s1) = ((t & T_INT) ? i64 : FloatToInt64(f));
+		}
+	}
+}
+void cmd_add(void)
+{
+	array_add(cmdline);
+}
+
+void array_add(char *tp)
+{
+	MMFLOAT f;
+	long long int i64;
+	char *s;
+	int dims[MAXDIM] = {0};
+	int i, t, card1 = 1, card2 = 1;
+	MMFLOAT *a1float = NULL, *a2float = NULL, scale;
+	int64_t *a1int = NULL, *a2int = NULL;
+	char *a1str = NULL, *a2str = NULL;
+	int s1, s2;
+	getargs(&tp, 5, ",");
+	if (!(argc == 5))
+		StandardError(2);
+	findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+	t = VREC(VarIndex)->type;
+	if (t & T_STR)
+	{
+		unsigned char size = 0, size2 = 0;
+		char *toadd;
+		card1 = parsestringarray(argv[0], &a1str, 1, 0, dims, false, &size);
+		evaluate(argv[2], &f, &i64, &s, &t, false);
+		if (!(t & T_STR))
+			SyntaxError();
+		;
+		toadd = getstring(argv[2]);
+		card2 = parsestringarray(argv[4], &a2str, 3, 0, dims, true, &size2);
+		if (card1 != card2)
+			StandardError(16);
+		char *buff = GetTempStrMemory(); // this will last for the life of the command
+		int copy = size + 1;
+		int copy2 = size2 + 1;
+		for (i = 0; i < card1; i++)
+		{
+			char *sarg1 = a1str + i * copy;
+			char *sarg2 = a2str + i * copy2;
+			if (*sarg1 + *toadd > size2)
+				error("String too long");
+			Mstrcpy(buff, sarg1);
+			Mstrcat(buff, toadd);
+			Mstrcpy(sarg2, buff);
+		}
+	}
+	else
+	{
+		card1 = parsenumberarray(argv[0], &a1float, &a1int, 1, 0, dims, false, &s1);
+		evaluate(argv[2], &f, &i64, &s, &t, false);
+		if (t & T_STR)
+			SyntaxError();
+		;
+		scale = getnumber(argv[2]);
+		card2 = parsenumberarray(argv[4], &a2float, &a2int, 3, 0, dims, true, &s2);
+		if (card1 != card2)
+			StandardError(16);
+		if (scale != 0.0)
+		{
+			if (a2float != NULL && a1float != NULL)
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_FLOAT(a2float, i, s2) = ((t & T_INT) ? (MMFLOAT)i64 : f) + STRIDE_FLOAT(a1float, i, s1);
+			}
+			else if (a2float != NULL && a1float == NULL)
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_FLOAT(a2float, i, s2) = ((t & T_INT) ? (MMFLOAT)i64 : f) + ((MMFLOAT)STRIDE_INT(a1int, i, s1));
+			}
+			else if (a2float == NULL && a1float != NULL)
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_INT(a2int, i, s2) = FloatToInt64(((t & T_INT) ? (MMFLOAT)i64 : f) + STRIDE_FLOAT(a1float, i, s1));
+			}
+			else
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_INT(a2int, i, s2) = ((t & T_INT) ? i64 : FloatToInt64(f)) + STRIDE_INT(a1int, i, s1);
+			}
+		}
+		else
+		{
+			if (a2float != NULL && a1float != NULL)
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_FLOAT(a2float, i, s2) = STRIDE_FLOAT(a1float, i, s1);
+			}
+			else if (a2float != NULL && a1float == NULL)
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_FLOAT(a2float, i, s2) = ((MMFLOAT)STRIDE_INT(a1int, i, s1));
+			}
+			else if (a2float == NULL && a1float != NULL)
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_INT(a2int, i, s2) = FloatToInt64(STRIDE_FLOAT(a1float, i, s1));
+			}
+			else
+			{
+				for (i = 0; i < card1; i++)
+					STRIDE_INT(a2int, i, s2) = STRIDE_INT(a1int, i, s1);
+			}
+		}
+	}
+}
+void cmd_insert(void)
+{
+	array_insert(cmdline);
+}
+void array_insert(char *tp)
+{
+	int i, j, t, start, increment, dim[MAXDIM], pos[MAXDIM], off[MAXDIM], dimcount = 0, target = -1;
+	int64_t *a1int = NULL, *a2int = NULL;
+	MMFLOAT *a1float = NULL, *a2float = NULL;
+	char *a1str = NULL, *a2str = NULL;
+	unsigned char size = 0, size2 = 0;
+	int dims[MAXDIM] = {0};
+	getargs(&tp, 15, ",");
+	if (argc < 7)
+		StandardError(2);
+	findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+	t = VREC(VarIndex)->type;
+	if (t & T_STR)
+	{
+		parsestringarray(argv[0], &a1str, 1, 0, dims, false, &size);
+	}
+	else
+	{
+		parsenumberarray(argv[0], &a1float, &a1int, 1, 0, dims, false, NULL);
+	}
+	if (!DimIsRealArray(dims[1]))
+		error("Argument 1 must be a 2D or more array");
+	for (i = 0; i < MAXDIM; i++)
+	{
+		if (DimIsRealArray(dims[i]))
+		{
+			dimcount++;
+			dim[i] = DimUpper(dims[i]) - OptionBase;
+		}
+		else
+			dim[i] = 0;
+	}
+	if (((argc - 1) / 2 - 1) != dimcount)
+		StandardError(2);
+	for (i = 0; i < dimcount; i++)
+	{
+		if (*argv[i * 2 + 2])
+			pos[i] = getint(argv[i * 2 + 2], OptionBase, dim[i] + OptionBase) - OptionBase;
+		else
+		{
+			if (target != -1)
+				error("Only one index can be omitted");
+			target = i;
+			pos[i] = 1;
+		}
+	}
+	if (t & T_STR)
+	{
+		parsestringarray(argv[i * 2 + 2], &a2str, i + 1, 1, dims, true, &size2);
+	}
+	else
+	{
+		parsenumberarray(argv[i * 2 + 2], &a2float, &a2int, i + 1, 1, dims, true, NULL);
+	}
+	if (target == -1)
+		error("One index must be omitted"); // the omitted one is the dimension inserted into
+	if (dim[target] + OptionBase != DimUpper(dims[0]))
+		error("Size mismatch between insert and target array");
+	if (size != size2)
+		error("String arrays differ in string length");
+	i = dimcount - 1;
+	while (i >= 0)
+	{
+		off[i] = 1;
+		for (j = 0; j < i; j++)
+			off[i] *= (dim[j] + 1);
+		i--;
+	}
+	start = 1;
+	for (i = 0; i < dimcount; i++)
+	{
+		start += (pos[i] * off[i]);
+	}
+	start--;
+	increment = off[target];
+	start -= increment;
+	if (t & T_STR)
+	{
+		int copy = (int)size + 1;
+		for (i = 0; i <= dim[target]; i++)
+		{
+			char *p = a2str + i * copy;
+			char *q = &a1str[(start + i * increment) * copy];
+			memcpy(q, p, copy);
+		}
+	}
+	else
+	{
+		for (i = 0; i <= dim[target]; i++) // the types may differ: convert, as LET does
+		{
+			int k = start + i * increment;
+			if (a1float != NULL && a2float != NULL)
+				a1float[k] = a2float[i];
+			else if (a1float != NULL)
+				a1float[k] = (MMFLOAT)a2int[i];
+			else if (a2float != NULL)
+				a1int[k] = FloatToInt64(a2float[i]);
+			else
+				a1int[k] = a2int[i];
+		}
+	}
+	return;
+}
+void cmd_slice(void)
+{
+	array_slice(cmdline);
+}
+void array_slice(char *tp)
+{
+	int i, j, t, start, increment, dim[MAXDIM], pos[MAXDIM], off[MAXDIM], dimcount = 0, target = -1, toarray = 0;
+	int64_t *a1int = NULL, *a2int = NULL;
+	MMFLOAT *a1float = NULL, *a2float = NULL;
+	char *a1str = NULL, *a2str = NULL;
+	unsigned char size = 0, size2 = 0;
+	int dims[MAXDIM] = {0};
+	getargs(&tp, 15, ",");
+	if (argc < 7)
+		StandardError(2);
+	findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+	t = VREC(VarIndex)->type;
+	if (t & T_STR)
+	{
+		parsestringarray(argv[0], &a1str, 1, 0, dims, false, &size);
+	}
+	else
+	{
+		parsenumberarray(argv[0], &a1float, &a1int, 1, 0, dims, false, NULL);
+	}
+	if (!DimIsRealArray(dims[1]))
+		error("Argument 1 must be a 2D or more array");
+	for (i = 0; i < MAXDIM; i++)
+	{
+		if (DimIsRealArray(dims[i]))
+		{
+			dimcount++;
+			dim[i] = DimUpper(dims[i]) - OptionBase;
+		}
+		else
+			dim[i] = 0;
+	}
+	if (((argc - 1) / 2 - 1) != dimcount)
+		StandardError(2);
+	for (i = 0; i < dimcount; i++)
+	{
+		if (*argv[i * 2 + 2])
+			pos[i] = getint(argv[i * 2 + 2], OptionBase, dim[i] + OptionBase) - OptionBase;
+		else
+		{
+			if (target != -1)
+				error("Only one index can be omitted");
+			target = i;
+			pos[i] = 1;
+		}
+	}
+	if (target == -1)
+		error("One index must be omitted"); // the omitted one is the dimension sliced
+	if (t & T_STR)
+	{
+		toarray = parsestringarray(argv[i * 2 + 2], &a2str, i + 1, 1, dims, true, &size2) - 1;
+	}
+	else
+	{
+		toarray = parsenumberarray(argv[i * 2 + 2], &a2float, &a2int, i + 1, 1, dims, true, NULL) - 1;
+	}
+	if (dim[target] != toarray)
+		error("Size mismatch between slice and target array");
+	if (size != size2)
+		error("String arrays differ in string length");
+	i = dimcount - 1;
+	while (i >= 0)
+	{
+		off[i] = 1;
+		for (j = 0; j < i; j++)
+			off[i] *= (dim[j] + 1);
+		i--;
+	}
+	start = 1;
+	for (i = 0; i < dimcount; i++)
+	{
+		start += (pos[i] * off[i]);
+	}
+	start--;
+	increment = off[target];
+	start -= increment;
+	if (t & T_STR)
+	{
+		int copy = (int)size + 1; // allow for the length character of the string
+		for (i = 0; i <= dim[target]; i++)
+		{
+			char *p = a2str + i * copy;
+			char *q = &a1str[(start + i * increment) * copy];
+			memcpy(p, q, copy);
+		}
+	}
+	else
+	{
+		for (i = 0; i <= dim[target]; i++) // the types may differ: convert, as LET does
+		{
+			int k = start + i * increment;
+			if (a1float != NULL && a2float != NULL)
+				a2float[i] = a1float[k];
+			else if (a1float != NULL)
+				a2int[i] = FloatToInt64(a1float[k]);
+			else if (a2float != NULL)
+				a2float[i] = (MMFLOAT)a1int[k];
+			else
+				a2int[i] = a1int[k];
+		}
+	}
+	return;
+}

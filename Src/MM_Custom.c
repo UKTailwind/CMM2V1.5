@@ -548,10 +548,10 @@ void cmd_DAC(void){
         d2max=0;
         d1pos=0;
         d2pos=0;
-        d1max=parseintegerarray(argv[2],&d1point,1,1, NULL, false)-1;
+        d1max=parseintegerarray(argv[2],&d1point,1,1, NULL, false, NULL)-1;
                //PInt(d1max);
         if(argc==5){
-           d2max=parseintegerarray(argv[4],&d2point,2,1, NULL, false)-1;
+           d2max=parseintegerarray(argv[4],&d2point,2,1, NULL, false, NULL)-1;
               // PInt(d2max);
         }
        /*

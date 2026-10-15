@@ -44,11 +44,17 @@ extern struct tagMTRand *g_myrand;
 extern void Q_Mult(MMFLOAT *q1, MMFLOAT *q2, MMFLOAT *n);
 extern void Q_Invert(MMFLOAT *q, MMFLOAT *n);
 extern void cmd_SensorFusion(char *passcmdline);
-void MahonyQuaternionUpdate(MMFLOAT ax, MMFLOAT ay, MMFLOAT az, MMFLOAT gx, MMFLOAT gy, MMFLOAT gz, MMFLOAT mx, MMFLOAT my, MMFLOAT mz, MMFLOAT Ki, MMFLOAT Kp, MMFLOAT deltat, MMFLOAT *yaw, MMFLOAT *pitch, MMFLOAT *roll);
-void MadgwickQuaternionUpdate(MMFLOAT ax, MMFLOAT ay, MMFLOAT az, MMFLOAT gx, MMFLOAT gy, MMFLOAT gz, MMFLOAT mx, MMFLOAT my, MMFLOAT mz, MMFLOAT beta, MMFLOAT deltat, MMFLOAT *pitch, MMFLOAT *yaw, MMFLOAT *roll);
-extern int parsenumberarray(char *tp, MMFLOAT **a1float, int64_t **a1int, int argno, int dimensions, int *dims, bool ConstantNotAllowed);
-extern int parsefloatrarray(char *tp, MMFLOAT **a1float, int argno, int dimensions, int *dims, bool ConstantNotAllowed);
-extern int parseintegerarray(char *tp, int64_t **a1int, int argno, int dimensions, int *dims, bool ConstantNotAllowed);
+void MahonyQuaternionUpdate(MMFLOAT ax, MMFLOAT ay, MMFLOAT az, MMFLOAT gx, MMFLOAT gy, MMFLOAT gz, MMFLOAT mx, MMFLOAT my, MMFLOAT mz, MMFLOAT Ki, MMFLOAT Kp, MMFLOAT deltat, int usemag, MMFLOAT *yaw, MMFLOAT *pitch, MMFLOAT *roll);
+void MadgwickQuaternionUpdate(MMFLOAT ax, MMFLOAT ay, MMFLOAT az, MMFLOAT gx, MMFLOAT gy, MMFLOAT gz, MMFLOAT mx, MMFLOAT my, MMFLOAT mz, MMFLOAT beta, MMFLOAT deltat, int usemag, MMFLOAT *pitch, MMFLOAT *yaw, MMFLOAT *roll);
+// the array helpers (the PicoMite's): stride is NULL where a structure member array (pts().x) is not taken, and
+// otherwise receives the step from one element to the next in bytes: 8 for a plain array, the structure's size for
+// a member array (index with STRIDE_FLOAT/STRIDE_INT)
+extern int parsenumberarray(char *tp, MMFLOAT **a1float, int64_t **a1int, int argno, int dimensions, int *dims, bool ConstantNotAllowed, int *stride);
+extern int parsefloatarray(char *tp, MMFLOAT **a1float, int argno, int dimensions, int *dims, bool ConstantNotAllowed, int *stride);
+extern int parseintegerarray(char *tp, int64_t **a1int, int argno, int dimensions, int *dims, bool ConstantNotAllowed, int *stride);
+extern int parsestringarray(char *tp, char **a1str, int argno, int dimensions, int *dims, bool ConstantNotAllowed, unsigned char *length);
+#define STRIDE_FLOAT(ptr, idx, stride) (*(MMFLOAT *)((char *)(ptr) + (idx) * (stride)))
+#define STRIDE_INT(ptr, idx, stride) (*(long long int *)((char *)(ptr) + (idx) * (stride)))
 extern int parseany( char *tp, MMFLOAT **a1float, int64_t **a1int, unsigned char ** a1str, int *length, bool stringarray);
 extern volatile unsigned int AHRSTimer;
 #define CRC4_DEFAULT_POLYNOME       0x03

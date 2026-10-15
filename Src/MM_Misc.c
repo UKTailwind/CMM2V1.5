@@ -359,7 +359,7 @@ void cmd_sort(void){
     size=parseany(argv[0],&a3float,&a3int,&a3str,&maxsize,true)-1;
     truesize=size;
     if(argc>=3 && *argv[2]){
-        int card=parseintegerarray(argv[2],&a4int,2,1,NULL,true)-1;
+        int card=parseintegerarray(argv[2],&a4int,2,1,NULL,true, NULL)-1;
     	if(card !=size)error("Array size mismatch");
     }
     if(argc>=5 && *argv[4])flags=getint(argv[4],0,7);
@@ -749,7 +749,7 @@ void cmd_longString(void){
         int j=0;
     	getargs(&tp, 5, (char *)",");
         if(argc != 5)error("Argument count");
-        j=(parseintegerarray(argv[0],&dest,1,1,NULL,true)-1)*8-1;
+        j=(parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1)*8-1;
         q=(uint8_t *)&dest[1];
         p = getint(argv[2],OptionBase,j-OptionBase);
         nbr=getint(argv[4],0,255);
@@ -764,7 +764,7 @@ void cmd_longString(void){
         int i,j,nbr;
         getargs(&tp, 3, (char *)",");
         if(argc != 3)error("Argument count");
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true)-1;
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;
         q=(char *)&dest[1];
         q+=dest[0];
         p=(char *)getstring(argv[2]);
@@ -782,7 +782,7 @@ void cmd_longString(void){
         int i;
         getargs(&tp, 3, (char *)",");
         if(argc != 3)error("Argument count");
-        parseintegerarray(argv[0],&dest,1,1,NULL,true);
+        parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL);
         q=(char *)&dest[1];
         trim=getint(argv[2],1,dest[0]);
         i = dest[0]-trim;
@@ -799,7 +799,7 @@ void cmd_longString(void){
         int i,nbr;
         getargs(&tp, 5, (char *)",");
         if(argc != 5)error("Argument count");
-        parseintegerarray(argv[0],&dest,1,1,NULL,true);
+        parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL);
         q=(char *)&dest[1];
         p=(char *)getstring(argv[2]);
         nbr=getint(argv[4],1,dest[0]-*p+1);
@@ -818,7 +818,7 @@ void cmd_longString(void){
         if(argc != 5)error("Argument count");
         int64_t nbr=getinteger(argv[2]);
         i=nbr;
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true)-1;
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;
         q=(char *)&dest[1];
         dest[0]=0;
         p=(char *)getstring(argv[4]);
@@ -837,9 +837,9 @@ void cmd_longString(void){
         int i,j,nbr;
         getargs(&tp, 5, (char *)",");
         if(argc != 5)error("Argument count");
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true)-1;
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;
         q=(char *)&dest[1];
-        parseintegerarray(argv[2],&src,2,1,NULL,false);
+        parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
         nbr=i=getinteger(argv[4]);
         if(nbr>src[0])nbr=i=src[0];
@@ -856,9 +856,9 @@ void cmd_longString(void){
         int i,j,nbr;
         getargs(&tp, 5, (char *)",");
         if(argc != 5)error("Argument count");
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true)-1;
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;
         q=(char *)&dest[1];
-        parseintegerarray(argv[2],&src,2,1,NULL,false);
+        parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
         nbr=i=getinteger(argv[4]);
         if(nbr>src[0]){
@@ -877,9 +877,9 @@ void cmd_longString(void){
         int i,j,nbr,start;
         getargs(&tp, 7,(char *)",");
         if(argc < 5)error("Argument count");
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true)-1;
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;
         q=(char *)&dest[1];
-        parseintegerarray(argv[2],&src,2,1,NULL,false);
+        parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
         start=getint(argv[4],1,src[0]);
         if(argc==7)nbr=getinteger(argv[6]);
@@ -899,7 +899,7 @@ void cmd_longString(void){
         int64_t *dest=NULL;
         getargs(&tp, 1, (char *)",");
         if(argc != 1)error("Argument count");
-        parseintegerarray(argv[0],&dest,1,1,NULL,true);
+        parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL);
         dest[0]=0;
         return;
     }
@@ -909,7 +909,7 @@ void cmd_longString(void){
         int j=0;
         getargs(&tp, 3, (char *)",");
         if(argc != 3)error("Argument count");
-        j=(parseintegerarray(argv[0],&dest,1,1,NULL,true)-1)*8;
+        j=(parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1)*8;
         dest[0] = getint(argv[2], 0, j);
         return;
     }
@@ -920,7 +920,7 @@ void cmd_longString(void){
         int i;
         getargs(&tp, 1, (char *)",");
         if(argc != 1)error("Argument count");
-        parseintegerarray(argv[0],&dest,1,1,NULL,true);
+        parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL);
         q=(char *)&dest[1];
         i=dest[0];
         while(i--){
@@ -946,14 +946,14 @@ void cmd_longString(void){
             if (*argv[0] == '#')
                 argv[0]++;              // check if the first arg is a file number
             fnbr = getinteger(argv[0]); // get the number
-            parseintegerarray(argv[2], &dest, 2, 1, NULL, true);
+            parseintegerarray(argv[2], &dest, 2, 1, NULL, true, NULL);
             if (argc == 4)
                 if (*argv[3] == ';')
                     docrlf = false;
         }
         else
         {
-            parseintegerarray(argv[0], &dest, 1, 1, NULL, true);
+            parseintegerarray(argv[0], &dest, 1, 1, NULL, true, NULL);
             if (argc == 2)
                 if (*argv[1] == ';')
                     docrlf = false;
@@ -977,7 +977,7 @@ void cmd_longString(void){
         int i;
         getargs(&tp, 1, (char *)",");
         if(argc != 1)error("Argument count");
-        parseintegerarray(argv[0],&dest,1,1,NULL,true);
+        parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL);
         q=(char *)&dest[1];
         i=dest[0];
         while(i--){
@@ -995,10 +995,10 @@ void cmd_longString(void){
         int i=0,j;
         getargs(&tp, 3, (char *)",");
         if(argc != 3)error("Argument count");
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true);
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL);
         q=(char *)&dest[1];
         dest[0]=0;
-        parseintegerarray(argv[2],&src,2,1,NULL,false);
+        parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
         if((j-i)*8 < src[0])error("Destination array too small");
         i=src[0];
@@ -1014,10 +1014,10 @@ void cmd_longString(void){
         int i=0,j,d=0,s=0;
         getargs(&tp, 3, (char *)",");
         if(argc != 3)error("Argument count");
-        j=parseintegerarray(argv[0],&dest,1,1,NULL,true)-1;
+        j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;
         q=(char *)&dest[1];
         d=dest[0];
-        parseintegerarray(argv[2],&src,2,1,NULL,false);
+        parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
         i = s = src[0];
         if(j*8 < (d+s))error("Destination array too small");
@@ -1120,9 +1120,9 @@ void cmd_longString(void){
                 int j;
                 getargs(&p, 3, ",");
                 if(argc != 3)error("Argument count");
-                j=parseintegerarray(argv[2],&dest,2,1,NULL,true)-1;
+                j=parseintegerarray(argv[2],&dest,2,1,NULL,true, NULL)-1;
                 q=(unsigned char *)&dest[1];
-                parseintegerarray(argv[0],&src,1,1,NULL,false);
+                parseintegerarray(argv[0],&src,1,1,NULL,false, NULL);
                 qq=(unsigned char *)&src[1];
                 if(j*8 < b64e_size(src[0]))error("Destination array too small");
                 dest[0]=b64_encode(qq, src[0], q);
@@ -1134,9 +1134,9 @@ void cmd_longString(void){
                 int j;
                 getargs(&p, 3,",");
                 if(argc != 3)error("Argument count");
-                j=parseintegerarray(argv[2],&dest,2,1,NULL,true)-1;
+                j=parseintegerarray(argv[2],&dest,2,1,NULL,true, NULL)-1;
                 q=(unsigned char *)&dest[1];
-                parseintegerarray(argv[0],&src,1,1,NULL,false);
+                parseintegerarray(argv[0],&src,1,1,NULL,false, NULL);
                 qq=(unsigned char *)&src[1];
                 if(j*8 < b64d_size(src[0]))error("Destination array too small");
                 dest[0]=b64_decode(qq, src[0], q);
@@ -1199,10 +1199,10 @@ void parselongAES(char *p, int ivadd, uint8_t *keyx, uint8_t *ivx, int64_t **ini
 		}
 	}
 //now process the longstring used for input
-	parseintegerarray(argv[2],&a2int,2,1,NULL,false);
+	parseintegerarray(argv[2],&a2int,2,1,NULL,false, NULL);
 	if(*a2int % 16)error("input must be multiple of 16 elements long");
     *inint=a2int;
-	card3=parseintegerarray(argv[4],&a3int,3,1,NULL,false);
+	card3=parseintegerarray(argv[4],&a3int,3,1,NULL,false, NULL);
 	if((card3-1)*8<*a2int + ivadd)error("Output array too small");
     *outint=a3int;
 }
@@ -1215,7 +1215,7 @@ void fun_LGetStr(void){
         int start,nbr,j;
         getargs(&ep, 5, (char *)",");
         if(argc != 5)error("Argument count");
-        j=(parseintegerarray(argv[0],&src,2,1,NULL,false)-1)*8;
+        j=(parseintegerarray(argv[0],&src,2,1,NULL,false, NULL)-1)*8;
         start = getint(argv[2],1,j);
         nbr = getinteger(argv[4]);
         if(nbr < 1 || nbr > MAXSTRLEN) error("Number out of bounds");
@@ -1236,7 +1236,7 @@ void fun_LGetByte(void){
         int start,j;
     	getargs(&ep, 3, (char *)",");
         if(argc != 3)error("Argument count");
-        j=(parseintegerarray(argv[0],&src,2,1,NULL,false)-1)*8;
+        j=(parseintegerarray(argv[0],&src,2,1,NULL,false, NULL)-1)*8;
         s=(uint8_t *)&src[1];
         start = getint(argv[2],OptionBase,j-OptionBase);
         iret=s[start-OptionBase];
@@ -1273,7 +1273,7 @@ void fun_LInstr(void){
         j=(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase);
         srch=getstring(argv[2]);
         */
-        j=(parseintegerarray(argv[0],&src,2,1,NULL,false)-1);
+        j=(parseintegerarray(argv[0],&src,2,1,NULL,false, NULL)-1);
         str=(char *)&src[0];
        // srch=(char *)getstring(argv[2]);
        strcpy((char *)srch,( char *)getstring(argv[2]));
@@ -1352,10 +1352,10 @@ void fun_LCompare(void){
     int d=0,s=0,found=0;
     getargs(&ep, 3, (char *)",");
     if(argc != 3)error("Argument count");
-    parseintegerarray(argv[0],&dest,1,1,NULL,false);
+    parseintegerarray(argv[0],&dest,1,1,NULL,false, NULL);
     q=(char *)&dest[1];
     d=dest[0];
-    parseintegerarray(argv[2],&src,1,1,NULL,false);
+    parseintegerarray(argv[2],&src,1,1,NULL,false, NULL);
     p=(char *)&src[1];
     s=src[0];
     while(!found) {
@@ -1373,7 +1373,7 @@ void fun_LLen(void) {
     int64_t *dest=NULL;
     getargs(&ep, 1, (char *)",");
     if(argc != 1)error("Argument count");
-    parseintegerarray(argv[0],&dest,1,1,NULL,false);
+    parseintegerarray(argv[0],&dest,1,1,NULL,false, NULL);
     iret=dest[0];
     targ = T_INT;
 }

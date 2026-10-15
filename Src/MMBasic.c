@@ -3737,7 +3737,31 @@ const char *errorstring[] = {
     "SYSTEM I2C not configured",                                   // 44
     "System SPI not configured",                                   // 45
     "Illegal escape sequence, use CHR$(0) for the Null character", // 46
+    "Struct member arrays not supported for this command",         // 47
+    "Not enough memory for % bytes",                               // 48
 };
+// For a command that keeps a pointer to the variable it was given, for an interrupt or a later statement to use
+// (PID INIT): call it straight after the findvar or parse*array that found the variable (VarIndex), with what that
+// returned.  A LOCAL's record is cleared and its data freed when its SUB returns, while the pointer would still be
+// used.  A parameter or a STATIC is a local that points at another variable's data: it is allowed when that is a
+// global's.  (The PicoMite's, 57b74f8; a global's record is found by its address here, not by its chunk.)
+int IsGlobalData(void *data) {
+    if(VarIndex >= MAXLOCALVARS) return true;                      // a global
+    if(VREC(VarIndex)->type & T_PTR) {
+        char *d = (char *)data;
+        for(int i = MAXLOCALVARS; i < MAXVARS; i++) {
+            struct s_vartbl *r = VREC(i);
+            if(r->name[0] == 0 || r->type == T_BLOCKED) continue;
+            if(r->val.s == d) return true;                         // a global array's or string's data, passed whole
+            if(d >= (char *)r && d < (char *)(r + 1)) return true; // inside a global's record: a scalar, a short string
+        }
+    }
+    return false;
+}
+void RequireGlobal(void *data) {
+    if(!IsGlobalData(data)) error("Must be a global variable");
+}
+
 void StandardError(int n)
 {
     error((char *)errorstring[n]);

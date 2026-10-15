@@ -1,0 +1,50 @@
+ok  a 1x1 inverse (it was 0)
+ok  a 3x3 inverse
+ok  its determinant
+ok  the heap is the same after 300 of each (an inverse leaked 15.5 KB)
+ok  MATH RANDOMIZE n repeats MATH(RAND)'s sequence (it was the hardware RNG every time)
+ok  MATH RANDOMIZE with no seed, 50 times (about half were Number out of bounds)
+ok  integer C_DIV by zero
+ok  SLICE with every index given
+ok  INSERT with every index given (it returned silently)
+ok  PID INIT with a LOCAL array (its SUB frees it)
+ok  WINDOW's minimum into an integer variable (it got the float's bits)
+ok  and its maximum
+ok  and the scaling
+ok  WINDOW of a constant input gives the low end (it was 0/0)
+ok  CRC12 is 12 bits (it was &HFEFB)
+ok  Q_CREATE under OPTION ANGLE DEGREES (the cosine took radians)
+ok  Q_CREATE names argument 5 (it said 4)
+ok  SCALE into an integer array: 1.25 is 1 (the scale was rounded first: 3)
+ok  ADD into an integer array: 0.7 is 1 (0.4 was rounded first: 0)
+ok  POWER into an integer array: 16^0.5 is 4 (the exponent was rounded first: 16)
+ok  SCALE of integers by an integer is exact above 2^53
+ok  SLICE from floats into integers converts (it copied the bits)
+ok  INTERPOLATE into an integer array (it was always Arrays must be different)
+ok  MAX of values below -3e38 (it gave the -3e38 it started from)
+ok  and MIN of values above 3e38
+ok  FFT INVERSE needs a 2 x n array
+ok  CROSSING: the first sample past the level, with OPTION BASE (it was 1)
+ok  and confirmed for 2 samples (the spike at 1 is passed over)
+ok  SCALE of a member of every element
+ok  SUM of a member
+ok  MAX of an integer member
+ok  CLAMP of a member: below
+ok  and above
+ok  a member of one element is refused (it ran past the array's end)
+ok  and a scalar structure's member
+ok  the shape is checked (a 2D array of structures passed as 1D)
+ok  SORT refuses a member array
+ok  and so does a MATH command without the stride
+ok  ARRAY SET of a string array
+ok  ARRAY ADD to a string array appends
+ok  ARRAY SLICE of a string array
+ok  ARRAY INSERT into a string array
+ok  MATH SET is the same command
+ok  a scalar string is not a string array
+ok  CLAMP: below the range
+ok  inside it
+ok  above it
+ok  SINC of a constant is the constant
+ok  and the x values stay
+math: 49 of 49 passed

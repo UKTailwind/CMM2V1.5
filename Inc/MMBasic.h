@@ -389,6 +389,8 @@ void error(char *, ...);
  * ============================================================================ */
 ///void error(char *msg, ...);
 void SyntaxError(void);
+int IsGlobalData(void *data);                   // a pointer kept past the statement must be to a global's data
+void RequireGlobal(void *data);                 // (the error when it is not)
 void StandardError(int n);
 void StandardErrorParam(int n, int m);
 void StandardErrorParam2(int n, int m, int l);

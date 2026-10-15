@@ -157,11 +157,11 @@ void MIPS16 cmd_memory(void) {
         void *top=NULL;
         uint64_t *from=NULL;
         if(CheckEmpty((char *)argv[0])){
-            sourcesize=parseintegerarray(argv[0],(int64_t **)&from, 1,1,NULL,false);
+            sourcesize=parseintegerarray(argv[0],(int64_t **)&from, 1,1,NULL,false, NULL);
             if(sourcesize<n)error("Source array too small");
         } else from=(uint64_t *)GetPokeAddr(argv[0]);
         if(CheckEmpty((char *)argv[2])){
-            destinationsize=parseintegerarray(argv[2],(int64_t **)&top, 2,1,NULL,true);
+            destinationsize=parseintegerarray(argv[2],(int64_t **)&top, 2,1,NULL,true, NULL);
             if(destinationsize*64/size<n)error("Destination array too small");
         } else top=(void *)GetPokeAddr(argv[2]);
         if((uint32_t)from % 8)error("Source address not divisible by 8");
@@ -214,7 +214,7 @@ void MIPS16 cmd_memory(void) {
 		int fnbr = getint(argv[0],1,MAXOPENFILES);	// get the number
         int n=getinteger(argv[2]);
         if(CheckEmpty((char *)argv[4])){
-            sourcesize=parseintegerarray(argv[4],&aint,3,1,NULL,false);
+            sourcesize=parseintegerarray(argv[4],&aint,3,1,NULL,false, NULL);
             if(sourcesize*8<n)error("Source array too small");
             fromp=(char *)aint;
         } else {
@@ -238,7 +238,7 @@ void MIPS16 cmd_memory(void) {
 		int fnbr = getint(argv[0],1,MAXOPENFILES);	// get the number
         int n=getinteger(argv[2]);
         if(CheckEmpty((char *)argv[4])){
-            sourcesize=parseintegerarray(argv[4],&aint,3,1,NULL,false);
+            sourcesize=parseintegerarray(argv[4],&aint,3,1,NULL,false, NULL);
             if(sourcesize*8<n)error("Source array too small");
             fromp=(char *)aint;
         } else {
@@ -264,13 +264,13 @@ void MIPS16 cmd_memory(void) {
         uint64_t *to=NULL;
         void *fromp=NULL;
         if(CheckEmpty((char *)argv[0])){
-            sourcesize=parseintegerarray(argv[0],(int64_t **)&fromp, 1,1,NULL,false);
+            sourcesize=parseintegerarray(argv[0],(int64_t **)&fromp, 1,1,NULL,false, NULL);
             if(sourcesize*64/size<n)error("Source array too small");
         } else {
             fromp=(void*)GetPokeAddr(argv[0]);
         }
         if(CheckEmpty((char *)argv[2])){
-            destinationsize=parseintegerarray(argv[2],(int64_t **)&to, 2,1,NULL,true);
+            destinationsize=parseintegerarray(argv[2],(int64_t **)&to, 2,1,NULL,true, NULL);
             if(n>destinationsize)error("Destination array too small");
         } else to=(uint64_t *)GetPokeAddr(argv[2]);
         if((uint32_t)to % 8)error("Source address not divisible by 8");
@@ -1327,6 +1327,7 @@ void InitHeap(void) {
     NameIndexForget();                                              // and the index of SUBs, FUNCTIONs and labels
     StructTableForget();                                            // and the TYPE table
     JsonArenaForget();                                              // and JSON$'s parse arena
+    g_myrand = NULL;                                                // and MATH(RAND)'s generator
 }
 
 void *ReAllocMemory(void *addr, size_t msize){
