@@ -1326,6 +1326,7 @@ void InitHeap(void) {
     SubLayoutForget();                                              // the SUBs' parameter layouts were in the heap (P6 F1)
     NameIndexForget();                                              // and the index of SUBs, FUNCTIONs and labels
     StructTableForget();                                            // and the TYPE table
+    JsonArenaForget();                                              // and JSON$'s parse arena
 }
 
 void *ReAllocMemory(void *addr, size_t msize){

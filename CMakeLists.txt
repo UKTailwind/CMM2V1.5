@@ -62,7 +62,8 @@ set(CMAKE_ASM_FLAGS_RELEASE "")
 
 set(MCU_FLAGS -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb)
 
-target_compile_definitions(${TARGET} PRIVATE USE_HAL_DRIVER STM32H743xx)
+target_compile_definitions(${TARGET} PRIVATE USE_HAL_DRIVER STM32H743xx
+    CJSON_NESTING_LIMIT=128)     # JSON$: well inside the stack (cJSON's 1000 is about 100 KB of it)
 
 target_include_directories(${TARGET} PRIVATE
     FATFS

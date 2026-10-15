@@ -197,6 +197,7 @@ extern int g_StructMemberOffset;                // its offset in the structure
 extern int g_StructMemberSize;                  // its size: a string's length, a nested structure's type
 extern int g_ExprStructType;                    // the type of the whole structure an expression gave, or -1
 void StructTableForget(void);
+void JsonArenaForget(void);
 int StructTableStart(void);
 char *StructDefine(char *p, int ErrAbort);
 const char *ParseStructMember(char *p, struct s_structdef *sd);

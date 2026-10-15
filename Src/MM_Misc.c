@@ -4248,108 +4248,171 @@ char *GetIntAddress(char *p) {
 
 	return findline(getinteger(p), true);	                        // otherwise try for a line number
 }
+/* ---- cJSON's memory: a bump arena over the heap (the PicoMite's) ---------------------------------------------
+   cJSON makes a small allocation for every node, key and string, and releases the whole tree at once, so its
+   memory comes from blocks of the heap, handed out in turn and all freed together by json_arena_reset() (the free
+   hook does nothing).  Before, it was newlib's malloc, one call per node and a recursive cJSON_Delete per call.
+   The blocks are 64 KB here (the PicoMite's are 4 KB: the CMM2's heap is 24 MB). */
+#define JSON_ARENA_BLOCK 0x10000
+static void *json_arena_head = NULL;                                // the newest block: its first word links the one before
+static char *json_arena_cur = NULL, *json_arena_end = NULL;
+
+static void json_arena_reset(void) {
+    void *b = json_arena_head;
+    while(b) {
+        void *prev = *(void **)b;
+        FreeMemory(b);
+        b = prev;
+    }
+    json_arena_head = NULL;
+    json_arena_cur = json_arena_end = NULL;
+}
+
+// InitHeap: the heap has gone, and the arena's blocks with it: drop the chain (freeing them would free pages
+// that now belong to something else)
+void JsonArenaForget(void) {
+    json_arena_head = NULL;
+    json_arena_cur = json_arena_end = NULL;
+}
+
+static void *json_malloc_hook(size_t sz) {
+    size_t n = (sz + 7u) & ~(size_t)7u;                             // every allocation 8-byte aligned
+    if(json_arena_cur == NULL || json_arena_cur + n > json_arena_end) {
+        size_t blk = n + 8;                                         // the block's first 8 bytes hold the link
+        char *b;
+        if(blk < JSON_ARENA_BLOCK) blk = JSON_ARENA_BLOCK;
+        b = GetMemory(blk);                                         // ("Not enough memory": the next call frees the chain)
+        *(void **)b = json_arena_head;
+        json_arena_head = b;
+        json_arena_cur = b + 8;
+        json_arena_end = b + blk;
+    }
+    void *p = json_arena_cur;
+    json_arena_cur += n;
+    return p;
+}
+
+static void json_free_hook(void *ptr) { (void)ptr; }               // json_arena_reset() frees the lot
+
+// JSON$(array%(), path$): the item at path$ ("a.b", "list[4].weather[0].description") in the JSON held as a long
+// string in array%().  The PicoMite's, with: the long string copied by its own length (strlen read past its end,
+// and after LONGSTRING CLEAR or RESIZE the old bytes); the result buffer taken before it is written ("true" and
+// "false" went into whatever the last string function left); the path read before the parse, so an error in it
+// cannot leave the arena allocated; every index read (an index after the first was always 0: the ']' before it
+// went into its digits); the argument count, the path's buffers and a string over 255 checked; nesting limited to
+// CJSON_NESTING_LIMIT 128 (CMakeLists.txt), well inside the stack.
 void fun_json(void){
-    char *json_string=NULL;
+    char *json_string = NULL;
     const cJSON *root = NULL;
+    cJSON *parse;
     void *ptr1 = NULL;
-    char *p;
-	int64_t *dest=NULL;
+    char *p, *a;
+    int64_t *dest = NULL, slen, cap;
     MMFLOAT tempd;
-    int i,j,k,mode,index;
-    char field[32],num[6];
+    int i, j, k, mode, index, len;
+    char field[32], num[6];
     getargs(&ep, 3, ",");
-    char *a=GetTempStrMemory();
+    if(argc != 3) error("Argument count");
+    sret = GetTempStrMemory();
+    a = GetTempStrMemory();
     ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK);
     CHECK_STRUCT_MEMBER_ARRAY();
     if(VREC(VarIndex)->type & T_INT) {
-    if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-    if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-        error("Argument 1 must be integer array");
-    }
-    dest = (long long int *)ptr1;
-    json_string=(char *)&dest[1];
+        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) error("Argument 1 must be integer array");
+        dest = (long long int *)ptr1;
+        // a long string: its length in dest[0], its bytes (not terminated) after it, at most the array's room
+        slen = dest[0];
+        cap = (int64_t)(DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) * 8;
+        if(slen < 0) slen = 0;
+        if(slen > cap) slen = cap;
+        json_string = GetTempMemory(slen + 1);
+        memcpy(json_string, (char *)&dest[1], slen);
+        json_string[slen] = 0;
     } else error("Argument 1 must be integer array");
-    cJSON * parse = cJSON_Parse(json_string);
-    if(parse==NULL)error("Invalid JSON data");
-    root=parse;
-    p=getCstring(argv[2]);
-    int len = strlen(p);
-    memset(field,0,32);
-    memset(num,0,6);
-    i=0;j=0;k=0;mode=0;
-    while(i<len){
-        if(p[i]=='['){ //start of index
-            mode=1;
-            field[j]=0;
+
+    // the path first: an error here must not find the arena allocated
+    p = getCstring(argv[2]);
+    len = strlen(p);
+    cJSON_Hooks json_hooks = {json_malloc_hook, json_free_hook};
+    cJSON_InitHooks(&json_hooks);
+    json_arena_reset();                                             // (anything an aborted call left)
+    parse = cJSON_Parse(json_string);
+    if(parse == NULL) {
+        json_arena_reset();
+        error("Invalid JSON data");
+    }
+    root = parse;
+    memset(field, 0, sizeof(field));
+    memset(num, 0, sizeof(num));
+    i = j = k = mode = 0;
+    while(i < len) {
+        if(p[i] == '[') {                                           // an index: the item named so far is an array
+            mode = 1;
+            field[j] = 0;
             root = cJSON_GetObjectItemCaseSensitive(root, field);
-            memset(field,0,32);
-            j=0;
+            memset(field, 0, sizeof(field));
+            j = 0;
         }
-        if(p[i]==']'){
-            num[k]=0;
-            index=atoi(num);
+        if(p[i] == ']') {
+            num[k] = 0;
+            index = atoi(num);
             root = cJSON_GetArrayItem(root, index);
-            memset(num,0,6);
-            k=0;
+            memset(num, 0, sizeof(num));
+            k = 0;
         }
-        if(p[i]=='.'){ //new field separator
-            if(mode==0){
-                field[j]=0;
+        if(p[i] == '.') {                                           // a new field
+            if(mode == 0) {
+                field[j] = 0;
                 root = cJSON_GetObjectItemCaseSensitive(root, field);
-             memset(field,0,32);
-                j=0;
-            } else { //step past the dot after a close bracket
-                mode=0;
-            }
-        } else  {
-            if(mode==0)field[j++]=p[i];
-            else if(p[i]!='[')num[k++]=p[i];
+                memset(field, 0, sizeof(field));
+                j = 0;
+            } else
+                mode = 0;                                           // (the dot after a closing bracket)
+        } else if(mode == 0) {
+            if(j >= (int)sizeof(field) - 1) { json_arena_reset(); error("Item name too long"); }
+            field[j++] = p[i];
+        } else if(p[i] != '[' && p[i] != ']') {                     // (the ']' is not one of the index's digits)
+            if(k >= (int)sizeof(num) - 1) { json_arena_reset(); error("Index too long"); }
+            num[k++] = p[i];
         }
         i++;
     }
     root = cJSON_GetObjectItem(root, field);
 
-    if (cJSON_IsObject(root)){
-        cJSON_Delete(parse);
+    if(cJSON_IsObject(root) || cJSON_IsInvalid(root)) {
+        json_arena_reset();
         error("Not an item");
-        return;
     }
-    if (cJSON_IsInvalid(root)){
-        cJSON_Delete(parse);
-        error("Not an item");
-        return;
-    }
-    if (cJSON_IsNumber(root))
-    {
+    if(cJSON_IsNumber(root)) {
         tempd = root->valuedouble;
-
-        if((MMFLOAT)((int64_t)tempd)==tempd) IntToStr(a,(int64_t)tempd,10);
-        else FloatToStr(a, tempd, 0, STR_AUTO_PRECISION, ' ');   // set the string value to be saved
-        cJSON_Delete(parse);
-        sret=a;
-        sret=CtoM(sret);
-        targ=T_STR;
+        if((MMFLOAT)((int64_t)tempd) == tempd) IntToStr(a, (int64_t)tempd, 10);
+        else FloatToStr(a, tempd, 0, STR_AUTO_PRECISION, ' ');
+        json_arena_reset();
+        sret = CtoM(a);
+        targ = T_STR;
         return;
     }
-    if (cJSON_IsBool(root)){
-        int64_t tempint;
-        tempint=root->valueint;
-        cJSON_Delete(parse);
-        if(tempint)strcpy(sret,"true");
-        else strcpy(sret,"false");
-        sret=CtoM(sret);
-        targ=T_STR;
+    if(cJSON_IsBool(root)) {
+        int64_t tempint = root->valueint;
+        json_arena_reset();
+        strcpy(sret, tempint ? "true" : "false");
+        sret = CtoM(sret);
+        targ = T_STR;
         return;
     }
-    if (cJSON_IsString(root)){
-        strcpy(a,root->valuestring);
-        cJSON_Delete(parse);
-        sret=a;
-        sret=CtoM(sret);
-        targ=T_STR;
+    if(cJSON_IsString(root)) {
+        if(strlen(root->valuestring) > MAXSTRLEN) {                 // (it was copied into a 256-byte buffer first)
+            json_arena_reset();
+            error("String too long");
+        }
+        strcpy(a, root->valuestring);
+        json_arena_reset();
+        sret = CtoM(a);
+        targ = T_STR;
         return;
     }
-    cJSON_Delete(parse);
-    targ=T_STR;
-    sret=a;
+    json_arena_reset();                                             // null, an array, or no such item: ""
+    targ = T_STR;
+    sret = a;
 }
