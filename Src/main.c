@@ -708,7 +708,9 @@ int maxH=PageTable[WritePage].ymax;
 if (__HAL_RCC_GET_FLAG(RCC_FLAG_PINRST) != RESET)strcpy(bootcause,"Switch\r\n");
 if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)strcpy(bootcause,"Power-On\r\n");
 if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET)strcpy(bootcause,"Software\r\n");
-int probereset = (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET && _reset_magic != SOFTRESET_MAGIC);   // e.g. SYSRESETREQ from the debug probe
+uint32_t resetflags = RCC->RSR;                                  // every reset since the flags were last cleared
+int probereset = ((resetflags & RCC_RSR_SFTRSTF) && _reset_magic != SOFTRESET_MAGIC);   // e.g. SYSRESETREQ from the debug probe
+int brownout = ((resetflags & RCC_RSR_BORRSTF) && !(resetflags & RCC_RSR_PORRSTF));     // supply dip without a power cycle
 _reset_magic = 0;
 if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_code == SCREWUP_TIMEOUT|| _excep_code == WATCHDOG_TIMEOUT|| _excep_code == RESTART_HEAP)){
 	  if(Option.Autorun==0 ){
@@ -729,8 +731,12 @@ if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_
 		  OptionFileErrorAbort = 1;
 	  }
 }
-if(probereset) MMPrintString("Reset requested from outside the firmware (debug probe?)\r\n");
-__HAL_RCC_CLEAR_RESET_FLAGS();
+if(probereset || brownout) {
+    MMPrintString(brownout ? "Brown-out reset" : "Reset requested from outside the firmware (debug probe?)");
+    MMPrintString(", RCC_RSR &H"); PIntH(resetflags); MMPrintString("\r\n");
+}
+RCC->RSR |= RCC_RSR_RMVF;                                         // clear the reset flags: RMVF is set, then cleared again
+RCC->RSR &= ~RCC_RSR_RMVF;
 if(Option.ProgramStartCode < 0){
 	mymemset(ProgMemory,0xFF,512*1024);
     FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
