@@ -409,6 +409,14 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
    - **The keyword list** for the editor and autocomplete skips the two stubs and adds the user-facing names (P `Commands.c:2976`).
 
    That saves four tokens. The CMM2 already folds `BIN$(`/`OCT$(`/`HEX$(` into `BASE$(` the same way. The PicoMite's other folds named in step 1 (`fun_tilde` for the remaining `MM.` names, `DEVICE(` for the controller readers) are for when the space is needed.
+6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too.
+   - **The CallTable:**
+     - the extra entries mmb2csub's generated code calls, in the PicoMite's `PicoCFunctions.h` layout, found through VTOR slot 7 (the decision of 15 Oct);
+     - plus whatever the CMM2's own runtime needs.
+   - **Direct arithmetic:** double-precision and 64-bit integer arithmetic inline on the M7's FPU and ALU, instead of the CallTable helpers (`FMul`, `LMul` and the rest) that the M0+/M33 builds call.
+   - **The Python scripts** (`mmb2csub`, `armcfgen.py`): a CMM2 target that builds with hardware floating point for the M7 (`-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard`) instead of the M0+ profile. The blobs are CMM2-only; CSUBs built for the PicoMite's processors are not run on the CMM2.
+   - **First test, as on the PicoMite:** `solar_eclipse.bas`, with its main calculation function and all its sub-functions turned into a CSUB. The PicoMite PC3 took 2.5 s with `sefunc` as a CSUB, against 12.5-14.6 s interpreted. The CMM2 interprets it in 7.3 s at 480 MHz, so the H7 should do much better.
+   - **Sources:** P `docs/mmb2csub.md`, `docs/armcfgen.md`, `PicoCFunctions.h`.
 7. **The statement loop.** The interrupt-ready word, the `routinechecks` cadence, the sorted IF jump table, the DO fast path, `EXIT DO`/`CONTINUE DO`/`NEXT i, j`.
 8. **Language parity** (3.1): ~~the `ARRAY` commands~~ and ~~whole-array assignment~~ (done with structures, 5b.6; ARRAY passes to the CMM2's MATH until the MATH update), `REDIM [PRESERVE]`, `ERASE` as a command, FUNCTIONs returning arrays, `BIT(`/`BYTE(`/`FLAG(`, `MM.ERRLINE`, `ON ERROR RESTART`, `CHAIN`, `SAVE/LOAD CONTEXT`, the `MM.STARTUP`/`MM.PROMPT`/`MM.END` hooks.
 8a. **MATH** (Peter, 15 Oct: a separate exercise, as there is more than structures to do): a complete comparison of the PicoMite's MATH with the CMM2's, porting its fixes and new subcommands. **Done 15 Oct:** the PicoMite's MATHS.c ported whole, with the CMM2's fixes (`docs/MATH_Update_Plan.md`); MathStructTest 33/33, MathClampTest 10/10, `tests/cmm2/math.bas` 49/49. With it:
@@ -468,7 +476,7 @@ Gate: the CMM2 demo programs under `CMM2`; the PicoMite's `Bas/` games (Exile, E
     - Add a post-link check of the section's size against 64 KB.
   - **Each move is measured.** The 15 Oct re-application cost 0.8% on `solar_eclipse` from the shift in flash layout alone.
 - Route B on the M7: the dispatch table and value stack in DTCM, `RBRun` in ITCM, the stream in SDRAM; compare `OPTION COMPILE OFF/ON` on the anchor, the games and the micro suite; D-cache effects on the SDRAM stream.
-- mmb2csub for the CMM2: `armcfgen.py` with a `--cpu cortex-m7` profile (`-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard`): doubles and 64-bit multiply/divide inline, no `FMul`/`LMul` helpers; the CallTable through VTOR slot 7; the blob is CMM2-only: CSUBs built for the PicoMite's processors do not run on the CMM2 and are rebuilt.
+- (moved to P1 step 6b, 16 Oct) mmb2csub for the CMM2: `armcfgen.py` with a `--cpu cortex-m7` profile (`-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard`): doubles and 64-bit multiply/divide inline, no `FMul`/`LMul` helpers; the CallTable through VTOR slot 7; the blob is CMM2-only: CSUBs built for the PicoMite's processors do not run on the CMM2 and are rebuilt.
 - DMA2D for `PAGE COPY`, `BLIT`, `SPRITE` compositing and `FRAMEBUFFER MERGE`; the hardware JPEG path; `MATH` on the FPU.
 - Publish the CMM2 column of the Performance Guide.
 
