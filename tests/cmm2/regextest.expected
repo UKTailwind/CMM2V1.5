@@ -1,0 +1,1467 @@
+==========================================
+MMBasic Regular Expression Test Suite
+==========================================
+
+--- Basic Character Matching ---
+Test  1: Simple match
+  Text: "hello world"
+  Pattern: "world"
+  Result: pos= 7, len= 5
+  Expected: pos= 7, len= 5
+  [PASS]
+
+Test  2: No match
+  Text: "hello world"
+  Pattern: "xyz"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  3: First char
+  Text: "hello"
+  Pattern: "h"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  4: Last char
+  Text: "hello"
+  Pattern: "o"
+  Result: pos= 5, len= 1
+  Expected: pos= 5, len= 1
+  [PASS]
+
+--- Dot Metacharacter Tests ---
+Test  5: Dot single
+  Text: "abc"
+  Pattern: "a.c"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  6: Dot multiple
+  Text: "hello"
+  Pattern: "h...o"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  7: Dot no match
+  Text: "abc"
+  Pattern: "a.d"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+--- Character Class Tests ---
+Test  8: Char class match
+  Text: "hello"
+  Pattern: "h[aeiou]llo"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  9: Char class range
+  Text: "test123"
+  Pattern: "[0-9]"
+  Result: pos= 5, len= 1
+  Expected: pos= 5, len= 1
+  [PASS]
+
+Test  10: Char class alpha
+  Text: "abc123def"
+  Pattern: "[a-z]"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  11: Multiple ranges
+  Text: "Test123"
+  Pattern: "[a-zA-Z0-9]"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+--- Inverted Character Class Tests ---
+Test  12: Not vowel
+  Text: "hello"
+  Pattern: "h[^aeiou]"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  13: Not digit
+  Text: "abc123"
+  Pattern: "[^0-9]"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  14: Not alpha
+  Text: "abc123"
+  Pattern: "[^a-z]"
+  Result: pos= 4, len= 1
+  Expected: pos= 4, len= 1
+  [PASS]
+
+--- Anchor Tests ---
+Test  15: Start anchor
+  Text: "hello world"
+  Pattern: "^hello"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  16: Start anchor fail
+  Text: "hello world"
+  Pattern: "^world"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  17: End anchor
+  Text: "hello world"
+  Pattern: "world$"
+  Result: pos= 7, len= 5
+  Expected: pos= 7, len= 5
+  [PASS]
+
+Test  18: End anchor fail
+  Text: "hello world"
+  Pattern: "hello$"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  19: Both anchors
+  Text: "test"
+  Pattern: "^test$"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+--- Star Quantifier Tests ---
+Test  20: Star zero match
+  Text: "ac"
+  Pattern: "ab*c"
+  Result: pos= 1, len= 2
+  Expected: pos= 1, len= 2
+  [PASS]
+
+Test  21: Star one match
+  Text: "abc"
+  Pattern: "ab*c"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  22: Star multiple
+  Text: "abbbbc"
+  Pattern: "ab*c"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  23: Star greedy
+  Text: "aaaaaa"
+  Pattern: "a*"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+--- Plus Quantifier Tests ---
+Test  24: Plus no match
+  Text: "ac"
+  Pattern: "ab+c"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  25: Plus one match
+  Text: "abc"
+  Pattern: "ab+c"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  26: Plus multiple
+  Text: "abbbbc"
+  Pattern: "ab+c"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  27: Plus greedy
+  Text: "aaaaa"
+  Pattern: "a+"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+--- Question Quantifier Tests ---
+Test  28: Question zero
+  Text: "ac"
+  Pattern: "ab?c"
+  Result: pos= 1, len= 2
+  Expected: pos= 1, len= 2
+  [PASS]
+
+Test  29: Question one
+  Text: "abc"
+  Pattern: "ab?c"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  30: Question multiple
+  Text: "abbc"
+  Pattern: "ab?c"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+--- Digit Escape Tests ---
+Test  31: Digit match
+  Text: "test123"
+  Pattern: "\d"
+  Result: pos= 5, len= 1
+  Expected: pos= 5, len= 1
+  [PASS]
+
+Test  32: Digit+
+  Text: "test123"
+  Pattern: "\d+"
+  Result: pos= 5, len= 3
+  Expected: pos= 5, len= 3
+  [PASS]
+
+Test  33: Not digit
+  Text: "test123"
+  Pattern: "\D"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  34: Not digit+
+  Text: "test123"
+  Pattern: "\D+"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+--- Alphanumeric Escape Tests ---
+Test  35: Word char
+  Text: "hello world"
+  Pattern: "\w"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  36: Word+
+  Text: "hello world"
+  Pattern: "\w+"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  37: Not word
+  Text: "hello world"
+  Pattern: "\W"
+  Result: pos= 6, len= 1
+  Expected: pos= 6, len= 1
+  [PASS]
+
+--- Whitespace Escape Tests ---
+Test  38: Whitespace
+  Text: "hello world"
+  Pattern: "\s"
+  Result: pos= 6, len= 1
+  Expected: pos= 6, len= 1
+  [PASS]
+
+Test  39: Whitespace+
+  Text: "hello   world"
+  Pattern: "\s+"
+  Result: pos= 6, len= 3
+  Expected: pos= 6, len= 3
+  [PASS]
+
+Test  40: Not whitespace
+  Text: "hello world"
+  Pattern: "\S"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  41: Not whitespace+
+  Text: "hello world"
+  Pattern: "\S+"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+--- Complex Pattern Tests ---
+Test  42: Email pattern
+  Text: "test@example.com"
+  Pattern: "\w+@\w+\.\w+"
+  Result: pos= 1, len= 16
+  Expected: pos= 1, len= 16
+  [PASS]
+
+Test  43: Date pattern
+  Text: "Date: 2024-11-20"
+  Pattern: "\d+-\d+-\d+"
+  Result: pos= 7, len= 10
+  Expected: pos= 7, len= 10
+  [PASS]
+
+Test  44: Phone pattern
+  Text: "Call: 123-456-7890"
+  Pattern: "\d+-\d+-\d+"
+  Result: pos= 7, len= 12
+  Expected: pos= 7, len= 12
+  [PASS]
+
+Test  45: Word boundary
+  Text: "the cat in the hat"
+  Pattern: " [ct]at"
+  Result: pos= 4, len= 4
+  Expected: pos= 4, len= 4
+  [PASS]
+
+--- Hex Escape Tests ---
+Test  46: Hex char
+  Text: "Hello"
+  Pattern: "\x48"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  47: Hex lower
+  Text: "hello"
+  Pattern: "\x68"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  48: Hex space
+  Text: "a b"
+  Pattern: "\x20"
+  Result: pos= 2, len= 1
+  Expected: pos= 2, len= 1
+  [PASS]
+
+--- Branch Operator Tests ---
+Test  49: Branch first
+  Text: "hello"
+  Pattern: "hello|world"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  50: Branch simple
+  Text: "b"
+  Pattern: "a|b|c"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  51: Branch neither
+  Text: "test"
+  Pattern: "hello|world"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  52: Branch chars
+  Text: "a"
+  Pattern: "a|b|c"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+--- Counted Quantifier Tests ---
+Test  53: Exact count
+  Text: "aaaa"
+  Pattern: "a{4}"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  54: Exact fail
+  Text: "aaa"
+  Pattern: "a{4}"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  55: Min count
+  Text: "aaaaa"
+  Pattern: "a{3,}"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  56: Max count
+  Text: "aaaaa"
+  Pattern: "a{,3}"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  57: Range count
+  Text: "aaaa"
+  Pattern: "a{2,4}"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+--- Word Boundary (\b) Tests ---
+Test  58: Word start
+  Text: "cat"
+  Pattern: "\bcat"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  59: Word start space
+  Text: "the cat"
+  Pattern: "\bcat"
+  Result: pos= 5, len= 3
+  Expected: pos= 5, len= 3
+  [PASS]
+
+Test  60: Word start fail
+  Text: "concat"
+  Pattern: "\bcat"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  61: Word end
+  Text: "cat"
+  Pattern: "cat\b"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  62: Word end space
+  Text: "cat "
+  Pattern: "cat\b"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  63: Word end fail
+  Text: "category"
+  Pattern: "cat\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  64: Word both ends
+  Text: "cat"
+  Pattern: "\bcat\b"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  65: Word isolated
+  Text: "the cat is"
+  Pattern: "\bcat\b"
+  Result: pos= 5, len= 3
+  Expected: pos= 5, len= 3
+  [PASS]
+
+Test  66: Word not substring
+  Text: "concat"
+  Pattern: "\bcat\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  67: Word not prefix
+  Text: "category"
+  Pattern: "\bcat\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+--- NOT Word Boundary (\B) Tests ---
+Test  68: Not boundary start
+  Text: "cat"
+  Pattern: "\Bcat"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  69: Not boundary space
+  Text: "the cat"
+  Pattern: "\Bcat"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  70: Not boundary inside
+  Text: "concat"
+  Pattern: "\Bcat"
+  Result: pos= 4, len= 3
+  Expected: pos= 4, len= 3
+  [PASS]
+
+Test  71: Not boundary end
+  Text: "cat"
+  Pattern: "cat\B"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  72: Not boundary end sp
+  Text: "cat "
+  Pattern: "cat\B"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  73: Not boundary prefix
+  Text: "category"
+  Pattern: "cat\B"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  74: Not boundary both
+  Text: "concatenate"
+  Pattern: "\Bcat\B"
+  Result: pos= 4, len= 3
+  Expected: pos= 4, len= 3
+  [PASS]
+
+--- Word Boundary Complex Tests ---
+Test  75: Whole word 'the'
+  Text: "the"
+  Pattern: "\bthe\b"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  76: Not in 'there'
+  Text: "there"
+  Pattern: "\bthe\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  77: Not in 'breathe'
+  Text: "breathe"
+  Pattern: "\bthe\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  78: Word with plus
+  Text: "hello"
+  Pattern: "\b\w+\b"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  79: Digits no boundary
+  Text: "abc123def"
+  Pattern: "\b[0-9]+\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  80: Digits with boundary
+  Text: "abc 123 def"
+  Pattern: "\b[0-9]+\b"
+  Result: pos= 5, len= 3
+  Expected: pos= 5, len= 3
+  [PASS]
+
+Test  81: Word then digit
+  Text: "test123"
+  Pattern: "\btest\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  82: Digit then word
+  Text: "123test"
+  Pattern: "\btest\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+--- Word Boundary Edge Cases ---
+Test  83: Boundary alone
+  Text: "hello"
+  Pattern: "\b"
+  Result: pos= 1, len= 0
+  Expected: pos= 1, len= 0
+  [PASS]
+
+Test  84: Not boundary alone
+  Text: "hello"
+  Pattern: "\B"
+  Result: pos= 2, len= 0
+  Expected: pos= 2, len= 0
+  [PASS]
+
+Test  85: Double boundary
+  Text: "hello"
+  Pattern: "\b\b"
+  Result: pos= 1, len= 0
+  Expected: pos= 1, len= 0
+  [PASS]
+
+Test  86: Underscore end
+  Text: "test_"
+  Pattern: "_\b"
+  Result: pos= 5, len= 1
+  Expected: pos= 5, len= 1
+  [PASS]
+
+Test  87: Underscore start
+  Text: "_test"
+  Pattern: "\b_"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  88: Underscore word
+  Text: "test_case"
+  Pattern: "\btest_case\b"
+  Result: pos= 1, len= 9
+  Expected: pos= 1, len= 9
+  [PASS]
+
+--- Word Boundary Combined Tests ---
+Test  89: Boundary + star
+  Text: "aaa bbb"
+  Pattern: "\b\w*\b"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  90: Boundary + plus
+  Text: "aaa bbb"
+  Pattern: "\b\w+\b"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  91: Boundary + question
+  Text: "a bb"
+  Pattern: "\b\w?\b"
+  Result: pos= 1, len= 0
+  Expected: pos= 1, len= 0
+  [PASS]
+
+Test  92: Boundary + range
+  Text: "test"
+  Pattern: "\b[a-z]{4}\b"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  93: Boundary + digit
+  Text: "word123"
+  Pattern: "\b\d+"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  94: Boundary + classes
+  Text: "hello"
+  Pattern: "\b[aeiou]\w*\b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  95: Multiple words
+  Text: "cat dog rat"
+  Pattern: "\bcat\b"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  96: Find second word
+  Text: "cat dog rat"
+  Pattern: "\bdog\b"
+  Result: pos= 5, len= 3
+  Expected: pos= 5, len= 3
+  [PASS]
+
+--- Word Boundary Practical Tests ---
+Test  97: Find 'is' word
+  Text: "This is a test"
+  Pattern: "\bis\b"
+  Result: pos= 6, len= 2
+  Expected: pos= 6, len= 2
+  [PASS]
+
+Test  98: Not 'is' in 'this'
+  Text: "This is a test"
+  Pattern: "\bis\b"
+  Result: pos= 6, len= 2
+  Expected: pos= 6, len= 2
+  [PASS]
+
+Test  99: Variable name
+  Text: "var_name = value"
+  Pattern: "\b\w+\b"
+  Result: pos= 1, len= 8
+  Expected: pos= 1, len= 8
+  [PASS]
+
+Test  100: Find function
+  Text: "test() call"
+  Pattern: "\btest\b"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  101: URL domain
+  Text: "site.com/page"
+  Pattern: "\b\w+\b"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  102: Decimal number
+  Text: "3.14159"
+  Pattern: "\b\d+\b"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  103: Integer number
+  Text: "value 42 end"
+  Pattern: "\b\d+\b"
+  Result: pos= 7, len= 2
+  Expected: pos= 7, len= 2
+  [PASS]
+
+Test  104: Hyphenated word
+  Text: "test-case"
+  Pattern: "\btest\b"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+--- Real-World Examples ---
+Test  105: IP address
+  Text: "192.168.1.1"
+  Pattern: "\d+\.\d+\.\d+\.\d+"
+  Result: pos= 1, len= 11
+  Expected: pos= 1, len= 11
+  [PASS]
+
+Test  106: HTML tag
+  Text: "<div>content</div>"
+  Pattern: "<\w+>"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  107: Currency
+  Text: "$123.45"
+  Pattern: "\$\d+\.\d+"
+  Result: pos= 1, len= 7
+  Expected: pos= 1, len= 7
+  [PASS]
+
+Test  108: Time format
+  Text: "Time: 14:30:00"
+  Pattern: "\d+:\d+:\d+"
+  Result: pos= 7, len= 8
+  Expected: pos= 7, len= 8
+  [PASS]
+
+--- Edge Case Tests ---
+Test  109: Empty pattern
+  Text: "test"
+  Pattern: ""
+  Result: pos= 1, len= 0
+  Expected: pos= 1, len= 0
+  [PASS]
+
+Test  110: Pattern longer
+  Text: "hi"
+  Pattern: "hello"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  111: Repeated dots
+  Text: "abc"
+  Pattern: "..."
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  112: First occurrence
+  Text: "hello hello"
+  Pattern: "hello"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+==========================================
+MMBasic Regex Group Test Suite
+==========================================
+
+--- Basic Group Tests ---
+Test  113: Simple group
+  Text: "abc"
+  Pattern: "(abc)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  114: Group at start
+  Text: "hello world"
+  Pattern: "(hello)"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  115: Group at end
+  Text: "hello world"
+  Pattern: "(world)"
+  Result: pos= 7, len= 5
+  Expected: pos= 7, len= 5
+  [PASS]
+
+Test  116: Group in middle
+  Text: "hello world test"
+  Pattern: "(world)"
+  Result: pos= 7, len= 5
+  Expected: pos= 7, len= 5
+  [PASS]
+
+--- Single Character Group Tests ---
+Test  117: Single char group
+  Text: "a"
+  Pattern: "(a)"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  118: Single char no match
+  Text: "b"
+  Pattern: "(a)"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  119: Multiple single groups
+  Text: "abc"
+  Pattern: "(a)(b)(c)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+--- Group with Metacharacters ---
+Test  120: Group with dot
+  Text: "abc"
+  Pattern: "(a.c)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  121: Group with dots
+  Text: "hello"
+  Pattern: "(h...o)"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  122: Group with digit
+  Text: "test123"
+  Pattern: "(\d)"
+  Result: pos= 5, len= 1
+  Expected: pos= 5, len= 1
+  [PASS]
+
+Test  123: Group with digits
+  Text: "test123"
+  Pattern: "(\d\d\d)"
+  Result: pos= 5, len= 3
+  Expected: pos= 5, len= 3
+  [PASS]
+
+Test  124: Group with word
+  Text: "hello world"
+  Pattern: "(\w+)"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  125: Group with space
+  Text: "hello world"
+  Pattern: "(\s)"
+  Result: pos= 6, len= 1
+  Expected: pos= 6, len= 1
+  [PASS]
+
+--- Group with Character Classes ---
+Test  126: Group with class
+  Text: "abc"
+  Pattern: "([abc])"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  127: Group with range
+  Text: "test5"
+  Pattern: "([0-9])"
+  Result: pos= 5, len= 1
+  Expected: pos= 5, len= 1
+  [PASS]
+
+Test  128: Group multiple class
+  Text: "test123"
+  Pattern: "([a-z]+)"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  129: Group inv class
+  Text: "123abc"
+  Pattern: "([^0-9])"
+  Result: pos= 4, len= 1
+  Expected: pos= 4, len= 1
+  [PASS]
+
+--- Group with Star Quantifier ---
+Test  130: Group star zero
+  Text: "b"
+  Pattern: "(a)*b"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  131: Group star one
+  Text: "ab"
+  Pattern: "(a)*b"
+  Result: pos= 1, len= 2
+  Expected: pos= 1, len= 2
+  [PASS]
+
+Test  132: Group star many
+  Text: "aaaab"
+  Pattern: "(a)*b"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  133: Group word star
+  Text: "test"
+  Pattern: "(test)*"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  134: Group multi star
+  Text: "ababab"
+  Pattern: "(ab)*"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+--- Group with Plus Quantifier ---
+Test  135: Group plus fail
+  Text: "b"
+  Pattern: "(a)+b"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  136: Group plus one
+  Text: "ab"
+  Pattern: "(a)+b"
+  Result: pos= 1, len= 2
+  Expected: pos= 1, len= 2
+  [PASS]
+
+Test  137: Group plus many
+  Text: "aaaab"
+  Pattern: "(a)+b"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  138: Group multi plus
+  Text: "ababab"
+  Pattern: "(ab)+"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  139: Group word plus
+  Text: "testtest"
+  Pattern: "(test)+"
+  Result: pos= 1, len= 8
+  Expected: pos= 1, len= 8
+  [PASS]
+
+--- Group with Question Quantifier ---
+Test  140: Group question zero
+  Text: "b"
+  Pattern: "(a)?b"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  141: Group question one
+  Text: "ab"
+  Pattern: "(a)?b"
+  Result: pos= 1, len= 2
+  Expected: pos= 1, len= 2
+  [PASS]
+
+Test  142: Group question partial
+  Text: "aab"
+  Pattern: "(a)?b"
+  Result: pos= 2, len= 2
+  Expected: pos= 2, len= 2
+  [PASS]
+
+Test  143: Group multi question
+  Text: "ab"
+  Pattern: "(ab)?"
+  Result: pos= 1, len= 2
+  Expected: pos= 1, len= 2
+  [PASS]
+
+--- Group with Counted Quantifiers ---
+Test  144: Group exact count
+  Text: "aaaa"
+  Pattern: "(a){4}"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  145: Group exact fail
+  Text: "aaa"
+  Pattern: "(a){4}"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  146: Group min count
+  Text: "aaaaa"
+  Pattern: "(a){3,}"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  147: Group max count
+  Text: "aaaaa"
+  Pattern: "(a){,3}"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  148: Group range count
+  Text: "aaaa"
+  Pattern: "(a){2,4}"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  149: Group multi exact
+  Text: "ababab"
+  Pattern: "(ab){3}"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  150: Group multi range
+  Text: "abababab"
+  Pattern: "(ab){2,3}"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+--- Sequential Group Tests ---
+Test  151: Two groups
+  Text: "helloworld"
+  Pattern: "(hello)(world)"
+  Result: pos= 1, len= 10
+  Expected: pos= 1, len= 10
+  [PASS]
+
+Test  152: Three groups
+  Text: "abc"
+  Pattern: "(a)(b)(c)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  153: Groups with chars
+  Text: "a-b"
+  Pattern: "(a)(-)(b)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  154: Groups and text
+  Text: "test"
+  Pattern: "t(es)t"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+--- Nested Group Tests ---
+Test  155: Simple nested
+  Text: "abc"
+  Pattern: "((abc))"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  156: Nested with char
+  Text: "abc"
+  Pattern: "(a(bc))"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  157: Nested middle
+  Text: "abc"
+  Pattern: "((a)bc)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  158: Deep nested
+  Text: "a"
+  Pattern: "(((a)))"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  159: Multiple nested
+  Text: "hello"
+  Pattern: "((he)(llo))"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+--- Group with Anchor Tests ---
+Test  160: Group start anchor
+  Text: "hello"
+  Pattern: "^(hello)"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  161: Group end anchor
+  Text: "hello"
+  Pattern: "(hello)$"
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  162: Group both anchors
+  Text: "test"
+  Pattern: "^(test)$"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  163: Anchor in group (limitation)
+  Text: "hello"
+  Pattern: "(^hello)"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  164: End anchor in group (limitation)
+  Text: "hello"
+  Pattern: "(hello$)"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+--- Group with Branch Tests ---
+Test  165: Group branch simple
+  Text: "a"
+  Pattern: "(a|b)"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  166: Group branch second
+  Text: "b"
+  Pattern: "(a|b)"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  167: Group branch word
+  Text: "cat"
+  Pattern: "(cat|dog)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  168: Group branch fail
+  Text: "bird"
+  Pattern: "(cat|dog)"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+Test  169: Multi branch group
+  Text: "test"
+  Pattern: "(abc|def|test)"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+--- Complex Group Patterns ---
+Test  170: Email group
+  Text: "test@example.com"
+  Pattern: "(\w+)@(\w+)\.(\w+)"
+  Result: pos= 1, len= 16
+  Expected: pos= 1, len= 16
+  [PASS]
+
+Test  171: Date group
+  Text: "2024-11-20"
+  Pattern: "(\d+)-(\d+)-(\d+)"
+  Result: pos= 1, len= 10
+  Expected: pos= 1, len= 10
+  [PASS]
+
+Test  172: Phone group
+  Text: "123-456-7890"
+  Pattern: "(\d+)-(\d+)-(\d+)"
+  Result: pos= 1, len= 12
+  Expected: pos= 1, len= 12
+  [PASS]
+
+Test  173: URL protocol
+  Text: "http://test.com"
+  Pattern: "(https?://)(\w+)\.(\w+)"
+  Result: pos= 1, len= 15
+  Expected: pos= 1, len= 15
+  [PASS]
+
+--- Special Group Pattern Tests ---
+Test  174: Empty group
+  Text: "test"
+  Pattern: "()"
+  Result: pos= 1, len= 0
+  Expected: pos= 1, len= 0
+  [PASS]
+
+Test  175: Optional group
+  Text: "test"
+  Pattern: "(test)?"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  176: Group with spaces
+  Text: "hello world"
+  Pattern: "(hello )(world)"
+  Result: pos= 1, len= 11
+  Expected: pos= 1, len= 11
+  [PASS]
+
+Test  177: Group with tab
+  Text: "a b"
+  Pattern: "(a\s+b)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+--- Group Boundary Tests ---
+Test  178: Group first char
+  Text: "hello"
+  Pattern: "(h)"
+  Result: pos= 1, len= 1
+  Expected: pos= 1, len= 1
+  [PASS]
+
+Test  179: Group last char
+  Text: "hello"
+  Pattern: "(o)"
+  Result: pos= 5, len= 1
+  Expected: pos= 5, len= 1
+  [PASS]
+
+Test  180: Whole text group
+  Text: "test"
+  Pattern: "(test)"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  181: Partial match group
+  Text: "testing"
+  Pattern: "(test)"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+--- Group with Escaped Chars ---
+Test  182: Group with dot
+  Text: "a.b"
+  Pattern: "(a\.b)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  183: Group with star
+  Text: "a*b"
+  Pattern: "(a\*b)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  184: Group with backslash
+  Text: "a\b"
+  Pattern: "(a\\b)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+Test  185: Group with bracket
+  Text: "a[b"
+  Pattern: "(a\[b)"
+  Result: pos= 1, len= 3
+  Expected: pos= 1, len= 3
+  [PASS]
+
+--- Real-World Group Examples ---
+Test  186: Extract domain
+  Text: "user@domain.com"
+  Pattern: "@(\w+)\."
+  Result: pos= 5, len= 8
+  Expected: pos= 5, len= 8
+  [PASS]
+
+Test  187: Extract filename
+  Text: "file.txt"
+  Pattern: "(\w+)\."
+  Result: pos= 1, len= 5
+  Expected: pos= 1, len= 5
+  [PASS]
+
+Test  188: Extract number
+  Text: "Price: $123"
+  Pattern: "\$(\d+)"
+  Result: pos= 8, len= 4
+  Expected: pos= 8, len= 4
+  [PASS]
+
+Test  189: Extract time
+  Text: "Time: 14:30"
+  Pattern: "(\d+):(\d+)"
+  Result: pos= 7, len= 5
+  Expected: pos= 7, len= 5
+  [PASS]
+
+--- Multiple Groups with Quantifiers ---
+Test  190: Two groups plus
+  Text: "aaabbb"
+  Pattern: "(a)+(b)+"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  191: Groups with star
+  Text: "aaabbb"
+  Pattern: "(a)*(b)*"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  192: Mixed quantifiers
+  Text: "aaab"
+  Pattern: "(a)+(b)?"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  193: Groups counted
+  Text: "aabbcc"
+  Pattern: "(a){2}(b){2}(c){2}"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+--- Groups with Mixed Content ---
+Test  194: Group alpha num
+  Text: "test123"
+  Pattern: "([a-z]+)(\d+)"
+  Result: pos= 1, len= 7
+  Expected: pos= 1, len= 7
+  [PASS]
+
+Test  195: Group num alpha
+  Text: "123test"
+  Pattern: "(\d+)([a-z]+)"
+  Result: pos= 1, len= 7
+  Expected: pos= 1, len= 7
+  [PASS]
+
+Test  196: Group mixed
+  Text: "a1b2c3"
+  Pattern: "(\w)(\d)"
+  Result: pos= 1, len= 2
+  Expected: pos= 1, len= 2
+  [PASS]
+
+Test  197: Group words
+  Text: "hello world"
+  Pattern: "(\w+)\s(\w+)"
+  Result: pos= 1, len= 11
+  Expected: pos= 1, len= 11
+  [PASS]
+
+--- Edge Case Tests ---
+Test  198: Many groups
+  Text: "abcdef"
+  Pattern: "(a)(b)(c)(d)(e)(f)"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  199: Repeated groups
+  Text: "ababab"
+  Pattern: "((ab))+"
+  Result: pos= 1, len= 6
+  Expected: pos= 1, len= 6
+  [PASS]
+
+Test  200: Group at boundaries
+  Text: "test"
+  Pattern: "^(test)$"
+  Result: pos= 1, len= 4
+  Expected: pos= 1, len= 4
+  [PASS]
+
+Test  201: Group no match end
+  Text: "test"
+  Pattern: "(test)x"
+  Result: pos= 0, len= 0
+  Expected: pos= 0, len= 0
+  [PASS]
+
+==========================================
+Test Summary
+==========================================
+Total tests:  201
+Passed:  201
+Failed:  0
+Success rate: 100.0%
+==========================================
+All tests PASSED!
