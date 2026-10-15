@@ -890,7 +890,7 @@ void cmd_framebuffer(void){
 		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
 		WritePage=ReadPage=WPN;
     	HRes=PageTable[WritePage].xmax;
-    	VRes=PageTable[WritePage].xmax;
+    	VRes=PageTable[WritePage].ymax;
     	WritePageAddressExternal=ReadPageAddressExternal=(uint32_t)PageTable[WritePage].address;
 		return;
     }
@@ -951,8 +951,11 @@ void cmd_framebuffer(void){
     p = checkstring(cmdline, "CREATE");
     if(p) {
     	getargs(&p,3,",");
-        PageTable[WPN].xmax=getint(argv[0],PageTable[WritePage].xmax,(G1Hardware ? 1600: 4096));
-    	PageTable[WPN].ymax=getint(argv[2],PageTable[WritePage].ymax,(G1Hardware ? 1200: 2048));
+    	int w = PageTable[WritePage].xmax, h = PageTable[WritePage].ymax;	// no size given: the page being written (the PicoMite form)
+    	if(argc >= 1 && *argv[0]) w = getint(argv[0],PageTable[WritePage].xmax,(G1Hardware ? 1600: 4096));	// argv[] past argc is not set
+    	if(argc >= 3 && *argv[2]) h = getint(argv[2],PageTable[WritePage].ymax,(G1Hardware ? 1200: 2048));
+        PageTable[WPN].xmax=w;
+    	PageTable[WPN].ymax=h;
     	FreeMemorySafe((void *)&PageTable[WPN].address);
     	PageTable[WPN].nbytes=(VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4));
     	if(PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[WPN].nbytes>FreeSpaceOnHeap()-32768)error("Not enough memory for framebuffer");
@@ -2571,7 +2574,7 @@ void cmd_page(void){
 			WritePage=ReadPage=fadd;
     	}
     	HRes=PageTable[WritePage].xmax;
-    	VRes=PageTable[WritePage].xmax;
+    	VRes=PageTable[WritePage].ymax;
     	WritePageAddressExternal=ReadPageAddressExternal=(uint32_t)PageTable[WritePage].address;
     	return;
     }
