@@ -445,6 +445,21 @@ Gate: the CMM2 demo programs under `CMM2`; the PicoMite's `Bas/` games (Exile, E
 #### P5: performance (3-6 weeks)
 
 - ITCM placement policy measured with the sampler (`OPTION PROFILING ON, SAMPLE` on a TIM alarm) and `pcs_report.py`.
+- **Use the rest of ITCM for hot code** (Peter, 15 Oct). As of 15 Oct, `.ITCMSection` holds 17.4 KB of the 64 KB (0x0298-0x4640), so about 46 KB is free.
+  - **Interrupt paths first.** About 40 flash functions are still reached from the ITCM handlers, each through a long-branch veneer (`nm` lists them as `__*_veneer` at ITCM addresses):
+    - `HAL_LTDC_LineEventCallback` (`ltdc.c`), once per frame;
+    - `HAL_TIM_IRQHandler`, which every timer interrupt goes through;
+    - `HAL_DAC_SetValue` and `HAL_DACEx_DualSetValue`, per audio sample;
+    - `HAL_DMA2D_IRQHandler`, `HAL_GPIO_EXTI_IRQHandler`/`_Callback` and `HAL_IncTick`;
+    - from `Timer1msHandler`: the keyboard, mouse, Nunchuk/Classic and disk-timer routines;
+    - `__aeabi_uldivmod` and `__aeabi_d2ulz`.
+  - **Then the interpreter's hot paths:** the statement loop, `findvar`, `getvalue`, `evaluate`, the tokeniser's lookups and the string helpers. The sampler picks them.
+  - **The vector table.** It is still read from flash (`VTOR` = 0x08000000); the ITCM copy at address 0 is never loaded. Copy it, and set `VTOR` to 0, if that measures better.
+  - **How.**
+    - Replace the object-name patterns with a `*(.itcm*)` section rule, and tag functions `__attribute__((section(".itcm.<name>")))`, as the PicoMite's `__not_in_flash_func`.
+    - Whole HAL objects (TIM, DAC, DMA2D, GPIO) can stay as file patterns.
+    - Add a post-link check of the section's size against 64 KB.
+  - **Each move is measured.** The 15 Oct re-application cost 0.8% on `solar_eclipse` from the shift in flash layout alone.
 - Route B on the M7: the dispatch table and value stack in DTCM, `RBRun` in ITCM, the stream in SDRAM; compare `OPTION COMPILE OFF/ON` on the anchor, the games and the micro suite; D-cache effects on the SDRAM stream.
 - mmb2csub for the CMM2: `armcfgen.py` with a `--cpu cortex-m7` profile (`-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard`): doubles and 64-bit multiply/divide inline, no `FMul`/`LMul` helpers; the CallTable through VTOR slot 7; the blob is CMM2-only: CSUBs built for the PicoMite's processors do not run on the CMM2 and are rebuilt.
 - DMA2D for `PAGE COPY`, `BLIT`, `SPRITE` compositing and `FRAMEBUFFER MERGE`; the hardware JPEG path; `MATH` on the FPU.

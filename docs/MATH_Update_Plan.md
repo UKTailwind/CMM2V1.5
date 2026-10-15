@@ -4,7 +4,8 @@ Step 8a of the P1 plan (`PicoMite_Parity_Audit_and_Plan.md`). This is a separate
 
 The sources:
 - a full read of both trees' MATH: the PicoMite `core/MATHS.c` at 066f80b (4641 lines) and `core/Commands.c` `array_*`, against the CMM2's `Src/MATHS.c` (3283 lines);
-- a review of every array-argument helper in both trees.
+- a review of every array-argument helper in both trees;
+- the PicoMite's 9749c83 (15 Oct), which fixed the shared faults reported in its issue #10. Items marked **(9749c83)** below are fixed there: port its code rather than writing our own, so the two stay the same.
 
 Line numbers are the CMM2's as of 49c373f unless marked P (PicoMite).
 
@@ -42,7 +43,9 @@ Gates:
 - **CMM2 strengths to keep:**
   - HAL RNG seeding for MATH(RAND) and RANDOMIZE;
   - `GetMemory(0)` succeeding, so FFT of one element works.
-- **Flash.** MATHS.c sits in `.extra` (FLASH7, 128 KB), which has about 66 KB free; main flash has about 29 KB. All new MATH and `array_*` code goes in `.extra`, `__attribute__((section(".extra")))`. Expect 8-12 KB of growth.
+- **Flash.** Expect 8-12 KB of growth.
+  - **On trial since 15 Oct:** the `.extra` code is linked into `.text`, so bank 1 is one 1 MB region with about 91 KB free. If that holds, new code needs no section attribute.
+  - **Otherwise:** `.extra` goes back to sector 7 (about 66 KB free there, about 27 KB in main flash), and the new MATH and `array_*` code goes in `.extra`.
 
 ## Phase 1: the bug fixes (about 300 lines, one commit per group)
 
@@ -58,30 +61,30 @@ Gates:
 3. **`g_myrand = NULL` in ClearRuntime after InitHeap.** The Mersenne Twister state is in the heap. After RUN, the next MATH(RAND) writes 2.5 KB into memory that may belong to new arrays.
 4. **PID channels cleared in ClearExternalIO** (`memset(PIDchannels, 0, …)`). Otherwise a new program's first interrupt jumps to the old program's PID callback.
 5. **V_PRINT (1295).** Test `argc == 3` before reading `argv[2]`, which is uninitialised for `MATH V_PRINT a%()`. Make a third argument other than HEX a syntax error.
-6. **Integer C_DIV by zero:** "Divide by zero". It currently goes into `__aeabi_ldivmod` (undefined).
-7. **SLICE with no index omitted (1053):** "One index must be omitted", as in the PicoMite's ce4a6d6. INSERT returns silently in that case; make it the same error.
+6. **(9749c83) Integer C_DIV by zero:** "Divide by zero". It currently goes into `__aeabi_ldivmod` (undefined).
+7. **(ce4a6d6, 9749c83) SLICE with no index omitted (1053):** "One index must be omitted", as in the PicoMite's ce4a6d6. INSERT returns silently in that case; make it the same error.
 
 ### 1b. Wrong results
 
-1. **MATH WINDOW's output variables (1804, 1808).**
+1. **(9749c83) MATH WINDOW's output variables (1804, 1808).** The PicoMite also refuses constants for them.
    - They are compared `== T_INT`, so a `DIM INTEGER lo` (T_INT|T_IMPLIED) gets the double's bit pattern. Use `FoundType() & T_INT`, which also accepts a structure member.
    - A constant input divides 0 by 0, giving NaN. Give `outmin` instead.
    - An integer output is a C cast (truncating, undefined for NaN). Use `FloatToInt64`.
 2. **CRC12** is not masked to 12 bits (`MATH(CRC12 "123456789")` gives &HFEFB, not &HEFB). **CRC reverseOut** reads `argv[10]` where it should read `argv[12]`, at 2114/2149/2184/2219. Both are 38925c4.
-3. **Q_CREATE (1570).** `cos(theta/2)` ignores OPTION ANGLE, while the sine term divides by `optionangle` (38925c4). Also fix the argument numbers: "Argument 4" should be 5, and Q_MULT/Q_ROTATE report argument 31 for 3.
+3. **Q_CREATE (1570).** `cos(theta/2)` ignores OPTION ANGLE, while the sine term divides by `optionangle` (38925c4). Also fix the argument numbers: "Argument 4" should be 5, and Q_MULT/Q_ROTATE report argument 31 for 3 (that one is 9749c83).
 4. **PID START.**
    - `T*1000` must be `T*1000000`: `Getuptime()` is in microseconds, so the first callback comes 1000 times early (9130631).
    - PID INIT keeps a pointer to a LOCAL array that its SUB frees on return. Port `IsGlobalData`/`RequireGlobal` (P `MMBasic.c:7558-7579`, about 25 lines) for the CMM2's chunked global records (57b74f8).
-   - Check the array's size before storing `PIDparams`.
-5. **MATH RANDOMIZE with no argument** fails about half the time: the HAL RNG value goes into an `int` and is "Number out of bounds" when negative. Seed with `(uint32_t)`.
-6. **SCALE with an integer output** rounds the scale before multiplying (`a!(0)=2.5 : MATH SCALE a!(), 0.5, b%()` gives 3).
+   - **(9749c83)** Check the array's size before storing `PIDparams`.
+5. **(9749c83) MATH RANDOMIZE with no argument** fails about half the time: the HAL RNG value goes into an `int` and is "Number out of bounds" when negative. Seed with `(uint32_t)`.
+6. **(9749c83) SCALE with an integer output** rounds the scale before multiplying (`a!(0)=2.5 : MATH SCALE a!(), 0.5, b%()` gives 3).
    - Float in: `FloatToInt64(f * a)`.
-   - Integer in: `i64 * a` for an integer scale, which stays exact above 2^53 (the PicoMite's isn't), and `FloatToInt64(f * a)` for a float scale.
-7. **ADD and POWER with an integer output** round the value or exponent before the arithmetic (`MATH ADD a!(), 0.4, b%()` with 0.3 gives 0; `MATH POWER a!(), 0.5, b%()` with 16 gives 16). Round once, after the arithmetic.
-8. **SLICE and INSERT between float and integer arrays** copy raw bit patterns. Require the same type ("Arrays must be the same type"), or convert.
-9. **INTERPOLATE** compares NULL with NULL, so `MATH INTERPOLATE a!(), b!(), 0.5, c%()` is always "Arrays must be different". Compare the pointers in use.
-10. **MAX/MIN** start from ±3e38, so an array of values beyond that returns the sentinel. Start from element 0.
-11. **FFT** checks that the complex array's first dimension has 2 elements.
+   - Integer in: `i64 * a` for an integer scale, which stays exact above 2^53, and `FloatToInt64(f * a)` for a float scale.
+7. **(9749c83) ADD and POWER with an integer output** round the value or exponent before the arithmetic (`MATH ADD a!(), 0.4, b%()` with 0.3 gives 0; `MATH POWER a!(), 0.5, b%()` with 16 gives 16). Round once, after the arithmetic.
+8. **(9749c83) SLICE and INSERT between float and integer arrays** copy raw bit patterns. Convert, as the PicoMite now does.
+9. **(9749c83) INTERPOLATE** compares NULL with NULL, so `MATH INTERPOLATE a!(), b!(), 0.5, c%()` is always "Arrays must be different". Compare the pointers in use.
+10. **(9749c83) MAX/MIN** start from ±3e38, so an array of values beyond that returns the sentinel. Start from element 0.
+11. **(9749c83) FFT** checks that the complex array's first dimension has 2 elements.
 
 ### 1c. Reworked by the PicoMite (port whole; behaviour changes)
 
@@ -180,20 +183,7 @@ Each changes what an existing CMM2 program sees.
 
 ## Upstream
 
-PicoMite issue #10 lists the shared bugs; ce4a6d6 has fixed SLICE. Report back to it as each is fixed here:
-
-- INSERT with every index given;
-- the mixed types;
-- INTERPOLATE;
-- ADD/POWER rounding;
-- WINDOW's 0/0;
-- MAX/MIN;
-- the Q_ argument numbers;
-- FFT's dimension check;
-- C_DIV by zero;
-- SCALE's 2^53;
-- the RANDOMIZE `time_us_32` seed;
-- the stride branch's whole-array check, shape check and count loop (from phase 2).
+The PicoMite has fixed the shared bugs of issue #10: SLICE in ce4a6d6, and the rest in 9749c83. What is still to report, once phase 2 confirms it on the CMM2: the stride branch's missing whole-array check, its missing shape check, and its count loop.
 
 ## Order and size
 
@@ -207,6 +197,6 @@ PicoMite issue #10 lists the shared bugs; ce4a6d6 has fixed SLICE. Report back t
 | 4 stride loops | about 200 | 2, 3 | MathStructTest |
 | 5 CLAMP, SINC | about 250 | 2 | MathClampTest |
 
-Total: about 1,400 lines touched, almost all in MATHS.c, plus about 30 in MMBasic.c/External.c/Struct.c. That is 8-12 KB of `.extra` flash.
+Total: about 1,400 lines touched, almost all in MATHS.c, plus about 30 in MMBasic.c/External.c/Struct.c. That is 8-12 KB of flash.
 
 Each phase is a commit, or a few, built and run on the board. The full regression runs after phases 1, 3 and 5.
