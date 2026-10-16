@@ -172,7 +172,12 @@ void MemWriteClose(void){
 
 // flush any bytes in the buffer to flash
 void FlashWriteClose(void) {
-	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteClose(); realflashpointer=realmempointer; return;}
+	if(Option.ProgramStartCode<0){                                   // OPTION RAM: the program (and its CSUBs' code) is in write-back cached SDRAM:
+		realmempointer=realflashpointer; MemWriteClose(); realflashpointer=realmempointer;
+		SCB_CleanDCache();                                           // out to SDRAM, so that an instruction fetch sees it
+		SCB_InvalidateICache();
+		return;
+	}
 	  while(i8p != 0) {
 		  FlashWriteByte(0xff);
 	  }
