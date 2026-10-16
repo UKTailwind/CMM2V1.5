@@ -80,6 +80,31 @@ static void TypeError(const char *msg, char *line, int ErrAbort) {
 
 // PrepareProgramExt: the TYPE command at p begins a block; add its type to the table.  Returns where the scan of the
 // program carries on: the end of the END TYPE, or where a block in error was left (when ErrAbort is false).
+// The name at *pp, a symbol (Symbols.h) or text, in capitals as far as a '.' and at most MAXVARLEN characters,
+// into name: its length, 0 if there is none, or -1 if it is longer.  *pp is left after it (text: at the '.').
+static int StructNameAt(char **pp, char *name) {
+    char *p = *pp;
+    const char *s;
+    int len, n;
+    if(issymbol(*p)) {
+        s = SymSpelling(p, &len);
+        p += symbolsize(*p);
+    } else {
+        s = p;
+        len = 0;
+        if(isnamestart(*p))
+            while(isnamechar(p[len]) && p[len] != '.') len++;
+        p += len;
+    }
+    for(n = 0; n < len && s[n] != '.'; n++) {
+        if(n == MAXVARLEN) { *pp = p; return -1; }
+        name[n] = toupper(s[n]);
+    }
+    name[n] = 0;
+    *pp = p;
+    return n;
+}
+
 char *StructDefine(char *p, int ErrAbort) {
     char name[MAXVARLEN + 1], *line = CurrentLinePtr;
     int namelen = 0, j;
@@ -89,18 +114,14 @@ char *StructDefine(char *p, int ErrAbort) {
 
     p += sizeof(CommandToken);                                      // the type's name
     skipspace(p);
-    if(!isnamestart(*p)) {
+    if(!isnamestartsym(*p)) {
         TypeError("Invalid TYPE name", line, ErrAbort);
         return p;
     }
-    while(isnamechar(*p) && *p != '.') {
-        if(namelen == MAXVARLEN) {
-            TypeError("TYPE name too long", line, ErrAbort);
-            return p;
-        }
-        name[namelen++] = toupper(*p++);
+    if((namelen = StructNameAt(&p, name)) < 0) {
+        TypeError("TYPE name too long", line, ErrAbort);
+        return p;
     }
-    name[namelen] = 0;
     for(j = 0; j < g_structcnt; j++)
         if(strcmp(name, g_structtbl[j]->name) == 0) break;
     if(j < g_structcnt) {
@@ -175,12 +196,8 @@ const char *ParseStructMember(char *p, struct s_structdef *sd) {
 
     if(sd->num_members >= MAX_STRUCT_MEMBERS) return "Too many members in TYPE";
     skipspace(p);
-    if(!isnamestart(*p)) return "Invalid member definition in TYPE";
-    while(isnamechar(*p) && *p != '.') {
-        if(namelen == MAXVARLEN) return "Invalid member definition in TYPE";
-        name[namelen++] = toupper(*p++);
-    }
-    name[namelen] = 0;
+    if(!isnamestartsym(*p)) return "Invalid member definition in TYPE";
+    if((namelen = StructNameAt(&p, name)) < 0) return "Invalid member definition in TYPE";
     for(i = 0; i < sd->num_members; i++)
         if(strcmp(name, sd->members[i].name) == 0) return "Member already defined in TYPE";
     skipspace(p);
@@ -239,9 +256,8 @@ const char *ParseStructMember(char *p, struct s_structdef *sd) {
         }
     } else {                                                        // a type defined before this one
         char tname[MAXVARLEN + 1];
-        int tlen = 0;
-        while(isnamechar(*p) && *p != '.' && tlen < MAXVARLEN) tname[tlen++] = toupper(*p++);
-        tname[tlen] = 0;
+        int tlen = StructNameAt(&p, tname);
+        if(tlen < 0) tlen = 0;                                      // (too long: not a type)
         for(i = 0; i < g_structcnt; i++)
             if(strcmp(tname, g_structtbl[i]->name) == 0) break;
         if(tlen == 0 || i == g_structcnt) return "Unknown type in TYPE definition";
@@ -272,9 +288,8 @@ const char *ParseStructMember(char *p, struct s_structdef *sd) {
 // the number of the type named at name (it ends at a character that cannot be in a name, or at a '.'), or -1
 int FindStructType(char *name) {
     char uname[MAXVARLEN + 1];
-    int i, namelen = 0;
-    while(isnamechar(*name) && *name != '.' && namelen < MAXVARLEN) uname[namelen++] = toupper(*name++);
-    uname[namelen] = 0;
+    int i;
+    if(StructNameAt(&name, uname) <= 0) return -1;                  // (a symbol or text)
     for(i = 0; i < g_structcnt; i++)
         if(strcmp(uname, g_structtbl[i]->name) == 0) return i;
     return -1;
@@ -459,8 +474,7 @@ void *ResolveStructMember(char *struct_ptr, int struct_idx, char *member_path, c
                 member = next;
             else {                                                  // the rest of the path is in the program
                 skipspace(p);
-                for(p++, len = 0; isnamechar(*p) && len < MAXVARLEN; len++) cont[len] = *p++;
-                cont[len] = 0;
+                p = CopyName(p + 1, cont, &len);                    // (a symbol or text)
                 if(*p == '$' || *p == '%' || *p == '!') p++;
                 member = cont;                                      // (a local: an index evaluated below may resolve another path)
             }
@@ -489,8 +503,7 @@ void *StructMemberAt(char *struct_ptr, int struct_idx, char **pp) {
     char name[MAXVARLEN + 1], *p = *pp + 1;
     int n = 0, type;
     void *r;
-    while(isnamechar(*p) && n < MAXVARLEN) name[n++] = *p++;
-    name[n] = 0;
+    p = CopyName(p, name, &n);                                      // (a symbol or text)
     if(*p == '$' || *p == '%' || *p == '!') p++;
     r = ResolveStructMember(struct_ptr, struct_idx, name, &p, &type);
     g_StructMemberType = type;

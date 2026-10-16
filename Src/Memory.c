@@ -585,6 +585,7 @@ void MIPS16 cmd_memory(void) {
         if(p[0] == T_LABEL) p += p[1] + 2;                          // skip over the label
         while(*p) p++;                                              // look for the zero marking the start of an element
     }
+    if(SymTabProg != NULL) p = (char *)SymTabProg + SymTabProg->size;  // the symbol table is the program's too (Symbols.h)
     ProgramSize = ((p - ProgMemory) + 512)/1024;
     ProgramPercent = ((p - ProgMemory) * 100)/(PROG_FLASH_SIZE + SAVED_VAR_RAM_SIZE);
     if(ProgramPercent > 100) ProgramPercent = 100;
@@ -1327,6 +1328,7 @@ void InitHeap(void) {
     NameIndexForget();                                              // and the index of SUBs, FUNCTIONs and labels
     StructTableForget();                                            // and the TYPE table
     JsonArenaForget();                                              // and JSON$'s parse arena
+    SymBindForget();                                                // and the symbols' bindings
     g_myrand = NULL;                                                // and MATH(RAND)'s generator
 }
 
@@ -1393,7 +1395,8 @@ void SDBitsSet(void *addr, int bits) {
     *p = (bits << i) | (*p & (~(((1 << PAGEBITS) -1) << i)));
 }
 
-void *GetMemory(size_t size){
+// GetMemory's search, which returns NULL when the SDRAM heap has no room (GetMemoryNull) instead of the error
+void *GetMemoryNull(size_t size){
     uint64_t *i;
     unsigned int j, n, k;
     unsigned char *addr;
@@ -1416,6 +1419,11 @@ void *GetMemory(size_t size){
         } else
             n = j;                                                  // not enough space here so reset our count
     }
+    return NULL;                                                    // out of memory
+}
+void *GetMemory(size_t size){
+    void *addr = GetMemoryNull(size);
+    if(addr != NULL) return addr;
     // out of memory
     LocalIndex = 0;
     error("Not enough heap memory");

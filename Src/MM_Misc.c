@@ -2324,6 +2324,23 @@ void cmd_option(void) {
 	char *tp;
 	int maxH=PageTable[WritePage].ymax;
 
+	tp = checkstring(cmdline, "SYMBOLS");
+	if(tp) {                                                        // OPTION SYMBOLS OFF at the top of a program: PrepareProgram found it
+                                                                    // and the program runs without the symbol bindings (SymFindOff in
+                                                                    // Symbols.c); here it is only checked for where it is
+#ifdef SYMBOLS_TEST_SWITCH
+		if(CurrentLinePtr == NULL) {                                // the testing switch (Configuration.h): programs saved from now on
+			if(checkstring(tp, "ON")) SymEnabled = true;            // as symbols or as text
+			else if(checkstring(tp, "OFF")) SymEnabled = false;
+			else error("Syntax");
+			return;
+		}
+#endif
+		if(!checkstring(tp, "OFF")) error("Syntax");
+		if(CurrentLinePtr == NULL) error("Invalid at command prompt");
+		if(CurrentLinePtr != SymOffLine) error("Must be at the top of the program");
+		return;
+	}
 	tp = checkstring(cmdline, "BASE");
 	if(tp) {
 		if(DimUsed) error("Must be before DIM or LOCAL");

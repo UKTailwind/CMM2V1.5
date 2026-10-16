@@ -29,6 +29,7 @@ provisions:
 #include <stdint.h>
 #include "Version.h"
 #include "MMBasic.h"
+#include "Symbols.h"
 #include "Commands.h"
 #include "Custom.h"
 #include "Functions.h"

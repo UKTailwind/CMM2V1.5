@@ -1,0 +1,24 @@
+global x 1
+local x 100 global y 2
+Inner sees the global x 1
+local x after Inner 100
+after ShowX x 2
+local x 100 global y 2
+Inner sees the global x 2
+local x after Inner 100
+Outer's y 50
+after Outer x 3 y 2
+fact 6 = 720
+depth 10
+func var 42
+static 1 2 3
+byref 5
+local arr(2) 7
+global arr(2) 30
+made in a SUB 42
+the GOSUB sees the global x 3
+back in WithGosub x 500
+made again 99
+ExecLocal s$ local x 3
+after ExecLocal x 3 s$ global
+done

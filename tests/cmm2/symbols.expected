@@ -1,0 +1,32 @@
+a b count	 1	 2	 4	 7
+total	 15
+m	 23	 31
+hex	 51	 255
+hello X	He	llo	el	 5
+ 9	 1	FF	101
+floats	 150	 0.25	 4	 21
+rgb	FFF0000	F0080FF
+type	 5	 7	ex	 2.5
+nested	 11	 3
+long name	 31
+mm	 1	 1
+do	 10
+until	-2
+mid
+if1
+show:then sub
+elseif
+in gosub
+back from gosub
+sq	 49	 16
+addup	 7
+static	 1	 2	 3
+call	 11
+read	 42	HelloWorld	 7
+two
+l2
+on done
+local	 5	 99
+str	3.25	 13	A	 66
+instr	 3	b
+done

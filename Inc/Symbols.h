@@ -1,0 +1,200 @@
+/***********************************************************************************************************************
+MMBasic
+
+Symbols.h
+
+Symbols: every name in a saved program stored as a 2 or 3 byte symbol instead of its text.  The PicoMite's
+(core/Symbols.h at 3ae5b9d, "S5/S6"), ported to the CMM2 without the parts only its compiler (Route B) and its
+PSRAM use.  See docs/Symbols_Port_Plan.md.
+
+Copyright 2011 - 2026 Geoff Graham.  All Rights Reserved.
+Copyright 2016 - 2026 Peter Mather.  All Rights Reserved.
+************************************************************************************************************************/
+/*
+ *   introducer byte  0x04 program long   0x05 program short
+ *                    0x06 library long   0x07 library short
+ *   payload          one (short) or two (long) characters from the
+ *                    63-character alphabet 0-9 A-Z a-z _
+ *
+ * A short symbol names one of the 63 most used spellings, a long one any of the next 3,969.  The spellings
+ * travel with the image in a table written after the program text (see symtab_t).  The CMM2's loader
+ * upper-cases names, so each name has one spelling here.
+ *
+ * tokenise() turns control characters into spaces, so 0x04-0x07 never come from source text, and every
+ * payload byte is a name character, clear of the bytes scanners act on (0, quotes, brackets, commas,
+ * comment marks and tokens).  Code that has not learnt about symbols sees 0x04 as "not a name" and raises
+ * an error rather than giving a wrong answer.  An image without a table runs on the text path as before.
+ */
+#ifndef SYMBOLS_H
+#define SYMBOLS_H
+#include <stdint.h>
+
+#define SYM_PROG_LONG 0x04
+#define SYM_PROG_SHORT 0x05
+#define SYM_LIB_LONG 0x06                               // (reserved for LIBRARY)
+#define SYM_LIB_SHORT 0x07
+#define SYM_NSHORT 63                                   // spellings that get a short symbol
+#define SYM_MAXIDS (SYM_NSHORT + SYM_NSHORT * SYM_NSHORT) // spellings one image can hold
+#define SYM_MAXLEN 255                                  // longest spelling the table can hold
+#define SYM_MAGIC 0x314D5953u                           // "SYM1"
+
+#define issymbol(c) ((((unsigned char)(c)) & 0xFC) == 0x04)
+#define symbolsize(c) ((((unsigned char)(c)) & 1) ? 2 : 3)
+
+// The table that follows a program image.  It starts on the word after the 0xFFFFFFFF marker that ends the
+// program text, and the CSUB/font records follow it.
+typedef struct {
+    uint32_t magic;                                     // SYM_MAGIC
+    uint32_t textlen;                                   // offset of this table from the start of its image (a self-check)
+    uint32_t size;                                      // bytes in the table, header included, a multiple of 4
+    uint16_t count;                                     // number of spellings
+    uint16_t names;                                     // offset of the names area from the start of the table
+    // uint16_t offs[count]: each spelling's offset in the names area
+    // names area: one [length][spelling] record per id
+} symtab_t;
+
+extern const symtab_t *SymTabProg;                      // table of the program being run or listed (NULL = none)
+extern const symtab_t *SymTabLib;                       // table of the library (NULL = none: the CMM2 has no LIBRARY yet)
+extern const unsigned char symdigit[128];
+
+// save-time state used by tokenise()
+#define SYM_OFF 0
+#define SYM_COUNT 1
+#define SYM_EMIT 2
+extern int SymMode;                                     // SYM_OFF: names stay text
+extern int SymRawBlock;                                 // inside a CSUB or DefineFont block: names stay text
+extern int SymEnabled;                                  // 0: save programs as text (the test switch)
+extern int SymBindHeap;                                 // the bytes of heap the bindings hold
+extern char *SymOffLine;                                // the program's OPTION SYMBOLS OFF line (no bindings), or NULL
+int SymIsOffStatement(const char *p);
+char *SymFindOff(char *q);
+extern int SymLongest;                                  // the longest spelling in the program's and the library's tables
+extern int SymLibSave;                                  // a library is being saved: its names become library symbols
+
+void SymInit(void);
+void SymDamaged(void);
+const symtab_t *SymFindTable(const char *image);
+void SymSetProgram(const char *image);
+void SymSetLibrary(const char *image);
+int SymExpand(char *dst, const char *src, int n, int cap);
+char *SymExpandStatement(char *p);
+int SymAwareCommand(int cmd);
+int SymAwareFunction(unsigned char tkn);
+int SymNameEqual(const char *p, const char *text);
+int SymFindName(char *p, char *name);
+int SymAny(const char *p, int n);
+
+// saving
+int SymBegin(char *src);
+void SymEnd(void);
+void SymRank(void);
+char *SymName(char *op, const char *name, int len);
+int SymTableSize(void);
+void SymTableWrite(void (*put)(unsigned char), uint32_t textlen);
+
+// The spelling of the symbol at p (in its image's table) and its length.  A symbol that its table cannot
+// supply means the image and its table do not belong together.
+static inline __attribute__((always_inline)) const char *SymSpelling(const char *p, int *len) {
+    const symtab_t *t = (p[0] & 2) ? SymTabLib : SymTabProg;
+    unsigned int id = symdigit[p[1] & 0x7f];
+    if(!(p[0] & 1)) id = SYM_NSHORT + id * SYM_NSHORT + symdigit[p[2] & 0x7f];
+    if(__builtin_expect(t == NULL || id >= t->count, 0)) SymDamaged();
+    const unsigned char *n = (const unsigned char *)t + t->names + ((const uint16_t *)(t + 1))[id];
+    *len = n[0];
+    return (const char *)n + 1;
+}
+
+// The spelling of the name at p, symbol or text.  Sets *s and *len and returns the byte after the name in
+// the program.  *len is 0 if there is no name at p.
+static inline __attribute__((always_inline)) char *NameView(char *p, const char **s, int *len) {
+    if(issymbol(*p)) {
+        *s = SymSpelling(p, len);
+        return p + symbolsize(*p);
+    }
+    char *q = p;
+    if(isnamestart(*q))
+        while(isnamechar(*q)) q++;
+    *s = p;
+    *len = q - p;
+    return q;
+}
+
+// Copy the name at p (symbol or text) into buf, at most MAXVARLEN characters and zero terminated.  Sets *n to
+// the number copied and returns the byte after the name (for text, after the characters copied).
+static inline char *CopyName(char *p, char *buf, int *n) {
+    int m = 0;
+    if(issymbol(*p)) {
+        const char *s = SymSpelling(p, &m);
+        if(m > MAXVARLEN) m = MAXVARLEN;
+        memcpy(buf, s, m);
+        p += symbolsize(*p);
+    } else
+        while(isnamechar(*p) && m < MAXVARLEN) buf[m++] = *p++;
+    buf[m] = 0;
+    *n = m;
+    return p;
+}
+
+// A name starts at p: a symbol, or text beginning with a letter or underscore
+#define isnamestartsym(c) (isnamestart(c) || issymbol(c))
+
+/* Bindings (S5/S6).  Each distinct name (case ignored) read through one of the program's symbols gets a
+   canonical entry, made the first time one of its spellings is read.  The entry remembers the global variable,
+   the SUB or FUNCTION and the label of that name once they have been found, and the newest local variable of
+   that name, so lookups skip the name search.
+
+   Locals form a shadow stack per name: making a local saves the entry's local binding in SymLShadow[slot] and
+   points it at the new slot; ClearVars frees locals newest first and puts each binding back.  So the binding is
+   always the newest live local of its name, and a local is visible only at its own level.
+
+   A binding is cleared where the thing it points to goes away: ClearVars(0) and ERASE for globals,
+   ClearVars(level) for locals; the SUB and label bindings last as long as the program (PrepareProgram starts
+   afresh).  A local made from text (EXECUTE, the prompt) has no entry; while any is alive a global binding is
+   not trusted inside a SUB.
+
+   What every lookup reads (SymCanonOf, SymG, SymL, SymS and the local shadows) is kept in on-chip RAM when
+   there is room, about 8 bytes a name; the rest goes to the SDRAM heap. */
+typedef struct {
+    char *labind;                                       // the label's line, NULL = not looked up yet
+    uint16_t id;                                        // a symbol id spelling this name
+    uint16_t next;                                      // next entry in the same hash chain + 1, 0 = none
+    uint16_t flags;                                     // SYMC_DOT: the name holds a '.' (it may be a structure member path)
+} symcold_t;
+#define SYM_UNBOUND (-2)
+#define SYMC_DOT 1
+#define SYM_LTEXT 0xFFFF                                // SymLCanon: a local made from text
+
+extern uint16_t *SymCanonOf;                            // canonical entry + 1 of each symbol id, 0 = not seen yet
+extern unsigned int SymCanonLibBase;                    // library symbol id 0 in SymCanonOf: the program's count
+extern int16_t *SymG;                                   // per entry: slot of the global of the name, -1 = not bound
+extern int16_t *SymL;                                   // per entry: slot of the newest live local of the name, -1 = none
+extern int16_t *SymS;                                   // per entry: subfun[] index, -1 = none, SYM_UNBOUND = not looked up yet
+extern symcold_t *SymCold;                              // per entry: the rest
+extern unsigned int SymCanonCount;
+extern int16_t *SymLShadow;                             // per local slot: the local binding its local hid
+extern uint16_t *SymLCanon;                             // per local slot: canonical entry + 1, SYM_LTEXT, or 0 = not tracked
+extern unsigned int SymLSlots;                          // slots the two arrays above cover
+extern int SymTextLocals;                               // live locals made from text
+int SymCanonNew(const char *p);
+void SymBindInit(void);
+void SymBindFree(void);
+void SymBindForget(void);
+void SymBindReset(void);
+void SymBindForgetSlot(int slot);
+void SymLocalMade(int slot, int k);
+void SymLocalFreed(int slot);
+
+// The canonical entry of the symbol at p, or -1 if there are no bindings (no memory for them).
+static inline __attribute__((always_inline)) int SymCanonAt(const char *p) {
+    unsigned int id, c;
+    if(SymCanonOf == NULL) return -1;
+    id = symdigit[p[1] & 0x7f];
+    if(!(p[0] & 1)) id = SYM_NSHORT + id * SYM_NSHORT + symdigit[p[2] & 0x7f];
+    if(p[0] & 2) id += SymCanonLibBase;
+    if(id >= SymCanonCount) return -1;
+    c = SymCanonOf[id];
+    if(c) return c - 1;
+    return SymCanonNew(p);                              // the first use of this spelling
+}
+
+#endif

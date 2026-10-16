@@ -53,6 +53,7 @@ provisions:
 #define BOOL_ALREADY_DEFINED
 
 #define MAXVARLEN           32                      // maximum length of a variable name
+#define SYMBOLS_TEST_SWITCH                         // OPTION SYMBOLS ON|OFF at the prompt: programs saved as symbols or as text (the A/B tests; off for a release)
 #define MAXSTRLEN           255                     // maximum length of a string
 #define STRINGSIZE          256                     // must be 1 more than MAXSTRLEN.  3 of these buffers are staticaly created
 #define MAXDIM              5                       // maximum nbr of dimensions to an array

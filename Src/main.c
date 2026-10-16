@@ -3622,6 +3622,40 @@ static void SetLineSkip(char *line) {                               // as tokeni
     line[1] = (k + 1 > LHDR_SKIPMAX) ? LHDR_SKIPMAX + 1 : k + 1;
 }
 
+// The symbols' counting pass (Symbols.c): the program's lines read as the image writers below read them, and
+// tokenised, which records each name; the output is discarded.  (The name lines are comments, without names, and
+// a RUN line keeps its argument as text.)  A line read here in another way than the writers read it is harmless:
+// a name not counted is written as text.
+static void SymCountProgram(char *pm) {
+    char *p, prevchar = 0;
+    SymRawBlock = 0;
+    while(*pm) {
+        p = inpbuf;
+        while(!(*pm == 0 || *pm == '\r' || (*pm == '\n' && prevchar != '\r'))) {
+            if(*pm == TAB) {
+                do {*p++ = ' ';
+                    if((p - inpbuf) >= MAXSTRLEN) goto done;        // (the writer reports the line)
+                } while((p - inpbuf) % 2);
+            } else {
+                if(IsPrint(*pm)) {
+                    *p++ = *pm;
+                    if((p - inpbuf) >= MAXSTRLEN) goto done;
+                }
+            }
+            prevchar = *pm++;
+        }
+        if(*pm) prevchar = *pm++;
+        *p = 0;
+        if(*inpbuf == 0 && (*pm == 0 || (!IsPrint(*pm) && pm[1] == 0))) break;
+        LineSource(inpbuf);
+        if(toupper(inpbuf[0])=='R' && toupper(inpbuf[1])=='U' && toupper(inpbuf[2])=='N' && (strlen(inpbuf)==3 || inpbuf[3]==' '))
+            continue;
+        if(tokenise(false)) break;
+    }
+done:
+    SymRawBlock = 0;
+}
+
 // takes a pointer to RAM containing a program (in clear text) and writes it to program flash in tokenised format
 void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
@@ -3655,6 +3689,8 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     nbr = 0;
     // this is used to count the number of bytes written to flash
     CollectIncludes(pm);                                        // number the #INCLUDE files first
+    SymTabProg = NULL;                                          // the old image's symbol table went with the erase
+    if(SymBegin(pm)) { SymCountProgram(pm); SymRank(); }       // the names: counted, then given their symbols (Symbols.c)
     for(int f = 0; f <= nincludes; f++) {                       // the name lines: the program's, then its #INCLUDE files'
         inpbuf[0]=39; inpbuf[1]=IMAGE_TAG; inpbuf[2]=IMAGE_FORMAT;   // ' then the format's stamp (see IMAGE_TAG)
         if(f == 0)
@@ -3721,6 +3757,11 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     FlashWriteByte(0);
     for(int z = 0; z < 4; z++) FlashWriteByte(0);                 // a word of zeros after the end, so a scan from the last line never meets the 0xFF marker (the PicoMite's bc0c157)
     FlashWriteAlign();                                            // this will flush the buffer and step the flash write pointer to the next word boundary
+    if(SymTableSize()) {                                          // the symbol table: after the marker, before the CSUB records (Symbols.h)
+        if((realflashpointer - (uint32_t)ProgMemory) + SymTableSize() >= PROG_FLASH_SIZE - 8) goto exiterror1;
+        SymTableWrite(FlashWriteByte, realflashpointer - (uint32_t)ProgMemory);
+    }
+    SymEnd();
     // now we must scan the program looking for CFUNCTION/CSUB/DEFINEFONT statements, extract their data and program it into the flash used by  CFUNCTIONs
      // programs are terminated with two zero bytes and one or more bytes of 0xff.  The CFunction area starts immediately after that.
      // the format of a CFunction/CSub/Font in flash is:
@@ -3937,12 +3978,14 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 
     // a line too long to tokenise: end the program written so far, then report it
     toolong:
+        SymEnd();
         FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
         FlashWriteClose();
         error("$", tknerrmsg);
 
     // we only get here in an error situation while writing the program to flash
     exiterror1:
+        SymEnd();
         FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
         FlashWriteClose();
         error("Not enough memory");
@@ -3963,6 +4006,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     nbr = 0;
     // this is used to count the number of bytes written to flash
     CollectIncludes(pm);                                        // number the #INCLUDE files first
+    if(SymBegin(pm)) { SymCountProgram(pm); SymRank(); }       // the names: counted, then given their symbols (Symbols.c)
     for(int f = 0; f <= nincludes; f++) {                       // the name lines: the program's, then its #INCLUDE files'
         inpbuf[0]=39; inpbuf[1]=IMAGE_TAG; inpbuf[2]=IMAGE_FORMAT;   // ' then the format's stamp (see IMAGE_TAG)
         if(f == 0)
@@ -4028,7 +4072,12 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     MemWriteByte(0);
     for(int z = 0; z < 4; z++) MemWriteByte(0);                   // a word of zeros after the end (as SaveProgramToFlash)
     MemWriteAlign();                                            // this will flush the buffer and step the flash write pointer to the next word boundary
-    retvalue=((uint32_t)realmempointer-(uint32_t)SDMemory);
+    if(SymTableSize()) {                                          // the symbol table, as SaveProgramToFlash writes it
+        if((realmempointer - (uint32_t)SDMemory) + SymTableSize() >= PROG_FLASH_SIZE - 8) goto exiterror1;
+        SymTableWrite(MemWriteByte, realmempointer - (uint32_t)SDMemory);
+    }
+    SymEnd();
+    retvalue=((uint32_t)realmempointer-(uint32_t)SDMemory);    // (the comparison with the image in flash takes in the table)
     // now we must scan the program looking for CFUNCTION/CSUB/DEFINEFONT statements, extract their data and program it into the flash used by  CFUNCTIONs
      // programs are terminated with two zero bytes and one or more bytes of 0xff.  The CFunction area starts immediately after that.
      // the format of a CFunction/CSub/Font in flash is:
@@ -4257,6 +4306,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
 
     // a line too long to tokenise: end the program written so far, then report it
     toolong:
+        SymEnd();
         MemWriteByte(0); MemWriteByte(0); MemWriteByte(0);    // terminate the program
         MemWriteClose();
 		FreeMemory(SDMemory);
@@ -4264,6 +4314,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
 
     // we only get here in an error situation while writing the program to flash
     exiterror1:
+        SymEnd();
         MemWriteByte(0); MemWriteByte(0); MemWriteByte(0);    // terminate the program in flash
         MemWriteClose();
 		FreeMemory(SDMemory);

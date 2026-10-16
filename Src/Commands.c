@@ -356,11 +356,7 @@ void command_print(char *cmd) {
 
 	if(argc > 0 && *argv[0] == '#') {								// check if the first arg is a file number
 		argv[0]++;
-         if((*argv[0] == 'G') || (*argv[0] == 'g')){
-            argv[0]++;
-            if(!((*argv[0] == 'P') || (*argv[0] == 'p')))error("Syntax");
-            argv[0]++;
-            if(!((*argv[0] == 'S') || (*argv[0] == 's')))error("Syntax");
+         if(SymNameEqual(argv[0], "GPS")) {                         // #GPS (GPS may be a symbol, Symbols.h)
             if(!GPSchannel) error("GPS not activated");
             if(argc!=3) error("Only a single string parameter allowed");
             p = argv[2];
@@ -452,8 +448,9 @@ static void LetArrayCopy(char *p_equals) {
 
 	p = p_equals + 1;
 	skipspace(p);
-	if(!isnamestart(*p)) error("Expected an array");
-	for(tq = p + 1; isnamechar(*tq); tq++);
+	if(!isnamestartsym(*p)) error("Expected an array");
+	if(issymbol(*p)) tq = p + symbolsize(*p);                       // (a symbol, Symbols.h)
+	else for(tq = p + 1; isnamechar(*tq); tq++);
 	if(*tq == '$' || *tq == '%' || *tq == '!') tq++;
 	if(*tq == '(' && FindSubFun(p, 1) >= 0) error("Expected an array");      // (no FUNCTION returns an array here)
 	src = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
@@ -1211,8 +1208,8 @@ void MIPS16 cmd_continue(void) {
 }
 
 void cmd_goto(void) {
-	if(isnamestart(*cmdline))
-		nextstmt = findlabel(cmdline);								// must be a label
+	if(isnamestartsym(*cmdline))
+		nextstmt = findlabel(cmdline);								// must be a label (a symbol or text)
 	else
 		nextstmt = findline(getinteger(cmdline), true);				// try for a line number
     IgnorePIN = false;
@@ -1483,9 +1480,11 @@ void cmd_select(void) {
                 t = type;
                 // check for CASE IS,  eg  CASE IS > 5  -or-  CASE > 5  and process it if it is
                 // an operator can be >, <>, etc but it can also be a prefix + or - so we must not catch them
-                if((SaveCurrentLinePtr = checkstring(p, "IS")) || ((tokentype(*p) & T_OPER) && !(*p == GetTokenValue("+") || *p == GetTokenValue("-")))) {
+                char *isp = checkstring(p, "IS");                   // (it was kept in SaveCurrentLinePtr, which every
+                                                                    // later error then reported as the line: the PicoMite's e3298b9)
+                if(isp || ((tokentype(*p) & T_OPER) && !(*p == GetTokenValue("+") || *p == GetTokenValue("-")))) {
                     int o;
-                    if(SaveCurrentLinePtr) p += 2;
+                    if(isp) p = isp;                                // (IS may be a 2-byte symbol)
                     skipspace(p);
                     if(tokentype(*p) & T_OPER)
                         o = *p++ - C_BASETOKEN;                     // get the operator
@@ -1684,9 +1683,9 @@ void cmd_trace(void) {
 
 // FOR command
 void cmd_for(void) {
-    int i, t, vlen, test;
+    int i, t, test;
     char ss[4];                                                     // this will be used to split up the argument line
-    char *p, *tp, *xp;
+    char *p, *tp;
     void *vptr;
     char *vname, vtype;
 //    static char fortoken, nexttoken;
@@ -1709,7 +1708,6 @@ void cmd_for(void) {
         vname = argv[0];
         if(*vname && *vname == ' ') vname++;
         while(*vname && vname[strlen(vname) - 1] == ' ') vname[strlen(vname) - 1] = 0;
-        vlen = strlen(vname);
         vptr = findvar(argv[0], V_FIND);                            // create the variable
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
         vtype = TypeMask(FoundType());
@@ -1767,10 +1765,9 @@ void cmd_for(void) {
             CommandToken tkn = commandtbl_at(p);
             if(tkn == cmdFOR) t++;                                  // count the FOR
             if(tkn == cmdNEXT) {                                    // is it NEXT
-                char *nx = xp = p + sizeof(CommandToken);           // point to after the NEXT token
-                // step through looking for our variable as a whole name (NEXT JI is not NEXT I)
-                while(*xp && (strncasecmp(xp, vname, vlen) || (xp > nx && isnamechar(xp[-1])) || isnamechar(xp[vlen]))) xp++;
-                if(*xp)                                             // found
+                // our variable as a whole name in the NEXT statement, symbol or text (NEXT JI is not NEXT I; a symbol's
+                // payload is not letters, so its bytes are not compared ignoring case)
+                if(SymFindName(p + sizeof(CommandToken), vname))     // found
                     t = 0;                                          // yes, found the matching NEXT
                 else
                     t--;                                            // no luck, just decrement our stack counter
@@ -2088,8 +2085,8 @@ void cmd_gosub(void) {
 	gosubstack[gosubindex++] = nextstmt;
 	LocalIndex++;
 	routinechecks(1);
-	if(isnamestart(*cmdline))
-		nextstmt = findlabel(cmdline);								// must be a label
+	if(isnamestartsym(*cmdline))
+		nextstmt = findlabel(cmdline);								// must be a label (a symbol or text)
 	else
 		nextstmt = findline(getinteger(cmdline), true);				// try for a line number
     IgnorePIN = false;
@@ -2725,7 +2722,8 @@ char *CheckIfTypeSpecified(char *p, int *type, int AllowDefaultType) {
         skipspace(tp);
         if(g_structcnt > 0 && (g_StructArg = FindStructType(tp)) >= 0) {
             *type = T_STRUCT | T_IMPLIED;                           // a TYPE's name: g_StructArg is its number
-            while(isnamechar(*tp)) tp++;
+            if(issymbol(*tp)) tp += symbolsize(*tp);                // (a symbol, Symbols.h)
+            else while(isnamechar(*tp)) tp++;
             skipspace(tp);
             return tp;
         }
@@ -2783,11 +2781,11 @@ static void StaticVarName(char *VarName, char *arg) {
     if(def == NULL) error("Invalid here");
     def += sizeof(CommandToken);                                    // the name as the definition spells it, without a type suffix
     skipspace(def);
-    for(k = 0; k < MAXVARLEN && isnamechar(def[k]); k++) VarName[k] = def[k];
+    CopyName(def, VarName, &k);                                     // (a symbol or text: the name is given to findvar as text)
     VarName[k++] = 0x1e;
-    n = strlen(arg);
-    if(k + n >= STRINGSIZE) error("Line is too long");
-    memcpy(VarName + k, arg, n + 1);
+    n = SymExpand(VarName + k, arg, strlen(arg), STRINGSIZE - 1 - k);    // the variable's text, its symbols spelt out
+    if(n < 0) error("Line is too long");
+    VarName[k + n] = 0;
 }
 
 void MIPS16 cmd_dim(void) {
@@ -3086,6 +3084,14 @@ char MIPS16 *llist(char *b, char *p) {
             continue;
         }
 
+        // a name stored as a symbol: its spelling (Symbols.h; '?' if its table does not hold it)
+        if(issymbol(*p)) {
+            b += SymExpand(b, p, symbolsize(*p), STRINGSIZE);
+            p += symbolsize(*p);
+            firstnonwhite = false;
+            continue;
+        }
+
         // hey, an ordinary char, just copy it to the output
         if(*p) {
             *b = *p;                                                // place the char in the buffer
@@ -3126,9 +3132,10 @@ void execute_one_command(char *p) {
         CmdTokenPtr = p;
         cmdline = p + sizeof(CommandToken);
         skipspace(cmdline);
+        if(!SymAwareCommand(tkn)) cmdline = SymExpandStatement(cmdline);   // its arguments as text (Symbols.c)
         commandtbl[tkn].fptr();                                     // execute the command
     } else {
-        if(!isnamestart(*p)) error("Invalid character");
+        if(!isnamestartsym(*p)) error("Invalid character");
         i = FindSubFun(p, false);                                   // it could be a defined command
         if(i >= 0)                                                  // >= 0 means it is a user defined command
             DefinedSubFun(false, p, i, NULL, NULL, NULL, NULL);

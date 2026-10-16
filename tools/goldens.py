@@ -1,4 +1,4 @@
-"""goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--from NAME] [--put] [--dir A:/g]
+"""goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--from NAME] [--put] [--dir A:/g] [--pre CMD] [--listflash]
                          [--cap SECONDS] [--nomodemap]
 goldens.py --recompare OUTDIR [--corpus DIR]     re-diff saved outputs against .expected
 goldens.py --reclassify OUTDIR [--corpus DIR]    score saved outputs again from scratch
@@ -337,6 +337,8 @@ def main():
     only = arg("--only").split(",") if "--only" in sys.argv else None
     gdir = arg("--dir", "A:/g").rstrip("/")
     mapped = "--nomodemap" not in sys.argv
+    pre = arg("--pre")                                  # a command sent before each program
+    listflash = "--listflash" in sys.argv               # also keep LIST FLASH ALL of each program (NAME.list)
     os.makedirs(outdir, exist_ok=True)
     names = sorted(f[:-4] for f in os.listdir(corpus) if f.lower().endswith(".bas"))
     if only:
@@ -394,6 +396,8 @@ def main():
         inputs = open(inp, encoding="latin-1").read().splitlines() if os.path.exists(inp) else []
         b.attention()
         b.cmd('CHDIR "%s"' % gdir, 10)
+        if pre:
+            b.cmd(pre, 10)                              # eg OPTION SYMBOLS OFF (the symbols' test switch)
         prog = next(f for f in files if f[:-4] == n)
         foreign = foreign_code(corpus, prog)
         if foreign:
@@ -407,6 +411,8 @@ def main():
             rows.append({"name": n, "class": "HUNG", "secs": t1, "note": "no prompt after Ctrl-C, reset through the ST-Link: " + o1.strip()[-120:]})
             keep(rows[-1])
             continue
+        if listflash:                                   # the image as LIST FLASH spells it out (text against symbols)
+            open(os.path.join(outdir, n + ".list"), "w", encoding="utf-8").write(b.cmd("LIST FLASH ALL", 60))
         s2, o2, t2 = run_program(b, run, inputs)
         open(os.path.join(outdir, n + ".out2"), "w", encoding="utf-8").write(o2)
         if not alive(b):

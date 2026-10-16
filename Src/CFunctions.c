@@ -147,7 +147,7 @@ long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *Calle
         if(argc % 2 == 0) error("Syntax");
         for(i = 0; i < argc; i += 2) {
             // if this is a straight variable we want to pass a pointer to its value in RAM
-            if(isnamestart(*argv[i]) && (*skipvar(argv[i], false) == 0 || *skipvar(argv[i], false) == ')') && !(FindSubFun(argv[i], 1) >= 0 && strchr(argv[i], '(') != NULL)) {
+            if(isnamestartsym(*argv[i]) && (*skipvar(argv[i], false) == 0 || *skipvar(argv[i], false) == ')') && !(FindSubFun(argv[i], 1) >= 0 && strchr(argv[i], '(') != NULL)) {
                 arg[i/2] = findvar(argv[i], V_FIND | V_EMPTY_OK /* | V_NOFIND_ERR */ );   // if the argument
                 if(typ[i/2] != 0 && !(TypeMask(VREC(VarIndex)->type) & typ[i/2])) error("Incompatible type");
 #if defined(MX170)

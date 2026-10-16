@@ -29,6 +29,7 @@ provisions:
 #include <stdarg.h>
 #include <stdint.h>
 #include "MMBasic.h"
+#include "Symbols.h"
 
 #include "Functions.h"
 #include "Commands.h"
@@ -272,6 +273,7 @@ void MIPS16 InitBasic(void) {
     cmdDO=  GetCommandValue("Do");
     cmdFOR=  GetCommandValue("For");
     cmdNEXT= GetCommandValue("Next");
+    SymInit();                                                      // the symbol-aware commands and functions (Symbols.c)
 
 //	PInt(CommandTableSize);
 //	PIntComma(TokenTableSize);
@@ -357,9 +359,10 @@ void ExecuteProgram(char *p) {
 						cmdtoken = tkn;
 						CmdTokenPtr = p;
 						targ = T_CMD;
+						if(!SymAwareCommand(tkn)) cmdline = SymExpandStatement(cmdline);   // its arguments as text (Symbols.c)
 						commandtbl[tkn].fptr();                     // execute the command
 					} else {
-						if(!isnamestart(*p)) error("Invalid character: @", (int)(*p));
+						if(!isnamestartsym(*p)) error("Invalid character: @", (int)(*p));
 						i = FindSubFun(p, false);                   // it could be a defined command
 						if(i >= 0) {                                // >= 0 means it is a user defined command
 							DefinedSubFun(false, p, i, NULL, NULL, NULL, NULL);
@@ -373,9 +376,10 @@ void ExecuteProgram(char *p) {
 							cmdtoken = tkn;
 							CmdTokenPtr = p;
 							targ = T_CMD;
+							if(!SymAwareCommand(tkn)) cmdline = SymExpandStatement(cmdline);   // its arguments as text (Symbols.c)
 							commandtbl[tkn].fptr();                     // execute the command
 						} else {
-							if(!isnamestart(*p)) error("Invalid character: @", (int)(*p));
+							if(!isnamestartsym(*p)) error("Invalid character: @", (int)(*p));
 							i = FindSubFun(p, false);                   // it could be a defined command
 							if(i >= 0) {                                // >= 0 means it is a user defined command
 								DefinedSubFun(false, p, i, NULL, NULL, NULL, NULL);
@@ -480,11 +484,11 @@ static const char *NameOfLabel(char *line, int *len) {
 
 // the spelling of SUB/FUNCTION i (without a type suffix)
 static const char *NameOfSub(int i, int *len) {
-    char *p = subfun[i] + sizeof(CommandToken), *q;
+    char *p = subfun[i] + sizeof(CommandToken);
+    const char *s;
     skipspace(p);
-    for(q = p; isnamechar(*q); q++);
-    *len = q - p;
-    return p;
+    NameView(p, &s, len);                                           // a symbol or text (Symbols.h)
+    return s;
 }
 
 // is slot s the name nm (nl characters)?
@@ -582,6 +586,8 @@ void MIPS16 PrepareProgram(int ErrAbort) {
         FontTable[i] = NULL;                                        // clear the font table
 
     CFunctionFlash  = NULL;
+    SymSetProgram((char *)ProgMemory);                              // the program's symbol table (Symbols.h), and
+    SymOffLine = SymFindOff((char *)ProgMemory);                    // OPTION SYMBOLS OFF at its top (no bindings)
     ScanTypes = StructTableStart();                                 // the TYPE table too, once for a heap as the index below
     NbrFuncts = PrepareProgramExt((char *)ProgMemory, 0, &CFunctionFlash, ErrAbort);
     // the index of every SUB, FUNCTION, CSUB and label by name, which also finds a name defined twice: made
@@ -595,6 +601,7 @@ void MIPS16 PrepareProgram(int ErrAbort) {
 // It is only used by PrepareProgram() above.
 int MIPS16 PrepareProgramExt(char *p, int i, unsigned char **CFunPtr, int ErrAbort) {
     unsigned int *cfp;
+    char *image = p;                                                // (the symbol table's textlen is relative to it)
     while(*p != 0xff) {
         p = GetNextCommand(p, &CurrentLinePtr, NULL);
         if(*p == 0) break;                                          // end of the program or module
@@ -610,9 +617,12 @@ int MIPS16 PrepareProgramExt(char *p, int i, unsigned char **CFunPtr, int ErrAbo
             subfun[i++] = p;                                        // save the address
             p += sizeof(CommandToken);                              // and step over the token
             skipspace(p);
-            if(!isnamestart(*p)) {
+            if(!isnamestartsym(*p)) {
                 if(ErrAbort) {
-                	MMPrintString("Error: Invalid identifier ");MMPrintString(p);
+                	char eb[STRINGSIZE];                                // (the rest of the element, its symbols spelt out)
+                	int en = SymExpand(eb, p, strlen(p), STRINGSIZE - 1);
+                	eb[en < 0 ? 0 : en] = 0;
+                	MMPrintString("Error: Invalid identifier ");MMPrintString(eb);
                 	cleanup();
                }
                 i--;
@@ -626,11 +636,18 @@ int MIPS16 PrepareProgramExt(char *p, int i, unsigned char **CFunPtr, int ErrAbo
     while(*p == 0) p++;                                             // the end of the program can have multiple zeros
     p++;                                                            // step over the terminating 0xff
     *CFunPtr = (unsigned char *)(((unsigned int)p + 0b11) & ~0b11); // CFunction flash (if it exists) starts on the next word address after the program in flash
+    {                                                               // a symbol table (Symbols.h) sits between the program and the records
+        const symtab_t *st = (const symtab_t *)*CFunPtr;
+        if(st->magic == SYM_MAGIC && st->textlen == (uint32_t)((char *)st - image) && st->size < PROG_FLASH_SIZE)
+            *CFunPtr += st->size;
+    }
     if(i < MAXSUBFUN) subfun[i] = NULL;
     CurrentLinePtr = NULL;
 
     // now, step through the CFunction area looking for fonts to add to the font table
-    cfp = *(unsigned int **)CFunPtr;
+    cfp = (unsigned int *)*CFunPtr;                                 // read as the unsigned char * it is: through an unsigned int ** the
+                                                                    // compiler may reuse the value from before the table was skipped
+                                                                    // (the PicoMite's e0515d3)
     while(*cfp != 0xffffffff) {
         if(*cfp < FONT_TABLE_SIZE)
             FontTable[*cfp] = (unsigned char *)(cfp + 2);
@@ -647,10 +664,16 @@ int FindSubFun(char *p, int type) {
     char name[MAXVARLEN + 1];
     int nl = 0;
     struct s_nameslot *n;
-    do {
-        if(nl >= MAXVARLEN) error("Variable name too long");
-        name[nl++] = *p++;
-    } while(isnamechar(*p));
+    if(issymbol(*p)) {                                              // a symbol: its spelling (Symbols.h)
+        const char *s;
+        NameView(p, &s, &nl);
+        if(nl > MAXVARLEN) error("Variable name too long");
+        memcpy(name, s, nl);
+    } else
+        do {
+            if(nl >= MAXVARLEN) error("Variable name too long");
+            name[nl++] = *p++;
+        } while(isnamechar(*p));
     if((n = NameFind(name, nl, (1 << NK_SUB) | (1 << NK_FUN))) == NULL) return -1;
     // it must also be the kind asked for: a SUB or CSUB for a statement (type 0), a FUNCTION for an
     // expression (type 1).  Otherwise a FUNCTION called as a statement, or a SUB used in an expression, ran
@@ -733,10 +756,11 @@ static struct s_sublayout *SubLayoutBuild(int index, char *p, char *argbuf2, cha
             q = argv2[i];
             skipspace(q);
             by = 0;
-            if(toupper(*q) == 'B' && toupper(q[1]) == 'Y') {        // BYVAL or BYREF
-                if(checkstring(q + 2, "VAL") != NULL) by = SL_BYVAL;
-                else if(checkstring(q + 2, "REF") != NULL) by = SL_BYREF;
-                if(by) { q += 5; skipspace(q); }                    // skip to the variable start
+            {                                                       // BYVAL or BYREF (BY VAL, BY REF): through checkstring, as a
+                char *bq;                                           // symbol has no letters to test
+                if((bq = checkstring(q, "BYVAL")) != NULL || (bq = checkstring(q, "BY VAL")) != NULL) by = SL_BYVAL;
+                else if((bq = checkstring(q, "BYREF")) != NULL || (bq = checkstring(q, "BY REF")) != NULL) by = SL_BYREF;
+                if(by) q = bq;                                      // the variable's start
             }
             type = T_NOTYPE;
             tp = skipvar(q, false);                                 // point to after the variable
@@ -795,7 +819,8 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     char *argbuf1; char **argv1; int argc1;
     char *argbuf2; char **argv2; int argc2;
     char *argbyref;
-    char fun_name[MAXVARLEN + 1];
+    char fun_name[MAXVARLEN + 2];                                  // the name and its suffix (it held one byte too few)
+    char defsuffix = 0, callsuffix = 0;
 	int i=0;
     int ArgType, FunType;
     int *argtype;
@@ -820,11 +845,19 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     // p is left pointing to the end of the name (ie, start of the argument list in the definition)
     CurrentLinePtr = SubLinePtr;                                    // report errors at the definition
     tp = fun_name;
-    *tp++ = *p++; while(isnamechar(*p)) *tp++ = *p++;
+    {                                                               // the name, a symbol or text (Symbols.h)
+        const char *s;
+        int l;
+        p = NameView(p, &s, &l);
+        if(l > MAXVARLEN) l = MAXVARLEN;
+        memcpy(tp, s, l);
+        tp += l;
+    }
     if(*p == '$' || *p == '%' || *p == '!') {
         if(!isfun) {
         	error("Type specification is invalid: @", (int)(*p));
         }
+        defsuffix = *p;
         *tp++ = *p++;
     }
     *tp = 0;
@@ -834,13 +867,18 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 
     // find the end of the caller's identifier, tp is left pointing to the start of the caller's argument list
     CurrentLinePtr = CallersLinePtr;                                // report errors at the caller
-    tp = cmd + 1;
-    while(isnamechar(*tp)) tp++;
+    if(issymbol(*cmd))
+        tp = cmd + symbolsize(*cmd);                                // a symbol (Symbols.h)
+    else {
+        tp = cmd + 1;
+        while(isnamechar(*tp)) tp++;
+    }
     if(*tp == '$' || *tp == '%' || *tp == '!') {
         if(!isfun) error("Type specification");
+        callsuffix = *tp;
         tp++;
     }
-    if(toupper(*(p-1)) != toupper(*(tp-1)))error("Inconsistent type suffix");
+    if(defsuffix != callsuffix) error("Inconsistent type suffix");  // (it compared the names' last bytes: a symbol's are not letters)
 
     // if this is a function we check to find if the function's type has been specified with AS <type> and save it
     CurrentLinePtr = SubLinePtr;                                    // report errors at the definition
@@ -950,7 +988,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     	if(i < argc1 && *argv1[i]) {
 
              // check if the argument is a valid variable
-   			 if(i < argc1 && isnamestart(*argv1[i]) && *skipvar(argv1[i], false) == 0){
+   			 if(i < argc1 && isnamestartsym(*argv1[i]) && *skipvar(argv1[i], false) == 0){
                  // yes, it is a variable (or perhaps a user defined function which looks the same)?
                  if(!(FindSubFun(argv1[i], 1) >= 0 && strchr(argv1[i], '(') != NULL)) {
                      // yes, this is a valid variable.  set argvalue to point to the variable's data and argtype to its type
@@ -1575,6 +1613,19 @@ int MIPS16 tokenise(int console) {
     int i=0;
     int firstnonwhite;
     int labelvalid;
+    // symbols: names in a program being saved become symbols (see Symbols.h), except in DATA statements, CSUB
+    // and DefineFont blocks, the letter after ~( and &H/&O/&B numbers.  A console line never makes them.
+    static int tkDATA = -1, tkDEFINEFONT, tkENDCSUB, tkENDDEFINEFONT, tkTILDE;
+    int symbols = !console && SymMode != SYM_OFF;
+    int symrawstmt = false;                                         // this statement is DATA: its names stay text
+    int symrawnext = false;                                         // the next name is the letter after ~(
+    if(tkDATA < 0) {
+        tkDATA = GetCommandValue("Data");
+        tkDEFINEFONT = GetCommandValue("DefineFont");
+        tkENDCSUB = GetCommandValue("End CSub");
+        tkENDDEFINEFONT = GetCommandValue("End DefineFont");
+        tkTILDE = GetTokenValue("~(");
+    }
     routinechecks(1);
     strreplace_overflow = 0;
     // first, make sure that only printable characters are in the line (the substitutions mark text with bit 7)
@@ -1692,6 +1743,15 @@ int MIPS16 tokenise(int console) {
                 p++;
             }
             firstnonwhite = true;
+            symrawstmt = false;
+            continue;
+        }
+
+        // a structure member after an array element, eg a(1).x: the dot is copied on its own, so that the member
+        // is read as a name (as a symbol, and not as part of a number when it starts with E)
+        if(*p == '.' && op > body && op[-1] == ')' && isnamestart(p[1])) {
+            TKNPUT(*p++);
+            firstnonwhite = false;
             continue;
         }
 
@@ -1800,6 +1860,14 @@ int MIPS16 tokenise(int console) {
                     while(*p) TKNPUT(*p++);                         // and in that case just copy everything
                 firstnonwhite = false;
                 labelvalid = false;                                 // we do not want any labels after this
+                if(symbols) {
+                    if(match_i == tkDATA)
+                        symrawstmt = true;
+                    else if(match_i == cmdCSUB || match_i == tkDEFINEFONT)
+                        SymRawBlock = true;                         // the declaration and the hex that follows stay text
+                    else if(match_i == tkENDCSUB || match_i == tkENDDEFINEFONT)
+                        SymRawBlock = false;
+                }
                 continue;
             }
 
@@ -1834,6 +1902,7 @@ int MIPS16 tokenise(int console) {
                 i += C_BASETOKEN;
                 TKNPUT(i);                                          // insert the token found
                 p = tp2;                                            // and step over it in the source text
+                symrawnext = (i == tkTILDE);                        // MM.HRES and the like are ~(A): the letter is read as a character
                 if(i == tokenTHEN || i == tokenELSE)
                     firstnonwhite = true;                           // a command is valid after a THEN or ELSE
                 else
@@ -1851,7 +1920,15 @@ int MIPS16 tokenise(int console) {
                 if(*tp == '=')                                      // is it an implied let?
                     TKNPUTCMD(GetCommandValue("Let"));              // find let's token value and copy into memory
                 }
-            while(isnamechar(*p)) TKNPUT(*p++);                     // copy the variable name
+            if(symbols && !symrawstmt && !SymRawBlock && !symrawnext && !(op > body && op[-1] == '&')) {
+                tp = p;
+                while(isnamechar(*tp)) tp++;
+                if(op + (tp - p > 3 ? tp - p : 3) > tknend) goto toolong;  // a symbol is at most 3 bytes, the text tp - p
+                op = SymName(op, p, tp - p);                        // the name as a symbol (or text if it cannot be one)
+                p = tp;
+            } else
+                while(isnamechar(*p)) TKNPUT(*p++);                 // copy the variable name
+            symrawnext = false;
             firstnonwhite = false;
             labelvalid = false;                                     // we do not want any labels after this
             continue;
@@ -2256,7 +2333,12 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 				p1 = p + 1;
 				p = getclosebracket(p);                                 // find the closing bracket
 				p2 = ep = GetTempStrMemory();                           // this will last for the life of the command
-				while(p1 != p) *p2++ = *p1++;
+				if(!SymAwareFunction(*tp) && SymAny(p1, p - p1)) {      // its arguments with the symbols spelt out (Symbols.c)
+					int n = SymExpand(ep, p1, p - p1, STRINGSIZE - 1);
+					if(n < 0) error("Line is too long");
+					ep[n] = 0;
+				} else
+					while(p1 != p) *p2++ = *p1++;
 			} else ep=NULL;
 			p++;                                                        // point to after the function (without argument) or after the closing bracket
 			tmp = targ = TypeMask(tokentype(*tp));                      // set the type of the function (which might need to know this)
@@ -2267,10 +2349,14 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 		}
     } else {
 		// if it is a variable or a defined function, find it and get its value
-		if(isnamestart(*p)) {
+		if(isnamestartsym(*p)) {
 			// first check if it is terminated with a bracket
-			tp = p + 1;
-			while(isnamechar(*tp)) tp++;                                // search for the end of the identifier
+			if(issymbol(*p))
+				tp = p + symbolsize(*p);                                // a symbol (Symbols.h)
+			else {
+				tp = p + 1;
+				while(isnamechar(*tp)) tp++;                            // search for the end of the identifier
+			}
 			if(*tp == '$' || *tp == '%' || *tp == '!') tp++;
 			i = -1;
 			if(*tp == '(') i = FindSubFun(p, 1);                        // if terminated with a bracket it could be a function
@@ -2762,11 +2848,18 @@ char *findlabel(char *labelptr) {
     struct s_nameslot *n;
     // first, just exit we have a NULL argument
     if(labelptr == NULL) return NULL;
-    // this assumes that the first character has already been verified as a valid label character
-    name[nl++] = *labelptr++;
-    while(isnamechar(*labelptr)) {
-        if(nl >= MAXVARLEN) error("Label too long");                // too long, not a correctly formed label
+    if(issymbol(*labelptr)) {                                       // a symbol: its spelling (Symbols.h)
+        const char *s;
+        NameView(labelptr, &s, &nl);
+        if(nl > MAXVARLEN) error("Label too long");
+        memcpy(name, s, nl);
+    } else {
+        // this assumes that the first character has already been verified as a valid label character
         name[nl++] = *labelptr++;
+        while(isnamechar(*labelptr)) {
+            if(nl >= MAXVARLEN) error("Label too long");            // too long, not a correctly formed label
+            name[nl++] = *labelptr++;
+        }
     }
     if((n = NameFind(name, nl, 1 << NK_LABEL)) == NULL) error("Cannot find label");
     return (char *)n->target;
@@ -3054,17 +3147,30 @@ void *findvar(char *p, int action) {
 
     // check the first char for a legal variable name
     skipspace(p);
-    if(!isnamestart(*p)) error("Variable name");
-
-    // copy the variable name into name
     s = name; namelen = 0;
-	do {                                                            // in capitals, whatever the text (a DATA-first
-		char c = toupper(*p++);                                     // line keeps its case: READ evaluates its numbers)
-		hash ^= c;
-		hash*=FNV_prime;
-		*s++ = c;
-		if(++namelen > MAXVARLEN) error("Variable name too long");
-	} while(isnamechar(*p));
+    if(issymbol(*p)) {                                              // a symbol: its spelling (Symbols.h)
+        int sl;
+        const char *sp = SymSpelling(p, &sl);
+        p += symbolsize(*p);
+        if(sl > MAXVARLEN) error("Variable name too long");
+        while(sl--) {
+            char c = toupper(*sp++);
+            hash ^= c;
+            hash*=FNV_prime;
+            *s++ = c;
+            namelen++;
+        }
+    } else {
+        if(!isnamestart(*p)) error("Variable name");
+        // copy the variable name into name
+        do {                                                        // in capitals, whatever the text (a DATA-first
+            char c = toupper(*p++);                                 // line keeps its case: READ evaluates its numbers)
+            hash ^= c;
+            hash*=FNV_prime;
+            *s++ = c;
+            if(++namelen > MAXVARLEN) error("Variable name too long");
+        } while(isnamechar(*p));
+    }
 	GlobalhashIndex = MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1));   // the global slot the probe starts at
 	if(namelen!=MAXVARLEN)*s=0;
     // check the terminating char and set the type
@@ -3623,8 +3729,12 @@ void error(char *msg, ...) {
 //    	if(!OptionErrorSkip)MMErrorString(": ");
         va_start(ap, msg);
         while(*msg) {
-            if(*msg == '$')
-            	MMErrorString(va_arg(ap, char *)); // strcpy(tp, va_arg(ap, char *));
+            if(*msg == '$') {                                       // a string: any symbols in it spelt out (Symbols.h)
+                char *a = va_arg(ap, char *), sb[STRINGSIZE];
+                int n = SymExpand(sb, a, strlen(a), STRINGSIZE - 1);
+                if(n < 0) MMErrorString(a);
+                else { sb[n] = 0; MMErrorString(sb); }
+            }
             else if(*msg == '@')
                 MMErrorchar(va_arg(ap, int));
             else if(*msg == '%' || *msg == '|') {
@@ -4212,19 +4322,29 @@ char *skipvar(char *p, int noerror) {
     int i;
     int inquote = false;
 
+    int adj = 0;                                                    // a symbol: its spelling's length less its bytes
+
     tp = p;
     // check the first char for a legal variable name
     skipspace(p);
-    if(!isnamestart(*p)) return tp;
-
-    do {
-        p++;
-    } while(isnamechar(*p));
+    if(issymbol(*p)) {                                              // a symbol (Symbols.h): its length matters to the tests
+        if(SymLongest > MAXVARLEN - 8) {                            // below only when a spelling could be that long
+            int nl;
+            SymSpelling(p, &nl);
+            adj = nl - symbolsize(*p);
+        }
+        p += symbolsize(*p);
+    } else {
+        if(!isnamestart(*p)) return tp;
+        do {
+            p++;
+        } while(isnamechar(*p));
+    }
 
     // check the terminating char.
     if(*p == '$' || *p == '%' || *p == '!') p++;
 
-    if(p - tp > MAXVARLEN) {
+    if(p - tp + adj > MAXVARLEN) {
         if(noerror) return p;
         error("Variable name too long");
     }
@@ -4234,7 +4354,7 @@ char *skipvar(char *p, int noerror) {
         // this is an array
 
         p++;
-        if(p - tp > MAXVARLEN) {
+        if(p - tp + adj > MAXVARLEN) {
             if(noerror) return p;
             error("Variable name too long");
         }
@@ -4263,13 +4383,17 @@ char *skipvar(char *p, int noerror) {
         pp = p; skipspace(pp);
         if(*pp != '.') break;
         p = pp + 1;
-        if(!isnamestart(*p)) {
-            if(noerror) return p;
-            error("Expected member name after '.'");
+        if(issymbol(*p))
+            p += symbolsize(*p);                                    // a member's symbol
+        else {
+            if(!isnamestart(*p)) {
+                if(noerror) return p;
+                error("Expected member name after '.'");
+            }
+            do {
+                p++;
+            } while(isnamechar(*p));
         }
-        do {
-            p++;
-        } while(isnamechar(*p));
         if(*p == '$' || *p == '%' || *p == '!') p++;
         pp = p; skipspace(pp);
         if(*pp == '(') {
@@ -4381,7 +4505,20 @@ void checkend(char *p) {
 
 char *checkstring(char *p, char *tkn) {
     skipspace(p);                                           // skip leading spaces
-    while(*tkn && ((*tkn) == (*p))) { tkn++; p++; }   // compare the strings
+    while(*tkn) {                                                   // compare the strings
+        if(issymbol(*p)) {
+            // a name stored as a symbol matches if its spelling is the next part of the keyword (see Symbols.h)
+            const char *s;
+            int len;
+            s = SymSpelling(p, &len);
+            while(len && *tkn && toupper(*tkn) == toupper(*s)) { tkn++; s++; len--; }
+            if(len) return NULL;                                    // the name differs, or goes on past the keyword
+            p += symbolsize(*p);
+            continue;
+        }
+        if(*tkn != *p) break;
+        tkn++; p++;
+    }
     if(*tkn == 0 && (*p == ' ' || *p == ',' || *p == '\'' || *p == '(' || *p == 0)) {
         skipspace(p);
         return p;                                                   // if successful return a pointer to the next non space character after the matched string

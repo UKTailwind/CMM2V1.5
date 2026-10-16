@@ -41,6 +41,7 @@ extern void m_alloc(int size);
 extern void *GetTempMemory(int NbrBytes);
 extern void *GetTempStrMemory(void);
 extern void *GetMemory(size_t NbrBytes);
+extern void *GetMemoryNull(size_t NbrBytes);                       // as GetMemory, NULL when there is no room
 extern void *GetInternalMemory(size_t NbrBytes);
 extern void *GetInternalMemoryNull(size_t size);
 //extern void *GetSystemMemory(int  msize);
