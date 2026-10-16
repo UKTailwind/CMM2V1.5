@@ -408,15 +408,15 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
    - **LIST** turns them back (P `Commands.c:11128-11133`).
    - **The keyword list** for the editor and autocomplete skips the two stubs and adds the user-facing names (P `Commands.c:2976`).
 
-   That saves four tokens. The CMM2 already folds `BIN$(`/`OCT$(`/`HEX$(` into `BASE$(` the same way.
+   That saves four tokens. The CMM2 already folds `BIN$(`/`OCT$(`/`HEX$(` into `BASE$(` the same way. The PicoMite's other folds named in step 1 (`fun_tilde` for the remaining `MM.` names, `DEVICE(` for the controller readers) are for when the space is needed.
 
    **Done 16 Oct.** The table now holds 121 tokens. The port goes further than the PicoMite in three places:
    - Spaces before the bracket are closed up first, so `LEFT$ (a$, 2)` still works and `HEX$ (255)` now works.
    - LIST keeps the table's case and doesn't unfold inside a longer name.
    - RIGHT$( checks its argument count.
 
-   The PicoMite's issues #16, #17 and #18 report these gaps. The PicoMite's other folds named in step 1 (`fun_tilde` for the remaining `MM.` names, `DEVICE(` for the controller readers) are for when the space is needed.
-6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too.
+   The PicoMite's issues #16, #17 and #18 report these gaps.
+6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too. The detailed plan, with three questions for Peter, is `docs/mmb2csub_CMM2_Plan.md` (16 Oct).
    - **The CallTable:**
      - the extra entries mmb2csub's generated code calls, in the PicoMite's `PicoCFunctions.h` layout, found through VTOR slot 7 (the decision of 15 Oct);
      - plus whatever the CMM2's own runtime needs.
@@ -482,6 +482,29 @@ Gate: the CMM2 demo programs under `CMM2`; the PicoMite's `Bas/` games (Exile, E
     - Whole HAL objects (TIM, DAC, DMA2D, GPIO) can stay as file patterns.
     - Add a post-link check of the section's size against 64 KB.
   - **Each move is measured.** The 15 Oct re-application cost 0.8% on `solar_eclipse` from the shift in flash layout alone.
+  - **The slowdown since the baseline, measured 16 Oct.** Text mode is slower than at 4db1c0b, which still reproduces today (bench_micro's empty FOR loop 0.70 µs, solar_eclipse 7.42 s). By commit, in text mode:
+
+    | Build | empty FOR | a%=b% | GOSUB | solar_eclipse |
+    |---|---|---|---|---|
+    | 4db1c0b, the baseline | 0.70 | 2.54 | 2.32 | 7.42 s |
+    | b5bbff6, two-byte tokens | 0.73 | 2.36 | 2.29 | 7.26 s |
+    | daa0537, step 3 (line header) | 1.24 | 2.63 | 1.78 | 7.45 s |
+    | 2cd87a8, TinyUSB | 1.41 | 2.39 | 1.89 | 7.35 s |
+    | fb3016c, step 4 (variables) | 1.40 | 2.40 | 2.04 | 8.37 s |
+    | db92816, step 5 (arrays, structures) | 1.34 | 2.67 | 2.04 | 8.86 s |
+    | d4477bc, 6.0 | 1.34 | 2.69 | 1.98 | 8.90 s |
+    | 9eac831, 6.1 | 1.64 | 3.11 | 2.30 | 9.14 s |
+    | aec2d8c, 6.2 | 1.46 | 3.01 | 2.71 | 9.26 s |
+
+    With symbols, 6.2 runs solar_eclipse in 7.77 s.
+    - **Most rows move 5-10% either way from build to build.** That is the code's placement in flash, which runs through the 16 KB I-cache.
+    - **The empty FOR loop doubled at daa0537 and has not come back.** It is as slow on one line as on two (1.42 against 1.46 µs on 6.2). Nothing in its path changed in that commit, so this is a fetch effect too.
+    - **Steps 4 and 5 cost solar_eclipse 14% and 6%.** SUB calls with locals and array accesses rose in steady steps at those commits, which looks like real cost (the `slotrec` indirection and the dimension accessors). It is worth profiling.
+    - **First tries at moving code to ITCM (16 Oct, not kept):**
+      - All of MMBasic.c and Operators.c (ITCM at 57 KB): it hangs during the boot banner.
+      - Only ExecuteProgram, makeargs, cmd_for, cmd_next, CheckAbort and routinechecks: it boots and echoes, but runs no command.
+
+      Something in the interpreter depends on running from flash, and that comes first. Ruled out so far: the MPU, which has no region over ITCM, and the startup copy, whose `_eITCM` covers the linker's long-branch stubs.
 - Route B on the M7: the dispatch table and value stack in DTCM, `RBRun` in ITCM, the stream in SDRAM; compare `OPTION COMPILE OFF/ON` on the anchor, the games and the micro suite; D-cache effects on the SDRAM stream.
 - (moved to P1 step 6b, 16 Oct) mmb2csub for the CMM2: `armcfgen.py` with a `--cpu cortex-m7` profile (`-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard`): doubles and 64-bit multiply/divide inline, no `FMul`/`LMul` helpers; the CallTable through VTOR slot 7; the blob is CMM2-only: CSUBs built for the PicoMite's processors do not run on the CMM2 and are rebuilt.
 - DMA2D for `PAGE COPY`, `BLIT`, `SPRITE` compositing and `FRAMEBUFFER MERGE`; the hardware JPEG path; `MATH` on the FPU.
