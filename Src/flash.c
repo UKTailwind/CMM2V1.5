@@ -141,7 +141,7 @@ void MemWriteAlign(void) {
 }
 
 void FlashWriteAlign(void) {
-	if(Option.ProgramStartCode<0){MemWriteAlign();return;}
+	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteAlign(); realflashpointer=realmempointer; return;}   // (in step, as FlashWriteByte)
 	  while(i8p != 0) {
 		  FlashWriteByte(0x0);
 	  }
@@ -157,7 +157,7 @@ void MemWriteWord(unsigned int i) {
 
 // utility routine used by SaveProgramToFlash() and cmd_var to write a byte to flash while erasing the page if needed
 void FlashWriteWord(unsigned int i) {
-	if(Option.ProgramStartCode<0){MemWriteWord(i); return;}
+	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteWord(i); realflashpointer=realmempointer; return;}
 	FlashWriteByte(i & 0xFF);
 	FlashWriteByte((i>>8) & 0xFF);
 	FlashWriteByte((i>>16) & 0xFF);
@@ -172,7 +172,7 @@ void MemWriteClose(void){
 
 // flush any bytes in the buffer to flash
 void FlashWriteClose(void) {
-	if(Option.ProgramStartCode<0){MemWriteClose(); return;}
+	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteClose(); realflashpointer=realmempointer; return;}
 	  while(i8p != 0) {
 		  FlashWriteByte(0xff);
 	  }
