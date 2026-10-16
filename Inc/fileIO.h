@@ -89,6 +89,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern volatile int tickspersample;
     extern void checkWAVinput(void);
     extern char *WAVInterrupt;
+    extern char *EFFECTInterrupt;
+    extern volatile int EFFECTcomplete;
     extern volatile int WAVcomplete;
     extern int WAV_fnbr;
     extern FRESULT FSerror;

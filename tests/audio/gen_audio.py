@@ -1,6 +1,6 @@
 """gen_audio.py OUTDIR: two-second test tones for PLAY WAV, FLAC and MP3 on the CMM2, the program that times them
-(audiotest.bas), a one-second mono WAV at 44.1 kHz for PLAY EFFECT, and a1test.bas copied beside them. Needs numpy,
-soundfile and lameenc."""
+(audiotest.bas), a one-second mono WAV at 44.1 kHz for PLAY EFFECT, a1test.bas copied beside them, and tiny.mod (2.56 s,
+for PLAY MODFILE's interrupt). Needs numpy, soundfile and lameenc."""
 import os, sys, shutil
 import numpy as np, soundfile as sf, lameenc
 out = sys.argv[1]
@@ -30,6 +30,18 @@ for name, rate, ch, kind in (('ts_wav', 44100, 2, 'WAV'), ('tm_wav', 22050, 1, '
 
 sf.write(os.path.join(out, 'tm44_wav.wav'), 0.37 * np.sin(2 * np.pi * 523 * np.arange(44100) / 44100), 44100, subtype='PCM_16')
 shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'a1test.bas'), out)
+
+# tiny.mod: a ProTracker module of known length for PLAY MODFILE's play-once interrupt - one looped square sample, a
+# note on row 0 with speed 1 (one 20 ms tick a row at 125 BPM), and its one pattern played twice: 128 rows, 2.56 s
+import struct
+smp = bytes([64] * 16 + [192] * 16)                                 # signed 8-bit: +64 then -64
+hdr = b'tiny'.ljust(20, bytes(1))
+hdr += b'square'.ljust(22, bytes(1)) + struct.pack('>HBBHH', len(smp) // 2, 0, 64, 0, len(smp) // 2)
+hdr += (bytes(22) + struct.pack('>HBBHH', 0, 0, 0, 0, 1)) * 30
+hdr += bytes([2, 127]) + bytes(128) + b'M.K.'
+pat = bytearray(64 * 4 * 4)
+pat[0:4] = bytes([428 >> 8, 428 & 0xFF, (1 << 4) | 0xF, 1])           # sample 1, period 428, effect F01: speed 1
+open(os.path.join(out, 'tiny.mod'), 'wb').write(hdr + bytes(pat) + smp)
 
 bas = ["' audiotest.bas - each two-second tone from PLAY to its completion interrupt (the dr_ libraries update)",
        "Dim integer fired, i",

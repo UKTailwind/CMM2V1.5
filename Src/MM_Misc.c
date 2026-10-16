@@ -3239,8 +3239,8 @@ void fun_info(void){
 		iret = BBCSoundFree(*tp ? getint(tp, 0, 3) : -1);           // emptiest of the four (the PicoMite's)
 		rettype='I';
 	} else if(checkstring(ep, "TRACK")){                                // the file playing (it read alist, NULL for a single file)
-		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV ||
-		   CurrentlyPlaying == P_PAUSE_MP3 || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_WAV) strcpy(sret, WAVfilename);
+		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_MOD ||
+		   CurrentlyPlaying == P_PAUSE_MP3 || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MOD) strcpy(sret, WAVfilename);
 		else strcpy(sret,"OFF");
 	} else if(checkstring(ep, "SOUND")){
 		switch(audiofinished ? P_NOTHING : CurrentlyPlaying){      // the PicoMite's strings (Peter, 16 Oct: "MODFILE" and a bare
@@ -3888,6 +3888,12 @@ int check_interrupt(void) {
         WAVcomplete=false;
 		intaddr = WAVInterrupt;									    // set the next stmt to the interrupt location
 		WAVInterrupt = NULL;                                        // once: a later sound's end must not fire it again
+		goto GotAnInterrupt;
+	}
+    if(EFFECTInterrupt != NULL && EFFECTcomplete) {                 // PLAY EFFECT's end
+        EFFECTcomplete=false;
+		intaddr = EFFECTInterrupt;
+		EFFECTInterrupt = NULL;
 		goto GotAnInterrupt;
 	}
     if(COLLISIONInterrupt != NULL && CollisionFound) {

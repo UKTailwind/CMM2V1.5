@@ -391,6 +391,7 @@ void cleanend(void){
     com3_TX_interrupt=NULL;
     KeyInterrupt=NULL;									    // set the next stmt to the interrupt location
     WAVInterrupt=NULL;									    // set the next stmt to the interrupt location
+    EFFECTInterrupt=NULL;
     COLLISIONInterrupt=NULL;									    // set the next stmt to the interrupt location
     ADCInterrupt=NULL;									    // set the next stmt to the interrupt location
     DACInterrupt=NULL;									    // set the next stmt to the interrupt location

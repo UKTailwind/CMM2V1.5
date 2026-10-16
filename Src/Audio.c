@@ -129,6 +129,8 @@ char *wav_buf;                                                      // pointer t
 volatile int wav_filesize;                                                   // head and tail of the ring buffer for com1
 volatile int tickspersample;
 char *WAVInterrupt = NULL;
+char *EFFECTInterrupt = NULL;                                       // PLAY EFFECT's own, so a module played once keeps its
+volatile int EFFECTcomplete = 0;
 volatile int WAVcomplete;
 volatile int audiofinished = 0;                                    // TONE or TTS ended in the interrupt: audio_checks finishes it
 char WAVfilename[FF_MAX_LFN] = "";                                 // the file playing, for MM.INFO(TRACK)
@@ -174,6 +176,7 @@ extern void getfullpath(char *p, char *q);                         // FileIO.c
 // PLAY ARRAY, PLAY SAMPLE and PLAY LOAD SOUND (the PicoMite's); their arrays are read while they play, so must be global
 static int arraypos = 0, arraysize = 0;                             // ARRAY: the next and the end sample (16 bits, four to an element)
 short *leftarray = NULL, *rightarray = NULL;
+static int modnoloop = 0;                                           // PLAY MODFILE with an interrupt: play once
 volatile int audiorepeat = 1;                                       // timer ticks per sample: ARRAY below 32 kHz (TIM4 stops at ~1.8 kHz)
 unsigned short *usertable = NULL;                                   // PLAY LOAD SOUND's wave table, PLAY SOUND type "U"
 typedef enum {ADSR_IDLE, ADSR_ATTACK, ADSR_DECAY, ADSR_SUSTAIN, ADSR_RELEASE} e_ADSRPhase;
@@ -1276,7 +1279,7 @@ void CloseAudio(int all){
 	bcounte[1] = bcounte[2] = wav_filesize = 0;
 	swingbuf = nextbuf = playreadcomplete = 0;
 	swingbufe = nextbufe = playreadcompletee = 0;
-	if(all) WAVInterrupt = NULL;                                      // (a track change keeps it: the last track fires it)
+	if(all) { WAVInterrupt = NULL; EFFECTInterrupt = NULL; EFFECTcomplete = false; }                                      // (a track change keeps it: the last track fires it)
 	StopAudio();
 	ForceFileClose(WAV_fnbr);
 	if((was_playing == P_MP3 || was_playing == P_PAUSE_MP3) && mymp3)drmp3_uninit(mymp3);
@@ -2015,11 +2018,10 @@ void cmd_play(void) {
 
         if(!InitSDCard()) return;
         p = getCstring(argv[0]);                                    // get the file name
-        WAVInterrupt = NULL;
-
-        WAVcomplete = 0;
+        EFFECTInterrupt = NULL;                                     // (it was WAVInterrupt, which an EFFECT took from the module)
+        EFFECTcomplete = 0;
         if(argc == 3) {
-            WAVInterrupt = GetIntAddress(argv[2]);					// get the interrupt location
+            EFFECTInterrupt = GetIntAddress(argv[2]);				// get the interrupt location
             InterruptUsed = true;
         }
         if(swingbufe){
@@ -2121,24 +2123,33 @@ void cmd_play(void) {
 
        return;
     }
-    if((tp = checkstring(cmdline, "MODFILE"))) {
-        getargs(&tp, 3,",");                                  // this MUST be the first executable line in the function
-        char *p, *r;
+    if((tp = checkstring(cmdline, "MODFILE"))) {                  // PLAY MODFILE file$ [, rate] [, interrupt]: with an interrupt it
+        getargs(&tp, 5,",");                                  // this MUST be the first executable line in the function
+        char *p, *r, *ia = NULL;                                    // plays once and fires it; PLAY MODFILE file$, sub is the PicoMite's
         int i __attribute((unused))=0;
+        if(!(argc == 1 || argc == 3 || argc == 5)) error("Argument count");
         modfilesamplerate=44100;
         if(CurrentlyPlaying != P_NOTHING) error("Sound output in use");
+        if(argc == 3 && isnamestart(*argv[2]) && FindSubFun(argv[2], 0) != -1) ia = GetIntAddress(argv[2]);  // a SUB: the PicoMite's form
+        else if(argc >= 3 && *argv[2]) modfilesamplerate=getinteger(argv[2]);
+        if(argc == 5) ia = GetIntAddress(argv[4]);
+        if(!(modfilesamplerate==8000 || modfilesamplerate==16000 || modfilesamplerate==22050 || modfilesamplerate==44100 || modfilesamplerate==48000 ))error("Valid rates are 8000, 16000, 22050, 44100, 48000");
+        if(ia && !CurrentLinePtr) error("No program running");
         if(!InitSDCard()) return;
         sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE);
         sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE);
         ibuff1 = (uint16_t *)sbuff1;
         ibuff2 = (uint16_t *)sbuff2;
         p = getCstring(argv[0]);                                    // get the file name
-        WAVInterrupt = NULL;
+        WAVInterrupt = ia;
         WAVcomplete = 0;
+        if(ia) InterruptUsed = true;
+        modnoloop = (ia != NULL);
         // open the file
         if(strchr(p, '.') == NULL) strcat(p, ".MOD");
         WAV_fnbr = FindFreeFileNbr();
         if(!BasicFileOpen(p, WAV_fnbr, FA_READ)) return;
+        strncpy(WAVfilename, p, sizeof(WAVfilename) - 1);           // for MM.INFO(TRACK)
         i=0;
         modbuff  = r = GetMemory(f_size(FileTable[WAV_fnbr].fptr)+256);
 //        PInt(f_size(FileTable[WAV_fnbr].fptr)+256);PIntHC((uint32_t)q);PRet();FileClose(WAV_fnbr);return;
@@ -2148,8 +2159,7 @@ void cmd_play(void) {
             routinechecks(1);
         }
         FileClose(WAV_fnbr);
-        if(argc==3)modfilesamplerate=getinteger(argv[2]);
-        if(!(modfilesamplerate==8000 || modfilesamplerate==16000 || modfilesamplerate==22050 || modfilesamplerate==44100 || modfilesamplerate==48000 ))error("Valid rates are 8000, 16000, 22050, 44100, 48000");
+        WAV_fnbr = 0;                                               // (closed: the end of play must not close it again)
         htim4.Init.Prescaler = PSpeedDiv/modfilesamplerate-1;
     	htim4.Instance->PSC = PSpeedDiv/modfilesamplerate-1;
         hxcmod_init( &mcontext );
@@ -2160,8 +2170,8 @@ void cmd_play(void) {
 			FreeMemorySafe((void **)&sbuff2);
 			error("Not a MOD file it can play");
 		}
-        hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, WAV_BUFFER_SIZE/4, NULL );
-//        hxcmod_fillbuffer( &mcontext, (msample*)sbuff2, WAV_BUFFER_SIZE/4, NULL );
+        playreadcomplete=0;
+        if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, WAV_BUFFER_SIZE/4, NULL, modnoloop )) playreadcomplete = 1;
         wav_filesize=WAV_BUFFER_SIZE/2;
         bcount[1]=WAV_BUFFER_SIZE/2;
         bcount[2]=0;
@@ -2172,7 +2182,6 @@ void cmd_play(void) {
         swingbuf=1;
         nextbuf=2;
         ppos=0;
-        playreadcomplete=0;
         ConfigSoundOutputs();
         return;
     }
@@ -2280,15 +2289,21 @@ void checkWAVinput(void){
             nextbuf=swingbuf;
         } else if(CurrentlyPlaying == P_MOD){
         	  if(swingbuf==2){
-        	       hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, WAV_BUFFER_SIZE/4, NULL );
-        	       wav_filesize=WAV_BUFFER_SIZE/2;
-        	       bcount[1]=WAV_BUFFER_SIZE/2;
-                   i2convert((int16_t *)ibuff1, (int16_t *)sbuff1, bcount[1]);
+        	       wav_filesize=WAV_BUFFER_SIZE/2;                    // (EFFECT's end test reads it: kept)
+        	       if(playreadcomplete) bcount[1]=0;                 // a module played once has ended
+        	       else {
+        	           if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, WAV_BUFFER_SIZE/4, NULL, modnoloop )) playreadcomplete = 1;
+        	           bcount[1]=WAV_BUFFER_SIZE/2;
+                       i2convert((int16_t *)ibuff1, (int16_t *)sbuff1, bcount[1]);
+        	       }
         	  } else {
-        	       hxcmod_fillbuffer( &mcontext, (msample*)sbuff2, WAV_BUFFER_SIZE/4, NULL );
-        	       wav_filesize=WAV_BUFFER_SIZE/2;
-        	       bcount[2]=WAV_BUFFER_SIZE/2;
-                   i2convert((int16_t *)ibuff2, (int16_t *)sbuff2, bcount[2]);
+        	       wav_filesize=WAV_BUFFER_SIZE/2;                    // (EFFECT's end test reads it: kept)
+        	       if(playreadcomplete) bcount[2]=0;                 // a module played once has ended
+        	       else {
+        	           if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff2, WAV_BUFFER_SIZE/4, NULL, modnoloop )) playreadcomplete = 1;
+        	           bcount[2]=WAV_BUFFER_SIZE/2;
+                       i2convert((int16_t *)ibuff2, (int16_t *)sbuff2, bcount[2]);
+        	       }
         	  }
         	  nextbuf=swingbuf;
 
@@ -2374,7 +2389,7 @@ void audio_checks(void){
             FileClose(WAV_fnbr);
 //            FreeMemorySafe((void *)&sbuff1e);
 //            FreeMemorySafe((void *)&sbuff2e);
-            WAVcomplete = true;
+            EFFECTcomplete = true;
             mymemset(&mywav,0,sizeof(drwav));
             CurrentlyPlayinge = P_NOTHING;
             playreadcompletee = 0;
@@ -2387,8 +2402,13 @@ void audio_checks(void){
             FreeMemorySafe((void *)&sbuff1);
             FreeMemorySafe((void *)&sbuff2);
             FreeMemorySafe((void *)&alist);
+            if(CurrentlyPlaying == P_MOD) {                         // a module played once
+                FreeMemorySafe((void *)&modbuff);
+                FreeMemorySafe((void *)&sbuff1e);
+                FreeMemorySafe((void *)&sbuff2e);
+            }
             StopAudio();
-            if(WAV_fnbr) FileClose(WAV_fnbr);                       // (none for ARRAY and SAMPLE)
+            if(WAV_fnbr && FileTable[WAV_fnbr].fptr) FileClose(WAV_fnbr);  // (none for ARRAY, SAMPLE, BBC; MOD's was closed; EFFECT's)
             WAVcomplete = true;
             playreadcomplete = 0;
             mymemset(&mywav,0,sizeof(drwav));

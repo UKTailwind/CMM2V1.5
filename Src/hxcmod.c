@@ -1297,7 +1297,9 @@ int hxcmod_effectplaying( modcontext * modctx, unsigned short seffectnum)
     return effectptr -> active;
 }
 
-void hxcmod_fillbuffer( modcontext * modctx, msample * outbuffer, unsigned long nbsample, tracker_buffer_state * trkbuf )
+// CMM2: noloop (the PicoMite's) stops at the end of the song and returns 1, the rest of the buffer silent (the
+// PicoMite's leaves it unwritten and plays it); 0 otherwise
+int hxcmod_fillbuffer( modcontext * modctx, msample * outbuffer, unsigned long nbsample, tracker_buffer_state * trkbuf, int noloop )
 {
 	unsigned long i, j;
 	unsigned long k;
@@ -1367,7 +1369,22 @@ void hxcmod_fillbuffer( modcontext * modctx, msample * outbuffer, unsigned long 
 							modctx->tablepos++;
 							modctx->patternpos = 0;
 							if(modctx->tablepos >= modctx->song.length)
+							{
+								if(noloop)
+								{
+									for( ; i < nbsample; i++ )
+									{
+#ifdef HXCMOD_MONO_OUTPUT
+										outbuffer[i] = 0;
+#else
+										outbuffer[(i*2)]   = 0;
+										outbuffer[(i*2)+1] = 0;
+#endif
+									}
+									return 1;
+								}
 								modctx->tablepos = 0;
+							}
 						}
 					}
 					else
@@ -1675,6 +1692,7 @@ void hxcmod_fillbuffer( modcontext * modctx, msample * outbuffer, unsigned long 
 			}
 		}
 	}
+	return 0;
 }
 
 void hxcmod_unload( modcontext * modctx )

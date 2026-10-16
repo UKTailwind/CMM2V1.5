@@ -929,6 +929,9 @@ void Audio_Interrupt(void)  {
         }
     } else if(CurrentlyPlaying == P_MOD ) {
     	int32_t c1=0,c2=0,c3=0,c4=0, out=0;                          // MOD and EFFECT, signed, each at half level (i2convert)
+        if(bcount[1]==0 && bcount[2]==0 && playreadcomplete==1){    // a module played once has ended (audio_checks finishes)
+        	HAL_TIM_Base_Stop_IT(&htim4);
+        }
         if(swingbuf){ //buffer is primed
         	if(swingbuf==1)flacbuff=(uint16_t *)sbuff1;
         	else flacbuff=(uint16_t *)sbuff2;
@@ -943,7 +946,7 @@ void Audio_Interrupt(void)  {
         		ppos=0;
         		if(swingbuf==1)swingbuf=2;
         		else swingbuf=1;
-        		if(bcount[swingbuf]==0){ //nothing ready yet so flip back
+        		if(bcount[swingbuf]==0 && !playreadcomplete){ //nothing ready yet so flip back (not at the end of a module played once)
             		if(swingbuf==1){
             			swingbuf=2;
             			nextbuf=1;
