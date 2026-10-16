@@ -82,12 +82,12 @@ As separate commits, each built with 0 warnings and with tests where a program c
 | A5 | MOD | hxcmod's `noloop` (with the buffer-tail fix), PLAY MODFILE's interrupt, MM.INFO(TRACK) for MOD |
 | A6 | Output | volume ramps, the click-free stop and pause on the DACs, polyBLEP square and sawtooth, one 16-bit level for all formats |
 
-## 8. Decisions needed
+## 8. Decisions
 
-1. The interrupt on PLAY STOP and on each track of an album (4.1): the natural end only?
-2. FLAC and MP3 at WAV's level (4.6), which changes how loud existing programs sound.
-3. PAUSE twice silent (4.3), TONE while paused (4.4).
-4. MM.INFO(SOUND) strings by dialect (4.5).
+1. The interrupt on PLAY STOP and on each track of an album (4.1): **the natural end only** (Peter, 16 Oct; done in A1).
+2. One output level for all formats (4.6): **open**. A correction to 4.6: at VOLUME 100 a full-scale WAV swings ±2048 counts about 2048 (the DAC's whole range), FLAC, MP3, TONE and SOUND ±1900 about 2000, MOD ±1024 about 2048 (room for EFFECT). FLAC and MP3 are only 7% (0.6 dB) below WAV, not audibly quieter. The real choice is decoding FLAC and MP3 to 16 bits as WAV and the PicoMite do (half their buffer memory, one conversion for all three), and one level and centre for everything; proposed ±1900 about 2000, which leaves WAV 0.6 dB quieter, keeps it off the DAC's rails (the output buffer is on) and makes the centre the idle level, so starting and stopping a WAV no longer steps 48 counts.
+3. PAUSE when already paused is silent (4.3); PLAY TONE while a tone is paused plays the new tone at once, as the CMM2 does now (4.4) (Peter, 16 Oct).
+4. MM.INFO(SOUND): **the PicoMite's strings throughout** (Peter, 16 Oct): "MOD" for "MODFILE", "PAUSED TONE", "PAUSED WAV" and so on for "PAUSED", and "ARRAY", "SAMPLE", "BBC" as those come; "TTS" and "DAC" stay, as the PicoMite has no such states. A CMM2 program that tests for "MODFILE" or a bare "PAUSED" needs changing.
 
 ## 9. Progress
 
