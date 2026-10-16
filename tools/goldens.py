@@ -380,7 +380,7 @@ def main():
                 if size.strip().isdigit():
                     onboard[name.strip().lower()] = int(size)
     files = [f for f in os.listdir(corpus) if f.lower().endswith(".bas") and f[:-4] in names]   # every program: some run or read others
-    files += [f for f in os.listdir(corpus) if f.lower().endswith((".dat", ".txt", ".csv", ".inc", ".bmp"))]
+    files += [f for f in os.listdir(corpus) if f.lower().endswith((".dat", ".txt", ".csv", ".inc", ".bmp", ".jpg", ".png", ".gif"))]
     stage = tempfile.mkdtemp(prefix="goldens_")
     todo = []
     for f in sorted(files):

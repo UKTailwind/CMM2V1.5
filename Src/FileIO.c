@@ -1318,6 +1318,236 @@ void LoadGIF(char *p) {
 static uint g_nInFileSize;
 static uint g_nInFileOfs;
 static int jpgfnbr;
+// Dithering modes - bit layout: [method(bit2)][format(bits 1-0)]
+// Bit 2: 0=Floyd-Steinberg, 1=Atkinson
+// Bits 1-0: 00=RGB121, 01=RGB222, 10=RGB332, 11=reserved for RGB565
+#define DITHER_NONE -1
+#define DITHER_FS_RGB121 0       // 0b000
+#define DITHER_FS_RGB222 1       // 0b001
+#define DITHER_FS_RGB332 2       // 0b010
+#define DITHER_ATKINSON_RGB121 4 // 0b100
+#define DITHER_ATKINSON_RGB222 5 // 0b101
+#define DITHER_ATKINSON_RGB332 6 // 0b110
+
+// Extract mode components
+#define DITHER_METHOD(mode) ((mode) >> 2)  // 0=Floyd-Steinberg, 1=Atkinson
+#define DITHER_FORMAT(mode) ((mode) & 0x3) // 0=RGB121, 1=RGB222, 2=RGB332, 3=RGB565
+
+// Format identifiers
+#define FORMAT_RGB121 0
+#define FORMAT_RGB222 1
+#define FORMAT_RGB332 2
+#define FORMAT_RGB565 3
+
+// Convert RGB888 to RGB121 with dithering
+uint8_t rgb888_to_rgb121_dither(int16_t r, int16_t g, int16_t b)
+{
+    r = (r < 0) ? 0 : (r > 255) ? 255
+                                : r;
+    g = (g < 0) ? 0 : (g > 255) ? 255
+                                : g;
+    b = (b < 0) ? 0 : (b > 255) ? 255
+                                : b;
+    uint8_t r1 = (r >= 128) ? 1 : 0;
+    uint8_t g2 = (g * 3 + 127) / 255;
+    uint8_t b1 = (b >= 128) ? 1 : 0;
+    return (r1 << 3) | (g2 << 1) | b1;
+}
+
+// Convert RGB888 to RGB222 with dithering
+uint8_t rgb888_to_rgb222_dither(int16_t r, int16_t g, int16_t b)
+{
+    r = (r < 0) ? 0 : (r > 255) ? 255
+                                : r;
+    g = (g < 0) ? 0 : (g > 255) ? 255
+                                : g;
+    b = (b < 0) ? 0 : (b > 255) ? 255
+                                : b;
+    uint8_t r2 = (r * 3 + 127) / 255;
+    uint8_t g2 = (g * 3 + 127) / 255;
+    uint8_t b2 = (b * 3 + 127) / 255;
+    return (r2 << 4) | (g2 << 2) | b2;
+}
+
+// Convert RGB888 to RGB332 with dithering
+uint8_t rgb888_to_rgb332_dither(int16_t r, int16_t g, int16_t b)
+{
+    r = (r < 0) ? 0 : (r > 255) ? 255
+                                : r;
+    g = (g < 0) ? 0 : (g > 255) ? 255
+                                : g;
+    b = (b < 0) ? 0 : (b > 255) ? 255
+                                : b;
+    uint8_t r3 = (r * 7 + 127) / 255;
+    uint8_t g3 = (g * 7 + 127) / 255;
+    uint8_t b2 = (b * 3 + 127) / 255;
+    return (r3 << 5) | (g3 << 2) | b2;
+}
+
+// Convert quantized color back to RGB888
+static inline void unpack_rgb121(uint8_t packed, uint8_t *r, uint8_t *g, uint8_t *b)
+{
+    uint8_t r1 = (packed >> 3) & 1;
+    uint8_t g2 = (packed >> 1) & 3;
+    uint8_t b1 = packed & 1;
+    *r = r1 ? 255 : 0;
+    *g = (g2 * 255) / 3;
+    *b = b1 ? 255 : 0;
+}
+
+static inline void unpack_rgb222(uint8_t packed, uint8_t *r, uint8_t *g, uint8_t *b)
+{
+    uint8_t r2 = (packed >> 4) & 3;
+    uint8_t g2 = (packed >> 2) & 3;
+    uint8_t b2 = packed & 3;
+    *r = (r2 * 255) / 3;
+    *g = (g2 * 255) / 3;
+    *b = (b2 * 255) / 3;
+}
+
+static inline void unpack_rgb332(uint8_t packed, uint8_t *r, uint8_t *g, uint8_t *b)
+{
+    uint8_t r3 = (packed >> 5) & 7;
+    uint8_t g3 = (packed >> 2) & 7;
+    uint8_t b2 = packed & 3;
+    *r = (r3 * 255) / 7;
+    *g = (g3 * 255) / 7;
+    *b = (b2 * 255) / 3;
+}
+
+// Dither a complete image row (across all MCUs)
+static void dither_image_row(uint8_t *row_buffer, int row_width,
+                             int16_t *curr_error, int16_t *next_error, int mode)
+{
+    int method = DITHER_METHOD(mode); // 0=Floyd-Steinberg, 1=Atkinson
+    int format = DITHER_FORMAT(mode); // 0=RGB121, 1=RGB222, 2=RGB332
+
+    int is_fs = (method == 0);
+
+    for (int x = 0; x < row_width; x++)
+    {
+        uint8_t *pDst = row_buffer + (x * 3);
+
+        // Apply error
+        int16_t old_r = pDst[2] + curr_error[x * 3 + 0];
+        int16_t old_g = pDst[1] + curr_error[x * 3 + 1];
+        int16_t old_b = pDst[0] + curr_error[x * 3 + 2];
+
+        // Quantize based on format
+        uint8_t packed, new_r, new_g, new_b;
+
+        switch (format)
+        {
+        case FORMAT_RGB121:
+            packed = rgb888_to_rgb121_dither(old_r, old_g, old_b);
+            unpack_rgb121(packed, &new_r, &new_g, &new_b);
+            break;
+        case FORMAT_RGB222:
+            packed = rgb888_to_rgb222_dither(old_r, old_g, old_b);
+            unpack_rgb222(packed, &new_r, &new_g, &new_b);
+            break;
+        case FORMAT_RGB332:
+            packed = rgb888_to_rgb332_dither(old_r, old_g, old_b);
+            unpack_rgb332(packed, &new_r, &new_g, &new_b);
+            break;
+        default: // FORMAT_RGB565 - not yet implemented
+            new_r = old_r;
+            new_g = old_g;
+            new_b = old_b;
+            break;
+        }
+
+        // Clamp for error calculation
+        if (old_r < 0)
+            old_r = 0;
+        if (old_r > 255)
+            old_r = 255;
+        if (old_g < 0)
+            old_g = 0;
+        if (old_g > 255)
+            old_g = 255;
+        if (old_b < 0)
+            old_b = 0;
+        if (old_b > 255)
+            old_b = 255;
+
+        // Calculate errors
+        int16_t err_r = old_r - new_r;
+        int16_t err_g = old_g - new_g;
+        int16_t err_b = old_b - new_b;
+
+        // Write result
+        pDst[2] = new_r;
+        pDst[1] = new_g;
+        pDst[0] = new_b;
+
+        // Distribute error
+        if (is_fs)
+        {
+            // Floyd-Steinberg distribution
+            if (x + 1 < row_width)
+            {
+                curr_error[(x + 1) * 3 + 0] += (err_r * 7) / 16;
+                curr_error[(x + 1) * 3 + 1] += (err_g * 7) / 16;
+                curr_error[(x + 1) * 3 + 2] += (err_b * 7) / 16;
+            }
+
+            if (x > 0)
+            {
+                next_error[(x - 1) * 3 + 0] += (err_r * 3) / 16;
+                next_error[(x - 1) * 3 + 1] += (err_g * 3) / 16;
+                next_error[(x - 1) * 3 + 2] += (err_b * 3) / 16;
+            }
+
+            next_error[x * 3 + 0] += (err_r * 5) / 16;
+            next_error[x * 3 + 1] += (err_g * 5) / 16;
+            next_error[x * 3 + 2] += (err_b * 5) / 16;
+
+            if (x + 1 < row_width)
+            {
+                next_error[(x + 1) * 3 + 0] += (err_r * 1) / 16;
+                next_error[(x + 1) * 3 + 1] += (err_g * 1) / 16;
+                next_error[(x + 1) * 3 + 2] += (err_b * 1) / 16;
+            }
+        }
+        else
+        {
+            // Atkinson distribution
+            if (x + 1 < row_width)
+            {
+                curr_error[(x + 1) * 3 + 0] += err_r / 8;
+                curr_error[(x + 1) * 3 + 1] += err_g / 8;
+                curr_error[(x + 1) * 3 + 2] += err_b / 8;
+            }
+
+            if (x + 2 < row_width)
+            {
+                curr_error[(x + 2) * 3 + 0] += err_r / 8;
+                curr_error[(x + 2) * 3 + 1] += err_g / 8;
+                curr_error[(x + 2) * 3 + 2] += err_b / 8;
+            }
+
+            if (x > 0)
+            {
+                next_error[(x - 1) * 3 + 0] += err_r / 8;
+                next_error[(x - 1) * 3 + 1] += err_g / 8;
+                next_error[(x - 1) * 3 + 2] += err_b / 8;
+            }
+
+            next_error[x * 3 + 0] += err_r / 8;
+            next_error[x * 3 + 1] += err_g / 8;
+            next_error[x * 3 + 2] += err_b / 8;
+
+            if (x + 1 < row_width)
+            {
+                next_error[(x + 1) * 3 + 0] += err_r / 8;
+                next_error[(x + 1) * 3 + 1] += err_g / 8;
+                next_error[(x + 1) * 3 + 2] += err_b / 8;
+            }
+        }
+    }
+}
+
 unsigned char pjpeg_need_bytes_callback(unsigned char *pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data)
 {
     uint n, n_read;
@@ -1331,13 +1561,17 @@ unsigned char pjpeg_need_bytes_callback(unsigned char *pBuf, unsigned char buf_s
     g_nInFileOfs += n;
     return 0;
 }
+// LOAD JPG file$ [, x [, y [, dither [, xoffset [, yoffset [, scale]]]]]]: the PicoMite's (decoded a row of MCUs at a time;
+// xoffset and yoffset crop the source, scale 2, 4 or 8 averages blocks of pixels, dither 0-2 and 4-6 diffuse the error
+// to RGB121, RGB222 or RGB332, Floyd-Steinberg or Atkinson; RGB332 suits the 8-bit modes)
 void cmd_LoadJPGImage(char *p)
 {
     pjpeg_image_info_t image_info;
     int mcu_x = 0;
     int mcu_y = 0;
-    uint row_pitch;
     uint8_t status;
+    int dither_mode = -1;
+
     gCoeffBuf = (int16_t *)GetTempMemory(8 * 8 * sizeof(int16_t));
     gMCUBufR = (uint8_t *)GetTempMemory(256);
     gMCUBufG = (uint8_t *)GetTempMemory(256);
@@ -1349,31 +1583,47 @@ void cmd_LoadJPGImage(char *p)
     gInBuf = (uint8_t *)GetTempMemory(PJPG_MAX_IN_BUF_SIZE);
     g_nInFileSize = g_nInFileOfs = 0;
 
-//    uint decoded_width, decoded_height;
     int xOrigin, yOrigin;
+    int xOffset, yOffset;
+    int scale = 1; // pixel-binning factor: 1=full, 2=50%, 4=25%, 8=12.5%
 
-    // get the command line arguments
-    getargs(&p, 5, ","); // this MUST be the first executable line in the function
+    getargs(&p, 13, ",");
     if (argc == 0)
-        error("Argument count");
+        StandardError(2);
     if (!InitSDCard())
         return;
 
-    p = getFstring(argv[0]); // get the file name
+    p = (char *)getFstring(argv[0]);
 
     xOrigin = yOrigin = 0;
-    if (argc >= 3)
-        xOrigin = getint(argv[2], 0, HRes - 1); // get the x origin (optional) argument
-    if (argc == 5)
-        yOrigin = getint(argv[4], 0, VRes - 1); // get the y origin (optional) argument
+    xOffset = yOffset = 0;
 
-    // open the file
+    if (argc >= 3 && *argv[2])
+        xOrigin = getint(argv[2], 0, HRes - 1);
+    if (argc >= 5 && *argv[4])
+        yOrigin = getint(argv[4], 0, VRes - 1);
+    if (argc >= 7 && *argv[6])
+        dither_mode = getint(argv[6], -1, 7);
+    if (dither_mode == 3 || dither_mode == 7)
+        error("RGB565 dithering not yet supported");
+    // the offsets and the scale are read before the file is opened, so an error in them leaves nothing open (the
+    // PicoMite's read them after, with getint, whose error left the file open); their ranges are checked below
+    if (argc >= 9 && *argv[8])
+        xOffset = getinteger(argv[8]);
+    if (argc >= 11 && *argv[10])
+        yOffset = getinteger(argv[10]);
+    if (argc >= 13 && *argv[12])
+    {
+        scale = getint(argv[12], 1, 8);
+        if (scale != 1 && scale != 2 && scale != 4 && scale != 8)
+            error("Scale must be 1, 2, 4 or 8");
+    }
+
     if (strchr((char *)p, '.') == NULL)
         strcat((char *)p, ".jpg");
     jpgfnbr = FindFreeFileNbr();
     if (!BasicFileOpen((char *)p, jpgfnbr, FA_READ))
         return;
-
     g_nInFileSize = f_size(FileTable[jpgfnbr].fptr);
     status = pjpeg_decode_init(&image_info, pjpeg_need_bytes_callback, NULL, 0);
 
@@ -1387,62 +1637,104 @@ void cmd_LoadJPGImage(char *p)
         FileClose(jpgfnbr);
         error("pjpeg_decode_init() failed with status %", status);
     }
-//    decoded_width = image_info.m_width;
-//    decoded_height = image_info.m_height;
 
-    row_pitch = image_info.m_MCUWidth * image_info.m_comps;
-
-    unsigned char *imageblock = GetTempMemory(image_info.m_MCUHeight * image_info.m_MCUWidth * image_info.m_comps);
-    for (;;)
+    if (xOffset < 0 || xOffset > image_info.m_width - 1)
     {
-        uint8_t *pDst_row = imageblock;
-        int y, x;
+        FileClose(jpgfnbr);
+        error("% is invalid (valid is 0 to %)", xOffset, image_info.m_width - 1);
+    }
+    if (yOffset < 0 || yOffset > image_info.m_height - 1)
+    {
+        FileClose(jpgfnbr);
+        error("% is invalid (valid is 0 to %)", yOffset, image_info.m_height - 1);
+    }
 
-        status = pjpeg_decode_mcu();
+    int mcu_row_width = image_info.m_width * image_info.m_comps;
+    int mcu_row_height = image_info.m_MCUHeight;
+    unsigned char *mcu_row_buffer = GetTempMemory(mcu_row_height * mcu_row_width);
 
-        if (status)
+    // When binning, decoded source lines are averaged into this one output line.
+    // MCU height is always a multiple of 8, so it divides evenly by 2, 4 or 8 and
+    // a bin never straddles an MCU-row boundary.
+    unsigned char *scaled_line_buffer = NULL;
+    if (scale > 1)
+        scaled_line_buffer = GetTempMemory((image_info.m_width / scale + 1) * 3);
+
+    // Allocate error buffers for full image width
+    int16_t *error_buffer_0 = NULL;
+    int16_t *error_buffer_1 = NULL;
+
+    if (dither_mode >= 0)
+    {
+        int err_size = image_info.m_width * 3 * sizeof(int16_t);
+        error_buffer_0 = (int16_t *)GetTempMemory(err_size);
+        error_buffer_1 = (int16_t *)GetTempMemory(err_size);
+
+        for (int i = 0; i < image_info.m_width * 3; i++)
         {
-            if (status != PJPG_NO_MORE_BLOCKS)
-            {
-                FileClose(jpgfnbr);
-                error("pjpeg_decode_mcu() failed with status %", status);
-            }
+            error_buffer_0[i] = 0;
+            error_buffer_1[i] = 0;
+        }
+    }
+
+    int16_t *curr_error = error_buffer_0;
+    int16_t *next_error = error_buffer_1;
+
+    // Process MCU row by MCU row
+    for (mcu_y = 0; mcu_y < image_info.m_MCUSPerCol; mcu_y++)
+    {
+        // Calculate the actual Y position in the image for this MCU row
+        int image_y = mcu_y * image_info.m_MCUHeight;
+
+        // We can stop decoding if we're past the visible region
+        // but we must decode all previous MCU rows sequentially.
+        // With binning each screen row consumes "scale" source rows, so the
+        // visible source height grows by the same factor.
+        int src_visible_limit = yOffset + scale * (VRes - yOrigin);
+        bool should_display = (image_y + image_info.m_MCUHeight > yOffset) &&
+                              (image_y < src_visible_limit);
+
+        if (image_y >= src_visible_limit)
             break;
-        }
 
-        if (mcu_y >= image_info.m_MCUSPerCol)
+        // Decode all MCUs in this row into the buffer
+        // (must decode sequentially even if we won't display this row)
+        for (mcu_x = 0; mcu_x < image_info.m_MCUSPerRow; mcu_x++)
         {
-            FileClose(jpgfnbr);
-            return;
-        }
-        /*    for(int i=0;i<image_info.m_MCUHeight*image_info.m_MCUWidth ;i++){
-                  imageblock[i*3+2]=image_info.m_pMCUBufR[i];
-                  imageblock[i*3+1]=image_info.m_pMCUBufG[i];
-                  imageblock[i*3]=image_info.m_pMCUBufB[i];
-              }*/
-        //         pDst_row = pImage + (mcu_y * image_info.m_MCUHeight) * row_pitch + (mcu_x * image_info.m_MCUWidth * image_info.m_comps);
+            routinechecks(1);
+            status = pjpeg_decode_mcu();
 
-        for (y = 0; y < image_info.m_MCUHeight; y += 8)
-        {
-            const int by_limit = min(8, image_info.m_height - (mcu_y * image_info.m_MCUHeight + y));
-            for (x = 0; x < image_info.m_MCUWidth; x += 8)
+            if (status)
             {
-                uint8_t *pDst_block = pDst_row + x * image_info.m_comps;
-                // Compute source byte offset of the block in the decoder's MCU buffer.
-                uint src_ofs = (x * 8U) + (y * 16U);
-                const uint8_t *pSrcR = image_info.m_pMCUBufR + src_ofs;
-                const uint8_t *pSrcG = image_info.m_pMCUBufG + src_ofs;
-                const uint8_t *pSrcB = image_info.m_pMCUBufB + src_ofs;
-
-                const int bx_limit = min(8, image_info.m_width - (mcu_x * image_info.m_MCUWidth + x));
-
+                if (status != PJPG_NO_MORE_BLOCKS)
                 {
-                    int bx, by;
-                    for (by = 0; by < by_limit; by++)
-                    {
-                        uint8_t *pDst = pDst_block;
+                    FileClose(jpgfnbr);
+                    error("pjpeg_decode_mcu() failed with status %", status);
+                }
+                FileClose(jpgfnbr);
+                return;
+            }
 
-                        for (bx = 0; bx < bx_limit; bx++)
+            // Copy this MCU into the row buffer
+            int mcu_x_offset = mcu_x * image_info.m_MCUWidth;
+
+            for (int y = 0; y < image_info.m_MCUHeight; y += 8)
+            {
+                const int by_limit = min(8, image_info.m_height - (mcu_y * image_info.m_MCUHeight + y));
+                for (int x = 0; x < image_info.m_MCUWidth; x += 8)
+                {
+                    uint src_ofs = (x * 8U) + (y * 16U);
+                    const uint8_t *pSrcR = image_info.m_pMCUBufR + src_ofs;
+                    const uint8_t *pSrcG = image_info.m_pMCUBufG + src_ofs;
+                    const uint8_t *pSrcB = image_info.m_pMCUBufB + src_ofs;
+
+                    const int bx_limit = min(8, image_info.m_width - (mcu_x * image_info.m_MCUWidth + x));
+
+                    for (int by = 0; by < by_limit; by++)
+                    {
+                        uint8_t *pDst = mcu_row_buffer + (y + by) * mcu_row_width + (mcu_x_offset + x) * 3;
+
+                        for (int bx = 0; bx < bx_limit; bx++)
                         {
                             pDst[2] = *pSrcR++;
                             pDst[1] = *pSrcG++;
@@ -1453,72 +1745,151 @@ void cmd_LoadJPGImage(char *p)
                         pSrcR += (8 - bx_limit);
                         pSrcG += (8 - bx_limit);
                         pSrcB += (8 - bx_limit);
-
-                        pDst_block += row_pitch;
                     }
                 }
             }
-            pDst_row += (row_pitch * 8);
         }
 
-        x = mcu_x * image_info.m_MCUWidth + xOrigin;
-        y = mcu_y * image_info.m_MCUHeight + yOrigin;
-        if (y < VRes && x < HRes)
+        // Now dither this entire MCU row, one image row at a time
+        // We MUST process ALL rows to maintain correct error diffusion state
+        if (dither_mode >= 0)
         {
-            int yend = min(VRes - 1, y + image_info.m_MCUHeight - 1);
-            int xend = min(HRes - 1, x + image_info.m_MCUWidth - 1);
-            if (xend < x + image_info.m_MCUWidth - 1)
+            for (int y = 0; y < mcu_row_height; y++)
             {
-                // need to get rid of some pixels to remove artifacts
-                xend = HRes - 1;
-                unsigned char *s = imageblock;
-                unsigned char *d = imageblock;
-                for (int yp = 0; yp < image_info.m_MCUHeight; yp++)
-                {
-                    for (int xp = 0; xp < image_info.m_MCUWidth; xp++)
-                    {
-                        if (xp < xend - x + 1)
-                        {
-                            *d++ = *s++;
-                            *d++ = *s++;
-                            *d++ = *s++;
-                        }
-                        else
-                        {
-                            s += 3;
-                        }
-                    }
-                }
+                int img_y = mcu_y * mcu_row_height + y;
+                if (img_y >= image_info.m_height)
+                    break;
+
+                uint8_t *row_ptr = mcu_row_buffer + (y * mcu_row_width);
+                routinechecks(1);
+                dither_image_row(row_ptr, image_info.m_width, curr_error, next_error, dither_mode);
+
+                // Swap buffers for next row
+                int16_t *temp = curr_error;
+                curr_error = next_error;
+                next_error = temp;
+
+                // Clear next buffer
+                for (int i = 0; i < image_info.m_width * 3; i++)
+                    next_error[i] = 0;
             }
-            if(yend>=yOrigin+image_info.m_height)yend=yOrigin+image_info.m_height-1;
-            if(xend>=xOrigin+image_info.m_width){
-                for(int yi=y;yi<yend;yi++){
-                    uint8_t *ipoint=imageblock+3*image_info.m_MCUWidth*(yi-y);
-                    DrawBuffer(x, yi, xOrigin+image_info.m_width-1, yi, (char *)ipoint,0);
-                }
-            } else DrawBuffer(x, y, xend, yend, (char *)imageblock,0);
         }
 
-        if (y >= VRes)
-        { // nothing useful left to process
-            FileClose(jpgfnbr);
-//            if (Option.Refresh)
-//                Display_Refresh();
-            return;
-        }
-        mcu_x++;
-        if (mcu_x == image_info.m_MCUSPerRow)
+        // Display this MCU row line by line
+        // Only display lines that are within the yOffset region
+        if (should_display && scale == 1)
         {
-            mcu_x = 0;
-            mcu_y++;
+            // Draw each line individually to prevent overflow
+            for (int line = 0; line < image_info.m_MCUHeight; line++)
+            {
+                int image_line_y = image_y + line;
+
+                // Check if this line is within the image bounds
+                if (image_line_y >= image_info.m_height)
+                    break;
+
+                // Skip lines before yOffset
+                if (image_line_y < yOffset)
+                    continue;
+
+                // Calculate screen Y position (relative to yOffset)
+                int screen_y = yOrigin + (image_line_y - yOffset);
+
+                // Check if this line is within vertical display bounds
+                if (screen_y < 0 || screen_y >= VRes)
+                    continue;
+
+                // Calculate horizontal display parameters
+                int screen_x = xOrigin;
+                if (screen_x >= HRes)
+                    continue;
+
+                // Calculate how much of this line to display
+                // We need to skip xOffset pixels from the start of the line
+                int source_start_x = xOffset;
+                int available_width = image_info.m_width - source_start_x;
+                int display_width = min(available_width, HRes - screen_x);
+
+                if (display_width <= 0)
+                    continue;
+
+                // Draw just this line from the buffer, starting at xOffset
+                uint8_t *line_ptr = mcu_row_buffer + (line * mcu_row_width) + (source_start_x * 3);
+                DrawBuffer(screen_x, screen_y, screen_x + display_width - 1, screen_y, (char *)line_ptr, 0);
+                routinechecks(1);
+            }
+        }
+        else if (should_display)
+        {
+            // Scaled output: bin each scale x scale block of source pixels into
+            // a single averaged output pixel. Bins step "scale" source lines at
+            // a time; MCU height is a multiple of scale so bins stay inside this
+            // MCU row buffer.
+            for (int line = 0; line < image_info.m_MCUHeight; line += scale)
+            {
+                int image_line_y = image_y + line; // top source row of this bin
+
+                if (image_line_y >= image_info.m_height)
+                    break;
+
+                // Skip bins that start before yOffset
+                if (image_line_y < yOffset)
+                    continue;
+
+                // Screen Y maps the cropped, binned source row
+                int screen_y = yOrigin + (image_line_y - yOffset) / scale;
+                if (screen_y < 0 || screen_y >= VRes)
+                    continue;
+
+                int screen_x = xOrigin;
+                if (screen_x >= HRes)
+                    continue;
+
+                int source_start_x = xOffset;
+                int available_out = (image_info.m_width - source_start_x) / scale;
+                int display_width = min(available_out, HRes - screen_x);
+
+                if (display_width <= 0)
+                    continue;
+
+                for (int ox = 0; ox < display_width; ox++)
+                {
+                    int sx0 = source_start_x + ox * scale;
+                    uint32_t sumB = 0, sumG = 0, sumR = 0;
+                    int count = 0;
+
+                    for (int dy = 0; dy < scale; dy++)
+                    {
+                        if (image_y + line + dy >= image_info.m_height)
+                            break;
+                        uint8_t *sp = mcu_row_buffer + ((line + dy) * mcu_row_width) + sx0 * 3;
+                        for (int dx = 0; dx < scale; dx++)
+                        {
+                            if (sx0 + dx >= image_info.m_width)
+                                break;
+                            sumB += sp[0];
+                            sumG += sp[1];
+                            sumR += sp[2];
+                            sp += 3;
+                            count++;
+                        }
+                    }
+
+                    // Average the sub-area, rounding to nearest
+                    uint8_t *op = scaled_line_buffer + ox * 3;
+                    op[0] = (uint8_t)((sumB + count / 2) / count);
+                    op[1] = (uint8_t)((sumG + count / 2) / count);
+                    op[2] = (uint8_t)((sumR + count / 2) / count);
+                }
+
+                DrawBuffer(screen_x, screen_y, screen_x + display_width - 1, screen_y, (char *)scaled_line_buffer, 0);
+                routinechecks(1);
+            }
         }
     }
+
     FileClose(jpgfnbr);
-//#ifdef USBKEYBOARD
-	clearrepeat();
-//#endif
-//    if (Option.Refresh)
-//        Display_Refresh();
+    clearrepeat();
 }
 
 

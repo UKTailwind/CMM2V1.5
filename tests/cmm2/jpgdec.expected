@@ -1,0 +1,17 @@
+4:4:4:  ok ok ok ok ok
+4:2:0:  ok ok ok ok ok
+from 32,32:  ok ok ok
+from 32,0:  ok ok ok
+from 0,40:  ok ok ok
+scale 2:  ok ok ok ok ok
+scale 4:  ok ok ok ok ok
+from 32,32 at scale 2:  ok ok
+wider than the screen:  ok ok ok ok ok ok ok ok ok ok ok ok
+dither 2 (Floyd-Steinberg, RGB332): every pixel an RGB332 colour, many changes along the row
+dither 6 (Atkinson, RGB332): every pixel an RGB332 colour
+dither 3: RGB565 dithering not yet supported
+scale 3: Scale must be 1, 2, 4 or 8
+x offset 64: 64 is invalid (valid is 0 to 63)
+progressive: Progressive JPEG files are not supported
+not a JPEG: pjpeg_decode_init() failed with status 19
+file 10 free
