@@ -54,7 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef AUDIO_HEADER
 #define AUDIO_HEADER
-typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3} e_CurrentlyPlaying;
+typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3, P_ARRAY, P_PAUSE_ARRAY, P_SAMPLE, P_PAUSE_SAMPLE} e_CurrentlyPlaying;
 extern volatile e_CurrentlyPlaying CurrentlyPlaying; 
 extern volatile e_CurrentlyPlaying CurrentlyPlayinge;
 extern int PWM_FREQ;

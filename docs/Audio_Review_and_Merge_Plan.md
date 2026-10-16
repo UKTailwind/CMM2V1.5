@@ -123,3 +123,14 @@ Not fixed: hxcmod takes any file without a signature for a 15-sample Soundtracke
 | MOD (PTETRIS) | mean 2044 | mean 1996 |
 
 PAUSE when paused does nothing; PLAY TONE while a tone is paused stays paused; MM.INFO(SOUND) gives the PicoMite's strings ("MOD", "PAUSED WAV" and so on; "TTS" and "DAC" stay) and "OFF" as soon as a tone or speech has ended. In the interrupt, MOD no longer stops while an EFFECT waits for data.
+
+**A3, synthesis (16 Oct).** The PicoMite's `PLAY ARRAY`, `PLAY SAMPLE`, `PLAY RELEASE` and `PLAY LOAD SOUND`, and PLAY SOUND's position and type as string expressions, position "M" (the PicoMite's: the same as "B") and type "U". Differences from the plan and from the PicoMite:
+
+- TONE and SOUND are still computed in the audio interrupt; ARRAY and SAMPLE fill the same pair of buffers as WAV in the main loop (`readarray`, `readsamplearray`) and play through the WAV path of the interrupt. Moving TONE and SOUND to buffers, as the PicoMite does, gains nothing at 480 MHz and would add a buffer of latency.
+- TIM4 cannot run below about 1.8 kHz, so ARRAY repeats each sample until the rate is 32 kHz or more, as the PicoMite's `audiorepeat` does for its PWM; StopAudio puts the repeat back to 1.
+- ARRAY and SAMPLE check that the output is free ("Sound output in use"; issue 25 is the PicoMite's ARRAY without the check), parse both arrays into locals and change nothing until every argument is checked, and stop a running ARRAY or SAMPLE before starting the next.
+- SAMPLE is not limited to the RP2350's build.
+- The loaded table is forgotten by PLAY STOP and CLOSE (and RUN), not at every track change as on the PicoMite.
+- A type that is not a keyword is evaluated as a string, so an unquoted wrong letter gives "Expected a string", as on the PicoMite.
+
+Tests: `tests/audio/a3test.bas`. ARRAY takes 1.00 s for 8000 samples at 8000 a second, 44000 at 44000 and 100 at 100, 0.50 s for samples 4000 to 8000; its ±16000 sine reaches the DAC as 1073 to 2927 (±928 expected); SAMPLE at 50% sustain gives 1696 to 2304 (±304 expected) and its interrupt fires 251 ms after a RELEASE of 200 ms (one buffer of latency) and 352 ms after an attack of 50 and a decay of 300 to a sustain of 0; the loaded square table plays at exactly the level of type "Q". The A1 tests and `levels.bas` give the same results as before.

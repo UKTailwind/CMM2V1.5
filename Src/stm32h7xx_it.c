@@ -147,6 +147,7 @@ extern char *sbuff1e, *sbuff2e;
 extern uint16_t *ibuff1e, *ibuff2e;
 extern volatile int WAVcomplete;
 extern volatile int audiofinished;
+extern volatile int audiorepeat;
 extern DAC_HandleTypeDef hdac1;
 extern volatile float PhaseM_left, PhaseM_right;
 extern const unsigned short SineTable[4096];
@@ -886,7 +887,8 @@ void Audio_Interrupt(void)  {
         	if(PhaseAC_left>=4096.0)PhaseAC_left-=4096.0;
         	if(PhaseAC_right>=4096.0)PhaseAC_right-=4096.0;
         }
-    } else if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_WAV  || CurrentlyPlaying == P_FLAC) {
+    } else if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_WAV  || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE) {
+    	static int repeat = 0;                                      // PLAY ARRAY below 32 kHz: each sample held audiorepeat ticks
         if(bcount[1]==0 && bcount[2]==0 && playreadcomplete==1){
         	HAL_TIM_Base_Stop_IT(&htim4);
         }
@@ -900,8 +902,9 @@ void Audio_Interrupt(void)  {
         		}
         	} else {
 				if(ppos<bcount[swingbuf]){
-					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos++]);
-					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos++]);
+					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos]);
+					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos+1]);
+					if(++repeat >= audiorepeat) { repeat = 0; ppos += 2; }
 				}
         	}
         	if(ppos==bcount[swingbuf]){

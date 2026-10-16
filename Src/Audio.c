@@ -171,6 +171,76 @@ drflac* myflac=NULL;
 drmp3 *mymp3 = NULL;                                                // PLAY MP3's decoder, on the heap: it holds a 16 KB scratch area
 a_flist *alist=NULL;
 extern void getfullpath(char *p, char *q);                         // FileIO.c
+// PLAY ARRAY, PLAY SAMPLE and PLAY LOAD SOUND (the PicoMite's); their arrays are read while they play, so must be global
+static int arraypos = 0, arraysize = 0;                             // ARRAY: the next and the end sample (16 bits, four to an element)
+short *leftarray = NULL, *rightarray = NULL;
+volatile int audiorepeat = 1;                                       // timer ticks per sample: ARRAY below 32 kHz (TIM4 stops at ~1.8 kHz)
+unsigned short *usertable = NULL;                                   // PLAY LOAD SOUND's wave table, PLAY SOUND type "U"
+typedef enum {ADSR_IDLE, ADSR_ATTACK, ADSR_DECAY, ADSR_SUSTAIN, ADSR_RELEASE} e_ADSRPhase;
+static volatile e_ADSRPhase adsr_phase[2] = {ADSR_IDLE, ADSR_IDLE};
+static volatile int32_t adsr_level[2] = {0, 0};                     // envelope, 16.16 fixed point, 0 to 2000 << 16
+static volatile int32_t adsr_attack_inc[2], adsr_decay_dec[2], adsr_sustain_level[2], adsr_release_dec[2];
+static uint32_t sample_phase[2] = {0, 0}, sample_phase_inc[2] = {0, 0};  // 16.16: the place in the cycle, the step per output sample
+static int sample_cycle_len = 0;                                    // SAMPLE: elements in one cycle
+// the next buffer of PLAY ARRAY: left and right interleaved, 16 bits
+static unsigned int readarray(char *sbuff){
+	short *buff = (short *)sbuff;
+	int count = arraysize - arraypos;
+	if(count > WAV_BUFFER_SIZE / 4) count = WAV_BUFFER_SIZE / 4;
+	for(int i = arraypos; i < arraypos + count; i++){
+		*buff++ = leftarray[i];
+		*buff++ = rightarray[i];
+	}
+	arraypos += count;
+	if(count < WAV_BUFFER_SIZE / 4) playreadcomplete = 1;
+	return count * 2;
+}
+// one sample tick of a channel's ADSR envelope
+static inline void adsr_tick(int ch){
+	switch(adsr_phase[ch]){
+	case ADSR_ATTACK:
+		adsr_level[ch] += adsr_attack_inc[ch];
+		if(adsr_level[ch] >= (2000 << 16)) { adsr_level[ch] = 2000 << 16; adsr_phase[ch] = ADSR_DECAY; }
+		break;
+	case ADSR_DECAY:
+		adsr_level[ch] -= adsr_decay_dec[ch];
+		if(adsr_level[ch] <= adsr_sustain_level[ch]) {
+			adsr_level[ch] = adsr_sustain_level[ch];
+			adsr_phase[ch] = adsr_sustain_level[ch] > 0 ? ADSR_SUSTAIN : ADSR_IDLE;
+		}
+		break;
+	case ADSR_RELEASE:
+		adsr_level[ch] -= adsr_release_dec[ch];
+		if(adsr_level[ch] <= 0) { adsr_level[ch] = 0; adsr_phase[ch] = ADSR_IDLE; }
+		break;
+	default:
+		break;
+	}
+}
+// the next buffer of PLAY SAMPLE: each channel's cycle (the low 16 bits of each element) stepped at its pitch, under its envelope
+static unsigned int readsamplearray(char *sbuff){
+	short *buff = (short *)sbuff;
+	int maxcount = WAV_BUFFER_SIZE / 4, actual = 0;
+	uint32_t cycle_wrap = (uint32_t)sample_cycle_len << 16;
+	for(int i = 0; i < maxcount; i++){
+		int idx_l = (sample_phase[0] >> 16) % sample_cycle_len;
+		int idx_r = (sample_phase[1] >> 16) % sample_cycle_len;
+		*buff++ = (short)((int)leftarray[idx_l * 4] * (adsr_level[0] >> 16) / 2000);
+		*buff++ = (short)((int)rightarray[idx_r * 4] * (adsr_level[1] >> 16) / 2000);
+		actual++;
+		sample_phase[0] += sample_phase_inc[0];
+		if(sample_phase[0] >= cycle_wrap) sample_phase[0] -= cycle_wrap;
+		sample_phase[1] += sample_phase_inc[1];
+		if(sample_phase[1] >= cycle_wrap) sample_phase[1] -= cycle_wrap;
+		adsr_tick(0);
+		adsr_tick(1);
+		if(adsr_phase[0] == ADSR_IDLE && adsr_level[0] <= 0 && adsr_phase[1] == ADSR_IDLE && adsr_level[1] <= 0) {
+			playreadcomplete = 1;                                   // both envelopes have finished
+			break;
+		}
+	}
+	return actual * 2;
+}
 int trackplaying=0, trackstoplay=0;
 
 void* my_malloc(size_t sz, void* pUserData)
@@ -1224,7 +1294,11 @@ void CloseAudio(int all){
 	FreeMemorySafe((void *)&modbuff);
 	if(was_playing == P_FLAC || was_playing == P_PAUSE_FLAC )FreeMemorySafe((void *)&myflac);
 	FreeMemorySafe((void *)&mymp3);
+	leftarray = rightarray = NULL;
+	arraysize = arraypos = 0;
+	adsr_phase[0] = adsr_phase[1] = ADSR_IDLE;
 	if(all){
+		usertable = NULL;                                           // (the PicoMite forgets it at every close)
 		FreeMemorySafe((void *)&alist);
 		trackstoplay=0;
 		trackplaying=0;
@@ -1460,13 +1534,16 @@ void cmd_play(void) {
     }
     if(checkstring(cmdline, "PAUSE")) {
         if(CurrentlyPlaying == P_PAUSE_TONE || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_SOUND ||
-           CurrentlyPlaying == P_PAUSE_MOD || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MP3) return;  // already paused (the PicoMite's)
+           CurrentlyPlaying == P_PAUSE_MOD || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MP3 ||
+           CurrentlyPlaying == P_PAUSE_ARRAY || CurrentlyPlaying == P_PAUSE_SAMPLE) return;  // already paused (the PicoMite's)
         if(CurrentlyPlaying == P_TONE) CurrentlyPlaying = P_PAUSE_TONE;
         else if(CurrentlyPlaying == P_FLAC) CurrentlyPlaying = P_PAUSE_FLAC;
         else if(CurrentlyPlaying == P_SOUND) CurrentlyPlaying = P_PAUSE_SOUND;
         else if(CurrentlyPlaying == P_MOD) CurrentlyPlaying = P_PAUSE_MOD;
         else if(CurrentlyPlaying == P_WAV)  CurrentlyPlaying = P_PAUSE_WAV;
         else if(CurrentlyPlaying == P_MP3)  CurrentlyPlaying = P_PAUSE_MP3;
+        else if(CurrentlyPlaying == P_ARRAY)  CurrentlyPlaying = P_PAUSE_ARRAY;
+        else if(CurrentlyPlaying == P_SAMPLE)  CurrentlyPlaying = P_PAUSE_SAMPLE;
         else
             error("Nothing playing");
         return;
@@ -1479,6 +1556,8 @@ void cmd_play(void) {
         else if(CurrentlyPlaying == P_PAUSE_MOD) CurrentlyPlaying = P_MOD;
         else if(CurrentlyPlaying == P_PAUSE_WAV) CurrentlyPlaying = P_WAV;
         else if(CurrentlyPlaying == P_PAUSE_MP3) CurrentlyPlaying = P_MP3;
+        else if(CurrentlyPlaying == P_PAUSE_ARRAY) CurrentlyPlaying = P_ARRAY;
+        else if(CurrentlyPlaying == P_PAUSE_SAMPLE) CurrentlyPlaying = P_SAMPLE;
         else
             error("Nothing to resume");  
         return;
@@ -1541,6 +1620,157 @@ void cmd_play(void) {
         if(CurrentlyPlaying != P_PAUSE_TONE) CurrentlyPlaying = P_TONE;  // a paused tone takes the new one and stays paused (the PicoMite's)
         return;
     }
+    if((tp = checkstring(cmdline, "LOAD SOUND"))) {               // PLAY LOAD SOUND array%(): the wave table of PLAY SOUND type "U",
+        int64_t *aint;                                              // 4096 16-bit values about 2000, four to an element (the PicoMite's)
+        if(usertable != NULL) error("Already loaded");
+        if(parseintegerarray(tp, &aint, 1, 1, NULL, false, NULL) != 1024) StandardError(17);
+        RequireGlobal(aint);                                        // read by PLAY SOUND while it plays
+        usertable = (unsigned short *)aint;
+        return;
+    }
+    if((tp = checkstring(cmdline, "ARRAY"))) {                    // PLAY ARRAY left%(), right%(), rate [, start [, end [, interrupt]]]:
+        float freq;                                                 // 16-bit samples, four to an element (the PicoMite's)
+        int64_t *l, *r;
+        char *ia = NULL;
+        getargs(&tp, 11, ",");                                      // this MUST be the first executable line in the function
+        if(!(argc == 11 || argc == 9 || argc == 7 || argc == 5)) error("Argument count");
+        if(!(CurrentlyPlaying == P_NOTHING || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_PAUSE_ARRAY)) error("Sound output in use");
+        int size = parseintegerarray(argv[0], &l, 1, 1, NULL, false, NULL);
+        RequireGlobal(l);                                           // read while it plays
+        if(parseintegerarray(argv[2], &r, 2, 1, NULL, false, NULL) != size) StandardError(16);
+        RequireGlobal(r);
+        size *= 4;
+        freq = getnumber(argv[4]);
+        if(freq < 10.0 || freq > 48000.0) error("Invalid frequency 10.0 - 48000.0");
+        int pos = 0;
+        if(argc >= 7 && *argv[6]) pos = getint(argv[6], 0, size - 1);
+        if(argc >= 9 && *argv[8]) size = getint(argv[8], pos, size);
+        if(argc == 11) {
+            if(!CurrentLinePtr) error("No program running");
+            ia = GetIntAddress(argv[10]);                           // get the interrupt location
+        }
+        // all checked: stop whatever ARRAY plays and start this one
+        StopAudio();
+        WAVInterrupt = ia;
+        WAVcomplete = 0;
+        if(ia) InterruptUsed = true;
+        leftarray = (short *)l;
+        rightarray = (short *)r;
+        arraypos = pos;
+        arraysize = size;
+        float actualrate = freq;                                    // each sample repeated up to 32 kHz or more: TIM4 cannot run slow
+        int repeat = 1;
+        while(actualrate < 32000) { actualrate += freq; repeat++; }
+        htim4.Init.Prescaler = (uint32_t)(PSpeedDiv / actualrate + 0.5f) - 1;
+        htim4.Instance->PSC = htim4.Init.Prescaler;
+        FreeMemorySafe((void *)&sbuff1);
+        FreeMemorySafe((void *)&sbuff2);
+        sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE);
+        sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE);
+        ibuff1 = (uint16_t *)sbuff1;
+        ibuff2 = (uint16_t *)sbuff2;
+        mono = 0;
+        WAV_fnbr = 0;
+        bcount[2] = 0;
+        playreadcomplete = 0;
+        bcount[1] = readarray(sbuff1);
+        iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
+        wav_filesize = bcount[1];
+        swingbuf = 1;
+        nextbuf = 2;
+        ppos = 0;
+        audiorepeat = repeat;
+        CurrentlyPlaying = P_ARRAY;
+        ConfigSoundOutputs();
+        return;
+    }
+    if((tp = checkstring(cmdline, "SAMPLE"))) {                   // PLAY SAMPLE left%(), right%(), freq, A, D, S, R [, freqR, AR, DR, SR, RR] [, interrupt]:
+        int64_t *l, *r;                                             // one cycle, a 16-bit sample to an element, looped at freq
+        char *ia = NULL;                                            // under ADSR envelopes until PLAY RELEASE (the PicoMite's)
+        float freq_l, freq_r;
+        int ms[2][4], sustain[2];
+        getargs(&tp, 25, ",");                                      // this MUST be the first executable line in the function
+        if(!(argc == 13 || argc == 15 || argc == 23 || argc == 25)) error("Argument count");
+        if(!(CurrentlyPlaying == P_NOTHING || CurrentlyPlaying == P_SAMPLE || CurrentlyPlaying == P_PAUSE_SAMPLE)) error("Sound output in use");
+        int size = parseintegerarray(argv[0], &l, 1, 1, NULL, false, NULL);
+        RequireGlobal(l);                                           // read while it plays
+        if(parseintegerarray(argv[2], &r, 2, 1, NULL, false, NULL) != size) StandardError(16);
+        RequireGlobal(r);
+        freq_l = getnumber(argv[4]);
+        if(freq_l < 10.0 || freq_l > 48000.0) error("Invalid frequency 10.0 - 48000.0");
+        ms[0][0] = getint(argv[6], 0, 30000);                       // attack, decay, (sustain %), release
+        ms[0][1] = getint(argv[8], 0, 30000);
+        sustain[0] = getint(argv[10], 0, 100);
+        ms[0][3] = getint(argv[12], 0, 30000);
+        if(argc >= 23) {                                            // the right channel's own
+            freq_r = getnumber(argv[14]);
+            if(freq_r < 10.0 || freq_r > 48000.0) error("Invalid frequency 10.0 - 48000.0");
+            ms[1][0] = getint(argv[16], 0, 30000);
+            ms[1][1] = getint(argv[18], 0, 30000);
+            sustain[1] = getint(argv[20], 0, 100);
+            ms[1][3] = getint(argv[22], 0, 30000);
+        } else {
+            freq_r = freq_l;
+            ms[1][0] = ms[0][0]; ms[1][1] = ms[0][1]; sustain[1] = sustain[0]; ms[1][3] = ms[0][3];
+        }
+        if(argc == 15 || argc == 25) {
+            if(!CurrentLinePtr) error("No program running");
+            ia = GetIntAddress(argv[argc - 1]);                     // get the interrupt location
+        }
+        // all checked: stop whatever SAMPLE plays and start this one
+        StopAudio();
+        WAVInterrupt = ia;
+        WAVcomplete = 0;
+        if(ia) InterruptUsed = true;
+        leftarray = (short *)l;
+        rightarray = (short *)r;
+        sample_cycle_len = size;
+        float maxfreq = (freq_l > freq_r) ? freq_l : freq_r;
+        float actualrate = 44100.0f;
+        if(maxfreq > actualrate / 2.0f) actualrate = maxfreq * 2.5f;
+        sample_phase_inc[0] = (uint32_t)((float)sample_cycle_len * freq_l / actualrate * 65536.0f);
+        sample_phase_inc[1] = (uint32_t)((float)sample_cycle_len * freq_r / actualrate * 65536.0f);
+        sample_phase[0] = sample_phase[1] = 0;
+        int ticks_per_ms = (int)(actualrate / 1000.0f);
+        for(int c = 0; c < 2; c++) {
+            int32_t s = mapping[sustain[c]];
+            adsr_attack_inc[c] = ms[c][0] > 0 ? (2000 << 16) / (ms[c][0] * ticks_per_ms) : (2000 << 16);
+            adsr_decay_dec[c] = ms[c][1] > 0 ? ((2000 - s) << 16) / (ms[c][1] * ticks_per_ms) : ((2000 - s) << 16);
+            adsr_sustain_level[c] = s << 16;
+            adsr_release_dec[c] = ms[c][3] > 0 ? (s > 0 ? adsr_sustain_level[c] / (ms[c][3] * ticks_per_ms) : (2000 << 16)) : (2000 << 16);
+            if(adsr_attack_inc[c] < 1) adsr_attack_inc[c] = 1;
+            if(adsr_decay_dec[c] < 1 && 2000 - s > 0) adsr_decay_dec[c] = 1;
+            if(adsr_release_dec[c] < 1 && s > 0) adsr_release_dec[c] = 1;
+            adsr_phase[c] = ADSR_ATTACK;
+            adsr_level[c] = 0;
+        }
+        htim4.Init.Prescaler = (uint32_t)(PSpeedDiv / actualrate + 0.5f) - 1;
+        htim4.Instance->PSC = htim4.Init.Prescaler;
+        FreeMemorySafe((void *)&sbuff1);
+        FreeMemorySafe((void *)&sbuff2);
+        sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE);
+        sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE);
+        ibuff1 = (uint16_t *)sbuff1;
+        ibuff2 = (uint16_t *)sbuff2;
+        mono = 0;
+        WAV_fnbr = 0;
+        bcount[2] = 0;
+        playreadcomplete = 0;
+        bcount[1] = readsamplearray(sbuff1);
+        iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
+        wav_filesize = bcount[1];
+        swingbuf = 1;
+        nextbuf = 2;
+        ppos = 0;
+        CurrentlyPlaying = P_SAMPLE;
+        ConfigSoundOutputs();
+        return;
+    }
+    if(checkstring(cmdline, "RELEASE")) {                          // PLAY RELEASE: both envelopes of PLAY SAMPLE to their release
+        if(CurrentlyPlaying != P_SAMPLE && CurrentlyPlaying != P_PAUSE_SAMPLE) error("Not playing a sample");
+        adsr_phase[0] = adsr_phase[1] = ADSR_RELEASE;
+        return;
+    }
     if((tp = checkstring(cmdline, "SOUND"))) {//PLAY SOUND channel, type, position, frequency, volume
         float f_in, PhaseM;
         int channel, left=0, right=0;
@@ -1556,7 +1786,13 @@ void cmd_play(void) {
         if(checkstring(argv[2],"L")!=NULL) left=1;
         else if(checkstring(argv[2],"R")!=NULL) right=1;
         else if(checkstring(argv[2],"B")!=NULL) { left=1; right=1; }
-        else error("Position must be L, R, or B");
+        else {                                                      // a string expression, where "M" is "B" (the PicoMite's)
+            char *s = getCstring(argv[2]);
+            if(strcasecmp(s, "L") == 0) left=1;
+            else if(strcasecmp(s, "R") == 0) right=1;
+            else if(strcasecmp(s, "B") == 0 || strcasecmp(s, "M") == 0) { left=1; right=1; }
+            else error("Position must be L, R, or B");
+        }
         if(!(CurrentlyPlaying == P_NOTHING || CurrentlyPlaying == P_SOUND || CurrentlyPlaying == P_PAUSE_SOUND)) error("Sound output in use");
         // the type, the frequency and the volume are all checked before the channel is changed ("Invalid type" could
         // not fire: the channel had already been set to nulltable, and the live channel changed before the checks)
@@ -1568,7 +1804,16 @@ void cmd_play(void) {
         else if(checkstring(argv[4],"S")!=NULL) type=(uint16_t *)SineTable;
         else if(checkstring(argv[4],"P")!=NULL) type=(uint16_t *)noisetable;
         else if(checkstring(argv[4],"N")!=NULL) type=(uint16_t *)whitenoise;
-        if(type == NULL) error("Invalid type");
+        else if(checkstring(argv[4],"U")!=NULL) type=(uint16_t *)usertable;
+        else {                                                      // a string expression (the PicoMite's)
+            static const char k[] = "OQTWSPNU";
+            const char *s = getCstring(argv[4]), *q = (s[0] && !s[1]) ? strchr(k, toupper(s[0])) : NULL;
+            const uint16_t *t[] = {nulltable, squaretable, triangletable, sawtable, SineTable, noisetable, whitenoise, usertable};
+            if(q == NULL) error("Invalid type");
+            type = (uint16_t *)t[q - k];
+            if(type == NULL && *q != 'U') error("Invalid type");
+        }
+        if(type == NULL) error("Not loaded");                       // "U" before PLAY LOAD SOUND
         f_in=10.0;
         if(argc>=7)f_in = getnumber(argv[6]);
         if(f_in<1.0 || f_in>20000.0)error("Valid is 1Hz to 20KHz");
@@ -1938,6 +2183,7 @@ void StopAudio(void) {
     }
 	SoundPlay = 0;
 	CurrentlyPlayinge = P_NOTHING;
+	audiorepeat = 1;                                                // (PLAY ARRAY's, which a WAV must not inherit)
 }
 
 
@@ -1994,6 +2240,16 @@ void checkWAVinput(void){
                 iconvert(ibuff2, (int16_t *)sbuff2, bcount[2]);
                 wav_filesize = bcount[2];
             }
+            nextbuf=swingbuf;
+        } else if(CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE){
+            char *b = (swingbuf==2 ? sbuff1 : sbuff2);
+            int n = (swingbuf==2 ? 1 : 2);
+            if(playreadcomplete) bcount[n] = 0;                    // the end was read: the interrupt plays out what is left
+            else {
+                bcount[n] = (CurrentlyPlaying == P_ARRAY ? readarray(b) : readsamplearray(b));
+                iconvert((uint16_t *)b, (int16_t *)b, bcount[n]);
+            }
+            wav_filesize = bcount[n];
             nextbuf=swingbuf;
         }
     }
@@ -2059,7 +2315,7 @@ void audio_checks(void){
             FreeMemorySafe((void *)&sbuff2);
             FreeMemorySafe((void *)&alist);
             StopAudio();
-            FileClose(WAV_fnbr);
+            if(WAV_fnbr) FileClose(WAV_fnbr);                       // (none for ARRAY and SAMPLE)
             WAVcomplete = true;
             playreadcomplete = 0;
             mymemset(&mywav,0,sizeof(drwav));

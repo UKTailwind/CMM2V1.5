@@ -3256,6 +3256,10 @@ void fun_info(void){
 		case P_FLAC:strcpy(sret,"FLAC");break;
 		case P_DAC:strcpy(sret,"DAC");break;
 		case P_SOUND:strcpy(sret,"SOUND");break;
+		case P_ARRAY:strcpy(sret,"ARRAY");break;
+		case P_PAUSE_ARRAY:strcpy(sret,"PAUSED ARRAY");break;
+		case P_SAMPLE:strcpy(sret,"SAMPLE");break;
+		case P_PAUSE_SAMPLE:strcpy(sret,"PAUSED SAMPLE");break;
 		default:strcpy(sret,"OFF");break;
 		}
 	} else if(checkstring(ep, "KEYBOARD")){

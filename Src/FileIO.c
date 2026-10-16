@@ -1908,7 +1908,7 @@ void CheckSDCard(void) {
 			strcpy(filepath,"A:/");
 		}
 	} else {
-		if(CurrentlyPlayinge == P_WAV || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_MOD || audiofinished)
+		if(CurrentlyPlayinge == P_WAV || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE || audiofinished)
 			checkWAVinput();
 		if(GifTimer==0 && gif!=NULL){
 			GifTimer=5000;
