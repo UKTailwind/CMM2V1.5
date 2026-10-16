@@ -1052,9 +1052,10 @@ void cmd_setpin(void) {
                             else
                                 option = 1000;
                             break;
-        case EXT_CNT_IN:   if(argc == 5)
-                                option = (int)GetIntAddress(argv[4]);
-                            else
+        case EXT_CNT_IN:   if(argc == 5) {
+                                if(getinteger(argv[0]) == COUNT5) option = (int)GetIntAddress(argv[4]);   // its interrupt (pin is read below)
+                                else option = getint(argv[4], 1, 5);                      // the edge and pull (ExtCfg)
+                            } else
                                 option = 0;
                             break;
         case EXT_PER_IN:   if(argc == 5)
@@ -1072,8 +1073,7 @@ void cmd_setpin(void) {
         default:            if(argc > 3) error("Unexpected text");
     }
 
-	pin = getinteger(argv[0]);
-	if(value==EXT_CNT_IN && argc==5 && pin!=18)error("interrupt only available on pin 18");
+	pin = getinteger(argv[0]);                                      // (CIN's fifth argument is the edge and pull on pins 7-10, the interrupt on 18)
     {
         CheckPin(pin, CP_IGNORE_INUSE);
         ExtCfg(pin, value, option);
@@ -1505,6 +1505,33 @@ void Bitstream(char *tp){
 	}
 	HAL_TIM_Base_Stop(&htim17);
 	__enable_irq();
+}
+
+// SYNC n [,U|M|S] sets a period in microseconds, milliseconds or seconds; SYNC waits for the end of the current
+// period; SYNC 0 clears it (the PicoMite's)
+void cmd_sync(void){
+	uint64_t i;
+	static uint64_t synctime = 0, endtime = 0;
+	getargs(&cmdline, 3, ",");
+	if(synctime && argc == 0){
+		while(GetuSec() < endtime){
+			if(endtime - GetuSec() > 2000) CheckAbort();
+		}
+		endtime += synctime;
+	} else {
+		if(argc == 0) error("SYNC not initialised");
+		i = getint(argv[0], 0, 0x7FFFFFFFFFFFFFFF);
+		if(i){
+			if(argc == 3){
+				if(checkstring(argv[2], "U")) i *= 1;
+				else if(checkstring(argv[2], "M")) i *= 1000;
+				else if(checkstring(argv[2], "S")) i *= 1000000;
+				else error("Syntax");
+			}
+			synctime = i;
+			endtime = GetuSec() + synctime;
+		} else synctime = endtime = 0;
+	}
 }
 
 void cmd_bitbang(void){
@@ -2044,6 +2071,7 @@ int getinttblpos(int tbl[],int pin){
 Configure an I/O pin
 *****************************************************************************************************************************/
 void ExtCfg(int pin, int cfg, int option) {
+	uint32_t edge = GPIO_MODE_IT_RISING, pull = GPIO_PULLDOWN;      // a counting input's, unless SETPIN CIN says
 	int i;
 
     if(IsInvalidPin(pin)) error("Invalid pin");
@@ -2087,10 +2115,14 @@ void ExtCfg(int pin, int cfg, int option) {
 								if(pin == COUNT5) error("Invalid configuration");
    		case EXT_FREQ_IN:		// same as counting, so fall through
 		case EXT_CNT_IN:		if(pin == INT3PIN && mouse0) error("H/W Interrupt in use for mouse");
+								if(cfg == EXT_CNT_IN && option) {                           // SETPIN pin, CIN, 1-5 (the PicoMite's)
+									edge = option == 2 ? GPIO_MODE_IT_FALLING : option >= 3 ? GPIO_MODE_IT_RISING | GPIO_MODE_IT_FALLING : GPIO_MODE_IT_RISING;
+									pull = option == 2 || option == 5 ? GPIO_PULLUP : option == 3 ? GPIO_NOPULL : GPIO_PULLDOWN;
+								}
         						if(pin == INT1PIN) {
-									GPIO_InitDef.Pull = GPIO_PULLDOWN; //set as input with no pullup or down
+									GPIO_InitDef.Pull = pull;                         // (SETPIN CIN's option: pull-down unless it says)
 									GPIO_InitDef.Pin = COUNT1_Pin;
-									GPIO_InitDef.Mode = GPIO_MODE_IT_RISING;
+									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
 									HAL_NVIC_SetPriority(EXTI1_IRQn, 2, 0);
 									HAL_NVIC_EnableIRQ(EXTI1_IRQn);
@@ -2100,9 +2132,9 @@ void ExtCfg(int pin, int cfg, int option) {
 									break;
 								}
 								if(pin == INT2PIN) {
-									GPIO_InitDef.Pull = GPIO_PULLDOWN; //set as input with no pullup or down
+									GPIO_InitDef.Pull = pull;                         // (SETPIN CIN's option: pull-down unless it says)
 									GPIO_InitDef.Pin = COUNT2_Pin;
-									GPIO_InitDef.Mode = GPIO_MODE_IT_RISING;
+									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
 									HAL_NVIC_SetPriority(EXTI2_IRQn, 2, 0);
 									HAL_NVIC_EnableIRQ(EXTI2_IRQn);
@@ -2112,9 +2144,9 @@ void ExtCfg(int pin, int cfg, int option) {
 									break;
 								}
 								if(pin == INT3PIN) {
-									GPIO_InitDef.Pull = GPIO_PULLDOWN; //set as input with no pullup or down
+									GPIO_InitDef.Pull = pull;                         // (SETPIN CIN's option: pull-down unless it says)
 									GPIO_InitDef.Pin = COUNT3_Pin;
-									GPIO_InitDef.Mode = GPIO_MODE_IT_RISING;
+									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
 									HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
 									HAL_NVIC_EnableIRQ(EXTI3_IRQn);
@@ -2124,9 +2156,9 @@ void ExtCfg(int pin, int cfg, int option) {
 									break;
 								}
 								if(pin == INT4PIN) {
-									GPIO_InitDef.Pull = GPIO_PULLDOWN; //set as input with no pullup or down
+									GPIO_InitDef.Pull = pull;                         // (SETPIN CIN's option: pull-down unless it says)
 									GPIO_InitDef.Pin = COUNT4_Pin;
-									GPIO_InitDef.Mode = GPIO_MODE_IT_RISING;
+									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
 									HAL_NVIC_SetPriority(EXTI4_IRQn, 2, 0);
 									HAL_NVIC_EnableIRQ(EXTI4_IRQn);

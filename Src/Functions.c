@@ -70,6 +70,7 @@ const char* overlaid_functions[]={
 	"MM.CMDLINE$",
 	"MM.WIDTH",
 	"MM.HEIGHT",
+	"MM.ONEWIRE",
 	"MM.END"
 };
 
@@ -179,11 +180,22 @@ void fun_cmdline(void){
 // it pulls apart the VERSION string to generate the number
 void fun_version(void){
 	char *p;
-    fret = strtol(VERSION, &p, 10);
-    fret += (MMFLOAT)strtol(p + 1, &p, 10) / 100;
-    fret += (MMFLOAT)strtol(p + 1, &p, 10) / 10000;
-    fret += (MMFLOAT)strtol(p + 1, &p, 10) / 1000000;
-    targ = T_NBR;
+	/* Each step skips the separator that stopped the one before it: a '.', the 'b' of a beta, or the "RC" of a
+	   release candidate.  A release has no fourth field, so strtol stops on the terminating NUL and p + 1 would read
+	   past the end of the string literal: check there is something to step over.  A release candidate's number is
+	   offset by 50, so "6.04.00RC1" is 6.040051, above every beta of the same release (the PicoMite's). */
+	fret = strtol(VERSION, &p, 10);
+	if(*p) fret += (MMFLOAT)strtol(p + 1, &p, 10) / 100;
+	if(*p) fret += (MMFLOAT)strtol(p + 1, &p, 10) / 10000;
+	if(*p) {
+		int offset = 0;
+		if((p[0] == 'R' || p[0] == 'r') && (p[1] == 'C' || p[1] == 'c')) {
+			p++;                                                    // ("C1" would read as 0)
+			offset = 50;
+		}
+		fret += (MMFLOAT)(strtol(p + 1, &p, 10) + offset) / 1000000;
+	}
+	targ = T_NBR;
 }
 
 void fun_tilde(void){
@@ -209,6 +221,9 @@ typedef enum {
 } Operation;
 */
 	switch(*ep-'A'){
+		case MMONEWIRE:
+			iret = mmOWvalue;
+			break;
 		case MMHRES:
 		    iret = PageTable[WritePage].xmax;
 			break;
@@ -763,29 +778,32 @@ void fun_instr(void) {
 
 		//int  re_match(const char* pattern, const char* text, int* matchlength);
 
-		MMFLOAT *temp=NULL;
+		int64_t *tempi = NULL;                                      // the match's length goes to an integer or a float variable
+		MMFLOAT *tempf = NULL;
 		char *s=GetTempMemory(STRINGSIZE), *p=GetTempMemory(STRINGSIZE);
 		strcpy(s,getCstring(argv[0+n]));
-		strcpy(p,getCstring(argv[2+n]));
+		{
+			int tmp = OptionEscape;                                 // the pattern's \ sequences are the regex's, not OPTION ESCAPE's
+			OptionEscape = 0;
+			strcpy(p,getCstring(argv[2+n]));
+			OptionEscape = tmp;
+		}
 		if(argc==5+n){  // This is the passed variable to return the match length
-			temp = findvar(argv[4+n], V_FIND);
-			if(!(FoundType() & T_NBR)) error("Invalid variable");
+			void *temp = findvar(argv[4+n], V_FIND);
+			if(!(FoundType() & (T_NBR | T_INT))) error("Invalid variable");
+			if(FoundType() & T_INT) tempi = temp; else tempf = temp;
 		}
 		targ=T_INT;
 
-		//int match_idx = re_matchp(pattern, &s[start], &match_length);
 		int match_idx = re_match(p, &s[start], &match_length);
 		if (match_idx != -1){
-		   // PInt(match_idx); PInt(match_length);
-		    if(temp)*temp=(MMFLOAT)(match_length);
-		    //iret=match_idx;
+		    if(tempi)*tempi=match_length;
+		    if(tempf)*tempf=(MMFLOAT)(match_length);
 		    iret=match_idx+1+start;
-		    //iret=match_idx+start;
-		    if(temp)*temp=(MMFLOAT)(match_length);
 		}else{
-			//MMPrintString("No Match");
 			iret=0;
-			if(temp)*temp=0.0;
+			if(tempi)*tempi=0;
+			if(tempf)*tempf=0.0;
 		}
 
 

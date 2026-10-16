@@ -1,0 +1,36 @@
+mid insert: abXYcdef
+mid shrink: QXYcdef
+mid grow: Q123cdef
+mid replace: abcdef
+mid beyond: Selection exceeds length of string
+lmid insert: abXYcdef
+lmid shrink: QXYcdef
+lmid grow: Q123cdef
+lmid replace: abcdef
+lmid beyond: Selection exceeds length of string
+linput:  5 01234
+linput rest:  11 56789ABCDEF
+memory input: 3736353433323130
+memory input 2: 4645444342413938
+memory input at end: End of file
+instr regex:  7 3
+instr regex float:  3 3
+instr escape:  2 1
+escape on:  3
+instr no escape:  2 1
+escape off:  4
+ver:  6.000007
+sync: ok
+sync off: SYNC not initialised
+sync unit: Syntax
+cin:  0
+cin option: 6 is invalid (valid is 1 to 5)
+tempr timeout: 50 is invalid (valid is 100 to 2000)
+tempr no sensor:  1000
+tempr start:  1000
+onewire:  0
+function negative: -48
+array negative: Dimensions
+unterminated: no closing quote
+after it: ok
+

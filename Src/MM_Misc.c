@@ -658,6 +658,29 @@ long long int Getuptime(void){
 MMFLOAT TimerVal(void) {
 	return (MMFLOAT)GetuSec()/1000.0;
 }
+// LINPUT(ls%(), #fnbr, n): the next n bytes of file fnbr into the long string, whose new length is returned (the
+// PicoMite's)
+void fun_linputstr(void) {
+    int j, nbr, fnbr;
+    int64_t *dest = NULL;
+    uint8_t *q = NULL;
+    unsigned int read = 0;
+    getargs(&ep, 5, ",");
+    if(argc != 5) error("Syntax");
+    j = (parseintegerarray(argv[0], &dest, 1, 1, NULL, true, NULL) - 1) * 8;
+    q = (uint8_t *)&dest[1];
+    nbr = getint(argv[4], OptionBase, j - OptionBase);
+    if(*argv[2] == '#') argv[2]++;
+    fnbr = getinteger(argv[2]);
+    if(fnbr == 0) error("Syntax");
+    if(fnbr < 1 || fnbr > MAXOPENFILES) error("File number is invalid");
+    if(FileTable[fnbr].com == 0) error("File number is not open");
+    if(FileTable[fnbr].com <= MAXCOMPORTS) error("Input from file only");
+    FileGetData(fnbr, q, nbr, &read);
+    dest[0] = read;                                                 // the new length of the string
+    iret = dest[0];
+    targ = T_INT;
+}
 void fun_uSec(void) {
 	fret=TimerVal();
 	targ=T_NBR;
@@ -2398,7 +2421,8 @@ void cmd_option(void) {
 
 	tp = checkstring(cmdline, "ESCAPE");
 	    if(tp) {
-	        OptionEscape = true;
+	        if(checkstring(tp, "OFF")) OptionEscape = false;        // (it could only be turned on: Gerry's b14)
+	        else OptionEscape = true;
 	        return;
 	}
 

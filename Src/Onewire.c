@@ -167,26 +167,30 @@ void Init_ds18b20(int pin, int precision) {
 
 
 void cmd_ds18b20(void) {
-    int pin, precision;
-	getargs(&cmdline, 3,",");
+    int pin, precision, timeout;
+	getargs(&cmdline, 5,",");
     if(argc < 1) error("Argument count");
     pin = getint(argv[0], 1, NBRPINS);
     precision = 1;
-    if(argc == 3) precision = getint(argv[2], 0, 3);
+    if(argc >= 3 && *argv[2]) precision = getint(argv[2], 0, 3);
+    timeout = 100 << precision;                                     // the conversion time for the precision, or as given
+    if(argc == 5) timeout = getint(argv[4], 100, 2000);
     Init_ds18b20(pin, precision);
     if(ds18b20Timers == NULL) ds18b20Timers = GetMemory(NBRPINS*sizeof(long long int));   // if this is the first time allocate memory for the timer array
-    ds18b20Timers[pin] = ds18b20Timer + (100 << precision);         // set the timer count to wait for the conversion
+    ds18b20Timers[pin] = ds18b20Timer + timeout;                    // set the timer count to wait for the conversion
 }
 
 
 void fun_ds18b20(void) {
-    int pin, b1, b2;
-
-    pin = getint(ep, 1, NBRPINS);
+    int pin, b1, b2, timeout = 200;                                 // TEMPR(pin [, timeout]): the conversion time, 200 ms unless given
+    getargs(&ep, 3, ",");
+    if(!(argc == 1 || argc == 3)) error("Syntax");
+    pin = getint(argv[0], 1, NBRPINS);
+    if(argc == 3) timeout = getint(argv[2], 100, 2000);
     if(ds18b20Timers == NULL || ds18b20Timers[pin] == 0) {
         // the TIMR command has not used
         Init_ds18b20(pin, 1);                                       // the default is 10 bits
-        MM_Delay(200);                                                 // and 200mS conversion
+        MM_Delay(timeout);                                          // and the conversion
     } else {
         // the TIMR command has been used
         while(ds18b20Timer < ds18b20Timers[pin])MM_Delay(10);   ;                   // wait for the conversion

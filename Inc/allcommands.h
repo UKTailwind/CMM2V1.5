@@ -59,6 +59,7 @@ typedef enum {
 	MMCMDLINE,
     MMWIDTH,
     MMHEIGHT,
+    MMONEWIRE,
     MMEND
 } Operation;
 extern const char* overlaid_functions[];extern volatile int vol_left, vol_right;
@@ -139,6 +140,9 @@ void fun_struct(void);
 void cmd_select(void);
 void cmd_case(void);
 void cmd_mid(void);
+void cmd_lmid(void);
+void cmd_sync(void);
+void fun_linputstr(void);
 void cmd_execute(void);
 void cmd_call(void);
 void cmd_debug(void);
@@ -412,6 +416,7 @@ void op_inv(void);
 	{ "While",		T_CMD,				0, cmd_do		},
 	{ "Const",		T_CMD,				0, cmd_const	},
 	{ "MID$(",		T_CMD | T_FUN,		0, cmd_mid      },
+	{ "LMid(",		T_CMD | T_FUN,      0, cmd_lmid     },
 	{ "Execute",	T_CMD,				0, cmd_execute	},
 	{ "Triangle",       T_CMD,                      0, cmd_triangle	},
 	{ "Text",           T_CMD,                      0, cmd_text	},
@@ -436,6 +441,7 @@ void op_inv(void);
 	{ "Pulse",				T_CMD,			0, cmd_pulse        },
 	{ "Port(",				T_CMD | T_FUN,		0, cmd_port	    },
 	{ "IR",                 T_CMD,			0, cmd_ir           },
+	{ "SYNC",               T_CMD,			0, cmd_sync         },      // SYNC n [,U|M|S]; SYNC waits for the period's end
 	{ "Bitbang",            T_CMD,			0, cmd_bitbang      },
 	{ "Humid",              T_CMD,			0, cmd_humid        },      // BITBANG DHT22, as the PicoMite spells it
 	{ "DHT22",              T_CMD,			0, cmd_humid        },
@@ -636,6 +642,7 @@ void op_inv(void);
 	{ "sprite(",	    T_FUN | T_INT | T_NBR,		0, fun_sprite 	},
 	{ "~(",	    T_FUN | T_INT | T_NBR | T_STR ,		0, fun_tilde },
 	{ "Trim$(",            T_FUN | T_STR,		0, fun_trim        },
+	{ "LInput(",           T_FUN | T_INT,		0, fun_linputstr   },      // LINPUT(ls%(), #fnbr, n): n bytes of a file into a LONGSTRING
 	{ "GPS(",	    T_FUN | T_NBR | T_INT| T_STR,		0, fun_GPS	},       // its entry in GPS.h was never in this table
 	{ "Struct(",	    T_FUN | T_INT,		0, fun_struct	},
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end

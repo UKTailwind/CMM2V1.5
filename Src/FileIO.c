@@ -1852,6 +1852,19 @@ char FilePutChar(char c, int fnbr) {
 
 
 
+// n bytes of file fnbr into buff; *read is how many came (the PicoMite's; LINPUT( and LONGSTRING LOAD use it)
+int FileGetData(int fnbr, void *buff, int count, unsigned int *read) {
+    if(!InitSDCard()) return FSerror;
+    FSerror = f_read(FileTable[fnbr].fptr, buff, count, (UINT *)read);
+    ErrorCheck(fnbr);
+    return FSerror;
+}
+void FilePutData(char *c, int fnbr, int n) {
+    unsigned int bw;
+    if(!InitSDCard()) return;
+    FSerror = f_write(FileTable[fnbr].fptr, c, n, &bw);
+    ErrorCheck(fnbr);
+}
 int FileEOF(int fnbr) {
 	return f_eof(FileTable[fnbr].fptr);
 }

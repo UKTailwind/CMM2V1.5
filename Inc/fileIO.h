@@ -59,6 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern char FilePutChar(char c, int fnbr);
     extern void FilePutStr(int count, char *c, int fnbr);
     extern int  FileEOF(int fnbr);
+    extern int  FileGetData(int fnbr, void *buff, int count, unsigned int *read);
+    extern void FilePutData(char *c, int fnbr, int n);
     extern char *ChangeToDir(char *p);
     extern int InitSDCard(void);
     extern void ErrorCheck(int fnbr);

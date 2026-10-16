@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef ONEWIRE_HEADER
 #define ONEWIRE_HEADER
 extern long long int *ds18b20Timers;
+extern int mmOWvalue;                                           // MM.ONEWIRE: the last ONEWIRE SEARCH's result
 //#define INCLUDE_1WIRE_SEARCH
 
 #endif

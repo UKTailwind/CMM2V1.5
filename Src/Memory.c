@@ -267,8 +267,11 @@ void MIPS16 cmd_memory(void) {
         }
         if (FileTable[fnbr].com > MAXCOMPORTS)
         {
-            while(!(MMfeof(fnbr)) && n--) *fromp++=FileGetChar(fnbr);
-            if(n)error("End of file");
+            {
+                unsigned int got = 0;                               // (byte by byte it stopped a byte early at the end: the PicoMite's 6.02.01RC9)
+                FileGetData(fnbr, fromp, n, &got);
+                if(got != (unsigned int)n) error("End of file");
+            }
         }
         else error("File % not open",fnbr);
         return;

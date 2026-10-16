@@ -2101,6 +2101,38 @@ void cmd_gosub(void) {
     IgnorePIN = false;
 }
 
+// LMID(ls%(), pos [, n]) = x$: MID$ on a LONGSTRING (the PicoMite's cmd_lmid)
+void cmd_lmid(void){
+	unsigned char *p;
+	int num = -1;
+	char *lsStart = NULL;
+	int64_t *dest = NULL;
+	getargs(&cmdline, 5, ",");
+	if(!(argc == 5 || argc == 3)) error("Argument count");
+	int totalsize = (parseintegerarray(argv[0], &dest, 1, 1, NULL, true, NULL) - 1) * 8;   // the room in the long string, in bytes
+	lsStart = (char *)&dest[1];
+	int currentlength = dest[0];
+	int start = getint(argv[2], 1, currentlength);                  // a starting point in the string
+	if(argc == 5) num = getint(argv[4], 0, currentlength);
+	if(start + (num < 0 ? 0 : num - 1) > currentlength) error("Selection exceeds length of string");
+	start--;                                                        // position 1 is array position 0
+	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
+	if(!*cmdline) error("Syntax");
+	++cmdline;
+	if(!*cmdline) error("Syntax");
+	char *value = getstring(cmdline);
+	if(num == -1) num = value[0];
+	p = (unsigned char *)&value[1];
+	if(num == value[0]) memcpy(&lsStart[start], p, num);            // a simple substitution
+	else {
+		int change = value[0] - num;
+		if(currentlength + change > totalsize) error("String too long");
+		memmove(&lsStart[start + value[0]], &lsStart[start + num], currentlength - (start + num));   // the rest to its new place
+		dest[0] += change;
+		memcpy(&lsStart[start], p, value[0]);                       // then the new text
+	}
+}
+
 void cmd_mid(void){
 	char *p;
 	getargs(&cmdline,5,",");
@@ -2110,15 +2142,15 @@ void cmd_mid(void){
 	int size=FoundSize();
 	char *sourcestring=getstring(argv[0]);
 	int start=getint(argv[2],1,sourcestring[0]);
-	int num=0;
-	if(argc==5)num=getint(argv[4],1,sourcestring[0]);
-	if(start+num-1>sourcestring[0])error("Selection exceeds length of string");
+	int num=-1;                                                     // -1: the value's own length; 0 inserts (the PicoMite's)
+	if(argc==5)num=getint(argv[4],0,sourcestring[0]);
+	if(start+(num<0 ? 0 : num-1)>sourcestring[0])error("Selection exceeds length of string");
 	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
 	if(!*cmdline) error("Syntax");
 	++cmdline;
 	if(!*cmdline) error("Syntax");
 	char *value = getstring(cmdline);
-	if(num==0)num=value[0];
+	if(num==-1)num=value[0];
 	p=&value[1];
 	if(num==value[0]) memcpy(&sourcestring[start],p,num);
 	else {

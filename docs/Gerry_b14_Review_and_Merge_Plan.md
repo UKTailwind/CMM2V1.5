@@ -166,6 +166,10 @@ As separate commits on our tree, each built with 0 warnings and gated by the ful
 
 Total about 38 hours. The step 8 items this clears from the parity plan: REDIM, ERASE as a command, BIT/BYTE/FLAG, and the graphics commands; INTERRUPT from the CSUB list.
 
+Progress (16 Oct): M1 a9bd4b4, M2 a4437b5, M3 272e484 are on main; M4 is built and its parity1 test passes, the full regression pending. HELP's quoting of its argument moved from M4 to M12, where help.txt is: it only matters with the file-based HELP. The PicoMite's LMID, copied for M4, moved the whole array when the length changed and let the section run one past the end; both corrected here and filed as UKTailwind/PicoMite issue 20.
+
+The SP Tools phase of every regression since step 6.1 reports four tst_bits tests as worse than the baseline. They are an artefact of the suite's --catch-errors check (MM.ErrNo must be 0 after a test that deliberately raised an error and never cleared it); before 6.1 an error inside a CASE branch had no "Error in line" prefix and the framework's own report line failed silently, so the failures were never recorded. The firmware's behaviour is the b7 baseline's and the PicoMite's. The baseline in tests/sptools wants refreshing.
+
 ## 7. Questions for Peter (answered 16 Oct)
 
 Peter's answers: (1) adopt the licence; (2) the program area stays as planned, 384 KB plus the slot and the library; (3) take OPTION F15-F20 and Shift-F5/F6; (4) leave CFUNCTION out; (5) take help.txt; (6) accept both MM.INFO spellings; (7) his manual becomes the base of ours; (8) Gerry sees this document and the tree, and only he does (`docs/Notes_for_Gerry_b14.md` is written for him).

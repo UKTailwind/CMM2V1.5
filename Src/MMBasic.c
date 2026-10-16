@@ -1798,24 +1798,13 @@ int MIPS16 tokenise(int console) {
         }
 
         // first look for quoted text and copy it across
-        // this will throw an error if there is no closing quote
+        // a string without its closing quote is closed here, as the PicoMite does (the processor was restarted)
         if(*p == '"') {
             do {
                 TKNPUT(*p++);
-                if(!*p){
-                 	MMPrintString("Parsing error: No Closing quote - ");
-                 	MMPrintString(inpbuf);                      // (this used the loader's '|n marker, found with
-                 	if(!console) {                              // strchr, and wrote to NULL-1 for a line without one)
-                 	    MMPrintString(" in line "); PInt(tknline);
-                 	}
-                 	MMPrintString("\r\n");
-                    _excep_code = RESTART_NOAUTORUN;                            // otherwise do an automatic reset
-                	while(ConsoleTxBufTail != ConsoleTxBufHead);
-                	MM_Delay(10);
-                    SoftReset();                                                // this will restart the processor
-                }
-            } while(*p != '"');
-            TKNPUT(*p++);
+            } while(*p != '"' && *p);
+            TKNPUT('"');
+            if(*p == '"') p++;
             continue;
         }
 
@@ -3234,6 +3223,7 @@ void *findvar(char *p, int action) {
     int LocalhashIndex;
     uint32_t hash=FNV_offset_basis;
     int dim[MAXDIM]={0}, dnbr;
+    int dim_error_deferred = 0;                                     // a bad index, reported once the name is known to be an array
     int symk = -1;                                                  // the symbol's canonical entry (Symbols.h), -1: text or no bindings
     char *symp = NULL;                                              // the symbol, when its name has not been read yet
 //	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
@@ -3342,7 +3332,10 @@ void *findvar(char *p, int action) {
                 if(targ == T_NBR) in = FloatToInt32(f);
                 else if(targ == T_INT && in != (int)in) error("Index out of bounds");   // a(4294967297) must not be a(1)
                 dim[i/2] = in;
-                if(dim[i/2] < OptionBase) error("Dimensions");
+                if(dim[i/2] < OptionBase) {
+                    if(action & V_NOFIND_NULL) dim_error_deferred = 1;  // a FUNCTION's argument, SX(-24), is probed as an array first
+                    else error("Dimensions");
+                }
             }
             // getargs leaves p at the bracket: step past the indices, to what follows them (a structure's .member)
             for(i = 1, p++; i && *p; p++) {
@@ -3470,6 +3463,7 @@ findvar_found:
 
         // if we reached this point it must be a reference to an existing array
         // check that we are not using DIM and that all parameters are within the dimensions
+        if(dim_error_deferred) error("Dimensions");
         if(action & V_DIM_VAR) error("Cannot re dimension array");
         for(i = 0; i < dnbr; i++) {
             if(dim[i] > DimUpper(VREC(vindex)->dimtbl[i]) || dim[i] < OptionBase)
