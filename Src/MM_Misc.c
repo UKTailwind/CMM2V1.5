@@ -2772,6 +2772,7 @@ void fun_device(void){
 #define RoundUptoPage(a)     ((((uint64_t)a) + (uint64_t)(128*1024 - 1)) & (uint64_t)(~(128*1024 - 1)))// round up to the nearest whole integer
 
 extern char WAVfilename[];
+extern volatile int audiofinished;
 void fun_info(void){
 	char *tp;
 	sret = GetTempStrMemory();									// this will last for the life of the command
@@ -3239,22 +3240,23 @@ void fun_info(void){
 		   CurrentlyPlaying == P_PAUSE_MP3 || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_WAV) strcpy(sret, WAVfilename);
 		else strcpy(sret,"OFF");
 	} else if(checkstring(ep, "SOUND")){
-		switch(CurrentlyPlaying){
-		case P_NOTHING:strcpy(sret,"OFF");break;
-		case P_PAUSE_TONE:
-		case P_PAUSE_MP3:
-		case P_PAUSE_WAV:
-		case P_PAUSE_MOD:
-		case P_PAUSE_SOUND:
-		case P_PAUSE_FLAC:strcpy(sret,"PAUSED");break;
+		switch(audiofinished ? P_NOTHING : CurrentlyPlaying){      // the PicoMite's strings (Peter, 16 Oct: "MODFILE" and a bare
+		case P_NOTHING:strcpy(sret,"OFF");break;                    // "PAUSED" were the CMM2's); TTS and DAC are the CMM2's own
+		case P_PAUSE_TONE:strcpy(sret,"PAUSED TONE");break;
+		case P_PAUSE_MP3:strcpy(sret,"PAUSED MP3");break;
+		case P_PAUSE_WAV:strcpy(sret,"PAUSED WAV");break;
+		case P_PAUSE_MOD:strcpy(sret,"PAUSED MOD");break;
+		case P_PAUSE_SOUND:strcpy(sret,"PAUSED SOUND");break;
+		case P_PAUSE_FLAC:strcpy(sret,"PAUSED FLAC");break;
 		case P_TONE:strcpy(sret,"TONE");break;
 		case P_WAV:strcpy(sret,"WAV");break;
 		case P_MP3:strcpy(sret,"MP3");break;
-		case P_MOD:strcpy(sret,"MODFILE");break;
+		case P_MOD:strcpy(sret,"MOD");break;
 		case P_TTS:strcpy(sret,"TTS");break;
 		case P_FLAC:strcpy(sret,"FLAC");break;
 		case P_DAC:strcpy(sret,"DAC");break;
 		case P_SOUND:strcpy(sret,"SOUND");break;
+		default:strcpy(sret,"OFF");break;
 		}
 	} else if(checkstring(ep, "KEYBOARD")){
 		strcpy(sret,(keyboardseen? "Connected":"Not Connected"));

@@ -85,8 +85,8 @@ As separate commits, each built with 0 warnings and with tests where a program c
 ## 8. Decisions
 
 1. The interrupt on PLAY STOP and on each track of an album (4.1): **the natural end only** (Peter, 16 Oct; done in A1).
-2. One output level for all formats (4.6): **open**. A correction to 4.6: at VOLUME 100 a full-scale WAV swings ±2048 counts about 2048 (the DAC's whole range), FLAC, MP3, TONE and SOUND ±1900 about 2000, MOD ±1024 about 2048 (room for EFFECT). FLAC and MP3 are only 7% (0.6 dB) below WAV, not audibly quieter. The real choice is decoding FLAC and MP3 to 16 bits as WAV and the PicoMite do (half their buffer memory, one conversion for all three), and one level and centre for everything; proposed ±1900 about 2000, which leaves WAV 0.6 dB quieter, keeps it off the DAC's rails (the output buffer is on) and makes the centre the idle level, so starting and stopping a WAV no longer steps 48 counts.
-3. PAUSE when already paused is silent (4.3); PLAY TONE while a tone is paused plays the new tone at once, as the CMM2 does now (4.4) (Peter, 16 Oct).
+2. One output level for all formats (4.6): **decoding to 16 bits and one level, ±1900 about 2000** (Peter, 16 Oct; done, below). A correction to 4.6: at VOLUME 100 a full-scale WAV swings ±2048 counts about 2048 (the DAC's whole range), FLAC, MP3, TONE and SOUND ±1900 about 2000, MOD ±1024 about 2048 (room for EFFECT). FLAC and MP3 are only 7% (0.6 dB) below WAV, not audibly quieter. The real choice is decoding FLAC and MP3 to 16 bits as WAV and the PicoMite do (half their buffer memory, one conversion for all three), and one level and centre for everything; proposed ±1900 about 2000, which leaves WAV 0.6 dB quieter, keeps it off the DAC's rails (the output buffer is on) and makes the centre the idle level, so starting and stopping a WAV no longer steps 48 counts.
+3. PAUSE when already paused is silent (4.3); PLAY TONE while a tone is paused takes the new tone and stays paused until PLAY RESUME (4.4): both the PicoMite's (Peter, 16 Oct; done, below).
 4. MM.INFO(SOUND): **the PicoMite's strings throughout** (Peter, 16 Oct): "MOD" for "MODFILE", "PAUSED TONE", "PAUSED WAV" and so on for "PAUSED", and "ARRAY", "SAMPLE", "BBC" as those come; "TTS" and "DAC" stay, as the PicoMite has no such states. A CMM2 program that tests for "MODFILE" or a bare "PAUSED" needs changing.
 
 ## 9. Progress
@@ -109,3 +109,17 @@ Found while testing on Peter's audio card, and fixed in A1:
 Tests: `tests/audio` (README there). On Peter's card every check passes: each two-second tone, mono and stereo, takes 2.1 to 2.2 s to its interrupt (mono FLAC and MP3 took about 1 s before); the 500 ms TONE fires at 503 ms; TTS fires; 53 WAVs in a directory play 20 tracks with one interrupt at the end; PLAY STOP fires nothing; every module on the card loads except an Impulse Tracker file named `.MOD` and two corrupt ones.
 
 Not fixed: hxcmod takes any file without a signature for a 15-sample Soundtracker module, so PLAY MODFILE of a FLAC file "plays" noise (the PicoMite has the same); a check of the song length and order table would refuse most such files. 2l goes with A6; 2o is left. The decisions of section 8 are still open, and nothing in A1 depends on them beyond firing the interrupt at the natural end only, which is what the CMM2 meant to do.
+
+**The decisions of section 8 (16 Oct).** FLAC and MP3 decode to 16 bits (`DR_MP3_FLOAT_OUTPUT` off, as the PicoMite; with it on, dr_mp3's 16-bit read converts through a 9 KB array on the stack), into buffers of half the size (MP3 two of 16 KB instead of 40 KB, FLAC instead of 32 KB), and WAV, FLAC and MP3 share one conversion, `iconvert`. Every source is centred on 2000, where the DACs rest, at ±1900 for full scale at VOLUME 100: MOD and EFFECT at half each, as before; TTS's centre no longer moves with the volume. Measured by reading the DAC output registers while each plays (`tests/audio/levels.bas`, half-scale tones):
+
+| Source | Before | After |
+|---|---|---|
+| WAV | 1024 to 3071, mean 2047 | 1050 to 2949, mean 2000 |
+| FLAC | 1050 to 2950, mean 1998 | 1050 to 2950, mean 2000 |
+| MP3 | 1094 to 2906, mean 2001 | 1095 to 2905, mean 2000 |
+| TONE | 100 to 3900, mean 2000 | the same |
+| TTS at VOLUME 50 | 208 to 1136, mean 664 | 1572 to 2443, mean 2003 |
+| TTS at VOLUME 100 | 640 to 3488, mean 2056 | 694 to 3350, mean 2007 |
+| MOD (PTETRIS) | mean 2044 | mean 1996 |
+
+PAUSE when paused does nothing; PLAY TONE while a tone is paused stays paused; MM.INFO(SOUND) gives the PicoMite's strings ("MOD", "PAUSED WAV" and so on; "TTS" and "DAC" stay) and "OFF" as soon as a tone or speech has ended. In the interrupt, MOD no longer stops while an EFFECT waits for data.

@@ -77,7 +77,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DR_MP3_NO_STDIO
 #define DRMP3_COPY_MEMORY(dst, src, sz) mycopysafe((dst), (src), (sz))
 #define DRMP3_ZERO_MEMORY(p, sz) mymemset((p), 0, (sz))
-#define DR_MP3_FLOAT_OUTPUT
+//#define DR_MP3_FLOAT_OUTPUT                                         // (16-bit output, as the PicoMite: with float output on,
+                                                                    // its 16-bit read converts through a 9 KB array on the stack)
 //#define DR_MP3_NO_SIMD
 #include <dr_mp3.h>
 #include "sam.h"
@@ -168,7 +169,6 @@ modcontext mcontext;
 drwav mywav;
 drflac* myflac=NULL;
 drmp3 *mymp3 = NULL;                                                // PLAY MP3's decoder, on the heap: it holds a 16 KB scratch area
-float *fbuff1, *fbuff2;
 a_flist *alist=NULL;
 extern void getfullpath(char *p, char *q);                         // FileIO.c
 int trackplaying=0, trackstoplay=0;
@@ -1244,18 +1244,15 @@ void CloseAudio(int all){
     return;
 }
 
-void fconvert(float *fbuff, uint16_t *sbuff, int count){
-	int i;
-	for(i=0;i<(count);i+=2){
-		sbuff[i]=(uint16_t)((fbuff[i])*19.00*mapping[vol_left]/20+2000.0);
-		sbuff[i+1]=(uint16_t)((fbuff[i+1])*19.00*mapping[vol_right]/20+2000.0);
-	}
-}
+// decoded 16-bit samples of WAV, FLAC and MP3 to DAC values, in place: +-1900 about 2000 at VOLUME 100, the level and
+// centre of TONE and SOUND, and 2000 is where the DACs rest (WAV used the DACs' whole range about 2048, so starting and
+// stopping one stepped; FLAC and MP3 were decoded to float and scaled apart, in buffers twice the size)
 void iconvert(uint16_t *ibuff, int16_t *sbuff, int count){
 	int i;
+	int l = mapping[vol_left] * 19, r = mapping[vol_right] * 19;     // mapping[100] is 2000: 2000 * 19 / 655360 * 32768 = 1900
 	for(i=0;i<(count);i+=2){
-		ibuff[i]=(uint16_t)(((float)sbuff[i]*(float)mapping[vol_left]/2000.0+32768.0))>>4;
-		ibuff[i+1]=(uint16_t)(((float)sbuff[i+1]*(float)mapping[vol_right]/2000.0+32768.0))>>4;
+		ibuff[i] = 2000 + (sbuff[i] * l) / 655360;
+		ibuff[i+1] = 2000 + (sbuff[i+1] * r) / 655360;
 	}
 }
 void i2convert(int16_t *ibuff, int16_t *sbuff, int count){
@@ -1334,17 +1331,17 @@ void mp3callback(char *p){
     }
     FreeMemorySafe((void *)&sbuff1);
     FreeMemorySafe((void *)&sbuff2);
-    sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*5);
-    sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE*5);
-    fbuff1 = (float *)sbuff1;
-    fbuff2 = (float *)sbuff2;
+    sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*2);                  // 4096 frames of 16-bit stereo (they were float, in 40 KB)
+    sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE*2);
+    ibuff1 = (uint16_t *)sbuff1;
+    ibuff2 = (uint16_t *)sbuff2;
     htim4.Init.Prescaler = PSpeedDiv/mymp3->sampleRate-1;
 	htim4.Instance->PSC = PSpeedDiv/mymp3->sampleRate-1;
 //        PInt(mymp3->sampleRate);MMPrintString(" Sample rate\r\n");
 //        PInt(mymp3->channels);MMPrintString(" Channels\r\n");
     mono=(mymp3->channels == 1 ? 1 : 0);
-    bcount[1]=drmp3_read_pcm_frames_f32(mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff1) * mymp3->channels;
-    fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
+    bcount[1]=drmp3_read_pcm_frames_s16(mymp3, WAV_BUFFER_SIZE/2, (drmp3_int16*)sbuff1) * mymp3->channels;
+    iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
     wav_filesize=bcount[1];
     if(CurrentlyPlaying != P_MP3)ConfigSoundOutputs();
     CurrentlyPlaying = P_MP3;
@@ -1379,10 +1376,10 @@ void flaccallback(char *p){
     }
     FreeMemorySafe((void *)&sbuff1);
     FreeMemorySafe((void *)&sbuff2);
-	sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*4);
-	sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE*4);
-    fbuff1 = (float *)sbuff1;
-    fbuff2 = (float *)sbuff2;
+	sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*2);                  // 4096 frames of 16-bit stereo (they were float, in 32 KB)
+	sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE*2);
+    ibuff1 = (uint16_t *)sbuff1;
+    ibuff2 = (uint16_t *)sbuff2;
 	htim4.Init.Prescaler = PSpeedDiv/myflac->sampleRate-1;
 	htim4.Instance->PSC = PSpeedDiv/myflac->sampleRate-1;
 //	        PInt(myflac->bitsPerSample);MMPrintString(" Bits per sample\r\n");
@@ -1390,10 +1387,8 @@ void flaccallback(char *p){
 //	       PInt(myflac->totalPCMFrameCount);MMPrintString(" Total Samples\r\n");
 //        PInt(myflac->totalPCMFrameCount/myflac->sampleRate/2);MMPrintString(" Calculated duration in seconds\r\n");
 	mono=(myflac->channels == 1 ? 1 : 0);
-	bcount[1]=drflac_read_pcm_frames_f32(myflac, WAV_BUFFER_SIZE/2, (float*)sbuff1) * myflac->channels;
-//	bcount[2]=drflac_read_pcm_frames_f32(myflac, WAV_BUFFER_SIZE/2, (float*)sbuff2) * myflac->channels;
-	fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
-//	fconvert(fbuff2, (uint16_t *)sbuff2, bcount[2]);
+	bcount[1]=drflac_read_pcm_frames_s16(myflac, WAV_BUFFER_SIZE/2, (drflac_int16*)sbuff1) * myflac->channels;
+	iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
 	wav_filesize=bcount[1];
 	if(CurrentlyPlaying != P_FLAC)ConfigSoundOutputs();
 	CurrentlyPlaying = P_FLAC;
@@ -1464,6 +1459,8 @@ void cmd_play(void) {
     	return;
     }
     if(checkstring(cmdline, "PAUSE")) {
+        if(CurrentlyPlaying == P_PAUSE_TONE || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_SOUND ||
+           CurrentlyPlaying == P_PAUSE_MOD || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MP3) return;  // already paused (the PicoMite's)
         if(CurrentlyPlaying == P_TONE) CurrentlyPlaying = P_PAUSE_TONE;
         else if(CurrentlyPlaying == P_FLAC) CurrentlyPlaying = P_PAUSE_FLAC;
         else if(CurrentlyPlaying == P_SOUND) CurrentlyPlaying = P_PAUSE_SOUND;
@@ -1541,7 +1538,7 @@ void cmd_play(void) {
             PhaseAC_left = PhaseAC_right = 0.0;
             ConfigSoundOutputs();
     	}
-        CurrentlyPlaying = P_TONE;
+        if(CurrentlyPlaying != P_PAUSE_TONE) CurrentlyPlaying = P_TONE;  // a paused tone takes the new one and stays paused (the PicoMite's)
         return;
     }
     if((tp = checkstring(cmdline, "SOUND"))) {//PLAY SOUND channel, type, position, frequency, volume
@@ -1953,12 +1950,12 @@ void checkWAVinput(void){
     if(swingbuf != nextbuf){ //IR has moved to next buffer
         if(CurrentlyPlaying == P_FLAC){
             if(swingbuf==2){
-                bcount[1]=(volatile unsigned int)drflac_read_pcm_frames_f32(myflac, WAV_BUFFER_SIZE/2, (float*)sbuff1) * myflac->channels;
-                fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
+                bcount[1]=(volatile unsigned int)drflac_read_pcm_frames_s16(myflac, WAV_BUFFER_SIZE/2, (drflac_int16*)sbuff1) * myflac->channels;
+                iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
                 wav_filesize = bcount[1];
             } else {
-                bcount[2]=(volatile unsigned int)drflac_read_pcm_frames_f32(myflac, WAV_BUFFER_SIZE/2, (float*)sbuff2) * myflac->channels;
-                fconvert(fbuff2, (uint16_t *)sbuff2, bcount[2]);
+                bcount[2]=(volatile unsigned int)drflac_read_pcm_frames_s16(myflac, WAV_BUFFER_SIZE/2, (drflac_int16*)sbuff2) * myflac->channels;
+                iconvert(ibuff2, (int16_t *)sbuff2, bcount[2]);
                 wav_filesize = bcount[2];
             }
             nextbuf=swingbuf;
@@ -1978,12 +1975,12 @@ void checkWAVinput(void){
 
         } else if(CurrentlyPlaying == P_MP3){
             if(swingbuf==2){
-                bcount[1]=drmp3_read_pcm_frames_f32(mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff1) * mymp3->channels;
-                fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
+                bcount[1]=drmp3_read_pcm_frames_s16(mymp3, WAV_BUFFER_SIZE/2, (drmp3_int16*)sbuff1) * mymp3->channels;
+                iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
                 wav_filesize = bcount[1];
             } else {
-                bcount[2]=drmp3_read_pcm_frames_f32(mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff2) * mymp3->channels;
-                fconvert(fbuff2, (uint16_t *)sbuff2, bcount[2]);
+                bcount[2]=drmp3_read_pcm_frames_s16(mymp3, WAV_BUFFER_SIZE/2, (drmp3_int16*)sbuff2) * mymp3->channels;
+                iconvert(ibuff2, (int16_t *)sbuff2, bcount[2]);
                 wav_filesize = bcount[2];
             }
             nextbuf=swingbuf;

@@ -925,17 +925,14 @@ void Audio_Interrupt(void)  {
         	}
         }
     } else if(CurrentlyPlaying == P_MOD ) {
-    	int32_t c1=0,c2=0,c3=0,c4=0;
+    	int32_t c1=0,c2=0,c3=0,c4=0, out=0;                          // MOD and EFFECT, signed, each at half level (i2convert)
         if(swingbuf){ //buffer is primed
         	if(swingbuf==1)flacbuff=(uint16_t *)sbuff1;
         	else flacbuff=(uint16_t *)sbuff2;
         	if(ppos<bcount[swingbuf]){
-        		c1=flacbuff[ppos++];
-        		c2=flacbuff[ppos++];
-        		if(CurrentlyPlayinge == P_NOTHING){
-        			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, ((uint16_t)(c1+32768))>>4);
-        			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, ((uint16_t)(c2+32768))>>4);
-        		}
+        		c1=(int16_t)flacbuff[ppos++];
+        		c2=(int16_t)flacbuff[ppos++];
+        		out=1;
         	}
         	if(ppos==bcount[swingbuf]){
         		int psave=ppos;
@@ -961,10 +958,9 @@ void Audio_Interrupt(void)  {
     		if(swingbufe==1)flacbuff=(uint16_t *)sbuff1e;
     		else flacbuff=(uint16_t *)sbuff2e;
     		if(ppose<bcounte[swingbufe]){
-    			c3=(mono ? flacbuff[ppose] : flacbuff[ppose++]);
-    			c4=flacbuff[ppose++];
-    			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R,((uint16_t)(c3+c1+32768))>>4);
-    			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R,((uint16_t)(c4+c2+32768))>>4);
+    			c3=(int16_t)(mono ? flacbuff[ppose] : flacbuff[ppose++]);
+    			c4=(int16_t)flacbuff[ppose++];
+    			out=1;
     		}
         	if(ppose==bcounte[swingbufe]){
         		int psave=ppose;
@@ -986,6 +982,10 @@ void Audio_Interrupt(void)  {
         		}
         	}
         }
+        if(out){                                                    // together up to +-1900 about 2000, as the other sources (the
+        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000 + ((c1 + c3) * 1900) / 32768);   // centre was 2048, and the
+        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000 + ((c2 + c4) * 1900) / 32768);   // MOD stopped while the
+        }                                                           // EFFECT waited for data)
     } else if(CurrentlyPlaying == P_TTS) {
     	int a, b;
         if(bcount[1]==0){                                           // ended: stop here; audio_checks does the rest (2a, 2d)
@@ -996,12 +996,10 @@ void Audio_Interrupt(void)  {
         		audiofinished = 1;
         	}
         } else {
-			a = sbuff1[ppos++];
-			b = a;
-			a = (a * mapping[vol_left]) / 2000 ;
-			b = (b * mapping[vol_right]) / 2000 ;
-			a <<= 4;
-			b <<= 4;
+			a = (unsigned char)sbuff1[ppos++] - 128;                   // SAM's unsigned 8 bits about 128: +-1900 about 2000 (the centre
+			b = a;                                                  // was scaled with the volume, 2048 at 100 and 672 at 50)
+			a = 2000 + (a * mapping[vol_left] * 19) / 2560;
+			b = 2000 + (b * mapping[vol_right] * 19) / 2560;
 			if(ppos == bcount[1])bcount[1] = 0;                       //buffer used up
 			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, a);
 			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, b);
