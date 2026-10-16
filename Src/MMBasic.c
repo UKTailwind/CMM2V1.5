@@ -430,7 +430,7 @@ void ExecuteProgram(char *p) {
             	}
                 if(TempMemoryIsChanged) ClearTempMemory();          // at the end of each command we need to clear any temporary string vars
                 CheckAbort();
-                if(InterruptUsed || autocursor || GUIactive)check_interrupt();                                  // check for an MMBasic interrupt and handle it
+                if(IntReady.any || autocursor || GUIactive)check_interrupt();                                  // check for an MMBasic interrupt and handle it
             }
             p = nextstmt;
         }

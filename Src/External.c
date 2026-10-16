@@ -74,7 +74,14 @@ volatile int INT3Count, INT3Value, INT3InitTimer, INT3Timer;
 volatile int INT4Count, INT4Value, INT4InitTimer, INT4Timer;
 volatile uint64_t INT5Count, INT5Value, INT5InitTimer, INT5Timer;
 GPIO_InitTypeDef GPIO_InitDef, IR_InitDef;
-int InterruptUsed;
+volatile IntReady_t IntReady;                                       // what check_interrupt must do (External.h)
+// a source has an interrupt ready: check_interrupt scans after the next statement (from an ISR or the main thread)
+void IntSignal(void) {
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    if(IntReady.count != 0xFFFF) IntReady.count++;
+    __set_PRIMASK(primask);
+}
 extern TIM_HandleTypeDef htim5;
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
@@ -1096,7 +1103,7 @@ void cmd_setpin(void) {
             case EXT_INT_LO:    inttbl[i].lohi = T_HILO; break;
             case EXT_INT_BOTH:  inttbl[i].lohi = T_BOTH; break;
         }
-		InterruptUsed = true;
+		IntPoll();
 	}
 }
 
@@ -1223,7 +1230,7 @@ void cmd_ir(void) {
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
         if(FoundType() & T_STR)  error("Invalid variable");
         if(FoundType() & T_NBR) IrVarType |= 0b10;
-        InterruptUsed = true;
+        IntPoll();
         IrInterrupt = GetIntAddress(argv[4]);							// get the interrupt location
         IrInit();
     }
@@ -1884,7 +1891,7 @@ void cmd_keypad(void) {
         RequireGlobal(KeypadVar);                                   // written on every key (the keypad is not armed yet)
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
         if(!(FoundType() & T_NBR)) error("Floating point variable required");
-        InterruptUsed = true;
+        IntPoll();
         KeypadInterrupt = GetIntAddress(argv[2]);					// get the interrupt location
         for(i = 0; i < 8; i++) {
             if(i == 7 && argc < 19) {
@@ -2018,7 +2025,7 @@ void ClearExternalIO(void) {
 		inttbl[i].pin = 0;                                          // disable all interrupts
 	}
 	InterruptReturn = NULL;
-	InterruptUsed = false;
+	IntReady.any = 0;                                               // no interrupt armed, none signalled
     OnKeyGOSUB = NULL;
 
     for(i = 0; i <= NBRSETTICKS; i++) TickInt[i] = NULL;
@@ -2181,7 +2188,7 @@ void ExtCfg(int pin, int cfg, int option) {
 									INT5Count = INT5Value = 0;
                                     if(option && cfg==EXT_CNT_IN){
                                     	CountInterrupt=(char *)option;
-                                    	InterruptUsed=1;
+                                    	IntPoll();
                                     } else {
                                     	INT5Timer = INT5InitTimer = option;  // only used for frequency and period measurement
                                     }

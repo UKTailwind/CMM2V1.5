@@ -800,7 +800,7 @@ void cmd_gui(void) {
                 GuiIntUpVector = GetIntAddress(argv[2]);            // and for the up routine
             else
                 GuiIntUpVector = NULL;
-            InterruptUsed = true;
+            IntPoll();
         }
         gui_int_down = gui_int_up = false;
       return;

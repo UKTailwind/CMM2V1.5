@@ -1,0 +1,16 @@
+-- one tick of 10 ms, 1 s of busy loop
+ticks: ok
+-- two ticks, 10 and 25 ms
+10 ms: ok  25 ms: ok
+-- PAUSE and RESUME of a tick
+while paused: 0 more
+after resume: ok
+-- ticks during a PAUSE statement
+in PAUSE 500: ok
+-- SETTICK 0 stops it
+after SETTICK 0: 0 more
+-- a slow interrupt SUB: ticks due during it are served after it
+slow SUB ran: ok  10 ms ticks still: ok
+-- a tick due during a long statement fires after it
+ticks in the loop: ok
+done

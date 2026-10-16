@@ -1238,7 +1238,7 @@ void cmd_tts(char *pp){
 			WAVcomplete = 0;
 			if(argc == 11) {
 				WAVInterrupt = GetIntAddress(argv[10]);					// get the interrupt location
-				InterruptUsed = true;
+				IntPoll();
 			}
 //			for(i=0; tts[i] != 0; i++) tts[i] = toupper((int)tts[i]);
 			if (!phonetic)
@@ -1625,7 +1625,7 @@ void cmd_play(void) {
         WAVcomplete = 0;
         if(argc == 7) {
             WAVInterrupt = GetIntAddress(argv[6]);					// get the interrupt location
-            InterruptUsed = true;
+            IntPoll();
         }
         if(PlayDuration == 0) return;
         if(PlayDuration != 0xffffffffffffffff && f_left >=10.0){
@@ -1750,7 +1750,7 @@ void cmd_play(void) {
         StopAudio();
         WAVInterrupt = ia;
         WAVcomplete = 0;
-        if(ia) InterruptUsed = true;
+        if(ia) IntPoll();
         leftarray = (short *)l;
         rightarray = (short *)r;
         arraypos = pos;
@@ -1818,7 +1818,7 @@ void cmd_play(void) {
         StopAudio();
         WAVInterrupt = ia;
         WAVcomplete = 0;
-        if(ia) InterruptUsed = true;
+        if(ia) IntPoll();
         leftarray = (short *)l;
         rightarray = (short *)r;
         sample_cycle_len = size;
@@ -1955,7 +1955,7 @@ void cmd_play(void) {
         WAVcomplete = 0;
         if(argc == 3) {
             WAVInterrupt = GetIntAddress(argv[2]);					// get the interrupt location
-            InterruptUsed = true;
+            IntPoll();
         }
         FRESULT fr;
         FILINFO fno;
@@ -2045,7 +2045,7 @@ void cmd_play(void) {
         EFFECTcomplete = 0;
         if(argc == 3) {
             EFFECTInterrupt = GetIntAddress(argv[2]);				// get the interrupt location
-            InterruptUsed = true;
+            IntPoll();
         }
         if(swingbufe){
         	swingbufe=0;
@@ -2102,7 +2102,7 @@ void cmd_play(void) {
         WAVcomplete = 0;
         if(argc == 3) {
             WAVInterrupt = GetIntAddress(argv[2]);                  // get the interrupt location
-            InterruptUsed = true;
+            IntPoll();
         }
         FRESULT fr;
         FILINFO fno;
@@ -2166,7 +2166,7 @@ void cmd_play(void) {
         p = getCstring(argv[0]);                                    // get the file name
         WAVInterrupt = ia;
         WAVcomplete = 0;
-        if(ia) InterruptUsed = true;
+        if(ia) IntPoll();
         modnoloop = (ia != NULL);
         // open the file
         if(strchr(p, '.') == NULL) strcat(p, ".MOD");
@@ -2223,7 +2223,7 @@ void cmd_play(void) {
         WAVcomplete = 0;
         if(argc == 3) {
             WAVInterrupt = GetIntAddress(argv[2]);					// get the interrupt location
-            InterruptUsed = true;
+            IntPoll();
         }
         FRESULT fr;
         FILINFO fno;

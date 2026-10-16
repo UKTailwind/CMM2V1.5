@@ -292,10 +292,9 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 				mouse1=2;
 			}
 		}
-        if(InterruptUsed) {
-            int i;
-            for(i = 0; i < NBRSETTICKS; i++) if(TickActive[i])TickTimer[i]++;			// used in the interrupt tick
-         }
+        // the SETTICK timers count while armed, and each signals on the millisecond it becomes due (the scan winds it
+        // back), so an armed tick costs no statement a scan until then (S1c)
+        for(int i = 0; i < NBRSETTICKS; i++) if(TickInt[i] != NULL && TickActive[i] && TickTimer[i]++ == TickPeriod[i]) IntSignal();
 
 		if(ScrewUpTimer) {
 			if(--ScrewUpTimer == 0) {

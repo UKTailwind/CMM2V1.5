@@ -317,7 +317,7 @@ void SerialOpen(char *spec) {
 		bufsize = COM_DEFAULT_BUF_SIZE;
 
 	if(argc >= 7) {
-    	InterruptUsed = true;
+    	IntPoll();
     	argv[6]=strupr(argv[6]);
 		interrupt = GetIntAddress(argv[6]);							// get the interrupt location
 	} else
@@ -330,7 +330,7 @@ void SerialOpen(char *spec) {
 		ilevel = 1;
 
 	if(argc >= 11) {
-    	InterruptUsed = true;
+    	IntPoll();
     	argv[6]=strupr(argv[10]);
 		TXinterrupt = GetIntAddress(argv[10]);							// get the interrupt location
 	} else

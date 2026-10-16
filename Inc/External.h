@@ -180,7 +180,22 @@ extern volatile unsigned char ADCbits[];
 #define CP_IGNORE_BOOTRES    0b1000     // the function will ignore the boot reserved pins (EXT_BOOT_RESERVED)
 extern int MIPS16 CheckPin(int pin, int action);
 
-extern int InterruptUsed;
+// What check_interrupt must do after each statement (the PicoMite's S1c): .any is one load, zero meaning no interrupt
+// can be due and the scan is skipped. .count: interrupts signalled by their source (IntSignal: an ISR, a callback or a
+// command) and not yet scanned for; each scan consumes one, so interrupts that arrive together are served by
+// consecutive statements. .poll: INT_POLL_SCAN while an armed source has no signal of its own: scan every statement.
+#define INT_POLL_SCAN 1
+typedef union {
+    uint32_t any;
+    struct {
+        uint16_t count;
+        uint8_t poll;
+        uint8_t spare;
+    };
+} IntReady_t;
+extern volatile IntReady_t IntReady;
+extern void IntSignal(void);
+#define IntPoll() (IntReady.poll |= INT_POLL_SCAN)                  // a source with no signal of its own was armed
 typedef enum
 {
   GPIO_Mode_IN   = 0x00, /*!< GPIO Input Mode */

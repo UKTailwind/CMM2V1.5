@@ -671,7 +671,7 @@ void cmd_csubinterrupt(void) {
         } else {
             CSubInterrupt = GetIntAddress(argv[0]);
             CSubComplete = 0;
-            InterruptUsed = true;
+            IntPoll();
         }
     } else CSubComplete = 1;
 }
@@ -2377,6 +2377,7 @@ void cmd_ireturn(void){
     if(SaveOptionErrorSkip>0)OptionErrorSkip=SaveOptionErrorSkip+1;
     strcpy(MMErrMsg, SaveMMErrMsg);                                 // the caller's error state again
     MMerrno = SaveMMerrno;
+    IntSignal();                                                    // scan once more: another interrupt may have become due meanwhile (S1c)
 }
 
 
@@ -2402,7 +2403,7 @@ void cmd_settick(void){
         TickPeriod[irq] = period;
         TickInt[irq] = GetIntAddress(argv[2]);                      // get a pointer to the interrupt routine
         TickTimer[irq] = 0;                                         // set the timer running
-        InterruptUsed = true;
+        if(period < 0) IntPoll();                                   // (due at every scan: no signal; the 1 ms tick signals the rest)
         TickActive[irq]=1;
 
     }
@@ -3793,6 +3794,22 @@ Tick Interrupts (1 to 4 in that order)
 
 // check if an interrupt has occured and if so, set the next command to the interrupt routine
 // will return true if interrupt detected or false if not
+// an armed source without a signal of its own: the poll bit stays while one is (S1c; the PicoMite's)
+static int PolledSourceArmed(void) {
+    int i;
+    for(i = 1; i <= MAXPID; i++) if(PIDchannels[i].interrupt != NULL && PIDchannels[i].active) return 1;
+    for(i = 0; i < NBRSETTICKS; i++) if(TickInt[i] != NULL && TickPeriod[i] < 0) return 1;
+    if(OnKeyGOSUB || KeyInterrupt) return 1;
+    if(com1_interrupt || com1_TX_interrupt || com2_interrupt || com2_TX_interrupt || com3_interrupt || com3_TX_interrupt) return 1;
+    if(GuiIntDownVector || GuiIntUpVector) return 1;
+    if(WAVInterrupt || EFFECTInterrupt || COLLISIONInterrupt || ADCInterrupt || DACInterrupt || IrInterrupt || FrameInterrupt || CountInterrupt) return 1;
+    if(nun1Interruptz || nun1Interruptc || nun2Interruptz || nun2Interruptc || nun3Interruptz || nun3Interruptc) return 1;
+    if(mouse0Interruptz || mouse0Interruptc || mouse0Interruptu || mouse1Interruptz || mouse1Interruptc || mouse1Interruptu) return 1;
+    if(mouse2Interruptz || mouse2Interruptc || mouse2Interruptu || mouse3Interruptz || mouse3Interruptc || mouse3Interruptu) return 1;
+    if(CSubInterrupt) return 1;
+    for(i = 0; i < NBRINTERRUPTS; i++) if(inttbl[i].pin != 0) return 1;
+    return 0;
+}
 int check_interrupt(void) {
 	int i, v;
 	char *intaddr;
@@ -3816,8 +3833,14 @@ int check_interrupt(void) {
     ProcessTouch();                                             // check GUI touch
     if(CheckGuiFlag) CheckGui();                                // This implements a LED flash
 
-    if(!InterruptUsed) return 0;                                    // quick exit if there are no interrupts set
+    if(!IntReady.any) return 0;                                     // quick exit: nothing signalled and nothing to poll (S1c)
 	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
+    if(IntReady.count) {                                            // consume one signal (sources only ever add)
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
+        IntReady.count--;
+        __set_PRIMASK(primask);
+    } else if(!(IntReady.poll & INT_POLL_SCAN)) return 0;
 
 //Deal with the fast tick interrupt first
     for(int i=1;i<=MAXPID;i++){
@@ -4064,7 +4087,8 @@ int check_interrupt(void) {
     	}
     }
 
-    // if no interrupt was found then return having done nothing
+    // if no interrupt was found then return having done nothing; the poll bit goes with the last source that needs it
+    if((IntReady.poll & INT_POLL_SCAN) && !PolledSourceArmed()) IntReady.poll &= ~INT_POLL_SCAN;
 	return 0;
 
     // an interrupt was found if we jumped to here

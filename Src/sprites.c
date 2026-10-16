@@ -1635,7 +1635,7 @@ void cmd_blit(void) {
     } else if((p = checkstring(cmdline, "INTERRUPT"))) {
         getargs(&p, 1,",");
         COLLISIONInterrupt = GetIntAddress(argv[0]);					// get the interrupt location
-        InterruptUsed = true;
+        IntPoll();
         return;
 
     } else if((p = checkstring(cmdline, "NOINTERRUPT"))) {

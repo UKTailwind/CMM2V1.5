@@ -265,8 +265,7 @@ void cmd_fasttick(char *in){
 		prescale*=2;
 		prescale--;
 		TickInt[NBRSETTICKS] = GetIntAddress(argv[2]);					    // get a pointer to the interrupt routine
-		TickTimer[NBRSETTICKS] = 0;										    // set the timer running
-		InterruptUsed = true;
+		TickTimer[NBRSETTICKS] = 0;										    // set the timer running (TIM13 signals each tick)
 		MX_TIM13_Init(prescale,period);
 	}
 }
@@ -320,7 +319,7 @@ void cmd_ADC(void){
     	memset(&sConfigC,0,sizeof(ADC_ChannelConfTypeDef));
     	ADCchannelB = ADCchannelC = 0;
     	if(argc == 9) {
-        	InterruptUsed = true;
+        	IntPoll();
         	ADCInterrupt = GetIntAddress(argv[8]);							// get the interrupt location
     	} else
     		ADCInterrupt = NULL;
@@ -607,7 +606,7 @@ void cmd_DAC(void){
        */
     	if(argc == 7) {
     		DACcomplete = false;
-    		InterruptUsed = true;
+    		IntPoll();
         	DACInterrupt = GetIntAddress(argv[6]);							// get the interrupt location
     	} else
     		DACInterrupt = NULL;

@@ -829,6 +829,7 @@ void TIM8_UP_TIM13_IRQHandler(void)
   HAL_TIM_IRQHandler(&htim13);
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 1 */
   TickTimer[NBRSETTICKS]++;
+  IntSignal();                                                      // (SETTICK FAST: each tick is one scan)
 
   /* USER CODE END TIM8_UP_TIM13_IRQn 1 */
 }

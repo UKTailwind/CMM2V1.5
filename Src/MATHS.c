@@ -44,7 +44,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 /* The PicoMite's MATHS.c on the CMM2.  The mechanical changes (char * for unsigned char *, the CMM2's names for
    g_VarIndex and g_OptionBase, getargs for getcsargs, the RP2350's int dims) were made by a script; these are the
    platform's: the hardware RNG for the RP2350's get_rand_32() and for the seeds the PicoMite takes from its
-   microsecond timer, Getuptime() for time_us_64(), InterruptUsed for IntReady.poll, PRIMASK for the SDK's
+   microsecond timer, Getuptime() for time_us_64(), IntPoll() for IntReady.poll, PRIMASK for the SDK's
    save_and_disable_interrupts(), routinechecks(1) in the CRC loops, and optionangle for useoptionangle. */
 extern RNG_HandleTypeDef hrng;
 static uint32_t get_rand_32(void) {
@@ -2498,7 +2498,7 @@ void cmd_math(void)
 					error("Channel not initialised");
 				PIDchannels[channel].timenext = Getuptime() + (PIDchannels[channel].PIDparams->T * 1000000);
 				PIDchannels[channel].active = true;
-				InterruptUsed = true;
+				IntPoll();
 			}
 			else if ((pi = checkstring(tp, "STOP")))
 			{

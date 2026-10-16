@@ -489,11 +489,11 @@ void cmd_nunchuck(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				nun1Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc==5){
 				nun1Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			HAL_NVIC_SetPriority(I2C1_EV_IRQn,0,0);
 			HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
@@ -551,11 +551,11 @@ void cmd_nunchuck(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				nun2Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc==5){
 				nun2Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			HAL_NVIC_SetPriority(I2C4_EV_IRQn,0,0);
 			HAL_NVIC_EnableIRQ(I2C4_EV_IRQn);
@@ -613,11 +613,11 @@ void cmd_nunchuck(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				nun3Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc==5){
 				nun3Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			HAL_NVIC_SetPriority(I2C2_EV_IRQn,0,0);
 			HAL_NVIC_EnableIRQ(I2C2_EV_IRQn);
@@ -712,7 +712,7 @@ void cmd_classic(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				nun1Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 	            nunstruct[nchan].x1=0b111111111111111;
 	            if(argc==5)nunstruct[nchan].x1=getint(argv[4],0,0b111111111111111);
 			}
@@ -760,7 +760,7 @@ void cmd_classic(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				nun2Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 	            nunstruct[nchan].x1=0b111111111111111;
 	            if(argc==5)nunstruct[nchan].x1=getint(argv[4],0,0b111111111111111);
 			}
@@ -808,7 +808,7 @@ void cmd_classic(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				nun3Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 	            nunstruct[nchan].x1=0b111111111111111;
 	            if(argc==5)nunstruct[nchan].x1=getint(argv[4],0,0b111111111111111);
 			}
@@ -873,16 +873,16 @@ void cmd_mouse(char *cmd){
 		    ExtCfg(MOUSE_DATA, EXT_DIG_IN, 0);ExtCfg(MOUSE_DATA, EXT_COM_RESERVED, 0);
 			if(argc>=3 && *argv[2]){
 				mouse0Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=5 && *argv[4]){
 				mouse0Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=7 && *argv[6])sensitivity=getint(argv[6],0,8);
 			if(argc>=9 && *argv[8]){
 				mouse0Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			initMouse0(sensitivity);
 		} else if(nchan==1){
@@ -947,15 +947,15 @@ void cmd_mouse(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				mouse1Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=5 && *argv[4]){
 				mouse1Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=9 && *argv[8]){
 				mouse1Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			HAL_NVIC_SetPriority(I2C1_EV_IRQn,0,0);
 			HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
@@ -1022,15 +1022,15 @@ void cmd_mouse(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				mouse2Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=5 && *argv[4]){
 				mouse2Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=9 && *argv[8]){
 				mouse2Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			HAL_NVIC_SetPriority(I2C4_EV_IRQn,0,0);
 			HAL_NVIC_EnableIRQ(I2C4_EV_IRQn);
@@ -1098,15 +1098,15 @@ void cmd_mouse(char *cmd){
 			}
 			if(argc>=3 && *argv[2]){
 				mouse3Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=5 && *argv[4]){
 				mouse3Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			if(argc>=9 && *argv[8]){
 				mouse3Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
-	            InterruptUsed = true;
+	            IntPoll();
 			}
 			HAL_NVIC_SetPriority(I2C2_EV_IRQn,0,0);
 			HAL_NVIC_EnableIRQ(I2C2_EV_IRQn);
@@ -1286,7 +1286,7 @@ void cmd_mode(void){
 	}
 	if(argc > 5 && argv[6]){
         FrameInterrupt = GetIntAddress(argv[6]);					// get the interrupt location
-        InterruptUsed = true;
+        IntPoll();
 	} else FrameInterrupt=NULL;
 	setmode(mode,colour,bc,0);
 }
