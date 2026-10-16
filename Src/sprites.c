@@ -383,6 +383,7 @@ void ProcessCollisions(int bnbr){
         checklimits(bnbr, &n);
         if(n>1){
             CollisionFound=true;
+            if(COLLISIONInterrupt != NULL) IntSignal();
             sprite_which_collided=bnbr;
             blitbuff[bnbr].collisions[0]=n-1;
         }
@@ -424,6 +425,7 @@ void ProcessCollisions(int bnbr){
         }
         if(bcol>1){
             CollisionFound=true;
+            if(COLLISIONInterrupt != NULL) IntSignal();
             sprite_which_collided=0;
             blitbuff[0].collisions[0]=bcol-1;
         }
@@ -1635,7 +1637,7 @@ void cmd_blit(void) {
     } else if((p = checkstring(cmdline, "INTERRUPT"))) {
         getargs(&p, 1,",");
         COLLISIONInterrupt = GetIntAddress(argv[0]);					// get the interrupt location
-        IntPoll();
+        IntSignal();
         return;
 
     } else if((p = checkstring(cmdline, "NOINTERRUPT"))) {

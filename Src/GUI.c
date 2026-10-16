@@ -800,7 +800,7 @@ void cmd_gui(void) {
                 GuiIntUpVector = GetIntAddress(argv[2]);            // and for the up routine
             else
                 GuiIntUpVector = NULL;
-            IntPoll();
+            IntSignal();
         }
         gui_int_down = gui_int_up = false;
       return;
@@ -2021,6 +2021,7 @@ void ProcessTouch(void) {
         }
 
         gui_int_down = true;                                        // signal that a MMBasic interrupt is valid
+        if(GuiIntDownVector) IntSignal();
         for(r = 1; r < Option.MaxCtrls; r++) {
             if(Ctrl[r].type && TouchX >= Ctrl[r].x1 && TouchY >= Ctrl[r].y1 && TouchX <= Ctrl[r].x2 && TouchY <= Ctrl[r].y2) {
                 if(!(CurrentPages & (1 << Ctrl[r].page))) continue;                            // ignore if the page is not displayed
@@ -2126,6 +2127,7 @@ void ProcessTouch(void) {
         }
 
         gui_int_up = true;
+        if(GuiIntUpVector) IntSignal();
         if(CurrentRef) {
             if(Ctrl[CurrentRef].type) {
                 if((CurrentPages & (1 << Ctrl[CurrentRef].page)) && !(Ctrl[CurrentRef].state & (CTRL_DISABLED | CTRL_DISABLED2 | CTRL_HIDDEN))) {   // ignore if control is disabled or the page is not displayed

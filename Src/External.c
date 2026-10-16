@@ -1230,7 +1230,7 @@ void cmd_ir(void) {
         if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
         if(FoundType() & T_STR)  error("Invalid variable");
         if(FoundType() & T_NBR) IrVarType |= 0b10;
-        IntPoll();
+        IntSignal();
         IrInterrupt = GetIntAddress(argv[4]);							// get the interrupt location
         IrInit();
     }
@@ -2188,7 +2188,7 @@ void ExtCfg(int pin, int cfg, int option) {
 									INT5Count = INT5Value = 0;
                                     if(option && cfg==EXT_CNT_IN){
                                     	CountInterrupt=(char *)option;
-                                    	IntPoll();
+                                    	IntSignal();
                                     } else {
                                     	INT5Timer = INT5InitTimer = option;  // only used for frequency and period measurement
                                     }
@@ -2249,7 +2249,7 @@ void ExtSet(int pin, long long int val){
         if(pin == INT2PIN) INT2Count=val;
         if(pin == INT3PIN) INT3Count=val;
         if(pin == INT4PIN) INT4Count=val;
-        if(pin == COUNT5) {Count5High=val>>32 ; WriteCount5(val & 0xFFFFFFFF);}
+        if(pin == COUNT5) {Count5High=val>>32 ; WriteCount5(val & 0xFFFFFFFF); if(CountInterrupt != NULL) IntSignal();}
 
     }
     else

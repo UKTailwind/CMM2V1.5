@@ -3794,18 +3794,13 @@ Tick Interrupts (1 to 4 in that order)
 
 // check if an interrupt has occured and if so, set the next command to the interrupt routine
 // will return true if interrupt detected or false if not
-// an armed source without a signal of its own: the poll bit stays while one is (S1c; the PicoMite's)
+// An armed source without a signal of its own: the poll bit stays while one is (S1c; the PicoMite's). PID deadlines,
+// SETTICK with a negative period (due at every scan), CSUB INTERRUPT (a CSUB sets CSubComplete through a pointer)
+// and interrupt pins are polled; every other source signals (IntSignal) where it becomes ready.
 static int PolledSourceArmed(void) {
     int i;
     for(i = 1; i <= MAXPID; i++) if(PIDchannels[i].interrupt != NULL && PIDchannels[i].active) return 1;
     for(i = 0; i < NBRSETTICKS; i++) if(TickInt[i] != NULL && TickPeriod[i] < 0) return 1;
-    if(OnKeyGOSUB || KeyInterrupt) return 1;
-    if(com1_interrupt || com1_TX_interrupt || com2_interrupt || com2_TX_interrupt || com3_interrupt || com3_TX_interrupt) return 1;
-    if(GuiIntDownVector || GuiIntUpVector) return 1;
-    if(WAVInterrupt || EFFECTInterrupt || COLLISIONInterrupt || ADCInterrupt || DACInterrupt || IrInterrupt || FrameInterrupt || CountInterrupt) return 1;
-    if(nun1Interruptz || nun1Interruptc || nun2Interruptz || nun2Interruptc || nun3Interruptz || nun3Interruptc) return 1;
-    if(mouse0Interruptz || mouse0Interruptc || mouse0Interruptu || mouse1Interruptz || mouse1Interruptc || mouse1Interruptu) return 1;
-    if(mouse2Interruptz || mouse2Interruptc || mouse2Interruptu || mouse3Interruptz || mouse3Interruptc || mouse3Interruptu) return 1;
     if(CSubInterrupt) return 1;
     for(i = 0; i < NBRINTERRUPTS; i++) if(inttbl[i].pin != 0) return 1;
     return 0;

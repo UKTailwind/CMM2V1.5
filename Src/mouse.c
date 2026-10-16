@@ -348,6 +348,7 @@ void MNInterrupt(void) {
                             if((mouse[0] & 3) != (LastCode & 3)){
                             	if((mouse[0] & 1) && !(LastCode & 1) && (mSecTimer-lefttimer>16)){ //left button press
                             		mouse0foundz=1;
+                            		IntSignal();
                             		if(mousestruct[0].type>=500 || mousestruct[0].type<100) mousestruct[0].type=0;
                             		else {
                             			mousestruct[0].R=1;
@@ -357,9 +358,11 @@ void MNInterrupt(void) {
                             	}
                                	if(!(mouse[0] & 1) && (LastCode & 1)){ //left button release
                                		mouse0leftup=1;
+                               		IntSignal();
                                	}
                             	if((mouse[0] & 2) && !(LastCode & 2) && (mSecTimer-righttimer>16)){
                             		mouse0foundc=1;  //right button press
+                            		IntSignal();
                             		righttimer=mSecTimer;
                             	}
                             }

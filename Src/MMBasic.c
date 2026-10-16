@@ -429,7 +429,7 @@ void ExecuteProgram(char *p) {
 					if(OptionErrorSkip > 0) OptionErrorSkip--;          // if OPTION ERROR SKIP decrement the count - we do not error if it is greater than zero
             	}
                 if(TempMemoryIsChanged) ClearTempMemory();          // at the end of each command we need to clear any temporary string vars
-                CheckAbort();
+                if(USBtime | deferredcopy | MMAbort) CheckAbort();      // (it does nothing unless one is set: the 1 ms tick sets USBtime)
                 if(IntReady.any || autocursor || GUIactive)check_interrupt();                                  // check for an MMBasic interrupt and handle it
             }
             p = nextstmt;

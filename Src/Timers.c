@@ -386,6 +386,7 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 				else
 					*(long long int *)IrCmd = IrCmdTmp;
 				IrGotMsg = true;
+				IntSignal();
 				NextIrTick += 250;
 			}
 			IrTimeout = IrTick + 150;

@@ -319,7 +319,7 @@ void cmd_ADC(void){
     	memset(&sConfigC,0,sizeof(ADC_ChannelConfTypeDef));
     	ADCchannelB = ADCchannelC = 0;
     	if(argc == 9) {
-        	IntPoll();
+        	IntSignal();
         	ADCInterrupt = GetIntAddress(argv[8]);							// get the interrupt location
     	} else
     		ADCInterrupt = NULL;
@@ -577,7 +577,7 @@ void cmd_DAC(void){
         d1max=parseintegerarray(argv[2],&d1point,1,1, NULL, false, NULL)-1;
         RequireGlobal(d1point);                                     // the DAC interrupt reads it after the command returns
                //PInt(d1max);
-        if(argc==5){
+        if(argc>=5 && *argv[4]){                                    // (the second array, also when an interrupt follows)
            d2max=parseintegerarray(argv[4],&d2point,2,1, NULL, false, NULL)-1;
            RequireGlobal(d2point);
               // PInt(d2max);
@@ -606,7 +606,7 @@ void cmd_DAC(void){
        */
     	if(argc == 7) {
     		DACcomplete = false;
-    		IntPoll();
+    		IntSignal();
         	DACInterrupt = GetIntAddress(argv[6]);							// get the interrupt location
     	} else
     		DACInterrupt = NULL;

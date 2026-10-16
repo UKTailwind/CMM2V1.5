@@ -115,6 +115,7 @@ int pagegen(int Vmode, int Vcol){
 void __attribute__ ((optimize("-O2"))) HAL_LTDC_LineEventCallback(LTDC_HandleTypeDef *ltdc){
 		pagesetdone=1;
 		Framecomplete=1;
+		if(FrameInterrupt != NULL) IntSignal();
 		HAL_LTDC_ProgramLineEvent(&hltdc, hltdc.Init.AccumulatedActiveH+1);
 }
 HAL_StatusTypeDef PLL3_Config(RCC_PLL3InitTypeDef *pll3, uint32_t Divider)

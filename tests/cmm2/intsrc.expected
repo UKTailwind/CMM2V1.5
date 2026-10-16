@@ -1,0 +1,25 @@
+-- armed sources that are not due cost nothing (first, before any other is armed)
+armed/none: ok%
+-- PLAY TONE's end
+tone ends: 1  after ok
+-- ADC START with an interrupt
+adc done: 1
+-- DAC START with two arrays and an interrupt
+dac done: 1  second channel: 3000
+-- the COUNT5 interrupt (PIN(18) = n moves the high word)
+count interrupts: 2
+-- a sprite collision
+apart: 0
+overlapping: 1
+-- MODE's frame interrupt (mode 8 is 75 Hz), and MODE without one
+frames in 1 s: ok  after: 0
+-- ON KEY
+keys?
+on key: 4  abc<cr>
+-- ON KEY armed with keys already waiting
+early?
+waiting keys: 2  q<cr>
+-- ON KEY k
+more?
+on key y: 1  buffered: xz<cr>
+done

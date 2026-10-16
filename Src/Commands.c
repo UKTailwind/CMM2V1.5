@@ -3133,7 +3133,7 @@ void cmd_on(void) {
 				OnKeyGOSUB = NULL;                                      // the program wants to turn the interrupt off
 			} else {
 				OnKeyGOSUB = GetIntAddress(argv[0]);						    // get a pointer to the interrupt routine
-				IntPoll();
+				IntSignal();
 			}
 			return;
 		} else {
@@ -3145,7 +3145,7 @@ void cmd_on(void) {
 					KeyInterrupt = NULL;                                      // the program wants to turn the interrupt off
 				} else {
 					KeyInterrupt = GetIntAddress(argv[2]);						    // get a pointer to the interrupt routine
-					IntPoll();
+					IntSignal();
 				}
 			}
 			return;

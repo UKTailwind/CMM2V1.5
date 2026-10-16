@@ -1101,6 +1101,7 @@ void USR_KEYBRD_ProcessData(uint8_t data)
 	if (data == keyselect && KeyInterrupt != NULL)
 	{
 		Keycomplete = 1;
+		IntSignal();
 		return;
 	}
 	ConsoleRxBuf[ConsoleRxBufHead] = data;							 // store the byte in the ring buffer
@@ -1109,6 +1110,8 @@ void USR_KEYBRD_ProcessData(uint8_t data)
 	{																	 // if the buffer has overflowed
 		ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
 	}
+	if (OnKeyGOSUB != NULL)
+		IntSignal(); // ON KEY: a key is waiting
 }
 
 uint8_t kbd_lock_leds(void)

@@ -100,6 +100,8 @@ extern volatile int ConsoleTxBufHead;
 extern volatile int ConsoleTxBufTail;
 extern volatile char ConsoleRxBuf[];
 extern char BreakKey;
+extern char *OnKeyGOSUB;                                            // ON KEY (signalled when a key is stored)
+extern char *CountInterrupt;                                        // the COUNT5 interrupt (signalled when the high word moves)
 extern volatile int MMAbort;
 extern int64_t *d1point, *d2point;
 extern int d1max, d2max;
@@ -361,7 +363,10 @@ void TIM2_IRQHandler(void)
   /* USER CODE END TIM2_IRQn 0 */
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
-  if(ExtCurrentConfig[COUNT5]==EXT_CNT_IN)Count5High++;
+  if(ExtCurrentConfig[COUNT5]==EXT_CNT_IN) {
+    Count5High++;
+    if(CountInterrupt != NULL) IntSignal();                         // (the count interrupt: the high word moved)
+  }
 
   /* USER CODE END TIM2_IRQn 1 */
 }
@@ -426,6 +431,7 @@ void USART1_IRQHandler(void)
   				ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
   			} else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
   					Keycomplete=1;
+  					IntSignal();
   			} else {
   				ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;     // advance the head of the queue
   				int i = ConsoleRxBufHead - ConsoleRxBufTail;
@@ -433,6 +439,7 @@ void USART1_IRQHandler(void)
   				if(ConsoleRxBufHead == ConsoleRxBufTail) {                           // if the buffer has overflowed
   					ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
   				}
+  				if(OnKeyGOSUB != NULL) IntSignal();                         // ON KEY: a key is waiting
   			}
   		}
   		if ((isrflags & USART_ISR_TC) != RESET){
@@ -473,6 +480,11 @@ void USART1_IRQHandler(void)
   	        	if(com3Rx_head == com3Rx_tail) {                           // if the buffer has overflowed
   	        		com3Rx_tail = (com3Rx_tail + 1) % com3_buf_size; // throw away the oldest char
   	        	}
+  	        	if(com3_interrupt != NULL) {                            // signal on the byte that brings the buffer up to its level
+  	        		int n = com3Rx_head - com3Rx_tail;
+  	        		if(n < 0) n += com3_buf_size;
+  	        		if(n == com3_ilevel) IntSignal();
+  	        	}
   	        }
   		}
   		if ((isrflags & USART_ISR_TC) != RESET){
@@ -511,11 +523,13 @@ void USART2_IRQHandler(void)
   				ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
   			} else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
   					Keycomplete=1;
+  					IntSignal();
   			} else {
   				ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;     // advance the head of the queue
   				if(ConsoleRxBufHead == ConsoleRxBufTail) {                           // if the buffer has overflowed
   					ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
   				}
+  				if(OnKeyGOSUB != NULL) IntSignal();                         // ON KEY: a key is waiting
   			}
   		}
   		if ((isrflags & USART_ISR_TC) != RESET){
@@ -554,6 +568,11 @@ void USART2_IRQHandler(void)
 				com1Rx_head = (com1Rx_head + 1) % com1_buf_size;     // advance the head of the queue
 				if(com1Rx_head == com1Rx_tail) {                           // if the buffer has overflowed
 					com1Rx_tail = (com1Rx_tail + 1) % com1_buf_size; // throw away the oldest char
+				}
+				if(com1_interrupt != NULL) {                            // signal on the byte that brings the buffer up to its level
+					int n = com1Rx_head - com1Rx_tail;
+					if(n < 0) n += com1_buf_size;
+					if(n == com1_ilevel) IntSignal();
 				}
 			}
 		}
@@ -594,11 +613,13 @@ void UART4_IRQHandler(void)
   				ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
   			} else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
   					Keycomplete=1;
+  					IntSignal();
   			} else {
   				ConsoleRxBufHead = (ConsoleRxBufHead + 1) % CONSOLE_RX_BUF_SIZE;     // advance the head of the queue
   				if(ConsoleRxBufHead == ConsoleRxBufTail) {                           // if the buffer has overflowed
   					ConsoleRxBufTail = (ConsoleRxBufTail + 1) % CONSOLE_RX_BUF_SIZE; // throw away the oldest char
   				}
+  				if(OnKeyGOSUB != NULL) IntSignal();                         // ON KEY: a key is waiting
   			}
   		}
   		if ((isrflags & USART_ISR_TC) != RESET){
@@ -639,6 +660,11 @@ void UART4_IRQHandler(void)
 				if(com2Rx_head == com2Rx_tail) {                           // if the buffer has overflowed
 					com2Rx_tail = (com2Rx_tail + 1) % com2_buf_size; // throw away the oldest char
 				}
+				if(com2_interrupt != NULL) {                            // signal on the byte that brings the buffer up to its level
+					int n = com2Rx_head - com2Rx_tail;
+					if(n < 0) n += com2_buf_size;
+					if(n == com2_ilevel) IntSignal();
+				}
 			}
 		}
 		if ((isrflags & USART_ISR_TC) != RESET){
@@ -677,6 +703,7 @@ void TIM6_DAC_IRQHandler(void)
 			if(d1pos>d1max){
 				if(DACInterrupt != NULL){
 					DACcomplete=true;
+					IntSignal();
 					dacclose();
 				}
 				else d1pos=0;
@@ -687,6 +714,7 @@ void TIM6_DAC_IRQHandler(void)
 			if(d1pos>d1max){
 				if(DACInterrupt != NULL){
 					DACcomplete=true;
+					IntSignal();
 					dacclose();
 				}
 				else d1pos=0;
@@ -730,6 +758,7 @@ void TIM7_IRQHandler(void)
 			HAL_TIM_Base_DeInit(&htim7);
 			__HAL_RCC_TIM7_CLK_DISABLE();
 			ADCcomplete=true;
+			IntSignal();
 			TIM7->SR=0;
 			return;
 		}
