@@ -114,6 +114,8 @@ volatile int ADCchannelC=0;
 int ADCtriggervalue=0;
 int ADCtriggerchannel=0;
 int ADCnegativeslope=0;
+int ADCtriggertimeout=0;                                            // ADC TRIGGER's third argument: samples to wait for the edge, 0 for ever
+MMFLOAT ADCscale[3], ADCbottom[3];                                  // ADC START's scale (per count) and offset for each channel: volts without
 char *ADCInterrupt;
 volatile char *DACInterrupt;
 int ADCNumchannels=0;
@@ -420,7 +422,7 @@ void cmd_ADC(void){
 	}
 	tp = checkstring(cmdline, "START");
 	if(tp) {
-     	getargs(&tp, 5, ",");
+     	getargs(&tp, 17, ",");                                      // a(), b(), c(), then bottom and top for each channel
 		if(!ADCchannelA)error("ADC not open");
         if(!(argc >= 1))error("Argument count");
         a1point=NULL; a2point=NULL; a3point=NULL;
@@ -433,18 +435,27 @@ void cmd_ADC(void){
         ADCmax = parsefloatarray(argv[0], &af, 1, 1, NULL, true, NULL) - 1;
         if(ADCInterrupt) RequireGlobal(af);
         a1float = af; a1point = (uint64_t *)af;
-        if(argc>=3){
+        if(argc>=3 && *argv[2]){                                    // (an empty array slot when the scaling follows)
             if(!ADCchannelB)error("Second channel not open");
             if(parsefloatarray(argv[2], &af, 2, 1, NULL, true, NULL) - 1 != ADCmax) error("Arrays should be the same size");
             if(ADCInterrupt) RequireGlobal(af);
             a2float = af; a2point = (uint64_t *)af;
         }
-        if(argc>=5){
+        if(argc>=5 && *argv[4]){
             if(!ADCchannelC)error("Third channel not open");
             if(parsefloatarray(argv[4], &af, 3, 1, NULL, true, NULL) - 1 != ADCmax) error("Arrays should be the same size");
             if(ADCInterrupt) RequireGlobal(af);
             a3float = af; a3point = (uint64_t *)af;
         }
+        // the scale and offset for each channel: the values its bottom and top readings map to, volts without (the
+        // PicoMite's; Gerry's b14)
+        for(int k = 0; k < 3; k++) { ADCbottom[k] = 0; ADCscale[k] = VCC; }
+        if(argc >= 9 && *argv[6] && *argv[8]) { ADCbottom[0] = getnumber(argv[6]); ADCscale[0] = getnumber(argv[8]) - ADCbottom[0]; }
+        if(argc >= 13 && *argv[10] && *argv[12]) { ADCbottom[1] = getnumber(argv[10]); ADCscale[1] = getnumber(argv[12]) - ADCbottom[1]; }
+        if(argc >= 17 && *argv[14] && *argv[16]) { ADCbottom[2] = getnumber(argv[14]); ADCscale[2] = getnumber(argv[16]) - ADCbottom[2]; }
+        ADCscale[0] /= ADCdiv[ADCbits[ADCchannelA]];
+        if(ADCchannelB) ADCscale[1] /= ADCdiv[ADCbits[ADCchannelB]];
+        if(ADCchannelC) ADCscale[2] /= ADCdiv[ADCbits[ADCchannelC]];
 		if (HAL_ADC_Start(&hadc1) != HAL_OK)
 		{
 			/* Start Conversation Error */
@@ -483,8 +494,8 @@ void cmd_ADC(void){
 	tp = checkstring(cmdline, "TRIGGER");
 	if(tp) {
 		MMFLOAT voltage;
-     	getargs(&tp, 3, ",");
-     	if(argc!=3)error("Syntax");
+     	getargs(&tp, 5, ",");
+     	if(argc!=3 && argc!=5)error("Syntax");
      	ADCtriggerchannel=getint(argv[0],1,ADCNumchannels);
     	voltage = getnumber(argv[2]);
     	if(voltage<=-VCC || voltage >=VCC) error("Invalid Voltage");
@@ -494,6 +505,7 @@ void cmd_ADC(void){
     		voltage=-voltage;
     	}
 		ADCtriggervalue=(int)(voltage/VCC*65535);
+		ADCtriggertimeout = (argc == 5 && *argv[4]) ? getint(argv[4], 0, 0x7FFFFFFF) : 0;   // samples to wait for the edge; 0 waits for ever
     	return;
 	}
 	tp = checkstring(cmdline, "FREQUENCY");

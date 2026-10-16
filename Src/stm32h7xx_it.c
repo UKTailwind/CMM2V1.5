@@ -115,6 +115,8 @@ extern DAC_HandleTypeDef hdac1;
 extern int ADCtriggervalue;
 extern int ADCtriggerchannel;
 extern int ADCnegativeslope;
+extern int ADCtriggertimeout;
+extern MMFLOAT ADCscale[3], ADCbottom[3];
 extern volatile int ADCcomplete;
 extern void error(char *msg, ...);
 extern volatile MMFLOAT VCC;
@@ -674,7 +676,7 @@ void TIM6_DAC_IRQHandler(void)
 void TIM7_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM7_IRQn 0 */
-	static int lastread, ADCtriggerfound;
+	static int lastread, ADCtriggerfound, timeout;
 	int c, c1, c2=0, c3=0, a;
 	if( (HAL_IS_BIT_SET(hadc1.Instance->ISR, EOC_SINGLE_CONV))){
 		c1=HAL_ADC_GetValue(&hadc1);
@@ -689,9 +691,9 @@ void TIM7_IRQHandler(void)
 			c3=HAL_ADC_GetValue(&hadc3);
 			if(ADCpos < ADCmax)HAL_ADC_Start(&hadc3);
 		}
-		a1float[ADCpos]=(MMFLOAT)c1/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-		if(ADCchannelB && a2float!=NULL)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelB]] * VCC;
-		if(ADCchannelC && a3float!=NULL)a3float[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelC]] * VCC;
+		a1float[ADCpos]=(MMFLOAT)c1 * ADCscale[0] + ADCbottom[0];
+		if(ADCchannelB && a2float!=NULL)a2float[ADCpos]=(MMFLOAT)c2 * ADCscale[1] + ADCbottom[1];
+		if(ADCchannelC && a3float!=NULL)a3float[ADCpos]=(MMFLOAT)c3 * ADCscale[2] + ADCbottom[2];
 		if(ADCpos==ADCmax){
 			__HAL_TIM_SET_COUNTER(&htim7, 0);
 			HAL_NVIC_DisableIRQ(TIM7_IRQn);
@@ -709,6 +711,7 @@ void TIM7_IRQHandler(void)
 			if(ADCpos==0){
 				ADCtriggerfound=0;
 				lastread=c;
+				timeout=ADCtriggertimeout;
 			} else if(!ADCtriggerfound){
 				if(ADCnegativeslope){ //if looking for down slope
 					if(lastread>=ADCtriggervalue && c<ADCtriggervalue){
@@ -716,9 +719,9 @@ void TIM7_IRQHandler(void)
 					} else {
 						lastread=c;
 						ADCpos--;
-						a1float[ADCpos]=(MMFLOAT)c1/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelB]] * VCC;
-						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelC]] * VCC;
+						a1float[ADCpos]=(MMFLOAT)c1 * ADCscale[0] + ADCbottom[0];
+						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2 * ADCscale[1] + ADCbottom[1];
+						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3 * ADCscale[2] + ADCbottom[2];
 					}
 				} else {
 					if(lastread<=ADCtriggervalue && c>ADCtriggervalue){
@@ -726,12 +729,13 @@ void TIM7_IRQHandler(void)
 					} else {
 						lastread=c;
 						ADCpos--;
-						a1float[ADCpos]=(MMFLOAT)c1/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelB]] * VCC;
-						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelC]] * VCC;
+						a1float[ADCpos]=(MMFLOAT)c1 * ADCscale[0] + ADCbottom[0];
+						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2 * ADCscale[1] + ADCbottom[1];
+						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3 * ADCscale[2] + ADCbottom[2];
 					}
 				}
 			}
+			if(ADCtriggertimeout && !ADCtriggerfound && --timeout <= 0) ADCtriggerfound=1;   // ADC TRIGGER's timeout, in samples: the capture starts anyway
 		}
 		ADCpos++;
 	} else overrun++;

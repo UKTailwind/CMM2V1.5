@@ -1,0 +1,8 @@
+volts: in 0 to 3.3
+fixed:  2.5 -7 every sample
+scaled: in 0 to 100 and 1000 to 0
+volts again: in 0 to 3.3
+trigger timeout: completed
+trigger voltage: Invalid Voltage
+done
+
