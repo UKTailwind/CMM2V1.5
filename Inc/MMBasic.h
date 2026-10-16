@@ -108,7 +108,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // A name line is ' then IMAGE_TAG then the image format IMAGE_FORMAT, then the file name: format 1 (the
 // header of 15 Oct) had ' then the name straight away, with T_LABEL 4.
 #define IMAGE_TAG     '*'                           // (a character no FAT file name holds)
-#define IMAGE_FORMAT  '5'                           // 2: T_LABEL 3; 3: the function-token folds (SCHANGE$( TOPBOTTOM(); 4: ERASE, I2C2... as commands; 5: LMID, SYNC, LINPUT(
+#define IMAGE_FORMAT  '6'                           // 2: T_LABEL 3; 3: the function-token folds (SCHANGE$( TOPBOTTOM(); 4: ERASE, I2C2... as commands; 5: LMID, SYNC, LINPUT(; 6: AUTOSAVE2 gone
 #define IMAGE_NAME    3                             // the file name's offset after the header: ' IMAGE_TAG IMAGE_FORMAT
 #define T_NEWLINE_HDR 5
 #define LHDR_MIN      5                             // the smallest value a header byte after T_NEWLINE takes

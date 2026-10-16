@@ -182,7 +182,6 @@ void cmd_GUIpage(char *p);
 void cmd_i2c(void);
 void cmd_math(void);
 void cmd_autosave(void);
-void cmd_autosave2(void);
 void cmd_option(void);
 void cmd_pause(void);
 void cmd_timer(void);
@@ -474,7 +473,6 @@ void op_inv(void);
 	{ "Turtle",		T_CMD,				0, cmd_turtle		},
 	{ "Memory",		T_CMD,				0, cmd_memory	},
 	{ "AutoSave",		T_CMD,				0, cmd_autosave	},
-	{ "AutoSave2",		T_CMD,				0, cmd_autosave2	},
 	{ "Option",			T_CMD,				0, cmd_option	},
 	{ "Pause",			T_CMD,				0, cmd_pause	},
 	{ "Date$",			T_CMD | T_FUN,      0, cmd_date		},

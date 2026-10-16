@@ -71,7 +71,7 @@ Data 1, 2
 Sub WalkImage
   Local a%, k%, sk%, f%, l%, last1%, last2%, nxt%, nm$
   If Peek(PROGMEM, 0) <> 1 Or Peek(PROGMEM, 2) <> 5 Or Peek(PROGMEM, 3) <> 5 Or Peek(PROGMEM, 4) <> 5 Or Peek(PROGMEM, 5) <> 39 Then bad% = bad% Or 1
-  If Peek(PROGMEM, 6) <> Asc("*") Or Peek(PROGMEM, 7) <> Asc("5") Then bad% = bad% Or 1   ' the format's stamp (IMAGE_FORMAT)
+  If Peek(PROGMEM, 6) <> Asc("*") Or Peek(PROGMEM, 7) <> Asc("6") Then bad% = bad% Or 1   ' the format's stamp (IMAGE_FORMAT)
   asc1% = 1 : asc2% = 1 : last1% = 0 : last2% = 0
   Do While Peek(PROGMEM, a%) = 1
     sk% = Peek(PROGMEM, a% + 1)
