@@ -990,20 +990,15 @@ void MIPS16 cmd_list(void) {
     } else if((p = checkstring(cmdline, "COMMANDS"))) {
     	step=maxW/gui_font_width/20;
     	m=0;
-    	int x=10;
+    	int x=5;                                                // the spellings the tokeniser turns into other commands
 		char** c=GetTempMemory((CommandTableSize+x)*sizeof(*c)+(CommandTableSize+x)*20);
-		for(i=0;i<CommandTableSize+10;i++){
+		for(i=0;i<CommandTableSize+x;i++){
 				c[m]= (char *)((int)c + sizeof(char *) * (CommandTableSize+x) + m*20);
     			if(m<CommandTableSize)strcpy(c[m],commandtbl[i].name);
-    			else if(m==CommandTableSize)strcpy(c[m],"HUMID");
-    			else if(m==CommandTableSize+1)strcpy(c[m],"ELSE IF");
-    			else if(m==CommandTableSize+2)strcpy(c[m],"END IF");
-    			else if(m==CommandTableSize+3)strcpy(c[m],"Exit Do");
-    			else if(m==CommandTableSize+4)strcpy(c[m],"Cat");
-    			else if(m==CommandTableSize+5)strcpy(c[m],"I2C2");
-    			else if(m==CommandTableSize+6)strcpy(c[m],"I2C3");
-    			else if(m==CommandTableSize+7)strcpy(c[m],"SPI2");
-    			else if(m==CommandTableSize+8)strcpy(c[m],"Erase");
+    			else if(m==CommandTableSize)strcpy(c[m],"ELSE IF");
+    			else if(m==CommandTableSize+1)strcpy(c[m],"END IF");
+    			else if(m==CommandTableSize+2)strcpy(c[m],"Exit Do");
+    			else if(m==CommandTableSize+3)strcpy(c[m],"Cat");
     			else strcpy(c[m],"Sprite");
     			m++;
 		}
@@ -2987,6 +2982,10 @@ void cmd_erasevar(char *erase) {
 	}
 }
 
+
+void cmd_erase(void) {                                              // ERASE var [, var ...]: its own command (CLEAR VARS stays)
+	cmd_erasevar(cmdline);
+}
 
 void cmd_clear(void) {
 	char *p;

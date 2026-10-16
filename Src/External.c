@@ -1450,6 +1450,63 @@ normal_exit:
 }
 
 //Updated to use parsenumberarray G.A. 02/11/2025
+// BITSTREAM pin, count, array: the array's values are the times in microseconds between the pin's changes
+void Bitstream(char *tp){
+	//	void *ptr1 = NULL;
+	int i,num,size;
+	//int i,num;
+	uint32_t pin;
+	MMFLOAT *a1float=NULL;
+	int64_t *a1int=NULL;
+	unsigned short *data, now;
+	getargs(&tp, 5,",");
+	if(!(argc == 5)) error("Argument count");
+	num=getint(argv[2],1,250000);
+	pin=getinteger(argv[0]);
+	if(IsInvalidPin(pin)) error("Invalid pin");
+	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
+	   /*
+	ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+	if(VREC(VarIndex)->type & T_NBR) {
+		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
+			error("Argument 2 must be an array");
+		}
+		if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
+		a1float = (MMFLOAT *)ptr1;
+	} else if(VREC(VarIndex)->type & T_INT) {
+		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
+		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
+			error("Argument 2 must be an array");
+		}
+		if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
+		a1int = (int64_t *)ptr1;
+	} else error("Argument 2 must be an array");
+	*/
+	size=parsenumberarray(argv[4],&a1float, &a1int, 3, 1, NULL, false, NULL);
+	if(size < num)error("Array too small");
+	data=GetTempMemory(num * sizeof(unsigned short));
+	if(a1float!=NULL){
+		for(i=0; i< num;i++)data[i]= FloatToUint16(*a1float++);
+	} else {
+		for(i=0; i< num;i++){
+			if(*a1int <0 || *a1int>65535)error("Number range");
+			data[i]= *a1int++ ;
+		}
+	}
+	__disable_irq();
+	MX_TIM17_Init(20);
+	for(i=0;i<num;i++){
+		__HAL_TIM_SET_COUNTER(&htim17,0);
+	    if(i==0)__HAL_TIM_ENABLE(&htim17);
+			PinDef[pin].sfr->ODR ^= PinDef[pin].bitnbr;
+		now=data[i];
+		while(__HAL_TIM_GET_COUNTER(&htim17)<now){};
+	}
+	HAL_TIM_Base_Stop(&htim17);
+	__enable_irq();
+}
+
 void cmd_bitbang(void){
 	char *tp;
 	tp = checkstring(cmdline, "WS2812");
@@ -1464,63 +1521,15 @@ void cmd_bitbang(void){
 	}
 	tp = checkstring(cmdline, "BITSTREAM");
 	if(tp) {
-	//	void *ptr1 = NULL;
-		int i,num,size;
-        //int i,num;
-		uint32_t pin;
-		MMFLOAT *a1float=NULL;
-		int64_t *a1int=NULL;
-		unsigned short *data, now;
-		getargs(&tp, 5,",");
-		if(!(argc == 5)) error("Argument count");
-		num=getint(argv[2],1,250000);
-        pin=getinteger(argv[0]);
-       if(IsInvalidPin(pin)) error("Invalid pin");
-    	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
-	   /*
-		ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-		if(VREC(VarIndex)->type & T_NBR) {
-			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-				error("Argument 2 must be an array");
-			}
-			if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
-			a1float = (MMFLOAT *)ptr1;
-		} else if(VREC(VarIndex)->type & T_INT) {
-			if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-			if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-				error("Argument 2 must be an array");
-			}
-			if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
-			a1int = (int64_t *)ptr1;
-		} else error("Argument 2 must be an array");
-        */
-    	size=parsenumberarray(argv[4],&a1float, &a1int, 3, 1, NULL, false, NULL);
-    	if(size < num)error("Array too small");
-		data=GetTempMemory(num * sizeof(unsigned short));
-		if(a1float!=NULL){
-			for(i=0; i< num;i++)data[i]= FloatToUint16(*a1float++);
-		} else {
-			for(i=0; i< num;i++){
-				if(*a1int <0 || *a1int>65535)error("Number range");
-				data[i]= *a1int++ ;
-			}
-		}
-        __disable_irq();
-        MX_TIM17_Init(20);
-    	for(i=0;i<num;i++){
-     		__HAL_TIM_SET_COUNTER(&htim17,0);
-            if(i==0)__HAL_TIM_ENABLE(&htim17);
-       		PinDef[pin].sfr->ODR ^= PinDef[pin].bitnbr;
-     		now=data[i];
-    		while(__HAL_TIM_GET_COUNTER(&htim17)<now){};
-    	}
-        HAL_TIM_Base_Stop(&htim17);
-        __enable_irq();
+		Bitstream(tp);
 		return;
 	}
 	error("Unknown BITBANG option");
 }
+// the same three as commands of their own: HUMID (DHT22), WS2812 and BITSTREAM, as the PicoMite spells them
+void cmd_humid(void){ DHT22(cmdline); }
+void cmd_ws2812(void){ WS2812(cmdline); }
+void cmd_bitstream(void){ Bitstream(cmdline); }
 /* Added type W for  support for SK6812 RGBW Leds */
 void WS2812(char *q){
         int64_t *dest=NULL;

@@ -83,7 +83,15 @@ void cmd_pwm(void);
 void cmd_open(void);
 void cmd_close(void);
 void cmd_spi(void);
+void cmd_spi_2(void);
 void cmd_xmodem(void);
+void cmd_zmodem(void);
+void cmd_erase(void);
+void cmd_i2c_2(void);
+void cmd_i2c_3(void);
+void cmd_humid(void);
+void cmd_ws2812(void);
+void cmd_bitstream(void);
 void cmd_sprite(void);
 void cmd_clear(void);
 void cmd_continue(void);
@@ -350,6 +358,7 @@ void op_inv(void);
 	{ "Play",        	T_CMD,				0, cmd_play	    },
 	{ "Call",		T_CMD,				0, cmd_call	},
 	{ "Clear",		T_CMD,				0, cmd_clear	},
+	{ "Erase",		T_CMD,				0, cmd_erase	},      // its own token (it was a substitution to CLEAR VARS, which LIST showed)
 	{ "Continue",   T_CMD,              0, cmd_continue	},
 	{ "Data",		T_CMD,				0, cmd_null		},
 	{ "MMDebug",	T_CMD,				0, cmd_debug	},
@@ -428,8 +437,14 @@ void op_inv(void);
 	{ "Port(",				T_CMD | T_FUN,		0, cmd_port	    },
 	{ "IR",                 T_CMD,			0, cmd_ir           },
 	{ "Bitbang",            T_CMD,			0, cmd_bitbang      },
+	{ "Humid",              T_CMD,			0, cmd_humid        },      // BITBANG DHT22, as the PicoMite spells it
+	{ "DHT22",              T_CMD,			0, cmd_humid        },
+	{ "WS2812",             T_CMD,			0, cmd_ws2812       },      // BITBANG WS2812
+	{ "Bitstream",          T_CMD,			0, cmd_bitstream    },      // BITBANG BITSTREAM
   	{ "CtrlVal(",       T_CMD | T_FUN,              0, cmd_ctrlval    },
 	{ "I2C",	T_CMD,		0, cmd_i2c              },
+	{ "I2C2",	T_CMD,		0, cmd_i2c_2            },      // (they were substitutions to I2C 2 and I2C 3)
+	{ "I2C3",	T_CMD,		0, cmd_i2c_3            },
 	{ "Math",		T_CMD,				0, cmd_math		},
 	{ "Save",		T_CMD,				0, cmd_save	    },
 	{ "Load",		T_CMD,				0, cmd_load	    },
@@ -475,8 +490,10 @@ void op_inv(void);
 	{ "Open",		    T_CMD,				0, cmd_open		},
 	{ "Close",		    T_CMD,				0, cmd_close	},
 	{ "SPI",	        T_CMD,				0, cmd_spi	},
+	{ "SPI2",	        T_CMD,				0, cmd_spi_2	},
    	{ "Blit",           T_CMD,              0, cmd_blit     },
 	{ "XModem",		    T_CMD,				0, cmd_xmodem		},
+	{ "ZModem",		    T_CMD,				0, cmd_zmodem		},      // (it was a substitution to XMODEM Z)
 	{ "CAN",	        T_CMD,				0, cmd_can	},
 	{ "Type",	        T_CMD,				0, cmd_type	},
 	{ "End Type",	    T_CMD,				0, cmd_endtype	},

@@ -369,12 +369,8 @@ unsigned int *GetSendDataList(char *p, unsigned int *nbr) {
     }
     return buf;
 }
-void cmd_spi(void){
-	char *p;
-	if((p=checkstring(cmdline,"1")))cmd_spi1(p);
-	else if((p=checkstring(cmdline,"2")))cmd_spi2(p);
-	else error("Syntax");
-}
+void cmd_spi(void){ cmd_spi1(cmdline); }                        // SPI and SPI2 are commands of their own (they were SPI 1 and 2)
+void cmd_spi_2(void){ cmd_spi2(cmdline); }
 
 
 long long int *GetReceiveDataBuffer(char *p, unsigned int *nbr) {

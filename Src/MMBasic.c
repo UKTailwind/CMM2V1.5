@@ -1752,15 +1752,8 @@ int MIPS16 tokenise(int console) {
             str_replace(inpbuf,"=<","<=", 3);
             // the commands, which a word in a DATA statement is not (DATA spi, erase)
             SubstHideData(inpbuf);
-            str_replace(inpbuf,"DHT22","BITBANG DHT22",0);
-            str_replace(inpbuf,"HUMID","BITBANG DHT22",0);
-            str_replace(inpbuf,"I2C","I2C 1",0);
-            str_replace(inpbuf,"I2C3","I2C 3",0);
-            str_replace(inpbuf,"I2C2","I2C 2",0);
-            str_replace(inpbuf,"SPI","SPI 1",4);                   // (4: not the function SPI(, which became SPI 1()
-            str_replace(inpbuf,"ERASE","CLEAR VARS",0);
-            str_replace(inpbuf,"SPI2","SPI 2",4);
-            str_replace(inpbuf,"ZMODEM","XMODEM Z",0);              // ZMODEM has no token of its own (the table is full): cmd_xmodem dispatches on the Z
+            // (ERASE, I2C2, I2C3, SPI2, HUMID, DHT22, WS2812, BITSTREAM and ZMODEM were rewritten here into other commands while the
+            // table was full; with two-byte command tokens they have their own entries, and LIST shows what was typed)
             SubstShow(inpbuf, comment);
         }
     }

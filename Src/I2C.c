@@ -108,13 +108,9 @@ These are the functions responsible for executing the I2C related commands in MM
 They are supported by utility functions that are grouped at the end of this file
 
 ********************************************************************************************/
-void cmd_i2c(void){
-	char *p;
-	if((p=checkstring(cmdline,"1")))cmd_i2c1(p);
-	else if((p=checkstring(cmdline,"2")))cmd_i2c2(p);
-	else if((p=checkstring(cmdline,"3")))cmd_i2c3(p);
-	else error("Syntax");
-}
+void cmd_i2c(void){ cmd_i2c1(cmdline); }                        // I2C, I2C2 and I2C3 are commands of their own (they were I2C 1, 2 and 3)
+void cmd_i2c_2(void){ cmd_i2c2(cmdline); }
+void cmd_i2c_3(void){ cmd_i2c3(cmdline); }
 void cmd_i2c1(char *i2c) {
     char *p;//, *pp;
 

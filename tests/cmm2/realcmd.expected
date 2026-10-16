@@ -1,0 +1,14 @@
+erase: A is not declared
+erase two: C is not declared
+made again 10
+i2c: Not open
+i2c2: Not open
+i2c3: Not open
+spi2: 
+spi: 
+humid: Invalid pin
+dht22: Invalid pin
+ws2812: Dimensions
+bitstream: Invalid pin
+bitbang bitstream: Invalid pin
+done
