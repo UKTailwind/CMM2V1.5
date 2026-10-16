@@ -90,7 +90,25 @@ struct s_dostack {
     char *loopptr;                          // pointer to the loop statement
     char *doptr;                            // pointer to the DO statement
     char level;                             // the sub/function level that the loop was created
+    unsigned char untiltest;                // 1 if DO UNTIL (exits when the condition becomes true)
+    // the DO fast path (DoFastCompile in Commands.c, the PicoMite's): a "var OP number" condition resolved once, so
+    // LOOP compares without the evaluator
+    unsigned char fast_state;               // DOFAST_UNTRIED, DOFAST_ON or DOFAST_OFF
+    unsigned char fast_op;                  // DOFAST_LT .. DOFAST_NE, applied to (var - limit)
+    unsigned char fast_until;               // 1: the condition is an UNTIL, inverted
+    unsigned char fast_flags;               // DOFAST_VARINT: the variable is an integer; DOFAST_INTCMP: compare as integers
+    int fast_varindex;                      // the variable's slot (ERASE switches the fast path off)
+    void *fast_var;                         // the variable's value
+    union {
+        long long int i;
+        MMFLOAT f;
+    } fast_limit;
 } __attribute__ ((aligned (8)));
+#define DOFAST_UNTRIED 0                    // s_dostack.fast_state
+#define DOFAST_ON 1
+#define DOFAST_OFF 2
+extern char *DoFindLoop(char *p, CommandToken dotoken, char *errmsg);
+extern void DoFastForget(int slot);
 struct sa_data{
     char* SaveNextDataLine;
     int SaveNextData;

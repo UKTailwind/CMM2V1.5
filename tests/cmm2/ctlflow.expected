@@ -1,0 +1,48 @@
+-- IF arms
+ 0 IF, conditions evaluated  1
+ 1 ELSEIF 1, conditions evaluated  2
+ 2 ELSE IF 2, conditions evaluated  3
+ 3 ELSEIF 3, conditions evaluated  4
+ 4 ELSE, conditions evaluated  4
+-- nested, with single-line IFs inside
+ a c b d e f g
+-- GOTO out of and into IF blocks
+ after 0 ELSE arm of 1 after 1
+ jumped into the ELSE arm, then past ENDIF
+-- deeper than 64
+deep: not at 69
+deep: reached  69
+deep: reached  70
+deep: reached  71
+-- in a SUB and a FUNCTION, recursion
+zero one many  3.6288e+06
+-- errors
+no
+ELSEIF 1/0: in line 368: Divide by zero
+no
+ELSEIF with no condition: in line 375: Syntax
+-- DO forms
+DO WHILE i < 5: 5
+DO UNTIL i >= 5: 5
+LOOP WHILE i < 5: 5
+LOOP UNTIL i = 5: 5
+DO WHILE 5 > i: 5
+DO WHILE i <= &H10: 17
+DO WHILE i < 2.5 (an integer against a float): 3
+DO WHILE f < 1 (a float): 1
+DO UNTIL f >= 1E1: 10
+DO WHILE i <> 0: 0
+DO WHILE i (no comparison): 0
+DO WHILE i < 2 * 3 (an expression): 6
+DO WHILE s$ < ccc (a string): ccc
+changed by a SUB: 3
+in a recursive SUB: 41
+a variable made by the loop: 2
+-- EXIT, CONTINUE, NEXT i, j
+CONTINUE FOR: 132
+CONTINUE DO: 9
+EXIT DO: 4
+EXIT FOR: 3
+NEXT j, i: 6
+ inner 1 inner 2 inner 3
+done

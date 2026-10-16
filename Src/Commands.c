@@ -1979,27 +1979,184 @@ void cmd_next(void) {
 
 
 
+/* ---------------------------------------------------------------------------
+   DO fast path (the PicoMite's). A WHILE/UNTIL condition of the form "var OP number" or "number OP var" - var a
+   numeric scalar, OP one of < > <= >= = <> - is resolved once to a pointer at the variable's value, so each LOOP
+   compares directly instead of running the expression evaluator. The compare repeats the evaluator's own (compare()
+   in Operators.c): as integers only when both sides are integers, otherwise in float, by the sign of the difference.
+   The number is read by the evaluator itself, so its value and type are exactly what the normal path gets. A DO
+   WHILE condition is compiled when the DO starts and a LOOP WHILE one at its first LOOP, where the evaluator would
+   first read it, so an error is reported where it always was. The pointer stays valid while the DO entry exists: a
+   local cannot go before its frame (which also drops the entry), and erase() calls DoFastForget for a global.
+   --------------------------------------------------------------------------- */
+#define DOFAST_LT 1
+#define DOFAST_GT 2
+#define DOFAST_LTE 3
+#define DOFAST_GTE 4
+#define DOFAST_EQ 5
+#define DOFAST_NE 6
+#define DOFAST_VARINT 1                                             // the variable is an integer
+#define DOFAST_INTCMP 2                                             // both sides are integers: compare as integers
+#define DOFAST_LITFIRST 4                                           // "number OP var": the difference is number - var
+
+// a scalar name the fast path can take: no struct member, string, array or call
+static char *DoFastSkipName(char *p) {
+    if(issymbol(*p)) {
+        const char *s;
+        int l;
+        p = NameView(p, &s, &l);
+        if(memchr(s, '.', l)) return NULL;
+    } else {
+        if(!isnamestart(*p)) return NULL;
+        while(isnamechar(*p)) {
+            if(*p == '.') return NULL;
+            p++;
+        }
+    }
+    if(*p == '$') return NULL;
+    if(*p == '%' || *p == '!') p++;
+    char *q = p;
+    skipspace(q);
+    if(*q == '(') return NULL;
+    return p;
+}
+
+// a numeric literal: the characters getvalue() takes as a number
+static char *DoFastSkipNumber(char *p) {
+    if(*p == '&') {
+        int c = toupper((unsigned char)p[1]);
+        if(c != 'H' && c != 'O' && c != 'B') return NULL;
+        p += 2;
+        if(!isxdigit((unsigned char)*p)) return NULL;
+        while(isxdigit((unsigned char)*p)) p++;
+        return p;
+    }
+    if(!((*p >= '0' && *p <= '9') || *p == '.')) return NULL;
+    while((*p >= '0' && *p <= '9') || *p == '.' || *p == '+' || *p == '-' || *p == 'E' || *p == 'e') p++;
+    return p;
+}
+
+static int DoFastOp(unsigned char c) {
+    if(c < C_BASETOKEN || !(tokentype(c) & T_OPER)) return 0;
+    void (*fp)(void) = tokenfunction(c);
+    if(fp == op_lt) return DOFAST_LT;
+    if(fp == op_gt) return DOFAST_GT;
+    if(fp == op_lte) return DOFAST_LTE;
+    if(fp == op_gte) return DOFAST_GTE;
+    if(fp == op_equal) return DOFAST_EQ;
+    if(fp == op_ne) return DOFAST_NE;
+    return 0;
+}
+
+// compile the condition at p for the DO entry ds; leaves fast_state ON or OFF
+static void DoFastCompile(char *p, struct s_dostack *ds, int until) {
+    char *name, *lit, *litend, *q;
+    int op, flags = 0;
+    ds->fast_state = DOFAST_OFF;
+    skipspace(p);
+    if(isnamestartsym(*p)) {                                        // var OP number
+        name = p;
+        if((q = DoFastSkipName(p)) == NULL) return;
+        skipspace(q);
+        if((op = DoFastOp((unsigned char)*q)) == 0) return;
+        q++;
+        skipspace(q);
+        lit = q;
+        if((litend = DoFastSkipNumber(q)) == NULL) return;
+        q = litend;
+    } else {                                                        // number OP var
+        lit = p;
+        if((litend = DoFastSkipNumber(p)) == NULL) return;
+        q = litend;
+        skipspace(q);
+        if((op = DoFastOp((unsigned char)*q)) == 0) return;
+        q++;
+        skipspace(q);
+        name = q;
+        if((q = DoFastSkipName(q)) == NULL) return;
+        flags |= DOFAST_LITFIRST;
+    }
+    skipspace(q);
+    if(!(*q == 0 || *q == '\'')) return;                            // more to the condition than that
+    char buf[40];
+    int n = litend - lit;
+    if(n >= (int)sizeof(buf)) return;
+    memcpy(buf, lit, n);
+    buf[n] = 0;
+    MMFLOAT f;
+    long long int i64;
+    char *s;
+    int t = T_NOTYPE;
+    evaluate(buf, &f, &i64, &s, &t, false);                         // the number, read exactly as the evaluator reads it
+    void *var = findvar(name, V_NOFIND_NULL);
+    if(var == NULL) return;                                         // not created yet: the normal path will do that
+    int vt = VREC(VarIndex)->type;
+    if(g_StructMemberType || (vt & T_STRUCT)) return;
+    if((vt & (T_STR | T_CONST)) || !(vt & (T_INT | T_NBR)) || DimIsAllocated(RAW_DIM((*VREC(VarIndex)), 0))) return;
+    if(vt & T_INT) flags |= DOFAST_VARINT;
+    if((vt & T_INT) && (t & T_INT)) {
+        flags |= DOFAST_INTCMP;
+        ds->fast_limit.i = i64;
+    } else
+        ds->fast_limit.f = (t & T_INT) ? (MMFLOAT)i64 : f;
+    ds->fast_var = var;
+    ds->fast_varindex = VarIndex;
+    ds->fast_op = op;
+    ds->fast_until = until;
+    ds->fast_flags = flags;
+    ds->fast_state = DOFAST_ON;
+}
+
+// the condition's value (before any UNTIL), computed as the evaluator would
+static inline int __attribute__((always_inline)) DoFastTest(struct s_dostack *ds) {
+    long long int r;
+    if(ds->fast_flags & DOFAST_INTCMP) {
+        long long int v = *(long long int *)ds->fast_var, l = ds->fast_limit.i;
+        if(ds->fast_op == DOFAST_EQ) return v == l;
+        if(ds->fast_op == DOFAST_NE) return v != l;
+        r = (ds->fast_flags & DOFAST_LITFIRST) ? l - v : v - l;
+    } else {
+        MMFLOAT v = (ds->fast_flags & DOFAST_VARINT) ? (MMFLOAT) * (long long int *)ds->fast_var : *(MMFLOAT *)ds->fast_var;
+        MMFLOAT d = (ds->fast_flags & DOFAST_LITFIRST) ? ds->fast_limit.f - v : v - ds->fast_limit.f;
+        r = (d > 0) ? 1 : (d < 0) ? -1 : 0;
+    }
+    switch(ds->fast_op) {
+        case DOFAST_LT: return r < 0;
+        case DOFAST_GT: return r > 0;
+        case DOFAST_LTE: return r <= 0;
+        case DOFAST_GTE: return r >= 0;
+        case DOFAST_EQ: return r == 0;
+        default: return r != 0;
+    }
+}
+
+// ERASE/REDIM freed the global in this slot: DO conditions using it evaluate normally
+void DoFastForget(int slot) {
+    for(int i = 0; i < doindex; i++)
+        if(dostack[i].fast_state == DOFAST_ON && dostack[i].fast_varindex == slot) dostack[i].fast_state = DOFAST_OFF;
+}
+
 void cmd_do(void) {
-    int i;
-    char *p, *tp, *evalp;
+    int i, doUntil;
+    char *p, *evalp;
     if(cmdtoken==cmdWHILE)error("Unknown command");
-	// if it is a DO loop find the WHILE token and (if found) get a pointer to its expression
-	while(*cmdline && *cmdline != tokenWHILE) cmdline++;
-	if(*cmdline == tokenWHILE) {
-		evalp = ++cmdline;
-	}
-	else
-		evalp = NULL;
-    // check if this loop is already in the stack and remove it if it is
-    // this is necessary as the program can jump out of the loop without hitting
-    // the LOOP or WEND stmt and this will eventually result in a stack overflow
+    // if it is a DO loop find the WHILE/UNTIL token and (if found) get a pointer to its expression (the CMM2 took only
+    // WHILE: DO UNTIL x ... LOOP ignored the UNTIL and looped for ever)
+    while(*cmdline && *cmdline != tokenWHILE && *cmdline != tokenUNTIL) cmdline++;
+    if(*cmdline == tokenWHILE || *cmdline == tokenUNTIL) {
+        doUntil = (*cmdline == tokenUNTIL);
+        evalp = ++cmdline;
+    } else {
+        doUntil = 0;
+        evalp = NULL;
+    }
+    // check if this loop is already in the stack and remove it if it is: the program can jump out of the loop
+    // without hitting the LOOP and this would eventually overflow the stack. Only at this SUB level: a recursive call
+    // reaches the same DO with the caller's entry still live (it was dropped, and the caller's LOOP found no DO)
     for(i = 0; i < doindex ;i++) {
-        if(dostack[i].doptr == nextstmt) {
+        if(dostack[i].doptr == nextstmt && dostack[i].level == LocalIndex) {
             while(i < doindex - 1) {
-                dostack[i].evalptr = dostack[i+1].evalptr;
-                dostack[i].loopptr = dostack[i+1].loopptr;
-                dostack[i].doptr = dostack[i+1].doptr;
-                dostack[i].level = dostack[i+1].level;
+                dostack[i] = dostack[i + 1];
                 i++;
             }
             doindex--;
@@ -2012,86 +2169,103 @@ void cmd_do(void) {
     dostack[doindex].evalptr = evalp;
     dostack[doindex].doptr = nextstmt;
     dostack[doindex].level = LocalIndex;
+    dostack[doindex].untiltest = doUntil;
 
     // now find the matching LOOP command
-    i = 1; p = nextstmt;
-    while(1) {
-        p = GetNextCommand(p, &tp, "No matching LOOP");
-        CommandToken tkn = commandtbl_at(p);
-        if(tkn == cmdtoken) i++;                                    // entered a nested DO or WHILE loop
-        if(tkn == cmdLOOP) i--;                                     // exited a nested loop
+    p = DoFindLoop(nextstmt, cmdtoken, "No matching LOOP");
+    dostack[doindex].loopptr = p;
 
-        if(i == 0) {                                                // found our matching LOOP or WEND stmt
-            dostack[doindex].loopptr = p;
-            break;
-        }
-    }
-
+    // the LOOP statement's arguments (for the conflict check and the fast path)
+    char *loop_arg = p + sizeof(CommandToken);
+    while(*loop_arg && (unsigned char)*loop_arg < 0x80) loop_arg++;
     if(dostack[doindex].evalptr != NULL) {
-        // if this is a DO WHILE ... LOOP statement
-        // search the LOOP statement for a WHILE or UNTIL token (p is pointing to the matching LOOP statement)
-        p += sizeof(CommandToken);                                  // step over the LOOP token
-        while(*p && *p < 0x80) p++;
-        if(*p == tokenWHILE) error("LOOP has a WHILE test");
-        if(*p == tokenUNTIL) error("LOOP has an UNTIL test");
+        // if this is a DO WHILE ... LOOP statement the LOOP must not have a test of its own
+        if(*loop_arg == tokenWHILE) error("LOOP has a WHILE test");
+        if(*loop_arg == tokenUNTIL) error("LOOP has an UNTIL test");
     }
+
+    // the DO fast path: a DO WHILE/UNTIL condition is compiled here, a LOOP WHILE/UNTIL one at the first LOOP (where
+    // the evaluator first reads it)
+    dostack[doindex].fast_state = DOFAST_UNTRIED;
+    if(evalp != NULL)
+        DoFastCompile(evalp, &dostack[doindex], doUntil);
+    else if(*loop_arg != tokenWHILE && *loop_arg != tokenUNTIL)
+        dostack[doindex].fast_state = DOFAST_OFF;                   // DO ... LOOP with no condition
 
     doindex++;
 
-    // do the evaluation (if there is something to evaluate) and if false go straight to the command after the LOOP or WEND statement
-    if(dostack[doindex - 1].evalptr != NULL && getnumber(dostack[doindex - 1].evalptr) == 0) {
-        doindex--;                                                  // remove the entry in the table
-        nextstmt = dostack[doindex].loopptr;                        // point to the LOOP or WEND statement
-        skipelement(nextstmt);                                      // skip to the next command
+    // do the evaluation (if there is something to evaluate) and if false go straight to the command after the LOOP
+    if(dostack[doindex - 1].evalptr != NULL) {
+        int condval = (getnumber(dostack[doindex - 1].evalptr) != 0);
+        if(dostack[doindex - 1].untiltest) condval = !condval;      // DO UNTIL: skip the body if the condition is already true
+        if(!condval) {
+            doindex--;                                              // remove the entry in the table
+            nextstmt = dostack[doindex].loopptr;                    // point to the LOOP statement
+            skipelement(nextstmt);                                  // skip to the next command
+        }
     }
-
 }
 
-
-
+// The LOOP that closes the DO (command token dotoken) whose nextstmt is p.
+char *DoFindLoop(char *p, CommandToken dotoken, char *errmsg) {
+    int i = 1;
+    char *tp;
+    while(1) {
+        p = GetNextCommand(p, &tp, errmsg);
+        if(*p == 0) return NULL;                                    // the end of the program (only when errmsg is NULL)
+        CommandToken tkn = commandtbl_at(p);
+        if(tkn == dotoken) i++;                                     // entered a nested DO or WHILE loop
+        if(tkn == cmdLOOP) i--;                                     // exited a nested loop
+        if(i == 0) return p;                                        // found our matching LOOP
+    }
+}
 
 void cmd_loop(void) {
     char *p;
     int tst = 0;                                                    // initialise tst to stop the compiler from complaining
     int i;
 
-    // search the do table looking for an entry with the same program position as this LOOP statement
-    for(i = 0; i < doindex ;i++) {
+    // search the do table for the entry of this LOOP statement, the most recent first: in a recursive SUB each call
+    // has its own entry for the same LOOP, and the bottom one was the caller's (its condition never ended the loop)
+    for(i = doindex - 1; i >= 0 ;i--) {
         p = dostack[i].loopptr + sizeof(CommandToken);              // loopptr points at the LOOP token
         skipspace(p);
         if(p == cmdline) {
             // found a match
-            // first check if the DO statement had a WHILE component
-            // if not find the WHILE statement here and evaluate it
-            if(dostack[i].evalptr == NULL) {                        // if it was a DO without a WHILE
-                if(*cmdline >= 0x80) {                              // if there is something
-                    if(*cmdline == tokenWHILE)
-                        tst = (getnumber(++cmdline) != 0);          // evaluate the expression
-                    else if(*cmdline == tokenUNTIL)
-                        tst = (getnumber(++cmdline) == 0);          // evaluate the expression
-                    else
-                        error("Syntax");
-                }
-                else {
+            struct s_dostack *ds = &dostack[i];
+            if(ds->fast_state == DOFAST_UNTRIED) {                  // a LOOP WHILE/UNTIL condition, read for the first time
+                ds->fast_state = DOFAST_OFF;
+                if(*cmdline == tokenWHILE || *cmdline == tokenUNTIL)
+                    DoFastCompile(cmdline + 1, ds, *cmdline == tokenUNTIL);
+            }
+            if(ds->fast_state == DOFAST_ON) {
+                tst = DoFastTest(ds);
+                if(ds->fast_until) tst = !tst;
+                goto do_loop_branch;
+            }
+            // first check if the DO statement had a WHILE/UNTIL component; if not find the test here and evaluate it
+            if(dostack[i].evalptr == NULL) {                        // if it was a DO without a WHILE/UNTIL
+                if((unsigned char)*cmdline >= 0x80) {               // if there is something
+                    if(*cmdline != tokenWHILE && *cmdline != tokenUNTIL) error("Syntax");
+                    int isUntil = (*cmdline == tokenUNTIL);
+                    int condval = (getnumber(++cmdline) != 0);
+                    tst = isUntil ? !condval : condval;
+                } else {
                     tst = 1;                                        // and loop forever
                     checkend(cmdline);                              // make sure that there is nothing else
                 }
-            }
-            else {                                                  // if was DO WHILE
-                tst = (getnumber(dostack[i].evalptr) != 0);         // evaluate its expression
+            } else {                                                // if it was DO WHILE or DO UNTIL
+                int condval = (getnumber(dostack[i].evalptr) != 0);
+                tst = dostack[i].untiltest ? !condval : condval;    // UNTIL inverts: loop while the condition is false
                 checkend(cmdline);                                  // make sure that there is nothing else
             }
-
+        do_loop_branch:
             // test the expression value and reset the program pointer if we are still looping
             // otherwise remove this entry from the do stack
             if(tst)
                 nextstmt = dostack[i].doptr;                        // loop again
-            else {
-                // the loop has terminated
-                // remove the entry in the table, then just let the default nextstmt run and continue on from there
-                  doindex = i;
-                // just let the default nextstmt run
-            }
+            else
+                doindex = i;                                        // the loop has ended: remove its entry, carry on after it
             return;
         }
     }
@@ -3121,6 +3295,7 @@ uint32_t erase(char *p, int nofree) {
 		if(k == MAXVARS) k = MAXLOCALVARS;
 		VarRecordRelease(j, VREC(k)->type != T_NOTYPE);             // its record to the free list; the slot blocked if a probe may have passed it
 		SymBindForgetSlot(j);                                       // and no symbol bound to it (Symbols.h)
+		DoFastForget(j);                                            // a DO condition that pointed at this variable must evaluate again
 		Globalvarcnt--;
 		return addr;
 	}
