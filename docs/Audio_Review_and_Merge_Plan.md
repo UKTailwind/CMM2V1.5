@@ -1,0 +1,90 @@
+# Audio: the CMM2's Audio.c against the PicoMite's, and a merge plan
+
+Written 16 Oct 2026 for Peter. It compares `Src/Audio.c` (2,030 lines) and the audio interrupt in `Src/stm32h7xx_it.c` with the PicoMite's `io/Audio.c` (3,770 lines), `io/AudioBBC.c`, `misc/SDCard.c` (its output interrupt) and `third_party_mod/hxcmod.c`. The CMM2 always drives the H7's two 12-bit DACs from TIM4, so the PicoMite's PWM, I2S and VS1053 paths do not apply. References are `C:` for our Audio.c, `C-it:` for our stm32h7xx_it.c and `P:` for the PicoMite's Audio.c. Everything here comes from reading the code; the items marked **checked** were confirmed line by line.
+
+## 1. Summary
+
+The CMM2's audio has a set of plain bugs, several of which the PicoMite fixed long ago: completion interrupts that never fire, mono FLAC and MP3 at double speed, a playlist that overflows its buffer, MM.INFO(TRACK) copying from NULL, and cleanup done inside the audio interrupt. The PicoMite has five PLAY forms that need nothing but the DACs (ARRAY, SAMPLE, RELEASE, BBC SOUND, BBC ENVELOPE, with LOAD SOUND for a user wave table), a play-once MOD with an interrupt, and better output handling (volume ramps, a click-free stop). The CMM2 keeps TTS, EFFECT, the MOD rate argument and 96 kHz playback. The PicoMite's code also has bugs of its own that must not come across; they are listed in section 6 to be filed as PicoMite issues.
+
+## 2. Bugs in the CMM2's audio
+
+| | Bug | Where | The PicoMite |
+|---|---|---|---|
+| a | **checked** PLAY TONE and PLAY TTS never fire their completion interrupt: at the end the interrupt calls `CloseAudio(1)`, which sets `WAVInterrupt = NULL` before `WAVcomplete` is set | C-it:871-875, 983-987; C:1205 | `fillToneBuffer` sets `playreadcomplete`; `audio_checks` signals in the main loop without clearing the handler (P:3187, 3730-3767) |
+| b | A directory of more than one track never fires its interrupt: each advance goes through `CloseAudio(0)`, which also clears `WAVInterrupt` | C:1266-1268, 1309-1311, 1341-1343 | handler kept |
+| c | **checked** Mono FLAC and MP3 play at double speed with the channels alternating: `mono` is set only for WAV and EFFECT, and the interrupt's mono path tests `P_WAV`; an odd frame count at the end can step past `bcount` and hang until PLAY STOP | C:1290, 1726; C-it:891, 895-900 | `mono` for all three (P:973, 1085, 1163; SDCard.c:360-365) |
+| d | `CloseAudio` (heap frees, file close, `drmp3_uninit`, freeing the playlist or the 220 KB TTS buffer) runs inside the TIM4 interrupt, racing the heap and FatFs in the main loop; `WAVcomplete` is not volatile | C-it:873, 985; C:131 | the interrupt only stops itself; cleanup in `audio_checks` |
+| e | **checked** A directory with more than 20 matching files writes past the 20-entry playlist (`MAXALBUM`); also `fno` is read uninitialised when `f_stat` fails, and `== AM_DIR` misses directories with other attributes set | C:86, 1618-1637 (and the FLAC and MP3 copies) | stops at 20 |
+| f | **checked** MM.INFO(TRACK) copies `alist[trackplaying].fn` while a single file plays, when `alist` is NULL | MM_Misc.c:3236-3238 | uses `WAVfilename` |
+| g | **checked** PLAY SOUND's "Invalid type" can never fire (the mode is set to `nulltable` first and the check looks for NULL), so a bad type silently turns the channel off; the live channel is changed before the "in use" and frequency checks | C:1532-1564 | local copies committed at the end (P:2165, 2193, 2282) |
+| h | PLAY SOUND while paused restarts a running timer and fails with "Starting audio timer" | C:1589-1593, 1136 | accepts `P_PAUSE_SOUND` |
+| i | **checked** A failed PLAY TTS frees `buffer` but leaves `sbuff1`/`sbuff2` pointing at it; the next PLAY or CloseAudio frees it again | C:1176-1185 | n/a |
+| k | **checked** PLAY MODFILE does not check that the module loaded, and its prescaler is `PSpeedDiv/(rate-1)` where every other path has `PSpeedDiv/rate-1` | C:1819-1825 | checks `mod_loaded` |
+| l | A click on stop and on pause: the DACs jump to 2000 | C:1905-1916; C-it:1047-1051 | ramps to the midpoint over about 2 ms (P:3119-3152) |
+| m | **checked** MODSAMPLE volume 0 becomes 255 (`unsigned char`, `getint(..,0,64) - 1`), about four times full scale; the PicoMite has the same | C:1656, 1667-1671 | same bug |
+| n | Unchecked: `drwav_init`'s result and a NULL from `drflac_open`; files with more than two channels overflow the swing buffers; FLAC's 96 kHz check comes after the buffers are allocated; MP3 has no rate check | C:1277, 1353-1367, 1715 | same, mostly |
+| o | Smaller: `bcount` and `SoundPlay` are 64-bit volatiles shared with the interrupt on a 32-bit core; the RNG is called inside the interrupt; TTS's `strncat(tts, "[", 256)` on a 256-byte string | C:122, 152, 1168; C-it:1014, 1033 | |
+
+One more came from the dr_ libraries update itself and is already fixed in the working tree: PLAY MP3's decoder, now on the heap, was not freed when a track ended by itself.
+
+## 3. PicoMite features that need only the DACs
+
+- `PLAY ARRAY left%(), right%(), freq [, start [, end [, interrupt]]]`: 16-bit samples, four to an integer element (P:1732-1797). Its `audiorepeat` upsampling is a PWM device the timer does not need.
+- `PLAY SAMPLE left%(), right%(), freq, A, D, S, R [, freqR, AR, DR, SR, RR] [, interrupt]` and `PLAY RELEASE`: one cycle looped under ADSR envelopes, one sample per element (P:1798-1942, 1369-1451). Built for the RP2350 only; that is a CPU limit, not a hardware one.
+- `PLAY LOAD SOUND array%()`: a 1024-element user wave table for PLAY SOUND type "U" (P:1493-1510).
+- `PLAY BBC SOUND chan, amp, pitch, dur`, `PLAY BBC ENVELOPE` (14 values) and `MM.INFO(BBC BUFFER [chan])`: AudioBBC.c, integer code filling the swing buffers at 44.1 kHz.
+- PLAY SOUND position "M", and string expressions for position and type.
+- `PLAY MODFILE file$, interrupt` plays once and fires the interrupt (hxcmod's `noloop`); MM.INFO(TRACK) covering MOD.
+- A playlist may mix formats (`PlayAlbumTrack`, which the file manager could use too).
+- Output: volume changes ramp instead of stepping (P:646-690, 1604-1625); stop and pause ramp to the midpoint; band-limited square and sawtooth (polyBLEP) for PLAY SOUND.
+- Structure: tones, sounds and synthesis are generated into buffers in the main loop, so the interrupt only plays buffers (P:3155-3411).
+
+VS1053 only, so not for the CMM2: `PLAY NOTE`, `PLAY STREAM`, `PLAY MIDI`, `PLAY MIDIFILE`, `PLAY HALT`, `PLAY CONTINUE`.
+
+## 4. Behaviour that differs, where one has to be chosen
+
+1. Does PLAY STOP or CLOSE fire the user's interrupt? The PicoMite's `CloseAudio` keeps the handler and signals it, so stopping (and each track change in an album) fires it; the CMM2 clears it. Proposal: fire it at the natural end only, as the CMM2 intends.
+2. MOD mixing: the CMM2 mixes at the true output rate with a rate argument (8000 to 48000); the PicoMite mixes at 22050 and doubles. Keep the CMM2's, and add the play-once interrupt as a further argument.
+3. PAUSE when already paused: an error on the CMM2, silent on the PicoMite. Proposal: silent.
+4. PLAY TONE while paused: the CMM2 resumes, the PicoMite stays paused. Proposal: the CMM2's.
+5. MM.INFO(SOUND) strings differ ("MODFILE", "TTS", "DAC", a bare "PAUSED" against "MOD", "PAUSED WAV", "ARRAY", "SAMPLE", "BBC"). A program tests these, so they follow the dialect switch: the CMM2's under the CMM2 dialect.
+6. FLAC and MP3 are decoded to float on the CMM2 and come out at a lower level than WAV (±1900 counts against full scale); the PicoMite decodes all three to 16 bits at one level. Proposal: the PicoMite's, so the formats play at the same loudness; MOD keeps its headroom for EFFECT.
+7. Sample-rate limits: keep the CMM2's 96 kHz for WAV and FLAC, add the check to MP3, and refuse rates below what TIM4's 16-bit prescaler can reach.
+
+## 5. CMM2-only, to keep
+
+PLAY TTS [PHONETIC] (sam.c, reciter.c); PLAY EFFECT, the second WAV stream mixed over MOD; the MODFILE and MODSAMPLE rate arguments; 96 kHz WAV and FLAC; the empty-string playlist of the current directory; DAC START/STOP sharing TIM6 (`P_DAC`); the hardware RNG for noise; the SD-card-removed check in `onRead`. The `CurrentlyPlaying` enum differs (the CMM2 puts `P_NOTHING` first and adds `P_TTS`, `P_DAC`); the PicoMite's tests such as `CurrentlyPlaying < P_STOP` depend on its order, so ported logic must use names, not order.
+
+## 6. PicoMite bugs not to carry across
+
+Checked against the code and filed as PicoMite issues, except the two marked unchecked.
+
+
+- PLAY ARRAY has no "Sound output in use" check, and frees and replaces the buffers of whatever is playing (P:1732-1797). Issue 25.
+- `audio_checks` frees `mcontext` without setting it to NULL, and the next `CloseAudio` frees it again, after a play-once MOD (P:3741-3742, 759). Issue 26.
+- When `hxcmod_fillbuffer` stops at `noloop` partway through a buffer, the caller still plays and converts the whole buffer (hxcmod.c:1364-1369; P:3543-3557), probably a burst at the end. Unchecked.
+- PLAY SOUND picks the phase increment from the old type when switching to or from noise (P:2229, 2252). Issue 27.
+- `SoundPlay = 1000;` before PLAY TONE's arguments are parsed, so a failing PLAY TONE cuts a running endless tone short (P:1628). Issue 30.
+- TONE, SOUND and ARRAY do not clear an old `WAVInterrupt`, so a finished WAV's handler can fire again when they stop (only BBC SOUND clears it, P:1981). Unchecked.
+- PLAY HALT calls `lfs_file_tell` on the .mem file instead of the track (P:2769-2770; VS1053 builds). Issue 29.
+- MODSAMPLE volume 0 (as on the CMM2, 2m). Issue 28.
+
+## 7. Merge order
+
+As separate commits, each built with 0 warnings and with tests where a program can see the effect:
+
+| # | Commit | Content |
+|---|---|---|
+| A1 | Fixes | 2a, 2b, 2c, 2e, 2f, 2g, 2h, 2i, 2k, 2m, 2n: completion interrupts kept, mono for all formats, the playlist bound, MM.INFO(TRACK) from the playing file's name, SOUND's checks before its changes, the TTS failure, the MOD checks, volume 0, the init results, more than two channels refused |
+| A2 | Interrupt-safe cleanup | 2d: the interrupt stops itself and sets a flag; `audio_checks` does the cleanup, as the PicoMite |
+| A3 | Synthesis | PLAY ARRAY, SAMPLE, RELEASE, LOAD SOUND, PLAY SOUND "M" and type "U", generated into buffers in the main loop |
+| A4 | BBC sound | AudioBBC.c, PLAY BBC SOUND and ENVELOPE, MM.INFO(BBC BUFFER) |
+| A5 | MOD | hxcmod's `noloop` (with the buffer-tail fix), PLAY MODFILE's interrupt, MM.INFO(TRACK) for MOD |
+| A6 | Output | volume ramps, the click-free stop and pause on the DACs, polyBLEP square and sawtooth, one 16-bit level for all formats |
+
+## 8. Decisions needed
+
+1. The interrupt on PLAY STOP and on each track of an album (4.1): the natural end only?
+2. FLAC and MP3 at WAV's level (4.6), which changes how loud existing programs sound.
+3. PAUSE twice silent (4.3), TONE while paused (4.4).
+4. MM.INFO(SOUND) strings by dialect (4.5).
