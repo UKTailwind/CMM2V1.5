@@ -166,7 +166,19 @@ As separate commits on our tree, each built with 0 warnings and gated by the ful
 
 Total about 38 hours. The step 8 items this clears from the parity plan: REDIM, ERASE as a command, BIT/BYTE/FLAG, and the graphics commands; INTERRUPT from the CSUB list.
 
-Progress (16 Oct): M1 a9bd4b4, M2 a4437b5, M3 272e484 are on main; M4 is built and its parity1 test passes, the full regression pending. HELP's quoting of its argument moved from M4 to M12, where help.txt is: it only matters with the file-based HELP. The PicoMite's LMID, copied for M4, moved the whole array when the length changed and let the section run one past the end; both corrected here and filed as UKTailwind/PicoMite issue 20.
+Progress (16 Oct): the merge is on main. M1 a9bd4b4, M2 a4437b5, M3 272e484, M4 5ea1a99, M5 2e6a0f1, M6 604530b, M7 e449bb0, M8 981a6b3, M9 c16488f, M10 6d3ff3d, M11 ff49699, M12 1f311f4, cleanup 10ceb73 (and d2a9083, the crasher test's long lines rebuilt from the folds after M3 removed the substitutions it used). Each step has its own test in tests/cmm2; the full regression ran on M4 (covering M3) and after the cleanup (covering the rest). New table entries went at the ends of the tables so that tokens do not move; the image format is 5 after M4 and 6 after the cleanup. Changes from the plan above, found while doing it:
+
+- HELP's quoting of its argument moved from M4 to M12, beside help.txt; the tokeniser quotes the topic at the prompt instead of cmd_help re-running the line.
+- M5: a TYPE member array named after a command (FLAGS(1, 2) AS INTEGER) became the command; the tokeniser now looks past the bounds for the AS, which also mends COLOUR(2) AS INTEGER and the like.
+- M8: FILL compares pixels in the page's own format instead of RGB888, so the three repairs became one design; its code was also run natively in the four depths.
+- M9: INTERRUPT's SUB and every CSUB interrupt vector are cleared by ClearRuntime; they were never cleared, here or on the PicoMite.
+- M10: an empty array slot is skipped in ADC START, so the scaling can follow fewer than three arrays.
+- M11: besides SEEK_CUR, a top-down file was drawn upside down and a V4/V5 header's bitfield masks were skipped (both the PicoMite's too); an error before decoding left the file open; the b7 decoder's short palettes and grey files are kept. The decoder was run natively on the test files before the board.
+- M12: the four keys grow the saved options; LoadOptions empties them for a record saved by older firmware and keeps every other option, so no reset is needed. OPTION LIST's <crlf> test is fixed.
+
+PicoMite issues filed from the merge: 20 (LMID moves the whole array), 21 (REDIM's unterminated copy), 22 (CSUB vectors survive NEW and RUN), 23 (top-down BMP upside down), 24 (V4/V5 bitfield masks).
+
+The regression after the cleanup, against the M4 run: tests/cmm2 41 of 41 (the three error tests as before); SP Tools 641 of 693, unchanged; Testfiles unchanged; crashers all pass. Five corpus programs changed. bitbyte, dynarr and order run further (order now matches its expected output). t2 calls a SUB of its own named FILL, which the FILL command now takes, and t5 passes BIT( a literal where it needs a variable; both stopped with an error before too, and both behave as the PicoMite does. A user SUB or variable named like a new statement keyword (FILL, FLAGS, SYNC, INTERRUPT, REDIM, BEZIER) is taken by the command, as on the PicoMite.
 
 The SP Tools phase of every regression since step 6.1 reports four tst_bits tests as worse than the baseline. They are an artefact of the suite's --catch-errors check (MM.ErrNo must be 0 after a test that deliberately raised an error and never cleared it); before 6.1 an error inside a CASE branch had no "Error in line" prefix and the framework's own report line failed silently, so the failures were never recorded. The firmware's behaviour is the b7 baseline's and the PicoMite's. The baseline in tests/sptools wants refreshing.
 

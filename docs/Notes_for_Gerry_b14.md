@@ -52,6 +52,20 @@ Each is in a commit of his tree with the test that covers it; the short names he
 - FRAMEBUFFER CREATE with no size, and VRes after PAGE WRITE/FRAMEBUFFER WRITE (d982d4e).
 - The three fold corrections of the function-token work (PicoMite issues #16, #17, #18): `RIGHT$(` with one argument reading an uninitialised `argv[4]`; LIST unfolding inside longer names (`TOBASE$(16, x)` listed as `TOHEX$(x)`); a space before the bracket defeating the folds (`HEX$ (255)` failed with "BIN is not declared" on b7 too).
 
+## 3a. Found while merging b14's features into Peter's tree
+
+Peter's tree now has your REDIM, LMID, LINPUT(, BIT/BYTE/FLAG/FLAGS, INTERRUPT, SYNC, FILL, BEZIER, ARC, SETPIN CIN options, TEMPR timeouts, ADC START scaling and TRIGGER timeout, the BMP decoder, OPTION F15-F20 with Shift-F5/F6, help.txt HELP and the HEAPI/HEAPS names. On the way these turned up in b14 (some come from the PicoMite code it carries, and are filed there as PicoMite issues 20-24):
+
+- **BmpDecoder.c:** `onBMPSeek` ignores `origin`, so the `SEEK_CUR` skip of a V4/V5 header's extra bytes lands at the start of the file plus that offset, and the palette is read from there. Use `f_tell(fp) + offset` for a relative seek.
+- **BmpDecoder.c:** in `decodeBMP(false)`, the path LOAD BMP uses, both row orders map file line `i` to screen row `height - 1 - i`, so a top-down file (negative height) is drawn upside down; the `else` branch wants `screenRow = i`.
+- **BmpDecoder.c:** a 16-bit BI_BITFIELDS file with a V4/V5 header keeps its masks in the header; they are skipped with the extra bytes and looked for after the header, where there are none, so a GIMP 565 file decodes as 555.
+- **BmpDecoder.c:** the errors raised before decoding starts (not a BMP, too large, no buffer) leave the file open; LOAD BMP takes the highest free number, so the program's next OPEN ... AS #10 fails.
+- **HELP with help.txt:** when a topic's text ends at the next `~` line, that line has been read and is not looked at again (the PicoMite rewinds with `lfs_file_seek`, which b14 comments out), so of two matching topics in a row the second is skipped: HELP P* with PAUSE, PI, PIXEL, PRINT shows PAUSE and PIXEL.
+- **LMID** (the PicoMite's code): the bytes after the section are moved with `totalsize - (start + num - 1)`, the whole array, so a growing replacement writes past it; and the bounds check is one too lenient.
+- **REDIM** (the PicoMite's older code): each argument is copied with `strncpy` into a 33-byte buffer, unterminated at 32 characters, name and bounds together.
+- **CSUB vectors:** `CFuncmSec`, `CFuncInt1`-`4` and `CSubInterrupt` are never cleared when a program ends, so after NEW or another RUN the tick, an interrupt pin or the completion flag calls into the old program's code. Clearing them in `ClearRuntime` fixes it.
+- **ARC:** the OPTION Y compensation is commented out, and `routinechecks` runs for every pixel; Peter's keeps both as b7 had them (once a scanline).
+
 ## 4. The licence and the manual
 
 Peter has agreed to adopt your licence header on every file and the sign-on line, and to make your 6.00.00 manual the base of the documentation for the merged tree; the things his tree adds (TYPE/STRUCT, ZMODEM, OPTION SYMBOLS, the M7 CSUBs) will be written up against it. The program area stays at sectors 1-6 for now, because his plan uses the top of bank 2 for a flash slot and the library in the PicoMite's shape. CFUNCTION stays out.
