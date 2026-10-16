@@ -84,6 +84,7 @@ int TraceOn;                                // used to track the state of TRON/T
 
 int OptionErrorSkip;                                               // how to handle an error
 int MMerrno=0;                                                        // the error number
+uint64_t g_flag = 0;                                                // FLAGS, FLAG(n) and MM.FLAGS: 64 flags a program keeps (the PicoMite's)
 char *MMErrMsg = "";                                                // the error message
 void command_print(char *cmd);
 void execute(char *mycmd);
@@ -990,16 +991,14 @@ void MIPS16 cmd_list(void) {
     } else if((p = checkstring(cmdline, "COMMANDS"))) {
     	step=maxW/gui_font_width/20;
     	m=0;
-    	int x=5;                                                // the spellings the tokeniser turns into other commands
+    	static const char *const extra[] = {"ELSE IF", "END IF", "Exit Do", "Cat", "Sprite", "Bit(", "Byte(", "Flag("};   // the spellings the tokeniser turns into other commands
+    	int x = sizeof(extra) / sizeof(extra[0]);
 		char** c=GetTempMemory((CommandTableSize+x)*sizeof(*c)+(CommandTableSize+x)*20);
 		for(i=0;i<CommandTableSize+x;i++){
+				if(i<CommandTableSize && str_equal((char *)commandtbl[i].name, "BitByteFlag(")) continue;   // the fold's token: its three names are listed instead
 				c[m]= (char *)((int)c + sizeof(char *) * (CommandTableSize+x) + m*20);
-    			if(m<CommandTableSize)strcpy(c[m],commandtbl[i].name);
-    			else if(m==CommandTableSize)strcpy(c[m],"ELSE IF");
-    			else if(m==CommandTableSize+1)strcpy(c[m],"END IF");
-    			else if(m==CommandTableSize+2)strcpy(c[m],"Exit Do");
-    			else if(m==CommandTableSize+3)strcpy(c[m],"Cat");
-    			else strcpy(c[m],"Sprite");
+    			if(i<CommandTableSize)strcpy(c[m],commandtbl[i].name);
+    			else strcpy(c[m],extra[i-CommandTableSize]);
     			m++;
 		}
     	sortStrings(c,m);
@@ -1024,7 +1023,8 @@ void MIPS16 cmd_list(void) {
 
 		char** c=GetTempMemory((TokenTableSize+x)*sizeof(*c)+(TokenTableSize+x)*20);
 		for(i=0;i<TokenTableSize+x;i++){
-				if(i<TokenTableSize && (str_equal((char *)tokentbl[i].name, "SChange$(") || str_equal((char *)tokentbl[i].name, "TopBottom(")))
+				if(i<TokenTableSize && (str_equal((char *)tokentbl[i].name, "SChange$(") || str_equal((char *)tokentbl[i].name, "TopBottom(")
+				                       || str_equal((char *)tokentbl[i].name, "BitByteFlag(")))
 					continue;                                       // the folds' tokens: their functions are listed instead
 				c[m]= (char *)((int)c + sizeof(char *) * (TokenTableSize+x) + m*20);
     			if(i<TokenTableSize)strcpy(c[m],tokentbl[i].name);
@@ -2099,6 +2099,47 @@ void cmd_gosub(void) {
 	else
 		nextstmt = findline(getinteger(cmdline), true);				// try for a line number
     IgnorePIN = false;
+}
+
+// BIT(var%, n) = 0|1, BYTE(s$, pos) = 0..255 and FLAG(n) = 0|1 are one token: tokenise() writes them BITBYTEFLAG(1, 2
+// or 3 and a comma before the arguments (SubstFold), and LIST turns them back (ListUnfold).  The PicoMite's cmd_bit,
+// cmd_byte and cmd_flag.
+void cmd_bitbyteflag(void) {
+	int which, value;
+	getargs(&cmdline, 5, ",");
+	which = argc ? getint(argv[0], 1, 3) : 0;
+	if(!((which == 3 && argc == 3) || (which != 3 && argc == 5))) error("Argument count");
+	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
+	if(!*cmdline) error("Syntax");
+	++cmdline;
+	if(!*cmdline) error("Syntax");
+	if(which == 1) {                                                // BIT(var%, n) = 0|1
+		uint64_t *source = (uint64_t *)findvar(argv[2], V_NOFIND_ERR);
+		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+		if(!(FoundType() & T_INT)) error("Not an integer");
+		uint64_t bit = (uint64_t)1 << (uint64_t)getint(argv[4], 0, 63);
+		value = getint(cmdline, 0, 1);
+		if(value) *source |= bit; else *source &= ~bit;
+	} else if(which == 2) {                                         // BYTE(s$, pos) = 0..255
+		findvar(argv[2], V_NOFIND_ERR);
+		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
+		if(!(FoundType() & T_STR)) error("Not a string");
+		unsigned char *sourcestring = (unsigned char *)getstring(argv[2]);
+		int start = getint(argv[4], 1, sourcestring[0]);
+		value = getint(cmdline, 0, 255);
+		sourcestring[start] = value;
+	} else {                                                        // FLAG(n) = 0|1
+		uint64_t bit = (uint64_t)1 << (uint64_t)getint(argv[2], 0, 63);
+		value = getint(cmdline, 0, 1);
+		if(value) g_flag |= bit; else g_flag &= ~bit;
+	}
+}
+
+// FLAGS = n sets all 64 flags; MM.FLAGS reads them
+void cmd_flags(void) {
+	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
+	if(!*cmdline) error("Syntax");
+	g_flag = getinteger(++cmdline);
 }
 
 // LMID(ls%(), pos [, n]) = x$: MID$ on a LONGSTRING (the PicoMite's cmd_lmid)

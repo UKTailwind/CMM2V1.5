@@ -1646,10 +1646,10 @@ void STR_REPLACE(char *target, const char *needle, const char *replacement, uint
 
 // The functions tokenise() folds into one token for each family (the PicoMite's): BIN$( is written BASE$(2, and so on.
 // A function's own table entry allowed spaces before its bracket (LEFT$ (a$, 2)), so they are closed up before the fold.
-static const char *const FoldFrom[] = {"BIN$", "OCT$", "HEX$", "LCASE$", "UCASE$", "LEFT$", "RIGHT$", "MIN", "MAX"};
+static const char *const FoldFrom[] = {"BIN$", "OCT$", "HEX$", "LCASE$", "UCASE$", "LEFT$", "RIGHT$", "MIN", "MAX", "BIT", "BYTE", "FLAG"};
 static const char *const FoldTo[] = {"BASE$(2,", "BASE$(8,", "BASE$(16,", "SCHANGE$(L,", "SCHANGE$(U,", "SCHANGE$(E,",
-    "SCHANGE$(R,", "TOPBOTTOM(I,", "TOPBOTTOM(A,"};
-const char *const FoldList[] = {"Bin$(", "Oct$(", "Hex$(", "LCase$(", "UCase$(", "Left$(", "Right$(", "Min(", "Max("};   // (LIST FUNCTIONS too)
+    "SCHANGE$(R,", "TOPBOTTOM(I,", "TOPBOTTOM(A,", "BITBYTEFLAG(1,", "BITBYTEFLAG(2,", "BITBYTEFLAG(3,"};   // (a digit: no symbol is made of it)
+const char *const FoldList[] = {"Bin$(", "Oct$(", "Hex$(", "LCase$(", "UCase$(", "Left$(", "Right$(", "Min(", "Max(", "Bit(", "Byte(", "Flag("};   // (LIST FUNCTIONS too)
 #define FOLDS (sizeof(FoldFrom) / sizeof(FoldFrom[0]))
 const int FoldCount = FOLDS;
 
@@ -1918,7 +1918,8 @@ int MIPS16 tokenise(int console) {
             }
 
             // a command's name used as a name is left as text: a member of a TYPE block (COLOUR AS INTEGER: only
-            // DIM, LOCAL and STATIC have AS straight after them), and a variable called TYPE (type = 3, type(1) = 2,
+            // DIM, LOCAL and STATIC have AS straight after them; FLAGS(1, 2) AS INTEGER, an array member, has its bounds
+            // first), and a variable called TYPE (type = 3, type(1) = 2,
             // type$ = "a") as before structures came
             if(match_i > -1 && isnamestart(*cmdstart)) {
                 char *q = match_p;
@@ -1930,6 +1931,16 @@ int MIPS16 tokenise(int console) {
                         match_i = -1;
                     else if(checkstring(q, "AS") != NULL && match_i != cmdLOCAL && match_i != cmdSTATIC && match_i != GetCommandValue("Dim"))
                         match_i = -1;
+                    else if(*q == '(' && commandtbl[match_i].name[strlen((char *)commandtbl[match_i].name) - 1] != '(') {
+                        int depth = 0;                              // a member array: FLAGS(1, 2) AS INTEGER, the bounds then AS
+                        do {
+                            if(*q == '(') depth++;
+                            else if(*q == ')') depth--;
+                            q++;
+                        } while(*q && depth);
+                        skipspace(q);
+                        if(depth == 0 && checkstring(q, "AS") != NULL) match_i = -1;
+                    }
                 }
                 if(match_i == -1) p = cmdstart;
             }

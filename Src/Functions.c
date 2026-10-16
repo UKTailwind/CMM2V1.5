@@ -71,6 +71,7 @@ const char* overlaid_functions[]={
 	"MM.WIDTH",
 	"MM.HEIGHT",
 	"MM.ONEWIRE",
+	"MM.FLAGS",
 	"MM.END"
 };
 
@@ -223,6 +224,9 @@ typedef enum {
 	switch(*ep-'A'){
 		case MMONEWIRE:
 			iret = mmOWvalue;
+			break;
+		case MMFLAGS:
+			iret = g_flag;
 			break;
 		case MMHRES:
 		    iret = PageTable[WritePage].xmax;
@@ -1031,6 +1035,32 @@ MMFLOAT RndVal(void) {
 }
 
 
+
+// BIT(var%, n), BYTE(s$, pos) and FLAG(n) are one token: tokenise() writes them BITBYTEFLAG(1, 2 or 3 and a comma
+// before the arguments (SubstFold), and LIST turns them back (ListUnfold).  The PicoMite's fun_bit, fun_byte and fun_flag.
+// n = BIT( var%, bit )           bit 0-63 of the integer variable
+// n = BYTE( s$, pos )            the byte at pos (1 to the variable's size) of the string variable
+// n = FLAG( bit )                bit 0-63 of the flags (FLAGS, MM.FLAGS)
+void fun_bitbyteflag(void) {
+	int which, spos;
+	getargs(&ep, 5, ",");
+	which = argc ? getint(argv[0], 1, 3) : 0;
+	if(!((which == 3 && argc == 3) || (which != 3 && argc == 5))) error("Argument count");
+	if(which == 1) {
+		uint64_t *s = (uint64_t *)findvar(argv[2], V_NOFIND_ERR);
+		if(!(FoundType() & T_INT)) error("Not an integer");
+		spos = getint(argv[4], 0, 63);
+		iret = (*s >> spos) & 1;
+	} else if(which == 2) {
+		unsigned char *s = (unsigned char *)findvar(argv[2], V_NOFIND_ERR);
+		if(!(FoundType() & T_STR)) error("Not a string");
+		iret = s[getint(argv[4], 1, FoundSize())];
+	} else {
+		spos = getint(argv[2], 0, 63);
+		iret = (g_flag >> spos) & 1;
+	}
+	targ = T_INT;
+}
 
 // LEFT$(, RIGHT$(, UCASE$( and LCASE$( are one token, as on the PicoMite: tokenise() writes them SCHANGE$( with
 // the letter E, R, U or L and a comma before the arguments, and LIST turns them back (ListUnfold)

@@ -60,6 +60,7 @@ typedef enum {
     MMWIDTH,
     MMHEIGHT,
     MMONEWIRE,
+    MMFLAGS,
     MMEND
 } Operation;
 extern const char* overlaid_functions[];extern volatile int vol_left, vol_right;
@@ -141,6 +142,9 @@ void cmd_select(void);
 void cmd_case(void);
 void cmd_mid(void);
 void cmd_lmid(void);
+void cmd_bitbyteflag(void);
+void cmd_flags(void);
+void fun_bitbyteflag(void);
 void cmd_sync(void);
 void fun_linputstr(void);
 void cmd_execute(void);
@@ -509,6 +513,8 @@ void op_inv(void);
 	{ "Array Add",	    T_CMD,				0, cmd_arrayadd	},
 	{ "Array Insert",   T_CMD,				0, cmd_arrayinsert	},
 	{ "Array Slice",    T_CMD,				0, cmd_arrayslice	},
+	{ "BitByteFlag(",	T_CMD | T_FUN,		0, cmd_bitbyteflag },   // BIT( BYTE( FLAG( = : one token, the selector 1, 2 or 3 first (SubstFold)
+	{ "Flags",		    T_CMD,				0, cmd_flags	},      // FLAGS = n (MM.FLAGS reads it)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
@@ -645,6 +651,7 @@ void op_inv(void);
 	{ "LInput(",           T_FUN | T_INT,		0, fun_linputstr   },      // LINPUT(ls%(), #fnbr, n): n bytes of a file into a LONGSTRING
 	{ "GPS(",	    T_FUN | T_NBR | T_INT| T_STR,		0, fun_GPS	},       // its entry in GPS.h was never in this table
 	{ "Struct(",	    T_FUN | T_INT,		0, fun_struct	},
+	{ "BitByteFlag(",      T_FUN | T_INT,		0, fun_bitbyteflag },      // BIT( BYTE( FLAG(: one token, the selector 1, 2 or 3 first
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

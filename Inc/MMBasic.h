@@ -398,6 +398,7 @@ extern char *ep;                                // Pointer to the argument to a 
 
 extern int OptionErrorSkip;                    // value of OPTION ERROR
 extern int MMerrno;
+extern uint64_t g_flag;                        // FLAGS, FLAG(n), MM.FLAGS
 extern char *MMErrMsg;
 
 extern char *subfun[];                          // Table of subroutines and functions built when the program starts running
