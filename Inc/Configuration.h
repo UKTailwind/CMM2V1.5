@@ -107,7 +107,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MAXLAYER            10                      // maximum number of sprite layers
 #define BREAK_KEY           3                       // the default value (CTRL-C) for the break key.  Reset at the command prompt.
 #define MAX_MODES           18						// maximum number of video modes
-#define MAXKEYLEN           24						// Maximum length of programmable function keys
+#define MAXKEYLEN           64						// Maximum length of programmable function keys
 #define NBRPROGKEYS         12                      // number of programmable function keys
 #define MAXSOUNDS         	4                       // number of simultaneous sounds
 #define DEFCOLOUR			8						// Default colour depth in bits

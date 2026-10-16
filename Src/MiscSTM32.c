@@ -303,7 +303,7 @@ void printoptions(void){
     }
     if(strlen((char *)Option.path))PO2Str("SEARCH PATH",(char *)Option.path,1);
     if(strlen((char *)Option.F11Key)){
-    	char cc[40];
+    	char cc[sizeof(Option.F11Key) + 8];                      // the key string and <crlf>
     	strcpy(cc,(char *)Option.F11Key);
     	if(cc[strlen(cc)-2]=='\r' && cc[strlen(cc)-2]=='\r'){
     		cc[strlen(cc)-2]=0;
@@ -313,7 +313,7 @@ void printoptions(void){
     	PO2Str("F11",(char *)cc,1);
     }
     if(strlen((char *)Option.F12Key)){
-    	char cc[40];
+    	char cc[sizeof(Option.F11Key) + 8];                      // the key string and <crlf>
     	strcpy(cc,(char *)Option.F12Key);
     	if(cc[strlen(cc)-2]=='\r' && cc[strlen(cc)-2]=='\r'){
     		cc[strlen(cc)-2]=0;

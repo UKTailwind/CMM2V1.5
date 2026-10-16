@@ -25,14 +25,14 @@
 #include "stm32h7xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "configuration.h"
-#include "serial.h"
-#include "gps.h"
-#include "audio.h"
+#include "Configuration.h"
+#include "Serial.h"
+#include "GPS.h"
+#include "Audio.h"
 #include "sam.h"
 #include "reciter.h"
 #include "Memory.h"
-#include "flash.h"
+#include "Flash.h"
 #include "IOPorts.h"
 #include "External.h"
 /* USER CODE END Includes */
@@ -689,9 +689,9 @@ void TIM7_IRQHandler(void)
 			c3=HAL_ADC_GetValue(&hadc3);
 			if(ADCpos < ADCmax)HAL_ADC_Start(&hadc3);
 		}
-		a1float[ADCpos]=a1float[ADCpos]=(MMFLOAT)c1/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-		if(ADCchannelB && a2float!=NULL)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-		if(ADCchannelC && a3float!=NULL)a3float[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelA]] * VCC;
+		a1float[ADCpos]=(MMFLOAT)c1/ADCdiv[ADCbits[ADCchannelA]] * VCC;
+		if(ADCchannelB && a2float!=NULL)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelB]] * VCC;
+		if(ADCchannelC && a3float!=NULL)a3float[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelC]] * VCC;
 		if(ADCpos==ADCmax){
 			__HAL_TIM_SET_COUNTER(&htim7, 0);
 			HAL_NVIC_DisableIRQ(TIM7_IRQn);
@@ -717,8 +717,8 @@ void TIM7_IRQHandler(void)
 						lastread=c;
 						ADCpos--;
 						a1float[ADCpos]=(MMFLOAT)c1/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-						if(ADCchannelC)a3point[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelA]] * VCC;
+						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelB]] * VCC;
+						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelC]] * VCC;
 					}
 				} else {
 					if(lastread<=ADCtriggervalue && c>ADCtriggervalue){
@@ -727,8 +727,8 @@ void TIM7_IRQHandler(void)
 						lastread=c;
 						ADCpos--;
 						a1float[ADCpos]=(MMFLOAT)c1/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelA]] * VCC;
-						if(ADCchannelC)a3point[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelA]] * VCC;
+						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2/ADCdiv[ADCbits[ADCchannelB]] * VCC;
+						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3/ADCdiv[ADCbits[ADCchannelC]] * VCC;
 					}
 				}
 			}

@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <stdbool.h>                                // Pascal
 #include <stdint.h>                                 // Pascal
-#include "memory.h"
+#include "Memory.h"
 #if defined _AIX && !defined __GNUC__ && !defined REGEX_MALLOC
   #pragma alloca
 #endif

@@ -81,7 +81,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* USER CODE BEGIN Includes */
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
-#include "memory.h"
+#include "Memory.h"
 #include <time.h>
 
 /* USER CODE END Includes */
@@ -889,14 +889,18 @@ if(setjmp(mark) != 0) {
 	if(Option.Autorun && ImageIsCurrent() && _excep_code != RESTART_NOAUTORUN) {
 	  strcpy(inpbuf,"RUN\r\n");
 	  tokenise(true);                                             // turn into executable code
+	  executerun=1;
 	  ExecuteProgram(tknbuf);                                     // execute the line straight away
+	  if(executerun)cleanend();                                   // a program without END is cleaned up as from the prompt (Gerry's b14)
 	} else if(Option.Autorun && Option.ProgramStartCode >= 0 && *staleimage && _excep_code != RESTART_NOAUTORUN) {
 	  strcpy(inpbuf,"RUN \"");                                   // the image was erased at boot: load the program again from its file
 	  strcat(inpbuf,staleimage);
 	  strcat(inpbuf,"\"\r\n");
 	  *staleimage = 0;
 	  tokenise(true);                                             // turn into executable code
+	  executerun=1;
 	  ExecuteProgram(tknbuf);                                     // execute the line straight away
+	  if(executerun)cleanend();
 	}
 	if(Option.Autorun && Option.ProgramStartCode < 0 && _excep_code != RESTART_NOAUTORUN) {
 	  FRESULT fr;

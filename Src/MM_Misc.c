@@ -62,9 +62,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Hardware_Includes.h"
 #include <time.h>
 #include "upng.h"
-#include "CMMFontZero.h"
-#include "CMMFontOne.h"
-#include "CMMFontTwo.h"
+#include "CMMfontZero.h"
+#include "CMMfontOne.h"
+#include "CMMfontTwo.h"
 #include <stdio.h>
 #include "ffconf.h"
 #include "hxcmod.h"
@@ -98,6 +98,8 @@ MMFLOAT optionangle=1.0;
 int optiony=0;
 unsigned int PeripheralBusSpeed;
 int SaveOptionErrorSkip=0;
+static int SaveMMerrno;                                             // the caller's error state across an interrupt SUB
+static char SaveMMErrMsg[256];                                      // (the size of errstring, which MMErrMsg points at)
 extern RTC_HandleTypeDef hrtc;
 extern volatile int ADCcomplete;
 extern volatile int Keycomplete;
@@ -539,7 +541,10 @@ void fun_mouse(void){
 	else if(toupper(*p)=='W')iret=mousestruct[chan].L;
 	else if(toupper(*p)=='S')iret=mousestruct[chan].az;
 	else if(toupper(*p)=='T')iret=mousestruct[chan].classic[0];
-	else if(toupper(*p)=='D')iret=mousestruct[chan].R;
+	else if(toupper(*p)=='D'){
+		iret=mousestruct[chan].R;
+		mousestruct[chan].R=0;                                      // read once (it was reported for ever: Gerry's b14)
+	}
 	else if(toupper(*p)=='Z'){
 		iret=mousestruct[chan].az;
 		mousestruct[chan].az=0;
@@ -2329,6 +2334,8 @@ void cmd_ireturn(void){
         DrawFmtBox(1);                                              // the pop-up GUI keyboard should be drawn AFTER the pen down interrupt
     }
     if(SaveOptionErrorSkip>0)OptionErrorSkip=SaveOptionErrorSkip+1;
+    strcpy(MMErrMsg, SaveMMErrMsg);                                 // the caller's error state again
+    MMerrno = SaveMMerrno;
 }
 
 
@@ -2414,7 +2421,7 @@ void cmd_option(void) {
 	if(tp) {
 		char p[STRINGSIZE];
 		strcpy(p,getCstring(tp));
-		if(strlen(p)>=sizeof(Option.F11Key))error("Maximum 23 characters");
+		if(strlen(p)>=sizeof(Option.F11Key))error("Maximum 63 characters");
 		else strcpy((char *)Option.F11Key, p);
 		SaveOptions(1);
 		strcpy(FunKey[10],(char *)Option.F11Key);
@@ -2424,7 +2431,7 @@ void cmd_option(void) {
 	if(tp) {
 		char p[STRINGSIZE];
 		strcpy(p,getCstring(tp));
-		if(strlen(p)>=sizeof(Option.F12Key))error("Maximum 23 characters");
+		if(strlen(p)>=sizeof(Option.F12Key))error("Maximum 63 characters");
 		else strcpy((char *)Option.F12Key, p);
 		SaveOptions(1);
 		strcpy(FunKey[11],(char *)Option.F12Key);
@@ -2437,7 +2444,7 @@ void cmd_option(void) {
 		if(checkstring(tp, "DISABLE"))	mymemset((char *)Option.path,0,sizeof(Option.path));
 		else {
 			strcpy(p,getCstring(tp));
-			if(strlen(p)>=sizeof(Option.F12Key))error("Maximum 23 characters");
+			if(strlen(p)>=sizeof(Option.path))error("Maximum 127 characters");
 			else {
 				if(p[0]!='/')error("Path must start and end with /");
 				if(p[strlen(p)-1]!='/')error("Path must start and end with /");
@@ -4236,6 +4243,12 @@ GotAnInterrupt:
     LocalIndex++;                                                   // IRETURN will decrement this
     if(OptionErrorSkip>0)SaveOptionErrorSkip=OptionErrorSkip;
     else SaveOptionErrorSkip = 0;
+    OptionErrorSkip = 0;                                            // the interrupt SUB starts with a clean error state
+    strncpy(SaveMMErrMsg, MMErrMsg, sizeof(SaveMMErrMsg) - 1);      // and the caller's is restored by IRETURN (Gerry's b14, as the PicoMite)
+    SaveMMErrMsg[sizeof(SaveMMErrMsg) - 1] = 0;
+    *MMErrMsg = 0;
+    SaveMMerrno = MMerrno;
+    MMerrno = 0;
     InterruptReturn = nextstmt;                                     // for when IRETURN is executed
     // if the interrupt is pointing to a SUB token we need to call a subroutine
     if(commandtbl_at(intaddr) == cmdSUB) {

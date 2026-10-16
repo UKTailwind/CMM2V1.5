@@ -341,22 +341,29 @@ void cmd_ADC(void){
     	prescale++;
     	prescale*=2;
     	prescale--;
-        ADCchannelA=getint(argv[2],0,NBRPINS);
-    	if(argc>3 && *argv[4])ADCchannelB=getint(argv[4],0,NBRPINS);
-    	if(argc>5 && *argv[6])ADCchannelC=getint(argv[6],0,NBRPINS);
-    	if(PinDef[ADCchannelA].ADC!=ADC1)error("First channel must use ANALOG_A pin");
-        CheckPin(ADCchannelA, CP_IGNORE_INUSE);
+        {                                                       // the pins are checked before they become the channels: an error here closes the ADC
+            int a = getint(argv[2],0,NBRPINS), b = 0, c = 0;       // (ClearExternalIO), which must not unconfigure a pin that failed because it is a
+            if(argc>3 && *argv[4])b=getint(argv[4],0,NBRPINS);    // COM or SPI port's (Gerry's b14)
+            if(argc>5 && *argv[6])c=getint(argv[6],0,NBRPINS);
+            if(PinDef[a].ADC!=ADC1)error("First channel must use ANALOG_A pin");
+            CheckPin(a, CP_IGNORE_INUSE);
+            if(b){
+                if(PinDef[b].ADC!=ADC2)error("Second channel must use ANALOG_B pin");
+                CheckPin(b, CP_IGNORE_INUSE);
+            }
+            if(c){
+                if(PinDef[c].ADC!=ADC3)error("Third channel must use ANALOG_C pin");
+                CheckPin(c, CP_IGNORE_INUSE);
+            }
+            ADCchannelA = a; ADCchannelB = b; ADCchannelC = c;
+        }
         ADCNumchannels=1;
         if(ADCchannelB){
-        	if(PinDef[ADCchannelB].ADC!=ADC2)error("Second channel must use ANALOG_B pin");
-            CheckPin(ADCchannelB, CP_IGNORE_INUSE);
             ExtCfg(ADCchannelB, EXT_ANA_IN, ADCb);
             ExtCfg(ADCchannelB, EXT_COM_RESERVED, 0);
             ADCNumchannels++;
         }
         if(ADCchannelC){
-        	if(PinDef[ADCchannelC].ADC!=ADC3)error("Third channel must use ANALOG_C pin");
-            CheckPin(ADCchannelC, CP_IGNORE_INUSE);
             ExtCfg(ADCchannelC, EXT_ANA_IN, ADCb);
             ExtCfg(ADCchannelC, EXT_COM_RESERVED, 0);
             ADCNumchannels++;

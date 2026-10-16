@@ -47,7 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Hardware_Includes.h"
 #include "help.h"
-#include "Turtle.h"
+#include "turtle.h"
 
 void flist(int, int, int);
 void clearprog(void);

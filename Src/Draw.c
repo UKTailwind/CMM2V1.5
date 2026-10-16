@@ -550,8 +550,7 @@ void cmd_cursor(char *p){
     	hcursor=19;
     	xoffcursor=0;
     	yoffcursor=0;
-    	cursor=0;
-    	cursorsave=GetInternalMemory(wcursor * hcursor * (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
+    	cursor=0;                                               // (the block for the final size is taken below; one for the default size here leaked: Gerry's b14)
     	if(argc){
     		if(argc==3)error("Argument count");
     		if(*argv[0])cursor=(getint(argv[0],0,(loadcursordata==NULL? 1 : 2)));
@@ -3288,7 +3287,7 @@ void cmd_pixel(void) {
 			y1 = getint(argv[2],0,fillmaxH);
 			f = getColour(argv[4], 0);
 			if(VideoColour==32){
-
+				ConvertedColour=f;                                  // (it was left as the previous fill's: Gerry's b14)
 			} else if(VideoColour<=8){
 				ConvertedColour = ((f & 0b111000000000000000000000)>>16) | ((f & 0b1110000000000000)>>11) | ((f & 0b11000000)>>6);
 			} else {
@@ -4619,8 +4618,8 @@ void fun_pixel(void) {
     }
     ReadBuffer(x,y,x,y,(char *)&c.rgb);
     ReadPage=WritePage;
-    if(VideoColour==8 || VideoColour==16)iret = c.rgb & 0xFFFFFF;
-    else if(VideoColour==12) iret = c.rgb & 0xFFFFFFF;
+    if(VideoColour==12) iret = c.rgb & 0xFFFFFFF;                 // (32-bit modes returned a stale value: Gerry's b14)
+    else iret = c.rgb & 0xFFFFFF;
     targ = T_INT;
 }
 

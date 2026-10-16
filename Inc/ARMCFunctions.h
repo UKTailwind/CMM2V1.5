@@ -188,48 +188,58 @@ struct s_vartbl {                               // structure of the variable tab
 //***************************************************************************************************
 
 //The Option structure
+// the Option structure, as Flash.h declares it (it was b7's stale copy: RunInRam, 24-byte keys)
 struct option_s {
     char Autorun;
     char Tab;
     char Invert;
     char Listcase;
 // 4
-    unsigned int RunInRam;
     unsigned int  PIN;
     unsigned int  Baudrate;
     int DefaultFC, DefaultBC;      // the default colours
     short DISPLAY_WIDTH;
     short DISPLAY_HEIGHT;
-// 28
+// 24
     short RTC_Calibrate;
     volatile unsigned char USBPolling;
     unsigned char mode;
-// 32
+// 28
     char Height;
     char Width;
     char Console;
     char DefaultFont;
-// 36
+// 32
     char SerialPullup;
     char fulltime;
     char USBKeyboard;
-    char colourmode;
-// 40
+    signed char colourmode;
+// 36
     unsigned char showstatus;
     char colourmap;
     char SDspeed;
     unsigned char editfont;
-// 44
-    unsigned char F11Key[24];
-    unsigned char F12Key[24];
-// 92
+// 40
+    unsigned char F11Key[64];
+    unsigned char F12Key[64];
+// 88
     unsigned char rtcdrive;
     unsigned char noLED;
-    char dummy[6];
+    unsigned char ConsolePort;
+    signed char Mouse;
+    unsigned char Sensitivity;
+    unsigned char RTCinstalled;
+    unsigned char profile;
+    unsigned char sleep;
+    unsigned char CPUmode;
+    signed char ProgramStartCode;
 // 100
 	short RepeatStart;
 	short RepeatRate;
-	unsigned char path[24];
+	unsigned char path[128];
+	unsigned short MaxCtrls;
+	signed char offsets[18+1];                 // MAX_MODES+1
+	unsigned char end;
 // 128
 };
 

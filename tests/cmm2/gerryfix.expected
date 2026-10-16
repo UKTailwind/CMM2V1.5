@@ -1,0 +1,5 @@
+main error:  16 Divide by zero
+in the interrupt: errno 0 msg [] clean
+after it: errno 16 restored
+pixel 32: C2238 C86432
+bad 0

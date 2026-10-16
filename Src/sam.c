@@ -7,7 +7,7 @@
 #include "sam.h"
 #include "render.h"
 #include "SamTabs.h"
-#include "memory.h"
+#include "Memory.h"
 
 char input[256]; //tab39445
 //standard sam sound
