@@ -432,6 +432,7 @@ void i2c3Send(char *p) {
 	i2c3_masterCommand(1);
 }
 
+static void i2c_wait_idle(I2C_HandleTypeDef *h);
 void i2cCheck(char *p) {
 	int addr;
 	getargs(&p, 1, ",");
@@ -439,7 +440,10 @@ void i2cCheck(char *p) {
 	addr = getinteger(argv[0]);
     if(addr<1 || addr>0x7F)error("Invalid I2C address");
     addr<<=1;
+	mT4IntEnable(0);                                                // as WRITE and READ: no controller transfer starts during it,
+	i2c_wait_idle(&hi2c1);                                         // and one under way is waited for
 	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)addr, 2, 10);
+	mT4IntEnable(1);
 }
 void i2c2Check(char *p) {
 	int addr;
@@ -448,7 +452,10 @@ void i2c2Check(char *p) {
 	addr = getinteger(argv[0]);
     if(addr<1 || addr>0x7F)error("Invalid I2C address");
     addr<<=1;
+	mT4IntEnable(0);                                                // as WRITE and READ: no controller transfer starts during it,
+	i2c_wait_idle(&hi2c4);                                         // and one under way is waited for
 	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c4, (uint16_t)addr, 2, 10);
+	mT4IntEnable(1);
 }
 void i2c3Check(char *p) {
 	int addr;
@@ -457,7 +464,10 @@ void i2c3Check(char *p) {
 	addr = getinteger(argv[0]);
     if(addr<1 || addr>0x7F)error("Invalid I2C address");
     addr<<=1;
+	mT4IntEnable(0);                                                // as WRITE and READ: no controller transfer starts during it,
+	i2c_wait_idle(&hi2c2);                                         // and one under way is waited for
 	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)addr, 2, 10);
+	mT4IntEnable(1);
 }
 // receive data from an I2C slave - master mode
 void i2cReceive(char *p) {
@@ -740,6 +750,13 @@ void i2c3_disable(void) {
     ExtCfg(P_I2C3_SDA, EXT_NOT_CONFIG, 0);
     ExtCfg(P_I2C3_SCL, EXT_NOT_CONFIG, 0);
 }
+// A program's transfer on a bus that a Wii controller or I2C mouse is polled on (from the 1 ms tick, Timers.c): the
+// caller has stopped the polling starting another (mT4IntEnable(0)); this waits for one already under way to finish,
+// up to 5 ms. Without it the HAL said the handle was busy, and MM.I2C reported a failure that was not the device's.
+static void i2c_wait_idle(I2C_HandleTypeDef *h) {
+	uint32_t t = HAL_GetTick();
+	while(HAL_I2C_GetState(h) != HAL_I2C_STATE_READY && HAL_GetTick() - t < 5) {}
+}
 /**************************************************************************************************
 Send and/or Receive data - master mode
 ***************************************************************************************************/
@@ -747,6 +764,7 @@ void i2c_masterCommand(int timer) {
 //	unsigned char start_type,
 	unsigned char i,i2caddr=I2C_Addr<<1,I2C_Rcv_Buffer[I2C_Rcvlen+2];
 	mT4IntEnable(0);
+	i2c_wait_idle(&hi2c1);                                         // (a controller's transfer under way)
 	if(I2C_Sendlen){
 		mmI2Cvalue=HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)i2caddr, I2C_Send_Buffer, I2C_Sendlen, I2C_Timeout);
 	}
@@ -774,6 +792,7 @@ void i2c2_masterCommand(int timer) {
 //	unsigned char start_type,
 	unsigned char i,i2c2addr=I2C2_Addr<<1,I2C2_Rcv_Buffer[I2C2_Rcvlen+2];
 	mT4IntEnable(0);
+	i2c_wait_idle(&hi2c4);                                         // (a controller's transfer under way)
 	if(I2C2_Sendlen){
 		mmI2Cvalue=HAL_I2C_Master_Transmit(&hi2c4, (uint16_t)i2c2addr, I2C_Send_Buffer, I2C2_Sendlen, I2C2_Timeout);
 	}
@@ -800,6 +819,7 @@ void i2c3_masterCommand(int timer) {
 //	unsigned char start_type,
 	unsigned char i,i2c3addr=I2C3_Addr<<1,I2C3_Rcv_Buffer[I2C3_Rcvlen+2];
 	mT4IntEnable(0);
+	i2c_wait_idle(&hi2c2);                                         // (a controller's transfer under way)
 	if(I2C3_Sendlen){
 		mmI2Cvalue=HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)i2c3addr, I2C_Send_Buffer, I2C3_Sendlen, I2C3_Timeout);
 	}
