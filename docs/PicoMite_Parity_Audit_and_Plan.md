@@ -401,7 +401,7 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
      - VAR, which was never in the command table, and its implied-type fix (ad96e30);
      - `GPS(`, also missing from the table, with the PicoMite's GPS fixes (303142e). Not run against a receiver: GPS is tested when Peter has a test environment.
      - MEMORY's General figure (9ee8c9e).
-6. **Symbols** (S5/S6): names tokenised to symbol ids with a symbol table after the image, bound lazily to slots, locals through the per-frame shadow stack; one canonical spelling per name (the CMM2 image is crunched, 2.2); `T_LABEL` moves from 4 to 3; `OPTION SYMBOLS OFF` kept as the escape hatch.
+6. **Symbols** (S5/S6): names tokenised to symbol ids with a symbol table after the image, bound lazily to slots, locals through the per-frame shadow stack; one canonical spelling per name (the CMM2 image is crunched, 2.2); `T_LABEL` moves from 4 to 3; `OPTION SYMBOLS OFF` kept as the escape hatch. **Done 16 Oct** (`docs/Symbols_Port_Plan.md`): 6.0 preparation (d4477bc), 6.1 the format (9eac831), 6.2 the bindings. solar_eclipse takes 7.77 s as symbols and 9.26 s as text.
 6a. **Function-token folds** (Peter, 16 Oct: next after symbols). Use the PicoMite's approach to free one-byte function tokens:
    - **`SCHANGE$(`** stands for `LCASE$(`, `UCASE$(`, `LEFT$(` and `RIGHT$(`. The tokeniser writes them as `SCHANGE$(L,`, `U,`, `E,` and `R,` (P `MMBasic.c:2002-2007`), and `fun_schange` (P `Functions.c:1676`) dispatches on the letter.
    - **`TOPBOTTOM(`** stands for `MIN(` and `MAX(`, written as `TOPBOTTOM(I,` and `TOPBOTTOM(A,`.

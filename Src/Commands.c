@@ -2965,6 +2965,7 @@ void cmd_erasevar(char *erase) {
 			k=j+1;
 			if(k==MAXVARS)k=MAXLOCALVARS;
 			VarRecordRelease(j, VREC(k)->type != T_NOTYPE);         // its record to the free list; the slot blocked if a probe may have passed it
+			SymBindForgetSlot(j);                                   // and no symbol bound to it (Symbols.h)
 			Globalvarcnt--;
 			break;
 		}

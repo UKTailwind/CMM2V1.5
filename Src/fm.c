@@ -1510,6 +1510,7 @@ void cmd_files(void) {
 //	FreeMemorySafe((void *)&main_turtle_polyY);
 //	FreeMemorySafe((void *)&PageTable[WPN].address);
 //	FreeMemorySafe((void *)&PageTable[BPN].address);
+	SymBindFree();                                              // the symbols' bindings: their internal RAM to the file manager (Symbols.c)
 	if(CurrentlyPlaying==P_NOTHING){
 		InitHeap();
 	}

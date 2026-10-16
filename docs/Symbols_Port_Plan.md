@@ -6,6 +6,17 @@ Step 6 of the P1 plan (`PicoMite_Parity_Audit_and_Plan.md`). Written 16 Oct 2026
 
 Line numbers are the CMM2's unless marked P.
 
+**Status, 16 Oct:** done.
+- 6.0 is d4477bc and 6.1 is 9eac831.
+- 6.2, the bindings, is the commit after them. It passed the full regression against 6.1, as symbols and as text.
+- **Timings:**
+  - solar_eclipse takes 7.77 s as symbols and 9.26 s as text.
+  - In bench_micro, a 30-character name costs 3.0 µs against 7.8 µs, and GOSUB/RETURN 2.0 µs against 2.7 µs.
+- **Left:**
+  - the items under Later;
+  - the 31-character limit (6.0.3), which waits for Peter;
+  - removing SYMBOLS_TEST_SWITCH for a release.
+
 ## What symbols are
 
 A symbol is a variable, SUB, FUNCTION or label name, or a sub-keyword, in the stored program. It is replaced by an introducer byte plus one or two name characters:

@@ -593,6 +593,7 @@ void MIPS16 PrepareProgram(int ErrAbort) {
     // the index of every SUB, FUNCTION, CSUB and label by name, which also finds a name defined twice: made
     // once for a heap (RUN and loading a program wipe it), not before every line typed at the prompt
     if(!NameBuilt) NameIndexBuild(NbrFuncts, ErrAbort);
+    SymBindInit();                                                  // the symbols' bindings, empty (Symbols.c)
     copy_clock();
 }
 
@@ -664,8 +665,14 @@ int FindSubFun(char *p, int type) {
     char name[MAXVARLEN + 1];
     int nl = 0;
     struct s_nameslot *n;
-    if(issymbol(*p)) {                                              // a symbol: its spelling (Symbols.h)
+    int k = -1;
+    if(issymbol(*p)) {                                              // a symbol (Symbols.h)
         const char *s;
+        if((k = SymCanonAt(p)) >= 0 && SymS[k] != SYM_UNBOUND) {   // looked up before: the SUB, or -1 for none
+            int i = SymS[k];
+            if(i >= 0 && commandtbl_at(subfun[i]) != (type ? cmdFUN : cmdSUB) && !(type == 0 && commandtbl_at(subfun[i]) == cmdCSUB)) return -1;
+            return i;                                               // (the kind is checked every time: the PicoMite's 4fe3615)
+        }
         NameView(p, &s, &nl);
         if(nl > MAXVARLEN) error("Variable name too long");
         memcpy(name, s, nl);
@@ -674,7 +681,9 @@ int FindSubFun(char *p, int type) {
             if(nl >= MAXVARLEN) error("Variable name too long");
             name[nl++] = *p++;
         } while(isnamechar(*p));
-    if((n = NameFind(name, nl, (1 << NK_SUB) | (1 << NK_FUN))) == NULL) return -1;
+    n = NameFind(name, nl, (1 << NK_SUB) | (1 << NK_FUN));
+    if(k >= 0) SymS[k] = (n != NULL) ? n->target : -1;              // the binding, of any kind
+    if(n == NULL) return -1;
     // it must also be the kind asked for: a SUB or CSUB for a statement (type 0), a FUNCTION for an
     // expression (type 1).  Otherwise a FUNCTION called as a statement, or a SUB used in an expression, ran
     // part way and failed inside itself with a misleading error.
@@ -1139,7 +1148,19 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     //   - Get the variable's value and save that in the return value globals (fret or sret)
     //   - Return to the expression parser
     g_StructArg = FunStruct;
-    tp = findvar(fun_name, FunType | V_FUNCT);                      // declare the local variable
+    {                                                               // declare the local variable: from the definition's symbol when it
+        char funsym[5], *fn = fun_name;                             // has one, so that it is bound (from text it would turn off the
+        char *dn = SubLinePtr + sizeof(CommandToken);               // global bindings inside every FUNCTION: Symbols.h)
+        skipspace(dn);
+        if(issymbol(*dn)) {
+            int k = symbolsize(*dn);
+            memcpy(funsym, dn, k);
+            if(defsuffix) funsym[k++] = defsuffix;
+            funsym[k] = 0;
+            fn = funsym;
+        }
+        tp = findvar(fn, FunType | V_FUNCT);
+    }
     FunType = VREC(VarIndex)->type;
     if(FunType & T_STR) {
         if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemorySafe((void *)&VREC(VarIndex)->val.s);   // free the memory if it is a string
@@ -2848,11 +2869,16 @@ char *findlabel(char *labelptr) {
     struct s_nameslot *n;
     // first, just exit we have a NULL argument
     if(labelptr == NULL) return NULL;
-    if(issymbol(*labelptr)) {                                       // a symbol: its spelling (Symbols.h)
+    if(issymbol(*labelptr)) {                                       // a symbol (Symbols.h)
         const char *s;
+        int k = SymCanonAt(labelptr);
+        if(k >= 0 && SymCold[k].labind != NULL) return SymCold[k].labind;   // found before
         NameView(labelptr, &s, &nl);
         if(nl > MAXVARLEN) error("Label too long");
         memcpy(name, s, nl);
+        if((n = NameFind(name, nl, 1 << NK_LABEL)) == NULL) error("Cannot find label");
+        if(k >= 0) SymCold[k].labind = (char *)n->target;           // (a miss is an error, never cached)
+        return (char *)n->target;
     } else {
         // this assumes that the first character has already been verified as a valid label character
         name[nl++] = *labelptr++;
@@ -3135,6 +3161,8 @@ void *findvar(char *p, int action) {
     int LocalhashIndex;
     uint32_t hash=FNV_offset_basis;
     int dim[MAXDIM]={0}, dnbr;
+    int symk = -1;                                                  // the symbol's canonical entry (Symbols.h), -1: text or no bindings
+    char *symp = NULL;                                              // the symbol, when its name has not been read yet
 //	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
 //		error("Expression is too complex at depth %",LocalIndex);
 //	}
@@ -3148,17 +3176,24 @@ void *findvar(char *p, int action) {
     // check the first char for a legal variable name
     skipspace(p);
     s = name; namelen = 0;
-    if(issymbol(*p)) {                                              // a symbol: its spelling (Symbols.h)
-        int sl;
-        const char *sp = SymSpelling(p, &sl);
-        p += symbolsize(*p);
-        if(sl > MAXVARLEN) error("Variable name too long");
-        while(sl--) {
-            char c = toupper(*sp++);
-            hash ^= c;
-            hash*=FNV_prime;
-            *s++ = c;
-            namelen++;
+    if(issymbol(*p)) {                                              // a symbol (Symbols.h)
+        symk = SymCanonAt(p);
+        if(symk >= 0 && g_structcnt > 0 && (SymCold[symk].flags & SYMC_DOT)) symk = -1;   // a dotted name may be a member path: by its name
+        if(symk >= 0) {
+            symp = p;                                               // bound: its name is read only if the binding misses
+            p += symbolsize(*p);
+        } else {
+            int sl;
+            const char *sp = SymSpelling(p, &sl);
+            p += symbolsize(*p);
+            if(sl > MAXVARLEN) error("Variable name too long");
+            while(sl--) {
+                char c = toupper(*sp++);
+                hash ^= c;
+                hash*=FNV_prime;
+                *s++ = c;
+                namelen++;
+            }
         }
     } else {
         if(!isnamestart(*p)) error("Variable name");
@@ -3248,6 +3283,29 @@ void *findvar(char *p, int action) {
     }
     g_StructMemberType = 0;                                         // (an index may have been a structure's member: a(p.x))
 
+    // a bound symbol: its local at this level, or its global (unless locals made from text could hide it in a SUB)
+    if(symk >= 0 && !(action & (V_LOCAL | V_DIM_VAR | V_FUNCT))) {
+        i = SymL[symk];
+        if(i >= 0 && VREC(i)->level == LocalIndex) { ifree = -1; goto findvar_found; }
+        i = SymG[symk];
+        if(i >= 0 && (!LocalIndex || !SymTextLocals) && VREC(i)->name[0] != 0) { ifree = -1; goto findvar_found; }
+    }
+    if(symp != NULL) {                                              // the binding missed: the name, for the search
+        int sl;
+        const char *sp = SymSpelling(symp, &sl);
+        if(sl > MAXVARLEN) error("Variable name too long");
+        while(sl--) {
+            char c = toupper(*sp++);
+            hash ^= c;
+            hash*=FNV_prime;
+            *s++ = c;
+            namelen++;
+        }
+        if(namelen != MAXVARLEN) *s = 0;
+        GlobalhashIndex = MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1));
+        symp = NULL;
+    }
+
     // we now have the variable name and, if it is an array, the parameters
     // search the table looking for a match
 
@@ -3293,6 +3351,8 @@ void *findvar(char *p, int action) {
     // if we found an existing and matching variable
     // set the global VarIndex indicating the index in the table
     if(ifree==-1 && VREC(i)->name[0] != 0) {
+        if(symk >= 0 && i >= MAXLOCALVARS) SymG[symk] = i;          // a global found by its name: bound now
+findvar_found:
         VarIndex = vindex = i;
 
         // check that the dimensions match
@@ -3303,10 +3363,15 @@ void *findvar(char *p, int action) {
             if(i != dnbr) error("Array dimensions");
         }
 
-        if(vtype == 0) {
-            if(!(VREC(vindex)->type & (DefaultType | T_IMPLIED))) error("$ Different type already declared", name);
-        } else {
-            if(!(VREC(vindex)->type & vtype)) error("$ Different type already declared", name);
+        if(vtype == 0 ? !(VREC(vindex)->type & (DefaultType | T_IMPLIED)) : !(VREC(vindex)->type & vtype)) {
+            if(symp != NULL) {                                      // (bound: its name is read only for the message)
+                int sl;
+                const char *sp = SymSpelling(symp, &sl);
+                if(sl > MAXVARLEN) sl = MAXVARLEN;
+                for(namelen = 0; namelen < sl; namelen++) name[namelen] = toupper(sp[namelen]);
+                if(namelen != MAXVARLEN) name[namelen] = 0;
+            }
+            error("$ Different type already declared", name);
         }
 
         // if it is a non arrayed variable or an empty array it is easy, just calculate and return a pointer to the value
@@ -3443,7 +3508,11 @@ void *findvar(char *p, int action) {
     	hashlist[hashlistpointer++].hash=ifree;
         localtop = ifree + 1;                                       // the stack's next slot (P6 F2)
         VREC(ifree)->level = LocalIndex;
-    } else VREC(ifree)->level = 0;
+        SymLocalMade(ifree, symk);                                  // its binding (Symbols.h; -1: made from text)
+    } else {
+        VREC(ifree)->level = 0;
+        if(symk >= 0) SymG[symk] = ifree;                           // a global made from a symbol is bound at once (the PicoMite's 040c21c)
+    }
 //    cleardims(&VREC(ifree)->dimtbl[0]);
     for(j = 0; j < MAXDIM; j++) VREC(ifree)->dimtbl[j] = 0;
 //    MMPrintString("Creating variable : ");MMPrintString(VREC(ifree)->name);MMPrintString(", at depth : ");PInt(VREC(ifree)->level);MMPrintString(", hash key : ");PInt(ifree);PRet();
@@ -4098,6 +4167,7 @@ void MIPS16 ClearVars(int level) {
 					// free any memory (if allocated)
 				}
 				hashlist[i].level=-1;
+				SymLocalFreed(hashcurrent);                         // its binding back to what it hid (newest first: Symbols.h)
 				clearvar(VREC(hashcurrent));
 				Localvarcnt--;
 				if(i == top - 1) top--;                             // still the top of the stack
@@ -4116,6 +4186,7 @@ void MIPS16 ClearVars(int level) {
 			if(i < MAXLOCALVARS) clearvar(VREC(i));                 // (a global's record goes back with its chunk)
 		}
 		VarRecordsReset();                                          // every global slot free again, the records to be used again
+		SymBindReset();                                             // and every variable binding
 	}
    // then step through the for...next table and remove any loops at the level or greater
     for(i = 0; i < forindex; i++) {

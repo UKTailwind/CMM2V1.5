@@ -1948,6 +1948,7 @@ void cmd_newedit(void) {
 //	FreeMemorySafe((void *)&main_turtle_polyY);
 //	FreeMemorySafe((void *)&PageTable[WPN].address);
 //	FreeMemorySafe((void *)&PageTable[BPN].address);
+	SymBindFree();                                              // the symbols' bindings: their internal RAM to the editor (Symbols.c)
 	if(CurrentlyPlaying==P_NOTHING){
 		CloseAllFiles();
 		InitHeap();
