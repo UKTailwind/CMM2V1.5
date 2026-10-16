@@ -416,7 +416,7 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
    - RIGHT$( checks its argument count.
 
    The PicoMite's issues #16, #17 and #18 report these gaps.
-6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too. The detailed plan, with three questions for Peter, is `docs/mmb2csub_CMM2_Plan.md` (16 Oct). **16 Oct:** the firmware side is done. solar_eclipse with `sefunc` as an M7 CSUB matches the interpreted run in 0.480 s, against 7.77 s interpreted.
+6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too. The detailed plan, with three questions for Peter, is `docs/mmb2csub_CMM2_Plan.md` (16 Oct). **Done 16 Oct.** The firmware is 1858a28 here. The tools are the PicoMite's `user-tools` with `--target cmm2` (its cb8453d). solar_eclipse with `sefunc` as an M7 CSUB matches the interpreted run in 0.480 s, against 7.77 s interpreted.
    - **The CallTable:**
      - the extra entries mmb2csub's generated code calls, in the PicoMite's `PicoCFunctions.h` layout, found through VTOR slot 7 (the decision of 15 Oct);
      - plus whatever the CMM2's own runtime needs.
@@ -425,7 +425,7 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
    - **First test, as on the PicoMite:** `solar_eclipse.bas`, with its main calculation function and all its sub-functions turned into a CSUB. The PicoMite PC3 took 2.5 s with `sefunc` as a CSUB, against 12.5-14.6 s interpreted. The CMM2 interprets it in 7.3 s at 480 MHz, so the H7 should do much better.
    - **Sources:** P `docs/mmb2csub.md`, `docs/armcfgen.md`, `PicoCFunctions.h`.
 7. **The statement loop.** The interrupt-ready word, the `routinechecks` cadence, the sorted IF jump table, the DO fast path, `EXIT DO`/`CONTINUE DO`/`NEXT i, j`.
-8. **Language parity** (3.1): ~~the `ARRAY` commands~~ and ~~whole-array assignment~~ (done with structures, 5b.6; ARRAY passes to the CMM2's MATH until the MATH update), `REDIM [PRESERVE]`, `ERASE` as a command, FUNCTIONs returning arrays, `BIT(`/`BYTE(`/`FLAG(`, `MM.ERRLINE`, `ON ERROR RESTART`, `CHAIN`, `SAVE/LOAD CONTEXT`, the `MM.STARTUP`/`MM.PROMPT`/`MM.END` hooks.
+8. **Language parity** (3.1): `/* */` block comments (Peter, 16 Oct: a big change in the editor; until then `mmb2csub --target cmm2` writes `'` comments), ~~the `ARRAY` commands~~ and ~~whole-array assignment~~ (done with structures, 5b.6; ARRAY passes to the CMM2's MATH until the MATH update), `REDIM [PRESERVE]`, `ERASE` as a command, FUNCTIONs returning arrays, `BIT(`/`BYTE(`/`FLAG(`, `MM.ERRLINE`, `ON ERROR RESTART`, `CHAIN`, `SAVE/LOAD CONTEXT`, the `MM.STARTUP`/`MM.PROMPT`/`MM.END` hooks.
 8a. **MATH** (Peter, 15 Oct: a separate exercise, as there is more than structures to do): a complete comparison of the PicoMite's MATH with the CMM2's, porting its fixes and new subcommands. **Done 15 Oct:** the PicoMite's MATHS.c ported whole, with the CMM2's fixes (`docs/MATH_Update_Plan.md`); MathStructTest 33/33, MathClampTest 10/10, `tests/cmm2/math.bas` 49/49. With it:
    - the stride work for structure members (MATH SCALE, C_ADD, C_SUB, C_MULT, C_DIV, POWER, V_ROTATE, WINDOW and CLAMP; MATH(SUM, MEAN, MAX and MIN; the parse*array helpers), so MathStructTest passes;
    - members as MATH's single-variable outputs (WINDOW, MAX/MIN, SensorFusion);

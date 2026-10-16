@@ -1,4 +1,4 @@
-' csubm7.bas - CSUBs built for the CMM2's Cortex-M7 by mmb2csub --target cmm2 (tools/mmb2csub_cmm2.patch): Mix and
+' csubm7.bas - CSUBs built for the CMM2's Cortex-M7 by mmb2csub --target cmm2 (the PicoMite's user-tools, cb8453d): Mix and
 ' Loop1 are CSUBs, MixB and Loop1B the same routines interpreted; every answer must agree (bad 0)
 Option Explicit
 Dim integer k, bad = 0

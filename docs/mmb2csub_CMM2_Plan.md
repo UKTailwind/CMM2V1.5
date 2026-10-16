@@ -110,10 +110,11 @@ P marks a PicoMite file.
   - The string cores (StrLeft ... StrFormat, StrVal), RndVal, TimerVal/TimerSet and PinVal/PinPut are factored out of the CMM2's functions.
   - A CSUB call takes 16 arguments, and slot 0x78 of the old table is corrected.
   - The full regression is unchanged from 6a.
-- **6b.2 and 6b.3, as a prototype.** `tools/mmb2csub_cmm2.patch` holds the changes to the PicoMite's `user-tools` (armcfgen.py, mmb2csub.py, mmcsub.h), until question 2 settles where they go:
+- **6b.2 and 6b.3 are done,** in the PicoMite's `user-tools` (its cb8453d, with the docs, mmb2csub.md section 10 and armcfgen.md 2.9):
   - armcfgen gets `--cpu cortex-m7`, and mmb2csub gets `--target cmm2`;
   - mmcsub.h gets its M7 branch, with `MMCSUB_RTABI` on every run-time-ABI helper;
-  - every CMM2 CSUB's first line ends with `' Cortex-M7 (CMM2)` (question 3).
+  - every CMM2 CSUB's first line ends with `' Cortex-M7 (CMM2)` (question 3);
+  - the kept original routine gets an apostrophe on each line, since the CMM2 has no block comment.
 - **The trap, met:** mm_int and mm_fix call `__aeabi_d2lz` directly from C. Its earlier declaration lacked `pcs("aapcs")`, so INT() and FIX() read the double from the wrong registers and came back 0. Every declaration of such a helper now carries `MMCSUB_RTABI`.
 - **6b.4:**
   - **`tests/cmm2/csubm7.bas`:** two routines as CSUBs against the same routines interpreted, covering double and int64 arithmetic, values over 2^31, `\` and MOD of negatives, INT/FIX/CINT, the maths functions and a loop. They agree exactly (`bad 0`), as symbols and as text.
@@ -121,14 +122,14 @@ P marks a PicoMite file.
     - The CSUB is 26.2 KB, against 37 KB built for the M0+, and the program text goes from 70 KB to 130 KB.
     - The output is identical to the interpreted run, including the golden JD values.
     - **0.480 s**, against 7.77 s interpreted as symbols and 9.26 s as text: 16 to 19 times faster. The PicoMite PC3 takes 2.5 s with the same CSUB.
-- **Found:** mmb2csub's default output comments out the original routine with `/* ... */`, which the CMM2 does not have. `--lean` avoids it. The fix is either block comments in the CMM2 (a PicoMite parity item), or `'` comments under `--target cmm2`.
+- **Found:** mmb2csub's default output commented out the original routine with `/* ... */`, which the CMM2 does not have. Under `--target cmm2` it now uses apostrophes. Block comments are on the to-do list (step 8; Peter: a big change in the editor).
 - **Ctrl-C** breaks out of an endless M7 CSUB loop through `mm_poll()`. The board is back at the prompt and healthy.
 - **OPTION RAM:** M7 CSUBs run correctly from SDRAM. solar_eclipse takes 0.514 s there, against 0.480 s from flash. The test found a bug, fixed in b71c5bd: in RAM mode any program saved as symbols looped on "Program damaged: symbol table", because three of the RAM-mode flash writers left `realflashpointer` behind. The area is write-back cached SDRAM, so a save to RAM now also cleans the D-cache and invalidates the I-cache, so the CSUB's code is certain to be fetched as written.
-- **Left:**
-  - the answers to the questions below;
-  - the docs (6b.5).
+- **Step 6b is done.**
 
-## Questions for Peter
+## Questions for Peter (answered 16 Oct)
+
+Peter's answers: (1) keep the old table: OK. (2) the PicoMite's `user-tools`: yes. (3) the source mark is enough. Block comments go on the to-do list, since they are a big change in the editor.
 
 1. **Keep the old CallTable?** Keeping the old 57-slot table at 0x080002A0 next to the new one costs about 230 bytes of flash. Existing CMM2 CSUBs would keep running without a rebuild, apart from any that use slot 0x60, which has been `&slotrec` since step 4. The decision of 15 Oct was the PicoMite layout through slot 7, with existing CSUBs rebuilt. Both can be done. Recommended: keep it.
 2. **Where should the scripts live?**
