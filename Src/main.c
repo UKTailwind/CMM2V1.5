@@ -132,7 +132,6 @@ I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c4;
 
-JPEG_HandleTypeDef hjpeg;
 
 extern LTDC_HandleTypeDef hltdc;
 
@@ -222,7 +221,6 @@ volatile uint64_t FastTimer=0;
 volatile unsigned int SleepTimer=0;
 volatile int sleeping=0;
 char errstring[256]={0};
-int myDummy=0;  //Used in fix for intermittent USBKeyboard connection
 int errpos=0;
 int ShortScroll;
 int G1Hardware;
@@ -327,7 +325,6 @@ static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_ADC3_Init(void);
-static void MX_JPEG_Init(void);
 static void MX_LTDC_Init(void);
 static void MX_FDCAN1_Init(void);   //CAN added
 //static void MX_DMA2D_Init(void);
@@ -649,7 +646,6 @@ if(_excep_code == RESTART_BOOT0){
   MX_ADC1_Init();
   MX_ADC2_Init();
   MX_ADC3_Init();
-  MX_JPEG_Init();
   MX_LTDC_Init();
   MX_FDCAN1_Init();
 //  MX_DMA2D_Init();
@@ -1597,32 +1593,6 @@ static void MX_I2C4_Init(void)
   /* USER CODE BEGIN I2C4_Init 2 */
 
   /* USER CODE END I2C4_Init 2 */
-
-}
-
-/**
-  * @brief JPEG Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_JPEG_Init(void)
-{
-
-  /* USER CODE BEGIN JPEG_Init 0 */
-
-  /* USER CODE END JPEG_Init 0 */
-
-  /* USER CODE BEGIN JPEG_Init 1 */
-
-  /* USER CODE END JPEG_Init 1 */
-  hjpeg.Instance = JPEG;
-  if (HAL_JPEG_Init(&hjpeg) != HAL_OK)
-  {
-    SystemError=1;Error_Handler();
-  }
-  /* USER CODE BEGIN JPEG_Init 2 */
-
-  /* USER CODE END JPEG_Init 2 */
 
 }
 

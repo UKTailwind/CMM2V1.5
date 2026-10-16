@@ -75,7 +75,6 @@ extern LTDC_HandleTypeDef hltdc;
 extern const uint32_t L8_CLUT_LOW[];
 extern const uint32_t L8_CLUT_MEDIUM[];
 extern const uint32_t L8_CLUT_HIGH[];
-extern JPEG_ConfTypeDef       JPEG_Info;
 uint8_t *FontBuffer;
 extern uint8_t convert_8bit(uint32_t c);
 extern uint16_t convert_12bit(uint32_t c);

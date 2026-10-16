@@ -53,7 +53,7 @@
 /* #define HAL_HRTIM_MODULE_ENABLED   */
 /* #define HAL_HSEM_MODULE_ENABLED   */
 /* #define HAL_GFXMMU_MODULE_ENABLED   */
-#define HAL_JPEG_MODULE_ENABLED
+/* #define HAL_JPEG_MODULE_ENABLED   */                      /* (the hardware decoder is gone: LOAD JPG is picojpeg) */
 /* #define HAL_OPAMP_MODULE_ENABLED   */
 /* #define HAL_OSPI_MODULE_ENABLED   */
 /* #define HAL_OSPI_MODULE_ENABLED   */
@@ -78,7 +78,7 @@
 /* #define HAL_SMARTCARD_MODULE_ENABLED   */
 /* #define HAL_WWDG_MODULE_ENABLED */
 /* #define HAL_PCD_MODULE_ENABLED   */
-#define HAL_HCD_MODULE_ENABLED
+/* #define HAL_HCD_MODULE_ENABLED   */                       /* (USB host is TinyUSB) */
 /* #define HAL_DFSDM_MODULE_ENABLED   */
 /* #define HAL_DSI_MODULE_ENABLED   */
 /* #define HAL_MDIOS_MODULE_ENABLED   */

@@ -65,7 +65,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ff.h"
 #include "diskio.h"
 //#include "integer.h"
-#include "decode_polling.h"
 #include "gifdec.h"
 #include "ltdc.h"
 #include "picojpeg.h"
@@ -75,10 +74,6 @@ extern void Display_Refresh(void);
 extern BYTE MDD_SDSPI_CardDetectState(void);
 // FatFs definitions
 FATFS FatFs;
-//static JPEG_HandleTypeDef     JPEG_Handle;
-JPEG_ConfTypeDef       JPEG_Info;
-//static DMA2D_HandleTypeDef    DMA2D_Handle;
-//static void DMA2D_CopyBuffer(uint32_t *pSrc, uint32_t *pDst, uint16_t x, uint16_t y, uint16_t xsize, uint16_t ysize, uint32_t ChromaSampling);
 char FileGetChar(int fnbr);
 char FilePutChar(char c, int fnbr);
 int FileEOF(int fnbr);
@@ -86,12 +81,10 @@ void File_CloseAll(void);
 int InitSDCard(void);
 char *ChangeToDir(char *p);
 void LoadImage(char *p);
-void LoadJPG(char *p);
 void LoadPNG(char *p);
 void LoadGIF(char *p);
 void LoadFont(char *p);
 void cmd_LoadJPGImage(char *p);
-int ImageHeight, ImageWidth, ChromaSubsampling;
 int dirflags;
 FRESULT FSerror;
 volatile BYTE SDCardStat = STA_NOINIT | STA_NODISK;
@@ -196,75 +189,6 @@ const char *FErrorMsg[] = {	"",
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup the SD Card based on the settings saved in flash
 
-/*static void DMA2D_CopyBuffer(uint32_t *pSrc, uint32_t *pDst, uint16_t x, uint16_t y, uint16_t xsize, uint16_t ysize, uint32_t ChromaSampling)
-{
-    int maxW=PageTable[WritePage].xmax;
-
-  uint32_t cssMode = DMA2D_CSS_420, inputLineOffset = 0;
-  uint32_t destination = 0;
-
-  if(ChromaSampling == JPEG_420_SUBSAMPLING)
-  {
-    cssMode = DMA2D_CSS_420;
-
-    inputLineOffset = xsize % 16;
-    if(inputLineOffset != 0)
-    {
-      inputLineOffset = 16 - inputLineOffset;
-    }
-  }
-  else if(ChromaSampling == JPEG_444_SUBSAMPLING)
-  {
-    cssMode = DMA2D_NO_CSS;
-
-    inputLineOffset = xsize % 8;
-    if(inputLineOffset != 0)
-    {
-      inputLineOffset = 8 - inputLineOffset;
-    }
-  }
-  else if(ChromaSampling == JPEG_422_SUBSAMPLING)
-  {
-    cssMode = DMA2D_CSS_422;
-
-    inputLineOffset = xsize % 16;
-    if(inputLineOffset != 0)
-    {
-      inputLineOffset = 16 - inputLineOffset;
-    }
-  }
-
-  //##-1- Configure the DMA2D Mode, Color Mode and output offset #############
-  DMA2D_Handle.Init.Mode         = DMA2D_M2M_PFC;
-  DMA2D_Handle.Init.ColorMode    = (VideoColour==12  ? DMA2D_OUTPUT_ARGB4444 : (VideoColour==32 ? DMA2D_OUTPUT_ARGB8888 : DMA2D_OUTPUT_RGB565 ));
-  DMA2D_Handle.Init.OutputOffset = maxW - xsize;
-  DMA2D_Handle.Init.AlphaInverted = DMA2D_REGULAR_ALPHA;  // No Output Alpha Inversion
-  DMA2D_Handle.Init.RedBlueSwap   = DMA2D_RB_REGULAR;     // No Output Red & Blue swap
-
-  //##-2- DMA2D Callbacks Configuration ######################################
-  DMA2D_Handle.XferCpltCallback  = NULL;
-
-  //##-3- Foreground Configuration ###########################################
-  DMA2D_Handle.LayerCfg[1].AlphaMode = DMA2D_REPLACE_ALPHA;
-  DMA2D_Handle.LayerCfg[1].InputAlpha = 0xFF;
-  DMA2D_Handle.LayerCfg[1].InputColorMode = DMA2D_INPUT_YCBCR;
-  DMA2D_Handle.LayerCfg[1].ChromaSubSampling = cssMode;
-  DMA2D_Handle.LayerCfg[1].InputOffset = inputLineOffset;
-  DMA2D_Handle.LayerCfg[1].RedBlueSwap = DMA2D_RB_REGULAR; // No ForeGround Red/Blue swap
-  DMA2D_Handle.LayerCfg[1].AlphaInverted = DMA2D_REGULAR_ALPHA; // No ForeGround Alpha inversion
-
-  DMA2D_Handle.Instance          = DMA2D;
-
-  //##-4- DMA2D Initialization     ###########################################
-  HAL_DMA2D_Init(&DMA2D_Handle);
-  HAL_DMA2D_ConfigLayer(&DMA2D_Handle, 1);
-
-  //##-5-  copy the new decoded frame to the LCD Frame buffer ################
-  destination = (uint32_t)pDst + ((y * hltdc.LayerCfg->ImageWidth) + x) * 4;
-
-  HAL_DMA2D_Start(&DMA2D_Handle, (uint32_t)pSrc, destination, xsize, ysize);
-  HAL_DMA2D_PollForTransfer(&DMA2D_Handle, 25);  // wait for the previous DMA2D transfer to ends
-}*/
 
 
 void cmd_save(void) {
@@ -1597,102 +1521,6 @@ void cmd_LoadJPGImage(char *p)
 //        Display_Refresh();
 }
 
-/*void LoadJPG(char *p) {
-	int fnbr, progressive=2;
-	int xPos, yPos, x, y;
-	uint8_t *from;
-	char c, lastc=0;
-	unsigned int nbr;
-
-	// get the command line arguments
-	getargs(&p, 5, ",");                                            // this MUST be the first executable line in the function
-    if(WritePage==WPN)error("JPG load not available to the framebuffer");
-    if(argc == 0) error("Argument count");
-    if(!InitSDCard()) return;
-	int maxH=PageTable[WritePage].ymax;
-    int maxW=PageTable[WritePage].xmax;
-
-    p = getFstring(argv[0]);                                        // get the file name
-
-    xPos = yPos = 0;
-	if(argc >= 3) xPos = getinteger(argv[2]);                    // get the x origin (optional) argument
-	if(argc == 5){
-		yPos = getinteger(argv[4]);                    // get the y origin (optional) argument
-		if(optiony) yPos=maxH-1-yPos;
-	}
-
-	// open the file
-	if(strchr(p, '.') == NULL) strcat(p, ".JPG");
-	fnbr = FindFreeFileNbr();
-    if(!BasicFileOpen(p, fnbr, FA_READ)) return;
-    f_read(FileTable[fnbr].fptr, &c,1, &nbr);
-    if(c!=0xff)error("Invalid file");
-    f_read(FileTable[fnbr].fptr, &c,1, &nbr);
-    if(c!=0xd8)error("Invalid file");
-    while(progressive==2){
-    	f_read(FileTable[fnbr].fptr, &c,1, &nbr);
-    	if(lastc==0xFF && c==0xC0)progressive=0;
-    	if(lastc==0xFF && c==0xC2)progressive=1;
-    	lastc=c;
-    }
-    if(progressive){
-        FileClose(fnbr);
-        error("Progressive encoding not supported");
-    } else {
-    	f_rewind(FileTable[fnbr].fptr);
-    }
-	routinechecks(1);
-    JPEG_Handle.Instance = JPEG;
-    HAL_JPEG_Init(&JPEG_Handle);
-    char *JPEG_OUTPUT_DATA_BUFFER=GetTempMemory(maxW*maxH*4);
-	routinechecks(1);
-    JPEG_DecodePolling(&JPEG_Handle, FileTable[fnbr].fptr, (uint32_t)JPEG_OUTPUT_DATA_BUFFER);
-	routinechecks(1);
-
-    //##-8- Get JPEG Info  ###############################################
-    FileClose(fnbr);
-    if(ImageWidth+xPos>maxW){
-        FreeMemorySafe((void *)&JPEG_OUTPUT_DATA_BUFFER);
-    	error("Horizontal image size %",ImageWidth);
-    }
-    if(ImageHeight+yPos>maxH){
-        FreeMemorySafe((void *)&JPEG_OUTPUT_DATA_BUFFER);
-    	error("Vertical image size %",ImageHeight);
-    }
-	int savey=optiony;
-	optiony=0;
-    int cursorhidden=0;
-    if(cursoron){
-		hidecursor(0);
-		cursorhidden=1;
-    }
-    if(VideoColour!=8 && PageTable[WritePage].expand==0)DMA2D_CopyBuffer((uint32_t *)JPEG_OUTPUT_DATA_BUFFER, (uint32_t *)PageTable[WritePage].address, xPos>>1 , yPos>>1, ImageWidth, ImageHeight, ChromaSubsampling);
-    else {
-    	MPU_Config_nCacheable(1);
-        char *LCD_FRAME_BUFFER=GetTempMemory(maxW*ImageHeight*2);
-    	DMA2D_CopyBuffer((uint32_t *)JPEG_OUTPUT_DATA_BUFFER, (uint32_t *)LCD_FRAME_BUFFER, 0 , 0, ImageWidth, ImageHeight, ChromaSubsampling);
-    	routinechecks(1);
-        x=ImageWidth;
-        if(xPos+ImageWidth>maxW)x=maxW-xPos;
-		pagesetdone=0;
-		while(!pagesetdone){
-			CheckAbort();
-		}
-		for(y=0;y<ImageHeight;y++){
-			if(y+yPos>=maxH)break;
-			routinechecks(1);
-			from=(uint8_t *)(LCD_FRAME_BUFFER+2*y*maxW);
-			if(VideoColour==8)DrawBuffer(xPos,y+yPos,xPos+x,y+yPos,(char *)from,8);
-			else DrawBufferFast(xPos,y+yPos,xPos+x,y+yPos,(char *)from);
-		}
-    	MPU_Config_nCacheable(0);
-    }
-    if(cursorhidden)showcursor(0, xcursor,ycursor);
-    HAL_JPEG_DeInit(&JPEG_Handle);
-    optiony=savey;
-	clearrepeat();
-}
-*/
 
 
 

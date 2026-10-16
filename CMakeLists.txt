@@ -70,7 +70,6 @@ target_include_directories(${TARGET} PRIVATE
     Inc
     Drivers/STM32H7xx_HAL_Driver/Inc
     Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
-    Utilities/JPEG
     Middlewares/Third_Party/tinyusb/src
     Drivers/CMSIS/Device/ST/STM32H7xx/Include
     Drivers/CMSIS/Include

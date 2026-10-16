@@ -125,7 +125,6 @@ extern int WWDGdelayCalc;
 extern void uSec(unsigned int us);
 extern void MM_Delay(int n);
 extern uint32_t ticks_per_microsecond;
-extern int myDummy;
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
