@@ -3021,40 +3021,143 @@ void MIPS16 cmd_const(void) {
 
 
 
-void cmd_erasevar(char *erase) {
-	int i,j,k, len;
-	char p[MAXVARLEN + 1], *s, *x;
-
-	getargs(&erase, (MAX_ARG_COUNT * 2) - 1, ",");				// getargs macro must be the first executable stmt in a block
-	if((argc & 0x01) == 0) error("Argument count");
-
-	for(i = 0; i < argc; i += 2) {
-		strcpy((char *)p, argv[i]);
-        while(!isnamechar(p[strlen(p) - 1])) p[strlen(p) - 1] = 0;
-
-		makeupper(p);                                               // all variables are stored as uppercase
-		for(j = MAXLOCALVARS; j < MAXVARS; j++) {
-            s = p;  x = VREC(j)->name; len = strlen(p);
-            while(len > 0 && *s == *x) {                            // compare the variable to the name that we have
-                len--; s++; x++;
-            }
-            if(!(len == 0 && (*x == 0 || strlen(p) == MAXVARLEN))) continue;
-    		// found the variable
-			if(((VREC(j)->type & (T_STR | T_STRUCT)) || DimIsAllocated(VREC(j)->dimtbl[0])) && !(VREC(j)->type & T_PTR) && !VAR_INLINE_STR(VREC(j))) {
-				FreeMemory(VREC(j)->val.s);                        // free any memory (if allocated)
-				VREC(j)->val.s=NULL;
-			}
-			k=j+1;
-			if(k==MAXVARS)k=MAXLOCALVARS;
-			VarRecordRelease(j, VREC(k)->type != T_NOTYPE);         // its record to the free list; the slot blocked if a probe may have passed it
-			SymBindForgetSlot(j);                                   // and no symbol bound to it (Symbols.h)
-			Globalvarcnt--;
-			break;
+// ERASE's work for one name: the variable's record goes, and its memory with it unless nofree, when the old data's
+// address is returned for the caller to copy from and then free (REDIM PRESERVE).  The PicoMite's erase().
+uint32_t erase(char *p, int nofree) {
+	int j, k, len;
+	char *s, *x;
+	uint32_t addr = 0;
+	while(strlen(p) && !isnamechar(p[strlen(p) - 1])) p[strlen(p) - 1] = 0;   // the name without its () or dimensions
+	makeupper(p);                                                   // all variables are stored as uppercase
+	for(j = MAXLOCALVARS; j < MAXVARS; j++) {
+		s = p;  x = VREC(j)->name; len = strlen(p);
+		while(len > 0 && *s == *x) {                                // compare the variable to the name that we have
+			len--; s++; x++;
 		}
-		if(j == MAXVARS) error("Cannot find $", p);
+		if(!(len == 0 && (*x == 0 || strlen(p) == MAXVARLEN))) continue;
+		// found the variable
+		if(((VREC(j)->type & (T_STR | T_STRUCT)) || DimIsAllocated(VREC(j)->dimtbl[0])) && !(VREC(j)->type & T_PTR) && !VAR_INLINE_STR(VREC(j))) {
+			addr = (uint32_t)VREC(j)->val.s;
+			if(!nofree) FreeMemory(VREC(j)->val.s);                 // free any memory (if allocated)
+			VREC(j)->val.s = NULL;
+		}
+		k = j + 1;
+		if(k == MAXVARS) k = MAXLOCALVARS;
+		VarRecordRelease(j, VREC(k)->type != T_NOTYPE);             // its record to the free list; the slot blocked if a probe may have passed it
+		SymBindForgetSlot(j);                                       // and no symbol bound to it (Symbols.h)
+		Globalvarcnt--;
+		return addr;
+	}
+	error("Cannot find $", p);
+	return 0;
+}
+
+void cmd_erasevar(char *erase_args) {
+	int i;
+	char p[STRINGSIZE];
+	getargs(&erase_args, (MAX_ARG_COUNT * 2) - 1, ",");            // getargs macro must be the first executable stmt in a block
+	if((argc & 0x01) == 0) error("Argument count");
+	for(i = 0; i < argc; i += 2) {
+		strcpy(p, argv[i]);
+		erase(p, false);
 	}
 }
 
+// REDIM's: the dimension expressions of "name(e1, e2)" are evaluated into dims, and the text becomes "name()" for
+// findvar (the PicoMite's parse_and_strip, closing at the last bracket so that an index may hold a function call)
+static void parse_and_strip(char *string, int *dims) {
+	char *open = strchr(string, '('), *close = strrchr(string, ')');
+	for(int i = 0; i < MAXDIM; i++) dims[i] = 0;
+	if(open && close && close > open) {
+		char buffer[STRINGSIZE], *p = buffer, *start, saved;
+		int n = close - open - 1, idx = 0, depth;
+		if(n >= (int)sizeof(buffer)) error("Line is too long");
+		memcpy(buffer, open + 1, n); buffer[n] = 0;
+		while(*p && idx < MAXDIM) {
+			skipspace(p);
+			if(*p == 0) break;
+			start = p; depth = 0;                                   // this expression, up to a comma outside brackets
+			while(*p && !(*p == ',' && depth == 0)) {
+				if(*p == '(') depth++; else if(*p == ')') depth--;
+				p++;
+			}
+			saved = *p; *p = 0;
+			dims[idx++] = DimEncode(getinteger(start));
+			*p = saved;
+			if(*p == ',') p++;
+		}
+		strcpy(open + 1, ")");                                      // name()
+	}
+}
+
+// true when the two sets of bounds differ only in the last one (the PicoMite's array_comp): the first index varies
+// fastest, so the earlier bounds fix where each element lies and PRESERVE can keep them in place
+static int array_comp(int in[MAXDIM], int out[MAXDIM]) {
+	int last_in = -1, last_out = -1;
+	for(int i = MAXDIM - 1; i >= 0; i--) {
+		if(last_in == -1 && in[i] != 0) last_in = i;
+		if(last_out == -1 && out[i] != 0) last_out = i;
+	}
+	if(last_in != last_out) return false;
+	if(last_in == -1) return true;
+	for(int i = 0; i < MAXDIM; i++)
+		if(i != last_in && in[i] != out[i]) return false;
+	return true;
+}
+
+// REDIM [PRESERVE] array(bounds) [, ...]: the array is made again with the new bounds, of its declared type and (a
+// string's) length; with PRESERVE its contents are kept, and only the last bound may change.  The PicoMite's cmd_redim,
+// with each argument copied whole (its strncpy left one of 32 characters unterminated: issue 21).
+void cmd_redim(void) {
+	int dims[MAXDIM], newdims[MAXDIM];
+	char *oldmemory = NULL, *newmemory, *tp, old[STRINGSIZE];
+	int oldsize = 0, newsize, length = -1, structIdx = -1;
+	int preserve = ((tp = checkstring(cmdline, "PRESERVE")) != NULL);
+	if(tp == NULL) tp = cmdline;
+	{
+		getargs(&tp, MAX_ARG_COUNT, ",");
+		for(int i = 0; i < argc; i += 2) {
+			strcpy(old, argv[i]);
+			parse_and_strip(old, newdims);
+			findvar(old, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+			if(VREC(VarIndex)->type & T_STR) length = VREC(VarIndex)->size;
+			if(VREC(VarIndex)->type & T_STRUCT) structIdx = (int)VREC(VarIndex)->size;   // its TYPE
+			if(DimIsScalar(VREC(VarIndex)->dimtbl[0])) error("$ is not an array", argv[i]);
+			int type = TypeMask(VREC(VarIndex)->type);
+			if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {
+				oldmemory = VREC(VarIndex)->val.s;
+				oldsize = MemSize(oldmemory);
+				for(int k = 0; k < MAXDIM; k++) dims[k] = VREC(VarIndex)->dimtbl[k];
+				if(!array_comp(dims, newdims) && preserve) error("Only the last array index can be changed");
+			}
+			uint32_t addr = erase(old, preserve);                   // the record goes; with PRESERVE the data stays for the copy
+			if(type & T_STR) {
+				char *newstring = GetTempStrMemory();
+				strcpy(newstring, argv[i]);
+				strcat(newstring, " LENGTH ");
+				IntToStr(&newstring[strlen(newstring)], length, 10);
+				findvar(newstring, type | T_IMPLIED | V_FIND | V_DIM_VAR);   // (T_IMPLIED: the type as declared, not DefaultType)
+			} else if(type & T_STRUCT) {
+				char *vararg = GetTempStrMemory(), *asp;
+				strcpy(vararg, argv[i]);
+				asp = skipvar(vararg, false);
+				while(*asp && *asp != tokenAS) asp++;
+				if(*asp == tokenAS) *asp = 0;                       // without an AS: the TYPE is structIdx
+				g_StructArg = structIdx;
+				findvar(vararg, type | T_IMPLIED | V_FIND | V_DIM_VAR);
+				g_StructArg = -1;
+			} else
+				findvar(argv[i], type | T_IMPLIED | V_FIND | V_DIM_VAR);
+			newmemory = VREC(VarIndex)->val.s;
+			newsize = MemSize(newmemory);
+			if(preserve) {
+				if(newsize < oldsize) oldsize = newsize;
+				memcpy(newmemory, oldmemory, oldsize);
+				if(addr) FreeMemory((void *)addr);
+			}
+		}
+	}
+}
 
 void cmd_erase(void) {                                              // ERASE var [, var ...]: its own command (CLEAR VARS stays)
 	cmd_erasevar(cmdline);

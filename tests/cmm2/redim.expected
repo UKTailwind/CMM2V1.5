@@ -1,0 +1,14 @@
+preserve grow:  0 40 0 9
+preserve shrink:  0 10 20 2
+redim clears:  0 0 5
+integer kept:  3  3.5
+string: item0 item3 []  6
+length kept: String too long
+2d last bound:  1.5 2 5
+2d first bound: Only the last array index can be changed
+2d anew:  0 5 5
+expression bound:  3
+not an array: Array dimensions
+not declared: Cannot find NOSUCH
+done
+

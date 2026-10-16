@@ -57,6 +57,7 @@ typedef enum _M_Req {M_PROG, M_VAR} M_Req;
 extern void m_alloc(int size);
 //extern void *GetMemory(size_t msize);
 extern void *GetTempMemory(int NbrBytes);
+extern int MemSize(void *addr);                     // the heap memory allocated at an address (REDIM PRESERVE)
 extern void *GetTempStrMemory(void);
 extern void *GetMemory(size_t NbrBytes);
 extern void *GetMemoryNull(size_t NbrBytes);                       // as GetMemory, NULL when there is no room
