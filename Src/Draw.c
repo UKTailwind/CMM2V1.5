@@ -3274,6 +3274,90 @@ void floodFillScanline(int x, int y)
   routinechecks(1);
 }
 
+// FILL x, y, colour [, boundary]: without a boundary the area of the colour at x, y that touches it is painted;
+// with one, everything reached from x, y up to that colour.  The PicoMite's FILL, which Gerry's b14 ports through
+// ReadBuffer.  Here the pixels are compared as the page holds them, the colours converted to that form as PIXEL FILL
+// does, so a boundary in an 8- or 16-bit mode is the pixel value it is drawn as (comparing the RGB888 that ReadBuffer
+// expands to could miss it), 12-bit transparency is kept, and 32-bit pixels are compared without their alpha, as
+// PIXEL( reads them.  The page read is the one written (ReadPixelFast reads PAGE READ's), the seeds are kept in a
+// stack in temporary memory rather than by recursion, and a boundary fill marks what it has painted in a bitmap of
+// the page.  Temporary memory goes with the command, so Ctrl-C leaves nothing allocated.
+static int fillmaxw, fillmaxh, fillscale, fillboundary;
+static uint32_t fillwpa, fillmask, fillorigin, fillb;
+static uint8_t *fillseen;
+static inline uint32_t FillRead(int x, int y) {
+	if(optiony) y = fillmaxh - 1 - y;
+	if(VideoColour == 8) return *(uint8_t *)((y * fillscale * fillmaxw + x) + fillwpa);
+	else if(VideoColour <= 16) return *(uint16_t *)((y * fillscale * fillmaxw + x) * 2 + fillwpa);
+	else return *(uint32_t *)((y * fillscale * fillmaxw + x) * 4 + fillwpa) & fillmask;
+}
+static inline int FillIn(int x, int y) {
+	if(fillboundary) {
+		int k = y * fillmaxw + x;
+		return !(fillseen[k >> 3] & (1 << (k & 7))) && FillRead(x, y) != fillb;
+	}
+	return FillRead(x, y) == fillorigin;
+}
+static uint32_t FillNative(int f) {                                 // a colour as the page holds it (PIXEL FILL's conversion)
+	if(VideoColour == 32) return f;
+	if(VideoColour <= 8) return ((f & 0xE00000) >> 16) | ((f & 0xE000) >> 11) | ((f & 0xC0) >> 6);
+	if(VideoColour == 16) return (BIT_5[(f & 0xFF0000) >> 19] << 11) | (BIT_6[(f & 0xFF00) >> 10] << 5) | BIT_5[(f & 0xFF) >> 3];
+	return (BIT_4[(f & 0xFF0000) >> 20] << 8) | (BIT_4[(f & 0xFF00) >> 12] << 4) | BIT_4[(f & 0xFF) >> 4] | ((f & 0xF000000) >> 12);
+}
+void cmd_fill(void) {
+	int x, y, sp = 0, cap = 1024, *stack;
+	uint32_t c;
+	getargs(&cmdline, 7, ",");
+	if(!(argc == 5 || argc == 7)) error("Argument count");
+	fillmaxw = PageTable[WritePage].xmax;
+	fillmaxh = PageTable[WritePage].ymax;
+	fillwpa = (uint32_t)PageTable[WritePage].address;
+	fillscale = PageTable[WritePage].expand ? 2 : 1;
+	fillmask = VideoColour == 32 ? 0xFFFFFF : 0xFFFFFFFF;
+	x = getint(argv[0], 0, fillmaxw - 1);
+	y = getint(argv[2], 0, fillmaxh - 1);
+	c = FillNative(getColour(argv[4], 0));
+	fillboundary = (argc == 7);
+	if(fillboundary) {
+		fillb = FillNative(getColour(argv[6], 0)) & fillmask;
+		if(FillRead(x, y) == fillb) return;                         // it starts on the boundary
+		fillseen = GetTempMemory((fillmaxw * fillmaxh + 7) / 8);
+		memset(fillseen, 0, (fillmaxw * fillmaxh + 7) / 8);
+	} else {
+		fillorigin = FillRead(x, y);
+		if(fillorigin == (c & fillmask)) return;                    // already that colour (and painting would not end)
+	}
+	stack = GetTempMemory(cap * 2 * sizeof(int));
+	stack[sp++] = x; stack[sp++] = y;
+	while(sp) {
+		y = stack[--sp]; x = stack[--sp];
+		if(!FillIn(x, y)) continue;
+		int x1 = x, x2 = x;
+		while(x1 > 0 && FillIn(x1 - 1, y)) x1--;                    // the run through x, y
+		while(x2 < fillmaxw - 1 && FillIn(x2 + 1, y)) x2++;
+		DrawHLineFast(x1, y, x2, c);
+		if(fillboundary) for(int i = x1; i <= x2; i++) { int k = y * fillmaxw + i; fillseen[k >> 3] |= 1 << (k & 7); }
+		for(int yy = y - 1; yy <= y + 1; yy += 2) {                 // a seed for each run above and below it
+			if(yy < 0 || yy >= fillmaxh) continue;
+			int prev = 0;
+			for(int i = x1; i <= x2; i++) {
+				int in = FillIn(i, yy);
+				if(in && !prev) {
+					if(sp + 2 > cap * 2) {                          // the stack doubles (the old one goes with the command)
+						int *bigger = GetTempMemory(cap * 4 * sizeof(int));
+						memcpy(bigger, stack, sp * sizeof(int));
+						stack = bigger;
+						cap *= 2;
+					}
+					stack[sp++] = i; stack[sp++] = yy;
+				}
+				prev = in;
+			}
+		}
+		routinechecks(1);
+	}
+}
+
 void cmd_pixel(void) {
 	if((nostackp=checkstring(cmdline, "FILL"))){
 		fillmaxH=PageTable[WritePage].ymax;
@@ -4472,11 +4556,17 @@ void cmd_box(void) {
 	}
     getargs(&cmdline, 13,",");
     if(!(argc & 1) || argc < 7) error("Argument count");
+    int nwi = 0, nh = 0;
+    wi = h = 0;
     getargaddress(argv[0], &x1ptr, &x1fptr, &n);
     if(n != 1) {
         getargaddress(argv[2], &y1ptr, &y1fptr, &n);
-        getargaddress(argv[4], &wiptr, &wifptr, &n);
-        getargaddress(argv[6], &hptr, &hfptr, &n);
+        getargaddress(argv[4], &wiptr, &wifptr, &nwi);         // the width and height may be one value for every box
+        getargaddress(argv[6], &hptr, &hfptr, &nh);
+        if(n > 1 && nwi > 1 && nwi < n) n = nwi;
+        if(n > 1 && nh > 1 && nh < n) n = nh;
+        if(n > 1 && nwi == 1) wi = getinteger(argv[4]);
+        if(n > 1 && nh == 1) h = getinteger(argv[6]);
     }
     if(n == 1){
         c = gui_fcolour; w = 1; f = -1;                                 // setup the defaults
@@ -4538,8 +4628,8 @@ void cmd_box(void) {
         for(i=0;i<n;i++){
             x1 = (x1fptr==NULL ? x1ptr[i] : (int)x1fptr[i]);
             y1 = (y1fptr==NULL ? y1ptr[i] : (int)y1fptr[i]);
-            wi = (wifptr==NULL ? wiptr[i] : (int)wifptr[i]);
-            h =  (hfptr==NULL ? hptr[i] : (int)hfptr[i]);
+            if(nwi > 1) wi = (wifptr==NULL ? wiptr[i] : (int)wifptr[i]);
+            if(nh > 1) h =  (hfptr==NULL ? hptr[i] : (int)hfptr[i]);
             wmod=(wi > 0 ? -1 : 1);
             hmod=(h > 0 ? -1 : 1);
             if(nw > 1) w = (wfptr==NULL ? wptr[i] : (int)wfptr[i]);

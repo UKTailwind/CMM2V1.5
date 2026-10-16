@@ -1,0 +1,14 @@
+depth 8 replace: 502 (502) box: 96 (96) again: 502 boundary: 504 (504) on the edge: 96
+  whole screen: filled
+depth 12 replace: 502 (502) box: 96 (96) again: 502 boundary: 504 (504) on the edge: 96
+  whole screen: filled
+depth 16 replace: 502 (502) box: 96 (96) again: 502 boundary: 504 (504) on the edge: 96
+  whole screen: filled
+depth 32 replace: 502 (502) box: 96 (96) again: 502 boundary: 504 (504) on the edge: 96
+  whole screen: filled
+box arrays, one size: 168 (168)
+box arrays, widths: 168 ( 168)
+fill arguments: Argument count
+fill x: 640 is invalid (valid is 0 to 639)
+done
+

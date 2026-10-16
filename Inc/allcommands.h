@@ -168,6 +168,7 @@ void cmd_cls(void);
 void cmd_font(void);
 void cmd_colour(void);
 void cmd_bezier(void);
+void cmd_fill(void);
 void cmd_arc(void);
 void cmd_image(void);
 void cmd_framebuffer(void);
@@ -518,6 +519,7 @@ void op_inv(void);
 	{ "Flags",		    T_CMD,				0, cmd_flags	},      // FLAGS = n (MM.FLAGS reads it)
 	{ "ReDim",		    T_CMD,				0, cmd_redim	},      // REDIM [PRESERVE] a(n) [, ...] (at the end: no token moves)
 	{ "Bezier",		    T_CMD,				0, cmd_bezier	},      // BEZIER x%(), y%() [, n] [, colour]
+	{ "Fill",		    T_CMD,				0, cmd_fill	},      // FILL x, y, colour [, boundary]
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
