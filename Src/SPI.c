@@ -101,7 +101,7 @@ void cmd_spi1(char *spi) {
         dd = GetReceiveDataBuffer(p, &nbr);
         while(nbr--) {
         	mybuff.aRxBuffer=0;
-        	HAL_SPI_Receive(&hspi1, mybuff.cRxBuffer, 1, 5000);
+        	HAL_SPI_TransmitReceive(&hspi1, mybuff.cRxBuffer, mybuff.cRxBuffer, 1, 5000);   // 0 out (HAL 1.11: Receive no longer sends)
         	*dd++ = mybuff.aRxBuffer;
         }
         return;
@@ -220,7 +220,7 @@ void cmd_spi2(char *spi) {
         dd = GetReceiveDataBuffer(p, &nbr);
         while(nbr--) {
         	mybuff.aRxBuffer=0;
-        	HAL_SPI_Receive(&hspi2, mybuff.cRxBuffer, 1, 5000);
+        	HAL_SPI_TransmitReceive(&hspi2, mybuff.cRxBuffer, mybuff.cRxBuffer, 1, 5000);   // 0 out (HAL 1.11: Receive no longer sends)
         	*dd++ = mybuff.aRxBuffer;
         }
         return;
