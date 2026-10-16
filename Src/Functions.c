@@ -630,9 +630,7 @@ void fun_chr(void) {
 	int i;
 
 	i = getint(ep, 0, 0xff);
-	sret = GetTempStrMemory();									// this will last for the life of the command
-	sret[0] = 1;
-	sret[1] = i;
+	sret = StrChar(GetTempStrMemory(), i);                      // this will last for the life of the command
     targ = T_STR;
 }
 
@@ -737,19 +735,8 @@ void fun_instr(void) {
 		s1 = getstring(argv[0+n]);
 		s2 = getstring(argv[2+n]);
 		targ = T_INT;
-		if(start > *s1 - *s2 + 1 || *s2 == 0)
-			iret = 0;
-		else {
-			// find s2 in s1 using MMBasic strings
-			int i;
-			for(i = start; i < *s1 - *s2 + 1; i++) {
-				if(memcmp(s1 + i + 1, s2 + 1, *s2) == 0) {
-					iret = i + 1;
-					return;
-				}
-			}
-		}
-		iret = 0;
+		iret = StrInstr(s1, s2, start);                             // find s2 in s1 using MMBasic strings
+		return;
 	} else {  //its a regex expression
 
 		int match_length;
@@ -881,6 +868,132 @@ void fun_fix(void) {
 
 
 
+/* The string functions' cores (the PicoMite's, Functions.c): each is the body of an MMBasic function with the
+   argument parsing left behind in its fun_ wrapper, so the interpreter and a CSUB (through the CallTable that
+   vector slot 7 points at, CFunctions.c) run the same code and cannot disagree.  Each writes into a destination
+   of STRINGSIZE, GetTempStrMemory(), and clamps what it is given rather than raising an error: a CSUB that calls
+   error() is abandoned by its longjmp. */
+char *StrLeft(char *dst, const char *s, int n) {
+    Mstrcpy(dst, (char *)s);
+    if(n < 0) n = 0;
+    if(n < (unsigned char)*dst) *dst = n;                           // truncate if it is less than the current string length
+    return dst;
+}
+
+char *StrRight(char *dst, const char *s, int n) {
+    char *p1 = dst;
+    const char *p2;
+    if(n < 0) n = 0;
+    if(n > (unsigned char)*s) n = (unsigned char)*s;                // the number of chars to copy
+    p2 = s + ((unsigned char)*s - n) + 1;
+    *p1++ = n;                                                      // the length of the returned string
+    while(n--) *p1++ = *p2++;                                       // and the characters
+    return dst;
+}
+
+char *StrCase(char *dst, const char *s, int upper) {
+    char *p = dst;
+    int i = *p++ = *s++;                                            // the length, copied across first
+    if(upper)
+        while(i--) *p++ = toupper(*s++);
+    else
+        while(i--) *p++ = tolower(*s++);
+    return dst;
+}
+
+char *StrMid(char *dst, const char *s, int spos, int nbr) {
+    char *p1;
+    const char *p2;
+    int i;
+    *dst = 0;                                                       // a null string when the numeric arguments
+    if(spos < 1) spos = 1;
+    if(spos > (unsigned char)*s || nbr <= 0) return dst;            // are not in the string
+    i = (unsigned char)*s - spos + 1;                               // how many chars remain in the string
+    if(i > nbr) i = nbr;                                            // reduced if we don't need that many
+    p1 = dst; p2 = s + spos;
+    *p1++ = i;                                                      // the length of the MMBasic string
+    while(i--) *p1++ = *p2++;                                       // and the chars required
+    return dst;
+}
+
+char *StrChar(char *dst, int c) {
+    dst[0] = 1;
+    dst[1] = c;
+    return dst;
+}
+
+char *StrFill(char *dst, int ch, int n) {
+    if(n < 0) n = 0;
+    if(n > MAXSTRLEN) n = MAXSTRLEN;
+    memset(dst + 1, ch, n);
+    *dst = n;
+    return dst;
+}
+
+// INSTR without a regular expression: the position of s2 in s1 from start (counted from 0), or 0
+int StrInstr(const char *s1, const char *s2, int start) {
+    int i;
+    if(start < 0) start = 0;
+    if(start > (unsigned char)*s1 - (unsigned char)*s2 + 1 || *s2 == 0) return 0;
+    for(i = start; i < (unsigned char)*s1 - (unsigned char)*s2 + 1; i++)    // find s2 in s1 using MMBasic strings
+        if(memcmp(s1 + i + 1, s2 + 1, (unsigned char)*s2) == 0) return i + 1;
+    return 0;
+}
+
+// STR$ once its arguments are evaluated: isint picks the integer path, m is the digits before the point, n those
+// after it (STR_AUTO_PRECISION for the default) and ch the padding character
+char *StrFormat(char *dst, MMFLOAT f, long long int i64, int isint, int m, int n, int ch) {
+    if(!isint)
+        FloatToStr(dst, f, m, n, ch);                               // convert the float
+    else {
+        if(n < 0)
+            FloatToStr(dst, i64, m, n, ch);                         // convert as a float
+        else {
+            IntToStrPad(dst, i64, ch, m, 10);                       // convert the integer
+            if(n != STR_AUTO_PRECISION && n > 0) {
+                strcat(dst, ".");
+                while(n--) strcat(dst, "0");                        // and add on any zeros after the point
+            }
+        }
+    }
+    return CtoM(dst);
+}
+
+// VAL on a C string: non-zero when the answer is a float (in *f), zero when it is an integer (in *i)
+int StrVal(const char *p, MMFLOAT *f, long long int *i) {
+    char *t1, *t2;
+    *f = 0;
+    *i = 0;
+    if(*p == '&') {
+        p++;
+        switch(toupper(*p++)) {
+            case 'H': while(IsxDigit(*p)) {
+                          *i = (*i << 4) | ((toupper(*p) >= 'A') ? toupper(*p) - 'A' + 10 : *p - '0');
+                          p++;
+                      }
+                      break;
+            case 'O': while(*p >= '0' && *p <= '7') *i = (*i << 3) | (*p++ - '0');
+                      break;
+            case 'B': while(*p == '0' || *p == '1') *i = (*i << 1) | (*p++ - '0');
+                      break;
+            default : *i = 0;
+        }
+        return 0;
+    }
+    *f = (MMFLOAT)strtod(p, &t1);
+    *i = strtoll(p, &t2, 10);
+    return t1 > t2;
+}
+
+// RND: from the hardware's random number generator
+MMFLOAT RndVal(void) {
+    uint32_t aRandom32bit;
+    HAL_RNG_GenerateRandomNumber(&hrng, &aRandom32bit);
+    return (MMFLOAT)aRandom32bit/(MMFLOAT)pow(2, 32);
+}
+
+
+
 // LEFT$(, RIGHT$(, UCASE$( and LCASE$( are one token, as on the PicoMite: tokenise() writes them SCHANGE$( with
 // the letter E, R, U or L and a comma before the arguments, and LIST turns them back (ListUnfold)
 // s$ = LEFT$( string$, nbr )     the first nbr characters
@@ -889,37 +1002,21 @@ void fun_fix(void) {
 // s$ = LCASE$( string$ )         in small letters
 void fun_schange(void) {
 	int i;
-	char *s, *p1, *p2;
+	char *s;
 	getargs(&ep, 5, ",");
 	switch(argc ? toupper(*argv[0]) : 0) {
 		case 'E':
-			if(argc != 5) error("Argument count");
-			s = GetTempStrMemory();                                 // this will last for the life of the command
-			Mstrcpy(s, getstring(argv[2]));
-			i = getint(argv[4], 0, MAXSTRLEN);
-			if(i < *s) *s = i;                                      // truncate if it is less than the current string length
-			sret = s;
-			break;
 		case 'R':
 			if(argc != 5) error("Argument count");
 			s = getstring(argv[2]);
 			i = getint(argv[4], 0, MAXSTRLEN);
-			if(i > *s) i = *s;                                      // get the number of chars to copy
-			sret = GetTempStrMemory();                              // this will last for the life of the command
-			p1 = sret; p2 = s + (*s - i) + 1;
-			*p1++ = i;                                              // inset the length of the returned string
-			while(i--) *p1++ = *p2++;                               // and copy the characters
+			sret = toupper(*argv[0]) == 'E' ? StrLeft(GetTempStrMemory(), s, i) : StrRight(GetTempStrMemory(), s, i);
 			break;
 		case 'U':
 		case 'L':
 			if(argc != 3) error("Argument count");
 			s = getstring(argv[2]);
-			p1 = sret = GetTempStrMemory();                         // this will last for the life of the command
-			i = *p1++ = *s++;                                       // get the length of the string and save in the destination
-			if(toupper(*argv[0]) == 'U')
-				while(i--) *p1++ = toupper(*s++);
-			else
-				while(i--) *p1++ = tolower(*s++);
+			sret = StrCase(GetTempStrMemory(), s, toupper(*argv[0]) == 'U');
 			break;
 		default:
 			error("Syntax");
@@ -954,8 +1051,8 @@ void fun_log(void) {
 // Returns a substring of ?string$? beginning at ?start? and continuing for ?nbr? characters.
 // S$ = MID$(s, spos [, nbr])
 void fun_mid(void) {
-	char *s, *p1, *p2;
-	int spos, nbr = 0, i;
+	char *s;
+	int spos, nbr = 0;
 	getargs(&ep, 5, ",");
 
 	if(argc == 5) {													// we have MID$(s, n, m)
@@ -969,18 +1066,8 @@ void fun_mid(void) {
 
 	s = getstring(argv[0]);											// the string
 	spos = getint(argv[2], 1, MAXSTRLEN);						    // the mid position
-
-	sret = GetTempStrMemory();									    // this will last for the life of the command
+	sret = StrMid(GetTempStrMemory(), s, spos, nbr);                // (a null string if the numbers are not in it)
     targ = T_STR;
-	if(spos > *s || nbr == 0)										// if the numeric args are not in the string
-		return;														// return a null string
-	else {
-		i = *s - spos + 1;											// find how many chars remaining in the string
-		if(i > nbr) i = nbr;										// reduce it if we don't need that many
-		p1 = sret; p2 = s + spos;
-		*p1++ = i;													// set the length of the MMBasic string
-		while(i--) *p1++ = *p2++;									// copy the nbr chars required
-	}
 }
 
 
@@ -1005,9 +1092,7 @@ void fun_rad(void) {
 // generate a random number that is greater than or equal to 0 but less than 1
 // n = RND()
 void fun_rnd(void) {
-	uint32_t aRandom32bit;
-	HAL_RNG_GenerateRandomNumber(&hrng, &aRandom32bit);
-	fret = (MMFLOAT)aRandom32bit/(MMFLOAT)pow(2, 32);
+	fret = RndVal();
     targ = T_NBR;
 }
 
@@ -1062,32 +1147,7 @@ void fun_tan(void) {
 // Returns the numerical value of a string.
 // n = VAL( string$ )
 void fun_val(void) {
-	char *p, *t1, *t2;
-	p = getCstring(ep);
-        targ = T_INT;
-	if(*p == '&') {
-                p++; iret = 0;
-		switch(toupper(*p++)) {
-			case 'H': while(IsxDigit(*p)) {
-                                      iret = (iret << 4) | ((toupper(*p) >= 'A') ? toupper(*p) - 'A' + 10 : *p - '0');
-                                      p++;
-                                  }
-                                  break;
-			case 'O': while(*p >= '0' && *p <= '7') {
-                                      iret = (iret << 3) | (*p++ - '0');
-                                  } 
-                                  break;
-			case 'B': while(*p == '0' || *p == '1') {
-                                      iret = (iret << 1) | (*p++ - '0');
-                                  } 
-                                  break;
-			default : iret = 0;
-		}
-	} else {
-        fret = (MMFLOAT) strtod(p, &t1);
-        iret = strtoll(p, &t2, 10);
-        if (t1 > t2) targ = T_NBR;
-    }
+	targ = StrVal(getCstring(ep), &fret, &iret) ? T_NBR : T_INT;
 }
 
 
@@ -1146,9 +1206,7 @@ void fun_space(void) {
 	int i;
 
 	i = getint(ep, 0, MAXSTRLEN);
-	sret = GetTempStrMemory();									// this will last for the life of the command
-	mymemset(sret + 1, ' ', i);
-	*sret = i;
+	sret = StrFill(GetTempStrMemory(), ' ', i);                 // this will last for the life of the command
     targ = T_STR;
 }
 
@@ -1178,21 +1236,7 @@ void fun_str(void) {
         ch = ((unsigned char)p[1] & 0x7f);
 	}
 
-	sret = GetTempStrMemory();									    // this will last for the life of the command
-    if(t & T_NBR)
-        FloatToStr(sret, f, m, n, ch);                              // convert the float
-    else {
-        if(n < 0)
-            FloatToStr(sret, i64, m, n, ch);                        // convert as a float
-        else {
-            IntToStrPad(sret, i64, ch, m, 10);                      // convert the integer
-            if(n != STR_AUTO_PRECISION && n > 0) {
-                strcat(sret, ".");
-                while(n--) strcat(sret, "0");                       // and add on any zeros after the point
-            }
-        }
-    }
-	CtoM(sret);
+	sret = StrFormat(GetTempStrMemory(), f, i64, !(t & T_NBR), m, n, ch);   // this will last for the life of the command
     targ = T_STR;
 }
 
@@ -1219,9 +1263,7 @@ void fun_string(void) {
         j = FloatToInt32(*((MMFLOAT *)p));
     if(j < 0 || j > 255) error("Argument value: $", argv[2]);
 
-    sret = GetTempStrMemory();                                      // this will last for the life of the command
-    memset(sret + 1, j, i);
-    *sret = i;
+    sret = StrFill(GetTempStrMemory(), j, i);                       // this will last for the life of the command
     targ = T_STR;
 }
 

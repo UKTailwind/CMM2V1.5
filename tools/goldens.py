@@ -27,6 +27,8 @@ under reset) and the program is classed HUNG.
 
 A program holding a CSUB or CFUNCTION, or loading a library or include from the corpus
 that does, is SKIPPED: that code is built for the PicoMite's processors and must not run here.
+A CSUB whose first line ends with the comment ' Cortex-M7 (CMM2) is the CMM2's own (mmb2csub
+--target cmm2) and does run.
 
 Writes OUTDIR/<name>.out and .out2, <name>.diff where it differs from .expected, and
 OUTDIR/SUMMARY.md and summary.json.
@@ -43,7 +45,7 @@ CAP = 60.0
 MODEMAP = {"1": "8,8", "2": "7,12", "3": "8,12", "4": "7,16", "5": "7,8"}   # PicoMite 640x480 modes -> CMM2
 
 
-FOREIGN = re.compile(r"(?im)^[ \t]*(CSUB|CFUNCTION)\b")
+FOREIGN = re.compile(r"(?im)^[ \t]*(?:CSUB|CFUNCTION)\b(?![^\n]*'[^\n]*Cortex-M7 \(CMM2\))")   # (not one built for the CMM2)
 LOADS = re.compile(r"""(?im)^[ \t]*(?:LIBRARY[ \t]+LOAD|#INCLUDE)\b([^\n']*)""")
 
 

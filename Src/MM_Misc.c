@@ -615,14 +615,21 @@ long long int Getuptime(void){
 	} while(g_uptime!=fifty);
 	return gettime ;											        // this is the character
 }
+// TIMER and TIMER = n, as the PicoMite's cores (TimerVal and TimerSet) for a CSUB too: milliseconds
+MMFLOAT TimerVal(void) {
+	return (MMFLOAT)GetuSec()/1000.0;
+}
 void fun_uSec(void) {
-	fret=(MMFLOAT)GetuSec()/1000.0;
+	fret=TimerVal();
 	targ=T_NBR;
 }
 void cmd_uSec(void){
 	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
 	if(!*cmdline) error("Syntax");
-	uint64_t t = getinteger(++cmdline)*1000;
+	TimerSet(getinteger(++cmdline));
+}
+void TimerSet(long long int ms) {
+	uint64_t t = ms*1000;
 	HAL_NVIC_DisableIRQ(TIM16_IRQn);
 	TIM16->CR1 &= ~1;
 	uSecTimer=t/50000;

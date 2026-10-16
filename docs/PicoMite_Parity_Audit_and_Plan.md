@@ -416,7 +416,7 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
    - RIGHT$( checks its argument count.
 
    The PicoMite's issues #16, #17 and #18 report these gaps.
-6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too. The detailed plan, with three questions for Peter, is `docs/mmb2csub_CMM2_Plan.md` (16 Oct).
+6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too. The detailed plan, with three questions for Peter, is `docs/mmb2csub_CMM2_Plan.md` (16 Oct). **16 Oct:** the firmware side is done. solar_eclipse with `sefunc` as an M7 CSUB matches the interpreted run in 0.480 s, against 7.77 s interpreted.
    - **The CallTable:**
      - the extra entries mmb2csub's generated code calls, in the PicoMite's `PicoCFunctions.h` layout, found through VTOR slot 7 (the decision of 15 Oct);
      - plus whatever the CMM2's own runtime needs.

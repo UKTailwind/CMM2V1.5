@@ -172,6 +172,7 @@ typedef struct s_vartbl {                               // structure of the vari
 extern struct s_vartbl *vartbl;                 // the locals' records (MAXLOCALVARS)
 extern struct s_vartbl **slotrec;               // the record of each variable number (MAXVARS)
 #define VREC(i) (slotrec[(i)])                  // the record of variable i
+#define SLOTRECBASE (SRAMBASE + MAXLOCALVARS * sizeof(struct s_vartbl))    // where slotrec is, after the locals' records
 #define VARCHUNK 32                             // globals' records per chunk (2 KB)
 // a string kept inside its own record (DIM s$ LENGTH 16 or less, a short CONST), not in the heap: never free it
 #define VAR_INLINE_STR(r) ((char *)(r)->val.s >= (char *)(r) && (char *)(r)->val.s < (char *)((r) + 1))
@@ -456,6 +457,21 @@ void IntToStr(char *strr, long long int nbr, unsigned int base);
 void FloatToStr(char *p, MMFLOAT f, int m, int n, unsigned char ch);
 void STR_REPLACE(char *target, const char *needle, const char *replacement, uint8_t ignoresurround);
 void ListUnfold(char *b);
+// the cores of string and other functions, shared with CSUBs through the CallTable (Functions.c, MM_Misc.c, External.c)
+char *StrLeft(char *dst, const char *s, int n);
+char *StrRight(char *dst, const char *s, int n);
+char *StrCase(char *dst, const char *s, int upper);
+char *StrMid(char *dst, const char *s, int spos, int nbr);
+char *StrChar(char *dst, int c);
+char *StrFill(char *dst, int ch, int n);
+int StrInstr(const char *s1, const char *s2, int start);
+char *StrFormat(char *dst, MMFLOAT f, long long int i64, int isint, int m, int n, int ch);
+int StrVal(const char *p, MMFLOAT *f, long long int *i);
+MMFLOAT RndVal(void);
+MMFLOAT TimerVal(void);
+void TimerSet(long long int ms);
+MMFLOAT PinVal(int pin);
+void PinPut(int pin, int val);
 extern const char *const FoldList[];                // the functions that share a token, as LIST shows them
 extern const int FoldCount;
 int str_equal(char *s1, char *s2);

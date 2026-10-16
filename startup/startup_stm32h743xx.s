@@ -230,7 +230,7 @@ g_pfnVectors:
   .word  MemManage_Handler
   .word  BusFault_Handler
   .word  UsageFault_Handler
-  .word  0
+  .word  CallTableP              /* slot 7, reserved by the core: the CSUB CallTable in the PicoMite's layout (CFunctions.c) */
   .word  0
   .word  0
   .word  0

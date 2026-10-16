@@ -1192,7 +1192,7 @@ void mycopysafe(void *out, const void *in, int n){
 void m_alloc(int size) {
     // every time the variable table is increased this must be called to verify that enough memory is free
     vartbl = (struct s_vartbl *)SRAMBASE;                           // the locals' records,
-    slotrec = (struct s_vartbl **)(SRAMBASE + MAXLOCALVARS * sizeof(struct s_vartbl));   // then each variable number's record
+    slotrec = (struct s_vartbl **)SLOTRECBASE;   // then each variable number's record
     memset(vartbl,0,SRAMEND-SRAMBASE);
     VarChunksForget();                                              // the globals' records went with the heap
     /*    VarTableTop = (unsigned char *)vartbl + MRoundUp(size);

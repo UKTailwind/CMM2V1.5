@@ -449,8 +449,28 @@ void cmd_pin(void) {
 	if(!*cmdline) error("Invalid syntax");
 	value = getinteger(cmdline);
     if(ExtCurrentConfig[pin] == EXT_NOT_CONFIG || ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)
-		PinDef[pin].sfr->BSRR = (PinDef[pin].bitnbr)<<(value ? 0:16);
+		PinPut(pin, value != 0);
 		else ExtSet(pin, value);
+}
+
+/* PIN(n) and PIN(n) = v for a CSUB (the PicoMite's PinVal and PinPut, through the CallTable).  Neither may call
+   error(): its longjmp would abandon the CSUB.  So they check and give a defined answer instead: PinVal is 0 for
+   an invalid pin, and for an analog, frequency or period input (PIN( reads those through the ADC and the timers,
+   which can raise errors); PinPut does nothing to a pin that is not an output. */
+MMFLOAT PinVal(int pin) {
+    if(IsInvalidPin(pin)) return 0;
+    switch(ExtCurrentConfig[pin]) {
+        case EXT_DIG_IN: case EXT_CNT_IN: case EXT_INT_HI: case EXT_INT_LO: case EXT_INT_BOTH:
+        case EXT_DIG_OUT: case EXT_OC_OUT:
+            return (MMFLOAT)ExtInp(pin);
+        default:
+            return 0;
+    }
+}
+void PinPut(int pin, int val) {
+    if(IsInvalidPin(pin)) return;
+    if(ExtCurrentConfig[pin] == EXT_NOT_CONFIG || ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)
+		PinDef[pin].sfr->BSRR = (PinDef[pin].bitnbr)<<(val ? 0:16);
 }
 
 
