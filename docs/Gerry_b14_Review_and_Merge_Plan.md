@@ -161,12 +161,14 @@ As separate commits on our tree, each built with 0 warnings and gated by the ful
 | M9 | CSUB INTERRUPT | with CFuncInt3/4 into CallTableP | 3 |
 | M10 | ADC | START scaling, TRIGGER, the OPEN error path | 3 |
 | M11 | BMP decoder | with the SEEK_CUR fix and test files | 5 |
-| M12 | Decisions | the program area (decision 2), OPTION F15-F20 and Shift-F5/F6 (decision 3), CFunction (decision 4) | 2-4 |
+| M12 | OPTION F15-F20 and Shift-F5/F6 | with the `Option` mirror in ARMCFunctions.h and the saved-options reset (decision 3); help.txt HELP (decision 5); MM.INFO accepting HEAPI/HEAPS as well as IHEAP/SHEAP (decision 6). The program area stays as planned (decision 2) and CFUNCTION stays out (decision 4) | 3 |
 | | Cleanup | the dead regex files, autosave2 | 0.5 |
 
 Total about 38 hours. The step 8 items this clears from the parity plan: REDIM, ERASE as a command, BIT/BYTE/FLAG, and the graphics commands; INTERRUPT from the CSUB list.
 
-## 7. Questions for Peter
+## 7. Questions for Peter (answered 16 Oct)
+
+Peter's answers: (1) adopt the licence; (2) the program area stays as planned, 384 KB plus the slot and the library; (3) take OPTION F15-F20 and Shift-F5/F6; (4) leave CFUNCTION out; (5) take help.txt; (6) accept both MM.INFO spellings; (7) his manual becomes the base of ours; (8) Gerry sees this document and the tree, and only he does (`docs/Notes_for_Gerry_b14.md` is written for him).
 
 1. **The licence.** Gerry's files carry a BSD-style header: "Copyright 2011-2026 Geoff Graham, Peter Mather and Gerry Allardice", with the four conditions (MMBasic named, the copyright on the console, the acknowledgement), and the sign-on prints a line for Gerry. Ours carry b7's restricted header. Adopt his on every file (M1)?
 2. **The program area.** He moved it to bank-2 sector 0: 896 KB for programs, 128 KB more. Our plan of 15 Oct set aside 384 KB for programs, one flash slot and the library, in the PicoMite's shape. The two are not compatible as they stand. Which?
