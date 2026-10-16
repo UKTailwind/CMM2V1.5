@@ -517,6 +517,7 @@ void op_inv(void);
 	{ "BitByteFlag(",	T_CMD | T_FUN,		0, cmd_bitbyteflag },   // BIT( BYTE( FLAG( = : one token, the selector 1, 2 or 3 first (SubstFold)
 	{ "Flags",		    T_CMD,				0, cmd_flags	},      // FLAGS = n (MM.FLAGS reads it)
 	{ "ReDim",		    T_CMD,				0, cmd_redim	},      // REDIM [PRESERVE] a(n) [, ...] (at the end: no token moves)
+	{ "Bezier",		    T_CMD,				0, cmd_bezier	},      // BEZIER x%(), y%() [, n] [, colour]
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

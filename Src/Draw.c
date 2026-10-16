@@ -3446,115 +3446,181 @@ void pointcalc(int angle, int x, int y, int r2, int *x0, int * y0){
 		}
 	}
 }
-void cmd_arc(void){
-	// Parameters are:
-	// X coordinate of centre of arc
-	// Y coordinate of centre of arc
-	// inner radius of arc
-	// outer radius of arc - omit it 1 pixel wide
-	// start radial of arc in degrees
-	// end radial of arc in degrees
-	// Colour of arc
-	int x, y, r1, r2, c ,i ,j, k, xs=-1, xi=0, m;
-	int rad1, rad2, rad3, rstart, quadr;
-	int x0, y0, x1, y1, x2, y2, xr, yr;
-	getargs(&cmdline, 13,",");
-    if(!(argc == 11 || argc == 13)) error("Argument count");
-    x = getinteger(argv[0]);
-    y = getinteger(argv[2]);
-    r1 = getinteger(argv[4]);
-    if(*argv[6])r2 = getinteger(argv[6]);
-    else {
-    	r2=r1;
-    	r1--;
-    }
-    if(r2 < r1)error("Inner radius < outer");
-    rad1 = getnumber(argv[8]);
-    rad2 = getnumber(argv[10]);
-    if(optiony){
-    	rad1+=180.0;
-    	rad2+=180.0;
-    }
-    while(rad1<0.0)rad1+=360.0;
-    while(rad2<0.0)rad2+=360.0;
-	if(rad1==rad2)error("Radials");
-     if(argc == 13)
-        c = getColour(argv[12], 0);
-    else
-        c = gui_fcolour;
-    while(rad2<rad1)rad2+=360;
-    rad3=rad1+360;
-    rstart=rad2;
-    int quad1 = (rad1 / 45) % 8;
-    x2=x;y2=y;
-    int ints_per_line=RoundUptoInt((r2*2)+1)/32;
-    uint32_t *br=(uint32_t *)GetTempMemory(((ints_per_line+1)*((r2*2)+1))*4);
-    DrawFilledCircle(x, y, r2, r2, 1, ints_per_line, br, 1.0, 1.0);
-    DrawFilledCircle(x, y, r1, r2, 0, ints_per_line, br, 1.0, 1.0);
-    while(rstart<rad3){
-		pointcalc(rstart, x, y, r2, &x0, &y0);
-   		quadr = (rstart / 45) % 8;
-    	if(quadr==quad1 && rad3-rstart<45){
-    		pointcalc(rad3, x, y, r2, &x1, &y1);
-    		ClearTriangle(x0-x+r2, y0-y+r2, x1-x+r2, y1-y+r2, x2-x+r2, y2-y+r2, ints_per_line, br);
-    		rstart=rad3;
-    	} else {
-    		rstart +=45;
-    		rstart -= (rstart % 45);
-    		pointcalc(rstart, x, y, r2, &xr, &yr);
-    		ClearTriangle(x0-x+r2, y0-y+r2, xr-x+r2, yr-y+r2, x2-x+r2, y2-y+r2, ints_per_line, br);
-    	}
-    	routinechecks(1);
-    }
- 	for(j=0;j<r2*2+1;j++){
- 		for(i=0;i<ints_per_line;i++){
- 			k=br[i+j*ints_per_line];
- 			for(m=0;m<32;m++){
- 				if(xs==-1 && (k & 0x80000000)){
- 					xs=m;
- 					xi=i;
- 				}
- 				if(xs!=-1 && !(k & 0x80000000)){
-					DrawRectangle(x-r2+xs+xi*32, y-r2+j, x-r2+m+i*32, y-r2+j, c);
- 					xs=-1;
- 				}
- 				k<<=1;
- 			}
- 		}
-		if(xs!=-1){
-			DrawRectangle(x-r2+xs+xi*32, y-r2+j, x-r2+m+i*32, y-r2+j, c);
-			xs=-1;
-		}
-    	routinechecks(1);
-	}
-// 	FreeMemorySafe((void *)&br);
+// 0 degrees is up and the angle grows clockwise (the CMM2's); a point's angle from the centre, in that sense
+static inline int normalize_angle(int angle) {
+	angle %= 360;
+	return angle < 0 ? angle + 360 : angle;
+}
+static inline int point_in_arc_sector(int px, int py, int cx, int cy, int start_deg, int end_deg) {
+	int dx = px - cx, dy = py - cy;
+	if(dx == 0 && dy == 0) return 1;
+	float angle = atan2f(dx, -dy) * 57.29577951f;                   // 180/pi: atan2(dx, -dy) is 90 - the usual angle
+	if(angle < 0) angle += 360.0f;
+	int angle_deg = (int)angle;
+	if(end_deg < start_deg) end_deg += 360;                         // the sweep may cross 0
+	if(angle_deg < start_deg) angle_deg += 360;
+	return angle_deg >= start_deg && angle_deg <= end_deg;
 }
 
-/*id cmd_bezier(void) {
-	// X coordinate of start point
-	// Y coordinate of start point
-	// X coordinate of first control point
-	// Y coordinate of first control point
-	// X coordinate of second control point
-	// Y coordinate of second control point
-	// X coordinate of end point
-	// Y coordinate of end point
-	// Colour of curve
-	int xx0, yy0, xx1, yy1, xx2, yy2, xx3, yy3, c;
-    getargs(&cmdline, 17,",");
-    if(!(argc==15 || argc==17))error("Argument count");
-    xx0 = getint(argv[0],0,maxW-1);
-    yy0 = getint(argv[2],0,maxH-1);
-    xx1 = getinteger(argv[4]);
-    yy1 = getinteger(argv[6]);
-    xx2 = getinteger(argv[8]);
-    yy2 = getinteger(argv[10]);
-    xx3 = getint(argv[12],0,maxW-1);
-    yy3 = getint(argv[14],0,maxH-1);
-    c = gui_fcolour;                                    // setup the defaults
-    if(argc > 15 && *argv[16]) c = getint(argv[16], 0, WHITE);
-    bezier(xx0, yy0, xx1, yy1, xx2, yy2, xx3, yy3, c);
-}*/
+// ARC x, y, r1 [, r2], a1, a2 [, colour]: the ring between the radii from radial a1 clockwise to a2, 0 up, in degrees;
+// without r2 it is one pixel wide.  Each scanline of the bounding box is walked and the runs of pixels inside the
+// sector are drawn as rectangles (the PicoMite's cmd_arc).  The CMM2's drew a filled circle into a bitmap and cleared
+// triangles out of it.  OPTION Y turns the radials with the axis, as it did.
+void cmd_arc(void){
+	int x, y, r1, r2, c, rad1, rad2;
+	getargs(&cmdline, 13, ",");
+	if(!(argc == 11 || argc == 13)) error("Argument count");
+	x = getinteger(argv[0]);
+	y = getinteger(argv[2]);
+	r1 = getinteger(argv[4]);
+	if(*argv[6]) r2 = getinteger(argv[6]);
+	else {
+		r2 = r1;
+		r1--;
+	}
+	if(r2 < r1) error("Inner radius < outer");
+	rad1 = getnumber(argv[8]);
+	rad2 = getnumber(argv[10]);
+	if(optiony) {
+		rad1 += 180;
+		rad2 += 180;
+	}
+	rad1 = normalize_angle(rad1);
+	rad2 = normalize_angle(rad2);
+	if(rad1 == rad2) error("Radials");
+	if(argc == 13) c = getColour(argv[12], 0);
+	else c = gui_fcolour;
+	if(rad2 < rad1) rad2 += 360;                                    // the sweep is clockwise from rad1 to rad2
+	for(int scan_y = y - r2; scan_y <= y + r2; scan_y++) {
+		int dy = scan_y - y, dy2 = dy * dy;
+		int dx_outer = (int)sqrtf(r2 * r2 - dy2);                   // the ring's extent on this scanline
+		int dx_inner = (r1 * r1 > dy2) ? (int)sqrtf(r1 * r1 - dy2) : 0;
+		for(int side = 0; side < 2; side++) {                       // left of the centre, then right
+			int x_start = side ? x + dx_inner : x - dx_outer;
+			int x_end = side ? x + dx_outer : x - dx_inner;
+			int segment_start = -1, segment_end = -1;
+			for(int scan_x = x_start; scan_x <= x_end; scan_x++) {
+				if(point_in_arc_sector(scan_x, scan_y, x, y, rad1, rad2)) {
+					if(segment_start == -1) segment_start = scan_x;
+					segment_end = scan_x;
+				} else if(segment_start != -1) {
+					DrawRectangle(segment_start, scan_y, segment_end, scan_y, c);
+					segment_start = -1;
+				}
+			}
+			if(segment_start != -1) DrawRectangle(segment_start, scan_y, segment_end, scan_y, c);
+		}
+		routinechecks(1);                                           // (once a scanline, not a pixel)
+	}
+}
+
+// BEZIER: a curve through n control points (2 to 16) by the Bernstein form, in 8.24 fixed point; the points are the
+// first n elements of two integer arrays.  The curve is stepped three times its bounding box's diagonal and drawn as
+// runs of straight line where the steps keep a direction (the PicoMite 6.01's PlotBezier, as Gerry's b14 carries it).
+#define FP_SHIFT 24
+#define FP_ONE (1 << FP_SHIFT)
+#define FP_HALF (1 << (FP_SHIFT - 1))
+#define FP_MUL(a, b) (((int64_t)(a) * (int64_t)(b)) >> FP_SHIFT)
+
+static int binomial(int n, int k) {
+	if(k > n) return 0;
+	if(k == 0 || k == n) return 1;
+	int result = 1;
+	for(int i = 0; i < k; i++) {
+		result *= (n - i);
+		result /= (i + 1);
+	}
+	return result;
+}
+
+static int isqrt(int n) {
+	if(n < 2) return n;
+	int x = n, y = (x + 1) / 2;
+	while(y < x) {
+		x = y;
+		y = (x + n / x) / 2;
+	}
+	return x;
+}
+
+void PlotBezier(int n, int c, int64_t *x, int64_t *y) {
+	int32_t t_fp, one_minus_t_fp, t_powers[16], omt_powers[16];
+	int64_t x_val, y_val;
+	int prev_x, prev_y, binom_coeffs[16];
+	int min_x = x[0], max_x = x[0], min_y = y[0], max_y = y[0];
+	for(int i = 1; i < n; i++) {                                    // the bounding box sets the number of steps
+		if(x[i] < min_x) min_x = x[i];
+		if(x[i] > max_x) max_x = x[i];
+		if(y[i] < min_y) min_y = y[i];
+		if(y[i] > max_y) max_y = y[i];
+	}
+	int bbox_width = max_x - min_x, bbox_height = max_y - min_y;
+	int num_steps = isqrt(bbox_width * bbox_width + bbox_height * bbox_height) * 3;
+	if(num_steps < 10) num_steps = 10;
+	if(num_steps > 2000) num_steps = 2000;
+	for(int i = 0; i < n; i++) binom_coeffs[i] = binomial(n - 1, i);
+	prev_x = x[0];
+	prev_y = y[0];
+	DrawPixel(prev_x, prev_y, c);
+	int line_start_x = prev_x, line_start_y = prev_y, line_dx = 0, line_dy = 0, line_len = 0;
+	for(int step = 1; step <= num_steps; step++) {
+		t_fp = ((int64_t)step << FP_SHIFT) / num_steps;             // t = step / num_steps
+		one_minus_t_fp = FP_ONE - t_fp;
+		t_powers[0] = omt_powers[0] = FP_ONE;
+		for(int i = 1; i < n; i++) {
+			t_powers[i] = FP_MUL(t_powers[i - 1], t_fp);
+			omt_powers[i] = FP_MUL(omt_powers[i - 1], one_minus_t_fp);
+		}
+		x_val = y_val = 0;
+		for(int i = 0; i < n; i++) {                                // basis = C(n-1, i) (1-t)^(n-1-i) t^i
+			int32_t basis_fp = FP_MUL(omt_powers[n - 1 - i], t_powers[i]) * binom_coeffs[i];
+			x_val += (int64_t)basis_fp * x[i];
+			y_val += (int64_t)basis_fp * y[i];
+		}
+		int curr_x = (int)((x_val + FP_HALF) >> FP_SHIFT);
+		int curr_y = (int)((y_val + FP_HALF) >> FP_SHIFT);
+		if(curr_x != prev_x || curr_y != prev_y) {
+			int dx = curr_x - prev_x, dy = curr_y - prev_y;
+			if(dx > 1 || dx < -1 || dy > 1 || dy < -1) {            // a jump of more than a pixel is bridged at once
+				if(line_len > 1) DrawLine(line_start_x, line_start_y, prev_x, prev_y, 1, c);
+				else if(line_len == 1) DrawPixel(prev_x, prev_y, c);
+				DrawLine(prev_x, prev_y, curr_x, curr_y, 1, c);
+				line_len = 0;
+			} else if(line_len > 0 && dx == line_dx && dy == line_dy) {
+				line_len++;                                         // the same direction: the run grows
+			} else {
+				if(line_len > 1) DrawLine(line_start_x, line_start_y, prev_x, prev_y, 1, c);
+				else if(line_len == 1) DrawPixel(prev_x, prev_y, c);
+				line_start_x = prev_x;
+				line_start_y = prev_y;
+				line_dx = dx;
+				line_dy = dy;
+				line_len = 1;
+			}
+			prev_x = curr_x;
+			prev_y = curr_y;
+		}
+	}
+	if(line_len > 1) DrawLine(line_start_x, line_start_y, prev_x, prev_y, 1, c);
+	else if(line_len == 1) DrawPixel(prev_x, prev_y, c);
+}
+
+// BEZIER x%(), y%() [, n] [, colour]: the control points are the arrays' first n elements (all of them without n)
+void cmd_bezier(void) {
+	int64_t *x = NULL, *y = NULL;
+	int countx, county, n, colour;
+	getargs(&cmdline, 7, ",");
+	if(argc < 3) error("Syntax");
+	countx = parseintegerarray(argv[0], &x, 1, 1, NULL, false, NULL);
+	county = parseintegerarray(argv[2], &y, 2, 1, NULL, false, NULL);
+	if(countx != county) error("Array size mismatch");
+	n = countx;
+	if(argc >= 5 && *argv[4]) n = getint(argv[4], 2, countx);
+	if(n > 16) error("Too many points");
+	colour = gui_fcolour;
+	if(argc == 7) colour = getColour(argv[6], 0);
+	PlotBezier(n, colour, x, y);
+}
 
 void polygon(char *p, int close){
 	int xcount=0;
