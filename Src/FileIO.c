@@ -1177,62 +1177,82 @@ void LoadImage(char *p) {
 	optiony=savey;
 	FileClose(BMPfnbr);
 }
+// LOAD PNG file$ [, x [, y [, t [, cutoff [, ximage [, yimage]]]]]]: decoded a row at a time (the PicoMite's streaming
+// decoder) and drawn through DrawBuffer as RGBA, so the 12-bit pages get the alpha. t is the CMM2's: 0 opaque, 1 the
+// default cut, 2-15 the cut t * 16 (pixels with less alpha are not drawn); cutoff, 1-254, sets the cut itself; ximage
+// and yimage are the first column and row of the image shown (both the PicoMite's). The image is clipped to the page.
+typedef struct {
+	int x, y, x0, x1, yOffset, maxH, flags;
+} s_pngdraw;
+static int pngdrawrow(void *v, unsigned y, const unsigned char *rgba)
+{
+	s_pngdraw *c = (s_pngdraw *)v;
+	int sy = c->y + (int)y - c->yOffset;
+	routinechecks(1);                                               // (keeps sound playing during a large image)
+	if (sy >= c->maxH)
+		return 0;                                                   // below the page: stop decoding
+	if ((int)y < c->yOffset || sy < 0)
+		return 1;
+	DrawBuffer(c->x, sy, c->x + c->x1 - c->x0 - 1, sy, (char *)rgba + c->x0 * 4, c->flags);
+	return 1;
+}
 void LoadPNG(char *p) {
-//	int fnbr;
-	int xOrigin, yOrigin,w,h, transparent=0, force=0;
-    int maxW=PageTable[WritePage].xmax;
-	int maxH=PageTable[WritePage].ymax;
-	upng_t* upng;
+	int xOrigin, yOrigin, w, h, transparent = 0, force = 0, xOffset = 0, yOffset = 0;
+	int maxW = PageTable[WritePage].xmax;
+	int maxH = PageTable[WritePage].ymax;
+	upng_t *upng;
+	s_pngdraw c;
 	// get the command line arguments
-	getargs(&p, 7, ",");                                            // this MUST be the first executable line in the function
-    if(argc == 0) error("Argument count");
-    if(!InitSDCard()) return;
+	getargs(&p, 13, ",");                                           // this MUST be the first executable line in the function
+	if(argc == 0) error("Argument count");
+	if(!InitSDCard()) return;
 
-    p = getFstring(argv[0]);                                        // get the file name
+	p = getFstring(argv[0]);                                        // get the file name
 
-    xOrigin = yOrigin = 0;
-	if(argc >= 3 && *argv[2]) xOrigin = getinteger(argv[2]);                    // get the x origin (optional) argument
+	xOrigin = yOrigin = 0;
+	if(argc >= 3 && *argv[2]) xOrigin = getinteger(argv[2]);        // get the x origin (optional) argument
 	if(argc >= 5 && *argv[4]){
-		yOrigin = getinteger(argv[4]);                    // get the y origin (optional) argument
+		yOrigin = getinteger(argv[4]);                              // get the y origin (optional) argument
 		if(optiony) yOrigin=maxH-1-yOrigin;
 	}
-	if(argc ==7)transparent=getint(argv[6],0,15);
+	if(argc >= 7 && *argv[6]) transparent=getint(argv[6],0,15);
 	if(transparent){
 		if(transparent>1)force=transparent<<4;
 		transparent=4;
 	}
+	if(argc >= 9 && *argv[8]) { force = getint(argv[8], 1, 254) & 0xF0; transparent = 4; }   // the cut itself (DrawBuffer takes its top four bits)
+	if(argc >= 11 && *argv[10]) xOffset = getinteger(argv[10]);      // the first image column shown
+	if(argc >= 13 && *argv[12]) yOffset = getinteger(argv[12]);      // the first image row shown
+	if(xOffset < 0 || yOffset < 0) error("Offset below 0");
 	// open the file
 	if(strchr(p, '.') == NULL) strcat(p, ".PNG");
-//	fnbr = FindFreeFileNbr();
-//    if(!BasicFileOpen(p, fnbr, FA_READ)) return;
-    upng = upng_new_from_file(p);
-	routinechecks(1);
-    upng_header(upng);
-    w=upng_get_width(upng);
-    h= upng_get_height(upng);
-    if(w+xOrigin >maxW || h+yOrigin >maxH){
-        upng_free(upng);
-        error("Image too large");
-    }
-    if(!(upng_get_format(upng)==1 || upng_get_format(upng)==3)){
-        upng_free(upng);
-        error("Invalid format");
-    }
-	routinechecks(1);
-    upng_decode(upng);
-    unsigned char *rr;
-	routinechecks(1);
-    rr=(unsigned char *)upng_get_buffer(upng);
+	upng = upng_new_from_file(p);
+	if(upng == NULL) return;
+	upng_header(upng);
+	upng_error_check(upng);                                         // (frees the decoder and reports, as "Invalid format" did)
+	w = upng_get_width(upng);
+	h = upng_get_height(upng);
+	if(xOffset >= w || yOffset >= h){
+		upng_free(upng);
+		error("Offset outside the image");
+	}
+	// the image columns that land on the page: from xOffset, or further right when x is negative
+	c.x0 = xOffset + (xOrigin < 0 ? -xOrigin : 0);
+	c.x1 = (xOrigin + w - xOffset > maxW) ? xOffset + maxW - xOrigin : w;
+	c.x = xOrigin < 0 ? 0 : xOrigin;
+	c.y = yOrigin;
+	c.yOffset = yOffset;
+	c.maxH = maxH;
+	c.flags = 3 | transparent | force;
 	int savey=optiony;
 	optiony=0;
-    if(upng_get_format(upng)==3){
-    	DrawBuffer(xOrigin, yOrigin, xOrigin+w-1, yOrigin+h-1,(char *)rr,3 | transparent | force);
-    } else {
-    	DrawBuffer(xOrigin, yOrigin, xOrigin+w-1, yOrigin+h-1,(char *)rr,2 | transparent | force);
-    }
-    optiony=savey;
-    upng_free(upng);
-//    FileClose(fnbr);
+	if(c.x1 > c.x0 && c.x < maxW) {
+		upng_decode_rows(upng, pngdrawrow, &c);
+		optiony=savey;
+		upng_error_check(upng);
+	}
+	optiony=savey;
+	upng_free(upng);
 	clearrepeat();
 }
 void GIFcallback(void){

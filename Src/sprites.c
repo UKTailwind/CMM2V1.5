@@ -702,7 +702,9 @@ void loadpng(char *p){
         char *p=getCstring(argv[2]);
         if(argc==5)deftrans=getint(argv[4],1,15);
         upng = upng_new_from_file(p);
+        if(upng == NULL) return;
         upng_header(upng);
+        upng_error_check(upng);                                     // (an unreadable or unsupported file: freed and reported)
         if(upng_get_width(upng) >= maxW || upng_get_height(upng) >= maxH){
             upng_free(upng);
             error("Image too large");
@@ -712,6 +714,7 @@ void loadpng(char *p){
             error("Invalid format");
         }
         upng_decode(upng);
+        upng_error_check(upng);
         w=upng_get_width(upng);
         h=upng_get_height(upng);
 //        PInt(w*h*PageTable[WritePage].nbytes);PRet();MM_Delay(500);
