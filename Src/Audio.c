@@ -165,7 +165,7 @@ int debug = 0;
 modcontext mcontext;
 drwav mywav;
 drflac* myflac=NULL;
-drmp3 mymp3;
+drmp3 *mymp3 = NULL;                                                // PLAY MP3's decoder, on the heap: it holds a 16 KB scratch area
 float *fbuff1, *fbuff2;
 a_flist *alist=NULL;
 int trackplaying=0, trackstoplay=0;
@@ -1107,9 +1107,17 @@ size_t onRead(void  *userdata,  char  *pBufferOut,   size_t bytesToRead){
     if(!MDD_SDSPI_CardDetectState())ErrorCheck(WAV_fnbr);
     return nbr;
 }
+// the seek and tell callbacks of dr_wav, dr_mp3 and dr_flac (their origins have the same values): dr_mp3 seeks from the
+// end at the start to find ID3v1 and APE tags
 drwav_bool32 onSeek(void  *userdata,  int offset,  drwav_seek_origin origin){
-    if(origin==drwav_seek_origin_start) FSerror=f_lseek(FileTable[WAV_fnbr].fptr,offset);
-    else FSerror=f_lseek(FileTable[WAV_fnbr].fptr,FileTable[WAV_fnbr].fptr->fptr+offset);
+    FIL *fp = FileTable[WAV_fnbr].fptr;
+    if(origin == DRWAV_SEEK_SET) FSerror = f_lseek(fp, offset);
+    else if(origin == DRWAV_SEEK_END) FSerror = f_lseek(fp, f_size(fp) + offset);
+    else FSerror = f_lseek(fp, f_tell(fp) + offset);
+    return FSerror == FR_OK;
+}
+drwav_bool32 onTell(void  *userdata,  drwav_int64 *pCursor){
+    *pCursor = f_tell(FileTable[WAV_fnbr].fptr);
     return 1;
 }
 void setnoise(void){
@@ -1197,7 +1205,7 @@ void CloseAudio(int all){
 	WAVInterrupt = NULL;
 	StopAudio();
 	ForceFileClose(WAV_fnbr);
-	if(was_playing == P_MP3 || was_playing == P_PAUSE_MP3 )drmp3_uninit(&mymp3);
+	if((was_playing == P_MP3 || was_playing == P_PAUSE_MP3) && mymp3)drmp3_uninit(mymp3);
 	if(was_playing==P_TTS){
 		FreeMemorySafe((void *)&buffer);
 		sbuff1=NULL;
@@ -1266,7 +1274,7 @@ void wavcallback(char *p){
     allocationCallbacks.onMalloc  = my_malloc;
     allocationCallbacks.onRealloc = my_realloc;
     allocationCallbacks.onFree    = my_free;
-    drwav_init(&mywav,(drwav_read_proc)onRead, (drwav_seek_proc)onSeek, NULL, &allocationCallbacks);
+    drwav_init(&mywav,(drwav_read_proc)onRead, (drwav_seek_proc)onSeek, (drwav_tell_proc)onTell, NULL, &allocationCallbacks);
     if(mywav.sampleRate>96000)error("Max 96KHz sample rate");
 //        PInt(mywav.channels);MMPrintString(" Channels\r\n");
 //        PInt(mywav.bitsPerSample);MMPrintString(" Bits per sample\r\n");
@@ -1304,18 +1312,19 @@ void mp3callback(char *p){
     if(strchr(p, '.') == NULL) strcat(p, ".mp3");
     WAV_fnbr = FindFreeFileNbr();
     if(!BasicFileOpen(p, WAV_fnbr, FA_READ)) return;
-    if(drmp3_init(&mymp3, (drmp3_read_proc)onRead, (drmp3_seek_proc)onSeek, NULL,  &allocationCallbacks)==DRMP3_FALSE)error("Mp3 init");
+    mymp3 = GetMemory(sizeof(drmp3));                                // (freed by CloseAudio)
+    if(drmp3_init(mymp3, (drmp3_read_proc)onRead, (drmp3_seek_proc)onSeek, (drmp3_tell_proc)onTell, NULL, NULL,  &allocationCallbacks)==DRMP3_FALSE)error("Mp3 init");
     FreeMemorySafe((void *)&sbuff1);
     FreeMemorySafe((void *)&sbuff2);
     sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*5);
     sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE*5);
     fbuff1 = (float *)sbuff1;
     fbuff2 = (float *)sbuff2;
-    htim4.Init.Prescaler = PSpeedDiv/mymp3.sampleRate-1;
-	htim4.Instance->PSC = PSpeedDiv/mymp3.sampleRate-1;
-//        PInt(mymp3.sampleRate);MMPrintString(" Sample rate\r\n");
-//        PInt(mymp3.channels);MMPrintString(" Channels\r\n");
-    bcount[1]=drmp3_read_pcm_frames_f32(&mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff1) * mymp3.channels;
+    htim4.Init.Prescaler = PSpeedDiv/mymp3->sampleRate-1;
+	htim4.Instance->PSC = PSpeedDiv/mymp3->sampleRate-1;
+//        PInt(mymp3->sampleRate);MMPrintString(" Sample rate\r\n");
+//        PInt(mymp3->channels);MMPrintString(" Channels\r\n");
+    bcount[1]=drmp3_read_pcm_frames_f32(mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff1) * mymp3->channels;
     fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
     wav_filesize=bcount[1];
     if(CurrentlyPlaying != P_MP3)ConfigSoundOutputs();
@@ -1341,7 +1350,7 @@ void flaccallback(char *p){
     allocationCallbacks.onMalloc  = my_malloc;
     allocationCallbacks.onRealloc = my_realloc;
     allocationCallbacks.onFree    = my_free;
-    myflac=drflac_open((drflac_read_proc)onRead, (drflac_seek_proc)onSeek, &myData, &allocationCallbacks);
+    myflac=drflac_open((drflac_read_proc)onRead, (drflac_seek_proc)onSeek, (drflac_tell_proc)onTell, &myData, &allocationCallbacks);
     FreeMemorySafe((void *)&sbuff1);
     FreeMemorySafe((void *)&sbuff2);
 	sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*4);
@@ -1703,7 +1712,7 @@ void cmd_play(void) {
         allocationCallbacks.onMalloc  = my_malloc;
         allocationCallbacks.onRealloc = my_realloc;
         allocationCallbacks.onFree    = my_free;
-        drwav_init(&mywav,(drwav_read_proc)onRead, (drwav_seek_proc)onSeek, NULL, &allocationCallbacks);
+        drwav_init(&mywav,(drwav_read_proc)onRead, (drwav_seek_proc)onSeek, (drwav_tell_proc)onTell, NULL, &allocationCallbacks);
 //        PInt(mywav.channels);MMPrintString(" Channels\r\n");
 //        PInt(mywav.bitsPerSample);MMPrintString(" Bits per sample\r\n");
 //        PInt(mywav.sampleRate);MMPrintString(" Sample rate\r\n");
@@ -1941,11 +1950,11 @@ void checkWAVinput(void){
 
         } else if(CurrentlyPlaying == P_MP3){
             if(swingbuf==2){
-                bcount[1]=drmp3_read_pcm_frames_f32(&mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff1) * mymp3.channels;
+                bcount[1]=drmp3_read_pcm_frames_f32(mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff1) * mymp3->channels;
                 fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
                 wav_filesize = bcount[1];
             } else {
-                bcount[2]=drmp3_read_pcm_frames_f32(&mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff2) * mymp3.channels;
+                bcount[2]=drmp3_read_pcm_frames_f32(mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff2) * mymp3->channels;
                 fconvert(fbuff2, (uint16_t *)sbuff2, bcount[2]);
                 wav_filesize = bcount[2];
             }
@@ -2014,8 +2023,8 @@ void audio_checks(void){
     }
     if(playreadcomplete == 1) {
     	if(!(bcount[1] || bcount[2]) ){
-            if(CurrentlyPlaying == P_FLAC)drflac_close(myflac);
-            if(CurrentlyPlaying == P_MP3)drmp3_uninit(&mymp3);
+            if(CurrentlyPlaying == P_FLAC){ drflac_close(myflac); myflac = NULL; }      // (drflac_close frees it)
+            if(CurrentlyPlaying == P_MP3 && mymp3){ drmp3_uninit(mymp3); FreeMemorySafe((void **)&mymp3); }   // (a track that ended by itself)
             FreeMemorySafe((void *)&sbuff1);
             FreeMemorySafe((void *)&sbuff2);
             FreeMemorySafe((void *)&alist);
