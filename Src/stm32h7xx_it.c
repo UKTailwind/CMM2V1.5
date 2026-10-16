@@ -160,6 +160,33 @@ extern volatile unsigned char PWM_count;
 extern char *pbuffp;
 extern const unsigned short whitenoise[2];
 extern const unsigned short nulltable[4096];
+extern const unsigned short squaretable[4096];
+extern const unsigned short sawtable[4096];
+// polyBLEP for PLAY SOUND's square and sawtooth (the PicoMite's). An edge that can only fall on a sample tick carries
+// alias images that beat against the true harmonics, a pitch-dependent shimmer on held notes; the band-limited edge
+// differs from the naive one only within a tick of it, by (1-t)^2 of the step towards its midpoint. The square rises at
+// 2048 and falls at the wrap, the sawtooth falls at the wrap; ph is the phase (0 to 4096), inc its step a tick.
+static inline int blep_square(int j, float ph, float inc){
+	float d;
+	if(inc <= 0.0f) return j;
+	if(ph < inc) d = ph;
+	else if(4096.0f - ph < inc) d = 4096.0f - ph;
+	else if(ph >= 2048.0f && ph - 2048.0f < inc) d = ph - 2048.0f;
+	else if(ph < 2048.0f && 2048.0f - ph < inc) d = 2048.0f - ph;
+	else return j;
+	d = 1.0f - d / inc;
+	return 2000 + (int)((float)(j - 2000) * (1.0f - d * d));
+}
+static inline int blep_saw(int j, float ph, float inc){
+	float d;
+	if(inc <= 0.0f) return j;
+	if(ph < inc) { d = 1.0f - ph / inc; return j + (int)(1900.0f * d * d); }
+	if(4096.0f - ph < inc) { d = 1.0f - (4096.0f - ph) / inc; return j - (int)(1900.0f * d * d); }
+	return j;
+}
+extern volatile int sound_v_target_left[MAXSOUNDS], sound_v_target_right[MAXSOUNDS];
+extern volatile int vol_target_left, vol_target_right;
+extern void ramp_volume(void);
 extern int mono;
 extern RNG_HandleTypeDef hrng;/* USER CODE END EV */
 extern int overrun;                                               // value of MM.OW
@@ -869,6 +896,11 @@ void EXTI9_5_IRQHandler(void)
 }
 
 void Audio_Interrupt(void)  {
+    static int volramp = 0;
+    if((CurrentlyPlaying == P_TONE || CurrentlyPlaying == P_TTS) && ++volramp >= 11) {   // PLAY VOLUME ramps (0.25 ms a step)
+    	volramp = 0;
+    	if(vol_left != vol_target_left || vol_right != vol_target_right) ramp_volume();
+    }
     // play a tone
     if(CurrentlyPlaying == P_TONE){
         if(!SoundPlay){                                             // ended: stop here; audio_checks does the rest (2a, 2d)
@@ -1015,12 +1047,24 @@ void Audio_Interrupt(void)  {
     	static uint32_t noiseleft[MAXSOUNDS]={0}, noiseright[MAXSOUNDS]={0};
     	int i,j;
     	int leftv=0, rightv=0;
+    	static int soundramp = 0;
+    	if(++soundramp >= 44) {                                     // channel volumes ramp to their targets, a step a millisecond
+    		soundramp = 0;
+    		for(i=0;i<MAXSOUNDS;i++){
+    			if(sound_v_left[i] < sound_v_target_left[i]) sound_v_left[i]++;
+    			else if(sound_v_left[i] > sound_v_target_left[i]) sound_v_left[i]--;
+    			if(sound_v_right[i] < sound_v_target_right[i]) sound_v_right[i]++;
+    			else if(sound_v_right[i] > sound_v_target_right[i]) sound_v_right[i]--;
+    		}
+    	}
     	for(i=0;i<MAXSOUNDS;i++){ //first update the 8 sound pointers
     		if(sound_mode_left[i]!=nulltable){
     			if(sound_mode_left[i]!=whitenoise){
     				sound_PhaseAC_left[i] = sound_PhaseAC_left[i] + sound_PhaseM_left[i];
     				if(sound_PhaseAC_left[i]>=4096.0)sound_PhaseAC_left[i]-=4096.0;
     				j = (int)sound_mode_left[i][(int)sound_PhaseAC_left[i]];
+    				if(sound_mode_left[i] == squaretable) j = blep_square(j, sound_PhaseAC_left[i], sound_PhaseM_left[i]);
+    				else if(sound_mode_left[i] == sawtable) j = blep_saw(j, sound_PhaseAC_left[i], sound_PhaseM_left[i]);
     				j= (j-2000)*mapping[sound_v_left[i]]/2000;
     				leftv+=j;
     			} else {
@@ -1040,6 +1084,8 @@ void Audio_Interrupt(void)  {
         			sound_PhaseAC_right[i] = sound_PhaseAC_right[i] + sound_PhaseM_right[i];
         			if(sound_PhaseAC_right[i]>=4096.0)sound_PhaseAC_right[i]-=4096.0;
         			j = (int)sound_mode_right[i][(int)sound_PhaseAC_right[i]];
+        			if(sound_mode_right[i] == squaretable) j = blep_square(j, sound_PhaseAC_right[i], sound_PhaseM_right[i]);
+        			else if(sound_mode_right[i] == sawtable) j = blep_saw(j, sound_PhaseAC_right[i], sound_PhaseM_right[i]);
         			j= (j-2000)*mapping[sound_v_right[i]]/2000;
         			rightv += j;
     			} else {
@@ -1060,9 +1106,10 @@ void Audio_Interrupt(void)  {
     	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)leftv);
     	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t)rightv);
     } else {
-        // play must be paused
-        HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
-        HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
+        // play must be paused: glide to the midpoint, a sixty-fourth of the way a tick, not a step there (a click)
+        int l = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1), r = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_2), s;
+        if(l != 2000) { s = (2000 - l) / 64; l += s ? s : (l < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, l); }
+        if(r != 2000) { s = (2000 - r) / 64; r += s ? s : (r < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, r); }
     }
 }
 

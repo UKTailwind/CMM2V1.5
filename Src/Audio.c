@@ -125,6 +125,7 @@ volatile uint64_t SoundPlay;
 volatile e_CurrentlyPlaying CurrentlyPlaying = P_NOTHING;
 volatile e_CurrentlyPlaying CurrentlyPlayinge = P_NOTHING;
 volatile int v_left, v_right, vol_left = 100, vol_right = 100;
+volatile int vol_target_left = 100, vol_target_right = 100;        // PLAY VOLUME ramps to these (the PicoMite's)
 char *wav_buf;                                                      // pointer to the buffer for received wav data
 volatile int wav_filesize;                                                   // head and tail of the ring buffer for com1
 volatile int tickspersample;
@@ -158,6 +159,7 @@ volatile uint64_t bcount[3] = {0, 0, 0};
 volatile uint64_t bcounte[3] = {0, 0, 0};
 volatile int last_left, last_right, current_left, current_right;
 volatile int sound_v_left[MAXSOUNDS]={[0 ... MAXSOUNDS-1 ]=25};
+volatile int sound_v_target_left[MAXSOUNDS]={[0 ... MAXSOUNDS-1 ]=25}, sound_v_target_right[MAXSOUNDS]={[0 ... MAXSOUNDS-1 ]=25};
 volatile int sound_v_right[MAXSOUNDS]={[0 ... MAXSOUNDS-1 ]=25};
 volatile float sound_PhaseAC_left[MAXSOUNDS], sound_PhaseAC_right[MAXSOUNDS];
 volatile float sound_PhaseM_left[MAXSOUNDS], sound_PhaseM_right[MAXSOUNDS];
@@ -1299,6 +1301,8 @@ void CloseAudio(int all){
 	FreeMemorySafe((void *)&mymp3);
 	leftarray = rightarray = NULL;
 	arraysize = arraypos = 0;
+	vol_left = vol_target_left;                                     // (no ramp left over for the next sound)
+	vol_right = vol_target_right;
 	BBCSoundReset();                                                // (envelopes kept, as on the BBC)
 	adsr_phase[0] = adsr_phase[1] = ADSR_IDLE;
 	if(all){
@@ -1325,17 +1329,33 @@ void CloseAudio(int all){
 // decoded 16-bit samples of WAV, FLAC and MP3 to DAC values, in place: +-1900 about 2000 at VOLUME 100, the level and
 // centre of TONE and SOUND, and 2000 is where the DACs rest (WAV used the DACs' whole range about 2048, so starting and
 // stopping one stepped; FLAC and MP3 were decoded to float and scaled apart, in buffers twice the size)
+// a step of each channel's PLAY VOLUME towards its target: every 11 samples, 0.25 ms, in the conversions of buffered
+// sound and in the interrupt for TONE and TTS, so a change ramps instead of stepping (the PicoMite's)
+#define VOL_RAMP_INTERVAL 11
+void ramp_volume(void){
+	if(vol_left < vol_target_left) vol_left++;
+	else if(vol_left > vol_target_left) vol_left--;
+	if(vol_right < vol_target_right) vol_right++;
+	else if(vol_right > vol_target_right) vol_right--;
+}
 void iconvert(uint16_t *ibuff, int16_t *sbuff, int count){
-	int i;
+	int i, ramp = 0;
 	int l = mapping[vol_left] * 19, r = mapping[vol_right] * 19;     // mapping[100] is 2000: 2000 * 19 / 655360 * 32768 = 1900
 	for(i=0;i<(count);i+=2){
+		if(++ramp >= VOL_RAMP_INTERVAL && (vol_left != vol_target_left || vol_right != vol_target_right)) {
+			ramp = 0;
+			ramp_volume();
+			l = mapping[vol_left] * 19;
+			r = mapping[vol_right] * 19;
+		}
 		ibuff[i] = 2000 + (sbuff[i] * l) / 655360;
 		ibuff[i+1] = 2000 + (sbuff[i+1] * r) / 655360;
 	}
 }
 void i2convert(int16_t *ibuff, int16_t *sbuff, int count){
-	int i;
+	int i, ramp = 0;
 	for(i=0;i<(count);i+=2){
+		if(++ramp >= VOL_RAMP_INTERVAL) { ramp = 0; ramp_volume(); }
 		ibuff[i]=(int16_t)(((float)sbuff[i]*(float)mapping[vol_left]/4000.0));
 		ibuff[i+1]=(int16_t)(((float)sbuff[i+1]*(float)mapping[vol_right]/4000.0));
 	}
@@ -1577,8 +1597,9 @@ void cmd_play(void) {
     if((tp = checkstring(cmdline, "VOLUME"))) {
         getargs(&tp, 3,",");
         if(argc < 1) error("Argument count");
-        if(*argv[0]) vol_left = getint(argv[0], 0, 100);
-        if(argc == 3) vol_right = getint(argv[2], 0, 100);
+        if(*argv[0]) vol_target_left = getint(argv[0], 0, 100);   // the output ramps to it (the PicoMite's)
+        if(argc == 3) vol_target_right = getint(argv[2], 0, 100);
+        if(CurrentlyPlaying == P_NOTHING) { vol_left = vol_target_left; vol_right = vol_target_right; }
         return;
     }
 
@@ -1901,13 +1922,15 @@ void cmd_play(void) {
         	sound_mode_left[channel] = type;
         	if(lastleft==(uint16_t *)nulltable)sound_PhaseAC_left[channel] = 0.0;
         	sound_PhaseM_left[channel] = PhaseM;
-            sound_v_left[channel]=(vol*41)/25;
+            sound_v_target_left[channel]=(vol*41)/25;               // a playing channel ramps to it (the PicoMite's)
+            if(lastleft==(uint16_t *)nulltable) sound_v_left[channel]=sound_v_target_left[channel];
         }
         if(right){
         	sound_mode_right[channel] = type;
         	if(lastright==(uint16_t *)nulltable)sound_PhaseAC_right[channel] = 0.0;
         	sound_PhaseM_right[channel] = PhaseM;
-            sound_v_right[channel]=(vol*41)/25;
+            sound_v_target_right[channel]=(vol*41)/25;
+            if(lastright==(uint16_t *)nulltable) sound_v_right[channel]=sound_v_target_right[channel];
         }
         if(!(CurrentlyPlaying == P_SOUND || CurrentlyPlaying == P_PAUSE_SOUND)){   // (paused, the timer runs: starting it again failed)
         	htim4.Init.Prescaler = PSpeedDiv/PWM_FREQ-1;
@@ -2258,6 +2281,12 @@ void StopAudio(void) {
 
 	if(CurrentlyPlaying != P_NOTHING ) {
         HAL_TIM_Base_Stop_IT(&htim4);
+        int l = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1) - 2000, r = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_2) - 2000;
+        if(l || r) for(int i = 99; i > 0; i--) {                    // to the midpoint over about 2 ms, not a step: a click
+            HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000 + l * i / 100);
+            HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000 + r * i / 100);
+            uSec(22);
+        }
         HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
         HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
         ppos=0;

@@ -147,3 +147,13 @@ Tests: `tests/audio/a4test.bas`, at the DAC. Pitch 89 measures 440 Hz, 137 880 H
 - The rate is checked before the file is read (a bad rate left the buffers allocated), and the closed module file is not closed again at the end.
 
 Tests: `tests/audio/a5test.bas` with `tiny.mod` from `gen_audio.py` (one pattern twice at speed 1: 2.56 s). Played once it fires at 2.64 s in the PicoMite's form and with the rate given as `, ,`, 2.69 s at 22050, once only, and the DAC is back at 2000; without an interrupt it is still playing after 4 s, with the rate in a variable too; PLAY STOP fires nothing; with an EFFECT the module fires at 2.64 s and an EFFECT of 2 s at 2.17 s, each its own. The A1 tests are unchanged.
+
+**A6, the output (16 Oct).** The PicoMite's output handling on the DACs (one level for all formats came with the decisions above):
+
+- PLAY VOLUME sets a target that the volume ramps to, a step every 11 samples (0 to 100 in 25 ms): in `iconvert` and `i2convert` for buffered sound, in the interrupt for TONE and TTS. PLAY SOUND's channel volumes ramp the same way, a step a millisecond; a channel that was off starts at its volume.
+- StopAudio ramps both outputs to the midpoint over about 2 ms instead of stepping there; a paused output glides to it (a sixty-fourth of the way a tick) instead of stepping.
+- PLAY SOUND's square and sawtooth are band-limited with polyBLEP at their edges, as the PicoMite's computed waves are; the CMM2's 4096-entry tables have the same edges.
+
+Tests: `tests/audio/a6test.bas`, at the DAC. A paused tone near its peak reaches the midpoint in 6.8 ms (1480 counts out at the start, 767 after 1 ms, 399 after 2); PLAY VOLUME 100 to 0 on a tone falls over about 25 ms in 2.5 ms windows (1836, 1557, 1209 ... 46, 0); a WAV ramps after the 60 ms its buffers were converted ahead; a SOUND channel from 25 to 5 over about 35 ms; a 5 kHz square has 42% of its samples between its extremes (the edge-adjacent ones; a naive square has none); every stop ends at 2000. The A1, A3, A4, A5 and level tests give the same results as before.
+
+With A6 the merge plan of section 7 is done. Left: 2l is covered by A6; 2o (64-bit counters shared with the interrupt, the RNG in the interrupt, TTS's `strncat`) and hxcmod's acceptance of any file as a 15-sample module.

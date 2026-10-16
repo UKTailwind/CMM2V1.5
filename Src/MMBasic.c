@@ -4340,6 +4340,7 @@ void MIPS16 ClearRuntime(void) {
     //have to stop audio before we clear variables to avoid exception
 	CloseAudio(1);
 	vol_left = 100; vol_right = 100;
+	vol_target_left = 100; vol_target_right = 100;
 	CloseAllFiles();  //also clears sprites and 3D objects
     OptionFileErrorAbort = true;
     ClearStack();

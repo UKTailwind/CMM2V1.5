@@ -64,6 +64,9 @@ extern unsigned char *phonemeLength; //tab40160
 extern unsigned char *phonemeindex;
 extern volatile int playreadcomplete;
 // AudioBBC.c: the BBC Micro sound engine of PLAY BBC SOUND and PLAY BBC ENVELOPE (the PicoMite's)
+extern volatile int vol_target_left, vol_target_right;            // PLAY VOLUME: vol_left and vol_right ramp to these
+extern volatile int sound_v_target_left[], sound_v_target_right[];  // PLAY SOUND's channel volumes ramp to these
+extern void ramp_volume(void);
 #define BBC_BUFFER_SIZE 4096                                        // 1024 frames, 23 ms at 44100 (the PicoMite's 2048 is 11.6 ms)
 extern int fillBBCBuffer(char *buf, int bufsize);
 extern int BBCSoundQueue(int chan, int amp, int pitch, int dur);
