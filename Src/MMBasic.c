@@ -4314,6 +4314,9 @@ extern int VideoColour;
 
 // clear the runtime (eg, variables, external I/O, etc) includes ClearStack() and ClearVars()
 // this is done before running a program
+extern char *CSubInterrupt;
+extern volatile char CSubComplete;
+extern unsigned int CFuncInt1, CFuncInt2, CFuncInt3, CFuncInt4, CFuncmSec;
 void MIPS16 ClearRuntime(void) {
     int i;
     //have to stop audio before we clear variables to avoid exception
@@ -4330,6 +4333,8 @@ void MIPS16 ClearRuntime(void) {
     ds18b20Timers = NULL;                                           // InitHeap() will recover the memory allocated to this array
     findlabel(NULL);                                                // clear the label cache
     ClearExternalIO();                                              // this MUST come before InitHeap()
+    CSubInterrupt = NULL; CSubComplete = 0;                         // INTERRUPT's SUB and the CSUBs' interrupt vectors go with
+    CFuncInt1 = CFuncInt2 = CFuncInt3 = CFuncInt4 = CFuncmSec = 0;  // the program (a pin or the 1 ms tick called them after NEW)
     OptionErrorSkip = 0;
     *MMErrMsg = 0;
     m_alloc(0);

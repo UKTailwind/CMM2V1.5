@@ -96,6 +96,8 @@ int sendCRLF=3;
 unsigned int CurrentCpuSpeed;
 MMFLOAT optionangle=1.0;
 int optiony=0;
+char *CSubInterrupt = NULL;                                     // INTERRUPT sub: the SUB run when a CSUB sets CSubComplete
+volatile char CSubComplete = 0;                                     // through CallTableP 0xc0 (a bool on the PicoMite); INTERRUPT alone sets it
 unsigned int PeripheralBusSpeed;
 int SaveOptionErrorSkip=0;
 static int SaveMMerrno;                                             // the caller's error state across an interrupt SUB
@@ -658,6 +660,22 @@ long long int Getuptime(void){
 MMFLOAT TimerVal(void) {
 	return (MMFLOAT)GetuSec()/1000.0;
 }
+// INTERRUPT sub names the SUB to run when a CSUB sets CSubComplete (CallTableP 0xc0); INTERRUPT 0 forgets it;
+// INTERRUPT alone sets the flag, so a program can raise it too (the PicoMite's)
+void cmd_csubinterrupt(void) {
+    getargs(&cmdline, 1, ",");
+    if(argc != 0) {
+        if(checkstring(argv[0], "0")) {
+            CSubInterrupt = NULL;
+            CSubComplete = 0;
+        } else {
+            CSubInterrupt = GetIntAddress(argv[0]);
+            CSubComplete = 0;
+            InterruptUsed = true;
+        }
+    } else CSubComplete = 1;
+}
+
 // LINPUT(ls%(), #fnbr, n): the next n bytes of file fnbr into the long string, whose new length is returned (the
 // PicoMite's)
 void fun_linputstr(void) {
@@ -4236,6 +4254,11 @@ int check_interrupt(void) {
 			goto GotAnInterrupt;
 		}
 
+    }
+    if(CSubInterrupt != NULL && CSubComplete) {                     // a CSUB has finished (INTERRUPT)
+        intaddr = CSubInterrupt;
+        CSubComplete = 0;
+        goto GotAnInterrupt;
     }
     for(i = 0; i < NBRINTERRUPTS; i++) {                            // scan through the interrupt table
 		if(inttbl[i].pin != 0) {                                    // if this entry has an interrupt pin set

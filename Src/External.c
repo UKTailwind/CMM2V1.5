@@ -93,6 +93,10 @@ extern void CallCFuncInt1(void);                                    // this is i
 extern unsigned int CFuncInt1;                                      // we should call the CFunction Int2 function if this is non zero
 extern void CallCFuncInt2(void);                                    // this is implemented in CFunction.c
 extern unsigned int CFuncInt2;                                      // we should call the CFunction Int2 function if this is non zero
+extern void CallCFuncInt3(void);                                    // and the INT3 and INT4 pins (CallTableP 0xd0, 0xd4)
+extern unsigned int CFuncInt3;
+extern void CallCFuncInt4(void);
+extern unsigned int CFuncInt4;
 extern volatile uint64_t FastTimer;
 char *CountInterrupt=NULL;
 uint64_t lastCount5High=0;
@@ -2366,6 +2370,8 @@ void TM_EXTI_Handler_3(void) {
 				INT3Count = 0;
 			}
 		}
+		else if(CFuncInt3)
+			CallCFuncInt3();                                        // a CSUB's interrupt routine (see CFunctions.c)
 		else
 			INT3Count++;
 		}
@@ -2383,9 +2389,10 @@ void TM_EXTI_Handler_4(void) {
             INT4Count = 0;
         }
 	}
+	else if(CFuncInt4)
+		CallCFuncInt4();                                            // a CSUB's interrupt routine (see CFunctions.c)
 	else
 		INT4Count++;
-
 }
 
 void TM_EXTI_Handler_5(void){

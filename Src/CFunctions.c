@@ -164,11 +164,13 @@ static long long LMod(long long a, long long b) { return b ? a % b : 0; }
 static long long LShl(long long a, int n) { return a << n; }
 static long long LAsr(long long a, int n) { return a >> n; }
 static unsigned long long LLsr(unsigned long long a, int n) { return a >> n; }
-static char CSubCompleteP;                                          // the PicoMite's CSUB interrupt flag: nothing sets it here
+extern volatile char CSubComplete;                                  // the CSUB interrupt flag: INTERRUPT runs its SUB when a CSUB sets it (MM_Misc.c)
 static void NoAudio(uint16_t left, uint16_t right) { (void)left; (void)right; }
 static void (*const AudioOutputP)(uint16_t, uint16_t) = NoAudio;
 static uint16_t AudioWrapP;
-static unsigned int CFuncInt3P, CFuncInt4P;                         // nothing calls these here
+//Vectors to CFunction routines called by the interrupt 3 and 4 handlers (the PicoMite's 0xd0 and 0xd4)
+unsigned int CFuncInt3 = (unsigned int)NULL;
+unsigned int CFuncInt4 = (unsigned int)NULL;
 static void PIOExecuteP(int pio, int sm, unsigned int ins) { (void)pio; (void)sm; (void)ins; error("PIO is not on the CMM2"); }
 static unsigned char *const NoBuffer = NULL;                        // the PicoMite's frame, layer and display buffers
 static void NoRefresh(void) { }                                     // the CMM2's display needs no refresh
@@ -222,12 +224,12 @@ const void * const CallTableP[] = {
     (void *)LoadFloat,                  // 0xb4
     (void *)&CFuncInt1,                 // 0xb8
     (void *)&CFuncInt2,                 // 0xbc
-    (void *)&CSubCompleteP,             // 0xc0
+    (void *)&CSubComplete,              // 0xc0
     (void *)&AudioOutputP,              // 0xc4
     (void *)IDiv,                       // 0xc8
     (void *)&AudioWrapP,                // 0xcc
-    (void *)&CFuncInt3P,                // 0xd0
-    (void *)&CFuncInt4P,                // 0xd4
+    (void *)&CFuncInt3,                 // 0xd0
+    (void *)&CFuncInt4,                 // 0xd4
     (void *)PIOExecuteP,                // 0xd8
     (void *)&WritePageAddressExternal,  // 0xdc the write page (PAGE WRITE)
     (void *)&NoBuffer,                  // 0xe0
@@ -432,6 +434,19 @@ void CallCFuncInt1(void){
 void CallCFuncInt2(void){
     typedef void func(void);
     func* f=(func*)(void *)CFuncInt2;
+    f();
+}
+
+// the same for the INT3 and INT4 pins
+void CallCFuncInt3(void){
+    typedef void func(void);
+    func* f=(func*)(void *)CFuncInt3;
+    f();
+}
+
+void CallCFuncInt4(void){
+    typedef void func(void);
+    func* f=(func*)(void *)CFuncInt4;
     f();
 }
 
