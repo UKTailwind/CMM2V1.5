@@ -108,6 +108,18 @@ struct s_dostack {
 #define DOFAST_ON 1
 #define DOFAST_OFF 2
 extern char *DoFindLoop(char *p, CommandToken dotoken, char *errmsg);
+// the IF/ELSEIF/ELSE/ENDIF jump table (Commands.c, the PicoMite's): for each multi-line IF, ELSEIF and ELSE token, the
+// next arm (ELSEIF, ELSE or ENDIF) and the ENDIF
+struct iftab_entry {
+    char *tok;                              // the IF, ELSEIF or ELSE command token
+    char *next_arm;                         // the next ELSEIF, ELSE or ENDIF of this IF (NULL: none found, scan)
+    char *endif_tok;                        // the ENDIF (NULL: none found, scan)
+    char *line_ptr;                         // the line holding next_arm, for an error in the next ELSEIF's condition
+};
+extern void IfTableBuild(void);
+extern void IfTableFree(void);
+extern void IfTableForget(void);
+extern struct iftab_entry *IfTableLookup(char *tok);
 extern void DoFastForget(int slot);
 struct sa_data{
     char* SaveNextDataLine;

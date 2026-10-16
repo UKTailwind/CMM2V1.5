@@ -629,6 +629,7 @@ void MIPS16 PrepareProgram(int ErrAbort) {
     // once for a heap (RUN and loading a program wipe it), not before every line typed at the prompt
     if(!NameBuilt) NameIndexBuild(NbrFuncts, ErrAbort);
     SymBindInit();                                                  // the symbols' bindings, empty (Symbols.c)
+    IfTableBuild();                                                 // the IF/ELSEIF/ELSE/ENDIF jump table (Commands.c)
     copy_clock();
 }
 

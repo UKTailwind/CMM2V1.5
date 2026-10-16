@@ -1350,6 +1350,7 @@ void InitHeap(void) {
     minMMheap=(void *)SDRAMEND;
     m_alloc(0);
     SubLayoutForget();                                              // the SUBs' parameter layouts were in the heap (P6 F1)
+    IfTableForget();                                                // and so was the IF jump table
     NameIndexForget();                                              // and the index of SUBs, FUNCTIONs and labels
     StructTableForget();                                            // and the TYPE table
     JsonArenaForget();                                              // and JSON$'s parse arena

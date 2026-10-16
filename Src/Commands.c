@@ -1327,11 +1327,150 @@ void cmd_call(void){
 		error("Unknown user subroutine");
 }
 
+/* ============================================================================
+ * IF / ELSEIF / ELSE / ENDIF jump table (the PicoMite's)
+ *
+ * Built by PrepareProgram so that cmd_if's false branch and cmd_else can locate the matching arm or ENDIF by a binary
+ * search instead of the linear GetNextCommand walk. Single-line IFs are not in it (cmd_if resolves them from argv[]);
+ * only IFs whose THEN ends the line. A malformed program (ELSE without IF, an unclosed IF) leaves next_arm or
+ * endif_tok NULL and the run-time scan raises the error as before. The CMM2 has the program region only.
+ * ============================================================================ */
+#define IFTAB_MAX_NEST 64
+#define IFTAB_INITIAL_CAPACITY 32
+
+static struct iftab_entry *iftab = NULL;
+static int iftab_count = 0;
+static int iftab_capacity = 0;
+
+void IfTableFree(void) {
+    if(iftab) FreeMemorySafe((void **)&iftab);
+    iftab_count = 0;
+    iftab_capacity = 0;
+}
+
+// Forget the table WITHOUT freeing it: InitHeap wiped the heap and its page map together, so the pointer is dangling
+// and its pages already free (the PicoMite found a later free handing back pages a TYPE definition had by then)
+void IfTableForget(void) {
+    iftab = NULL;
+    iftab_count = 0;
+    iftab_capacity = 0;
+}
+
+static int iftab_grow(void) {
+    int newcap = iftab_capacity ? iftab_capacity * 2 : IFTAB_INITIAL_CAPACITY;
+    struct iftab_entry *n = (struct iftab_entry *)GetMemoryNull(newcap * sizeof(struct iftab_entry));
+    if(!n) return 0;
+    if(iftab) {
+        memcpy(n, iftab, iftab_count * sizeof(struct iftab_entry));
+        FreeMemorySafe((void **)&iftab);
+    }
+    iftab = n;
+    iftab_capacity = newcap;
+    return 1;
+}
+
+// append an entry, returning its index (or -1 when the heap is full)
+static int iftab_append(char *tok, char *line_ptr) {
+    if(iftab_count >= iftab_capacity && !iftab_grow()) return -1;
+    iftab[iftab_count].tok = tok;
+    iftab[iftab_count].next_arm = NULL;
+    iftab[iftab_count].endif_tok = NULL;
+    iftab[iftab_count].line_ptr = line_ptr;
+    return iftab_count++;
+}
+
+// whether the IF at p is multi-line: its THEN is the last token on the line (cmd_if's test)
+static int iftab_is_multiline_if(char *p) {
+    char *tp = p + sizeof(CommandToken);
+    while(*tp && *tp != tokenTHEN) tp++;
+    if(*tp) tp++;
+    skipspace(tp);
+    return (*tp == 0 || *tp == '\'');
+}
+
+// keep prev_arm[] as long as iftab: 0 when the heap is full
+static int iftab_prev_fit(int **prev_arm, int *prev_cap, int count) {
+    if(iftab_capacity == *prev_cap) return 1;
+    int *np = (int *)GetMemoryNull(iftab_capacity * sizeof(int));
+    if(!np) return 0;
+    if(*prev_arm) {
+        memcpy(np, *prev_arm, count * sizeof(int));
+        FreeMemorySafe((void **)prev_arm);
+    }
+    *prev_arm = np;
+    *prev_cap = iftab_capacity;
+    return 1;
+}
+
+// the entries of one region: a parallel "previous arm" chain (prev_arm[], by iftab index) lets ENDIF patch endif_tok
+// for every arm of its IF without walking the closed IFs nested in it. 0 if the heap ran out.
+static int iftab_build_region(char *prog) {
+    if(!prog || *prog == (char)0xff || *prog == 0) return 1;
+    int last_arm[IFTAB_MAX_NEST];                                   // iftab index of the latest arm of each open IF
+    int sp = 0, sp_extra = 0;                                       // (beyond the cap: depth only, the scan does the rest)
+    int prev_cap = 0, *prev_arm = NULL;
+    char *p = prog, *line_ptr = NULL;
+    while(*p != (char)0xff) {
+        p = GetNextCommand(p, &line_ptr, NULL);
+        if(*p == 0) break;
+        CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdIF) {
+            if(!iftab_is_multiline_if(p)) continue;                 // a single-line IF
+            if(sp >= IFTAB_MAX_NEST) { sp_extra++; continue; }
+            int count = iftab_count, idx = iftab_append(p, line_ptr);
+            if(idx < 0 || !iftab_prev_fit(&prev_arm, &prev_cap, count)) { FreeMemorySafe((void **)&prev_arm); return 0; }
+            prev_arm[idx] = -1;
+            last_arm[sp++] = idx;
+        } else if(tkn == cmdELSEIF || tkn == cmdELSE) {
+            if(sp_extra > 0 || sp == 0) continue;                   // malformed or beyond the cap: the scan handles it
+            int prev = last_arm[sp - 1];
+            int count = iftab_count, idx = iftab_append(p, line_ptr);
+            if(idx < 0 || !iftab_prev_fit(&prev_arm, &prev_cap, count)) { FreeMemorySafe((void **)&prev_arm); return 0; }
+            iftab[prev].next_arm = p;
+            iftab[prev].line_ptr = line_ptr;                        // the line of next_arm: an error in this ELSEIF's condition names it
+            prev_arm[idx] = prev;
+            last_arm[sp - 1] = idx;
+        } else if(tkn == cmdENDIF) {
+            if(sp_extra > 0) sp_extra--;
+            else if(sp > 0) {
+                int last = last_arm[--sp];
+                iftab[last].next_arm = p;
+                iftab[last].line_ptr = line_ptr;
+                for(int i = last; i >= 0; i = prev_arm[i]) iftab[i].endif_tok = p;
+            }
+        }
+    }
+    FreeMemorySafe((void **)&prev_arm);
+    return 1;                                                       // an unclosed IF keeps NULLs: the scan raises "No matching ENDIF"
+}
+
+// with too little heap for the table there is no table: every IF scans, as before it existed (an error here would
+// send the prompt, which rebuilds it each time it comes back, round that loop for ever)
+void MIPS16 IfTableBuild(void) {
+    IfTableFree();
+    if(!iftab_build_region((char *)ProgMemory)) IfTableFree();     // (built in program order: already sorted)
+}
+
+struct iftab_entry *IfTableLookup(char *tok) {
+    if(iftab_count == 0 || tok == NULL) return NULL;
+    int lo = 0, hi = iftab_count;
+    while(lo < hi) {
+        int mid = (lo + hi) >> 1;
+        char *m = iftab[mid].tok;
+        if(m == tok) return &iftab[mid];
+        if(m < tok) lo = mid + 1;
+        else hi = mid;
+    }
+    return NULL;
+}
+
 void cmd_if(void) {
 	int r, i, testgoto, testelseif;
 	char ss[3];														// this will be used to split up the argument line
 	char *p, *tp;
 	char *rp = NULL;
+	// the IF (then ELSEIF) token, the jump table's key: the statement loop's CmdTokenPtr, if that is this IF
+	char *if_token_addr = (CmdTokenPtr && commandtbl_at(CmdTokenPtr) == cmdIF) ? CmdTokenPtr : NULL;
 
 	ss[0] = tokenTHEN;
 	ss[1] = tokenELSE;
@@ -1394,7 +1533,27 @@ retest_an_if:
 		} else {
 			// the test returned FALSE so we are just interested in the ELSE stage (if present)
 			// first check if it is a multiline IF (ie, only 2 args)
-			if(argc == 2) {
+			struct iftab_entry *ife = (argc == 2) ? IfTableLookup(if_token_addr) : NULL;
+			if(ife && ife->next_arm) {
+				// the jump table has this IF's next arm: an ELSEIF is evaluated as the scan below would, an ELSE or
+				// ENDIF is stepped over
+				char *target = ife->next_arm;
+				if(commandtbl_at(target) == cmdELSEIF) {
+					p = target + sizeof(CommandToken);
+					skipspace(p);
+					CurrentLinePtr = ife->line_ptr;
+					if(*p == 0) error("Syntax");                    // there must be a test after the elseif
+					cmdline = p;
+					skipelement(p);
+					nextstmt = p;
+					testgoto = false;
+					testelseif = true;
+					if_token_addr = target;
+					goto retest_an_if;
+				}
+				skipelement(target);
+				nextstmt = target;
+			} else if(argc == 2) {
 				// search for the next ELSE, or ENDIF and pass control to the following line
 				// if an ELSEIF is found re execute this function to evaluate the condition following the ELSEIF
 				i = 1; p = nextstmt;
@@ -1426,6 +1585,7 @@ retest_an_if:
 						// we have found an ELSEIF statement at the same level as our IF statement
 						// setup the environment to make this function evaluate the test following ELSEIF and jump back
 						// to the start of the function.  This is not very clean (it uses the dreaded goto for a start) but it works
+						if_token_addr = p;                          // (its token: the key for the jump table)
 						p += sizeof(CommandToken);                  // step over the token
 						skipspace(p);
 						CurrentLinePtr = rp;
@@ -1483,10 +1643,19 @@ void cmd_else(void) {
 	int i;
 	char *p, *tp;
 
+	if(cmdtoken ==  cmdELSE) checkend(cmdline);
+	// the jump table has this ELSE's or ELSEIF's ENDIF (the statement loop's CmdTokenPtr is its token)
+	if(CmdTokenPtr && (commandtbl_at(CmdTokenPtr) == cmdELSE || commandtbl_at(CmdTokenPtr) == cmdELSEIF)) {
+		struct iftab_entry *ife = IfTableLookup(CmdTokenPtr);
+		if(ife && ife->endif_tok) {
+			p = ife->endif_tok;
+			skipelement(p);
+			nextstmt = p;
+			return;
+		}
+	}
 	// search for the next ENDIF and pass control to the following line
 	i = 1; p = nextstmt;
-
-	if(cmdtoken ==  cmdELSE) checkend(cmdline);
 
 	while(1) {
         p = GetNextCommand(p, NULL, "No matching ENDIF");
