@@ -145,7 +145,8 @@ extern char *sbuff1, *sbuff2;
 extern uint16_t *ibuff1, *ibuff2;
 extern char *sbuff1e, *sbuff2e;
 extern uint16_t *ibuff1e, *ibuff2e;
-extern int WAVcomplete;
+extern volatile int WAVcomplete;
+extern volatile int audiofinished;
 extern DAC_HandleTypeDef hdac1;
 extern volatile float PhaseM_left, PhaseM_right;
 extern const unsigned short SineTable[4096];
@@ -869,9 +870,13 @@ void EXTI9_5_IRQHandler(void)
 void Audio_Interrupt(void)  {
     // play a tone
     if(CurrentlyPlaying == P_TONE){
-        if(!SoundPlay){
-        	CloseAudio(1);
-            WAVcomplete = true;
+        if(!SoundPlay){                                             // ended: stop here; audio_checks does the rest (2a, 2d)
+        	if(!audiofinished) {
+        		HAL_TIM_Base_Stop_IT(&htim4);
+        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
+        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
+        		audiofinished = 1;
+        	}
         } else {
         	SoundPlay--;
         	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, (((SineTable[(int)PhaseAC_left]-2000)  * mapping[vol_left]) / 2000)+2000);
@@ -888,9 +893,11 @@ void Audio_Interrupt(void)  {
         if(swingbuf){ //buffer is primed
         	if(swingbuf==1)flacbuff=(uint16_t *)sbuff1;
         	else flacbuff=(uint16_t *)sbuff2;
-        	if(CurrentlyPlaying == P_WAV && mono){
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos]);
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos++]);
+        	if(mono){                                               // (FLAC and MP3 too: they took two samples a tick)
+        		if(ppos<bcount[swingbuf]){
+					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos]);
+					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos++]);
+        		}
         	} else {
 				if(ppos<bcount[swingbuf]){
 					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos++]);
@@ -981,9 +988,13 @@ void Audio_Interrupt(void)  {
         }
     } else if(CurrentlyPlaying == P_TTS) {
     	int a, b;
-        if(bcount[1]==0){
-        	CloseAudio(1);
-            WAVcomplete = true;
+        if(bcount[1]==0){                                           // ended: stop here; audio_checks does the rest (2a, 2d)
+        	if(!audiofinished) {
+        		HAL_TIM_Base_Stop_IT(&htim4);
+        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
+        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
+        		audiofinished = 1;
+        	}
         } else {
 			a = sbuff1[ppos++];
 			b = a;

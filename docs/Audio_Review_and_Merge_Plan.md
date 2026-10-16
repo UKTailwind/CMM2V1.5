@@ -88,3 +88,24 @@ As separate commits, each built with 0 warnings and with tests where a program c
 2. FLAC and MP3 at WAV's level (4.6), which changes how loud existing programs sound.
 3. PAUSE twice silent (4.3), TONE while paused (4.4).
 4. MM.INFO(SOUND) strings by dialect (4.5).
+
+## 9. Progress
+
+**A1, the fixes (16 Oct).** 2a, 2b, 2c, 2e, 2f, 2g, 2h, 2i, 2k, 2m and 2n as planned, and 2d with them, because the TONE and TTS interrupts needed it: at its end the audio interrupt now only stops TIM4, sets the DACs to the midpoint and raises `audiofinished`; `audio_checks` (from `CheckSDCard`, and at the start of every PLAY) does the `CloseAudio` and sets `WAVcomplete`, which is volatile. So A2 is folded into A1. Details:
+
+- `CloseAudio(0)`, a track change, keeps `WAVInterrupt` and clears `WAVcomplete` (it set it, which with the handler kept would have fired the interrupt at every track); the dispatcher clears `WAVInterrupt` when it fires it, so a finished sound's handler cannot fire again at the end of a later one; PLAY TONE without an interrupt drops an old one.
+- `mono` is set for FLAC and MP3; the interrupt's mono path serves all three formats and stops at `bcount`.
+- The playlist stops at `MAXALBUM`, tests `f_stat`'s result and `AM_DIR` as a bit, and skips a name that would not fit in an entry.
+- MM.INFO(TRACK) returns `WAVfilename`, set by the WAV, FLAC and MP3 starts (also while paused).
+- PLAY SOUND finds the type into a local and checks position, use, type, frequency and volume before it changes the channel; while paused it neither restarts the timer nor leaves the paused state.
+- WAV and FLAC refuse more than two channels; init failures close the file (and free the MP3 decoder) before the error, with "Not a WAV file it can play" and "Not a FLAC file it can play"; FLAC checks its rate before it allocates.
+- MODFILE's prescaler is `PSpeedDiv/rate-1`; a module that hxcmod cannot load is refused ("Not a MOD file it can play") and its buffers freed.
+
+Found while testing on Peter's audio card, and fixed in A1:
+
+- PLAY WAV, FLAC or MP3 of a directory given with its drive (`PLAY WAV "A:/SOUNDS"`) scanned the directory and then failed with "The logical drive number is invalid": each entry was the current directory and the argument glued together, `A:/A:/SOUNDS/...`. The entries are now made from the directory's full path (`getfullpath`, which resolves the drive, `..` and the current directory).
+- An empty directory gave "Could not find the file"; now "No WAV files in the directory" (FLAC, MP3), with the playlist freed.
+
+Tests: `tests/audio` (README there). On Peter's card every check passes: each two-second tone, mono and stereo, takes 2.1 to 2.2 s to its interrupt (mono FLAC and MP3 took about 1 s before); the 500 ms TONE fires at 503 ms; TTS fires; 53 WAVs in a directory play 20 tracks with one interrupt at the end; PLAY STOP fires nothing; every module on the card loads except an Impulse Tracker file named `.MOD` and two corrupt ones.
+
+Not fixed: hxcmod takes any file without a signature for a 15-sample Soundtracker module, so PLAY MODFILE of a FLAC file "plays" noise (the PicoMite has the same); a check of the song length and order table would refuse most such files. 2l goes with A6; 2o is left. The decisions of section 8 are still open, and nothing in A1 depends on them beyond firing the interrupt at the natural end only, which is what the CMM2 meant to do.

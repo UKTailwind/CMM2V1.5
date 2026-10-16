@@ -128,7 +128,9 @@ char *wav_buf;                                                      // pointer t
 volatile int wav_filesize;                                                   // head and tail of the ring buffer for com1
 volatile int tickspersample;
 char *WAVInterrupt = NULL;
-int WAVcomplete;
+volatile int WAVcomplete;
+volatile int audiofinished = 0;                                    // TONE or TTS ended in the interrupt: audio_checks finishes it
+char WAVfilename[FF_MAX_LFN] = "";                                 // the file playing, for MM.INFO(TRACK)
 int WAV_fnbr=0;
 int PWM_FREQ=44100;
 volatile int swingbuf = 0,nextbuf = 0, playreadcomplete = 1;
@@ -168,6 +170,7 @@ drflac* myflac=NULL;
 drmp3 *mymp3 = NULL;                                                // PLAY MP3's decoder, on the heap: it holds a 16 KB scratch area
 float *fbuff1, *fbuff2;
 a_flist *alist=NULL;
+extern void getfullpath(char *p, char *q);                         // FileIO.c
 int trackplaying=0, trackstoplay=0;
 
 void* my_malloc(size_t sz, void* pUserData)
@@ -1181,6 +1184,7 @@ void cmd_tts(char *pp){
 			bcount[1]=GetBufferLength()/50;
 			if(!bcount[1]){
 					FreeMemorySafe((void *)&buffer);
+					sbuff1 = sbuff2 = NULL;                         // (they pointed at it, and were freed again)
 					error("Invalid phonetic text");
 			}
 			bcount[2]=0;
@@ -1202,7 +1206,7 @@ void CloseAudio(int all){
 	bcounte[1] = bcounte[2] = wav_filesize = 0;
 	swingbuf = nextbuf = playreadcomplete = 0;
 	swingbufe = nextbufe = playreadcompletee = 0;
-	WAVInterrupt = NULL;
+	if(all) WAVInterrupt = NULL;                                      // (a track change keeps it: the last track fires it)
 	StopAudio();
 	ForceFileClose(WAV_fnbr);
 	if((was_playing == P_MP3 || was_playing == P_PAUSE_MP3) && mymp3)drmp3_uninit(mymp3);
@@ -1225,7 +1229,7 @@ void CloseAudio(int all){
 		trackstoplay=0;
 		trackplaying=0;
 	}
-	WAVcomplete = true;
+	WAVcomplete = false;                                             // (a track change must not fire the interrupt; the end sets it)
 	FSerror = 0;
 	mymemset(&mywav,0,sizeof(drwav));
     int i;
@@ -1268,14 +1272,23 @@ void wavcallback(char *p){
     }
     WAV_fnbr = FindFreeFileNbr();
     if(!BasicFileOpen(p, WAV_fnbr, FA_READ)) return;
+    strncpy(WAVfilename, p, sizeof(WAVfilename) - 1);
 	drwav_allocation_callbacks allocationCallbacks;
 	int myData;
     allocationCallbacks.pUserData = &myData;
     allocationCallbacks.onMalloc  = my_malloc;
     allocationCallbacks.onRealloc = my_realloc;
     allocationCallbacks.onFree    = my_free;
-    drwav_init(&mywav,(drwav_read_proc)onRead, (drwav_seek_proc)onSeek, (drwav_tell_proc)onTell, NULL, &allocationCallbacks);
-    if(mywav.sampleRate>96000)error("Max 96KHz sample rate");
+    if(!drwav_init(&mywav,(drwav_read_proc)onRead, (drwav_seek_proc)onSeek, (drwav_tell_proc)onTell, NULL, &allocationCallbacks)) {
+        ForceFileClose(WAV_fnbr);
+        error("Not a WAV file it can play");
+    }
+    if(mywav.sampleRate>96000 || mywav.channels > 2) {
+        const char *e = mywav.channels > 2 ? "Only mono or stereo" : "Max 96KHz sample rate";
+        drwav_uninit(&mywav);
+        ForceFileClose(WAV_fnbr);
+        error((char *)e);
+    }
 //        PInt(mywav.channels);MMPrintString(" Channels\r\n");
 //        PInt(mywav.bitsPerSample);MMPrintString(" Bits per sample\r\n");
 //        PInt(mywav.sampleRate);MMPrintString(" Sample rate\r\n");
@@ -1312,8 +1325,13 @@ void mp3callback(char *p){
     if(strchr(p, '.') == NULL) strcat(p, ".mp3");
     WAV_fnbr = FindFreeFileNbr();
     if(!BasicFileOpen(p, WAV_fnbr, FA_READ)) return;
+    strncpy(WAVfilename, p, sizeof(WAVfilename) - 1);
     mymp3 = GetMemory(sizeof(drmp3));                                // (freed by CloseAudio)
-    if(drmp3_init(mymp3, (drmp3_read_proc)onRead, (drmp3_seek_proc)onSeek, (drmp3_tell_proc)onTell, NULL, NULL,  &allocationCallbacks)==DRMP3_FALSE)error("Mp3 init");
+    if(drmp3_init(mymp3, (drmp3_read_proc)onRead, (drmp3_seek_proc)onSeek, (drmp3_tell_proc)onTell, NULL, NULL,  &allocationCallbacks)==DRMP3_FALSE) {
+        FreeMemorySafe((void **)&mymp3);
+        ForceFileClose(WAV_fnbr);
+        error("Mp3 init");
+    }
     FreeMemorySafe((void *)&sbuff1);
     FreeMemorySafe((void *)&sbuff2);
     sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*5);
@@ -1324,6 +1342,7 @@ void mp3callback(char *p){
 	htim4.Instance->PSC = PSpeedDiv/mymp3->sampleRate-1;
 //        PInt(mymp3->sampleRate);MMPrintString(" Sample rate\r\n");
 //        PInt(mymp3->channels);MMPrintString(" Channels\r\n");
+    mono=(mymp3->channels == 1 ? 1 : 0);
     bcount[1]=drmp3_read_pcm_frames_f32(mymp3, WAV_BUFFER_SIZE/2, (float*)sbuff1) * mymp3->channels;
     fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
     wav_filesize=bcount[1];
@@ -1350,7 +1369,14 @@ void flaccallback(char *p){
     allocationCallbacks.onMalloc  = my_malloc;
     allocationCallbacks.onRealloc = my_realloc;
     allocationCallbacks.onFree    = my_free;
+    strncpy(WAVfilename, p, sizeof(WAVfilename) - 1);
     myflac=drflac_open((drflac_read_proc)onRead, (drflac_seek_proc)onSeek, (drflac_tell_proc)onTell, &myData, &allocationCallbacks);
+    if(myflac == NULL || myflac->sampleRate > 96000 || myflac->channels > 2) {  // (the rate was checked after the buffers were made)
+        const char *e = myflac == NULL ? "Not a FLAC file it can play" : myflac->channels > 2 ? "Only mono or stereo" : "Max 96KHz sample rate";
+        if(myflac) { drflac_close(myflac); myflac = NULL; }
+        ForceFileClose(WAV_fnbr);
+        error((char *)e);
+    }
     FreeMemorySafe((void *)&sbuff1);
     FreeMemorySafe((void *)&sbuff2);
 	sbuff1 = GetInternalMemory(WAV_BUFFER_SIZE*4);
@@ -1359,11 +1385,11 @@ void flaccallback(char *p){
     fbuff2 = (float *)sbuff2;
 	htim4.Init.Prescaler = PSpeedDiv/myflac->sampleRate-1;
 	htim4.Instance->PSC = PSpeedDiv/myflac->sampleRate-1;
-    if(myflac->sampleRate>96000)error("Max 96KHz sample rate");
 //	        PInt(myflac->bitsPerSample);MMPrintString(" Bits per sample\r\n");
 //	        PInt(myflac->sampleRate);MMPrintString(" Sample rate\r\n");
 //	       PInt(myflac->totalPCMFrameCount);MMPrintString(" Total Samples\r\n");
 //        PInt(myflac->totalPCMFrameCount/myflac->sampleRate/2);MMPrintString(" Calculated duration in seconds\r\n");
+	mono=(myflac->channels == 1 ? 1 : 0);
 	bcount[1]=drflac_read_pcm_frames_f32(myflac, WAV_BUFFER_SIZE/2, (float*)sbuff1) * myflac->channels;
 //	bcount[2]=drflac_read_pcm_frames_f32(myflac, WAV_BUFFER_SIZE/2, (float*)sbuff2) * myflac->channels;
 	fconvert(fbuff1, (uint16_t *)sbuff1, bcount[1]);
@@ -1380,6 +1406,7 @@ void flaccallback(char *p){
 // The MMBasic command:  PLAY
 void cmd_play(void) {
     char *tp;
+    if(audiofinished) audio_checks();                               // a TONE or TTS that ended since the last check
     if(checkstring(cmdline, "STOP")) {
         CloseAudio(1);
         return;
@@ -1491,6 +1518,8 @@ void cmd_play(void) {
         if(f_left<0.0 || f_left>20000.0)error("Valid is 0Hz to 20KHz");
         if(f_right<0.0 || f_right>20000.0)error("Valid is 0Hz to 20KHz");
         if(argc > 4) PlayDuration = PWM_FREQ*getint(argv[4], 0, INT_MAX)/1000;
+        WAVInterrupt = NULL;                                        // (a finished WAV's handler would fire at the tone's end)
+        WAVcomplete = 0;
         if(argc == 7) {
             WAVInterrupt = GetIntAddress(argv[6]);					// get the interrupt location
             InterruptUsed = true;
@@ -1527,71 +1556,47 @@ void cmd_play(void) {
         channel=getint(argv[0],1,MAXSOUNDS)-1;
         lastleft=(uint16_t *)sound_mode_left[channel];
         lastright=(uint16_t *)sound_mode_right[channel];
-        if(checkstring(argv[2],"L")!=NULL){
-        	left=1;
-        	sound_mode_left[channel]=(uint16_t *)nulltable;
-        }
-        else if(checkstring(argv[2],"R")!=NULL){
-        	right=1;
-        	sound_mode_right[channel]=(uint16_t *)nulltable;
-        }
-        else if(checkstring(argv[2],"B")!=NULL){
-        	right=1;
-        	left=1;
-        	sound_mode_left[channel]=(uint16_t *)nulltable;
-        	sound_mode_right[channel]=(uint16_t *)nulltable;
-        } else error("Position must be L, R, or B");
+        if(checkstring(argv[2],"L")!=NULL) left=1;
+        else if(checkstring(argv[2],"R")!=NULL) right=1;
+        else if(checkstring(argv[2],"B")!=NULL) { left=1; right=1; }
+        else error("Position must be L, R, or B");
         if(!(CurrentlyPlaying == P_NOTHING || CurrentlyPlaying == P_SOUND || CurrentlyPlaying == P_PAUSE_SOUND)) error("Sound output in use");
-        if(checkstring(argv[4],"O")!=NULL && left)sound_mode_left[channel]=(uint16_t *)nulltable;
-        if(checkstring(argv[4],"O")!=NULL && right)sound_mode_right[channel]=(uint16_t *)nulltable;
-        if(checkstring(argv[4],"Q")!=NULL && left)sound_mode_left[channel]=(uint16_t *)squaretable;
-        if(checkstring(argv[4],"Q")!=NULL && right)sound_mode_right[channel]=(uint16_t *)squaretable;
-        if(checkstring(argv[4],"T")!=NULL && left)sound_mode_left[channel]=(uint16_t *)triangletable;
-        if(checkstring(argv[4],"T")!=NULL && right)sound_mode_right[channel]=(uint16_t *)triangletable;
-        if(checkstring(argv[4],"W")!=NULL && left)sound_mode_left[channel]=(uint16_t *)sawtable;
-        if(checkstring(argv[4],"W")!=NULL && right)sound_mode_right[channel]=(uint16_t *)sawtable;
-        if(checkstring(argv[4],"S")!=NULL && left)sound_mode_left[channel]=(uint16_t *)SineTable;
-        if(checkstring(argv[4],"S")!=NULL && right)sound_mode_right[channel]=(uint16_t *)SineTable;
-        if(checkstring(argv[4],"P")!=NULL && left){sound_mode_left[channel]=(uint16_t *)noisetable;setnoise();}
-        if(checkstring(argv[4],"P")!=NULL && right){sound_mode_right[channel]=(uint16_t *)noisetable;setnoise();}
-        if(checkstring(argv[4],"N")!=NULL && left){sound_mode_left[channel]=(uint16_t *)whitenoise;}
-        if(checkstring(argv[4],"N")!=NULL && right){sound_mode_right[channel]=(uint16_t *)whitenoise;}
-        if(left && sound_mode_left[channel]==NULL)error("Invalid type");
-        if(right && sound_mode_right[channel]==NULL)error("Invalid type");
+        // the type, the frequency and the volume are all checked before the channel is changed ("Invalid type" could
+        // not fire: the channel had already been set to nulltable, and the live channel changed before the checks)
+        uint16_t *type = NULL;
+        if(checkstring(argv[4],"O")!=NULL) type=(uint16_t *)nulltable;
+        else if(checkstring(argv[4],"Q")!=NULL) type=(uint16_t *)squaretable;
+        else if(checkstring(argv[4],"T")!=NULL) type=(uint16_t *)triangletable;
+        else if(checkstring(argv[4],"W")!=NULL) type=(uint16_t *)sawtable;
+        else if(checkstring(argv[4],"S")!=NULL) type=(uint16_t *)SineTable;
+        else if(checkstring(argv[4],"P")!=NULL) type=(uint16_t *)noisetable;
+        else if(checkstring(argv[4],"N")!=NULL) type=(uint16_t *)whitenoise;
+        if(type == NULL) error("Invalid type");
         f_in=10.0;
         if(argc>=7)f_in = getnumber(argv[6]);
-        // get the arguments
         if(f_in<1.0 || f_in>20000.0)error("Valid is 1Hz to 20KHz");
+        int vol = 100/MAXSOUNDS;
+        if(argc==9) vol = getint(argv[8],0,100/MAXSOUNDS);
+        if(type == (uint16_t *)noisetable) setnoise();
+        PhaseM = (type == (uint16_t *)whitenoise) ? f_in : f_in / (float)PWM_FREQ * 4096.0;
         if(left){
-        	if(!(sound_mode_left[channel]==whitenoise )){
-        		PhaseM =  f_in  / (float)PWM_FREQ * 4096.0;
-        	} else {
-        		PhaseM =  f_in;
-        	}
+        	sound_mode_left[channel] = type;
         	if(lastleft==(uint16_t *)nulltable)sound_PhaseAC_left[channel] = 0.0;
         	sound_PhaseM_left[channel] = PhaseM;
-            if(argc==9)sound_v_left[channel]=getint(argv[8],0,100/MAXSOUNDS);
-            else sound_v_left[channel]=100/MAXSOUNDS;
-            sound_v_left[channel]=(sound_v_left[channel]*41)/25;
+            sound_v_left[channel]=(vol*41)/25;
         }
         if(right){
-        	if(!(sound_mode_right[channel]==whitenoise )){
-        		PhaseM =  f_in  / (float)PWM_FREQ * 4096.0;
-        	} else {
-        		PhaseM =  f_in;
-        	}
+        	sound_mode_right[channel] = type;
         	if(lastright==(uint16_t *)nulltable)sound_PhaseAC_right[channel] = 0.0;
         	sound_PhaseM_right[channel] = PhaseM;
-            if(argc==9)sound_v_right[channel]=getint(argv[8],0,100/MAXSOUNDS);
-            else sound_v_right[channel]=100/MAXSOUNDS;
-            sound_v_right[channel]=(sound_v_right[channel]*41)/25;
+            sound_v_right[channel]=(vol*41)/25;
         }
-        if(!(CurrentlyPlaying == P_SOUND)){
+        if(!(CurrentlyPlaying == P_SOUND || CurrentlyPlaying == P_PAUSE_SOUND)){   // (paused, the timer runs: starting it again failed)
         	htim4.Init.Prescaler = PSpeedDiv/PWM_FREQ-1;
     		htim4.Instance->PSC = PSpeedDiv/PWM_FREQ-1;
             ConfigSoundOutputs();
         }
-        CurrentlyPlaying = P_SOUND;
+        if(CurrentlyPlaying != P_PAUSE_SOUND) CurrentlyPlaying = P_SOUND;  // (paused stays paused)
         return;
     }
     if((tp = checkstring(cmdline, "WAV"))) {
@@ -1614,12 +1619,15 @@ void cmd_play(void) {
         FRESULT fr;
         FILINFO fno;
         fr = f_stat(p, &fno);
-        if(fno.fattrib==AM_DIR || p[0]==0){
+        if((fr == FR_OK && (fno.fattrib & AM_DIR)) || p[0]==0){     // (fno was read when f_stat failed, and == AM_DIR missed other bits)
             alist=GetInternalMemory(sizeof(a_flist)*MAXALBUM);
             trackstoplay=0;
             trackplaying=0;
         	DIR djd;
         	djd.pat="*.wav";
+        	char dir[STRINGSIZE] = "A:";                            // the directory from the root, "A:/x/y/" (the entries
+        	getfullpath(p, &dir[2]);                                // were the current directory and p: "A:/A:/x/..." for a full path)
+        	if(dir[strlen(dir) - 1] != '/') strcat(dir, "/");
         	if(!CurrentLinePtr)MMPrintString("Directory found - commencing player\r\n");
             FSerror = f_opendir(&djd, p);
             for(;;){
@@ -1627,16 +1635,19 @@ void cmd_play(void) {
             	if (fr != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
             	// Get a directory item
             	if (pattern_matching(djd.pat, fno.fname, 0, 0)){
+            		if(trackstoplay >= MAXALBUM) break;            // the playlist holds MAXALBUM (it was written past)
             		if(!CurrentLinePtr){MMPrintString(fno.fname);PRet();}
-            		strcpy(alist[trackstoplay].fn,filepath);
-            		if(alist[trackstoplay].fn[strlen(alist[trackstoplay].fn)-1]!='/')strcat(alist[trackstoplay].fn,"/");
-            		strcat(alist[trackstoplay].fn,p);
-            		strcat(alist[trackstoplay].fn,"/");
-            		strcat(alist[trackstoplay++].fn,fno.fname);
+            		if(strlen(dir) + strlen(fno.fname) >= sizeof(alist->fn)) continue;   // (a name that would not fit)
+            		strcpy(alist[trackstoplay].fn, dir);
+            		strcat(alist[trackstoplay++].fn, fno.fname);
             	}
             }
-            trackstoplay--;
             f_closedir(&djd);
+            if(trackstoplay == 0) {
+            	FreeMemorySafe((void **)&alist);
+            	error("No $ files in the directory", "WAV");
+            }
+            trackstoplay--;
             wavcallback(alist[trackplaying].fn);
         	return;
         }
@@ -1666,8 +1677,8 @@ void cmd_play(void) {
 
         volume=63;
         if(argc >= 5 && *argv[4]) {
-        	volume = getint(argv[4],0,64) - 1;
-        	if (volume <0 ) volume = 0;
+        	int v = getint(argv[4],0,64);
+        	volume = v ? v - 1 : 0;                                // (0 - 1 in an unsigned char was 255)
         }
     	samprate = 16000;
 		if(argc == 7) samprate = getint(argv[6], 150,500000);
@@ -1756,12 +1767,15 @@ void cmd_play(void) {
         FRESULT fr;
         FILINFO fno;
         fr = f_stat(p, &fno);
-        if(fno.fattrib==AM_DIR || p[0]==0){
+        if((fr == FR_OK && (fno.fattrib & AM_DIR)) || p[0]==0){     // (fno was read when f_stat failed, and == AM_DIR missed other bits)
             alist=GetInternalMemory(sizeof(a_flist)*MAXALBUM);
             trackstoplay=0;
             trackplaying=0;
         	DIR djd;
         	djd.pat="*.flac";
+        	char dir[STRINGSIZE] = "A:";                            // the directory from the root, "A:/x/y/" (the entries
+        	getfullpath(p, &dir[2]);                                // were the current directory and p: "A:/A:/x/..." for a full path)
+        	if(dir[strlen(dir) - 1] != '/') strcat(dir, "/");
         	if(!CurrentLinePtr)MMPrintString("Directory found - commencing player\r\n");
             FSerror = f_opendir(&djd, p);
             for(;;){
@@ -1769,16 +1783,19 @@ void cmd_play(void) {
             	if (fr != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
             	// Get a directory item
             	if (pattern_matching(djd.pat, fno.fname, 0, 0)){
+            		if(trackstoplay >= MAXALBUM) break;            // the playlist holds MAXALBUM (it was written past)
             		if(!CurrentLinePtr){MMPrintString(fno.fname);PRet();}
-            		strcpy(alist[trackstoplay].fn,filepath);
-            		if(alist[trackstoplay].fn[strlen(alist[trackstoplay].fn)-1]!='/')strcat(alist[trackstoplay].fn,"/");
-            		strcat(alist[trackstoplay].fn,p);
-            		strcat(alist[trackstoplay].fn,"/");
-            		strcat(alist[trackstoplay++].fn,fno.fname);
+            		if(strlen(dir) + strlen(fno.fname) >= sizeof(alist->fn)) continue;   // (a name that would not fit)
+            		strcpy(alist[trackstoplay].fn, dir);
+            		strcat(alist[trackstoplay++].fn, fno.fname);
             	}
             }
-            trackstoplay--;
             f_closedir(&djd);
+            if(trackstoplay == 0) {
+            	FreeMemorySafe((void **)&alist);
+            	error("No $ files in the directory", "FLAC");
+            }
+            trackstoplay--;
             flaccallback(alist[trackplaying].fn);
         	return;
         }
@@ -1818,11 +1835,16 @@ void cmd_play(void) {
         FileClose(WAV_fnbr);
         if(argc==3)modfilesamplerate=getinteger(argv[2]);
         if(!(modfilesamplerate==8000 || modfilesamplerate==16000 || modfilesamplerate==22050 || modfilesamplerate==44100 || modfilesamplerate==48000 ))error("Valid rates are 8000, 16000, 22050, 44100, 48000");
-        htim4.Init.Prescaler = PSpeedDiv/(modfilesamplerate-1);
-    	htim4.Instance->PSC = PSpeedDiv/(modfilesamplerate-1);
+        htim4.Init.Prescaler = PSpeedDiv/modfilesamplerate-1;
+    	htim4.Instance->PSC = PSpeedDiv/modfilesamplerate-1;
         hxcmod_init( &mcontext );
         hxcmod_setcfg(&mcontext, modfilesamplerate,1,1 );
-		hxcmod_load( &mcontext, (void*)modbuff, i );
+		if(!hxcmod_load( &mcontext, (void*)modbuff, i )) {
+			FreeMemorySafe((void **)&modbuff);
+			FreeMemorySafe((void **)&sbuff1);
+			FreeMemorySafe((void **)&sbuff2);
+			error("Not a MOD file it can play");
+		}
         hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, WAV_BUFFER_SIZE/4, NULL );
 //        hxcmod_fillbuffer( &mcontext, (msample*)sbuff2, WAV_BUFFER_SIZE/4, NULL );
         wav_filesize=WAV_BUFFER_SIZE/2;
@@ -1859,12 +1881,15 @@ void cmd_play(void) {
         FRESULT fr;
         FILINFO fno;
         fr = f_stat(p, &fno);
-        if(fno.fattrib==AM_DIR || p[0]==0){
+        if((fr == FR_OK && (fno.fattrib & AM_DIR)) || p[0]==0){     // (fno was read when f_stat failed, and == AM_DIR missed other bits)
             alist=GetInternalMemory(sizeof(a_flist)*MAXALBUM);
             trackstoplay=0;
             trackplaying=0;
         	DIR djd;
         	djd.pat="*.mp3";
+        	char dir[STRINGSIZE] = "A:";                            // the directory from the root, "A:/x/y/" (the entries
+        	getfullpath(p, &dir[2]);                                // were the current directory and p: "A:/A:/x/..." for a full path)
+        	if(dir[strlen(dir) - 1] != '/') strcat(dir, "/");
         	if(!CurrentLinePtr)MMPrintString("Directory found - commencing player\r\n");
             FSerror = f_opendir(&djd, p);
             for(;;){
@@ -1872,16 +1897,19 @@ void cmd_play(void) {
             	if (fr != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
             	// Get a directory item
             	if (pattern_matching(djd.pat, fno.fname, 0, 0)){
+            		if(trackstoplay >= MAXALBUM) break;            // the playlist holds MAXALBUM (it was written past)
             		if(!CurrentLinePtr){MMPrintString(fno.fname);PRet();}
-            		strcpy(alist[trackstoplay].fn,filepath);
-            		if(alist[trackstoplay].fn[strlen(alist[trackstoplay].fn)-1]!='/')strcat(alist[trackstoplay].fn,"/");
-            		strcat(alist[trackstoplay].fn,p);
-            		strcat(alist[trackstoplay].fn,"/");
-            		strcat(alist[trackstoplay++].fn,fno.fname);
+            		if(strlen(dir) + strlen(fno.fname) >= sizeof(alist->fn)) continue;   // (a name that would not fit)
+            		strcpy(alist[trackstoplay].fn, dir);
+            		strcat(alist[trackstoplay++].fn, fno.fname);
             	}
             }
-            trackstoplay--;
             f_closedir(&djd);
+            if(trackstoplay == 0) {
+            	FreeMemorySafe((void **)&alist);
+            	error("No $ files in the directory", "MP3");
+            }
+            trackstoplay--;
             mp3callback(alist[trackplaying].fn);
         	return;
         }
@@ -2010,6 +2038,11 @@ void checkWAVinput(void){
 
 }
 void audio_checks(void){
+    if(audiofinished) {                                             // TONE or TTS ran out in the interrupt (which only stopped it)
+        audiofinished = 0;
+        CloseAudio(0);                                              // frees TTS's buffer; keeps WAVInterrupt
+        WAVcomplete = true;
+    }
     if(playreadcompletee == 1 && CurrentlyPlayinge == P_WAV) {
     	if(!(bcounte[1] || bcounte[2])){// close the WAV output if it has completed
             FileClose(WAV_fnbr);

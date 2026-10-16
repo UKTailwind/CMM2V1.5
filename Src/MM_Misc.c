@@ -2771,6 +2771,7 @@ void fun_device(void){
 }
 #define RoundUptoPage(a)     ((((uint64_t)a) + (uint64_t)(128*1024 - 1)) & (uint64_t)(~(128*1024 - 1)))// round up to the nearest whole integer
 
+extern char WAVfilename[];
 void fun_info(void){
 	char *tp;
 	sret = GetTempStrMemory();									// this will last for the life of the command
@@ -3233,8 +3234,9 @@ void fun_info(void){
 	} else if(checkstring(ep, "RESET")){
 		strcpy(sret,bootcause);
 		mymemset(bootcause,0,sizeof(bootcause));
-	} else if(checkstring(ep, "TRACK")){
-		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV) strcpy(sret,alist[trackplaying].fn);
+	} else if(checkstring(ep, "TRACK")){                                // the file playing (it read alist, NULL for a single file)
+		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV ||
+		   CurrentlyPlaying == P_PAUSE_MP3 || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_WAV) strcpy(sret, WAVfilename);
 		else strcpy(sret,"OFF");
 	} else if(checkstring(ep, "SOUND")){
 		switch(CurrentlyPlaying){
@@ -3874,6 +3876,7 @@ int check_interrupt(void) {
     if(WAVInterrupt != NULL && WAVcomplete) {
         WAVcomplete=false;
 		intaddr = WAVInterrupt;									    // set the next stmt to the interrupt location
+		WAVInterrupt = NULL;                                        // once: a later sound's end must not fire it again
 		goto GotAnInterrupt;
 	}
     if(COLLISIONInterrupt != NULL && CollisionFound) {

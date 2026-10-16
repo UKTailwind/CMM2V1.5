@@ -1897,6 +1897,7 @@ int FindFreeFileNbr(void) {
 
 // check the SD card to see if it has been removed.  Also check WAV playback
 // this is called from cmd_pause(), the main ExecuteProgram() loop and the console's MMgetchar()
+extern volatile int audiofinished;
 void CheckSDCard(void) {
 	if(gif==NULL && CurrentlyPlaying == P_NOTHING && CurrentLinePtr)return;
 	if(!MDD_SDSPI_CardDetectState()) {
@@ -1907,7 +1908,7 @@ void CheckSDCard(void) {
 			strcpy(filepath,"A:/");
 		}
 	} else {
-		if(CurrentlyPlayinge == P_WAV || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_MOD)
+		if(CurrentlyPlayinge == P_WAV || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_MOD || audiofinished)
 			checkWAVinput();
 		if(GifTimer==0 && gif!=NULL){
 			GifTimer=5000;
