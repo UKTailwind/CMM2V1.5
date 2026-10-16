@@ -239,6 +239,11 @@ struct option_s {
 	unsigned char path[128];
 	unsigned short MaxCtrls;
 	signed char offsets[18+1];                 // MAX_MODES+1
+	unsigned char F15Key[64];                 // OPTION F15, F16, F19, F20: Shift-F3, Shift-F4, Shift-F7, Shift-F8 (Gerry's b14)
+	unsigned char F16Key[64];
+	unsigned char F19Key[64];
+	unsigned char F20Key[64];
+	unsigned char layout;                     // OPTION_LAYOUT; options saved before the keys above have erased flash there
 	unsigned char end;
 // 128
 };

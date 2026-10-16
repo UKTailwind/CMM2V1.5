@@ -513,6 +513,13 @@ void SaveOptions(int check) {
 
 void LoadOptions(void) {
     memcpy((struct option_s *)&Option, (struct option_s *)FLASH_SAVED_OPTION_ADDR, sizeof(struct option_s));
+    if(Option.layout != OPTION_LAYOUT) {                            // saved before OPTION F15-F20: those bytes are erased flash,
+        mymemset((char *)Option.F15Key, 0, sizeof(Option.F15Key)); // so they are emptied (the other options are kept; the
+        mymemset((char *)Option.F16Key, 0, sizeof(Option.F16Key)); // next SaveOptions writes the record whole)
+        mymemset((char *)Option.F19Key, 0, sizeof(Option.F19Key));
+        mymemset((char *)Option.F20Key, 0, sizeof(Option.F20Key));
+        Option.layout = OPTION_LAYOUT;
+    }
 }
 
 
@@ -559,6 +566,11 @@ void ResetAllOptions(void) {
 
 	mymemset((char *)Option.F12Key,0,sizeof(Option.F12Key));
 	mymemset((char *)Option.F11Key,0,sizeof(Option.F11Key));
+	mymemset((char *)Option.F15Key,0,sizeof(Option.F15Key));
+	mymemset((char *)Option.F16Key,0,sizeof(Option.F16Key));
+	mymemset((char *)Option.F19Key,0,sizeof(Option.F19Key));
+	mymemset((char *)Option.F20Key,0,sizeof(Option.F20Key));
+	Option.layout = OPTION_LAYOUT;
 	mymemset((char *)Option.path,0,sizeof(Option.path));
 	mymemset((char *)Option.offsets,0,sizeof(Option.offsets));
 }

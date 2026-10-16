@@ -1736,6 +1736,24 @@ int MIPS16 tokenise(int console) {
         *p = *p & 0x7f;
         if(*p < ' ' || *p == 0x7f)  *p = ' ';
     }
+    // HELP topic at the prompt: the topic becomes a string, so that a keyword in it is not tokenised (HELP PRINT is
+    // HELP "PRINT"; Gerry's b14 did this by re-running the line from cmd_help)
+    if(console) {
+        char *h = inpbuf;
+        skipspace(h);
+        if(strncasecmp(h, "HELP ", 5) == 0) {
+            char *q = h + 5;
+            int n;
+            skipspace(q);
+            n = strlen(q);
+            while(n && q[n - 1] == ' ') q[--n] = 0;
+            if(n && *q != '"' && strlen(inpbuf) + 2 < STRINGSIZE) {
+                memmove(q + 1, q, n + 1);
+                q[0] = '"';
+                strcat(q, "\"");
+            }
+        }
+    }
     // then the substitutions, none of them in a string, a comment or a REM statement (hidden once for all)
     {
         char comment[STRINGSIZE];

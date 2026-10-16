@@ -134,9 +134,15 @@ struct option_s {
 	uint8_t path[128];
 	uint16_t MaxCtrls;
 	signed char offsets[MAX_MODES+1];
+	uint8_t F15Key[64];                 // OPTION F15, F16, F19, F20: Shift-F3, Shift-F4, Shift-F7, Shift-F8 (Gerry's b14)
+	uint8_t F16Key[64];
+	uint8_t F19Key[64];
+	uint8_t F20Key[64];
+	uint8_t layout;                     // OPTION_LAYOUT; options saved before the keys above have erased flash there
 	uint8_t end;
 // 128
 };
+#define OPTION_LAYOUT 1                 // Option.layout: the record has the F15-F20 keys (LoadOptions)
 
 extern volatile struct option_s Option, SOption;
 extern unsigned char *CFunctionFlash;

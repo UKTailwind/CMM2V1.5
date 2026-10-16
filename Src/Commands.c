@@ -201,8 +201,84 @@ void do_help(char *p){
     }
     ShowCursor(false);
 }
+// a line of help.txt without its CR LF in buff; 0 at the end of the file
+static int HelpLine(int fnbr, char *buff) {
+	char *in = buff;
+	if(FileEOF(fnbr)) return 0;
+	memset(buff, 0, STRINGSIZE);
+	while(!FileEOF(fnbr)) {
+		char c = FileGetChar(fnbr);
+		if(c == '\n') break;
+		if(c == '\r') continue;
+		if(in < buff + STRINGSIZE - 1) *in++ = c;
+	}
+	return 1;
+}
+
+// text in lines of the console's width, broken at spaces (the PicoMite's)
+static int printWrappedText(const char *text, int screenWidth, int listcnt, int all) {
+	int length = strlen(text), start = 0;
+	char buff[STRINGSIZE];
+	if(length == 0) ListNewLine(&listcnt, all);
+	while(start < length) {
+		int end = start + screenWidth, lastSpace = -1;
+		if(end >= length) {
+			MMPrintString((char *)text + start);
+			ListNewLine(&listcnt, all);
+			break;
+		}
+		for(int i = start; i < end; i++) if(text[i] == ' ') lastSpace = i;
+		int n = lastSpace != -1 ? lastSpace - start : screenWidth;
+		memcpy(buff, text + start, n); buff[n] = 0;
+		MMPrintString(buff);
+		ListNewLine(&listcnt, all);
+		start += n + (lastSpace != -1);                             // (over the space it broke at)
+	}
+	return listcnt;
+}
+
+// HELP topic with help.txt: each topic is a line ~NAME and the lines of text after it; every topic whose name matches
+// (* and ? are wildcards) is printed.  The PicoMite's, which rewinds over the next topic's line when a topic's text
+// ends; Gerry's b14 has no rewind, so of two matching topics in a row the second was missed.  Here the line is kept.
+static void HelpFile(char *topic) {
+	int fnbr, ListCnt, have = 0;
+	char *buff = GetTempStrMemory();
+	skipspace(topic);
+	if(!*topic) {
+		MMPrintString("Enter help and the name of the command or function\r\nUse * for multicharacter wildcard or ? for single character wildcard\r\n");
+		return;
+	}
+	fnbr = FindFreeFileNbr();
+	if(!BasicFileOpen("/help.txt", fnbr, FA_READ)) return;
+	ListCnt = CurrentY / (FontTable[gui_font >> 4][1] * (gui_font & 0b1111)) + 2;
+	while(have || HelpLine(fnbr, buff)) {
+		have = 0;
+		if(buff[0] != '~' || !pattern_matching(topic, &buff[1], 0, 0)) continue;
+		while(HelpLine(fnbr, buff)) {                               // its text, up to the next topic's line
+			if(buff[0] == '~') {
+				have = 1;
+				ListNewLine(&ListCnt, false);
+				break;
+			}
+			ListCnt = printWrappedText(buff, Option.Width - 1, ListCnt, false);
+		}
+	}
+	FileClose(fnbr);
+}
+
+// HELP [topic]: the topics matching from A:/help.txt when the card has one, the built-in help otherwise.  At the
+// prompt the topic is made a string (tokenise), so HELP PRINT is HELP "PRINT" and its keyword is not tokenised.
 void cmd_help(void){
-	do_help(cmdline);
+	char topic[STRINGSIZE] = "";
+	FILINFO fnod;
+	if(CurrentLinePtr) error("Invalid in a program");
+	getargs(&cmdline, 1, ",");
+	if(argc) strcpy(topic, getCstring(argv[0]));
+	if(InitSDCard() && f_stat("0:/help.txt", &fnod) == FR_OK && !(fnod.fattrib & AM_DIR)) {
+		HelpFile(topic);
+		return;
+	}
+	do_help(topic);
 	memset(cmdline,0,STRINGSIZE);
 	memset(inpbuf,0,STRINGSIZE);
 }

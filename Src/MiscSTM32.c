@@ -302,25 +302,17 @@ void printoptions(void){
     	MMPrintString(buff);
     }
     if(strlen((char *)Option.path))PO2Str("SEARCH PATH",(char *)Option.path,1);
-    if(strlen((char *)Option.F11Key)){
-    	char cc[sizeof(Option.F11Key) + 8];                      // the key string and <crlf>
-    	strcpy(cc,(char *)Option.F11Key);
-    	if(cc[strlen(cc)-2]=='\r' && cc[strlen(cc)-2]=='\r'){
-    		cc[strlen(cc)-2]=0;
-    		strcat(cc,"<crlf>");
-    	}
-
-    	PO2Str("F11",(char *)cc,1);
-    }
-    if(strlen((char *)Option.F12Key)){
-    	char cc[sizeof(Option.F11Key) + 8];                      // the key string and <crlf>
-    	strcpy(cc,(char *)Option.F12Key);
-    	if(cc[strlen(cc)-2]=='\r' && cc[strlen(cc)-2]=='\r'){
-    		cc[strlen(cc)-2]=0;
-    		strcat(cc,"<crlf>");
-    	}
-
-    	PO2Str("F12",(char *)cc,1);
+    {
+        static const char *const fkn[] = {"F11", "F12", "F15", "F16", "F19", "F20"};
+        volatile uint8_t *fkk[] = {Option.F11Key, Option.F12Key, Option.F15Key, Option.F16Key, Option.F19Key, Option.F20Key};
+        for(int k = 0; k < 6; k++) {
+            int n = strlen((char *)fkk[k]);
+            char cc[sizeof(Option.F11Key) + 8];                     // the key string and <crlf>
+            if(n == 0) continue;
+            strcpy(cc, (char *)fkk[k]);
+            if(n >= 2 && cc[n - 2] == '\r' && cc[n - 1] == '\n') strcpy(&cc[n - 2], "<crlf>");
+            PO2Str((char *)fkn[k], cc, 1);
+        }
     }
     if(Option.MaxCtrls)PO2Int("MAXCTRLS", Option.MaxCtrls);
     return;

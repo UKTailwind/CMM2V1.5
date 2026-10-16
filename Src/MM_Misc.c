@@ -2479,6 +2479,20 @@ void cmd_option(void) {
 		strcpy(FunKey[11],(char *)Option.F12Key);
 		return;
 	}
+	{                                                               // F15, F16, F19, F20: Shift-F3, F4, F7, F8 (Gerry's b14)
+		static const char *const fkn[] = {"F15", "F16", "F19", "F20"};
+		volatile uint8_t *fkk[] = {Option.F15Key, Option.F16Key, Option.F19Key, Option.F20Key};
+		for(int k = 0; k < 4; k++) {
+			if((tp = checkstring(cmdline, (char *)fkn[k]))) {
+				char p[STRINGSIZE];
+				strcpy(p,getCstring(tp));
+				if(strlen(p)>=sizeof(Option.F15Key))error("Maximum 63 characters");
+				strcpy((char *)fkk[k], p);
+				SaveOptions(1);
+				return;
+			}
+		}
+	}
 
     tp = checkstring(cmdline, "SEARCH PATH");
 	if(tp) {
@@ -3200,7 +3214,7 @@ void fun_info(void){
 	    }
 		iret=(int64_t)nbr * RAMPAGESIZE;
 		rettype='I';
-	} else if(checkstring(ep, "IHEAP")){
+	} else if(checkstring(ep, "IHEAP") || checkstring(ep, "HEAPI")){       // (HEAPI: Gerry's b14 name)
 	    int nbr = 0;
 	    unsigned char *addr;
 	    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE){
@@ -3208,7 +3222,7 @@ void fun_info(void){
 	    }
 	   	iret=(int64_t)nbr * RAMPAGESIZE;
 		rettype='I';
-	} else if(checkstring(ep, "SHEAP")){
+	} else if(checkstring(ep, "SHEAP") || checkstring(ep, "HEAPS")){       // (HEAPS: Gerry's b14 name)
 	    int nbr = 0;
 	    unsigned char *addr;
 	    for(addr = (unsigned char *)SDRAMEND -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){

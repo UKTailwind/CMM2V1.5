@@ -209,6 +209,7 @@ volatile int ConsoleTxBufHead = 0;
 volatile int ConsoleTxBufTail = 0;
 uint8_t BlinkSpeed = 0;//, str[20];
 extern void printoptions(void);
+extern void setterminal(void);
 void initConsole(void);
 void EditInputLine(void);
 static void PutRunToken(char *p, int n);
@@ -4553,6 +4554,22 @@ void EditInputLine(void) {
                 case 0x9b:
                 case 0x9c:  if(*FunKey[buf[0] - 0x91])
                                 strcpy(&buf[1], (char *)FunKey[buf[0] - 0x91]);                     // copy a function key string into the buffer
+                            break;
+                case 0xb3:  if(*Option.F15Key) strcpy(&buf[1], (char *)Option.F15Key);         // Shift-F3 (OPTION F15)
+                            break;
+                case 0xb4:  if(*Option.F16Key) strcpy(&buf[1], (char *)Option.F16Key);         // Shift-F4 (OPTION F16)
+                            break;
+                case 0xb5:  CurrentX = CurrentY = 0;                                            // Shift-F5: clear the screen and the terminal
+                            ClearScreen(gui_bcolour);
+                            SerUSBPutS("\0337\033[2J\033[H");
+                            MMPrintString("> ");
+                            break;
+                case 0xb6:  setterminal();                                                      // Shift-F6: the terminal's setup
+                            SerUSBPutS("> ");
+                            break;
+                case 0xb7:  if(*Option.F19Key) strcpy(&buf[1], (char *)Option.F19Key);         // Shift-F7 (OPTION F19)
+                            break;
+                case 0xb8:  if(*Option.F20Key) strcpy(&buf[1], (char *)Option.F20Key);         // Shift-F8 (OPTION F20)
                             break;
 
                 case CTRLKEY('E'):
