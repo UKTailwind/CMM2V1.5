@@ -1,3 +1,59 @@
+/***************************************************************************
+
+CMM2 MMBasic
+Main program body
+
+Copyright 2011-2026 Geoff Graham, Peter Mather and Gerry Allardice.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holders nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+4. The name MMBasic be used when referring to the interpreter in any
+   documentation and promotional material and the original copyright message
+  be displayed  on the console at startup (additional copyright messages may
+   be added).
+
+5. All advertising materials mentioning features or use of this software must
+   display the following acknowledgement: This product includes software
+   developed by Geoff Graham and Peter Mather.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+------------------------------------------------------------------------------
+  * In addition the software components from STMicroelectronics are provided
+  * subject to the license as detailed below:
+------------------------------------------------------------------------------
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under Ultimate Liberty license
+  * SLA0044, the "License"; You may not use this file except in compliance with
+  * the License. You may obtain a copy of the License at:
+  *                             www.st.com/SLA0044
+  *
+*******************************************************************************/
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -724,10 +780,12 @@ if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_
 		  SerUSBPutS((G1Hardware ? (Overclock==0 ? MES_SIGNON504 : ((HAL_GetREVID()==0x1003 || G1Hardware>=2) ? MES_SIGNON400:MES_SIGNON480)) : (Overclock==0 ? MES_SIGNON504G2 : (HAL_GetREVID()==0x1003 ? MES_SIGNON400G2:MES_SIGNON480G2))));
 		  GUIPrintString(maxW/2, 70+gui_font_height*2, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, MES_SIGNON1);
 		  SerUSBPutS(MES_SIGNON1);
-		  GUIPrintString(maxW/2, 70+gui_font_height*3, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, COPYRIGHT);
-		  SerUSBPutS(COPYRIGHT);
+		  GUIPrintString(maxW/2, 70+gui_font_height*3, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, COPYRIGHT0);
+		  SerUSBPutS(COPYRIGHT0);
 		  GUIPrintString(maxW/2, 70+gui_font_height*4, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, COPYRIGHT1);
 		  SerUSBPutS(COPYRIGHT1);
+		  GUIPrintString(maxW/2, 70+gui_font_height*5, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, COPYRIGHT2);
+		  SerUSBPutS(COPYRIGHT2A);
 		  CurrentY=70+gui_font_height*5;
 		  MMPrintString("\r\n");
 		  OptionFileErrorAbort = 1;
