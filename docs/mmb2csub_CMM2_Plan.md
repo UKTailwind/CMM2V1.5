@@ -122,10 +122,10 @@ P marks a PicoMite file.
     - The output is identical to the interpreted run, including the golden JD values.
     - **0.480 s**, against 7.77 s interpreted as symbols and 9.26 s as text: 16 to 19 times faster. The PicoMite PC3 takes 2.5 s with the same CSUB.
 - **Found:** mmb2csub's default output comments out the original routine with `/* ... */`, which the CMM2 does not have. `--lean` avoids it. The fix is either block comments in the CMM2 (a PicoMite parity item), or `'` comments under `--target cmm2`.
+- **Ctrl-C** breaks out of an endless M7 CSUB loop through `mm_poll()`. The board is back at the prompt and healthy.
+- **OPTION RAM:** M7 CSUBs run correctly from SDRAM. solar_eclipse takes 0.514 s there, against 0.480 s from flash. The test found a bug, fixed in b71c5bd: in RAM mode any program saved as symbols looped on "Program damaged: symbol table", because three of the RAM-mode flash writers left `realflashpointer` behind. No I-cache problem was seen after loading. Cleaning the D-cache and invalidating the I-cache when a program is saved to RAM would make that certain rather than likely.
 - **Left:**
   - the answers to the questions below;
-  - a test that runs a CSUB from a program run from RAM (the I-cache after loading);
-  - Ctrl-C inside a long CSUB loop;
   - the docs (6b.5).
 
 ## Questions for Peter
