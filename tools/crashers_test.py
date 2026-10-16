@@ -1,15 +1,17 @@
 # crashers_test.py PORT [BAUD]: regression test for the bounds on the source-line pipeline.
 #
-# Before the fix a line that the keyword substitutions grew past 288 bytes (DHT22 becomes BITBANG DHT22,
-# ERASE becomes CLEAR VARS, I2C becomes I2C 1 ...) overran a stack buffer and then inpbuf, and one
+# Before the fix a line that the keyword substitutions grew past 288 bytes (DHT22 became BITBANG DHT22,
+# ERASE became CLEAR VARS, I2C became I2C 1 ...) overran a stack buffer and then inpbuf, and one
 # 251-character line of DHT22s typed at the prompt hung the board.  Now every such line is refused with
-# "Line ... is too long", lines that worked before still work, and the board carries on.
+# "Line ... is too long", lines that worked before still work, and the board carries on.  Those
+# substitutions went with the b14 merge (M3: the commands have their own tokens), so the lines that grow
+# are made of the function folds that remain (MAX( becomes TOPBOTTOM(A, and BIN$( becomes BASE$(2,).
 #
 #   1. an interrupt SUB and a label interrupt run and return (the SUB returns through the IRETURN stub)
 #   2. a line that tokenises to about 300 bytes still loads and runs (tknbuf is now 512 bytes)
 #   3. the same line typed at the prompt still runs
-#   4. 42 DHT22s at the prompt, and 31 ERASEs: refused
-#   5. 40 DHT22s on line 2 of a program: refused when the program loads, naming line 2
+#   4. 23 MAX(s at the prompt, and 28 BIN$(s: refused
+#   5. 23 MAX(s on line 2 of a program: refused when the program loads, naming line 2
 #   6. the same in an #INCLUDE file: refused, naming the line and the file
 #   7. a #DEFINE that grows a line past 255 characters: refused, naming the line
 #
@@ -21,16 +23,16 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 port = sys.argv[1]; baud = int(sys.argv[2]) if len(sys.argv) > 2 else 460800
 
 LONG = ':'.join(['a=1'] * 60)              # 239 characters, about 300 bytes once tokenised
-DHT42 = ':'.join(['DHT22'] * 42)           # 251 characters, 587 after substitution
-ERASE31 = ':'.join(['ERASE a'] * 31)       # 247 characters, 402 after substitution
+MAX23 = ':'.join(['a=MAX(1,2)'] * 23)      # 252 characters, 436 after the fold to TOPBOTTOM(A,
+BIN28 = ':'.join(['?BIN$(1)'] * 28)        # 251 characters, 335 after the fold to BASE$(2,
 PROGS = {
     'zint.bas': ['n=0 : m=0', 'SETTICK 20, TK, 1', 'SETTICK 25, LB, 2', 't0=TIMER',
                  'DO WHILE TIMER-t0 < 1000 : LOOP', 'SETTICK 0, TK, 1 : SETTICK 0, LB, 2',
                  'PRINT "ticks";n;" label ticks";m', 'END',
                  'SUB TK', '  n=n+1', 'END SUB', 'LB: m=m+1 : IRETURN'],
     'zlong.bas': ['PRINT "start"', LONG, 'PRINT "end"'],
-    'zsubst.bas': ['PRINT "start"', ':'.join(['DHT22'] * 40), 'PRINT "end"'],
-    'zinc.inc': ['PRINT "inc"', ':'.join(['DHT22'] * 30)],
+    'zsubst.bas': ['PRINT "start"', MAX23, 'PRINT "end"'],
+    'zinc.inc': ['PRINT "inc"', ':'.join(['a=MAX(1,2)'] * 20)],
     'zincmain.bas': ['#INCLUDE "zinc.inc"', 'PRINT "main"'],
     'zdefine.bas': ['#DEFINE "QQ", "PRINT 12345678901234567890"', ':'.join(['QQ'] * 80), 'PRINT "end"'],
 }
@@ -76,9 +78,9 @@ check('2 300-byte line in a program still runs', 'start' in out and 'end' in out
 out = cmd(LONG, 2)
 check('3 300-byte line at the prompt still runs', 'too long' not in out.lower() and 'rror' not in out and alive(), last(out, 1))
 
-out = cmd(DHT42, 2)
+out = cmd(MAX23, 2)
 ok = 'line is too long' in out.lower() and alive()
-out2 = cmd(ERASE31, 2)
+out2 = cmd(BIN28, 2)
 check('4 substitutions past 255 at the prompt refused', ok and 'line is too long' in out2.lower() and alive(), last(out, 1) + ' / ' + last(out2, 1))
 
 out = cmd('RUN "A:/zsubst.bas"', 5)
