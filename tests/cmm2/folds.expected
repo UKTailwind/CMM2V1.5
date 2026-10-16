@@ -1,0 +1,18 @@
+Hello|World|HELLO WORLD|hello world
+Hel|rld|MIXED CASE|abc
+He|ld|X|y| 4 8
+|Hello World||Hello World|
+WOR|hd
+He|ld 7 5 99
+ 5-2 2.5-2e+300-1e+300
+ 10 5 6
+FF 101 10 00FF 10
+CONST  5 1
+if h
+LEFT$(s$, 1) MAX(1,2) in a string
+MIN(1,2) staysLEFT$(quoted)
+a 10base2:5 [sub]
+err Argument count
+err Argument count
+err Syntax
+done

@@ -1004,23 +1004,16 @@ void MIPS16 cmd_list(void) {
       } else if((p = checkstring(cmdline, "FUNCTIONS"))) {
        	step=maxW/gui_font_width/20;
      	m=0;
-     	int x=2+MMEND;
+     	int x=MMEND+FoldCount;                                      // the MM. names and the functions that share a token (MMBasic.c)
 
 		char** c=GetTempMemory((TokenTableSize+x)*sizeof(*c)+(TokenTableSize+x)*20);
 		for(i=0;i<TokenTableSize+x;i++){
+				if(i<TokenTableSize && (str_equal((char *)tokentbl[i].name, "SChange$(") || str_equal((char *)tokentbl[i].name, "TopBottom(")))
+					continue;                                       // the folds' tokens: their functions are listed instead
 				c[m]= (char *)((int)c + sizeof(char *) * (TokenTableSize+x) + m*20);
-    			if(m<TokenTableSize)strcpy(c[m],tokentbl[i].name);
-    			else if(m<TokenTableSize+MMEND && m>=TokenTableSize)strcpy(c[m],overlaid_functions[i-TokenTableSize]);
-    			//       			else if(m==TokenTableSize+MMEND)strcpy(c[m],"=<");
-    			//       			else if(m==TokenTableSize+MMEND+1)strcpy(c[m],"=>");
-    			//       			else strcpy(c[m],"MM.Info$(");
-    			//else if(m==TokenTableSize+MMEND)strcpy(c[m],"MM.Errno");
-    			//else if(m==TokenTableSize+MMEND+1)strcpy(c[m],"MM.Onewire");
-    			else if(m==TokenTableSize+MMEND)strcpy(c[m],"OCT$(");
-    			else if(m==TokenTableSize+MMEND+1)strcpy(c[m],"HEX$(");
-    			else if(m==TokenTableSize+MMEND+2)strcpy(c[m],"BIN$(");
-    			//else if(m==TokenTableSize+MMEND+3)strcpy(c[m],"MM.I2C");
-    			//else strcpy(c[m],"MM.Errmsg$");
+    			if(i<TokenTableSize)strcpy(c[m],tokentbl[i].name);
+    			else if(i<TokenTableSize+MMEND)strcpy(c[m],overlaid_functions[i-TokenTableSize]);
+    			else strcpy(c[m],FoldList[i-TokenTableSize-MMEND]);
 				m++;
 		}
     	sortStrings(c,m);
@@ -1035,7 +1028,7 @@ void MIPS16 cmd_list(void) {
     	}
 		MMPrintString("Total of ");PInt(m-2);MMPrintString(" functions and operators\r\n");
 		if (checkstring(cmdline, "FUNCTIONS V")){
-			  MMPrintString("Total of ");PInt(m-x-1);MMPrintString(" tokens\r\n");
+			  MMPrintString("Total of ");PInt(TokenTableSize-1);MMPrintString(" tokens\r\n");
 		}
 
     } else {
@@ -3114,6 +3107,7 @@ char MIPS16 *llist(char *b, char *p) {
         while(*(b-1) == ' ' && b > b_start) --b;                    // eat any spaces on the end of the line
         *b = 0;                                                     // terminate the output buffer
 		replaceAlpha((char *)b_start, overlaid_functions) ;  //replace the user version of all the MM. functions
+		ListUnfold(b_start);                                        // and BIN$( LEFT$( MAX( and the rest (MMBasic.c)
         return ++p;
     } // end while
 }

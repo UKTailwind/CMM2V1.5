@@ -408,7 +408,14 @@ Each step is a run of small commits, one mechanism each, ported from the PicoMit
    - **LIST** turns them back (P `Commands.c:11128-11133`).
    - **The keyword list** for the editor and autocomplete skips the two stubs and adds the user-facing names (P `Commands.c:2976`).
 
-   That saves four tokens. The CMM2 already folds `BIN$(`/`OCT$(`/`HEX$(` into `BASE$(` the same way. The PicoMite's other folds named in step 1 (`fun_tilde` for the remaining `MM.` names, `DEVICE(` for the controller readers) are for when the space is needed.
+   That saves four tokens. The CMM2 already folds `BIN$(`/`OCT$(`/`HEX$(` into `BASE$(` the same way.
+
+   **Done 16 Oct.** The table now holds 121 tokens. The port goes further than the PicoMite in three places:
+   - Spaces before the bracket are closed up first, so `LEFT$ (a$, 2)` still works and `HEX$ (255)` now works.
+   - LIST keeps the table's case and doesn't unfold inside a longer name.
+   - RIGHT$( checks its argument count.
+
+   The PicoMite's issues #16, #17 and #18 report these gaps. The PicoMite's other folds named in step 1 (`fun_tilde` for the remaining `MM.` names, `DEVICE(` for the controller readers) are for when the space is needed.
 6b. **mmb2csub for the CMM2** (Peter, 16 Oct: once symbols are fully in and tested; moved up from P5). On the PicoMite this work informed the compiler, so it is the precursor of Route B here too.
    - **The CallTable:**
      - the extra entries mmb2csub's generated code calls, in the PicoMite's `PicoCFunctions.h` layout, found through VTOR slot 7 (the decision of 15 Oct);

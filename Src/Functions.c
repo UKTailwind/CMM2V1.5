@@ -881,39 +881,49 @@ void fun_fix(void) {
 
 
 
-// Return a substring offset by a number of characters from the left (beginning) of the string.
-// s$ = LEFT$( string$, nbr )
-void fun_left(void) {
+// LEFT$(, RIGHT$(, UCASE$( and LCASE$( are one token, as on the PicoMite: tokenise() writes them SCHANGE$( with
+// the letter E, R, U or L and a comma before the arguments, and LIST turns them back (ListUnfold)
+// s$ = LEFT$( string$, nbr )     the first nbr characters
+// s$ = RIGHT$( string$, nbr )    the last nbr characters
+// s$ = UCASE$( string$ )         in capitals
+// s$ = LCASE$( string$ )         in small letters
+void fun_schange(void) {
 	int i;
-    char *s;
-	getargs(&ep, 3, ",");
-
-	if(argc != 3) error("Argument count");
-	s = GetTempStrMemory();                                         // this will last for the life of the command
-	Mstrcpy(s, getstring(argv[0]));
-	i = getint(argv[2], 0, MAXSTRLEN);
-	if(i < *s) *s = i;                                              // truncate if it is less than the current string length
-    sret = s;
-    targ = T_STR;
-}
-
-
-
-// Return a substring of ?string$? with ?number-of-chars? from the right (end) of the string.
-// s$ = RIGHT$( string$, number-of-chars )
-void fun_right(void) {
-	int nbr;
 	char *s, *p1, *p2;
-	getargs(&ep, 3, ",");
-
-	if(argc != 3) error("Argument count");
-	s = getstring(argv[0]);
-	nbr = getint(argv[2], 0, MAXSTRLEN);
-	if(nbr > *s) nbr = *s;											// get the number of chars to copy
-	sret = GetTempStrMemory();									// this will last for the life of the command
-	p1 = sret; p2 = s + (*s - nbr) + 1;
-	*p1++ = nbr;													// inset the length of the returned string
-	while(nbr--) *p1++ = *p2++;										// and copy the characters
+	getargs(&ep, 5, ",");
+	switch(argc ? toupper(*argv[0]) : 0) {
+		case 'E':
+			if(argc != 5) error("Argument count");
+			s = GetTempStrMemory();                                 // this will last for the life of the command
+			Mstrcpy(s, getstring(argv[2]));
+			i = getint(argv[4], 0, MAXSTRLEN);
+			if(i < *s) *s = i;                                      // truncate if it is less than the current string length
+			sret = s;
+			break;
+		case 'R':
+			if(argc != 5) error("Argument count");
+			s = getstring(argv[2]);
+			i = getint(argv[4], 0, MAXSTRLEN);
+			if(i > *s) i = *s;                                      // get the number of chars to copy
+			sret = GetTempStrMemory();                              // this will last for the life of the command
+			p1 = sret; p2 = s + (*s - i) + 1;
+			*p1++ = i;                                              // inset the length of the returned string
+			while(i--) *p1++ = *p2++;                               // and copy the characters
+			break;
+		case 'U':
+		case 'L':
+			if(argc != 3) error("Argument count");
+			s = getstring(argv[2]);
+			p1 = sret = GetTempStrMemory();                         // this will last for the life of the command
+			i = *p1++ = *s++;                                       // get the length of the string and save in the destination
+			if(toupper(*argv[0]) == 'U')
+				while(i--) *p1++ = toupper(*s++);
+			else
+				while(i--) *p1++ = tolower(*s++);
+			break;
+		default:
+			error("Syntax");
+	}
     targ = T_STR;
 }
 
@@ -1217,41 +1227,6 @@ void fun_string(void) {
 
 
 
-// Returns string$ converted to uppercase characters.
-// s$ = UCASE$( string$ )
-void fun_ucase(void) {
-	char *s, *p;
-	int i;
-
-	s = getstring(ep);
-	p = sret = GetTempStrMemory();								// this will last for the life of the command
-	i = *p++ = *s++;												// get the length of the string and save in the destination
-	while(i--) {
-		*p = toupper(*s);
-		p++; s++;
-	}
-    targ = T_STR;
-}
-
-
-
-// Returns string$ converted to lowercase characters.
-// s$ = LCASE$( string$ )
-void fun_lcase(void) {
-	char *s, *p;
-	int i;
-
-	s = getstring(ep);
-	p = sret = GetTempStrMemory();									// this will last for the life of the command
-	i = *p++ = *s++;												// get the length of the string and save in the destination
-	while(i--) {
-		*p = tolower(*s);
-		p++; s++;
-	}
-    targ = T_STR;
-}
-
-
 // function (which looks like a pre defined variable) to return the version number
 // it pulls apart the VERSION string to generate the number
 /*void fun_version(void){
@@ -1353,31 +1328,24 @@ void fun_acos(void) {
 }
 
 
-// utility function to do the max/min comparison and return the value
-// it is only called by fun_max() and fun_min() below.
-void do_max_min(int cmp) {
-    int i;
+// MAX( and MIN( are one token, as on the PicoMite: tokenise() writes them TOPBOTTOM(A, and TOPBOTTOM(I,
+// n = MAX( arg1 [, arg2 [, ...]] )   n = MIN( arg1 [, arg2 [, ...]] )
+void fun_max_min(void) {
+    int i, cmp;
     MMFLOAT nbr, f;
     getargs(&ep, (MAX_ARG_COUNT * 2) - 1, ",");
-    if((argc & 1) != 1) error("Syntax");
-    nbr = getnumber(argv[0]);                                       // start from the first value: a starting bound
-    for(i = 2; i < argc; i += 2) {                                  // (FLT_MAX) clamped MAX(-1e300, -2e300) at -3.4e38
+    if((argc & 1) != 1 || argc < 3) error("Syntax");
+    cmp = toupper(*argv[0]);
+    if(cmp != 'A' && cmp != 'I') error("Syntax");
+    cmp = (cmp == 'A');                                             // true for MAX, false for MIN
+    nbr = getnumber(argv[2]);                                       // start from the first value: a starting bound
+    for(i = 4; i < argc; i += 2) {                                  // (FLT_MAX) clamped MAX(-1e300, -2e300) at -3.4e38
         f = getnumber(argv[i]);
 		if(cmp && f > nbr) nbr = f;
 		if(!cmp && f < nbr) nbr = f;
     }
     fret = nbr;
     targ = T_NBR;
-}
-
-
-void fun_max(void) {
-    do_max_min(1);
-}
-
-
-void fun_min(void) {
-    do_max_min(0);
 }
 void fun_ternary(void){
     MMFLOAT f = 0;

@@ -195,8 +195,6 @@ void fun_hex(void);
 void fun_inkey(void);
 void fun_instr(void);
 void fun_int(void);
-void fun_lcase(void);
-void fun_left(void);
 void fun_len(void);
 void fun_log(void);
 void fun_mid(void);
@@ -204,7 +202,6 @@ void fun_oct(void);
 void fun_pi(void);
 void fun_pos(void);
 void fun_rad(void);
-void fun_right(void);
 void fun_rnd(void);
 void fun_sgn(void);
 void fun_sin(void);
@@ -214,15 +211,14 @@ void fun_str(void);
 void fun_string(void);
 void fun_tab(void);
 void fun_tan(void);
-void fun_ucase(void);
+void fun_schange(void);
 void fun_val(void);
 void fun_eval(void);
 void fun_version(void);
 void fun_asin(void);
 void fun_acos(void);
 void fun_field(void);
-void fun_max(void);
-void fun_min(void);
+void fun_max_min(void);
 void fun_bin2str(void);
 void fun_str2bin(void);
 void fun_dummy(void);
@@ -522,15 +518,13 @@ void op_inv(void);
 	{ "Inkey$",		T_FNA  | T_STR,         0, fun_inkey    },
 	{ "Instr(",		T_FUN  | T_INT,			0, fun_instr    },
 	{ "Int(",		T_FUN  | T_INT,			0, fun_int		},
-	{ "LCase$(",    T_FUN  | T_STR,			0, fun_lcase    },
-	{ "Left$(",		T_FUN  | T_STR,			0, fun_left		},
 	{ "Len(",		T_FUN  | T_INT,			0, fun_len		},
 	{ "Log(",		T_FUN  | T_NBR,			0, fun_log		},
 	{ "Mid$(",		T_FUN  | T_STR,			0, fun_mid		},
 	{ "Pi",			T_FNA  | T_NBR,			0, fun_pi		},
 	{ "Pos",		T_FNA  | T_INT,         0, fun_pos		},
 	{ "Rad(",		T_FUN  | T_NBR,			0, fun_rad		},
-	{ "Right$(",    T_FUN  | T_STR,			0, fun_right    },
+	{ "SChange$(",  T_FUN  | T_STR,			0, fun_schange  },      // LEFT$( RIGHT$( UCASE$( LCASE$(: tokenise writes SCHANGE$(E, R, U or L,
 	{ "Rnd(",		T_FUN  | T_NBR,			0, fun_rnd		},      // this must come before Rnd - without bracket
 	{ "Rnd",		T_FNA  | T_NBR,			0, fun_rnd		},      // this must come after Rnd(
 	{ "Sgn(",		T_FUN  | T_INT,			0, fun_sgn		},
@@ -541,11 +535,9 @@ void op_inv(void);
 	{ "String$(",   T_FUN  | T_STR,			0, fun_string   },
 	{ "Tab(",		T_FUN  | T_STR,         0, fun_tab,		},
 	{ "Tan(",		T_FUN  | T_NBR,			0, fun_tan		},
-	{ "UCase$(",    T_FUN  | T_STR,			0, fun_ucase    },
 	{ "Val(",		T_FUN  | T_NBR | T_INT,	0, fun_val		},
 	{ "Eval(",		T_FUN  | T_NBR | T_INT | T_STR,	0, fun_eval		},
-	{ "Max(",		T_FUN  | T_NBR,			0, fun_max		},
-	{ "Min(",		T_FUN  | T_NBR,			0, fun_min		},
+	{ "TopBottom(", T_FUN  | T_NBR,			0, fun_max_min  },      // MAX( and MIN(: TOPBOTTOM(A, and TOPBOTTOM(I,
 	{ "Bin2str$(",  T_FUN  | T_STR,			0, fun_bin2str  },
 	{ "Str2bin(",	T_FUN  | T_NBR | T_INT,	0, fun_str2bin	},
 //	{ "MM.CmdLine$",T_FNA  | T_STR,			0, fun_cmdline	},

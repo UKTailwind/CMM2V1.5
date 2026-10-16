@@ -1609,6 +1609,51 @@ void STR_REPLACE(char *target, const char *needle, const char *replacement, uint
     SubstShow(target, comment);
 }
 
+// The functions tokenise() folds into one token for each family (the PicoMite's): BIN$( is written BASE$(2, and so on.
+// A function's own table entry allowed spaces before its bracket (LEFT$ (a$, 2)), so they are closed up before the fold.
+static const char *const FoldFrom[] = {"BIN$", "OCT$", "HEX$", "LCASE$", "UCASE$", "LEFT$", "RIGHT$", "MIN", "MAX"};
+static const char *const FoldTo[] = {"BASE$(2,", "BASE$(8,", "BASE$(16,", "SCHANGE$(L,", "SCHANGE$(U,", "SCHANGE$(E,",
+    "SCHANGE$(R,", "TOPBOTTOM(I,", "TOPBOTTOM(A,"};
+const char *const FoldList[] = {"Bin$(", "Oct$(", "Hex$(", "LCase$(", "UCase$(", "Left$(", "Right$(", "Min(", "Max("};   // (LIST FUNCTIONS too)
+#define FOLDS (sizeof(FoldFrom) / sizeof(FoldFrom[0]))
+const int FoldCount = FOLDS;
+
+// tokenise()'s half, on a line whose strings and comments are hidden (SubstHide)
+static void SubstFold(char *target) {
+    char from[10];
+    for(int i = 0; i < FOLDS; i++) {
+        int n = strlen(FoldFrom[i]);
+        char *p = target, *q;
+        while((p = fstrstr(p, FoldFrom[i])) != NULL) {              // LEFT$ ( closed up to LEFT$(
+            q = p + n;
+            if((p == target || !isnamechar(p[-1])) && *q == ' ') {
+                char *r = q;
+                while(*r == ' ') r++;
+                if(*r == '(') memmove(q, r, strlen(r) + 1);
+            }
+            p = q;
+        }
+        strcpy(from, FoldFrom[i]);
+        strcat(from, "(");
+        str_replace(target, from, FoldTo[i], 2);                    // (2: not the end of a longer name, such as a FUNCTION TOHEX$()
+    }
+}
+
+// and LIST's: each turned back, in the case LIST uses for a function (OPTION LIST CASE), never in a string or a comment,
+// nor at the end of a longer name (a FUNCTION TOBASE$( called with 2 stays as it is)
+void ListUnfold(char *b) {
+    char comment[STRINGSIZE], to[10];
+    if(!SubstHide(b, comment, true)) return;
+    for(int i = 0; i < FOLDS; i++) {
+        int k;
+        for(k = 0; FoldList[i][k]; k++)
+            to[k] = Option.Listcase == CONFIG_LOWER ? tolower(FoldList[i][k]) : Option.Listcase == CONFIG_UPPER ? toupper(FoldList[i][k]) : FoldList[i][k];
+        to[k] = 0;
+        str_replace(b, FoldTo[i], to, 2);
+    }
+    SubstShow(b, comment);
+}
+
 /********************************************************************************************************************************************
  take an input line and turn it into a line with tokens suitable for saving into memory
 ********************************************************************************************************************************************/
@@ -1636,16 +1681,18 @@ int MIPS16 tokenise(int console) {
     int labelvalid;
     // symbols: names in a program being saved become symbols (see Symbols.h), except in DATA statements, CSUB
     // and DefineFont blocks, the letter after ~( and &H/&O/&B numbers.  A console line never makes them.
-    static int tkDATA = -1, tkDEFINEFONT, tkENDCSUB, tkENDDEFINEFONT, tkTILDE;
+    static int tkDATA = -1, tkDEFINEFONT, tkENDCSUB, tkENDDEFINEFONT, tkTILDE, tkSCHANGE, tkTOPBOTTOM;
     int symbols = !console && SymMode != SYM_OFF;
     int symrawstmt = false;                                         // this statement is DATA: its names stay text
-    int symrawnext = false;                                         // the next name is the letter after ~(
+    int symrawnext = false;                                         // the next name is the letter after ~(, SCHANGE$( or TOPBOTTOM(
     if(tkDATA < 0) {
         tkDATA = GetCommandValue("Data");
         tkDEFINEFONT = GetCommandValue("DefineFont");
         tkENDCSUB = GetCommandValue("End CSub");
         tkENDDEFINEFONT = GetCommandValue("End DefineFont");
         tkTILDE = GetTokenValue("~(");
+        tkSCHANGE = GetTokenValue("SChange$(");
+        tkTOPBOTTOM = GetTokenValue("TopBottom(");
     }
     routinechecks(1);
     strreplace_overflow = 0;
@@ -1665,9 +1712,7 @@ int MIPS16 tokenise(int console) {
                 str_replace(inpbuf,overlaid_functions[i],buff, false);
             }
             str_replace(inpbuf,"MM.INFO$","MM.INFO",0);
-            str_replace(inpbuf,"BIN$(","BASE$(2,",2);               // (2: not the end of a longer name, such as a FUNCTION TOHEX$()
-            str_replace(inpbuf,"OCT$(","BASE$(8,",2);
-            str_replace(inpbuf,"HEX$(","BASE$(16,",2);
+            SubstFold(inpbuf);                                      // BIN$( LEFT$( MAX( and the rest, one token a family
             str_replace(inpbuf,"=>",">=", 3);
             str_replace(inpbuf,"=<","<=", 3);
             // the commands, which a word in a DATA statement is not (DATA spi, erase)
@@ -1923,7 +1968,7 @@ int MIPS16 tokenise(int console) {
                 i += C_BASETOKEN;
                 TKNPUT(i);                                          // insert the token found
                 p = tp2;                                            // and step over it in the source text
-                symrawnext = (i == tkTILDE);                        // MM.HRES and the like are ~(A): the letter is read as a character
+                symrawnext = (i == tkTILDE || i == tkSCHANGE || i == tkTOPBOTTOM);   // MM.HRES is ~(A), MAX( TOPBOTTOM(A,: the letter is read as a character
                 if(i == tokenTHEN || i == tokenELSE)
                     firstnonwhite = true;                           // a command is valid after a THEN or ELSE
                 else

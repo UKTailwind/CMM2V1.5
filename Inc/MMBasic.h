@@ -72,7 +72,7 @@ provisions:
 // A name line is ' then IMAGE_TAG then the image format IMAGE_FORMAT, then the file name: format 1 (the
 // header of 15 Oct) had ' then the name straight away, with T_LABEL 4.
 #define IMAGE_TAG     '*'                           // (a character no FAT file name holds)
-#define IMAGE_FORMAT  '2'                           // 2: T_LABEL 3
+#define IMAGE_FORMAT  '3'                           // 2: T_LABEL 3; 3: the function-token folds (SCHANGE$( TOPBOTTOM()
 #define IMAGE_NAME    3                             // the file name's offset after the header: ' IMAGE_TAG IMAGE_FORMAT
 #define T_NEWLINE_HDR 5
 #define LHDR_MIN      5                             // the smallest value a header byte after T_NEWLINE takes
@@ -455,5 +455,8 @@ void IntToStrPad(char *p, long long int nbr, signed char padch, int maxch, int r
 void IntToStr(char *strr, long long int nbr, unsigned int base);
 void FloatToStr(char *p, MMFLOAT f, int m, int n, unsigned char ch);
 void STR_REPLACE(char *target, const char *needle, const char *replacement, uint8_t ignoresurround);
+void ListUnfold(char *b);
+extern const char *const FoldList[];                // the functions that share a token, as LIST shows them
+extern const int FoldCount;
 int str_equal(char *s1, char *s2);
 #define mem_equal(a,b,c) !strncasecmp(a,b,c)
