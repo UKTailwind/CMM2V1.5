@@ -1223,36 +1223,35 @@ void cmd_name(void) {
 }
 
 
-extern int BMP_bDecode(int x, int y, int fnbr);
-
+int BMPfnbr;                                                        // the file LOAD BMP reads (BmpDecoder.c)
+bool (*linecallback)(int *imagewidth, int *imageheight, uint32_t *linedata, int *linenumber) = NULL;
+// LOAD BMP file$ [, x] [, y] [, mode] [, xoffset] [, yoffset]: the image with its top left at x, y, from xoffset,
+// yoffset of it (the PicoMite's LOAD IMAGE arguments).  The PicoMite's mode chooses a dither for its few-colour
+// displays; the CMM2 draws in the page's colour depth and does not dither, so mode is checked and not used.
 void LoadImage(char *p) {
-	int fnbr;
-	int xOrigin, yOrigin;
-
-	// get the command line arguments
-	getargs(&p, 5, ",");                                            // this MUST be the first executable line in the function
-    if(argc == 0) error("Argument count");
-    if(!InitSDCard()) return;
-
-    p = getFstring(argv[0]);                                        // get the file name
+	int xOrigin = 0, yOrigin = 0, xRead = 0, yRead = 0;
+	getargs(&p, 11, ",");                                           // this MUST be the first executable line in the function
+	if(argc == 0) error("Argument count");
+	if(!InitSDCard()) return;
+	p = getFstring(argv[0]);                                        // get the file name
 	int maxH=PageTable[WritePage].ymax;
-
-    xOrigin = yOrigin = 0;
-	if(argc >= 3) xOrigin = getinteger(argv[2]);                    // get the x origin (optional) argument
-	if(argc == 5) {
-		yOrigin = getinteger(argv[4]);                    // get the y origin (optional) argument
+	if(argc >= 3 && *argv[2]) xOrigin = getinteger(argv[2]);        // get the x origin (optional) argument
+	if(argc >= 5 && *argv[4]) {
+		yOrigin = getinteger(argv[4]);                              // get the y origin (optional) argument
 		if(optiony) yOrigin=maxH-1-yOrigin;
 	}
-
+	if(argc >= 7 && *argv[6]) getint(argv[6], -1, 7);              // the PicoMite's dither mode
+	if(argc >= 9 && *argv[8]) xRead = getint(argv[8], 0, 3839);
+	if(argc >= 11 && *argv[10]) yRead = getint(argv[10], 0, 2159);
 	// open the file
 	if(strchr(p, '.') == NULL) strcat(p, ".BMP");
-	fnbr = FindFreeFileNbr();
-    if(!BasicFileOpen(p, fnbr, FA_READ)) return;
+	BMPfnbr = FindFreeFileNbr();
+	if(!BasicFileOpen(p, BMPfnbr, FA_READ)) return;
 	int savey=optiony;
 	optiony=0;
-    BMP_bDecode(xOrigin, yOrigin, fnbr);
-    optiony=savey;
-    FileClose(fnbr);
+	ReadAndDisplayBMP(BMPfnbr, -1, xRead, yRead, xOrigin, yOrigin);
+	optiony=savey;
+	FileClose(BMPfnbr);
 }
 void LoadPNG(char *p) {
 //	int fnbr;

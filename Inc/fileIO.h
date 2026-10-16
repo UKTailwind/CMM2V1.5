@@ -60,6 +60,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void FilePutStr(int count, char *c, int fnbr);
     extern int  FileEOF(int fnbr);
     extern int  FileGetData(int fnbr, void *buff, int count, unsigned int *read);
+    // the BMP decoder (BmpDecoder.c): each decoded line, as 0x00RRGGBB, goes to linecallback
+#include <stdbool.h>
+    typedef struct {
+        int width;
+        int height;
+        int bitsPerPixel;
+        int linesProcessed;
+        bool success;
+        char errorMsg[256];
+    } BMP_Result;
+    extern int BMPfnbr;
+    extern bool (*linecallback)(int *imagewidth, int *imageheight, uint32_t *linedata, int *linenumber);
+    extern BMP_Result decodeBMP(bool topdown);
+    extern void decodeBMPheader(int *width, int *height);
+    extern int ReadAndDisplayBMP(int fnbr, int dither_mode, int img_x_offset, int img_y_offset, int x_display, int y_display);
     extern void FilePutData(char *c, int fnbr, int n);
     extern char *ChangeToDir(char *p);
     extern int InitSDCard(void);
