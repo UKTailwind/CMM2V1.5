@@ -887,7 +887,7 @@ void Audio_Interrupt(void)  {
         	if(PhaseAC_left>=4096.0)PhaseAC_left-=4096.0;
         	if(PhaseAC_right>=4096.0)PhaseAC_right-=4096.0;
         }
-    } else if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_WAV  || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE) {
+    } else if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_WAV  || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE || CurrentlyPlaying == P_BBC) {
     	static int repeat = 0;                                      // PLAY ARRAY below 32 kHz: each sample held audiorepeat ticks
         if(bcount[1]==0 && bcount[2]==0 && playreadcomplete==1){
         	HAL_TIM_Base_Stop_IT(&htim4);

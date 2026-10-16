@@ -1339,6 +1339,7 @@ void FreeMemorySafe(void **addr){
 
 void InitHeap(void) {
     int i;
+    BBCSoundRelease();                                              // PLAY BBC's state block is in this heap: freed while the map is valid
     memset(SDmap,0x00,0x8000);
     memset(mmap,0x00,sizeof(mmap));
     for(i = 0; i < MAXTEMPSTRINGS; i++) StrTmp[i] = NULL;

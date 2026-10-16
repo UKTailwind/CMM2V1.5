@@ -1296,6 +1296,7 @@ void CloseAudio(int all){
 	FreeMemorySafe((void *)&mymp3);
 	leftarray = rightarray = NULL;
 	arraysize = arraypos = 0;
+	BBCSoundReset();                                                // (envelopes kept, as on the BBC)
 	adsr_phase[0] = adsr_phase[1] = ADSR_IDLE;
 	if(all){
 		usertable = NULL;                                           // (the PicoMite forgets it at every close)
@@ -1535,7 +1536,7 @@ void cmd_play(void) {
     if(checkstring(cmdline, "PAUSE")) {
         if(CurrentlyPlaying == P_PAUSE_TONE || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_SOUND ||
            CurrentlyPlaying == P_PAUSE_MOD || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MP3 ||
-           CurrentlyPlaying == P_PAUSE_ARRAY || CurrentlyPlaying == P_PAUSE_SAMPLE) return;  // already paused (the PicoMite's)
+           CurrentlyPlaying == P_PAUSE_ARRAY || CurrentlyPlaying == P_PAUSE_SAMPLE || CurrentlyPlaying == P_PAUSE_BBC) return;  // already paused (the PicoMite's)
         if(CurrentlyPlaying == P_TONE) CurrentlyPlaying = P_PAUSE_TONE;
         else if(CurrentlyPlaying == P_FLAC) CurrentlyPlaying = P_PAUSE_FLAC;
         else if(CurrentlyPlaying == P_SOUND) CurrentlyPlaying = P_PAUSE_SOUND;
@@ -1544,6 +1545,7 @@ void cmd_play(void) {
         else if(CurrentlyPlaying == P_MP3)  CurrentlyPlaying = P_PAUSE_MP3;
         else if(CurrentlyPlaying == P_ARRAY)  CurrentlyPlaying = P_PAUSE_ARRAY;
         else if(CurrentlyPlaying == P_SAMPLE)  CurrentlyPlaying = P_PAUSE_SAMPLE;
+        else if(CurrentlyPlaying == P_BBC)  CurrentlyPlaying = P_PAUSE_BBC;
         else
             error("Nothing playing");
         return;
@@ -1558,6 +1560,7 @@ void cmd_play(void) {
         else if(CurrentlyPlaying == P_PAUSE_MP3) CurrentlyPlaying = P_MP3;
         else if(CurrentlyPlaying == P_PAUSE_ARRAY) CurrentlyPlaying = P_ARRAY;
         else if(CurrentlyPlaying == P_PAUSE_SAMPLE) CurrentlyPlaying = P_SAMPLE;
+        else if(CurrentlyPlaying == P_PAUSE_BBC) CurrentlyPlaying = P_BBC;
         else
             error("Nothing to resume");  
         return;
@@ -1618,6 +1621,76 @@ void cmd_play(void) {
             ConfigSoundOutputs();
     	}
         if(CurrentlyPlaying != P_PAUSE_TONE) CurrentlyPlaying = P_TONE;  // a paused tone takes the new one and stays paused (the PicoMite's)
+        return;
+    }
+    if((tp = checkstring(cmdline, "BBC SOUND"))) {                // PLAY BBC SOUND channel, amplitude, pitch, duration: the BBC
+        int chan, amp, pitch, dur;                                  // Micro's SOUND statement (AudioBBC.c, the PicoMite's)
+        getargs(&tp, 7, ",");                                       // this MUST be the first executable line in the function
+        if(argc != 7) error("Argument count");
+        chan = getint(argv[0], 0, 0xFFFF);                          // &HSFC: sync count, flush bit, channel
+        amp = getint(argv[2], -15, 16);                             // -15..0 volume, 1..16 envelope number
+        pitch = getint(argv[4], 0, 255);
+        dur = getint(argv[6], 0, 255);
+        if(!(CurrentlyPlaying == P_NOTHING || CurrentlyPlaying == P_BBC || CurrentlyPlaying == P_PAUSE_BBC)) error("Sound output in use");
+        if(CurrentlyPlaying == P_BBC || CurrentlyPlaying == P_PAUSE_BBC) {
+            // the engine runs: queue the note, and if the channel's queue is full wait for a slot, as the BBC did (the
+            // routine checks keep the buffers fed, so the queue drains; Ctrl-C gets out). Paused, it never drains.
+            while(BBCSoundQueue(chan, amp, pitch, dur)) {
+                if(CurrentlyPlaying != P_BBC) error("Sound queue full");
+                CheckAbort();
+                routinechecks(1);
+            }
+            if(playreadcomplete) {                                  // it had run dry and was draining towards a stop
+                playreadcomplete = 0;
+                if(htim4.State == HAL_TIM_STATE_READY) {            // the interrupt has stopped the timer: start again
+                    bcount[1] = bcount[2] = 0;
+                    ppos = 0;
+                    swingbuf = 1;
+                    nextbuf = 2;
+                    bcount[1] = fillBBCBuffer(sbuff1, BBC_BUFFER_SIZE);
+                    iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
+                    wav_filesize = bcount[1];
+                    ConfigSoundOutputs();
+                }
+            }
+            return;
+        }
+        // start the engine with this note as its first
+        WAV_fnbr = 0;
+        WAVInterrupt = NULL;                                        // (a finished sound's handler must not fire when this stops)
+        WAVcomplete = 0;
+        BBCSoundReset();
+        BBCSoundQueue(chan, amp, pitch, dur);
+        mono = 0;
+        htim4.Init.Prescaler = PSpeedDiv/PWM_FREQ-1;                // 44100, the engine's rate
+        htim4.Instance->PSC = PSpeedDiv/PWM_FREQ-1;
+        FreeMemorySafe((void *)&sbuff1);
+        FreeMemorySafe((void *)&sbuff2);
+        sbuff1 = GetInternalMemory(BBC_BUFFER_SIZE);
+        sbuff2 = GetInternalMemory(BBC_BUFFER_SIZE);
+        ibuff1 = (uint16_t *)sbuff1;
+        ibuff2 = (uint16_t *)sbuff2;
+        bcount[1] = bcount[2] = 0;
+        ppos = 0;
+        swingbuf = 1;
+        nextbuf = 2;
+        playreadcomplete = 0;
+        bcount[1] = fillBBCBuffer(sbuff1, BBC_BUFFER_SIZE);
+        iconvert(ibuff1, (int16_t *)sbuff1, bcount[1]);
+        wav_filesize = bcount[1];
+        CurrentlyPlaying = P_BBC;
+        ConfigSoundOutputs();
+        return;
+    }
+    if((tp = checkstring(cmdline, "BBC ENVELOPE"))) {             // PLAY BBC ENVELOPE n, T, PI1, PI2, PI3, PN1, PN2, PN3, AA, AD, AS, AR, ALA, ALD
+        uint8_t e[14];
+        getargs(&tp, 27, ",");                                      // this MUST be the first executable line in the function
+        if(argc != 27) error("Argument count");
+        // n 1-16; T 0-255 (bit 7 set: the pitch envelope does not repeat); PI1-3 -128..127 pitch change a step; PN1-3
+        // 0-255 steps a section; AA, AD, AS, AR -127..127 amplitude change a step; ALA, ALD 0-126 target levels
+        static const int16_t lim[14][2] = {{1, 16}, {0, 255}, {-128, 127}, {-128, 127}, {-128, 127}, {0, 255}, {0, 255}, {0, 255}, {-127, 127}, {-127, 127}, {-127, 127}, {-127, 127}, {0, 126}, {0, 126}};
+        for(int i = 0; i < 14; i++) e[i] = (uint8_t)getint(argv[i * 2], lim[i][0], lim[i][1]);
+        BBCEnvelope(e);
         return;
     }
     if((tp = checkstring(cmdline, "LOAD SOUND"))) {               // PLAY LOAD SOUND array%(): the wave table of PLAY SOUND type "U",
@@ -2241,12 +2314,12 @@ void checkWAVinput(void){
                 wav_filesize = bcount[2];
             }
             nextbuf=swingbuf;
-        } else if(CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE){
+        } else if(CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE || CurrentlyPlaying == P_BBC){
             char *b = (swingbuf==2 ? sbuff1 : sbuff2);
             int n = (swingbuf==2 ? 1 : 2);
             if(playreadcomplete) bcount[n] = 0;                    // the end was read: the interrupt plays out what is left
             else {
-                bcount[n] = (CurrentlyPlaying == P_ARRAY ? readarray(b) : readsamplearray(b));
+                bcount[n] = (CurrentlyPlaying == P_ARRAY ? readarray(b) : CurrentlyPlaying == P_SAMPLE ? readsamplearray(b) : fillBBCBuffer(b, BBC_BUFFER_SIZE));
                 iconvert((uint16_t *)b, (int16_t *)b, bcount[n]);
             }
             wav_filesize = bcount[n];

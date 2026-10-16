@@ -54,7 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef AUDIO_HEADER
 #define AUDIO_HEADER
-typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3, P_ARRAY, P_PAUSE_ARRAY, P_SAMPLE, P_PAUSE_SAMPLE} e_CurrentlyPlaying;
+typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3, P_ARRAY, P_PAUSE_ARRAY, P_SAMPLE, P_PAUSE_SAMPLE, P_BBC, P_PAUSE_BBC} e_CurrentlyPlaying;
 extern volatile e_CurrentlyPlaying CurrentlyPlaying; 
 extern volatile e_CurrentlyPlaying CurrentlyPlayinge;
 extern int PWM_FREQ;
@@ -63,6 +63,14 @@ extern unsigned char *stress; //numbers from 0 to 8
 extern unsigned char *phonemeLength; //tab40160
 extern unsigned char *phonemeindex;
 extern volatile int playreadcomplete;
+// AudioBBC.c: the BBC Micro sound engine of PLAY BBC SOUND and PLAY BBC ENVELOPE (the PicoMite's)
+#define BBC_BUFFER_SIZE 4096                                        // 1024 frames, 23 ms at 44100 (the PicoMite's 2048 is 11.6 ms)
+extern int fillBBCBuffer(char *buf, int bufsize);
+extern int BBCSoundQueue(int chan, int amp, int pitch, int dur);
+extern int BBCSoundFree(int chan);
+extern void BBCEnvelope(const uint8_t *e);
+extern void BBCSoundReset(void);
+extern void BBCSoundRelease(void);
 extern volatile uint64_t bcount[3];
 extern unsigned char *phonemeIndexOutput; //tab47296
 extern unsigned char *stressOutput; //tab47365

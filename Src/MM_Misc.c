@@ -3235,6 +3235,9 @@ void fun_info(void){
 	} else if(checkstring(ep, "RESET")){
 		strcpy(sret,bootcause);
 		mymemset(bootcause,0,sizeof(bootcause));
+	} else if((tp = checkstring(ep, "BBC BUFFER"))){                   // free slots in a PLAY BBC SOUND queue: of channel n, or the
+		iret = BBCSoundFree(*tp ? getint(tp, 0, 3) : -1);           // emptiest of the four (the PicoMite's)
+		rettype='I';
 	} else if(checkstring(ep, "TRACK")){                                // the file playing (it read alist, NULL for a single file)
 		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV ||
 		   CurrentlyPlaying == P_PAUSE_MP3 || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_WAV) strcpy(sret, WAVfilename);
@@ -3260,6 +3263,8 @@ void fun_info(void){
 		case P_PAUSE_ARRAY:strcpy(sret,"PAUSED ARRAY");break;
 		case P_SAMPLE:strcpy(sret,"SAMPLE");break;
 		case P_PAUSE_SAMPLE:strcpy(sret,"PAUSED SAMPLE");break;
+		case P_BBC:strcpy(sret,"BBC");break;
+		case P_PAUSE_BBC:strcpy(sret,"PAUSED BBC");break;
 		default:strcpy(sret,"OFF");break;
 		}
 	} else if(checkstring(ep, "KEYBOARD")){
