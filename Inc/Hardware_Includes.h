@@ -116,7 +116,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void mymemset(void *out, uint32_t in, int n);
     extern void mycopy(void *out, const void *in, int n);
     extern void zcopy(void *out, const void *in, int n);
-    extern void _Z10copy_wordsPKmPmm(uint32_t *s, uint32_t *d, int n);
     extern uint64_t *clearpage(void *out);
     extern void cleardims(void *vardim);
     extern void clearvar(void *var);

@@ -715,7 +715,8 @@ void MIPS16 cmd_memory(void) {
    at a time; one out of step is read a word at a time and shifted into place. From 64 bytes a word copy is an
    8-register LDM/STM loop, except into SDRAM below 4 KB, where four single stores at a time beat the bursts (measured
    17 Oct, cycles for 256 bytes: D2 to D2 113 against 150, D2 to SDRAM 255 against 424). copy_words (the FPU's
-   128-byte transfers) was no faster than the LDM/STM loop at any size, and saving s16-s31 cost it 107 cycles a call.
+   128-byte transfers) was no faster than the LDM/STM loop at any size, and saving s16-s31 cost it 107 cycles a call:
+   it has gone. The entry points are in ITCM with the cores, so a caller there reaches them without a veneer.
    Both in SDRAM, a large copy goes through tbuff (on-chip) a block at a time: reading a
    block and then writing it turns the SDRAM's bus round less often. */
 
@@ -781,7 +782,7 @@ static void ITCM_CODE __attribute__((optimize("no-tree-loop-distribute-patterns"
 
 // a copy; checks (mycopy's) sees to the audio and USB between the blocks of a large one from SDRAM to SDRAM, which a
 // copy made from inside them must not (mycopysafe's: the audio's own buffers)
-static void copy_any(void *out, const void *in, int n, int checks) {
+static void ITCM_CODE copy_any(void *out, const void *in, int n, int checks) {
     uint8_t *d = (uint8_t *)out;
     const uint8_t *s = (const uint8_t *)in;
     if(n <= 0 || d == s) return;
@@ -799,11 +800,11 @@ static void copy_any(void *out, const void *in, int n, int checks) {
     copy_core(d, s, n);
 }
 
-void mycopy(void *out, const void *in, int n) {
+void ITCM_CODE mycopy(void *out, const void *in, int n) {
     copy_any(out, in, n, 1);
 }
 
-void mycopysafe(void *out, const void *in, int n) {
+void ITCM_CODE mycopysafe(void *out, const void *in, int n) {
     copy_any(out, in, n, 0);
 }
 
@@ -813,7 +814,7 @@ void ITCM_CODE mycpy(void *out, const void *in, int n) {
 }
 
 // a row for PageCopy's moves (docopy): whole words, then the audio and USB seen to
-void zcopy(void *out, const void *in, int n) {
+void ITCM_CODE zcopy(void *out, const void *in, int n) {
     copy_any(out, in, n & ~3, 0);
     routinechecks(1);
 }
@@ -845,24 +846,24 @@ void ITCM_CODE __attribute__((optimize("no-tree-loop-distribute-patterns"))) mys
     }
 }
 
-void mymemset(void *out, uint32_t in, int n) {
+void ITCM_CODE mymemset(void *out, uint32_t in, int n) {
     myset(out, (in & 0xFF) * 0x01010101u, n);
 }
 
 // the C library's names, which GCC also calls for a structure's copy: newlib-nano's are byte loops. These are reentrant
 // and never call routinechecks, so an interrupt, FatFs or the C library may use them anywhere.
-void *memcpy(void *d, const void *s, size_t n) {
+void * ITCM_CODE memcpy(void *d, const void *s, size_t n) {
     copy_core((uint8_t *)d, (const uint8_t *)s, (int)n);
     return d;
 }
 
-void *memset(void *d, int c, size_t n) {
+void * ITCM_CODE memset(void *d, int c, size_t n) {
     myset(d, (c & 0xFF) * 0x01010101u, (int)n);
     return d;
 }
 
 // overlapping: forward when the destination is below the source (or clear of it), else back from the end
-void * __attribute__((optimize("no-tree-loop-distribute-patterns"))) memmove(void *d, const void *s, size_t n) {
+void * ITCM_CODE __attribute__((optimize("no-tree-loop-distribute-patterns"))) memmove(void *d, const void *s, size_t n) {
     uint8_t *dp = (uint8_t *)d;
     const uint8_t *sp = (const uint8_t *)s;
     if(dp <= sp || dp >= sp + n) copy_core(dp, sp, (int)n);

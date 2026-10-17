@@ -956,7 +956,7 @@ void cmd_framebuffer(void){
         	PageTable[BPN].size=PageTable[WPN].size;
     	}
 		int n=(PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[BPN].nbytes)>>2;
-		_Z10copy_wordsPKmPmm((uint32_t *)PageTable[WPN].address,(uint32_t *)PageTable[BPN].address,n);
+		mycopy(PageTable[BPN].address, PageTable[WPN].address, n << 2);	// (the audio and USB seen to between blocks)
     	return;
     }
     p = checkstring(cmdline, "RESTORE");
@@ -977,7 +977,7 @@ void cmd_framebuffer(void){
  	    	ReadPage = WritePage = oldwrite;
  		} else {
  	 		int n=(PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[BPN].nbytes)>>2;
- 			_Z10copy_wordsPKmPmm((uint32_t *)PageTable[BPN].address,(uint32_t *)PageTable[WPN].address,n);
+ 			mycopy(PageTable[WPN].address, PageTable[BPN].address, n << 2);
  		}
 
     	return;
