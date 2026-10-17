@@ -5,6 +5,11 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
 
 # Folder containing arm-none-eabi-gcc. Leave empty to find it on PATH.
 set(ARM_TOOLCHAIN_DIR "" CACHE PATH "Directory containing arm-none-eabi-gcc")
+# A machine whose compiler is somewhere else than the presets say sets the environment variable ARM_TOOLCHAIN_DIR
+# to the folder holding arm-none-eabi-gcc, and it wins over the preset's (README.md).
+if(DEFINED ENV{ARM_TOOLCHAIN_DIR} AND NOT "$ENV{ARM_TOOLCHAIN_DIR}" STREQUAL "")
+    set(ARM_TOOLCHAIN_DIR "$ENV{ARM_TOOLCHAIN_DIR}" CACHE PATH "Directory containing arm-none-eabi-gcc" FORCE)
+endif()
 list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES ARM_TOOLCHAIN_DIR)
 
 if(ARM_TOOLCHAIN_DIR)

@@ -21,7 +21,7 @@
             "label": "Flash (ST-Link)",
             "type": "process",
             "command": "C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
-            "args": ["-c", "port=SWD", "mode=UR", "freq=1000", "-w", "${command:cmake.launchTargetPath}", "-v", "-rst"],
+            "args": ["-c", "port=SWD", "mode=UR", "freq=480", "-w", "${command:cmake.launchTargetPath}", "-v", "-rst"],
             "problemMatcher": []
         }
     ]
