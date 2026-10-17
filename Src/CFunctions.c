@@ -130,8 +130,8 @@ const void * const CallTable[] __attribute__((section(".cspace")))  = {	(void *)
 
 
 /* The CallTable in the PicoMite's layout: PicoCFunctions.h, every slot at the same offset.  It serves the CSUBs
-   that mmb2csub and armcfgen build for the M7 (docs/mmb2csub_CMM2_Plan.md), which find it through slot 7 of the
-   vector table.  The startup file fills that slot at link time: VTOR is in flash here, so it cannot be written
+   that mmb2csub and armcfgen build for the M7 (docs/mmb2csub_CMM2_Plan.md), which find it through slot 8 of the
+   vector table (slot 7 is CallTablePS, below).  The startup file fills both slots at link time: VTOR is in flash here, so it cannot be written
    at run time as the PicoMite does.  The offsets are the ABI, so the slots are append-only.  Every function here
    is hard-float, taking its doubles in d0-d7 as a CSUB compiled for the M7 passes them.  The old table above stays,
    for the CSUBs built for it.  Where the PicoMite's slot holds a function with another signature, a wrapper below
@@ -175,120 +175,63 @@ static void PIOExecuteP(int pio, int sm, unsigned int ins) { (void)pio; (void)sm
 static unsigned char *const NoBuffer = NULL;                        // the PicoMite's frame, layer and display buffers
 static void NoRefresh(void) { }                                     // the CMM2's display needs no refresh
 
+/* CallTablePS: the same slots in the PicoMite's own convention, for a CSUB built for the PicoMite and run here
+   unaltered.  Such a CSUB is Cortex-M0+ code, which the M7 runs as it is, compiled soft-float: it passes and
+   returns its floats and doubles in r0-r3, where the firmware's hard-float functions take them in s0/d0.  So each
+   slot that takes or returns one points at a wrapper in the base procedure call standard (pcs("aapcs")) round the
+   same function, and every other slot is CallTableP's.  The PicoMite finds its table through vector slot 7, so
+   this one is in slot 7.  CallTableP is in slot 8, where a CSUB built for the CMM2 finds it (PicoCFunctions.h,
+   compiled with a double-precision FPU), so such a CSUB pays nothing for this.  A PicoMite CSUB that uses the
+   PicoMite's own hardware or memory (PIO, its frame buffers, its Option, its pins' registers) still cannot work. */
+#define SOFTFP __attribute__((pcs("aapcs")))
+static SOFTFP void SoftFP_FloatToStr(char *p, MMFLOAT f, int m, int n, unsigned char ch) { FloatToStr(p, f, m, n, ch); }
+static SOFTFP MMFLOAT SoftFP_IntToFloat(long long int a) { return IntToFloat(a); }
+static SOFTFP long long int SoftFP_FloatToInt64(MMFLOAT x) { return FloatToInt64(x); }
+static SOFTFP MMFLOAT SoftFP_sin(MMFLOAT a) { return sin(a); }
+static SOFTFP void SoftFP_DrawCircle(int x, int y, int r, int w, int c, int fill, MMFLOAT aspect) { DrawCircle(x, y, r, w, c, fill, aspect); }
+static SOFTFP MMFLOAT SoftFP_FMul(MMFLOAT a, MMFLOAT b) { return FMul(a, b); }
+static SOFTFP MMFLOAT SoftFP_FAdd(MMFLOAT a, MMFLOAT b) { return FAdd(a, b); }
+static SOFTFP MMFLOAT SoftFP_FSub(MMFLOAT a, MMFLOAT b) { return FSub(a, b); }
+static SOFTFP MMFLOAT SoftFP_FDiv(MMFLOAT a, MMFLOAT b) { return FDiv(a, b); }
+static SOFTFP int SoftFP_FCmp(MMFLOAT a, MMFLOAT b) { return FCmp(a, b); }
+static SOFTFP MMFLOAT SoftFP_LoadFloat(unsigned long long c) { return LoadFloat(c); }
+static SOFTFP MMFLOAT SoftFP_cos(MMFLOAT a) { return cos(a); }
+static SOFTFP MMFLOAT SoftFP_sqrt(MMFLOAT a) { return sqrt(a); }
+static SOFTFP MMFLOAT SoftFP_atan2(MMFLOAT a, MMFLOAT b) { return atan2(a, b); }
+static SOFTFP MMFLOAT SoftFP_pow(MMFLOAT a, MMFLOAT b) { return pow(a, b); }
+static SOFTFP float SoftFP_SAdd(float a, float b) { return SAdd(a, b); }
+static SOFTFP float SoftFP_SSub(float a, float b) { return SSub(a, b); }
+static SOFTFP float SoftFP_SMul(float a, float b) { return SMul(a, b); }
+static SOFTFP float SoftFP_SDiv(float a, float b) { return SDiv(a, b); }
+static SOFTFP int SoftFP_SCmp(float a, float b) { return SCmp(a, b); }
+static SOFTFP float SoftFP_sinf(float a) { return sinf(a); }
+static SOFTFP float SoftFP_cosf(float a) { return cosf(a); }
+static SOFTFP float SoftFP_sqrtf(float a) { return sqrtf(a); }
+static SOFTFP float SoftFP_atan2f(float a, float b) { return atan2f(a, b); }
+static SOFTFP float SoftFP_powf(float a, float b) { return powf(a, b); }
+static SOFTFP float SoftFP_DtoS(double a) { return DtoS(a); }
+static SOFTFP double SoftFP_StoD(float a) { return StoD(a); }
+static SOFTFP long long SoftFP_StoI(float a) { return StoI(a); }
+static SOFTFP float SoftFP_ItoS(long long a) { return ItoS(a); }
+static SOFTFP char *SoftFP_StrFormat(char *dst, MMFLOAT f, long long int i64, int isint, int m, int n, int ch) { return StrFormat(dst, f, i64, isint, m, n, ch); }
+static SOFTFP MMFLOAT SoftFP_TimerVal(void) { return TimerVal(); }
+static SOFTFP MMFLOAT SoftFP_RndVal(void) { return RndVal(); }
+static SOFTFP MMFLOAT SoftFP_log(MMFLOAT a) { return log(a); }
+static SOFTFP MMFLOAT SoftFP_tan(MMFLOAT a) { return tan(a); }
+static SOFTFP MMFLOAT SoftFP_PinVal(int pin) { return PinVal(pin); }
+
+#define CT(f) (void *)f,
+#define CTF(f) (void *)f,
 const void * const CallTableP[] = {
-    (void *)uSecP,                      // 0x00 void uSec(unsigned long long us)
-    (void *)putConsole,                 // 0x04
-    (void *)getConsole,                 // 0x08
-    (void *)ExtCfg,                     // 0x0c
-    (void *)ExtSetP,                    // 0x10 void ExtSet(int pin, int val)
-    (void *)ExtInpP,                    // 0x14 int ExtInp(int pin)
-    (void *)PinSetBit,                  // 0x18
-    (void *)PinRead,                    // 0x1c
-    (void *)MMPrintString,              // 0x20
-    (void *)IntToStr,                   // 0x24
-    (void *)CheckAbort,                 // 0x28
-    (void *)GetMemory,                  // 0x2c
-    (void *)GetTempMemory,              // 0x30
-    (void *)FreeMemory,                 // 0x34
-    (void *)&DrawRectangle,             // 0x38
-    (void *)&DrawBitmap,                // 0x3c
-    (void *)DrawLine,                   // 0x40
-    (void *)FontTable,                  // 0x44
-    (void *)&ExtCurrentConfig,          // 0x48
-    (void *)&HRes,                      // 0x4c
-    (void *)&VRes,                      // 0x50
-    (void *)SoftReset,                  // 0x54
-    (void *)error,                      // 0x58
-    (void *)&ProgMemory,                // 0x5c
-    (void *)SLOTRECBASE,                // 0x60 the record of each variable number (VREC): the array itself
-    (void *)&varcnt,                    // 0x64
-    (void *)&DrawBufferP,               // 0x68 void (*)(int x1, int y1, int x2, int y2, char *c)
-    (void *)&ReadBuffer,                // 0x6c
-    (void *)FloatToStr,                 // 0x70
-    (void *)CallExecuteProgram,         // 0x74
-    (void *)&CFuncmSec,                 // 0x78
-    (void *)CFuncRam,                   // 0x7c
-    (void *)&ScrollLCD,                 // 0x80
-    (void *)IntToFloat,                 // 0x84
-    (void *)FloatToInt64,               // 0x88
-    (void *)&Option,                    // 0x8c the CMM2's struct option_s, not the PicoMite's
-    (void *)sin,                        // 0x90
-    (void *)DrawCircle,                 // 0x94
-    (void *)DrawTriangle,               // 0x98
-    (void *)timer,                      // 0x9c unsigned long long, microseconds
-    (void *)FMul,                       // 0xa0
-    (void *)FAdd,                       // 0xa4
-    (void *)FSub,                       // 0xa8
-    (void *)FDiv,                       // 0xac
-    (void *)FCmp,                       // 0xb0
-    (void *)LoadFloat,                  // 0xb4
-    (void *)&CFuncInt1,                 // 0xb8
-    (void *)&CFuncInt2,                 // 0xbc
-    (void *)&CSubComplete,              // 0xc0
-    (void *)&AudioOutputP,              // 0xc4
-    (void *)IDiv,                       // 0xc8
-    (void *)&AudioWrapP,                // 0xcc
-    (void *)&CFuncInt3,                 // 0xd0
-    (void *)&CFuncInt4,                 // 0xd4
-    (void *)PIOExecuteP,                // 0xd8
-    (void *)&WritePageAddressExternal,  // 0xdc the write page (PAGE WRITE)
-    (void *)&NoBuffer,                  // 0xe0
-    (void *)&NoBuffer,                  // 0xe4
-    (void *)&NoBuffer,                  // 0xe8
-    (void *)&DrawPixel,                 // 0xec
-    (void *)NoRefresh,                  // 0xf0
-    (void *)cos,                        // 0xf4
-    (void *)sqrt,                       // 0xf8
-    (void *)atan2,                      // 0xfc
-    (void *)pow,                        // 0x100
-    (void *)SAdd,                       // 0x104
-    (void *)SSub,                       // 0x108
-    (void *)SMul,                       // 0x10c
-    (void *)SDiv,                       // 0x110
-    (void *)SCmp,                       // 0x114
-    (void *)sinf,                       // 0x118
-    (void *)cosf,                       // 0x11c
-    (void *)sqrtf,                      // 0x120
-    (void *)atan2f,                     // 0x124
-    (void *)powf,                       // 0x128
-    (void *)DtoS,                       // 0x12c
-    (void *)StoD,                       // 0x130
-    (void *)StoI,                       // 0x134
-    (void *)ItoS,                       // 0x138
-    (void *)IMod,                       // 0x13c
-    (void *)LMul,                       // 0x140
-    (void *)LDiv,                       // 0x144
-    (void *)LMod,                       // 0x148
-    (void *)LShl,                       // 0x14c
-    (void *)LAsr,                       // 0x150
-    (void *)LLsr,                       // 0x154
-    (void *)memcpy,                     // 0x158
-    (void *)memset,                     // 0x15c
-    (void *)memmove,                    // 0x160
-    (void *)MtoC,                       // 0x164
-    (void *)CtoM,                       // 0x168
-    (void *)Mstrcpy,                    // 0x16c
-    (void *)Mstrcat,                    // 0x170
-    (void *)Mstrcmp,                    // 0x174
-    (void *)StrLeft,                    // 0x178 the string cores (Functions.c)
-    (void *)StrRight,                   // 0x17c
-    (void *)StrCase,                    // 0x180
-    (void *)StrMid,                     // 0x184
-    (void *)StrChar,                    // 0x188
-    (void *)StrFill,                    // 0x18c
-    (void *)StrInstr,                   // 0x190
-    (void *)StrFormat,                  // 0x194
-    (void *)TimerVal,                   // 0x198
-    (void *)RndVal,                     // 0x19c
-    (void *)log,                        // 0x1a0
-    (void *)tan,                        // 0x1a4
-    (void *)StrVal,                     // 0x1a8
-    (void *)TimerSet,                   // 0x1ac
-    (void *)&gui_fcolour,               // 0x1b0
-    (void *)&gui_bcolour,               // 0x1b4
-    (void *)PinVal,                     // 0x1b8
-    (void *)PinPut,                     // 0x1bc
+#include "CallTable.h"
 };
+#undef CTF
+#define CTF(f) (void *)SoftFP_##f,
+const void * const CallTablePS[] = {
+#include "CallTable.h"
+};
+#undef CT
+#undef CTF
 
 // used by CallCFunction() below to find a CFunction or CSub in program flash or the library
 unsigned int *FindCFunction(unsigned int *p, char *CmdPtr) {

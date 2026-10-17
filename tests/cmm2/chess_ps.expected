@@ -1,0 +1,11 @@
+ply  nodes  score   PV
+  1    130     20   C1E3
+  2   3441      5   G5E4 D6C7
+  3   8911     30   G5E4 D6C7 C1E3
+  4 141367     10   G5E4 D6C7 C1E3 C8D7
+  5 550778     26   C2A4 D6C7 G2D5 E6D5 C1E3
+
+Nodes: 550778
+Opening book missing.
+bench done
+
