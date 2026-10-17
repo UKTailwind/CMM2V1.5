@@ -333,8 +333,10 @@ int CheckEmpty(char *p){
 // run a program
 // this will continuously execute a program until the end (marked by TWO zero chars)
 // the argument p must point to the first line to be executed
+int ExecDepth = 0;                                                  // how deep ExecuteProgram is (a FUNCTION's body runs one deeper)
 void ExecuteProgram(char *p) {
     int i, SaveLocalIndex = 0;
+    int MyDepth = ++ExecDepth;                                      // (an error skipped to this loop comes back to it)
     jmp_buf SaveErrNext;
     memcpy(SaveErrNext, ErrNext, sizeof(jmp_buf));                  // we call ExecuteProgram() recursively so we need to store/restore old jump buffer between calls
     ShortScroll=0;
@@ -424,10 +426,17 @@ void ExecuteProgram(char *p) {
 						}
 					} else {
 						LocalIndex = SaveLocalIndex;                    // restore so that we can clean up any memory leaks
+						ExecDepth = MyDepth;                            // (from deeper, a FUNCTION's body)
 						ClearTempMemory();
 					}
-					if(OptionErrorSkip > 0) OptionErrorSkip--;          // if OPTION ERROR SKIP decrement the count - we do not error if it is greater than zero
             	}
+				// ON ERROR SKIP counts the statements this loop runs, a SUB's body included (it runs here, as on the
+				// PicoMite), but not those of a FUNCTION the protected statement calls: its body runs in an
+				// ExecuteProgram of its own, deeper (PicoMite issue 34)
+				if(OptionErrorSkip > 0 && OptionErrorSkip < 100000 && ExecDepth <= ErrorSkipDepth) {
+					OptionErrorSkip--;
+					ErrorSkipDepth = ExecDepth;                     // (a count left when its FUNCTION returns goes on in the caller)
+				}
                 if(TempMemoryIsChanged) ClearTempMemory();          // at the end of each command we need to clear any temporary string vars
                 if(USBtime | deferredcopy | MMAbort) CheckAbort();      // (it does nothing unless one is set: the 1 ms tick sets USBtime)
                 if(IntReady.any || autocursor || GUIactive)check_interrupt();                                  // check for an MMBasic interrupt and handle it
@@ -441,6 +450,7 @@ void ExecuteProgram(char *p) {
          }
     }
     memcpy(ErrNext, SaveErrNext, sizeof(jmp_buf));                  // restore old jump buffer
+    ExecDepth = MyDepth - 1;
 }
 
 
@@ -856,9 +866,66 @@ static struct s_sublayout *SubLayoutBuild(int index, char *p, char *argbuf2, cha
 //   BYREF and BYVAL qualifiers added per Geoff's email
 
 
+/* FUNCTIONs that return a whole array (the PicoMite's): FUNCTION f(args) AS INTEGER(d1 [,d2 ...]) or AS FLOAT(...).
+   The result can only be the source of a whole-array assignment, b() = f(...) (LetArrayCopy, Commands.c), which
+   sanctions the call by setting FunReturnArrayCount to -1 first; DefinedSubFun refuses any other call before the
+   body runs, and on return leaves the element count there and the elements in temporary memory. */
+int FunReturnArrayCount = 0;
+
+// the result array: the function's name and the definition's "(d1 [,d2 ...])" joined, so that findvar's own
+// dimension parsing (expressions, OPTION BASE, MAXDIM) makes it; *count is its number of elements
+static void *FunArrayCreate(char *fun_name, char *dims, int FunType, int *count) {
+    char nbuf[MAXVARLEN + 84];
+    int nl = strlen(fun_name), depth = 0, inquote = false, d;
+    char *dp = dims;
+    memcpy(nbuf, fun_name, nl);
+    do {
+        if(*dp == 0 || nl >= (int)sizeof(nbuf) - 1) error("Dimensions");
+        if(*dp == '"') inquote = !inquote;
+        if(!inquote) {
+            if(*dp == '(' || (tokentype(*dp) & T_FUN)) depth++;     // (a function's token carries its opening bracket)
+            else if(*dp == ')') depth--;
+        }
+        nbuf[nl++] = *dp++;
+    } while(depth > 0);
+    nbuf[nl] = 0;
+    findvar(nbuf, FunType | V_FUNCT);                               // the local array
+    *count = 1;
+    for(d = 0; d < MAXDIM && !DimIsEnd(VREC(VarIndex)->dimtbl[d]); d++) *count *= DimElements(VREC(VarIndex)->dimtbl[d]);
+    return VREC(VarIndex)->val.s;                                   // its data
+}
+
+// after AS <type>: the dimensions, if the function returns an array (else NULL); an unsanctioned call is refused
+// here, before gosubindex moves or the body runs (the error would otherwise leave a frame, and the body's effects)
+static char *CheckFunArrayDef(char *p, int FunType, int sanctioned, char *callerlp) {
+    skipspace(p);
+    if(*p != '(') return NULL;
+    if(!(FunType & (T_INT | T_NBR))) error("Variable type");        // INTEGER or FLOAT arrays only
+    if(!sanctioned) {
+        CurrentLinePtr = callerlp;                                  // reported at the call
+        error("Array function is only valid in an array assignment");
+    }
+    return p;
+}
+
+// the result, copied to temporary memory at the caller's level (the locals go when the function ends)
+static char *FunArrayReturn(void *base, int count) {
+    char *tmp;
+    LocalIndex--;
+    tmp = GetTempMemory(count * 8);
+    LocalIndex++;
+    memcpy(tmp, base, count * 8);                                   // (MMFLOAT and long long int are both 8 bytes)
+    FunReturnArrayCount = count;
+    return tmp;
+}
+
 void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *i64a, char **sa, int *typ) {
 
 	char *p, *s, *tp, *ttp;
+	char *FunArrayDims = NULL;                                  // "(d1 [,d2 ...])" in the definition: it returns an array
+	int FunArrayCount = 0;                                      // and its number of elements
+	int FunArraySanctioned = (FunReturnArrayCount < 0);         // b() = f(...) called it (the calls inside it are not)
+	FunReturnArrayCount = 0;
 	int tcmdtoken;                                              // the caller's command, across a FUNCTION body
 	char *CallersLinePtr, *SubLinePtr = NULL;
     char *argbuf1; char **argv1; int argc1;
@@ -936,6 +1003,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
             ttp = CheckIfTypeSpecified(ttp, &FunType, true);        // get the type
             if(!(FunType & T_IMPLIED)) error("Variable type");
             FunStruct = g_StructArg;                                // AS a TYPE's name (reading the parameters changes g_StructArg)
+            FunArrayDims = CheckFunArrayDef(ttp, FunType, FunArraySanctioned, CallersLinePtr);   // AS INTEGER(6), say
         }
         FunType |= (V_FIND | V_DIM_VAR | V_LOCAL | V_EMPTY_OK);
     }
@@ -1195,7 +1263,8 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
             funsym[k] = 0;
             fn = funsym;
         }
-        tp = findvar(fn, FunType | V_FUNCT);
+        if(FunArrayDims != NULL) tp = FunArrayCreate(fn, FunArrayDims, FunType, &FunArrayCount);   // the result array
+        else tp = findvar(fn, FunType | V_FUNCT);
     }
     FunType = VREC(VarIndex)->type;
     if(FunType & T_STR) {
@@ -1219,7 +1288,9 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     nextstmt = ttp;
 
     // return the value of the function's variable to the caller
-    if(FunType & T_NBR)
+    if(FunArrayCount > 0)
+        *sa = FunArrayReturn(tp, FunArrayCount);                    // a whole array, through temporary memory
+    else if(FunType & T_NBR)
         *fa = *(MMFLOAT *)tp;
     else if(FunType & T_INT)
         *i64a = *(long long int *)tp;
@@ -3850,6 +3921,7 @@ void error(char *msg, ...) {
     va_list ap;
 	ScrewUpTimer=0;
     if(MMerrno == 0) MMerrno = 16;                                  // indicate an error
+    MMerrline = 0;                                                  // (the line, below, if the error is in one)
     mymemset(errstring,0,sizeof(errstring));
     LoadOptions();                                                  // make sure that the option struct is in a clean state
 
@@ -3881,6 +3953,7 @@ void error(char *msg, ...) {
        			MMErrorString(" ");
        		}
        		MMErrorString("line ");
+       		MMerrline = LHDR_LINE(CurrentLinePtr);                  // MM.ERRLINE: the number this message gives
        		IntToStr(inpbuf, LHDR_LINE(CurrentLinePtr), 10);
        		MMErrorString(inpbuf);
        		if(LHDR_FILE(CurrentLinePtr) == 1 && !OptionErrorSkip) {
@@ -3937,6 +4010,11 @@ void error(char *msg, ...) {
     	}
     	FreeMemory((void*)DefinedSubFunMem);
     	DefinedSubFunMem=0;
+    }
+    if(OptionErrorSkip > 100000) {                                  // ON ERROR RESTART: what was printed goes out first
+        uint32_t t = HAL_GetTick();
+        while(ConsoleTxBufHead != ConsoleTxBufTail && HAL_GetTick() - t < 500) {}
+        SoftReset();
     }
     if(OptionErrorSkip) {
     	SCB_CleanInvalidateDCache();
@@ -4356,6 +4434,9 @@ void MIPS16 ClearRuntime(void) {
     CSubInterrupt = NULL; CSubComplete = 0;                         // INTERRUPT's SUB and the CSUBs' interrupt vectors go with
     CFuncInt1 = CFuncInt2 = CFuncInt3 = CFuncInt4 = CFuncmSec = 0;  // the program (a pin or the 1 ms tick called them after NEW)
     OptionErrorSkip = 0;
+    MMerrline = 0;
+    FunReturnArrayCount = 0;
+    InMMEND = false;
     *MMErrMsg = 0;
     m_alloc(0);
     varcnt = 0;

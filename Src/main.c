@@ -830,6 +830,8 @@ if(setjmp(mark) != 0) {
 	  FontTable[1]=(unsigned char *)Misc_12x20_LE;
 	  FontTable[2]=(unsigned char *)Hom_16x24_LE;
 	  LoadOptions();
+	  OptionErrorSkip = 0;                                          // the prompt has no ON ERROR (IGNORE or RESTART) of the program's
+	  ExecDepth = 0;                                                // (left by the ExecuteProgram calls the jump came out of)
 	  CMM1 = false;
 	  optionangle=1.0;
 	  optiony=0;
@@ -957,16 +959,21 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
       }
       _excep_code = 0;
       PrepareProgram(false);
-      if(!ErrorInPrompt && FindSubFun("MM.PROMPT", 0) >= 0) {
-          ErrorInPrompt = true;
-          ExecuteProgram("MM.PROMPT\0");
+      if(*EndLine) {                                              // END cmd$: the command the program ended with, as if typed
+          strcpy(inpbuf, EndLine);
+          *EndLine = 0;
       } else {
-          MMPrintString("> ");                            // print the prompt
+          if(!ErrorInPrompt && FindSubFun("MM.PROMPT", 0) >= 0) {
+              ErrorInPrompt = true;
+              ExecuteProgram("MM.PROMPT\0");
+          } else {
+              MMPrintString("> ");                            // print the prompt
+          }
+          ErrorInPrompt = false;
+          EditInputLine();
+//	      MMPrintString(inpbuf);PRet();
+          InsertLastcmd(inpbuf);                                  // save in case we want to edit it later
       }
-      ErrorInPrompt = false;
-      EditInputLine();
-//	  MMPrintString(inpbuf);PRet();
-      InsertLastcmd(inpbuf);                                  // save in case we want to edit it later
       //MMgetline(0, inpbuf);                                       // get the input
       if(!*inpbuf) continue;                                      // ignore an empty line
       i=0;

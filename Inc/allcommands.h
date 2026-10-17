@@ -61,6 +61,7 @@ typedef enum {
     MMHEIGHT,
     MMONEWIRE,
     MMFLAGS,
+    MMERRLINE,                                                      // appended: the ~() codes above stay as they are
     MMEND
 } Operation;
 extern const char* overlaid_functions[];extern volatile int vol_left, vol_right;

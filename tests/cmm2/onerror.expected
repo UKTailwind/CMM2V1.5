@@ -1,0 +1,20 @@
+-- MM.ERRLINE
+ 16  line 10  Divide by zero
+ 0  line 0  []
+-- a FUNCTION called by the protected statement does not use the skip up
+no
+skipped: Divide by zero  line 20
+-- a SUB's statements count, as on the PicoMite: the call, then each of its body
+after s1: n = 2  Divide by zero  line 86
+-- a FUNCTION with an error in its body, called by the protected statement
+r = 6  n = 2  Divide by zero
+-- ON ERROR SKIP 3: three statements
+all three skipped: Divide by zero
+-- statements on one line count one each
+both skipped: Negative argument
+-- the count goes on in the caller when the SUB that set it returns
+skipped in the caller: Divide by zero
+-- ON ERROR IGNORE and the error state across an interrupt
+after the ticks: line 1  Divide by zero  in the tick: 0
+still ignored: Negative argument
+done

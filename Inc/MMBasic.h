@@ -398,6 +398,12 @@ extern char *ep;                                // Pointer to the argument to a 
 
 extern int OptionErrorSkip;                    // value of OPTION ERROR
 extern int MMerrno;
+extern int MMerrline;                          // MM.ERRLINE
+extern char EndLine[];                         // END cmd$ (Commands.c)
+extern int InMMEND;                            // SUB MM.END is running (Commands.c)
+extern int FunReturnArrayCount;               // a FUNCTION's whole-array result (DefinedSubFun)
+extern int ErrorSkipDepth;                     // the ExecuteProgram depth ON ERROR SKIP was given at
+extern int ExecDepth;                          // how deep ExecuteProgram is (MMBasic.c)
 extern uint64_t g_flag;                        // FLAGS, FLAG(n), MM.FLAGS
 extern char *MMErrMsg;
 

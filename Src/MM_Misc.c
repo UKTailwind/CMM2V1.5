@@ -100,7 +100,7 @@ char *CSubInterrupt = NULL;                                     // INTERRUPT sub
 volatile char CSubComplete = 0;                                     // through CallTableP 0xc0 (a bool on the PicoMite); INTERRUPT alone sets it
 unsigned int PeripheralBusSpeed;
 int SaveOptionErrorSkip=0;
-static int SaveMMerrno;                                             // the caller's error state across an interrupt SUB
+static int SaveMMerrno, SaveMMerrline, SaveErrorSkipDepth;         // the caller's error state across an interrupt SUB
 static char SaveMMErrMsg[256];                                      // (the size of errstring, which MMErrMsg points at)
 extern RTC_HandleTypeDef hrtc;
 extern volatile int ADCcomplete;
@@ -2374,9 +2374,14 @@ void cmd_ireturn(void){
         DelayedDrawFmtBox = false;
         DrawFmtBox(1);                                              // the pop-up GUI keyboard should be drawn AFTER the pen down interrupt
     }
-    if(SaveOptionErrorSkip>0)OptionErrorSkip=SaveOptionErrorSkip+1;
-    strcpy(MMErrMsg, SaveMMErrMsg);                                 // the caller's error state again
+    // the caller's error state again; a count gains one when this statement will use one up on completion (in
+    // the loop of ON ERROR SKIP, not a FUNCTION's deeper one), as the statements of the handler did not
+    ErrorSkipDepth = SaveErrorSkipDepth;
+    OptionErrorSkip = SaveOptionErrorSkip;
+    if(OptionErrorSkip > 0 && OptionErrorSkip < 100000 && ExecDepth <= ErrorSkipDepth) OptionErrorSkip++;
+    strcpy(MMErrMsg, SaveMMErrMsg);
     MMerrno = SaveMMerrno;
+    MMerrline = SaveMMerrline;
     IntSignal();                                                    // scan once more: another interrupt may have become due meanwhile (S1c)
 }
 
@@ -4089,14 +4094,16 @@ int check_interrupt(void) {
     // an interrupt was found if we jumped to here
 GotAnInterrupt:
     LocalIndex++;                                                   // IRETURN will decrement this
-    if(OptionErrorSkip>0)SaveOptionErrorSkip=OptionErrorSkip;
-    else SaveOptionErrorSkip = 0;
+    SaveOptionErrorSkip = OptionErrorSkip;                          // a count, IGNORE (-1) or RESTART
+    SaveErrorSkipDepth = ErrorSkipDepth;
     OptionErrorSkip = 0;                                            // the interrupt SUB starts with a clean error state
     strncpy(SaveMMErrMsg, MMErrMsg, sizeof(SaveMMErrMsg) - 1);      // and the caller's is restored by IRETURN (Gerry's b14, as the PicoMite)
     SaveMMErrMsg[sizeof(SaveMMErrMsg) - 1] = 0;
     *MMErrMsg = 0;
     SaveMMerrno = MMerrno;
     MMerrno = 0;
+    SaveMMerrline = MMerrline;
+    MMerrline = 0;
     InterruptReturn = nextstmt;                                     // for when IRETURN is executed
     // if the interrupt is pointing to a SUB token we need to call a subroutine
     if(commandtbl_at(intaddr) == cmdSUB) {

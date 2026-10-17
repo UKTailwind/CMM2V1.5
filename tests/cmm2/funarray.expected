@@ -1,0 +1,19 @@
+-- AS INTEGER(6)
+ 12 13 14 15 16 17 18
+-- dimensions from the arguments
+ 0 1 4 9 16 25 36 49 64 81
+-- a 2x4 result into a 2x4, and into 8 elements of another shape
+ 0 100 3 103
+ 0 100 1 101 2 102 3 103
+-- filled by a command: MATH M_INVERSE
+ 0.5 0.25 0.125-0.0625
+-- a FLOAT array function
+ 0 0.5 1 1.5 2 2.5 3
+-- refused anywhere else, before the body runs
+Array function is only valid in an array assignment  body ran: 0
+Array function is only valid in an array assignment  body ran: 0
+-- the wrong size or type
+Array size mismatch
+Incompatible type
+Expected an array
+done

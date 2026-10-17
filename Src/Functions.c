@@ -72,6 +72,7 @@ const char* overlaid_functions[]={
 	"MM.HEIGHT",
 	"MM.ONEWIRE",
 	"MM.FLAGS",
+	"MM.ERRLINE",
 	"MM.END"
 };
 
@@ -254,6 +255,9 @@ typedef enum {
 			break;
 		case MMERRNO:
 		    iret = MMerrno;
+			break;
+		case MMERRLINE:                                             // the line the error message gives, 0 if none
+		    iret = MMerrline;
 			break;
 		case MMERRMSG:
 			sret = GetTempMemory(STRINGSIZE);                                        // this will last for the life of the command

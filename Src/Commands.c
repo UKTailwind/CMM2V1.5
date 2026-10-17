@@ -84,6 +84,8 @@ int TraceOn;                                // used to track the state of TRON/T
 
 int OptionErrorSkip;                                               // how to handle an error
 int MMerrno=0;                                                        // the error number
+int MMerrline=0;                                                      // MM.ERRLINE: the line the error message gave, 0 if none
+int ErrorSkipDepth=0;                                                 // the ExecuteProgram depth ON ERROR SKIP was given at
 uint64_t g_flag = 0;                                                // FLAGS, FLAG(n) and MM.FLAGS: 64 flags a program keeps (the PicoMite's)
 char *MMErrMsg = "";                                                // the error message
 void command_print(char *cmd);
@@ -531,10 +533,11 @@ void command_print(char *cmd) {
 // it ends up as the place where mistyped commands are discovered.  This is why
 // the error message is "Unknown command"
 // a() = b(): both existing whole arrays of the same type (and string LENGTH, or structure type) with the same
-// number of elements (not necessarily the same shape: a 2x3 can fill a 6), copied in one go (the PicoMite's)
+// number of elements (not necessarily the same shape: a 2x3 can fill a 6), copied in one go (the PicoMite's);
+// b() can be a FUNCTION that returns an array, a() = f(...), the one place such a call is allowed
 static void LetArrayCopy(char *p_equals) {
 	void *dst, *src;
-	int dstidx, srcidx, dstcount, srccount, esize, d;
+	int dstidx, dstcount, srccount, srctype, srcsize = 0, esize, d, fidx = -1;
 	char *p, *tq;
 
 	// the destination must exist: plain V_FIND would make an undeclared a() a parameter list's empty array
@@ -550,24 +553,39 @@ static void LetArrayCopy(char *p_equals) {
 	if(issymbol(*p)) tq = p + symbolsize(*p);                       // (a symbol, Symbols.h)
 	else for(tq = p + 1; isnamechar(*tq); tq++);
 	if(*tq == '$' || *tq == '%' || *tq == '!') tq++;
-	if(*tq == '(' && FindSubFun(p, 1) >= 0) error("Expected an array");      // (no FUNCTION returns an array here)
-	src = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
-	if(g_StructMemberType) error("Struct member arrays not supported for this command");
-	if(!emptyarray) error("Expected an array");
-	srcidx = VarIndex;
+	if(*tq == '(') fidx = FindSubFun(p, 1);                         // the same order as getvalue: a FUNCTION before a variable
+	if(fidx >= 0) {                                                 // an array FUNCTION: run it and take its result
+		MMFLOAT f;
+		long long int i64;
+		char *s = NULL;
+		int t = T_NOTYPE;
+		FunReturnArrayCount = -1;                                   // (sanctions the array return: DefinedSubFun)
+		DefinedSubFun(true, p, fidx, &f, &i64, &s, &t);
+		if(FunReturnArrayCount <= 0) error("Expected an array");
+		srccount = FunReturnArrayCount;
+		FunReturnArrayCount = 0;
+		src = s;
+		srctype = t;                                                // (INTEGER or FLOAT)
+	} else {
+		src = findvar(p, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
+		if(g_StructMemberType) error("Struct member arrays not supported for this command");
+		if(!emptyarray) error("Expected an array");
+		srctype = VREC(VarIndex)->type;
+		srcsize = VREC(VarIndex)->size;
+		for(srccount = 1, d = 0; d < MAXDIM && !DimIsEnd(VREC(VarIndex)->dimtbl[d]); d++) srccount *= DimElements(VREC(VarIndex)->dimtbl[d]);
+	}
 
 	// the same element type (no conversion), string LENGTH or structure type, and number of elements
-	if(TypeMask(VREC(dstidx)->type) != TypeMask(VREC(srcidx)->type)) error("Incompatible type");
+	if(TypeMask(VREC(dstidx)->type) != TypeMask(srctype)) error("Incompatible type");
 	if(VREC(dstidx)->type & T_STR) {
-		if(VREC(dstidx)->size != VREC(srcidx)->size) error("String length");
+		if(VREC(dstidx)->size != srcsize) error("String length");
 		esize = VREC(dstidx)->size + 1;
 	} else if(VREC(dstidx)->type & T_STRUCT) {
-		if(VREC(dstidx)->size != VREC(srcidx)->size) error("Structure types must match");
+		if(VREC(dstidx)->size != srcsize) error("Structure types must match");
 		esize = g_structtbl[VREC(dstidx)->size]->total_size;
 	} else
 		esize = 8;
 	for(dstcount = 1, d = 0; d < MAXDIM && !DimIsEnd(VREC(dstidx)->dimtbl[d]); d++) dstcount *= DimElements(VREC(dstidx)->dimtbl[d]);
-	for(srccount = 1, d = 0; d < MAXDIM && !DimIsEnd(VREC(srcidx)->dimtbl[d]); d++) srccount *= DimElements(VREC(srcidx)->dimtbl[d]);
 	if(dstcount != srccount) error("Array size mismatch");
 	if(dst != src) memcpy(dst, src, (size_t)dstcount * esize);  // (a() = a(), or a parameter its caller's array)
 	checkend(skipvar(p, false));
@@ -1680,8 +1698,21 @@ void cmd_else(void) {
 
 
 
+// END [NOEND | cmd$] (the PicoMite's): a SUB MM.END runs first unless NOEND says not; without one, cmd$ runs as though
+// typed at the prompt once the program has ended
+char EndLine[STRINGSIZE];
+int InMMEND = false;                                                // MM.END is running: an END in it ends there (RUN clears it)
 void cmd_end(void) {
-	checkend(cmdline);
+	getargs(&cmdline, 1, ",");
+	int noend = (argc == 1 && checkstring(argv[0], "NOEND") != NULL);
+	if(!noend && !InMMEND && FindSubFun("MM.END", 0) >= 0) {
+		InMMEND = true;
+		ExecuteProgram("MM.END\0");
+	} else if(argc == 1 && !noend && !InMMEND) {
+		char *s = getCstring(argv[0]);
+		strcpy(EndLine, s);
+	}
+	InMMEND = false;
 	cleanend();
 }
 
@@ -3158,17 +3189,24 @@ void cmd_on(void) {
             return;
         }
         MMerrno = 0;                                                // clear the error flags
+        MMerrline = 0;
         *MMErrMsg = 0;
         if(checkstring(p, "CLEAR")) return;
         if(checkstring(p, "IGNORE")) {
             OptionErrorSkip = -1;
             return;
         }
+        if(checkstring(p, "RESTART")) {                             // an error resets the CMM2 (the PicoMite's)
+            OptionErrorSkip = 999999;
+            return;
+        }
         if((p = checkstring(p, "SKIP"))) {
+            // n + 1: the count drops after every statement of this loop, this one included (ExecuteProgram)
             if(*p == 0 || *p == '\'')
-                OptionErrorSkip = 1;
+                OptionErrorSkip = 2;
             else
-                OptionErrorSkip = getint(p, 1, 10000) ;
+                OptionErrorSkip = getint(p, 1, 10000) + 1;
+            ErrorSkipDepth = ExecDepth;
             return;
         }
         error("Syntax");
