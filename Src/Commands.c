@@ -440,6 +440,7 @@ void cmd_debug(void){
 void cmd_print(void) {
 	command_print(cmdline);
 }
+int FileCharPos[MAXOPENFILES + 1];                                  // PRINT's column in each file's or COM port's line, 1 at OPEN
 void command_print(char *cmd) {
 	char *s, *p;
     unsigned char *ss;
@@ -492,9 +493,34 @@ void command_print(char *cmd) {
 		i = 0;
 	}
 
+	// the line is built here and output once every item has been evaluated, as the PicoMite's PRINT does, so a PRINT
+	// that fails part way prints nothing; charpos is the column it would be at, for TAB() as the items are evaluated.
+	// A file or COM port has its own column (FileCharPos), so neither it nor the console moves the other's
+	char *outbuf = GetTempMemory(STRINGSIZE);
+	int filecol = (fnbr >= 1 && fnbr <= MAXOPENFILES);
+	int bufsize = STRINGSIZE, used = 0, charpos = filecol ? FileCharPos[fnbr] : MMCharPos, conpos = MMCharPos, len = 0;
+	if(charpos < 1) charpos = 1;
+	char *add = NULL;
+#define PRINT_ADD(src, n) do {                                                  \
+		const char *ps_ = (src); int pn_ = (n);                                 \
+		while(used + pn_ >= bufsize) {                                          \
+			char *nb_ = GetTempMemory(bufsize + STRINGSIZE);                    \
+			memcpy(nb_, outbuf, used);                                          \
+			ClearSpecificTempMemory(outbuf);                                    \
+			outbuf = nb_;                                                       \
+			bufsize += STRINGSIZE;                                              \
+		}                                                                       \
+		for(int pk_ = 0; pk_ < pn_; pk_++) {                                    \
+			char pc_ = ps_[pk_];                                                \
+			outbuf[used++] = pc_;                                               \
+			if(pc_ == '\r' || pc_ == '\n') charpos = 1;                         \
+			else if(pc_ == '\t') charpos = (((charpos - 1) / 8) + 1) * 8 + 1;   \
+			else charpos++;                                                     \
+		}                                                                       \
+	} while(0)
 	for(; i < argc; i++) {											// step through the arguments
 		if(*argv[i] == ',') {
-			MMfputc('\t', fnbr);									// print a tab for a comma
+			PRINT_ADD("\t", 1);										// a tab for a comma
 			docrlf = false;                                         // a trailing comma should suppress CR/LF
 		}
 		else if(*argv[i] == ';') {
@@ -504,26 +530,43 @@ void command_print(char *cmd) {
 			p = argv[i];
 			while(*p) {
 				t = T_NOTYPE;
+				MMCharPos = charpos;                                // (TAB() sees the column the line has reached)
 				p = evaluate(p, &f, &i64, &s, &t, true);			// get the value and type of the argument
                 if(t & T_NBR) {
                     *inpbuf = ' ';                                  // preload a space
                     FloatToStr(inpbuf + ((f >= 0) ? 1:0), f, 0, STR_AUTO_PRECISION, ' ');// if positive output a space instead of the sign
-					MMfputs(CtoM(inpbuf), fnbr);					// convert to a MMBasic string and output
+                    add = inpbuf; len = strlen(inpbuf);
 				} else if(t & T_INT) {
                     *inpbuf = ' ';                                  // preload a space
                     IntToStr(inpbuf + ((i64 >= 0) ? 1:0), i64, 10); // if positive output a space instead of the sign
-					MMfputs(CtoM(inpbuf), fnbr);					// convert to a MMBasic string and output
+                    add = inpbuf; len = strlen(inpbuf);
 				} else if(t & T_STR) {
-					MMfputs(s, fnbr);								// print if a string (s is a MMBasic string)
+					add = s + 1; len = *(unsigned char *)s;			// (s is a MMBasic string)
 				} else error("Attempt to print reserved word");								// trap things like PRINT AS
+				PRINT_ADD(add, len);
 			}
 			docrlf = true;
 		}
 	}
-	if(docrlf && AutoLineWrap) MMfputs("\2\r\n", fnbr);								// print the terminating cr/lf unless it has been suppressed
+	if(docrlf && AutoLineWrap) PRINT_ADD("\r\n", 2);				// the terminating cr/lf unless it has been suppressed
+	{                                                               // out in pieces of up to 255 characters
+		char *mm = GetTempStrMemory();
+		for(int off = 0; off < used; ) {
+			int n = used - off > 255 ? 255 : used - off;
+			mm[0] = n;
+			memcpy(mm + 1, outbuf + off, n);
+			MMfputs(mm, fnbr);
+			off += n;
+		}
+	}
+#undef PRINT_ADD
 	if(PrintPixelMode!=0)SerUSBPutS("\033[m");
 	PrintPixelMode=0;
 	AutoLineWrap=true;
+	if(filecol) {                                                   // the column the line left: the file's own, or the console's
+		FileCharPos[fnbr] = charpos;
+		MMCharPos = conpos;
+	} else MMCharPos = charpos;
 }
 
 

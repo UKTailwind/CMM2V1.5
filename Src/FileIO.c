@@ -105,6 +105,7 @@ int giffnbr=0,gifxOrigin, gifyOrigin;
 extern volatile uint8_t pagesetdone;
 char filepath[FF_MAX_LFN]="A:/";
 void DrivePath(char *out);
+void DriveCurrent(void);
 extern int docheck;
 extern LTDC_LayerCfgTypeDef pLayerCfg;
 char fullpathname[FF_MAX_LFN];
@@ -339,6 +340,7 @@ int massage(char *buff){
 	return strlen(buff);
 }
 void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
+    int blockcomment = 0;                                           // within /* ... */ (a block comment)
     int fnbr;
     char buff[256];
     char qq[FF_MAX_LFN] = {0};
@@ -378,6 +380,11 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 		while(*sbuff==' '){
 			sbuff++;
 			len--;
+		}
+		if(blockcomment || (sbuff[0] == '/' && sbuff[1] == '*')) {   // a /* ... */ block comment (the PicoMite's): its lines
+			if(!blockcomment) blockcomment = (strstr(&sbuff[2], "*/") == NULL);   // dropped, from the /* line to the */ line
+			else if(sbuff[0] == '*' && sbuff[1] == '/') blockcomment = 0;     // (a /* line with its own */ is a line)
+			continue;
 		}
 		if(ignore && sbuff[0]!='#')*sbuff='\'';
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
@@ -486,6 +493,7 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 		}
     }
     FileClose(fnbr);
+    if(blockcomment) error("No matching */ in $", fname);
     return ;
 }
 // load a file into program memory
@@ -497,6 +505,7 @@ int FileLoadProgram(char *fname, int mode) {
     int c;
     int convertdebug=1;
     int ignore=0;
+    int blockcomment = 0;                                           // within /* ... */ (a block comment)
     nDefines=0;
     LineCount=0;
     int i,importlines=0, data;
@@ -538,6 +547,11 @@ int FileLoadProgram(char *fname, int mode) {
 		while(sbuff[0]==' '){ //strip leading spaces
 			sbuff++;
 			len--;
+		}
+		if(blockcomment || (sbuff[0] == '/' && sbuff[1] == '*')) {   // a /* ... */ block comment (the PicoMite's): its lines
+			if(!blockcomment) blockcomment = (strstr(&sbuff[2], "*/") == NULL);   // dropped, from the /* line to the */ line
+			else if(sbuff[0] == '*' && sbuff[1] == '/') blockcomment = 0;     // (a /* line with its own */ is a line)
+			continue;
 		}
 		if(ignore && sbuff[0]!='#')*sbuff='\'';
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
@@ -643,6 +657,11 @@ int FileLoadProgram(char *fname, int mode) {
     }
     *p = 0;                                                         // terminate the string in RAM
     FileClose(fnbr);
+    if(blockcomment) {
+        FreeMemorySafe((void *)&buf);
+        FreeMemorySafe((void *)&dlist);
+        error("No matching */");
+    }
 	int load=0;
     if(Option.ProgramStartCode>=0){
 		size=SaveProgramToMemory(buf, false, name);
@@ -2220,6 +2239,7 @@ int BasicFileOpen(char *fname, int fnbr, int mode) {
        	DrivePath(fullfilepathname);                                // (with its drive: the program's name line keeps it)
 //       	MMPrintString(fullfilepathname);PRet();
         FSerror = f_open(FileTable[fnbr].fptr, q, mode);        // open it
+        FileCharPos[fnbr] = 1;                                  // (PRINT's column in its line)
         ErrorCheck(fnbr);
         clearrepeat();
 

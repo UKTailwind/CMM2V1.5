@@ -712,9 +712,31 @@ void MIPS16 cmd_memory(void) {
    behind mymemset. Forward (as before: no caller overlaps a later part of its source), any size, any alignment, any
    memory, and never an unaligned word access, which the M7 allows but slowly, and more slowly still into SDRAM over
    the FMC. The destination is brought to a word boundary a byte at a time; a source then in step is copied a word
-   at a time (from 256 bytes by copy_words, the FPU's 128-byte transfers); one out of step is read a word at a time
-   and shifted into place. Both in SDRAM, a large copy goes through tbuff (on-chip) a block at a time: reading a
+   at a time; one out of step is read a word at a time and shifted into place. From 64 bytes a word copy is an
+   8-register LDM/STM loop, except into SDRAM below 4 KB, where four single stores at a time beat the bursts (measured
+   17 Oct, cycles for 256 bytes: D2 to D2 113 against 150, D2 to SDRAM 255 against 424). copy_words (the FPU's
+   128-byte transfers) was no faster than the LDM/STM loop at any size, and saving s16-s31 cost it 107 cycles a call.
+   Both in SDRAM, a large copy goes through tbuff (on-chip) a block at a time: reading a
    block and then writing it turns the SDRAM's bus round less often. */
+
+// k words, eight a time by LDM/STM, then one a time
+static void ITCM_CODE __attribute__((noinline, naked)) copy_ldm8(uint32_t *wd, const uint32_t *ws, int k) {
+    __asm volatile(
+        "push {r4-r10}\n"
+        "1: subs r2, #8\n"
+        "blt 2f\n"
+        "ldm r1!, {r3-r10}\n"
+        "stm r0!, {r3-r10}\n"
+        "b 1b\n"
+        "2: adds r2, #8\n"
+        "beq 4f\n"
+        "3: ldr r3, [r1], #4\n"
+        "str r3, [r0], #4\n"
+        "subs r2, #1\n"
+        "bne 3b\n"
+        "4: pop {r4-r10}\n"
+        "bx lr\n");
+}
 
 // the copy itself: no blocks through tbuff, no routinechecks
 static void ITCM_CODE __attribute__((optimize("no-tree-loop-distribute-patterns"))) copy_core(uint8_t *d, const uint8_t *s, int n) {   // (its loops must not become calls to memcpy: that is this)
@@ -729,7 +751,7 @@ static void ITCM_CODE __attribute__((optimize("no-tree-loop-distribute-patterns"
     }
     w = n >> 2;
     if(((uint32_t)s & 3) == 0) {                                    // the source in step: word for word
-        if(w >= 64) _Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, w);
+        if(w >= 16 && ((uint32_t)d < 0xC0000000 || w >= 1024)) copy_ldm8((uint32_t *)d, (const uint32_t *)s, w);
         else {
             uint32_t *wd = (uint32_t *)d;
             const uint32_t *ws = (const uint32_t *)s;
@@ -1123,7 +1145,6 @@ void *GetMemory(size_t size){
     void *addr = GetMemoryNull(size);
     if(addr != NULL) return addr;
     // out of memory
-    LocalIndex = 0;
     error("Not enough heap memory");
     return NULL;                                                    // keep the compiler happy
 }
@@ -1151,7 +1172,6 @@ void *GetInternalMemory(size_t size){
             n = j;                                                  // not enough space here so reset our count
     }
     // out of memory
-    LocalIndex = 0;
     error("Not enough internal memory");
     return NULL;                                                    // keep the compiler happy
 }
@@ -1207,7 +1227,6 @@ void *GetInternalMemory(size_t size) {
             }
         } else n = 0;                                               // not enough space here so reset our count
     }
-    LocalIndex = 0;                                                  // Allows ClearTempMemory to clear all levels
     ClearTempMemory();                                               // hopefully this will give us enough to print the prompt
     error("Not enough internal memory");
     return NULL;                                                    // keep the compiler happy
@@ -1235,7 +1254,6 @@ void *GetSystemMemory(int size) {
             }
         } else n = 0;                                               // not enough space here so reset our count
     }
-    LocalIndex = 0;                                                  // Allows ClearTempMemory to clear all levels
     ClearTempMemory();                                               // hopefully this will give us enough to print the prompt
     error("Not enough internal memory");
     return NULL;                                                    // keep the compiler happy
@@ -1288,7 +1306,6 @@ void *GetStringMemory(void) { //routine to get a single page of memory from Bott
             return (void *)addr;
         }
     }
-    LocalIndex = 0;
     error("Not enough String memory");
     return NULL;                                                    // keep the compiler happy
 }
@@ -1337,7 +1354,6 @@ void *GetStringMemoryBottom(void) { //routine to get a single page of memory fro
             return (void *)addr;
         }
     }
-    LocalIndex = 0;
     error("Not enough String memory");
     return NULL;                                                    // keep the compiler happy
 }

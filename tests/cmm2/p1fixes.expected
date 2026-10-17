@@ -1,0 +1,9 @@
+after the block comment
+after the one-line comment
+OPTION LOCAL VARIABLES accepted
+errno 1
+byval with a local array first: 14 9
+after the memory error: keep = 5, errno 1
+settick -1: -1 is invalid (valid is 0 to 2147483647)
+done
+

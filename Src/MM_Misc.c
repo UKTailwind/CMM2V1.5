@@ -2401,14 +2401,13 @@ void cmd_settick(void){
     } else if(checkstring(argv[0],"RESUME")){
         TickActive[irq]=1;
         return;
-    } else period = getint(argv[0], -1, INT_MAX);
+    } else period = getint(argv[0], 0, INT_MAX);                       // (-1 was a typo for 0: the PicoMite's ed4ddbc)
     if(period == 0) {
         TickInt[irq] = NULL;                                        // turn off the interrupt
     } else {
         TickPeriod[irq] = period;
         TickInt[irq] = GetIntAddress(argv[2]);                      // get a pointer to the interrupt routine
         TickTimer[irq] = 0;                                         // set the timer running
-        if(period < 0) IntPoll();                                   // (due at every scan: no signal; the 1 ms tick signals the rest)
         TickActive[irq]=1;
 
     }
@@ -2422,6 +2421,11 @@ void cmd_option(void) {
 	char *tp;
 	int maxH=PageTable[WritePage].ymax;
 
+	tp = checkstring(cmdline, "LOCAL VARIABLES");                  // the PicoMite's local region size: a no-op here, where the
+	if(tp) {                                                        // region is larger than any it sets (Peter, 17 Oct)
+		getint(tp, 1, 100000);
+		return;
+	}
 	tp = checkstring(cmdline, "SYMBOLS");
 	if(tp) {                                                        // OPTION SYMBOLS OFF at the top of a program: accepted where the
                                                                     // PicoMite accepts it, and a no-op here (SymFindOff in Symbols.c);
@@ -3802,12 +3806,11 @@ Tick Interrupts (1 to 4 in that order)
 // check if an interrupt has occured and if so, set the next command to the interrupt routine
 // will return true if interrupt detected or false if not
 // An armed source without a signal of its own: the poll bit stays while one is (S1c; the PicoMite's). PID deadlines,
-// SETTICK with a negative period (due at every scan), CSUB INTERRUPT (a CSUB sets CSubComplete through a pointer)
-// and interrupt pins are polled; every other source signals (IntSignal) where it becomes ready.
+// CSUB INTERRUPT (a CSUB sets CSubComplete through a pointer) and interrupt pins are polled; every other source
+// signals (IntSignal) where it becomes ready.
 static int PolledSourceArmed(void) {
     int i;
     for(i = 1; i <= MAXPID; i++) if(PIDchannels[i].interrupt != NULL && PIDchannels[i].active) return 1;
-    for(i = 0; i < NBRSETTICKS; i++) if(TickInt[i] != NULL && TickPeriod[i] < 0) return 1;
     if(CSubInterrupt) return 1;
     for(i = 0; i < NBRINTERRUPTS; i++) if(inttbl[i].pin != 0) return 1;
     return 0;

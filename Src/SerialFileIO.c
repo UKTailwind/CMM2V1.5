@@ -122,6 +122,7 @@ void cmd_open(void) {
             if(FileTable[fnbr].com != 0) error("Already open");
             SerialOpen(fname);
             FileTable[fnbr].com = fname[3] - '0';
+            FileCharPos[fnbr] = 1;                                  // (PRINT's column in its line)
         }
       }
 }

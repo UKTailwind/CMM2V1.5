@@ -67,6 +67,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ltdc.h"
     // global variables
     extern int MMCharPos;
+    extern int FileCharPos[];                                       // (PRINT's column in each open file's line: Commands.c)
     extern char *InterruptReturn;
     extern char IgnorePIN;
     extern char WatchdogSet;

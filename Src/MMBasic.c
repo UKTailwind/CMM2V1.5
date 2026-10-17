@@ -1164,11 +1164,9 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 
             // BYVAL or BYREF in the sub/fun definition (as read on its first call)
              argbyref[i]=0;
-             if(L->p[i >> 1].by == SL_BYVAL) {                      // if BYVAL
-              	    //Only if not an array remove any pointer flag in the caller
-              	    argtype[i] = 0;
-                    // Trap an array but remove pointer if an array element
-                	if(DimIsRealArray(VREC(argVarIndex[i])->dimtbl[0])){
+             if(L->p[i >> 1].by == SL_BYVAL) {                      // if BYVAL: an array is refused, and only a variable argument
+                    // can be one (an expression's argVarIndex was never set: the PicoMite's ByValArrayCheck)
+                	if((argtype[i] & T_PTR) && DimIsRealArray(VREC(argVarIndex[i])->dimtbl[0])){
               	    	/*
               	    	 * Set tp to point to the current parameter
               	    	 * See if we have an array or an array element
@@ -1179,6 +1177,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
                   	    skipspace(tp);
                   	    if(*tp == ')') error("Array as BYVAL not allowed $",argv1[i]);
                  	}
+              	    argtype[i] = 0;                                     // (and the caller's pointer flag removed)
              } else if(L->p[i >> 1].by == SL_BYREF) {               // if BYREF
                 	  if((argtype[i] & T_PTR) == 0)error("Variable required for BYREF $", argv1[i]);
             	      argbyref[i]=1;
