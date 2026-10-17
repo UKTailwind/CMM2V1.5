@@ -982,6 +982,11 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 	  char *p=inpbuf;
 	  skipspace(p);
 
+	  if(strlen(p) == 2 && p[1] == ':' && (toupper(*p) == 'A' || toupper(*p) == 'C')) {   // A: or C: alone: DRIVE (the PicoMite's)
+		  char d = toupper(*p);
+		  strcpy(p, "DRIVE \"A:\"");
+		  p[7] = d;
+	  }
 	  if(*p=='*'){ //shortform RUN command so convert to a normal version
 		  if(strlen(inpbuf) + 5 > MAXSTRLEN) error("Line is too long");   // it grows by up to five characters
 		  if((p[1]==' ')|(p[1]==0)){  //no filename provided
@@ -3171,9 +3176,12 @@ void PrintStatus(int now){
 	    FRESULT fr=0;
 	    FILINFO fno;
 	    mymemset(&fno,0,sizeof(FILINFO));
-		c++;
-		strcpy(buff,"A:/");
-		strcat(buff,c);
+		if(c[1] == ':') strcpy(buff, c);                            // (with the drive it was loaded from)
+		else {
+			c++;
+			strcpy(buff,"A:/");
+			strcat(buff,c);
+		}
 		if(docheck>=2 && sdok)strcat(buff," - Check Disk");
 		if(!sdok){
 			docheck=1;

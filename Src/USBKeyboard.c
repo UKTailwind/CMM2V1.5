@@ -79,7 +79,7 @@ extern const char *KBrdList[];
    there CheckSDCard() can longjmp out through TinyUSB.  They leave their
    message here and CheckKeyboard() prints it once tuh_task() has returned. */
 static char usbmsg[160];
-static void USBMessage(const char *m)
+void USBMessage(const char *m)
 {
 	if (CurrentLinePtr)
 		return; /* not while a program runs */

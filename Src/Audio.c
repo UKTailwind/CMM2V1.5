@@ -175,6 +175,7 @@ drflac* myflac=NULL;
 drmp3 *mymp3 = NULL;                                                // PLAY MP3's decoder, on the heap: it holds a 16 KB scratch area
 a_flist *alist=NULL;
 extern void getfullpath(char *p, char *q);                         // FileIO.c
+extern void DrivePath(char *out);                                   // FileIO.c
 // PLAY ARRAY, PLAY SAMPLE and PLAY LOAD SOUND (the PicoMite's); their arrays are read while they play, so must be global
 static int arraypos = 0, arraysize = 0;                             // ARRAY: the next and the end sample (16 bits, four to an element)
 short *leftarray = NULL, *rightarray = NULL;
@@ -1966,8 +1967,9 @@ void cmd_play(void) {
             trackplaying=0;
         	DIR djd;
         	djd.pat="*.wav";
-        	char dir[STRINGSIZE] = "A:";                            // the directory from the root, "A:/x/y/" (the entries
-        	getfullpath(p, &dir[2]);                                // were the current directory and p: "A:/A:/x/..." for a full path)
+        	char dir[STRINGSIZE] = {0};                             // the directory from the root with its drive, "C:/x/y/"
+        	getfullpath(p, dir);                                    // (the drive p names, or the current one: a drive was
+        	DrivePath(dir);                                         // "A:" always, so C:'s tracks were looked for on A:)
         	if(dir[strlen(dir) - 1] != '/') strcat(dir, "/");
         	if(!CurrentLinePtr)MMPrintString("Directory found - commencing player\r\n");
             FSerror = f_opendir(&djd, p);
@@ -2113,8 +2115,9 @@ void cmd_play(void) {
             trackplaying=0;
         	DIR djd;
         	djd.pat="*.flac";
-        	char dir[STRINGSIZE] = "A:";                            // the directory from the root, "A:/x/y/" (the entries
-        	getfullpath(p, &dir[2]);                                // were the current directory and p: "A:/A:/x/..." for a full path)
+        	char dir[STRINGSIZE] = {0};                             // the directory from the root with its drive, "C:/x/y/"
+        	getfullpath(p, dir);                                    // (the drive p names, or the current one: a drive was
+        	DrivePath(dir);                                         // "A:" always, so C:'s tracks were looked for on A:)
         	if(dir[strlen(dir) - 1] != '/') strcat(dir, "/");
         	if(!CurrentLinePtr)MMPrintString("Directory found - commencing player\r\n");
             FSerror = f_opendir(&djd, p);
@@ -2234,8 +2237,9 @@ void cmd_play(void) {
             trackplaying=0;
         	DIR djd;
         	djd.pat="*.mp3";
-        	char dir[STRINGSIZE] = "A:";                            // the directory from the root, "A:/x/y/" (the entries
-        	getfullpath(p, &dir[2]);                                // were the current directory and p: "A:/A:/x/..." for a full path)
+        	char dir[STRINGSIZE] = {0};                             // the directory from the root with its drive, "C:/x/y/"
+        	getfullpath(p, dir);                                    // (the drive p names, or the current one: a drive was
+        	DrivePath(dir);                                         // "A:" always, so C:'s tracks were looked for on A:)
         	if(dir[strlen(dir) - 1] != '/') strcat(dir, "/");
         	if(!CurrentLinePtr)MMPrintString("Directory found - commencing player\r\n");
             FSerror = f_opendir(&djd, p);

@@ -1233,6 +1233,11 @@ static char *zcurrentprogram(char *buf)
     char *tp = ProgName();
     if (tp != NULL && tp[0] && tp[1])
     {
+        if (tp[1] == ':')                                           /* (with the drive it was loaded from) */
+        {
+            strncpy(buf, tp, FF_MAX_LFN - 1);
+            return buf;
+        }
         strcpy(buf, "A:/");
         strncat(buf, tp + 1, FF_MAX_LFN - 4);
         return buf;

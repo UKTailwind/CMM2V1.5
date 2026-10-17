@@ -725,14 +725,13 @@ void do_listfiles(char *ccmdline){
         if(i>0){
         	memcpy(q,p,i);
              for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-        	if(q[1]==':')q[0]='0';
         	i++;
         }
         strcpy(pp,&p[i]);
         if((pp[0]==47 || pp[0]==92) && i==0){
         	strcpy(q,&pp[1]);
         	strcpy(pp,q);
-        	strcpy(q,"0:/");
+        	q[0] = filepath[0]; q[1] = ':'; q[2] = '/'; q[3] = 0;   // (the current drive)
         }
     	if(argc==3){
     		if(checkstring(argv[2], "NAME"))sortorder=0;
@@ -748,7 +747,10 @@ void do_listfiles(char *ccmdline){
     flist=GetMemory(sizeof(s_flist)*MAXFILES);
 //    	    q = GetCWD();
    	fullpath(q);
-	MMPrintString("A:");
+	if(fullpathname[1] != ':') {                                    // (on the current drive the path has none: A: or C:)
+		char d[3] = { filepath[0], ':', 0 };
+		MMPrintString(d);
+	}
 	MMPrintString(fullpathname);
     MMPrintString("\r\n");
 

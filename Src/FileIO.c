@@ -74,6 +74,9 @@ extern void Display_Refresh(void);
 extern BYTE MDD_SDSPI_CardDetectState(void);
 // FatFs definitions
 FATFS FatFs;
+FATFS FatFs_USB;                                                    // a USB flash drive, C: (USBDrive.c)
+bool usb_msc_is_mounted(void);
+extern volatile BYTE USBDriveStat;
 char FileGetChar(int fnbr);
 char FilePutChar(char c, int fnbr);
 int FileEOF(int fnbr);
@@ -101,6 +104,7 @@ unsigned char *frame;
 int giffnbr=0,gifxOrigin, gifyOrigin;
 extern volatile uint8_t pagesetdone;
 char filepath[FF_MAX_LFN]="A:/";
+void DrivePath(char *out);
 extern int docheck;
 extern LTDC_LayerCfgTypeDef pLayerCfg;
 char fullpathname[FF_MAX_LFN];
@@ -164,7 +168,7 @@ const char *FErrorMsg[] = {	"",
 		"Could not find the file",
 		"Could not find the path",
 		"The path name format is invalid",
-		"FAccess denied due to prohibited access or directory full",
+		"Access denied due to prohibited access or directory full",
 		"Access denied due to prohibited access",
 		"The file/directory object is invalid",
 		"The physical drive is write protected",
@@ -177,7 +181,8 @@ const char *FErrorMsg[] = {	"",
 		"LFN working buffer could not be allocated",
 		"Number of open files > FF_FS_LOCK",
 		"Given parameter is invalid",
-		"SD card not present"
+		"SD card not present",
+		"USB drive not present"                                     // 21 (InitUSBDrive)
 };
 
 
@@ -822,14 +827,13 @@ void fun_dir(void) {
         if(i>0){
         	memcpy(q,p,i);
              for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-        	if(q[1]==':')q[0]='0';
         	i++;
         }
         strcpy(pp,&p[i]);
         if((pp[0]==47 || pp[0]==92) && i==0){
         	strcpy(q,&pp[1]);
         	strcpy(pp,q);
-        	strcpy(q,"0:/");
+        	q[0] = filepath[0]; q[1] = ':'; q[2] = '/'; q[3] = 0;   // (the current drive)
         }
 		if(pp[0]==0)strcpy(pp,"*");
 		if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
@@ -876,38 +880,129 @@ void getfullpath(char *p, char *q){
 	int j;
     strcpy(q,p);
     for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-    if(q[1]==':')q[0]='0';
     fullpath(q);
     strcpy(q,fullpathname);
 }
 
+// a path as FatFs takes it, with its drive always given: the drive it names, or the current one ("C:/dir/name")
+void DrivePath(char *out) {
+    if(out[1] != ':') {
+        memmove(out + 2, out, strlen(out) + 1);
+        out[0] = filepath[0];
+        out[1] = ':';
+    }
+}
+
+// "dir/pattern" split (the directory is optional): the directory as FatFs's path, with its drive, and the pattern
+static void SplitPattern(char *p, char *dir, char *pat) {
+    char d[FF_MAX_LFN] = {0};
+    char *s = strrchr(p, '/');
+    if(s == NULL && p[0] && p[1] == ':') s = p + 1;                 // ("C:*.BAS")
+    if(s != NULL) {
+        memcpy(d, p, s - p);
+        if(d[0] == 0 || (d[1] == ':' && d[2] == 0)) strcat(d, "/"); // the root, of this drive or of the one named
+        strcpy(pat, s + 1);
+    } else strcpy(pat, p);
+    getfullpath(d, dir);
+    DrivePath(dir);
+    if(pat[0] == 0) strcpy(pat, "*");
+}
+
+// is the FatFs path a directory (a root is)
+static int IsDir(char *path) {
+    DIR dj;
+    if(f_opendir(&dj, path) != FR_OK) return false;
+    f_closedir(&dj);
+    return true;
+}
+
+// one file copied, through buff (len bytes)
+static void CopyOneFile(char *from, char *to, char *buff, int len) {
+    unsigned int nbr = 0, bw;
+    int fnbr1, fnbr2;
+    fnbr1 = FindFreeFileNbr();
+    if(!BasicFileOpen(from, fnbr1, FA_READ)) return;
+    fnbr2 = FindFreeFileNbr();
+    if(!BasicFileOpen(to, fnbr2, FA_WRITE | FA_CREATE_ALWAYS)) {
+        FileClose(fnbr1);
+        return;
+    }
+    while(!f_eof(FileTable[fnbr1].fptr)) {
+        FSerror = f_read(FileTable[fnbr1].fptr, buff, len, &nbr);
+        ErrorCheck(fnbr1);
+        FSerror = f_write(FileTable[fnbr2].fptr, buff, nbr, &bw);
+        ErrorCheck(fnbr2);
+        routinechecks(1);
+    }
+    FileClose(fnbr1);
+    FileClose(fnbr2);
+}
+
+// COPY from$ TO to$: from$ may hold wildcards (at the prompt), when to$ is a directory; to$ ending in / is a
+// directory the file keeps its name in.  Either drive to either (the PicoMite's, both drives being FatFs here).
 void cmd_copy(void){
 	char ss[2];														// this will be used to split up the argument line
 	char *fromfile, *tofile;
 	ss[0] = tokenTO;
 	ss[1] = 0;
-	char buff[512];
-	unsigned int nbr=0, bw;
-	int fnbr1, fnbr2;
+	char *buff = GetTempMemory(4096);
+	char a[FF_MAX_LFN] = {0}, b[FF_MAX_LFN] = {0};
 	getargs(&cmdline,3,ss);
 	if(argc!=3)error("Syntax");
-    fnbr1 = FindFreeFileNbr();
 	fromfile = getFstring(argv[0]);
-	BasicFileOpen(fromfile, fnbr1, FA_READ);
-    fnbr2 = FindFreeFileNbr();
 	tofile = getFstring(argv[2]);
-    if(!BasicFileOpen(tofile, fnbr2, FA_WRITE | FA_CREATE_ALWAYS)) {
-    	FileClose(fnbr1);
-    }
-    while(!f_eof(FileTable[fnbr1].fptr)) {
-		FSerror = f_read(FileTable[fnbr1].fptr, buff,512, &nbr);
-		ErrorCheck(fnbr1);
-	    FSerror = f_write(FileTable[fnbr2].fptr, buff, nbr, &bw);
-	    ErrorCheck(fnbr2);
-		routinechecks(1);
-    }
-	FileClose(fnbr1);
-	FileClose(fnbr2);
+	for(char *t = fromfile; *t; t++) if(*t == '\\') *t = '/';
+	for(char *t = tofile; *t; t++) if(*t == '\\') *t = '/';
+	if(!InitSDCard()) error((char *)FErrorMsg[20]);
+	if(strchr(fromfile, '*') || strchr(fromfile, '?')) {           // a bulk copy
+		char dir[FF_MAX_LFN] = {0}, pat[FF_MAX_LFN] = {0}, todir[FF_MAX_LFN] = {0};
+		DIR djd;
+		FILINFO fnod;
+		if(CurrentLinePtr) error("Invalid in a program");
+		SplitPattern(fromfile, dir, pat);
+		getfullpath(tofile, todir);
+		DrivePath(todir);
+		if(!IsDir(todir)) error("$ not a directory", tofile);
+		if(strcasecmp(dir, todir) == 0) error("Source and destination are the same");
+		mymemset(&djd, 0, sizeof(DIR));
+		mymemset(&fnod, 0, sizeof(FILINFO));
+		FSerror = f_findfirst(&djd, &fnod, dir, pat);
+		ErrorCheck(0);
+		while(FSerror == FR_OK && fnod.fname[0]) {
+			if(!(fnod.fattrib & (AM_SYS | AM_HID | AM_DIR))) {
+				MMPrintString("Copying ");
+				MMPrintString(fnod.fname);
+				PRet();
+				strcpy(a, dir);
+				if(a[strlen(a) - 1] != '/') strcat(a, "/");
+				strcat(a, fnod.fname);
+				strcpy(b, todir);
+				if(b[strlen(b) - 1] != '/') strcat(b, "/");
+				strcat(b, fnod.fname);
+				CopyOneFile(a, b, buff, 4096);
+			}
+			FSerror = f_findnext(&djd, &fnod);
+		}
+		f_closedir(&djd);
+		return;
+	}
+	if(tofile[0] && tofile[strlen(tofile) - 1] == '/') {           // into a directory, under its own name
+		char *name = strrchr(fromfile, '/');
+		name = (name != NULL) ? name + 1 : (fromfile[0] && fromfile[1] == ':') ? fromfile + 2 : fromfile;
+		if(*name == 0) error("No filename specified");
+		getfullpath(tofile, b);
+		DrivePath(b);
+		if(!IsDir(b)) error("$ not a directory", tofile);
+		if(b[strlen(b) - 1] != '/') strcat(b, "/");
+		strcat(b, name);
+	} else {
+		getfullfilepath(tofile, b);
+		DrivePath(b);
+	}
+	getfullfilepath(fromfile, a);
+	DrivePath(a);
+	if(strcasecmp(a, b) == 0) error("Source and destination are the same");
+	CopyOneFile(fromfile, b, buff, 4096);
 }
 
 void cmd_mkdir(void) {
@@ -1001,6 +1096,53 @@ int resolve_path(char *path,char *result,char *pos)
     }
     return 0;
 }
+// the drive a path names (A: the SD card, C: a USB flash drive; 0: is A:), or else the current one (filepath's)
+char PathDrive(const char *p) {
+    char d = filepath[0];
+    if(p[0] && p[1] == ':') {
+        d = toupper(p[0]);
+        if(d == '0') d = 'A';
+        if(d != 'A' && d != 'C') error("Invalid drive");
+    }
+    return d;
+}
+
+// each drive's current directory while the other drive is current
+static char DrivePaths[2][FF_MAX_LFN] = { "A:/", "C:/" };
+
+// the current drive made d (A or C), with the directory it had (the PicoMite's DRIVE)
+void SetDrive(char d) {
+    char old[FF_MAX_LFN];
+    if(d != 'A' && d != 'C') error("Invalid drive");
+    if(d == filepath[0]) return;
+    if(d == 'C' && !usb_msc_is_mounted()) error((char *)FErrorMsg[21]);
+    if(d == 'A' && !MDD_SDSPI_CardDetectState()) error((char *)FErrorMsg[20]);
+    strcpy(old, filepath);
+    strcpy(DrivePaths[old[0] == 'C'], old);
+    strcpy(filepath, DrivePaths[d == 'C']);
+    if(!InitSDCard()) {
+        strcpy(filepath, old);
+        DriveCurrent();
+        return;
+    }
+    if(f_chdir(&filepath[2]) != FR_OK) {                            // (that directory has gone: the drive's root)
+        filepath[3] = 0;
+        f_chdir("/");
+    }
+}
+
+// DRIVE "A:" | "C:": the SD card or a USB flash drive
+void cmd_drive(void) {
+    char *p = getFstring(cmdline);
+    if(strlen(p) != 2 || p[1] != ':') error("Invalid drive");
+    SetDrive(toupper(p[0]));
+}
+
+// FatFs's current drive back to filepath's (after a path on the other drive was looked at)
+void DriveCurrent(void) {
+    f_chdrive(filepath[0] == 'C' ? "C:" : "A:");
+}
+
 void fullpath(char *q){
 	char *p=GetTempStrMemory();
 	char *rp=GetTempStrMemory();
@@ -1014,6 +1156,7 @@ void fullpath(char *q){
 //    	MMPrintString("Now: ");MMPrintString(fullpathname);PRet();
     	return; //nothing to do
     }
+    char drv = PathDrive(p);
     if(p[1]==':'){ //modify the requested path so that if the disk is specified the pathname is absolute and starts with /
     	if(p[2]=='/')p+=2;
     	else {
@@ -1022,7 +1165,7 @@ void fullpath(char *q){
     	}
     }
     if (*p=='/'){ //absolute path specified
-    	strcpy(rp,"A:");
+    	rp[0] = drv; rp[1] = ':'; rp[2] = 0;
     	strcat(rp,p);
     } else { // relative path specified
     	strcpy(rp,fullpathname); //copy the current pathname
@@ -1031,9 +1174,10 @@ void fullpath(char *q){
     }
 	strcpy(fullpathname,rp); //set the new pathname
 	resolve_path(fullpathname,rp,rp); //resolve to single absolute path
-	if(strcmp(rp,"A:")==0 || strcmp(rp,"0:")==0 )strcat(rp,"/"); //if root append the slash
+	if(rp[1]==':' && rp[2]==0)strcat(rp,"/"); //if root append the slash
 	strcpy(fullpathname,rp); //store this back to the filepath variable
-	memmove(fullpathname, &fullpathname[2],strlen(fullpathname));
+	if(fullpathname[0] == filepath[0])                              // on the current drive: FatFs's current drive (InitSDCard)
+		memmove(fullpathname, &fullpathname[2],strlen(fullpathname));
 //	MMPrintString("Now: ");MMPrintString(fullpathname);PRet();
 }
 void cmd_chdir(void){
@@ -1045,6 +1189,8 @@ void cmd_chdir(void){
     if(strcmp(p,".")==0)return; //nothing to do
     if(strlen(p)==0)return;//nothing to do
     strcpy(oldfilepath,filepath); //save the path in case the change of directory fails
+    char drv = PathDrive(p);                                        // (A: or C:)
+    if(drv == 'C' && !usb_msc_is_mounted()) error((char *)FErrorMsg[21]);   // (before the path changes)
     if(p[1]==':'){ //modify the requested path so that if the disk is specified the pathname is absolute and starts with /
     	if(p[2]=='/')p+=2;
     	else {
@@ -1053,7 +1199,7 @@ void cmd_chdir(void){
     	}
     }
     if (*p=='/'){ //absolute path specified
-    	strcpy(rp,"A:");
+    	rp[0] = drv; rp[1] = ':'; rp[2] = 0;
     	strcat(rp,p);
     } else { // relative path specified
     	strcpy(rp,filepath); //copy the current pathname
@@ -1062,14 +1208,19 @@ void cmd_chdir(void){
     }
 	strcpy(filepath,rp); //set the new pathname
 	resolve_path(filepath,rp,rp); //resolve to single absolute path
-	if(strcmp(rp,"A:")==0)strcat(rp,"/"); //if root append the slash
+	if(rp[1]==':' && rp[2]==0)strcat(rp,"/"); //if root append the slash
 	strcpy(filepath,rp); //store this back to the filepath variable
     if(!InitSDCard()) { //If no disk restore the old path and return
     	strcpy(filepath,oldfilepath);
+    	DriveCurrent();
     	return;
     }
 	FSerror = f_chdir(&filepath[2]); //finally change directory always using an absolute pathname
-	if(FSerror)strcpy(filepath,oldfilepath); //if it didn't work restore the original path
+	if(FSerror) {                                                   // if it didn't work restore the original path
+		strcpy(filepath,oldfilepath);
+		DriveCurrent();
+	} else if(filepath[0] != oldfilepath[0])                        // (another drive: the old one keeps its directory)
+		strcpy(DrivePaths[oldfilepath[0] == 'C'], oldfilepath);
 	ErrorCheck(0); // error if the pathname was invalid
 
 }
@@ -1090,14 +1241,13 @@ void getfullfilepath(char *p, char *q){
     if(i>0){
     	memcpy(q,p,i);
     	 for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-    	if(q[1]==':')q[0]='0';
     	i++;
     }
     strcpy(pp,&p[i]);
     if((pp[0]==47 || pp[0]==92) && i==0){
     	strcpy(q,&pp[1]);
     	strcpy(pp,q);
-    	strcpy(q,"0:/");
+    	q[0] = filepath[0]; q[1] = ':'; q[2] = '/'; q[3] = 0;   // (the current drive)
     }
     fullpath(q);
     strcpy(q,fullpathname);
@@ -1105,9 +1255,63 @@ void getfullfilepath(char *p, char *q){
     strcat(q,pp);
 }
 
+// KILL file$, or at the prompt KILL pattern$ [, ALL]: each file the pattern matches is deleted after a Y/N, or with
+// ALL after one for them all (the PicoMite's)
 void cmd_kill(void){
     char q[FF_MAX_LFN]={0};
-    char *p = getFstring(cmdline);
+    getargs(&cmdline, 3, ",");
+    if(argc != 1 && argc != 3) error("Syntax");
+    char *p = getFstring(argv[0]);
+    for(char *t = p; *t; t++) if(*t == '\\') *t = '/';
+    if(!InitSDCard()) error((char *)FErrorMsg[20]);
+    if(strchr(p, '*') || strchr(p, '?')) {
+        char dir[FF_MAX_LFN] = {0}, pat[FF_MAX_LFN] = {0};
+        DIR djd;
+        FILINFO fnod;
+        int all = 0, k = 'Y';
+        if(argc == 3) {
+            if(!checkstring(argv[2], "ALL")) error("Syntax");
+            all = 1;
+        }
+        if(CurrentLinePtr) error("Invalid in a program");
+        SplitPattern(p, dir, pat);
+        if(all) {
+            MMPrintString("Deleting "); MMPrintString(pat); MMPrintString(" from "); MMPrintString(dir);
+            MMPrintString("\r\nAre you sure ? (Y/N) ");
+            do k = toupper(MMInkey()); while(k != 'Y' && k != 'N');
+            putConsole(k);
+            PRet();
+            if(k == 'N') return;
+        }
+        mymemset(&djd, 0, sizeof(DIR));
+        mymemset(&fnod, 0, sizeof(FILINFO));
+        FSerror = f_findfirst(&djd, &fnod, dir, pat);
+        ErrorCheck(0);
+        while(FSerror == FR_OK && fnod.fname[0]) {
+            if(!(fnod.fattrib & (AM_SYS | AM_HID | AM_DIR))) {
+                MMPrintString("Deleting ");
+                MMPrintString(fnod.fname);
+                if(!all) {
+                    MMPrintString(" ? (Y/N) ");
+                    do k = toupper(MMInkey()); while(k != 'Y' && k != 'N');
+                    putConsole(k);
+                }
+                PRet();
+                if(k == 'Y') {
+                    strcpy(q, dir);
+                    if(q[strlen(q) - 1] != '/') strcat(q, "/");
+                    strcat(q, fnod.fname);
+                    FSerror = f_unlink(q);
+                    if(FSerror) f_closedir(&djd);
+                    ErrorCheck(0);
+                }
+            }
+            FSerror = f_findnext(&djd, &fnod);
+        }
+        f_closedir(&djd);
+        docheck=1;
+        return;
+    }
     getfullfilepath(p,q);
     FSerror = f_unlink(q);
     ErrorCheck(0);
@@ -1146,6 +1350,9 @@ void cmd_name(void) {
         getfullfilepath(old,qold);
         new = getFstring(argv[2]);                                  // get the new name
         getfullfilepath(new,qnew);
+        DrivePath(qold);
+        DrivePath(qnew);
+        if(qold[0] != qnew[0]) error("Cannot rename across drives");    // (FatFs would rename on the old one's)
         if(!InitSDCard()) return;
         FSerror = f_rename(qold, qnew);
         ErrorCheck(0);
@@ -1993,14 +2200,13 @@ int BasicFileOpen(char *fname, int fnbr, int mode) {
         if(i>0){
         	memcpy(q,p,i);
              for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-        	if(q[1]==':')q[0]='0';
         	i++;
         }
         strcpy(pp,&p[i]);
         if((pp[0]==47 || pp[0]==92) && i==0){
         	strcpy(q,&pp[1]);
         	strcpy(pp,q);
-        	strcpy(q,"0:/");
+        	q[0] = filepath[0]; q[1] = ':'; q[2] = '/'; q[3] = 0;   // (the current drive)
         }
         fullpath(q);
 //       	MMPrintString("Was: ");MMPrintString(fname);PRet();
@@ -2011,6 +2217,7 @@ int BasicFileOpen(char *fname, int fnbr, int mode) {
        	strcat(q,pp);
 //       	MMPrintString("Full: ");MMPrintString(q);PRet();
        	strcpy(fullfilepathname,q);
+       	DrivePath(fullfilepathname);                                // (with its drive: the program's name line keeps it)
 //       	MMPrintString(fullfilepathname);PRet();
         FSerror = f_open(FileTable[fnbr].fptr, q, mode);        // open it
         ErrorCheck(fnbr);
@@ -2093,18 +2300,41 @@ int FileEOF(int fnbr) {
 	return f_eof(FileTable[fnbr].fptr);
 }
 
+// the current drive's volume ready (filepath's drive: A: the SD card, C: a USB flash drive), and FatFs's current drive
+// set to it; the other drive's volume is registered, so that a path naming it mounts it when it is used (the PicoMite's
+// InitSDCard and InitUSBDrive)
+static int InitUSBDrive(void) {
+    int i;
+    ErrorThrow(0);
+    if(!usb_msc_is_mounted()) { ErrorThrow(21); return false; }
+    if(!(USBDriveStat & STA_NOINIT)) { f_chdrive("C:"); return 1; }
+    for(i = 0; i < MAXOPENFILES; i++)                               // only the files open on C: are stale
+        if(FileTable[i].com > MAXCOMPORTS && FileTable[i].fptr != NULL && FileTable[i].fptr->obj.fs == &FatFs_USB)
+            ForceFileClose(i);
+    i = f_mount(&FatFs_USB, "C:", 1);
+    if(i) { ErrorThrow(ErrorMap[i]); return false; }
+    f_mount(&FatFs, "A:", 0);
+    f_chdrive("C:");
+    return 2;
+}
+
 int InitSDCard(void) {
     int i;
+    if(filepath[0] == 'C') return InitUSBDrive();
     ErrorThrow(0);    // reset mm.errno to zero
     if(!MDD_SDSPI_CardDetectState()) { ErrorThrow(20); return false; }  // error if the card is not present
-    if(!(SDCardStat & STA_NOINIT))
+    if(!(SDCardStat & STA_NOINIT)) {
+    	f_chdrive("A:");
     	return 1;                     // if the card is present and has been initialised we have nothing to do
-    for(i = 0; i < MAXOPENFILES; i++)
+    }
+    for(i = 0; i < MAXOPENFILES; i++)                               // only the files open on A: are stale
         if(FileTable[i].com > MAXCOMPORTS)
-            if(FileTable[i].fptr != NULL)
+            if(FileTable[i].fptr != NULL && FileTable[i].fptr->obj.fs != &FatFs_USB)
                 ForceFileClose(i);
-    i = f_mount(&FatFs, "", 1);
+    i = f_mount(&FatFs, "A:", 1);
     if(i) { ErrorThrow(ErrorMap[i]); return false; }
+    f_mount(&FatFs_USB, "C:", 0);
+    f_chdrive("A:");
     return 2;
 }
 
@@ -2129,8 +2359,10 @@ void CheckSDCard(void) {
 		if(!SDCardStat & STA_NOINIT){
 			mymemset(&FatFs,0,sizeof(FATFS));
 			SDCardStat = STA_NOINIT | STA_NODISK;
-			mymemset(filepath,0,sizeof(filepath));
-			strcpy(filepath,"A:/");
+			if(filepath[0] == 'A') {                                // (a current C: is not the card's)
+				mymemset(filepath,0,sizeof(filepath));
+				strcpy(filepath,"A:/");
+			}
 		}
 	} else {
 		if(CurrentlyPlayinge == P_WAV || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE || CurrentlyPlaying == P_BBC || audiofinished)

@@ -885,7 +885,6 @@ static int editorProcessKeypress() {
   		  strcpy(F.filename,filepath);
   		  if(F.filename[strlen(F.filename)-1]!='/')strcat(F.filename,"/"); //prepare the full pathname
   		  strcat(F.filename,&F.row[F.cy].chars[29]);
-  		  F.filename[0]='0';
   		  char *q=&F.filename[strlen(F.filename)-4];
   	  	  if(strcasecmp(q,".mp3")==0){
   	  		  CloseAudio(1);
@@ -1139,7 +1138,6 @@ static int editorProcessKeypress() {
 	  strcpy(F.filename,filepath);
 	  if(F.filename[strlen(F.filename)-1]!='/')strcat(F.filename,"/"); //prepare the full pathname
 	  strcat(F.filename,&F.row[F.cy].chars[29]);
-	  F.filename[0]='0';
 	  FMCopy(c);
 		for(i=F.numrows-1;i>=0;i--)editorDelRow(i);
 		for(i=0;i<=F.numrows;i++)editorFreeRow(&F.row[i]);
@@ -1152,7 +1150,6 @@ static int editorProcessKeypress() {
 	  strcpy(F.filename,filepath);
 	  if(F.filename[strlen(F.filename)-1]!='/')strcat(F.filename,"/"); //prepare the full pathname
 	  strcat(F.filename,&F.row[F.cy].chars[29]);
-	  F.filename[0]='0';
 	  FMMakeDir(c);
 		for(i=F.numrows-1;i>=0;i--)editorDelRow(i);
 		for(i=0;i<=F.numrows;i++)editorFreeRow(&F.row[i]);
@@ -1165,7 +1162,6 @@ static int editorProcessKeypress() {
 	  strcpy(F.filename,filepath);
 	  if(F.filename[strlen(F.filename)-1]!='/')strcat(F.filename,"/"); //prepare the full pathname
 	  strcat(F.filename,&F.row[F.cy].chars[29]);
-	  F.filename[0]='0';
  	  if(DeleteFile()) editorDelRow(F.cy) ;
 		for(i=F.numrows-1;i>=0;i--)editorDelRow(i);
 		for(i=0;i<=F.numrows;i++)editorFreeRow(&F.row[i]);
@@ -1178,7 +1174,6 @@ static int editorProcessKeypress() {
 	  strcpy(F.filename,filepath);
 	  if(F.filename[strlen(F.filename)-1]!='/')strcat(F.filename,"/"); //prepare the full pathname
 	  strcat(F.filename,&F.row[F.cy].chars[29]);
-	  F.filename[0]='0';
 	  FMRenameAs(c);
 		for(i=F.numrows-1;i>=0;i--)editorDelRow(i);
 		for(i=0;i<=F.numrows;i++)editorFreeRow(&F.row[i]);

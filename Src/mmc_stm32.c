@@ -474,7 +474,7 @@ BYTE send_cmd (
 /* Get Disk Status                                                       */
 /*-----------------------------------------------------------------------*/
 
-DSTATUS disk_status (
+static DSTATUS sd_disk_status (
 	BYTE pdrv		/* Physical drive nmuber (0) */
 )
 {
@@ -509,7 +509,7 @@ int CMD0send(void){
 /* Initialize Disk Drive                                                 */
 /*-----------------------------------------------------------------------*/
 
-DSTATUS disk_initialize (
+static DSTATUS sd_disk_initialize (
 	BYTE pdrv		/* Physical drive nmuber (0) */
 )
 {
@@ -579,7 +579,7 @@ DSTATUS disk_initialize (
 /* Read Sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
 
-DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
+static DRESULT sd_disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
 {
 	if (pdrv || !count) return RES_PARERR;
 	if (SDCardStat & STA_NOINIT) return RES_NOTRDY;
@@ -612,7 +612,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
 /*-----------------------------------------------------------------------*/
 
 
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
+static DRESULT sd_disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
 {
 	if (pdrv || !count) return RES_PARERR;
 	if (SDCardStat & STA_NOINIT) return RES_NOTRDY;
@@ -649,7 +649,7 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
 /*-----------------------------------------------------------------------*/
 
 
-DRESULT disk_ioctl (
+static DRESULT sd_disk_ioctl (
 	BYTE pdrv,		/* Physical drive nmuber (0) */
 	BYTE cmd,		/* Control code */
 	void *buff		/* Buffer to send/receive data block */
@@ -854,3 +854,15 @@ void SpiCsHigh(int pin) {
 
 
 
+
+/* FatFs's disk functions by physical drive: 0 the SD card (A:), 1 a USB flash drive (C:, USBDrive.c) */
+DSTATUS usb_disk_status(void);
+DSTATUS usb_disk_initialize(void);
+DRESULT usb_disk_read(BYTE *buff, LBA_t sector, UINT count);
+DRESULT usb_disk_write(const BYTE *buff, LBA_t sector, UINT count);
+DRESULT usb_disk_ioctl(BYTE cmd, void *buff);
+DSTATUS disk_status(BYTE pdrv) { return pdrv == 1 ? usb_disk_status() : sd_disk_status(pdrv); }
+DSTATUS disk_initialize(BYTE pdrv) { return pdrv == 1 ? usb_disk_initialize() : sd_disk_initialize(pdrv); }
+DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count) { return pdrv == 1 ? usb_disk_read(buff, sector, count) : sd_disk_read(pdrv, buff, sector, count); }
+DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count) { return pdrv == 1 ? usb_disk_write(buff, sector, count) : sd_disk_write(pdrv, buff, sector, count); }
+DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff) { return pdrv == 1 ? usb_disk_ioctl(cmd, buff) : sd_disk_ioctl(pdrv, cmd, buff); }

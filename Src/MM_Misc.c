@@ -2415,6 +2415,9 @@ void cmd_settick(void){
 }
 
 
+char PathDrive(const char *p);
+bool usb_msc_is_mounted(void);
+void DriveCurrent(void);
 void cmd_option(void) {
 	char *tp;
 	int maxH=PageTable[WritePage].ymax;
@@ -2847,14 +2850,13 @@ void fun_info(void){
 		if(i>0){
 			memcpy(q,p,i);
 			 for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-			if(q[1]==':')q[0]='0';
 			i++;
 		}
 		strcpy(pp,&p[i]);
 		if((pp[0]==47 || pp[0]==92) && i==0){
 			strcpy(q,&pp[1]);
 			strcpy(pp,q);
-			strcpy(q,"0:/");
+			q[0] = filepath[0]; q[1] = ':'; q[2] = '/'; q[3] = 0;   // (the current drive)
 		}
 		if(pp[0]==0)strcpy(pp,"*");
 		if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
@@ -2883,6 +2885,8 @@ void fun_info(void){
 	    if(strcmp(p,".")==0){iret=1;return;} //nothing to do
 	    if(strlen(p)==0){iret=1;return;};//nothing to do
 	    strcpy(oldfilepath,filepath); //save the path in case the change of directory fails
+	    char drv = PathDrive(p);                                    // (A: or C:: FileIO.c)
+	    if(drv == 'C' && !usb_msc_is_mounted()) { iret = 0; return; }
 	    if(p[1]==':'){ //modify the requested path so that if the disk is specified the pathname is absolute and starts with /
 	    	if(p[2]=='/')p+=2;
 	    	else {
@@ -2891,7 +2895,7 @@ void fun_info(void){
 	    	}
 	    }
 	    if (*p=='/'){ //absolute path specified
-	    	strcpy(rp,"A:");
+	    	rp[0] = drv; rp[1] = ':'; rp[2] = 0;
 	    	strcat(rp,p);
 	    } else { // relative path specified
 	    	strcpy(rp,filepath); //copy the current pathname
@@ -2900,10 +2904,11 @@ void fun_info(void){
 	    }
 		strcpy(filepath,rp); //set the new pathname
 		resolve_path(filepath,rp,rp); //resolve to single absolute path
-		if(strcmp(rp,"A:")==0)strcat(rp,"/"); //if root append the slash
+		if(rp[1]==':' && rp[2]==0)strcat(rp,"/"); //if root append the slash
 		strcpy(filepath,rp); //store this back to the filepath variable
 	    if(!InitSDCard()) { //If no disk restore the old path and return
 	    	strcpy(filepath,oldfilepath);
+	    	DriveCurrent();
 	    	return;
 	    }
 		FSerror = f_opendir(&dir, &filepath[2]); //finally change directory always using an absolute pathname
@@ -2911,6 +2916,7 @@ void fun_info(void){
 		else iret=1;
 		targ=T_INT;
 		strcpy(filepath,oldfilepath); //if it didn't work restore the original path
+		DriveCurrent();                                             // (and the drive)
 //		ErrorCheck(0); // error if the pathname was invalid
 		return;
 	}
@@ -2930,14 +2936,13 @@ void fun_info(void){
 		if(i>0){
 			memcpy(q,p,i);
 			 for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-			if(q[1]==':')q[0]='0';
 			i++;
 		}
 		strcpy(pp,&p[i]);
 		if((pp[0]==47 || pp[0]==92) && i==0){
 			strcpy(q,&pp[1]);
 			strcpy(pp,q);
-			strcpy(q,"0:/");
+			q[0] = filepath[0]; q[1] = ':'; q[2] = '/'; q[3] = 0;   // (the current drive)
 		}
 		if(pp[0]==0)strcpy(pp,"*");
 		if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
@@ -2979,14 +2984,13 @@ void fun_info(void){
 		if(i>0){
 			memcpy(q,p,i);
 			 for(j=0;j<strlen(q);j++)if(q[j]=='\\')q[j]='/';  //allow backslash for the DOS oldies
-			if(q[1]==':')q[0]='0';
 			i++;
 		}
 		strcpy(pp,&p[i]);
 		if((pp[0]==47 || pp[0]==92) && i==0){
 			strcpy(q,&pp[1]);
 			strcpy(pp,q);
-			strcpy(q,"0:/");
+			q[0] = filepath[0]; q[1] = ':'; q[2] = '/'; q[3] = 0;   // (the current drive)
 		}
 		if(pp[0]==0)strcpy(pp,"*");
 		if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
@@ -3088,7 +3092,7 @@ void fun_info(void){
 	    FATFS *fs;
 	    DWORD fre_clust;
 	    /* Get volume information and free clusters of drive 1 */
-	    f_getfree("0:", &fre_clust, &fs);
+	    f_getfree(filepath[0] == 'C' ? "C:" : "A:", &fre_clust, &fs);   // (the current drive)
 	    /* Get total sectors and free sectors */
 	    iret= (uint64_t)(fs->n_fatent - 2) * (uint64_t)fs->csize *(uint64_t)FF_MAX_SS;
 		rettype='I';
@@ -3097,7 +3101,7 @@ void fun_info(void){
 	    FATFS *fs;
 	    DWORD fre_clust;
 	    /* Get volume information and free clusters of drive 1 */
-	    f_getfree("0:", &fre_clust, &fs);
+	    f_getfree(filepath[0] == 'C' ? "C:" : "A:", &fre_clust, &fs);   // (the current drive)
 	    /* Get total sectors and free sectors */
 	     iret = (uint64_t)fre_clust * (uint64_t)fs->csize  *(uint64_t)FF_MAX_SS;
 		rettype='I';
@@ -3179,15 +3183,17 @@ void fun_info(void){
 	} else if(checkstring(ep, "MAX PAGES")){
 		iret= LastPage;
 		rettype='I';
+	} else if(checkstring(ep, "DRIVE")){
+		sret[0] = filepath[0]; sret[1] = ':'; sret[2] = 0;          // A: or C:
 	} else if(checkstring(ep, "CURRENT")){
 		if((tp = ProgName()) != NULL){
-			strcpy(sret,"A:/");
-			strcat(sret,&tp[1]);
+			if(tp[1] == ':') strcpy(sret, tp);                      // (with the drive it was loaded from)
+			else { strcpy(sret,"A:/"); strcat(sret,&tp[1]); }       // (an image from before the drive was kept)
 		} else strcpy(sret,"NONE");
 	} else if(checkstring(ep, "PATH")){
 		if((tp = ProgName()) != NULL){
-			strcpy(sret,"A:/");
-			strcat(sret,&tp[1]);
+			if(tp[1] == ':') strcpy(sret, tp);
+			else { strcpy(sret,"A:/"); strcat(sret,&tp[1]); }
 			int linelen = strlen(sret);
 		    while (linelen > 0 && (sret[linelen - 1] !='/')) linelen--;
 		    sret[linelen]=0;
