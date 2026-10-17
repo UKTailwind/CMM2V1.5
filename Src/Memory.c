@@ -149,6 +149,9 @@ extern unsigned int GetPeekAddr(char *p);
 uint8_t *tbuff=(uint8_t *)FUNEND; // buffer in fast memory for SDRAM to SDRAM copies
 void *minMMheap;
 uint32_t RAMBASE = 0x30008000;
+// every page of the on-chip heap below this is in use (or it is below RAMBASE): where the bottom-up searches start
+static unsigned char *RamLowFree = NULL;
+#define RAMLOWFREE() ((RamLowFree > (unsigned char *)RAMBASE) ? RamLowFree : (unsigned char *)RAMBASE)
 extern int CheckEmpty(char *p);
 /***********************************************************************************************************************
  MMBasic commands
@@ -705,513 +708,154 @@ void MIPS16 cmd_memory(void) {
    the heap (growing downwards) and the variable table (growing up) reaches zero.
 
 */
-void mymemset(void *out, uint32_t in, int n){
-	if(!n)return;
-	uint8_t d=(char)in;
-	uint32_t dd=d | (d<<8) | (d<<16) | (d<<24);
-	char *p=(char *)out;
-	while(((uint32_t)p & 3) && n){ //get to word boundary
-		*p++=d;
-		n--;
-	}
-	while(n>ASMMAX){
-		myset(p,dd,ASMMAX);
-		n-=ASMMAX;
-		p+=ASMMAX;
-	}
-	if(n)myset(p,dd,n);
-}
-void zcopy(void *out, const void *in, int n){
-	if(((uint32_t)out & 0x80000000) && ((uint32_t)in & 0x80000000)){ //copy is to and from SDRAM
-		uint32_t *t= (uint32_t *) tbuff;
-		_Z10copy_wordsPKmPmm((uint32_t *)in, t, n>>2);
-		_Z10copy_wordsPKmPmm(t, (uint32_t *)out, n>>2);
-	} else {
-		_Z10copy_wordsPKmPmm((uint32_t *)in, (uint32_t *)out, n>>2);
-	}
-	routinechecks(1);
+/* The copies and fills (rewritten 17 Oct: Peter). One copy, copy_any, behind every old name, and one fill, myset,
+   behind mymemset. Forward (as before: no caller overlaps a later part of its source), any size, any alignment, any
+   memory, and never an unaligned word access, which the M7 allows but slowly, and more slowly still into SDRAM over
+   the FMC. The destination is brought to a word boundary a byte at a time; a source then in step is copied a word
+   at a time (from 256 bytes by copy_words, the FPU's 128-byte transfers); one out of step is read a word at a time
+   and shifted into place. Both in SDRAM, a large copy goes through tbuff (on-chip) a block at a time: reading a
+   block and then writing it turns the SDRAM's bus round less often. */
+
+// the copy itself: no blocks through tbuff, no routinechecks
+static void ITCM_CODE __attribute__((optimize("no-tree-loop-distribute-patterns"))) copy_core(uint8_t *d, const uint8_t *s, int n) {   // (its loops must not become calls to memcpy: that is this)
+    int w;
+    if(n < 16) {
+        while(n-- > 0) *d++ = *s++;
+        return;
+    }
+    while((uint32_t)d & 3) {                                        // the destination to a word boundary
+        *d++ = *s++;
+        n--;
+    }
+    w = n >> 2;
+    if(((uint32_t)s & 3) == 0) {                                    // the source in step: word for word
+        if(w >= 64) _Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, w);
+        else {
+            uint32_t *wd = (uint32_t *)d;
+            const uint32_t *ws = (const uint32_t *)s;
+            int k = w;
+            while(k >= 4) {
+                uint32_t a = ws[0], b = ws[1], c = ws[2], e = ws[3];
+                wd[0] = a; wd[1] = b; wd[2] = c; wd[3] = e;
+                ws += 4; wd += 4; k -= 4;
+            }
+            while(k--) *wd++ = *ws++;
+        }
+    } else {                                                        // out of step: whole words read, shifted into place
+        int sh = ((uint32_t)s & 3) * 8;                             // (the last word read holds the last byte wanted)
+        const uint32_t *ws = (const uint32_t *)((uint32_t)s & ~3);
+        uint32_t *wd = (uint32_t *)d, cur = *ws++;
+        for(int k = w; k > 0; k--) {
+            uint32_t nxt = *ws++;
+            *wd++ = (cur >> sh) | (nxt << (32 - sh));
+            cur = nxt;
+        }
+    }
+    d += w << 2;
+    s += w << 2;
+    n &= 3;
+    while(n--) *d++ = *s++;
 }
 
-void mycopy(void *out, const void *in, int n){
-	if(n==0 || in==out)return;
-	if(n<16){
-		while(n--)*(char *)out++=*(char *)in++;
-		return;
-	}
-	uint32_t *t= (uint32_t *) tbuff;
-//	PIntH((uint32_t)out);PIntHC((uint32_t)out);PIntComma(n);PRet();MM_Delay(1000);
-	if((uint32_t)out & 0x80000000 && (uint32_t)in & 0x80000000){ //copy is to and from SDRAM
-		if(((uint32_t)out & 3)==0 && ((uint32_t)in & 3)==0){ // start points both on word boundaries
-			uint8_t *d, *s;
-			d=(uint8_t *)out; s=(uint8_t *)in;
-			while(n>=TBUFFSIZE){
-				_Z10copy_wordsPKmPmm((uint32_t *)s, t, TBUFFSIZE/4);
-				_Z10copy_wordsPKmPmm(t, (uint32_t *)d, TBUFFSIZE/4);
-				d+=TBUFFSIZE;
-				s+=TBUFFSIZE;
-				n-=TBUFFSIZE;
-				routinechecks(1);
-			}
-			if(n & ~3){
-				_Z10copy_wordsPKmPmm((uint32_t *)s, t, n>>2);
-				_Z10copy_wordsPKmPmm(t, (uint32_t *)d, n>>2);
-				d+=(n & ~3);
-				s+=(n & ~3);
-				n-=(n & ~3);
-			}
-			while(n--){
-				*d++=*s++;
-			}
-			routinechecks(1);
-		} else if(((uint32_t)out & 1)==0 && ((uint32_t)in & 1)==0){// start points both on half word boundaries
-			uint8_t *d, *s;
-			d=(uint8_t *)out; s=(uint8_t *)in;
-			if(((uint32_t)s & 2) && ((uint32_t)d & 2)){ //special case move 1 halfword and then do the rest
-				while((uint32_t)s % 4 && n){ //get to the next word boundary
-					*d++=*s++;
-					n--;
-				}
-				while(n>=TBUFFSIZE){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, t, TBUFFSIZE/4);
-					_Z10copy_wordsPKmPmm(t, (uint32_t *)d, TBUFFSIZE/4);
-					d+=TBUFFSIZE;
-					s+=TBUFFSIZE;
-					n-=TBUFFSIZE;
-					routinechecks(1);
-				}
-				if(n & ~3){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, t, n>>2);
-					_Z10copy_wordsPKmPmm(t, (uint32_t *)d, n>>2);
-					d+=(n & ~3);
-					s+=(n & ~3);
-					n-=(n & ~3);
-				}
-				while(n--){
-					*d++=*s++;
-				}
-				routinechecks(1);
-			} else {
-				uint16_t *dd, *ss;
-				dd=(uint16_t *)out; ss=(uint16_t *)in;
-				while(n>=64){
-					n-=64;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					routinechecks(1);
-				}
-				while(n & ~3){
-					*dd++=*ss++;
-					n-=2;
-				}
-				d=(uint8_t *)dd;
-				s=(uint8_t *)ss;
-				while(n--){
-					*d++=*s++;
-				}
-			}
-		} else { //any byte location for one or both pointers
-			char *d, *s;
-			d=(char *)out; s=(char *)in;
-			if(((uint32_t)s % 4) == ((uint32_t)d % 4)){ //special case same offset into word
-				while((uint32_t)s % 4 && n){ //get to the next word boundary
-					*d++=*s++;
-					n--;
-				}
-				while(n>=TBUFFSIZE){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, t, TBUFFSIZE/4);
-					_Z10copy_wordsPKmPmm(t, (uint32_t *)d, TBUFFSIZE/4);
-					d+=TBUFFSIZE;
-					s+=TBUFFSIZE;
-					n-=TBUFFSIZE;
-					routinechecks(1);
-				}
-				if(n & ~3){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, t, n>>2);
-					_Z10copy_wordsPKmPmm(t, (uint32_t *)d, n>>2);
-					d+=(n & (uint32_t)~3);
-					s+=(n & ~3);
-					n-=(n & ~3);
-				}
-				while(n--){
-					*d++=*s++;
-				}
-				routinechecks(1);
-			} else {
-				while(n>=32){
-					n-=32;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					routinechecks(1);
-				}
-				while(n--){
-					*d++=*s++;
-				}
-			}
-		}
-	} else 	if((uint32_t)out & 0x80000000 || (uint32_t)in & 0x80000000){ //copy is to or from SDRAM
-		if(((uint32_t)out & 3)==0 && ((uint32_t)in & 3)==0){ // start points both on word boundaries
-			uint8_t *d, *s;
-			d=(uint8_t *)out; s=(uint8_t *)in;
-			while(n>=MAXCPY){
-				_Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, MAXCPY/4);
-				d+=MAXCPY;
-				s+=MAXCPY;
-				n-=MAXCPY;
-				routinechecks(1);
-			}
-			if(n & ~3){
-				_Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, n>>2);
-				d+=(n & ~3);
-				s+=(n & ~3);
-				n-=(n & ~3);
-			}
-			while(n--){
-				*d++=*s++;
-			}
-			routinechecks(1);
-		} else if(((uint32_t)out & 1)==0 && ((uint32_t)in & 1)==0){// start points both on half word boundaries
-			uint8_t *d, *s;
-			d=(uint8_t *)out; s=(uint8_t *)in;
-			if(((uint32_t)s & 2) && ((uint32_t)d & 2)){ //special case move 1 halfword and then do the rest
-				while((uint32_t)s % 4 && n){ //get to the next word boundary
-					*d++=*s++;
-					n--;
-				}
-				while(n>=MAXCPY){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, MAXCPY/4);
-					d+=MAXCPY;
-					s+=MAXCPY;
-					n-=MAXCPY;
-					routinechecks(1);
-				}
-				if(n & ~3){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, n>>2);
-					d+=(n & ~3);
-					s+=(n & ~3);
-					n-=(n & ~3);
-				}
-				while(n--){
-					*d++=*s++;
-				}
-				routinechecks(1);
-			} else {
-				uint16_t *dd, *ss;
-				dd=(uint16_t *)out; ss=(uint16_t *)in;
-				while(n>=64){
-					n-=64;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					*dd++=*ss++;
-					routinechecks(1);
-				}
-				while(n & ~3){
-					*dd++=*ss++;
-					n-=2;
-				}
-				d=(uint8_t *)dd;
-				s=(uint8_t *)ss;
-				while(n--){
-					*d++=*s++;
-				}
-			}
-		} else { //any byte location for one or both pointers
-			char *d, *s;
-			d=(char *)out; s=(char *)in;
-			if(((uint32_t)s & 3) == ((uint32_t)d & 3)){ //special case same offset into word
-				while((uint32_t)s % 4 && n){ //get to the next word boundary
-					*d++=*s++;
-					n--;
-				}
-				while(n>=MAXCPY){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, MAXCPY/4);
-					d+=MAXCPY;
-					s+=MAXCPY;
-					n-=MAXCPY;
-					routinechecks(1);
-				}
-				if(n & ~3){
-					_Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, n>>2);
-					d+=(n & ~3);
-					s+=(n & ~3);
-					n-=(n & ~3);
-				}
-				while(n--){
-					*d++=*s++;
-				}
-				routinechecks(1);
-			} else {
-				while(n>=32){
-					n-=32;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					*d++=*s++;
-					routinechecks(1);
-				}
-				while(n--){
-					*d++=*s++;
-				}
-			}
-		}
-	} else {
-		char *d, *s;
-		d=out; s=(char *)in;
-		if(((uint32_t)s & 3) != ((uint32_t)d & 3)){ //not byte aligned
-			while(n>=ASMMAX){
-				mycpy(d,s,ASMMAX);
-				d+=ASMMAX;
-				s+=ASMMAX;
-				n-=ASMMAX;
-				routinechecks(1);
-			}
-			if(n)mycpy(d,s,n);
-		} else {
-			while((uint32_t)s % 4 && n){ //get to the next word boundary
-				*d++=*s++;
-				n--;
-			}
-			if(n & ~3){
-				_Z10copy_wordsPKmPmm((uint32_t *)s, (uint32_t *)d, n>>2);
-				d+=(n & ~3);
-				s+=(n & ~3);
-				n-=(n & ~3);
-			}
-			while(n--){
-				*d++=*s++;
-			}
-		}
-	routinechecks(1);
-	}
-//    SCB_CleanDCache_by_Addr((uint32_t *)((uint32_t)out & 0xFFFFFFE0), size+32);
-
+// a copy; checks (mycopy's) sees to the audio and USB between the blocks of a large one from SDRAM to SDRAM, which a
+// copy made from inside them must not (mycopysafe's: the audio's own buffers)
+static void copy_any(void *out, const void *in, int n, int checks) {
+    uint8_t *d = (uint8_t *)out;
+    const uint8_t *s = (const uint8_t *)in;
+    if(n <= 0 || d == s) return;
+    if(n >= 256 && ((uint32_t)d & 0x80000000) && ((uint32_t)s & 0x80000000)) {
+        uint8_t *t = tbuff + ((uint32_t)d & 3);                     // in step with the destination: the writes word for word
+        while(n > 0) {
+            int k = n > TBUFFSIZE - 4 ? TBUFFSIZE - 4 : n;
+            copy_core(t, s, k);
+            copy_core(d, t, k);
+            d += k; s += k; n -= k;
+            if(checks) routinechecks(1);
+        }
+        return;
+    }
+    copy_core(d, s, n);
 }
 
-void mycopysafe(void *out, const void *in, int n){
-	if(n==0 || in==out)return;
-	if((uint32_t)out & 0x80000000 || (uint32_t)in & 0x80000000){ //copy is to and/or from SDRAM
-		char *d, *s;
-		d=(char *)out; s=(char *)in;
-		if(((uint32_t)out & 3)==0 && ((uint32_t)in & 3)==0 && (n & 3)==0){
-			while(n>=ASMMAX){
-				mycpy(d,s,ASMMAX);
-				d+=ASMMAX;
-				s+=ASMMAX;
-				n-=ASMMAX;
-			}
-			if(n)mycpy(d,s,n);
-		} else if(((uint32_t)out & 1)==0 && ((uint32_t)in & 1)==0 && (n & 1)==0){
-			short *d, *s;
-			n>>=1;
-			d=(short *)out; s=(short *)in;
-			while(n>=32){
-				n-=32;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-			}
-			while(n--){
-				*d++=*s++;
-			}
-		} else {
-			char *d, *s;
-			d=(char *)out; s=(char *)in;
-			while(n>=32){
-				n-=32;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-				*d++=*s++;
-			}
-			while(n--){
-				*d++=*s++;
-			}
-		}
-	} else {
-		char *d, *s;
-		d=out; s=(char *)in;
-		while(n>=ASMMAX){
-			mycpy(d,s,ASMMAX);
-			d+=ASMMAX;
-			s+=ASMMAX;
-			n-=ASMMAX;
-		}
-		if(n)mycpy(d,s,n);
-	}
+void mycopy(void *out, const void *in, int n) {
+    copy_any(out, in, n, 1);
 }
+
+void mycopysafe(void *out, const void *in, int n) {
+    copy_any(out, in, n, 0);
+}
+
+// (assember.S's was the loopless copy: the same, without the blocks through tbuff)
+void ITCM_CODE mycpy(void *out, const void *in, int n) {
+    copy_core((uint8_t *)out, (const uint8_t *)in, n);
+}
+
+// a row for PageCopy's moves (docopy): whole words, then the audio and USB seen to
+void zcopy(void *out, const void *in, int n) {
+    copy_any(out, in, n & ~3, 0);
+    routinechecks(1);
+}
+
+// n bytes of the 32-bit pattern v, its bytes in order from out (a byte four times, a halfword twice, a 32-bit
+// colour): the head a byte at a time, then aligned words of the pattern turned to keep its phase
+void ITCM_CODE __attribute__((optimize("no-tree-loop-distribute-patterns"))) myset(void *out, uint32_t v, int n) {
+    uint8_t *d = (uint8_t *)out;
+    uint32_t *wd;
+    int w;
+    while(((uint32_t)d & 3) && n > 0) {
+        *d++ = v;
+        v = (v >> 8) | (v << 24);
+        n--;
+    }
+    if(n <= 0) return;
+    wd = (uint32_t *)d;
+    w = n >> 2;
+    while(w >= 8) {
+        wd[0] = v; wd[1] = v; wd[2] = v; wd[3] = v; wd[4] = v; wd[5] = v; wd[6] = v; wd[7] = v;
+        wd += 8; w -= 8;
+    }
+    while(w--) *wd++ = v;
+    d = (uint8_t *)wd;
+    n &= 3;
+    while(n--) {
+        *d++ = v;
+        v = (v >> 8) | (v << 24);
+    }
+}
+
+void mymemset(void *out, uint32_t in, int n) {
+    myset(out, (in & 0xFF) * 0x01010101u, n);
+}
+
+// the C library's names, which GCC also calls for a structure's copy: newlib-nano's are byte loops. These are reentrant
+// and never call routinechecks, so an interrupt, FatFs or the C library may use them anywhere.
+void *memcpy(void *d, const void *s, size_t n) {
+    copy_core((uint8_t *)d, (const uint8_t *)s, (int)n);
+    return d;
+}
+
+void *memset(void *d, int c, size_t n) {
+    myset(d, (c & 0xFF) * 0x01010101u, (int)n);
+    return d;
+}
+
+// overlapping: forward when the destination is below the source (or clear of it), else back from the end
+void * __attribute__((optimize("no-tree-loop-distribute-patterns"))) memmove(void *d, const void *s, size_t n) {
+    uint8_t *dp = (uint8_t *)d;
+    const uint8_t *sp = (const uint8_t *)s;
+    if(dp <= sp || dp >= sp + n) copy_core(dp, sp, (int)n);
+    else {
+        dp += n; sp += n;
+        while(n--) *--dp = *--sp;
+    }
+    return d;
+}
+
+
+
+
+
+
 
 void m_alloc(int size) {
     // every time the variable table is increased this must be called to verify that enough memory is free
@@ -1318,6 +962,7 @@ void FreeSDMemory(void *addr) {
 
 void FreeOMemory(void *addr) {
     int bits;
+    if((unsigned char *)addr < RamLowFree) RamLowFree = (unsigned char *)addr;    // (a free page below the hint)
     do {
         bits = MBitsGet(addr);
         MBitsSet(addr, 0);
@@ -1362,6 +1007,7 @@ static void HeapWipe(void **keep, int *size, int n) {
     SDBitsSet((unsigned char *)SDRAMEND, PUSED | PLAST);
     StrTmpIndex = TempMemoryIsChanged = 0;
     minMMheap=(void *)SDRAMEND;
+    RamLowFree = NULL;                                              // (every page free: the searches start at RAMBASE)
     for(i = 0; i < n; i++) HeapMark(keep[i], size[i]);
     SubLayoutForget();                                              // the SUBs' parameter layouts were in the heap (P6 F1)
     IfTableForget();                                                // and so was the IF jump table
@@ -1542,11 +1188,14 @@ void *GetInternalMemory(size_t size) {
     unsigned char *addr;
    // TestStackOverflow();
     k= (size + RAMPAGESIZE - 1)/RAMPAGESIZE;                         // nbr of pages rounded up
-    for(addr = (unsigned char *)RAMBASE; addr < (unsigned char *)RAMEND - RAMPAGESIZE; addr += RAMPAGESIZE) {
+    unsigned char *lowfree = NULL;                                  // the first free page the search meets
+    for(addr = RAMLOWFREE(); addr < (unsigned char *)RAMEND - RAMPAGESIZE; addr += RAMPAGESIZE) {
         if(!(MBitsGet(addr) & PUSED)) {
+            if(lowfree == NULL) lowfree = addr;
             if(++n == k) {                                          // found a free slot
                 k--;
                 //i=(uint64_t *)addr;
+                RamLowFree = (lowfree == addr - k * RAMPAGESIZE) ? addr + RAMPAGESIZE : lowfree;   // (below it all used now)
                 MBitsSet(addr , PUSED | PLAST);     // show that this is used and the last in the chain of pages
                   while(k--){
                     addr-=RAMPAGESIZE;
@@ -1599,8 +1248,9 @@ void *GetStringMemory(void) { //routine to get a single page of memory from Bott
     uint64_t *i;
     unsigned char *addr;
    // for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE) {
-   	for(addr = (unsigned char *)RAMBASE; addr < (unsigned char *)RAMEND - RAMPAGESIZE; addr += RAMPAGESIZE) {
+   	for(addr = RAMLOWFREE(); addr < (unsigned char *)RAMEND - RAMPAGESIZE; addr += RAMPAGESIZE) {
         if(!(MBitsGet(addr) & PUSED)) {
+            RamLowFree = addr + RAMPAGESIZE;                        // (every page below it is in use now)
             MBitsSet(addr , PUSED | PLAST);     // show that this is used and the last in the chain of pages
             i=(uint64_t *)addr;
         	*i++ = 0;

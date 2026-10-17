@@ -2134,44 +2134,21 @@ void cmd_new(void){
 }
 
 
+// NEXT [var [, var...]] (the PicoMite's): the loop is the one whose matching NEXT, found by cmd_for and kept as
+// nextptr, is this statement, so the names after NEXT are not looked up (this NEXT is symbol aware: cmdline is in the
+// program). Innermost first, so NEXT i, j closes the right loops; a further loop this NEXT closes only at this SUB or
+// FUNCTION level (in a recursive one every level's loop has this same NEXT).
 void cmd_next(void) {
-    int i, vindex, test;
-    void *vtbl[MAXFORLOOPS];
-    int vcnt;
+    int i, test;
     char *p;
-    getargs(&cmdline, MAXFORLOOPS * 2, ",");                        // getargs macro must be the first executable stmt in a block
-
-    vindex = 0;                                                     // keep lint happy
-
-    for(vcnt = i = 0; i < argc; i++) {
-        if(i & 0x01) {
-            if(*argv[i] != ',') error("Syntax");
-        } else
-            vtbl[vcnt++] = findvar(argv[i], V_FIND | V_NOFIND_ERR); // find the variable and error if not found
+    for(i = forindex - 1; i >= 0; i--) {
+        p = forstack[i].nextptr + sizeof(CommandToken);             // nextptr points at the NEXT token
+        skipspace(p);
+        if(p == cmdline) goto breakout;
     }
-
-    loopback:
-    // first search the for stack for a loop with the same variable specified on the NEXT's line
-    if(vcnt) {
-        for(i = forindex - 1; i >= 0; i--)
-            for(vindex = vcnt - 1; vindex >= 0 ; vindex--)
-                if(forstack[i].var == vtbl[vindex])
-                    goto breakout;
-    } else {
-        // if no variables specified search the for stack looking for an entry with the same program position as
-        // this NEXT statement. This cheats by using the cmdline as an identifier and may not work inside an IF THEN ELSE
-        for(i = 0; i < forindex; i++) {
-            p = forstack[i].nextptr + sizeof(CommandToken);         // nextptr points at the NEXT token
-            skipspace(p);
-            if(p == cmdline) goto breakout;
-        }
-    }
-
     error("Cannot find a matching FOR");
 
-    breakout:
-
-    // found a match
+breakout:
     // apply the STEP value to the variable and test against the TO value
     if(forstack[i].vartype & T_INT) {
         *(long long int *)forstack[i].var += forstack[i].stepvalue.i;
@@ -2182,29 +2159,17 @@ void cmd_next(void) {
     }
 
     if(test) {
-        // the loop has terminated
-        // remove the entry in the table, then skip forward to the next element and continue on from there
+        // the loop has terminated: remove it from the stack, then close any other loop of this level this NEXT ends
         while(i < forindex - 1) {
-            forstack[i].forptr = forstack[i+1].forptr;
-            forstack[i].nextptr = forstack[i+1].nextptr;
-            forstack[i].var = forstack[i+1].var;
-            forstack[i].vartype = forstack[i+1].vartype;
-            forstack[i].level = forstack[i+1].level;
-            forstack[i].tovalue.i = forstack[i+1].tovalue.i;
-            forstack[i].stepvalue.i = forstack[i+1].stepvalue.i;
+            forstack[i] = forstack[i + 1];
             i++;
         }
         forindex--;
-        if(vcnt > 0) {
-            // remove that entry from our FOR stack
-            for(; vindex < vcnt - 1; vindex++) vtbl[vindex] = vtbl[vindex + 1];
-            vcnt--;
-            if(vcnt > 0)
-                goto loopback;
-            else
-                return;
+        for(i = forindex - 1; i >= 0; i--) {
+            p = forstack[i].nextptr + sizeof(CommandToken);
+            skipspace(p);
+            if(p == cmdline && forstack[i].level == LocalIndex) goto breakout;
         }
-
     } else {
         // we have not reached the terminal value yet, so go back and loop again
         nextstmt = forstack[i].forptr;

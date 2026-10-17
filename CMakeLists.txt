@@ -82,7 +82,7 @@ target_compile_options(${TARGET} PRIVATE
     $<$<COMPILE_LANGUAGE:C>:-ffunction-sections -fdata-sections -Wall -fstack-usage>
     # __FILE__ (used by assert) becomes "../Src/x.c" as in CubeIDE, not an absolute path
     $<$<COMPILE_LANGUAGE:C>:-fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=../>
-    $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Release>>:-Os -std=gnu99 -mslow-flash-data>
+    $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Release>>:-Os -std=gnu99>
     $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Debug>>:-Og -g3 -std=gnu11>
     $<$<COMPILE_LANGUAGE:ASM>:-x assembler-with-cpp -Wa,-W>
     $<$<AND:$<COMPILE_LANGUAGE:ASM>,$<CONFIG:Debug>>:-g3>
@@ -92,6 +92,14 @@ target_compile_options(${TARGET} PRIVATE
 option(CMM2_PCSAMPLER "Build the PC sampler (diagnostic)" OFF)
 if(CMM2_PCSAMPLER)
     target_compile_definitions(${TARGET} PRIVATE PCSAMPLER)
+    target_compile_options(${TARGET} PRIVATE -g)        # (line numbers for the report; -g leaves the code as it is)
+endif()
+
+# Equivalence checks for performance work (the "Check" preset): a Release build that raises an error where a
+# shortcut and the slow path it replaces disagree (FINDVAREND_CHECK: findvar's end against skipvar's).
+option(CMM2_CHECKS "Build the equivalence checks (diagnostic)" OFF)
+if(CMM2_CHECKS)
+    target_compile_definitions(${TARGET} PRIVATE FINDVAREND_CHECK)
 endif()
 
 # Per-file optimisation overrides from the CubeIDE Release configuration.
@@ -100,6 +108,7 @@ set(RELEASE_O2_FILES
     Commands.c Draw.c FileIO.c Functions.c MATHS.c MMBasic.c MM_Misc.c
     Memory.c MiscSTM32.c Operators.c OtherDisplays.c Serial.c SerialFileIO.c
     Timers.c flash.c ltdc.c main.c mmc_stm32.c stm32h7xx_it.c
+    Symbols.c Struct.c                                      # (on every variable reference: 17 Oct, measured)
 )
 set(RELEASE_OZ_FILES fm.c kilo.c)
 list(TRANSFORM RELEASE_O2_FILES PREPEND Src/)

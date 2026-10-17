@@ -252,7 +252,7 @@ const char digit[256]={
 //
 void getexpr(char *);
 void checktype(int *, int);
-char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta);
+char ITCM_CODE *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta);
 char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
 CommandToken cmdIF, cmdENDIF,  cmdELSEIF, cmdELSE, cmdSELECT_CASE, cmdFOR, cmdNEXT, cmdWHILE, cmdENDSUB, cmdENDFUNCTION, cmdLOCAL, cmdSTATIC, cmdCASE, cmdDO, cmdLOOP, cmdCASE_ELSE, cmdEND_SELECT;
 CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET, cmdTYPE, cmdEND_TYPE, cmdSTRUCT;
@@ -381,7 +381,7 @@ struct s_profent *ProfileEntry(char *p) {
 }
 
 int ExecDepth = 0;                                                  // how deep ExecuteProgram is (a FUNCTION's body runs one deeper)
-void ExecuteProgram(char *p) {
+void ITCM_CODE ExecuteProgram(char *p) {
     int i, SaveLocalIndex = 0;
     int MyDepth = ++ExecDepth;                                      // (an error skipped to this loop comes back to it)
     jmp_buf SaveErrNext;
@@ -2242,7 +2242,7 @@ void *DoExpression(char *p, int *t) {
 //  if *t = T_STR or T_NBR or T_INT will throw an error if the result is not the correct type
 //  if *t = T_NOTYPE it will not throw an error and will return the type found in *t
 // this will check that the expression is terminated correctly and throw an error if not.  flags & E_NOERROR will suppress that check
-char *evaluate(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *ta, int flags) {
+char ITCM_CODE *evaluate(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *ta, int flags) {
     int o;
     int t = *ta;
     char *s;
@@ -2405,7 +2405,7 @@ char *getFstring(char *p) {
 }
 
 // recursively evaluate an expression observing the rules of operator precedence
-inline char *doexpr(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta) {
+inline char ITCM_CODE *doexpr(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta) {
     MMFLOAT fa1, fa2;
     long long int ia1, ia2;
     int o1, o2;
@@ -2462,7 +2462,7 @@ inline char *doexpr(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo,
 // also returns the next operator to the right of the value or E_END if no operator
 // Added OptionEscape
 //#ifdef NEW
-inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta)  {
+inline char ITCM_CODE *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta)  {
 
     MMFLOAT f = 0;
     long long int i64 = 0;
@@ -2591,6 +2591,7 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 				CurrentLinePtr = SaveCurrentLinePtr;
 			} else {
 				s = (char *)findvar(p, V_FIND);                         // if it is a string then the string pointer is automatically set
+				tp = FindvarEnd;                                        // (where it ended, if skipvar would say the same)
 				g_ExprStructType = -1;
 				if(g_StructMemberType != 0) {                           // a structure's member
 					t = TypeMask(g_StructMemberType);
@@ -2601,8 +2602,13 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 				}
 				if(t & T_NBR) f = (*(MMFLOAT *)s);
 				if(t & T_INT) i64 = (*(long long int *)s);
+#ifdef FINDVAREND_CHECK
+				if(tp != NULL && tp != skipvar(p, false)) error("FindvarEnd differs from skipvar");
+#endif
+				if(tp != NULL) { p = tp; goto getvalue_varend; }    // (skipvar would walk the name and indices again)
 			}
 			p = skipvar(p, false);
+getvalue_varend:;
 		}
 		// is it an ordinary numeric constant?  get its value if yes
 		// a leading + or - might have been converted to a token so we need to check for them also
@@ -2780,7 +2786,7 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 //#endif
 
 #ifdef OLD
-inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta) {
+inline char ITCM_CODE *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta) {
     MMFLOAT f = 0;
     long long int i64 = 0;
     char *s = NULL;
@@ -2902,8 +2908,13 @@ inline char *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *o
 				t = TypeMask(VREC(VarIndex)->type);
 				if(t & T_NBR) f = (*(MMFLOAT *)s);
 				if(t & T_INT) i64 = (*(long long int *)s);
+#ifdef FINDVAREND_CHECK
+				if(tp != NULL && tp != skipvar(p, false)) error("FindvarEnd differs from skipvar");
+#endif
+				if(tp != NULL) { p = tp; goto getvalue_varend; }    // (skipvar would walk the name and indices again)
 			}
 			p = skipvar(p, false);
+getvalue_varend:;
 		}
 		// is it an ordinary numeric constant?  get its value if yes
 		// a leading + or - might have been converted to a token so we need to check for them also
@@ -3380,7 +3391,104 @@ static int FindStructBase(char *basename, int baselen, int *pvindex) {
     return VREC(vindex)->size;
 }
 
-void *findvar(char *p, int action) {
+// where the reference findvar read ends, when nothing follows it that skipvar would step over too (getvalue's)
+char *FindvarEnd;
+static void __attribute__((noinline)) *findvar_body(char *p, int action, char **endp);
+
+/* findvar in two parts, as the PicoMite's: a reference to an existing variable through a bound symbol, nearly every
+   reference a program saved with symbols makes, is answered here, in ITCM. Anything else (a name in text, a
+   declaration, a variable to be made, a TYPE, a suffix that does not match the variable) goes to findvar_body, in
+   flash, which is findvar as it was: it is handed over before an index is evaluated, so nothing is evaluated twice,
+   and the errors are findvar_body's. */
+void ITCM_CODE *findvar(char *p, int action) {
+    char *q = p, *e = NULL;
+    struct s_vartbl *vr;
+    int symk, i, n, vtype = 0, dnbr = 0, deferred = 0;
+    int dim[MAXDIM];
+    skipspace(q);
+    if(!issymbol(*q) || (action & (V_LOCAL | V_DIM_VAR | V_FUNCT | T_IMPLIED))) goto slow;
+    if((symk = SymCanonAt(q)) < 0) goto slow;
+    if(g_structcnt > 0 && (SymCold[symk].flags & SYMC_DOT)) goto slow;    // (a dotted name may be a member's path)
+    i = SymL[symk];                                                 // its local at this level, or else its global if no
+    if(i < 0 || VREC(i)->level != LocalIndex) {                     // local made from text could hide it
+        i = SymG[symk];
+        if(i < 0 || (LocalIndex && SymTextLocals)) goto slow;
+    }
+    vr = VREC(i);
+    q += symbolsize(*q);
+    if(*q == '$') { vtype = T_STR; q++; }
+    else if(*q == '%') { vtype = T_INT; q++; }
+    else if(*q == '!') { vtype = T_NBR; q++; }
+    if(vr->name[0] == 0 || (vr->type & T_STRUCT) || !(vr->type & (vtype ? vtype : (DefaultType | T_IMPLIED)))) goto slow;
+    emptyarray = 0;
+    if(*q == '(') {
+        char *pp = q + 1;
+        skipspace(pp);
+        if((action & V_EMPTY_OK) && *pp == ')') {                   // an empty array, a()
+            emptyarray = 1;
+            dnbr = -1;
+        } else {                                                    // the indices, as findvar_body reads them
+            int strindex = 0;
+            q++;
+            while(1) {
+                MMFLOAT f;
+                long long int in;
+                char *s;
+                int targ = T_NOTYPE;
+                if(dnbr >= MAXDIM) error("Dimensions");
+                skipspace(q);
+                if(*q == ',' || *q == ')') error("Dimensions");
+                q = evaluate(q, &f, &in, &s, &targ, false);
+                if(targ == T_STR) strindex = 1;
+                if(targ == T_NBR) in = FloatToInt32(f);
+                else if(targ == T_INT && in != (int)in) error("Index out of bounds");
+                dim[dnbr] = in;
+                if(dim[dnbr] < OptionBase) {
+                    if(action & V_NOFIND_NULL) deferred = 1;
+                    else error("Dimensions");
+                }
+                dnbr++;
+                skipspace(q);
+                if(*q == ',') { q++; continue; }
+                if(*q == ')') { q++; break; }
+                error("Expected closing bracket");
+            }
+            if(strindex) dnbr = MAXDIM;
+        }
+    }
+    if(!(*q == ' ' || *q == '.' || *q == '(')) e = q;               // where it ends, as findvar_body says it
+    FindvarEnd = e;                                                 // (after the indices: their own findvar set it too)
+    VarIndex = i;
+    g_StructMemberType = g_StructMemberOffset = g_StructMemberSize = 0;    // (likewise: an index may be a member, a(p.x))
+    for(n = 0; n < MAXDIM && !DimIsEnd(vr->dimtbl[n]); n++);        // the dimensions must match
+    if(dnbr == -1) {
+        if(n == 0) error("Array dimensions");
+    } else if(n != dnbr) error("Array dimensions");
+    if(dnbr == -1 || DimIsScalar(vr->dimtbl[0])) {                  // a plain variable, or an empty array
+        if(dnbr == -1 || (vr->type & (T_PTR | T_STR))) return vr->val.s;
+        if(vr->type & T_INT) return &(vr->val.i);
+        return &(vr->val.f);
+    }
+    if(deferred) error("Dimensions");
+    for(n = 0; n < dnbr; n++)
+        if(dim[n] > DimUpper(vr->dimtbl[n]) || dim[n] < OptionBase) error("Index out of bounds");
+    int nbr = dim[0] - OptionBase, j = 1;                           // the element (Gerard Sexton's formula)
+    for(n = 1; n < dnbr; n++) {
+        j *= (DimUpper(vr->dimtbl[n - 1]) + 1 - OptionBase);
+        nbr += (dim[n] - OptionBase) * j;
+    }
+    if(vr->type & T_NBR) return vr->val.s + (nbr * sizeof(MMFLOAT));
+    if(vr->type & T_INT) return vr->val.s + (nbr * sizeof(long long int));
+    return vr->val.s + (nbr * (vr->size + 1));
+slow:
+    {
+        void *r = findvar_body(p, action, &e);
+        FindvarEnd = e;                                             // (after the body: an index's own findvar has set it too)
+        return r;
+    }
+}
+
+static void __attribute__((noinline)) *findvar_body(char *p, int action, char **endp) {
     char name[MAXVARLEN + 1];
     int i=0, j, size, ifree, globalifree, localifree, nbr, vtype, vindex, namelen, tmp;
     char *s, *x;
@@ -3481,39 +3589,39 @@ void *findvar(char *p, int action) {
         	emptyarray=1;
             dnbr = -1;                                              // flag this
         }  else {                                                      // else, get the dimensions
-            // start a new block - getargs macro must be the first executable stmt in a block
-            // split the argument into individual elements
-            // find the value of each dimension and store in dims[]
-            // the bracket in "(," is a signal to getargs that the list is in brackets
-            getargs(&p, MAXDIM * 2, "(,");
-            if((argc & 0x01) == 0) error("Dimensions");
-            dnbr = argc/2 + 1;
-            if(dnbr > MAXDIM) error("Dimensions");
-            for(i = 0; i < argc; i += 2) {
+            // each index evaluated where it is, as far as the ',' or ')' after it: no copy of the list (getargs)
+            // and no second pass to find the closing bracket
+            int strindex = 0;
+            p++;
+            dnbr = 0;
+            while(1) {
                 MMFLOAT f;
                 long long int in;
                 char *s;
                 int targ = T_NOTYPE;
-                evaluate(argv[i], &f, &in, &s, &targ, false);       // get the value and type of the argument
-                if(targ == T_STR) dnbr = MAXDIM;                    // force an error to be thrown later (with the correct message)
+                if(dnbr >= MAXDIM) error("Dimensions");
+                skipspace(p);
+                if(*p == ',' || *p == ')') error("Dimensions");      // an index left out
+                p = evaluate(p, &f, &in, &s, &targ, false);         // get the value and type of the argument
+                if(targ == T_STR) strindex = 1;                     // an error later, with the correct message
                 if(targ == T_NBR) in = FloatToInt32(f);
                 else if(targ == T_INT && in != (int)in) error("Index out of bounds");   // a(4294967297) must not be a(1)
-                dim[i/2] = in;
-                if(dim[i/2] < OptionBase) {
+                dim[dnbr] = in;
+                if(dim[dnbr] < OptionBase) {
                     if(action & V_NOFIND_NULL) dim_error_deferred = 1;  // a FUNCTION's argument, SX(-24), is probed as an array first
                     else error("Dimensions");
                 }
+                dnbr++;
+                skipspace(p);
+                if(*p == ',') { p++; continue; }
+                if(*p == ')') { p++; break; }
+                error("Expected closing bracket");
             }
-            // getargs leaves p at the bracket: step past the indices, to what follows them (a structure's .member)
-            for(i = 1, p++; i && *p; p++) {
-                if(*p == '"') {                                     // a bracket in a string is not one
-                    while(*++p && *p != '"');
-                    if(!*p) break;
-                } else if(*p == '(' || (tokentype(*p) & T_FUN)) i++;
-                else if(*p == ')') i--;
-            }
+            if(strindex) dnbr = MAXDIM;                             // (force an error to be thrown later)
         }
     }
+    // the reference ends here unless skipvar would go on (a space before a bracket, a member, an empty array's ())
+    if(!(*p == ' ' || *p == '.' || *p == '(')) *endp = p;
     g_StructMemberType = 0;                                         // (an index may have been a structure's member: a(p.x))
 
     // a bound symbol: its local at this level, or its global (unless locals made from text could hide it in a SUB)
@@ -3849,7 +3957,7 @@ findvar_found:
 
 //__attribute__((section(".fastcode")))
 //void makeargs(char **p, int maxargs, char *argbuf, char *argv[], int *argc, char *delim) {
-inline void makeargs(char **p, int maxargs, char *argbuf, char *argv[], int *argc, char *delim) {
+inline void ITCM_CODE makeargs(char **p, int maxargs, char *argbuf, char *argv[], int *argc, char *delim) {
     char *op;
     int inarg, expect_cmd, expect_bracket, then_tkn, else_tkn;
     char *tp;
@@ -4793,7 +4901,7 @@ int GetTokenValue(char *n) {
 
 
 // skip to the end of a variable
-char *skipvar(char *p, int noerror) {
+char ITCM_CODE *skipvar(char *p, int noerror) {
     char *pp, *tp;
     int i;
     int inquote = false;
@@ -4947,7 +5055,7 @@ char *GetNextCommand(char *p, char **CLine, char *EOFMsg) {
 // scans text looking for the matching closing bracket
 // it will handle nested strings, brackets and functions
 // it expects to be called pointing at the opening bracket or a function token
-char *getclosebracket(char *p) {
+char ITCM_CODE *getclosebracket(char *p) {
     int i = 0;
     int inquote = false;
 

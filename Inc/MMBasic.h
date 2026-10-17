@@ -262,6 +262,7 @@ char *SetValue(char *p, int t, void *v, int size);
 extern int varcnt;
 extern int Localvarcnt;                              // number of LOCAL variables defined (eg, largest index into the variable table)
 extern int Globalvarcnt;                              // number of GLOBAL variables defined (eg, largest index into the variable table)
+extern char *FindvarEnd;                        // where the reference the last findvar() read ends, or NULL (getvalue)
 extern int VarIndex;                            // index of the current variable.  set after the findvar() function has found/created a variable
 extern int LocalIndex;                          // used to track the level of local variables
 

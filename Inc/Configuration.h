@@ -81,6 +81,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define false	0
 
 #define MIPS16
+#define ITCM_CODE __attribute__((section(".itcm")))   // run from ITCM (zero wait, no I-cache): the linker script's .ITCMSection
 //#define dp(...) {char s[140];sprintf(s,  __VA_ARGS__); MMPrintString(s); MMPrintString("\r\n");}
 #define RoundUptoInt(a)     (((a) + (32 - 1)) & (~(32 - 1)))// round up to the nearest whole integer
 

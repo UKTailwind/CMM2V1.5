@@ -26,6 +26,12 @@
             "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
         },
         {
+            "name": "Check",
+            "displayName": "Release with equivalence checks (diagnostic)",
+            "inherits": "base",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMM2_CHECKS": "ON" }
+        },
+        {
             "name": "Sampler",
             "displayName": "Release with the PC sampler (diagnostic)",
             "inherits": "base",
@@ -35,6 +41,7 @@
     "buildPresets": [
         { "name": "Debug", "configurePreset": "Debug" },
         { "name": "Release", "configurePreset": "Release" },
+        { "name": "Check", "configurePreset": "Check" },
         { "name": "Sampler", "configurePreset": "Sampler" }
     ]
 }

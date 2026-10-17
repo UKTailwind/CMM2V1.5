@@ -148,6 +148,7 @@ SECTIONS
    *stm32h7xx_hal_ltdc.c.obj (.text .text*)
    *stm32h7xx_hal_hcd.o (.text .text*)
    *stm32h7xx_hal_hcd.c.obj (.text .text*)
+   *(.itcm .itcm.*)   /* functions marked ITCM_CODE (Configuration.h): .text's patterns do not take these */
 
    . = ALIGN(4);
     _eITCM = .;        /* create a global symbol at ITCM end */
