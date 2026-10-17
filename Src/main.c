@@ -360,6 +360,9 @@ static void init_fastcode_section(void) {
 
 void cleanend(void){
 	int i, adjust=0;
+#ifdef PCSAMPLER
+	PcsReport();                                                    // the "Sampler" build: where the program's time went
+#endif
 	int maxH=PageTable[WritePage].ymax;
     mymemset(inpbuf,0,STRINGSIZE);
     int lastgui=gui_font_height;
@@ -800,9 +803,7 @@ if(Option.ProgramStartCode < 0){
     FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
     FlashWriteClose();
 }
-if(Option.profile){
-	if(G1Hardware)mymemset((char *)0xD0300000, 0, 512*1024);
-	else mymemset((char *)0xD0700000, 0, 512*1024);
+if(Option.profile){                                             // (its counters are made at RUN, from the heap)
     firststmt= (char *)ProgMemory;
     nextstmt = (char *)ProgMemory;
 }

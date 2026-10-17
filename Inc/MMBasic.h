@@ -404,6 +404,11 @@ extern int InMMEND;                            // SUB MM.END is running (Command
 extern int FunReturnArrayCount;               // a FUNCTION's whole-array result (DefinedSubFun)
 extern int ErrorSkipDepth;                     // the ExecuteProgram depth ON ERROR SKIP was given at
 extern int ExecDepth;                          // how deep ExecuteProgram is (MMBasic.c)
+struct s_profent { uint32_t count, us; };       // OPTION PROFILING: a line's runs and microseconds
+extern struct s_profent *ProfileTable;
+void ProfileForget(void);
+void ProfileStart(void);
+struct s_profent *ProfileEntry(char *p);
 extern uint64_t g_flag;                        // FLAGS, FLAG(n), MM.FLAGS
 extern char *MMErrMsg;
 
@@ -462,6 +467,11 @@ void InitHeapKeepGlobals(void);
 void ClearGlobals(void);
 void SaveContext(void);                         // SAVE CONTEXT, LOAD CONTEXT (A:/.vars)
 void RestoreContext(int keep);
+#ifdef PCSAMPLER
+void PcsStart(void);                            // the PC sampler of the "Sampler" build (PcSampler.c)
+void PcsReport(void);
+void PcsAbandon(void);
+#endif
 void MIPS16 ClearProgram(void);
 void *DoExpression(char *p, int *t);
 char *evaluate(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *ta, int noerror);

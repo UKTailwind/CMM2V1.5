@@ -333,6 +333,53 @@ int CheckEmpty(char *p){
 // run a program
 // this will continuously execute a program until the end (marked by TWO zero chars)
 // the argument p must point to the first line to be executed
+/* OPTION PROFILING: each line's count and time, by line: entry ProfileBase[file] + line (the line's header gives both).
+   Made at RUN from the heap, for the lines the program has, when the option is on; LIST PROFILE reads it at the
+   prompt; the next RUN or load wipes the heap and ProfileForget drops it. */
+struct s_profent *ProfileTable = NULL;
+static int *ProfileBase, *ProfileTop;                               // a file's first entry, and its last line (in the block too)
+static int ProfileFiles;                                            // the files: 1 the program, then its #INCLUDE files
+static char *ProfileLast;                                           // the line that was being run
+
+void ProfileForget(void) {
+    ProfileTable = NULL;
+    ProfileFiles = 0;
+}
+
+// RUN, the heap cleared and the program prepared: the table for its lines, zeroed, with each file's base and last
+// line after it (one block from the heap: nothing of it is kept while profiling is off)
+void ProfileStart(void) {
+    char *p;
+    int f, n = 0, top[256];
+    ProfileForget();
+    ProfileLast = NULL;
+    memset(top, 0, sizeof(top));
+    for(p = (char *)ProgMemory; *p == T_NEWLINE; p = NextLine(p)) {
+        f = LHDR_FILE(p);
+        if(f > ProfileFiles) ProfileFiles = f;
+        if(LHDR_LINE(p) > top[f]) top[f] = LHDR_LINE(p);
+    }
+    for(f = 1; f <= ProfileFiles; f++) n += top[f] + 1;
+    ProfileTable = GetMemory((n + 1) * sizeof(struct s_profent) + 2 * (ProfileFiles + 1) * sizeof(int));
+    ProfileBase = (int *)(ProfileTable + n + 1);
+    ProfileTop = ProfileBase + ProfileFiles + 1;
+    for(f = 1, n = 0; f <= ProfileFiles; f++) {
+        ProfileBase[f] = n;
+        ProfileTop[f] = top[f];
+        n += top[f] + 1;
+    }
+}
+
+// the entry of the line at p (a T_NEWLINE), or NULL
+struct s_profent *ProfileEntry(char *p) {
+    int f, l;
+    if(ProfileTable == NULL || p < (char *)ProgMemory || p >= (char *)ProgMemory + PROG_FLASH_SIZE || *p != T_NEWLINE) return NULL;
+    f = LHDR_FILE(p);
+    l = LHDR_LINE(p);
+    if(f < 1 || f > ProfileFiles || l > ProfileTop[f]) return NULL;
+    return &ProfileTable[ProfileBase[f] + l];
+}
+
 int ExecDepth = 0;                                                  // how deep ExecuteProgram is (a FUNCTION's body runs one deeper)
 void ExecuteProgram(char *p) {
     int i, SaveLocalIndex = 0;
@@ -341,8 +388,6 @@ void ExecuteProgram(char *p) {
     memcpy(SaveErrNext, ErrNext, sizeof(jmp_buf));                  // we call ExecuteProgram() recursively so we need to store/restore old jump buffer between calls
     ShortScroll=0;
     skipspace(p);
-    static char *lastp=NULL;
-    static uint32_t *lastprofile=NULL;
     // just in case, skip any white space
     while(1) {
         if(*p == 0) p++;                                            // step over the zero byte marking the beginning of a new element
@@ -350,18 +395,14 @@ void ExecuteProgram(char *p) {
             CurrentLinePtr = p;                                     // and pointer to the line for error reporting
             TraceBuff[TraceBuffIndex] = p;                          // used by TRACE LIST
             if(++TraceBuffIndex >= TRACE_BUFF_SIZE) TraceBuffIndex = 0;
-            if(Option.profile){
-            	if(CurrentLinePtr){
-            		if(lastp!=NULL){
-						uint32_t *profileadd=(uint32_t *)((uint32_t)(lastp-firststmt+(G1Hardware? 0xD0300000 : 0xD0700000)) & (~3));
-						if((uint32_t)profileadd-(uint32_t)lastprofile==4)profileadd++;
-						lastprofile=profileadd;
-						profileadd[0]++;
-						profileadd[1]+=((((ReadCoreTimer() + (FastTimer))-statement_time))/ticks_per_microsecond);
-						statement_time=ReadCoreTimer() + (FastTimer);
-            		}
-            		lastp=p;
+            if(ProfileTable != NULL) {                              // OPTION PROFILING: the line that has finished counts, and its time
+            	struct s_profent *e = ProfileEntry(ProfileLast);
+            	if(e != NULL) {
+            		e->count++;
+            		e->us += ((ReadCoreTimer() + FastTimer) - statement_time) / ticks_per_microsecond;
             	}
+            	statement_time = ReadCoreTimer() + FastTimer;
+            	ProfileLast = p;
             }
             if(TraceOn && p < ProgMemory+PROG_FLASH_SIZE && LHDR_LINE(p)) {   // (line 0: a file name line)
             	char buff[10];
@@ -2136,7 +2177,7 @@ int MIPS16 tokenise(int console) {
 
     }
     // end of loop, trim any trailing blanks (but not part of the header or a line number)
-    if(Option.profile==0) while(op > body && *(op - 1) == ' ') *--op = 0;
+    while(op > body && *(op - 1) == ' ') *--op = 0;               // (OPTION PROFILING's padded lines needed them kept)
     // make sure that it is terminated properly
     *op++ = 0;  *op++ = 0;  *op++ = 0;                              // terminate with  zero chars
     if(!console) {                                                  // skip: the line's length as the image will hold it -
@@ -4441,6 +4482,9 @@ extern volatile char CSubComplete;
 extern unsigned int CFuncInt1, CFuncInt2, CFuncInt3, CFuncInt4, CFuncmSec;
 static void MIPS16 ClearRuntimeAll(int keep) {
     int i;
+#ifdef PCSAMPLER
+    PcsAbandon();                                                   // its tables are in the heap about to go
+#endif
     //have to stop audio before we clear variables to avoid exception
 	CloseAudio(1);
 	vol_left = 100; vol_right = 100;

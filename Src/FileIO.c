@@ -473,12 +473,6 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 				error("Line % of $ is too long", importlines, fname);
 			}
 			if((sbuff[0]!=39) || (sbuff[0]==39 && sbuff[1]==39)){
-				if(Option.profile){
-					while(strlen(sbuff)<9){
-						strcat(sbuff," ");
-						len++;
-					}
-				}
 				memcpy(*p,sbuff,len);
 				*p+=len;
 				**p='\n';
@@ -635,12 +629,6 @@ int FileLoadProgram(char *fname, int mode) {
 				error("Line % is too long", importlines);
 			}
 			if((sbuff[0]!=39) || (sbuff[0]==39 && sbuff[1]==39)){
-				if(Option.profile){
-					while(strlen(sbuff)<9){
-						strcat(sbuff," ");
-						len++;
-					}
-				}
 				mycpy(p,sbuff,len);
 				p+=len;
 				*p++='\n';

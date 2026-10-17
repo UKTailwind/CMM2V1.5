@@ -88,6 +88,12 @@ target_compile_options(${TARGET} PRIVATE
     $<$<AND:$<COMPILE_LANGUAGE:ASM>,$<CONFIG:Debug>>:-g3>
 )
 
+# The PC sampler (Src/PcSampler.c): the "Sampler" preset, a Release build with it, for finding hot code.
+option(CMM2_PCSAMPLER "Build the PC sampler (diagnostic)" OFF)
+if(CMM2_PCSAMPLER)
+    target_compile_definitions(${TARGET} PRIVATE PCSAMPLER)
+endif()
+
 # Per-file optimisation overrides from the CubeIDE Release configuration.
 # These come after -Os on the command line, so they win.
 set(RELEASE_O2_FILES

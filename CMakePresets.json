@@ -24,10 +24,17 @@
             "displayName": "Release (-Os, per-file -O2/-Oz)",
             "inherits": "base",
             "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+        },
+        {
+            "name": "Sampler",
+            "displayName": "Release with the PC sampler (diagnostic)",
+            "inherits": "base",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMM2_PCSAMPLER": "ON" }
         }
     ],
     "buildPresets": [
         { "name": "Debug", "configurePreset": "Debug" },
-        { "name": "Release", "configurePreset": "Release" }
+        { "name": "Release", "configurePreset": "Release" },
+        { "name": "Sampler", "configurePreset": "Sampler" }
     ]
 }

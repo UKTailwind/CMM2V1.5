@@ -1591,10 +1591,6 @@ int editorProcessKeypress() {
 	  	      ExecuteProgram(tknbuf);                                     // execute the line straight away
 	    }
 		SCB_CleanInvalidateDCache();
-		if(Option.profile){
-			if(G1Hardware)mymemset((char *)0xD0300000, 0, 512*1024);
-			else mymemset((char *)0xD0700000, 0, 512*1024);
-		}
 	  	editorSave(c);
 		if(c==F2){
 			for(int i=0;i<=E.numrows;i++)editorFreeRow(&E.row[i]);

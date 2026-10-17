@@ -1369,6 +1369,7 @@ static void HeapWipe(void **keep, int *size, int n) {
     StructTableForget();                                            // and the TYPE table
     JsonArenaForget();                                              // and JSON$'s parse arena
     SymBindForget();                                                // and the symbols' bindings
+    ProfileForget();                                                // and OPTION PROFILING's counters
     g_myrand = NULL;                                                // and MATH(RAND)'s generator
 }
 

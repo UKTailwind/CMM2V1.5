@@ -106,7 +106,7 @@ extern uint32_t RAMBASE;
 #define FUNEND				(FUNBASE+36*(MAXSUBFUN+1))   // where funtbl ended (the name index replaced it): the buffers after it stay put; the 18 KB is free
 #define SRAMBASE         	0x38000000
 #define SRAMEND         	0x38010000
-#define SDRAMBASE         	(G1Hardware ? ((Option.ProgramStartCode<0 || Option.profile) ? 0xD0380000: 0xD0300000) : 0xD0800000)
+#define SDRAMBASE         	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) : 0xD0800000)
 #define SDRAMEND         	(G1Hardware ? 0xD0800000-0x100 : 0xD2000000-0x100)
 // other (minor) memory management parameters
 #define RAMPAGESIZE        256                                         // the allocation granuality

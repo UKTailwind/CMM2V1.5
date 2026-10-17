@@ -947,7 +947,7 @@ void MIPS16 cmd_list(void) {
         checkend(p);
     } else if(checkstring(cmdline, "PROFILE CSV")) {
     	if(Option.profile==0)error("Profiling not enabled");
-        static uint32_t *lastprofile=NULL;
+    	if(ProfileTable==NULL)error("Nothing profiled: RUN the program first");
     	char b[STRINGSIZE],fn[FF_MAX_LFN]={0};
     	char *pp;
     	p=ProgMemory;
@@ -955,17 +955,16 @@ void MIPS16 cmd_list(void) {
         int fnbr=0;
     	while(!(*p == 0 || *p == 0xff)) {                               // normally a LIST ends at the break so this is a safety precaution
             if(*p == T_NEWLINE) {
-				uint32_t *profileadd=(uint32_t *)((uint32_t)(p-firststmt+(G1Hardware? 0xD0300000 : 0xD0700000)) & (~3));
-				if((uint32_t)profileadd-(uint32_t)lastprofile==4)profileadd++;
-				lastprofile=profileadd;
+				struct s_profent pz = {0, 0}, *pe = ProfileEntry(p);   // (a line it does not know: never run)
+				if(pe == NULL) pe = &pz;
 				if(p!=firststmt && LHDR_LINE(p)==0){                // an #INCLUDE file's name line
 					p = NextLine(p);
 					continue;
 				}
 				int lfile = LHDR_FILE(p), lline = LHDR_LINE(p);
 				if(p!=firststmt){
-					PIntFixedFile(profileadd[0],10, fnbr);
-					PFltFixedFile((MMFLOAT)profileadd[1]/(MMFLOAT)profileadd[0], fnbr);
+					PIntFixedFile(pe->count,10, fnbr);
+					PFltFixedFile(pe->count ? (MMFLOAT)pe->us/(MMFLOAT)pe->count : 0, fnbr);
 					FilePutStr(3,"  \"",fnbr);
 				} else {
 					strcpy(fn,ProgName());
@@ -1006,7 +1005,7 @@ void MIPS16 cmd_list(void) {
     } else if(checkstring(cmdline, "PROFILE")) {
         if(CurrentLinePtr) error("Invalid in a program");
     	if(Option.profile==0)error("Profiling not enabled");
-        static uint32_t *lastprofile=NULL;
+    	if(ProfileTable==NULL)error("Nothing profiled: RUN the program first");
     	char b[STRINGSIZE];
     	char *pp;
         int ListCnt = 1;
@@ -1014,17 +1013,16 @@ void MIPS16 cmd_list(void) {
     	if(!ImageIsCurrent())return;
     	while(!(*p == 0 || *p == 0xff)) {                               // normally a LIST ends at the break so this is a safety precaution
             if(*p == T_NEWLINE) {
-				uint32_t *profileadd=(uint32_t *)((uint32_t)(p-firststmt+(G1Hardware? 0xD0300000 : 0xD0700000)) & (~3));
-				if((uint32_t)profileadd-(uint32_t)lastprofile==4)profileadd++;
-				lastprofile=profileadd;
+				struct s_profent pz = {0, 0}, *pe = ProfileEntry(p);   // (a line it does not know: never run)
+				if(pe == NULL) pe = &pz;
 				if(p!=firststmt && LHDR_LINE(p)==0){                // an #INCLUDE file's name line
 					p = NextLine(p);
 					continue;
 				}
 				int lfile = LHDR_FILE(p), lline = LHDR_LINE(p);
 				if(p!=firststmt){
-					PIntFixed(profileadd[0],10);
-					PFltFixed((MMFLOAT)profileadd[1]/(MMFLOAT)profileadd[0]);
+					PIntFixed(pe->count,10);
+					PFltFixed(pe->count ? (MMFLOAT)pe->us/(MMFLOAT)pe->count : 0);
 					MMPrintString("  \"");
 				}
     			p = llist(b, p);                                        // otherwise expand the line
@@ -1286,14 +1284,14 @@ static void MIPS16 RunStart(void) {
     	mymemset((char *)0xD0000000,0,512*6*1024);
     	mymemset((char *)0x24000000+PageTable[0].size,0,512*1024-PageTable[0].size);
     }
-    if(Option.profile){
-    	if(G1Hardware)mymemset((char *)0xD0300000, 0, 512*1024);
-    	else mymemset((char *)0xD0700000, 0, 512*1024);
-    }
+    if(Option.profile) ProfileStart();                              // OPTION PROFILING's counters, for this program's lines
     turtle_init();  //turtle
     statement_time= ReadCoreTimer() + FastTimer;
     firststmt= (char *)ProgMemory;
     nextstmt = (char *)ProgMemory;
+#ifdef PCSAMPLER
+    PcsStart();                                                     // (the "Sampler" build: Src/PcSampler.c)
+#endif
 }
 
 // CHAIN fname$ [, cmdline$] (the PicoMite's): run another program, keeping the global variables. Everything else

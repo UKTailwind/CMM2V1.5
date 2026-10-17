@@ -1388,7 +1388,6 @@ void MIPS16 OtherOptions(void) {
     tp = checkstring(cmdline, "RAM");
 	if(tp) {
 	    if(CurrentLinePtr) error("Invalid in a program");
-		if(Option.profile && G1Hardware)error("Not available when profiling is enabled");
             Option.ProgramStartCode = (G1Hardware ? -2 : -1);
             goto saveandreset;
 	}
@@ -1453,7 +1452,6 @@ void MIPS16 OtherOptions(void) {
 	}
 	tp=checkstring(cmdline, "PROFILING");
 	if(tp) {
-		if(Option.ProgramStartCode<0 && G1Hardware)error("Not available when running in RAM");
  		if(checkstring(tp, "ON")) {
             Option.profile = 1;
         } else if(checkstring(tp, "OFF")) {

@@ -3746,10 +3746,6 @@ void MIPS16 cmd_autosave(void) {
 	  	SCB_CleanInvalidateDCache();
     	FileLoadProgram(fname,0);
 		/*StartEditChar = */StartEditCharacter = 0;
-	  	if(Option.profile){
-	  		if(G1Hardware)mymemset((char *)0xD0300000, 0, 512*1024);
-	  		else mymemset((char *)0xD0700000, 0, 512*1024);
-	  	}
     	if(c==F2){
 		  	SCB_CleanInvalidateDCache();
  			SCB_CleanInvalidateDCache();
