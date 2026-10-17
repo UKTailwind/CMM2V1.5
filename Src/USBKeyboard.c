@@ -309,6 +309,13 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 	uint8_t itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 	if (itf_protocol != HID_ITF_PROTOCOL_KEYBOARD)
 		return; /* keyboards only, for now: leave other interfaces unclaimed */
+	/* A keyboard with media keys may have a second interface that also says it is a boot keyboard: its report
+	   descriptor adds n-key rollover, the media (consumer) and system keys, even a mouse, each with a report ID.
+	   In the boot protocol TinyUSB sets, it has nothing to send, and those keys are not processed here, so only
+	   a device's first keyboard interface takes a slot (the second one had channel 4). */
+	for (int i = 0; i < HID_SLOTS; i++)
+		if (HID[i].active && HID[i].Device_address == dev_addr && HID[i].Device_type == HID_ITF_PROTOCOL_KEYBOARD)
+			return;
 	int slot = FindFreeSlot(itf_protocol);
 	if (slot == -1 || Current_USB_devices == HID_SLOTS)
 		return; /* all slots in use: skip quietly rather than error mid-enumeration */
