@@ -3230,6 +3230,31 @@ int VarChunkBytes(void) {
     return n * VARCHUNK * sizeof(struct s_vartbl);
 }
 
+// does r, a global's record, own a block of the heap: an array's elements, a string or a structure (not one inside
+// its own record, a short string)
+static int VarOwnsBlock(struct s_vartbl *r) {
+    return ((r->type & (T_STR | T_STRUCT)) || DimIsAllocated(r->dimtbl[0])) && !(r->type & T_PTR) && !VAR_INLINE_STR(r) && r->val.s != NULL;
+}
+
+// CHAIN: the heap wiped as for RUN, but for the blocks the globals own (their records' chunks and their data),
+// listed first and left in use. The list is in the heap: InitHeapKeeping reads it before anything is allocated.
+void InitHeapKeepGlobals(void) {
+    int max = varmem.chunks + MAXGLOBALVARS, n = 0, i, sz;
+    void **a = GetMemory(max * (sizeof(void *) + sizeof(int)));
+    int *s = (int *)(a + max);
+    for(i = 0; i < varmem.chunks; i++) {
+        a[n] = varmem.chunk[i];
+        s[n++] = MemSize(varmem.chunk[i]);
+    }
+    for(i = MAXLOCALVARS; i < MAXVARS; i++) {
+        struct s_vartbl *r = VREC(i);
+        if(!VarRecordReal(r) || !VarOwnsBlock(r) || (sz = MemSize(r->val.s)) == 0) continue;   // (0: not in a heap)
+        a[n] = r->val.s;
+        s[n++] = sz;
+    }
+    InitHeapKeeping(a, s, n);
+}
+
 // ERASE: the global in slot has gone, its data freed; its record goes on the free list and the slot is left
 // free, or blocked when a probe must pass it.  The link is kept in the name, which no interrupt writes.
 void VarRecordRelease(int slot, int blocked) {
@@ -4414,7 +4439,7 @@ extern int VideoColour;
 extern char *CSubInterrupt;
 extern volatile char CSubComplete;
 extern unsigned int CFuncInt1, CFuncInt2, CFuncInt3, CFuncInt4, CFuncmSec;
-void MIPS16 ClearRuntime(void) {
+static void MIPS16 ClearRuntimeAll(int keep) {
     int i;
     //have to stop audio before we clear variables to avoid exception
 	CloseAudio(1);
@@ -4423,8 +4448,13 @@ void MIPS16 ClearRuntime(void) {
 	CloseAllFiles();  //also clears sprites and 3D objects
     OptionFileErrorAbort = true;
     ClearStack();
-    ClearVars(0);
-	InitHeap();
+    if(keep) {
+        ClearVars(1);                                               // CHAIN: the locals go, the globals stay where they are
+        InitHeapKeepGlobals();                                      // and so do the blocks they own
+    } else {
+        ClearVars(0);
+	    InitHeap();
+    }
     OptionExplicit = false;
     OptionEscape = false;
     DefaultType = T_NBR;
@@ -4438,8 +4468,8 @@ void MIPS16 ClearRuntime(void) {
     FunReturnArrayCount = 0;
     InMMEND = false;
     *MMErrMsg = 0;
-    m_alloc(0);
-    varcnt = 0;
+    if(!keep) m_alloc(0);
+    varcnt = keep ? Globalvarcnt : 0;
     for(i=0;i<7;i++)KeyDown[i]=0;
     CurrentLinePtr = ContinuePoint = NULL;
     for(i = 0;  i < MAXSUBFUN; i++)  subfun[i] = NULL;
@@ -4500,6 +4530,153 @@ void MIPS16 ClearRuntime(void) {
     cmdDO=  GetCommandValue("Do");
     cmdFOR=  GetCommandValue("For");
     cmdNEXT= GetCommandValue("Next");
+}
+
+void MIPS16 ClearRuntime(void) {
+    ClearRuntimeAll(false);
+}
+
+// CHAIN: as ClearRuntime, but the global variables stay (the locals go)
+void MIPS16 ClearRuntimeKeepGlobals(void) {
+    ClearRuntimeAll(true);
+}
+
+/* SAVE CONTEXT [CLEAR] and LOAD CONTEXT [KEEP] (the PicoMite's): the global variables, each one's record and its data,
+   in A:/.vars on the SD card (the PicoMite keeps a copy of its whole heap in PSRAM or on its A: drive). Only the
+   globals: the locals belong to the calls running now. LOAD CONTEXT deletes the globals there are and makes the
+   saved ones again through findvar, so each is laid out as any other; one of a structure type refers to the type
+   by its number, so the program must define the same TYPEs in the same order. Both are for the program's top level:
+   a SUB's parameter that refers to a global would refer to nothing after LOAD CONTEXT. */
+#define CONTEXT_FILE "A:/.vars"
+#define CONTEXT_MAGIC 0x31585443                                    // "CTX1"
+struct s_ctxhead { uint32_t magic; int count, optionbase, dimused; };
+
+// a global SAVE CONTEXT writes
+static int CtxSaved(struct s_vartbl *r) {
+    return VarRecordReal(r) && r->name[0] && r->type != T_NOTYPE && r->type != T_BLOCKED && !(r->type & T_PTR) && !DimIsEmptyParam(r->dimtbl[0]);
+}
+
+// the bytes of data a global holds outside its record's value: an array's elements, a string, a structure
+static int CtxDataBytes(struct s_vartbl *r) {
+    int esize, nbr = 1, d;
+    if(r->type & T_STR) esize = r->size + 1;
+    else if(r->type & T_STRUCT) {
+        if(r->size >= g_structcnt) error("Invalid structure type");
+        esize = g_structtbl[r->size]->total_size;
+    } else esize = 8;
+    if(!DimIsRealArray(r->dimtbl[0])) return (r->type & (T_STR | T_STRUCT)) ? esize : 0;
+    for(d = 0; d < MAXDIM && !DimIsEnd(r->dimtbl[d]); d++) nbr *= DimElements(r->dimtbl[d]);
+    return nbr * esize;
+}
+
+// a FatFs error: the file closed, then the error
+static void CtxCheck(FIL *f, FRESULT r) {
+    if(r == FR_OK) return;
+    f_close(f);
+    FSerror = r;
+    ErrorCheck(0);
+    error("Context file");
+}
+
+// n bytes to or from the file, through a buffer of its own (the data may be anywhere: SDRAM, a record)
+static void CtxXfer(FIL *f, void *p, int n, int out) {
+    char buf[512];
+    UINT done;
+    while(n > 0) {
+        int k = n > (int)sizeof(buf) ? (int)sizeof(buf) : n;
+        if(out) {
+            memcpy(buf, p, k);
+            CtxCheck(f, f_write(f, buf, k, &done));
+            if((int)done != k) { f_close(f); error("Not enough space on the SD card"); }
+        } else {
+            CtxCheck(f, f_read(f, buf, k, &done));
+            if((int)done != k) { f_close(f); error("Invalid context file"); }
+            memcpy(p, buf, k);
+        }
+        p = (char *)p + k;
+        n -= k;
+    }
+}
+
+// every global deleted, the locals kept (LOAD CONTEXT, SAVE CONTEXT CLEAR)
+void ClearGlobals(void) {
+    int i;
+    for(i = MAXLOCALVARS; i < MAXVARS; i++) {
+        struct s_vartbl *r = VREC(i);
+        if(VarRecordReal(r) && VarOwnsBlock(r) && (uint32_t)r->val.s > 0x24000000) FreeMemorySafe((void *)&r->val.s);
+    }
+    VarRecordsReset();                                              // (the locals' slots are theirs again: unchanged)
+    SymBindResetGlobals();
+    Globalvarcnt = 0;
+    varcnt = Localvarcnt;
+}
+
+void SaveContext(void) {
+    FIL f;
+    struct s_ctxhead h = {CONTEXT_MAGIC, 0, OptionBase, DimUsed};
+    int i, n;
+    if(!InitSDCard()) return;
+    for(i = MAXLOCALVARS; i < MAXVARS; i++) if(CtxSaved(VREC(i))) h.count++;
+    CtxCheck(&f, f_open(&f, CONTEXT_FILE, FA_WRITE | FA_CREATE_ALWAYS));
+    CtxXfer(&f, &h, sizeof(h), 1);
+    for(i = MAXLOCALVARS; i < MAXVARS; i++) {
+        struct s_vartbl *r = VREC(i);
+        if(!CtxSaved(r)) continue;
+        n = CtxDataBytes(r);
+        CtxXfer(&f, r, sizeof(*r), 1);
+        CtxXfer(&f, &n, sizeof(n), 1);                              // (its data's length: a TYPE of another size is caught)
+        if(n > 0) CtxXfer(&f, r->val.s, n, 1);
+    }
+    CtxCheck(&f, f_close(&f));
+}
+
+void RestoreContext(int keep) {
+    FIL f;
+    struct s_ctxhead h;
+    struct s_vartbl r;
+    char text[MAXVARLEN + 8 * (MAXDIM + 1) + 16];
+    int i, d, n, SaveLocalIndex = LocalIndex;
+    if(!InitSDCard()) return;
+    FRESULT fr = f_open(&f, CONTEXT_FILE, FA_READ);
+    if(fr == FR_NO_FILE) error("No context saved");
+    CtxCheck(&f, fr);
+    CtxXfer(&f, &h, sizeof(h), 0);
+    if(h.magic != CONTEXT_MAGIC || h.count < 0 || h.count > MAXGLOBALVARS) { f_close(&f); error("Invalid context file"); }
+    ClearGlobals();
+    OptionBase = h.optionbase;                                      // (the dimensions are as they were saved)
+    LocalIndex = 0;                                                 // findvar makes globals, past any local of the same name
+    for(i = 0; i < h.count; i++) {
+        int len;
+        CtxXfer(&f, &r, sizeof(r), 0);
+        CtxXfer(&f, &len, sizeof(len), 0);
+        n = strnlen(r.name, MAXVARLEN);                             // the name, its dimensions, a string's length
+        memcpy(text, r.name, n);
+        if(DimIsRealArray(r.dimtbl[0])) {
+            for(d = 0; d < MAXDIM && !DimIsEnd(r.dimtbl[d]); d++) {
+                text[n++] = d ? ',' : '(';
+                IntToStr(text + n, DimUpper(r.dimtbl[d]), 10);
+                n += strlen(text + n);
+            }
+            text[n++] = ')';
+        }
+        text[n] = 0;
+        if(r.type & T_STR) {
+            strcat(text, " LENGTH ");
+            IntToStr(text + strlen(text), r.size, 10);
+        }
+        g_StructArg = (r.type & T_STRUCT) ? r.size : -1;
+        void *p = findvar(text, V_FIND | V_DIM_VAR | T_IMPLIED | (r.type & (T_NBR | T_INT | T_STR | T_STRUCT)));
+        g_StructArg = -1;
+        struct s_vartbl *v = VREC(VarIndex);
+        if(CtxDataBytes(v) != len) { f_close(&f); error("$ is not as it was saved (its TYPE?)", text); }
+        if(len > 0) CtxXfer(&f, p, len, 0);
+        else v->val = r.val;                                        // a number
+        v->type = r.type & (T_NBR | T_INT | T_STR | T_STRUCT | T_IMPLIED | T_CONST);
+    }
+    LocalIndex = SaveLocalIndex;
+    DimUsed = h.dimused;
+    CtxCheck(&f, f_close(&f));
+    if(!keep) f_unlink(CONTEXT_FILE);
 }
 
 

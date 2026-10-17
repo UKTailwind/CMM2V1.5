@@ -101,6 +101,7 @@ void cmd_continue(void);
 void cmd_dim(void);
 void cmd_redim(void);
 void cmd_csubinterrupt(void);
+void cmd_chain(void);
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -521,6 +522,7 @@ void op_inv(void);
 	{ "Bezier",		    T_CMD,				0, cmd_bezier	},      // BEZIER x%(), y%() [, n] [, colour]
 	{ "Fill",		    T_CMD,				0, cmd_fill	},      // FILL x, y, colour [, boundary]
 	{ "Interrupt",	    T_CMD,				0, cmd_csubinterrupt },   // INTERRUPT sub | 0 | (none): a CSUB's interrupt
+	{ "Chain",		    T_CMD,				0, cmd_chain	},      // CHAIN fname$ [, cmdline$]: the globals kept
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

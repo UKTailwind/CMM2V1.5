@@ -406,6 +406,11 @@ void SymBindFree(void) {
     SymBindForget();
 }
 
+// LOAD CONTEXT, SAVE CONTEXT CLEAR: every global has gone, the locals stay
+void SymBindResetGlobals(void) {
+    for(unsigned int i = 0; i < SymNCanon; i++) SymG[i] = -1;
+}
+
 // ClearVars(0): every variable has gone
 void SymBindReset(void) {
     for(unsigned int i = 0; i < SymNCanon; i++) SymG[i] = SymL[i] = -1;

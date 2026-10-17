@@ -1337,7 +1337,21 @@ void FreeMemorySafe(void **addr){
 }
 
 
-void InitHeap(void) {
+// the block at addr, size bytes, in use again after the maps were cleared (HeapWipe)
+static void HeapMark(void *addr, int size) {
+    int k, pages = size / RAMPAGESIZE, inram = (addr >= (void *)RAMBASE && addr < (void *)RAMEND);
+    if(!inram && !(addr >= (void *)SDRAMBASE && addr < (void *)SDRAMEND)) return;
+    for(k = 0; k < pages; k++) {
+        int bits = (k == pages - 1) ? (PUSED | PLAST) : PUSED;
+        if(inram) MBitsSet(addr + k * RAMPAGESIZE, bits);
+        else SDBitsSet(addr + k * RAMPAGESIZE, bits);
+    }
+    if(!inram && addr < minMMheap) minMMheap = addr;
+}
+
+// both heaps' maps cleared, but for the n blocks keep[i] of size[i] bytes (MemSize's, read before), and everything
+// that lived in the heap forgotten. The list may itself be in the heap: it is read before anything is allocated.
+static void HeapWipe(void **keep, int *size, int n) {
     int i;
     BBCSoundRelease();                                              // PLAY BBC's state block is in this heap: freed while the map is valid
     memset(SDmap,0x00,0x8000);
@@ -1348,7 +1362,7 @@ void InitHeap(void) {
     SDBitsSet((unsigned char *)SDRAMEND, PUSED | PLAST);
     StrTmpIndex = TempMemoryIsChanged = 0;
     minMMheap=(void *)SDRAMEND;
-    m_alloc(0);
+    for(i = 0; i < n; i++) HeapMark(keep[i], size[i]);
     SubLayoutForget();                                              // the SUBs' parameter layouts were in the heap (P6 F1)
     IfTableForget();                                                // and so was the IF jump table
     NameIndexForget();                                              // and the index of SUBs, FUNCTIONs and labels
@@ -1356,6 +1370,17 @@ void InitHeap(void) {
     JsonArenaForget();                                              // and JSON$'s parse arena
     SymBindForget();                                                // and the symbols' bindings
     g_myrand = NULL;                                                // and MATH(RAND)'s generator
+}
+
+void InitHeap(void) {
+    HeapWipe(NULL, NULL, 0);
+    m_alloc(0);                                                     // and the variables' records with it
+}
+
+// CHAIN: the heap wiped, but for the blocks the globals own (InitHeapKeepGlobals, MMBasic.c); the variables'
+// records are not touched
+void InitHeapKeeping(void **keep, int *size, int n) {
+    HeapWipe(keep, size, n);
 }
 
 void *ReAllocMemory(void *addr, size_t msize){

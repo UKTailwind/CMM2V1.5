@@ -212,6 +212,7 @@ void SymBindInit(void);
 void SymBindFree(void);
 void SymBindForget(void);
 void SymBindReset(void);
+void SymBindResetGlobals(void);                 // LOAD CONTEXT: the globals gone, the locals kept
 void SymBindForgetSlot(int slot);
 void SymLocalMade(int slot, int k);
 void SymLocalFreed(int slot);

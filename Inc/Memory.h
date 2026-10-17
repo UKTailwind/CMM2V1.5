@@ -69,6 +69,7 @@ extern void ClearSpecificTempMemory(void *addr);
 extern void FreeMemory(void *addr);
 extern void *GetFastTempMemory(size_t size);//extern void *GetSMemory(size_t msize);
 extern void InitHeap(void);
+extern void InitHeapKeeping(void **keep, int *size, int n);
 extern char *HeapBottom(void);
 extern int FreeSpaceOnHeap(void);
 extern int FreeSpaceOnSHeap(void);

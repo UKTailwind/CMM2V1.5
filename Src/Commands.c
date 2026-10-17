@@ -1239,6 +1239,7 @@ void MIPS16 ListFile(char *pp, int all) {
 }
 
 
+static void MIPS16 RunStart(void);
 void MIPS16 cmd_run(void) {
 	char *c=(char *)ProgMemory;
 	int maxH=PageTable[WritePage].ymax;
@@ -1268,6 +1269,11 @@ void MIPS16 cmd_run(void) {
 		if(!FileLoadProgram(c,0)) return;
 	}
 	ClearRuntime();
+	RunStart();
+}
+
+// RUN and CHAIN, the program loaded and the runtime cleared: prepare it and start at its first line
+static void MIPS16 RunStart(void) {
     WatchdogSet = false;
 	PrepareProgram(true);
     IgnorePIN = false;
@@ -1288,6 +1294,37 @@ void MIPS16 cmd_run(void) {
     statement_time= ReadCoreTimer() + FastTimer;
     firststmt= (char *)ProgMemory;
     nextstmt = (char *)ProgMemory;
+}
+
+// CHAIN fname$ [, cmdline$] (the PicoMite's): run another program, keeping the global variables. Everything else
+// goes as on RUN (the locals, the loops, files, interrupts, pins, sprites, the display mode); the globals stay where
+// they are, the heap wiped but for the blocks they own (ClearRuntimeKeepGlobals). cmdline$ is the new program's
+// MM.CMDLINE$. A kept variable of a structure type refers to its type by number: both programs must define the same
+// TYPEs in the same order.
+void MIPS16 cmd_chain(void) {
+	char fn[STRINGSIZE], args[STRINGSIZE];
+	getargs(&cmdline, 3, ",");
+	if(!(argc == 1 || argc == 3)) error("Argument count");
+	strcpy(fn, getCstring(argv[0]));                                // (copied: the heap goes before the program is loaded)
+	*args = 0;
+	if(argc == 3) strcpy(args, getCstring(argv[2]));
+	if(strlen(fn) + strlen(args) + 4 > STRINGSIZE - 1) error("Line is too long");
+	{                                                               // the file opens, before this program is cleared away
+		char t[STRINGSIZE];
+		int fnbr = FindFreeFileNbr();
+		strcpy(t, fn);
+		if(strchr(&t[strlen(t) > 4 ? strlen(t) - 4 : 0], '.') == NULL) strcat(t, ".BAS");   // (as FileLoadProgram)
+		if(!InitSDCard() || !BasicFileOpen(t, fnbr, FA_READ)) return;
+		FileClose(fnbr);
+	}
+	mymemset(runcmd, 0, STRINGSIZE);                                // MM.CMDLINE$ reads what follows the quoted name
+	strcpy(runcmd, "\"");
+	strcat(runcmd, fn);
+	strcat(runcmd, "\",");
+	strcat(runcmd, args);
+	if(!FileLoadProgram(fn, 2)) return;
+	ClearRuntimeKeepGlobals();
+	RunStart();
 }
 
 

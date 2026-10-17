@@ -203,6 +203,12 @@ void cmd_save(void) {
     if(!InitSDCard()) return;
 	int maxH=PageTable[ReadPage].ymax;
     int maxW=PageTable[ReadPage].xmax;
+    if((p = checkstring(cmdline, "CONTEXT")) != NULL) {            // SAVE CONTEXT [CLEAR]: the globals, to A:/.vars
+        SaveContext();
+        if(checkstring(p, "CLEAR")) ClearGlobals();
+        else checkend(p);
+        return;
+    }
     fnbr = FindFreeFileNbr();
     if((p = checkstring(cmdline, "IMAGE")) !=NULL){
     	getargs(&p,9,",");
@@ -495,10 +501,15 @@ int FileLoadProgram(char *fname, int mode) {
     nDefines=0;
     LineCount=0;
     int i,importlines=0, data;
-	if(mode){
+	if(mode & 1){                                                   // (1: fname is an expression, 2: CHAIN, the globals kept)
 		strcpy(buff,getFstring(fname));
 	} else strcpy(buff,fname);
 	if(strchr(&buff[strlen(buff)-4], '.') == NULL) strcat(buff, ".BAS");
+	if(mode & 2) {                                                  // as ClearProgram, but the globals stay
+		ClearRuntimeKeepGlobals();
+		TraceOn = false;
+		sendCRLF = 3;
+	} else
     ClearProgram();												    // clear any leftovers from the previous program
     if(!InitSDCard()) return false;
     fnbr = FindFreeFileNbr();
@@ -727,6 +738,13 @@ void LoadFONT(char *p){
 void cmd_load(void) {
     char *p;
 
+    p = checkstring(cmdline, "CONTEXT");                            // LOAD CONTEXT [KEEP]: the globals SAVE CONTEXT wrote
+	if(p) {
+        int keep = checkstring(p, "KEEP") != NULL;
+        if(!keep) checkend(p);
+        RestoreContext(keep);
+        return;
+    }
     p = checkstring(cmdline, "BMP");
 	if(p) {
         LoadImage(p);

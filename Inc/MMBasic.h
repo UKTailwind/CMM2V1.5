@@ -457,6 +457,11 @@ void erasearray(char *n);
 void MIPS16 ClearVars(int level);
 void MIPS16 ClearStack(void);
 void MIPS16 ClearRuntime(void);
+void MIPS16 ClearRuntimeKeepGlobals(void);      // CHAIN: ClearRuntime but the globals
+void InitHeapKeepGlobals(void);
+void ClearGlobals(void);
+void SaveContext(void);                         // SAVE CONTEXT, LOAD CONTEXT (A:/.vars)
+void RestoreContext(int keep);
 void MIPS16 ClearProgram(void);
 void *DoExpression(char *p, int *t);
 char *evaluate(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *ta, int noerror);

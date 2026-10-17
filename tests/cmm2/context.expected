@@ -1,0 +1,6 @@
+restored: 5 1.5 abc 14 uu 1 2.5 member 11 777 9
+after CLEAR: n = 0  s$ = []
+loaded again: 5 abc 14
+a third LOAD: No context saved
+before LOAD: n = 0
+in context_b: 5 abc 14 777 member 11 9
