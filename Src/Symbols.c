@@ -325,8 +325,10 @@ int SymIsOffStatement(const char *p) {
 }
 
 // Called by PrepareProgram with the program's first line.  OPTION SYMBOLS OFF on a line of its own at the top
-// of the program - after nothing but the name lines, blank and comment lines - runs the program without the
-// bindings.  Returns that line, or NULL.
+// of the program - after nothing but the name lines, blank and comment lines - is where the PicoMite accepts it,
+// and cmd_option checks that it is there.  On the PicoMite it runs the program without the bindings, to save their
+// 3-5 KB of RAM on an RP2040; here it changes nothing (Peter, 17 Oct): the RAM is no concern, and without the
+// bindings a program runs a third slower.  Returns that line, or NULL.
 char *SymFindOff(char *q) {
     while(*q == T_NEWLINE) {
         char *line = q, *body = q + T_NEWLINE_HDR;
@@ -357,7 +359,7 @@ void SymBindInit(void) {
     SymBindFree();
     SymCanonLibBase = SymTabProg != NULL ? SymTabProg->count : 0;
     count = SymCanonLibBase + (SymTabLib != NULL ? SymTabLib->count : 0);
-    if(count == 0 || SymOffLine != NULL) return;                    // (OPTION SYMBOLS OFF: see SymFindOff)
+    if(count == 0) return;                                          // (OPTION SYMBOLS OFF changes nothing here: see SymFindOff)
     while(hsize < count) hsize <<= 1;
     slots = MAXLOCALVARS;
     int hot = count * 4 * sizeof(int16_t) + slots * 2 * sizeof(int16_t);

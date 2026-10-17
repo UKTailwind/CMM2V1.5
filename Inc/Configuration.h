@@ -81,7 +81,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define false	0
 
 #define MIPS16
-#define ITCM_CODE __attribute__((section(".itcm")))   // run from ITCM (zero wait, no I-cache): the linker script's .ITCMSection
+#define ITCM_CODE __attribute__((section(".itcm"), aligned(8)))   // run from ITCM (zero wait, no I-cache): the linker script's .ITCMSection;
+                                            // each function on an 8-byte boundary (the M7 fetches 64 bits), so that code added
+                                            // before it does not move its loops' alignment (worth up to 7% on a GOSUB, 17 Oct)
 //#define dp(...) {char s[140];sprintf(s,  __VA_ARGS__); MMPrintString(s); MMPrintString("\r\n");}
 #define RoundUptoInt(a)     (((a) + (32 - 1)) & (~(32 - 1)))// round up to the nearest whole integer
 

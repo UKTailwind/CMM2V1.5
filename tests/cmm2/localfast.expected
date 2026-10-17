@@ -1,0 +1,31 @@
+-- parameters and LOCALs
+ 6
+ 3
+ 12.5
+ 12.5
+-- recursion
+ 3628800
+-- a LOCAL twice
+Q Local variable already declared
+-- a LOCAL named as a SUB, twice
+A sub/fun has the same name: TWOLOCALS
+A sub/fun has the same name: TWOLOCALS
+-- a suffix that clashes
+Conflicting variable type
+-- an error in a SUB, then the SUB again
+fails 0: w = 1
+errno 1
+fails 0: w = 1
+fails 0: w = 1
+-- a FUNCTION's result, a string, an array
+ 16
+abab
+array 5
+array 5
+-- the same name as a global
+local r 99
+global r 7
+-- a parameter's type from its declaration
+typed 7.5
+done
+

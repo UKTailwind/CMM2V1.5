@@ -2420,9 +2420,9 @@ void cmd_option(void) {
 	int maxH=PageTable[WritePage].ymax;
 
 	tp = checkstring(cmdline, "SYMBOLS");
-	if(tp) {                                                        // OPTION SYMBOLS OFF at the top of a program: PrepareProgram found it
-                                                                    // and the program runs without the symbol bindings (SymFindOff in
-                                                                    // Symbols.c); here it is only checked for where it is
+	if(tp) {                                                        // OPTION SYMBOLS OFF at the top of a program: accepted where the
+                                                                    // PicoMite accepts it, and a no-op here (SymFindOff in Symbols.c);
+                                                                    // it is only checked for where it is
 #ifdef SYMBOLS_TEST_SWITCH
 		if(CurrentLinePtr == NULL) {                                // the testing switch (Configuration.h): programs saved from now on
 			if(checkstring(tp, "ON")) SymEnabled = true;            // as symbols or as text

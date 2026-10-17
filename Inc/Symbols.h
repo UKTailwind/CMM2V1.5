@@ -97,7 +97,7 @@ extern int SymMode;                                     // SYM_OFF: names stay t
 extern int SymRawBlock;                                 // inside a CSUB or DefineFont block: names stay text
 extern int SymEnabled;                                  // 0: save programs as text (the test switch)
 extern int SymBindHeap;                                 // the bytes of heap the bindings hold
-extern char *SymOffLine;                                // the program's OPTION SYMBOLS OFF line (no bindings), or NULL
+extern char *SymOffLine;                                // the program's OPTION SYMBOLS OFF line (accepted, a no-op here), or NULL
 int SymIsOffStatement(const char *p);
 char *SymFindOff(char *q);
 extern int SymLongest;                                  // the longest spelling in the program's and the library's tables
@@ -191,9 +191,11 @@ typedef struct {
     uint16_t id;                                        // a symbol id spelling this name
     uint16_t next;                                      // next entry in the same hash chain + 1, 0 = none
     uint16_t flags;                                     // SYMC_DOT: the name holds a '.' (it may be a structure member path)
+                                                        // SYMC_NOSUB: no SUB or FUNCTION has the name (checked once a run)
 } symcold_t;
 #define SYM_UNBOUND (-2)
 #define SYMC_DOT 1
+#define SYMC_NOSUB 2
 #define SYM_LTEXT 0xFFFF                                // SymLCanon: a local made from text
 
 extern uint16_t *SymCanonOf;                            // canonical entry + 1 of each symbol id, 0 = not seen yet

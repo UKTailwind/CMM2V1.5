@@ -673,7 +673,7 @@ void MIPS16 PrepareProgram(int ErrAbort) {
 
     CFunctionFlash  = NULL;
     SymSetProgram((char *)ProgMemory);                              // the program's symbol table (Symbols.h), and
-    SymOffLine = SymFindOff((char *)ProgMemory);                    // OPTION SYMBOLS OFF at its top (no bindings)
+    SymOffLine = SymFindOff((char *)ProgMemory);                    // OPTION SYMBOLS OFF at its top (a no-op: SymFindOff)
     ScanTypes = StructTableStart();                                 // the TYPE table too, once for a heap as the index below
     NbrFuncts = PrepareProgramExt((char *)ProgMemory, 0, &CFunctionFlash, ErrAbort);
     // the index of every SUB, FUNCTION, CSUB and label by name, which also finds a name defined twice: made
@@ -3395,6 +3395,58 @@ static int FindStructBase(char *basename, int baselen, int *pvindex) {
 char *FindvarEnd;
 static void __attribute__((noinline)) *findvar_body(char *p, int action, char **endp);
 
+/* findvar_local (the PicoMite's a644dd8): what findvar_body does to make a local integer or float for a bound symbol
+   at p - a SUB's or FUNCTION's parameter, a FUNCTION's result, a LOCAL - the same entry, counts and bindings, in the
+   same order, without its search.  With no locals made from text, the symbol's newest local (SymL) is all the search
+   would look at, and a name checked against the SUBs once (SYMC_NOSUB) stays checked.  NULL, before anything has
+   changed, for anything else, which findvar_body then makes with its errors: a string, an array, a TYPE, a suffix
+   that clashes, OPTION DEFAULT NONE, OPTION EXPLICIT, a name already made at this level (or left deeper by an error),
+   a name's first check against the SUBs, a full local stack.  In ITCM, as the PicoMite keeps it in RAM. */
+static void ITCM_CODE __attribute__((noinline)) *findvar_local(char *p, int action) {
+    struct s_vartbl *vr;
+    const char *nv;
+    char *q;
+    int symk, i, k, n, vtype, suffix = 1;
+    skipspace(p);
+    if(!issymbol(*p) || !LocalIndex || SymTextLocals || (action & (V_NOFIND_ERR | V_NOFIND_NULL | T_STRUCT))) return NULL;
+    q = p + symbolsize(*p);                                         // the cheap tests first: a string or an array leaves here
+    if(*q == '%') { vtype = T_INT; q++; }
+    else if(*q == '!') { vtype = T_NBR; q++; }
+    else if(*q == '$') return NULL;
+    else {
+        suffix = 0;
+        vtype = (action & T_IMPLIED) ? (action & (T_NBR | T_INT | T_STR)) : DefaultType;
+    }
+    if((suffix && (action & T_IMPLIED) && !(action & vtype)) || (vtype != T_INT && vtype != T_NBR) || *q == '(' ||
+       (i = localtop) >= MAXLOCALVARS || Localvarcnt + 1 >= MAXLOCALVARS || (symk = SymCanonAt(p)) < 0) return NULL;
+    if(g_structcnt > 0 && (SymCold[symk].flags & SYMC_DOT)) return NULL;
+    if((!(action & V_FUNCT) && !(SymCold[symk].flags & SYMC_NOSUB)) || (OptionExplicit && !(action & V_DIM_VAR)) ||
+       ((k = SymL[symk]) >= 0 && VREC(k)->level >= LocalIndex)) return NULL;
+    nv = SymSpelling(p, &n);
+    if(n >= MAXVARLEN) return NULL;
+    g_StructMemberType = g_StructMemberOffset = g_StructMemberSize = 0;
+    emptyarray = 0;
+    Localvarcnt++;
+    varcnt = Globalvarcnt + Localvarcnt;
+    VarIndex = i;
+    vr = VREC(i);
+    for(k = 0; k < n; k++) vr->name[k] = toupper(nv[k]);
+    if(n < MAXVARLEN) vr->name[n] = 0;
+    vr->type = vtype | (action & (T_IMPLIED | T_CONST));
+    hashlist[hashlistpointer].level = LocalIndex;
+    hashlist[hashlistpointer++].hash = i;
+    localtop = i + 1;
+    vr->level = LocalIndex;
+    SymLocalMade(i, symk);
+    for(k = 0; k < MAXDIM; k++) vr->dimtbl[k] = 0;
+    if(vtype & T_NBR) {
+        vr->val.f = 0;
+        return &vr->val.f;
+    }
+    vr->val.i = 0;
+    return &vr->val.i;
+}
+
 /* findvar in two parts, as the PicoMite's: a reference to an existing variable through a bound symbol, nearly every
    reference a program saved with symbols makes, is answered here, in ITCM. Anything else (a name in text, a
    declaration, a variable to be made, a TYPE, a suffix that does not match the variable) goes to findvar_body, in
@@ -3406,6 +3458,10 @@ void ITCM_CODE *findvar(char *p, int action) {
     int symk, i, n, vtype = 0, dnbr = 0, deferred = 0;
     int dim[MAXDIM];
     skipspace(q);
+    if((action & V_LOCAL) && (e = findvar_local(q, action)) != NULL) {  // a local made for a bound symbol
+        FindvarEnd = NULL;
+        return e;
+    }
     if(!issymbol(*q) || (action & (V_LOCAL | V_DIM_VAR | V_FUNCT | T_IMPLIED))) goto slow;
     if((symk = SymCanonAt(q)) < 0) goto slow;
     if(g_structcnt > 0 && (SymCold[symk].flags & SYMC_DOT)) goto slow;    // (a dotted name may be a member's path)
@@ -3781,9 +3837,13 @@ findvar_found:
             vtype = DefaultType;
     }
 
-    // now scan the sub/fun table to make sure that there is not a sub/fun with the same name
-    if(!(action & V_FUNCT) && NameFind(name, namelen, (1 << NK_SUB) | (1 << NK_FUN)) != NULL)   // (not for a FUNCTION's own local)
-        error("A sub/fun has the same name: $", name);
+    // now scan the sub/fun table to make sure that there is not a sub/fun with the same name (not for a FUNCTION's
+    // own local); once it has passed for a symbol's name it holds for the run (the PicoMite's P6 F3: PrepareProgram
+    // starts the symbols afresh, so a CHAIN or a new RUN checks again)
+    if(!(action & V_FUNCT) && !(symk >= 0 && (SymCold[symk].flags & SYMC_NOSUB))) {
+        if(NameFind(name, namelen, (1 << NK_SUB) | (1 << NK_FUN)) != NULL) error("A sub/fun has the same name: $", name);
+        if(symk >= 0) SymCold[symk].flags |= SYMC_NOSUB;
+    }
 
     // set a default string size
     size = MAXSTRLEN;
