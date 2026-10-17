@@ -1282,7 +1282,7 @@ void MIPS16 ListFile(char *pp, int all) {
 }
 
 
-static void MIPS16 RunStart(void);
+static void MIPS16 RunStart(int runlib);
 void MIPS16 cmd_run(void) {
 	char *c=(char *)ProgMemory;
 	int maxH=PageTable[WritePage].ymax;
@@ -1312,11 +1312,11 @@ void MIPS16 cmd_run(void) {
 		if(!FileLoadProgram(c,0)) return;
 	}
 	ClearRuntime();
-	RunStart();
+	RunStart(1);
 }
 
 // RUN and CHAIN, the program loaded and the runtime cleared: prepare it and start at its first line
-static void MIPS16 RunStart(void) {
+static void MIPS16 RunStart(int runlib) {
     WatchdogSet = false;
 	PrepareProgram(true);
     IgnorePIN = false;
@@ -1332,7 +1332,8 @@ static void MIPS16 RunStart(void) {
     if(Option.profile) ProfileStart();                              // OPTION PROFILING's counters, for this program's lines
     turtle_init();  //turtle
     statement_time= ReadCoreTimer() + FastTimer;
-    firststmt= (char *)ProgMemory;
+    if(runlib && LibPresent()) ExecuteProgram(LibMemory);          // the library's top level, its CONSTs and DIMs (the PicoMite's;
+    firststmt= (char *)ProgMemory;                                  // not for CHAIN, whose globals are kept)
     nextstmt = (char *)ProgMemory;
 #ifdef PCSAMPLER
     PcsStart();                                                     // (the "Sampler" build: Src/PcSampler.c)
@@ -1367,7 +1368,7 @@ void MIPS16 cmd_chain(void) {
 	strcat(runcmd, args);
 	if(!FileLoadProgram(fn, 2)) return;
 	ClearRuntimeKeepGlobals();
-	RunStart();
+	RunStart(0);
 }
 
 
@@ -1545,8 +1546,10 @@ static int iftab_build_region(char *prog) {
 // with too little heap for the table there is no table: every IF scans, as before it existed (an error here would
 // send the prompt, which rebuilds it each time it comes back, round that loop for ever)
 void MIPS16 IfTableBuild(void) {
+    char *a = (char *)ProgMemory, *b = LibPresent() ? LibMemory : NULL;
     IfTableFree();
-    if(!iftab_build_region((char *)ProgMemory)) IfTableFree();     // (built in program order: already sorted)
+    if(b != NULL && b < a) { char *t = a; a = b; b = t; }           // the library's and the program's, in address order:
+    if(!iftab_build_region(a) || (b != NULL && !iftab_build_region(b))) IfTableFree();   // the lookup is a binary search
 }
 
 struct iftab_entry *IfTableLookup(char *tok) {
@@ -2820,7 +2823,10 @@ void cmd_read(void) {
 search_again:
     while(1) {
         if(*p == 0) p++;                                            // if it is at the end of an element skip the zero marker
-        if(*p == 0 /*|| *p == 0xff*/) error("No DATA to read");     // 2nd 0 so end of the program and we still need more data
+        if(*p == 0 /*|| *p == 0xff*/) {                             // 2nd 0 so end of the program and we still need more data
+            if(LibPresent() && !InLibrary(lineptr)) { p = lineptr = LibMemory; continue; }   // on into the library's DATA (the PicoMite's)
+            error("No DATA to read");
+        }
         if(*p == T_NEWLINE) { lineptr = p; p += T_NEWLINE_HDR; }   // and step over the line's header
         if(*p == T_LINENBR) p += 3;
         skipspace(p);
@@ -3120,7 +3126,7 @@ search_again:
 
 void cmd_restore(void) {
 	if(*cmdline == 0 || *cmdline == '\'') {
-        NextDataLine = ProgMemory;
+        NextDataLine = InLibrary(CurrentLinePtr) ? LibMemory : (char *)ProgMemory;   // (in library code: the library's DATA)
 		NextData = 0;
 	} else {
 		skipspace(cmdline);

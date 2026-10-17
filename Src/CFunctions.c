@@ -259,6 +259,8 @@ long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *Calle
     // find the C code in flash
     if(*ArgList == '(') ArgList++;                                  // and step over it
     p = FindCFunction((unsigned int *)CFunctionFlash, CmdPtr);      // search through the program flash looking for a match to the function being called
+    if(*p == 0xffffffff && CFunctionLibrary != NULL && InLibrary(CmdPtr))   // a library CSUB: its record holds its token's offset
+        p = FindCFunction((unsigned int *)CFunctionLibrary, (char *)(CmdPtr - LibMemory));
     if(*p == 0xffffffff) error("Internal fault 5(sorry)");
 
     // next, get the argument types (if specified)

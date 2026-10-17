@@ -377,6 +377,22 @@ extern char tknbuf[];                           // used to store the tokenised r
 extern char tknerrmsg[];                        // why tokenise() refused a line ("Line 12 is too long")
 extern int tknfile, tknline;                    // the source of the line tokenise() makes for an image
 extern char *tknfilename;
+
+// LIBRARY (Library.c): a second image whose SUBs, FUNCTIONs, CSUBs, labels, DATA and top level every program shares
+extern char *LibMemory, *RamLibMemory;                  // the library in use (NULL: none), a RAM library's heap block
+extern unsigned char *CFunctionLibrary;                 // its CSUB and font records (their address words: offsets in it)
+extern int RamLibKeep;                                  // ClearRuntime keeps the RAM library (LIBRARY LOAD's restart)
+#define LibPresent() (LibMemory != NULL)
+#define LIB_FONT_BIT 0x80000000u                        // a library font record's address word: its number - 1 | this
+int InLibrary(const char *p);
+char *LineFileNameAt(char *p);
+void LibAttach(void);
+void RamLibRelease(void);
+int RamLibBlock(void **blk, int *size);
+void LibBoot(void);
+void LibCheckProgramFlash(int size);
+int LibFlashPresent(void);
+int LibraryImageValid(const unsigned char *lib, int limit);
 int ImageIsCurrent(void);                       // does program memory hold an image of this format?
 void SubLayoutForget(void);                     // the SUBs' parameter layouts are gone with the heap (P6 F1)
 void NameIndexForget(void);                     // the index of SUBs, FUNCTIONs and labels is gone with the heap

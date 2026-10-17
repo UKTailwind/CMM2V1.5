@@ -1,0 +1,12 @@
+const 6011 name the library
+count 3
+plus minus zero
+sum 6
+type 12
+label data 101 102
+own data, then the library's 1 101
+library restore 101 102
+font width 4
+error: library_lib.inc line 37: Divide by zero
+done
+

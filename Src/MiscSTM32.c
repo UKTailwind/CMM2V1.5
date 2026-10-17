@@ -1397,6 +1397,7 @@ void MIPS16 OtherOptions(void) {
 		int offset=0;
 		getargs(&tp,1,",");
 		if(argc==1)offset=getint(argv[0],PROGRAMSTARTCODE,6);
+		if(offset == 6 && LibFlashPresent()) error("Library is using flash slot 6");   // (Library.c: LIBRARY DELETE frees it)
 		Option.ProgramStartCode = offset;
 		goto saveandreset;
 	}

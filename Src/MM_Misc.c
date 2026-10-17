@@ -2426,6 +2426,10 @@ void cmd_option(void) {
 		getint(tp, 1, 100000);
 		return;
 	}
+	if(checkstring(cmdline, "TRACECACHE") || checkstring(cmdline, "CACHE SUB") || checkstring(cmdline, "CACHE DEBUG"))
+		return;                                                     // the PicoMite's trace cache (gone there in c50b6bc, where
+		                                                            // these are now errors): accepted and ignored, for the
+		                                                            // programs written for it (Elite; Peter, 17 Oct)
 	tp = checkstring(cmdline, "SYMBOLS");
 	if(tp) {                                                        // OPTION SYMBOLS OFF at the top of a program: accepted where the
                                                                     // PicoMite accepts it, and a no-op here (SymFindOff in Symbols.c);
@@ -2800,6 +2804,11 @@ void fun_info(void){
 		else strcpy(sret,"Unused");
 		CtoM(sret);
 		targ=T_STR;
+		return;
+	}
+	if(checkstring(ep, "WRITEBUFF")){                               // the PicoMite's buffer being drawn into: here the write page's
+		iret = (int64_t)GetPageAddress(WritePage);
+		targ=T_INT;
 		return;
 	}
 	tp=checkstring(ep, "PAGE ADDRESS");
@@ -3221,13 +3230,16 @@ void fun_info(void){
 	} else if(checkstring(ep, "MINHEAP")){
 		iret=(int64_t)((uint32_t)minMMheap);
 		rettype='I';
+	} else if(checkstring(ep, "PSRAM SIZE")){                      // the PicoMite's PSRAM, in bytes: here the SDRAM, 8 MB on a G1
+		iret = G1Hardware ? 8 * 1024 * 1024 : 32 * 1024 * 1024;    // and 32 MB on a G2 (Peter, 17 Oct)
+		rettype='I';
 	} else if(checkstring(ep, "HEAP")){
 	    int nbr = 0;
 	    unsigned char *addr;
 	    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE){
 	        if(!(MBitsGet(addr) & PUSED)) nbr++;
 	    }
-	    for(addr = (unsigned char *)SDRAMEND -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){
+	    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){   // (GetMemory's part)
 	        if(!(SDBitsGet(addr) & PUSED)) nbr++;
 	    }
 		iret=(int64_t)nbr * RAMPAGESIZE;
@@ -3243,7 +3255,7 @@ void fun_info(void){
 	} else if(checkstring(ep, "SHEAP") || checkstring(ep, "HEAPS")){       // (HEAPS: Gerry's b14 name)
 	    int nbr = 0;
 	    unsigned char *addr;
-	    for(addr = (unsigned char *)SDRAMEND -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){
+	    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){   // (GetMemory's part)
 	        if(!(SDBitsGet(addr) & PUSED)) nbr++;
 	    }
 		iret=(int64_t)nbr * RAMPAGESIZE;
@@ -3529,7 +3541,12 @@ void fun_peek(void) {
         if(i == -1) i = FindSubFun(p, false);                       // and if not found try for a subroutine
         if(i == -1 || commandtbl_at(subfun[i]) != cmdCSUB) error("Invalid argument");
         // search through program flash and the library looking for a match to the function being called
-        j = GetCFunAddr((int *)CFunctionFlash, i);
+        if(InLibrary(subfun[i])) {                                  // a library CSUB: its record holds its token's offset
+            char *save = subfun[i];
+            subfun[i] = (char *)(subfun[i] - LibMemory);
+            j = CFunctionLibrary ? GetCFunAddr((int *)CFunctionLibrary, i) : 0;
+            subfun[i] = save;
+        } else j = GetCFunAddr((int *)CFunctionFlash, i);
         if(!j) error("Internal fault 6(sorry)");
         iret = (unsigned int)j;                                     // return the entry point
         targ = T_INT;

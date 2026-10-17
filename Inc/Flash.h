@@ -139,6 +139,8 @@ struct option_s {
 	uint8_t F19Key[64];
 	uint8_t F20Key[64];
 	uint8_t layout;                     // OPTION_LAYOUT; options saved before the keys above have erased flash there
+	uint8_t libflash;                   // LIBRARY: 'L' when bank 2 sector 6 holds the flash library (erased flash: none)
+	uint8_t libhash[4];                 // and the hash of the files LIBRARY LOAD made it from (0: from none)
 	uint8_t end;
 // 128
 };

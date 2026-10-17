@@ -4006,7 +4006,7 @@ void cmd_circle(void) {
 	                		if(f < 0 || f > 7) error("% is invalid (valid is % to %)", (int)f, 0, 7);
 	                	} else {
 	                		f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-	                		if(f < 0 || f > 0xFFFFFFF) error("% is invalid (valid is % to %)", (int)f, 0, 0xFFFFFFF);
+	                		if(f < -1 || f > 0xFFFFFFF) error("% is invalid (valid is % to %)", (int)f, -1, 0xFFFFFFF);   // (-1: no fill, as the PicoMite)
 	                	}
 					}
 				}
@@ -4577,7 +4577,7 @@ void cmd_box(void) {
         hmod=(h > 0 ? -1 : 1);
         if(argc > 7 && *argv[8]) w = getint(argv[8], 0, 100);
         if(argc > 9 && *argv[10]) c = getColour(argv[10], 0);
-        if(argc == 13) f = getColour(argv[12], 0);
+        if(argc == 13) f = getColour(argv[12], 1);
         if(wi != 0 && h != 0) DrawBox(x1, y1, x1 + wi + wmod, y1 + h + hmod, w, c, f);
     } else {
         c = gui_fcolour;  w = 1;                                        // setup the defaults
@@ -4610,7 +4610,7 @@ void cmd_box(void) {
         }
         if(argc == 13){
             getargaddress(argv[12], &fptr, &ffptr, &nf); 
-            if(nf == 1) f = getColour(argv[12], 0);
+            if(nf == 1) f = getColour(argv[12], 1);
             else if(nf>1) {
                 if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
                 for(i=0;i<nf;i++){
@@ -4619,7 +4619,7 @@ void cmd_box(void) {
                 		if(f < 0 || f > 7) error("% is invalid (valid is % to %)", (int)f, 0, 7);
                 	} else {
                 		f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-                		if(f < 0 || f > 0xFFFFFFF) error("% is invalid (valid is % to %)", (int)f, 0, 0xFFFFFFF);
+                		if(f < -1 || f > 0xFFFFFFF) error("% is invalid (valid is % to %)", (int)f, -1, 0xFFFFFFF);   // (-1: no fill, as the PicoMite)
                 	}
                 }
             }
@@ -4675,7 +4675,7 @@ void cmd_rbox(void) {
         hmod=(h > 0 ? -1 : 1);
         if(argc > 7 && *argv[8]) r = getint(argv[8], 0, 100);
         if(argc > 9 && *argv[10]) c = getColour(argv[10], 0);
-        if(argc == 13) f = getColour(argv[12], 0);
+        if(argc == 13) f = getColour(argv[12], 1);
         if(w != 0 && h != 0) DrawRBox(x1, y1, x1 + w + wmod, y1 + h + hmod, r, c, f);
     } else {
         c = gui_fcolour;  w = 1;                                        // setup the defaults
@@ -4708,7 +4708,7 @@ void cmd_rbox(void) {
         }
         if(argc == 13){
             getargaddress(argv[12], &fptr, &ffptr, &nf); 
-            if(nf == 1) f = getColour(argv[12], 0);
+            if(nf == 1) f = getColour(argv[12], 1);
             else if(nf>1) {
                 if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
                 for(i=0;i<nf;i++){
@@ -4717,7 +4717,7 @@ void cmd_rbox(void) {
                 		if(f < 0 || f > 7) error("% is invalid (valid is % to %)", (int)f, 0, 7);
                 	} else {
                 		f = (ffptr == NULL ? fptr[i] : (int)ffptr[i]);
-                		if(f < 0 || f > 0xFFFFFFF) error("% is invalid (valid is % to %)", (int)f, 0, 0xFFFFFFF);
+                		if(f < -1 || f > 0xFFFFFFF) error("% is invalid (valid is % to %)", (int)f, -1, 0xFFFFFFF);   // (-1: no fill, as the PicoMite)
                 	}
                 }
             }
@@ -4830,7 +4830,7 @@ void cmd_triangle(void) {                                           // thanks to
         }
         if(argc == 15){
             getargaddress(argv[14], &fptr, &ffptr, &nf); 
-            if(nf == 1) f = getColour(argv[14], 0);
+            if(nf == 1) f = getColour(argv[14], 1);
             else if(nf>1) {
                 if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
                 for(i=0;i<nf;i++){

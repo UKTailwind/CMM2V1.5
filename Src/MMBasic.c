@@ -373,7 +373,7 @@ void ProfileStart(void) {
 // the entry of the line at p (a T_NEWLINE), or NULL
 struct s_profent *ProfileEntry(char *p) {
     int f, l;
-    if(ProfileTable == NULL || p < (char *)ProgMemory || p >= (char *)ProgMemory + PROG_FLASH_SIZE || *p != T_NEWLINE) return NULL;
+    if(ProfileTable == NULL || p < (char *)ProgMemory || p >= (char *)ProgMemory + PROG_FLASH_SIZE || *p != T_NEWLINE || InLibrary(p)) return NULL;
     f = LHDR_FILE(p);
     l = LHDR_LINE(p);
     if(f < 1 || f > ProfileFiles || l > ProfileTop[f]) return NULL;
@@ -404,11 +404,11 @@ void ITCM_CODE ExecuteProgram(char *p) {
             	statement_time = ReadCoreTimer() + FastTimer;
             	ProfileLast = p;
             }
-            if(TraceOn && p < ProgMemory+PROG_FLASH_SIZE && LHDR_LINE(p)) {   // (line 0: a file name line)
+            if(TraceOn && (p < ProgMemory+PROG_FLASH_SIZE || InLibrary(p)) && LHDR_LINE(p)) {   // (line 0: a file name line)
             	char buff[10];
           		MMPrintString("[");
-          		if(LHDR_FILE(p) > 1) {                              // an #INCLUDE file: [name:line]
-          			MMPrintString(LineFileName(LHDR_FILE(p)));
+          		if(LHDR_FILE(p) > 1 || InLibrary(p)) {             // an #INCLUDE or library file: [name:line]
+          			MMPrintString(LineFileNameAt(p));
           			MMPrintString(":");
           		}
           		IntToStr(buff, LHDR_LINE(p), 10);
@@ -610,8 +610,7 @@ static void NameDuplicate(const char *what, const char *nv, int nl) {
 }
 
 // the labels of the program: counted (add == 0) or added
-static int NameLabels(int add, int ErrAbort) {
-    char *p = (char *)ProgMemory;
+static int NameLabelsIn(char *p, int add, int ErrAbort) {
     int n = 0;
     while(*p == T_NEWLINE) {
         char *q = p + T_NEWLINE_HDR;
@@ -628,6 +627,12 @@ static int NameLabels(int add, int ErrAbort) {
         p = NextLine(p);
     }
     return n;
+}
+
+// the labels of the library and of the program, which share one namespace (the PicoMite's)
+static int NameLabels(int add, int ErrAbort) {
+    int n = LibPresent() ? NameLabelsIn(LibMemory, add, ErrAbort) : 0;
+    return n + NameLabelsIn((char *)ProgMemory, add, ErrAbort);
 }
 
 // make the index for the nsubs entries of subfun[] and the labels of the program; with ErrAbort a name
@@ -671,11 +676,14 @@ void MIPS16 PrepareProgram(int ErrAbort) {
     for(i = FONT_BUILTIN_NBR; i < FONT_TABLE_SIZE; i++)
         FontTable[i] = NULL;                                        // clear the font table
 
-    CFunctionFlash  = NULL;
+    CFunctionFlash = CFunctionLibrary = NULL;
+    SymSetLibrary(LibPresent() ? LibMemory : NULL);                 // the library's symbol table (Library.c), and
     SymSetProgram((char *)ProgMemory);                              // the program's symbol table (Symbols.h), and
     SymOffLine = SymFindOff((char *)ProgMemory);                    // OPTION SYMBOLS OFF at its top (a no-op: SymFindOff)
     ScanTypes = StructTableStart();                                 // the TYPE table too, once for a heap as the index below
-    NbrFuncts = PrepareProgramExt((char *)ProgMemory, 0, &CFunctionFlash, ErrAbort);
+    NbrFuncts = 0;                                                  // the library's SUBs first, then the program's (the PicoMite's)
+    if(LibPresent()) NbrFuncts = PrepareProgramExt(LibMemory, 0, &CFunctionLibrary, ErrAbort);
+    NbrFuncts = PrepareProgramExt((char *)ProgMemory, NbrFuncts, &CFunctionFlash, ErrAbort);
     // the index of every SUB, FUNCTION, CSUB and label by name, which also finds a name defined twice: made
     // once for a heap (RUN and loading a program wipe it), not before every line typed at the prompt
     if(!NameBuilt) NameIndexBuild(NbrFuncts, ErrAbort);
@@ -737,8 +745,8 @@ int MIPS16 PrepareProgramExt(char *p, int i, unsigned char **CFunPtr, int ErrAbo
                                                                     // compiler may reuse the value from before the table was skipped
                                                                     // (the PicoMite's e0515d3)
     while(*cfp != 0xffffffff) {
-        if(*cfp < FONT_TABLE_SIZE)
-            FontTable[*cfp] = (unsigned char *)(cfp + 2);
+        if(*cfp < FONT_TABLE_SIZE || ((*cfp & LIB_FONT_BIT) && (*cfp & ~LIB_FONT_BIT) < FONT_TABLE_SIZE))
+            FontTable[*cfp & ~LIB_FONT_BIT] = (unsigned char *)(cfp + 2);   // (a library font's word: its number - 1 | LIB_FONT_BIT)
         cfp++;
         cfp += (*cfp + 4) / sizeof(unsigned int);
     }
@@ -4167,10 +4175,11 @@ void error(char *msg, ...) {
 
     if(MMCharPos > 1 && !OptionErrorSkip) MMErrorString("\r\n");
     if(CurrentLinePtr) {
-        if(*CurrentLinePtr != T_NEWLINE && CurrentLinePtr < ProgMemory + PROG_FLASH_SIZE) {
+        int inlib = InLibrary(CurrentLinePtr);                      // a library line: its own image, and its file always named
+        if(*CurrentLinePtr != T_NEWLINE && (inlib || CurrentLinePtr < ProgMemory + PROG_FLASH_SIZE)) {
             // normally CurrentLinePtr points to a T_NEWLINE token but in this case it does not
             // so we have to search for the start of the line and set CurrentLinePtr to that
-            char *line = (char *)ProgMemory, *next;
+            char *line = inlib ? LibMemory : (char *)ProgMemory, *next;
             while(*line == T_NEWLINE) {
                 next = NextLine(line);
                 if(CurrentLinePtr < next) { CurrentLinePtr = line; break; }
@@ -4178,18 +4187,18 @@ void error(char *msg, ...) {
             }
         }
         // the line's header names its file and line (see T_NEWLINE_HDR)
-       	if(CurrentLinePtr < ProgMemory +  PROG_FLASH_SIZE && *CurrentLinePtr == T_NEWLINE) {
+       	if((inlib || CurrentLinePtr < ProgMemory +  PROG_FLASH_SIZE) && *CurrentLinePtr == T_NEWLINE) {
        		if(MMCharPos > 1)MMErrorString("\r\n");
        		MMErrorString("Error in ");
-       		if(LHDR_FILE(CurrentLinePtr) > 1) {                     // an #INCLUDE file
-       			MMErrorString(LineFileName(LHDR_FILE(CurrentLinePtr)));
+       		if(LHDR_FILE(CurrentLinePtr) > 1 || inlib) {           // an #INCLUDE file, or a library's
+       			MMErrorString(LineFileNameAt(CurrentLinePtr));
        			MMErrorString(" ");
        		}
        		MMErrorString("line ");
        		MMerrline = LHDR_LINE(CurrentLinePtr);                  // MM.ERRLINE: the number this message gives
        		IntToStr(inpbuf, LHDR_LINE(CurrentLinePtr), 10);
        		MMErrorString(inpbuf);
-       		if(LHDR_FILE(CurrentLinePtr) == 1 && !OptionErrorSkip) {
+       		if(LHDR_FILE(CurrentLinePtr) == 1 && !inlib && !OptionErrorSkip) {
        			StartEditLine = LHDR_LINE(CurrentLinePtr) - 1;     // EDIT opens the program at the line
        			StartEditCharacter = 0;
        		}
@@ -4660,11 +4669,18 @@ static void MIPS16 ClearRuntimeAll(int keep) {
     OptionFileErrorAbort = true;
     ClearStack();
     if(keep) {
+        RamLibRelease();                                            // (a RAM library goes with the heap)
         ClearVars(1);                                               // CHAIN: the locals go, the globals stay where they are
         InitHeapKeepGlobals();                                      // and so do the blocks they own
     } else {
+        void *lb;
+        int ls;
         ClearVars(0);
-	    InitHeap();
+        if(RamLibBlock(&lb, &ls)) InitHeapKeeping(&lb, &ls, 1);    // LIBRARY LOAD's restart: the RAM library stays
+        else {
+            RamLibRelease();                                        // RUN, NEW, a load: a RAM library goes with the heap
+	        InitHeap();
+        }
     }
     OptionExplicit = false;
     OptionEscape = false;

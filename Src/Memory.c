@@ -514,7 +514,7 @@ void MIPS16 cmd_memory(void) {
     int CFunctSize, CFunctSizeK, CFunctNbr, CFunctPercent, FontSize, FontSizeK, FontNbr, FontPercent;
     unsigned int CurrentRAM, *pint;
 	SCB_CleanInvalidateDCache();
-    CurrentRAM = ((unsigned int)RAMEND - (unsigned int)RAMBASE) + ((unsigned int)SDRAMEND - (unsigned int)SDRAMBASE) ;
+    CurrentRAM = ((unsigned int)RAMEND - (unsigned int)RAMBASE) + ((unsigned int)SDRAMEXEC - (unsigned int)SDRAMBASE) ;   // (not the executable window)
 
     // calculate the space allocated to variables on the heap
     for(i = VarCnt = vsize = var = 0; var < MAXVARS; var++) {
@@ -649,6 +649,25 @@ void MIPS16 cmd_memory(void) {
     IntToStrPad(inpbuf, ((PROG_FLASH_SIZE + SAVED_VAR_RAM_SIZE) + 512)/1024 - ProgramSize - CFunctSizeK - FontSizeK - SavedVarSizeK , ' ', 4, 10); strcat(inpbuf, "K (");
     IntToStrPad(inpbuf + strlen(inpbuf), 100 - ProgramPercent - CFunctPercent - FontPercent - SavedVarPercent , ' ', 2, 10); strcat(inpbuf, "%) Free\r\n");
 	MMPrintString(inpbuf);
+
+    if(LibPresent()) {                                              // the library (Library.c), as the PicoMite reports it
+        int maxk = 128, libk, libpc, lines = 0;
+        int len = LibraryImageValid((unsigned char *)LibMemory, maxk * 1024);
+        for(p = LibMemory; *p == T_NEWLINE; p = NextLine(p)) if(LHDR_LINE(p)) lines++;
+        libk = (len + 512) / 1024;
+        if(libk == 0) libk = 1;
+        libpc = libk * 100 / maxk;
+        if(libpc == 0) libpc = 1;
+        MMPrintString("\r\nLibrary:\r\n");
+        IntToStrPad(inpbuf, libk, ' ', 4, 10); strcat(inpbuf, "K (");
+        IntToStrPad(inpbuf + strlen(inpbuf), libpc, ' ', 2, 10); strcat(inpbuf, "%) Library (");
+        IntToStr(inpbuf + strlen(inpbuf), lines, 10);
+        strcat(inpbuf, RamLibMemory != NULL ? " lines, in RAM)\r\n" : " lines, in flash)\r\n");
+        MMPrintString(inpbuf);
+        IntToStrPad(inpbuf, maxk - libk, ' ', 4, 10); strcat(inpbuf, "K (");
+        IntToStrPad(inpbuf + strlen(inpbuf), 100 - libpc, ' ', 2, 10); strcat(inpbuf, "%) Free\r\n");
+        MMPrintString(inpbuf);
+    }
 
     MMPrintString("\r\nData:\r\n");
     IntToStrPad(inpbuf, VarSize, ' ', 4, 10); strcat(inpbuf, "K (");
@@ -1123,7 +1142,7 @@ void *GetMemoryNull(size_t size){
     unsigned char *addr;
     if(!size)size=1;
     j = n = k = (size + RAMPAGESIZE - 1)/RAMPAGESIZE;                         // nbr of pages rounded up
-    for(addr = (unsigned char *)SDRAMEND -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE) {
+    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE) {   // (below the executable window)
         if(!(SDBitsGet(addr) & PUSED)) {
             if(--n == 0) {                                          // found a free slot
                 j--;
@@ -1148,6 +1167,31 @@ void *GetMemory(size_t size){
     // out of memory
     error("Not enough heap memory");
     return NULL;                                                    // keep the compiler happy
+}
+
+// heap memory code can run from: in the executable window at the top of the SDRAM heap (SDRAMEXEC), first fit from its
+// bottom, zeroed; freed by FreeMemory as any other block.  Its code must be cleaned out of the D-cache before it runs.
+void *GetExecMemory(size_t size){
+    unsigned int j, n, k;
+    unsigned char *addr, *start = NULL;
+    uint64_t *i;
+    if(!size)size=1;
+    j = n = k = (size + RAMPAGESIZE - 1)/RAMPAGESIZE;
+    for(addr = (unsigned char *)SDRAMEXEC; addr < (unsigned char *)SDRAMEND; addr += RAMPAGESIZE) {
+        if(SDBitsGet(addr) & PUSED) { n = j; start = NULL; continue; }
+        if(start == NULL) start = addr;
+        if(--n == 0) {
+            j--;
+            SDBitsSet(start + (j * RAMPAGESIZE), PUSED | PLAST);
+            while(j--) SDBitsSet(start + (j * RAMPAGESIZE), PUSED);
+            i = (uint64_t *)start;
+            while(k--) i = clearpage((void *)i);
+            SCB_CleanInvalidateDCache_by_Addr((uint32_t *)start, size);
+            return (void *)start;
+        }
+    }
+    error("Not enough executable memory");
+    return NULL;
 }
 /*
 void *GetInternalMemory(size_t size){
@@ -1371,7 +1415,7 @@ int FreeSpaceOnHeap(void) {
     nbr = 0;
 //    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE)
 //        if(!(MBitsGet(addr) & PUSED)) nbr++;
-    for(addr = (unsigned char *)SDRAMEND -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE)
+    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE)   // (GetMemory's part)
         if(!(SDBitsGet(addr) & PUSED)) nbr++;
     return nbr * RAMPAGESIZE;
 }

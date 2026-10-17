@@ -820,6 +820,7 @@ if(_excep_code == RESTART_HEAP) {
 }
 
 CloseAllFiles();
+LibBoot();                                                          // the flash library checked, and attached (Library.c)
 while ((i = getConsole()) != -1){;} //clear anything in console
 if(setjmp(mark) != 0) {
 	  SerUSBPutS("\033[?25h");
@@ -2913,8 +2914,8 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct7.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct7);
 		  MPU_InitStruct0.Enable = MPU_REGION_ENABLE;
-		  MPU_InitStruct0.BaseAddress = 0xD0400000;
-		  MPU_InitStruct0.Size = MPU_REGION_SIZE_2MB;
+		  MPU_InitStruct0.BaseAddress = 0xD0400000;                 // 0xD0400000-0xD07FFFFF, as regions 0, 15 and 8 were (region 9,
+		  MPU_InitStruct0.Size = MPU_REGION_SIZE_4MB;                // a higher number, makes its top 512 KB executable)
 		  MPU_InitStruct0.AccessPermission = MPU_REGION_FULL_ACCESS;
 		  MPU_InitStruct0.IsBufferable = MPU_ACCESS_BUFFERABLE;
 		  MPU_InitStruct0.IsCacheable = MPU_ACCESS_CACHEABLE;
@@ -2925,8 +2926,8 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct0.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct0);
 		  MPU_InitStruct15.Enable = MPU_REGION_ENABLE;
-		  MPU_InitStruct15.BaseAddress = 0xD0600000;
-		  MPU_InitStruct15.Size = MPU_REGION_SIZE_1MB;
+		  MPU_InitStruct15.BaseAddress = SDRAMEXEC;                 // the executable window at the top of the heap (Memory.h)
+		  MPU_InitStruct15.Size = MPU_REGION_SIZE_512KB;
 		  MPU_InitStruct15.AccessPermission = MPU_REGION_FULL_ACCESS;
 		  MPU_InitStruct15.IsBufferable = MPU_ACCESS_BUFFERABLE;
 		  MPU_InitStruct15.IsCacheable = MPU_ACCESS_CACHEABLE;
@@ -2934,10 +2935,10 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct15.Number = MPU_REGION_NUMBER15;
 		  MPU_InitStruct15.TypeExtField = MPU_TEX_LEVEL0;
 		  MPU_InitStruct15.SubRegionDisable = 0x00;
-		  MPU_InitStruct15.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+		  MPU_InitStruct15.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct15);
 		  /* Configure the MPU attributes for Video Memory */
-		  MPU_InitStruct8.Enable = MPU_REGION_ENABLE;
+		  MPU_InitStruct8.Enable = MPU_REGION_DISABLE;               // spare: region 0 covers it
 		  MPU_InitStruct8.BaseAddress = 0xD0700000;
 		  MPU_InitStruct8.Size = MPU_REGION_SIZE_512KB;
 		  MPU_InitStruct8.AccessPermission = MPU_REGION_FULL_ACCESS;
@@ -3035,6 +3036,18 @@ void MPU_Config_nCacheable(int jpg)
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct9);
 	  }
 	  if(neverrun){
+		  MPU_InitStruct15.Enable = MPU_REGION_ENABLE;               // the executable window at the top of the heap (Memory.h)
+		  MPU_InitStruct15.BaseAddress = SDRAMEXEC;
+		  MPU_InitStruct15.Size = MPU_REGION_SIZE_512KB;
+		  MPU_InitStruct15.AccessPermission = MPU_REGION_FULL_ACCESS;
+		  MPU_InitStruct15.IsBufferable = MPU_ACCESS_BUFFERABLE;
+		  MPU_InitStruct15.IsCacheable = MPU_ACCESS_CACHEABLE;
+		  MPU_InitStruct15.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+		  MPU_InitStruct15.Number = MPU_REGION_NUMBER15;
+		  MPU_InitStruct15.TypeExtField = MPU_TEX_LEVEL0;
+		  MPU_InitStruct15.SubRegionDisable = 0x00;
+		  MPU_InitStruct15.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+		  HAL_MPU_ConfigRegion(&MPU_InitStruct15);
 		  if(Option.ProgramStartCode==-1){
 		  /* Configure the MPU attributes for SDRAM */
 			  MPU_InitStruct7.Enable = MPU_REGION_ENABLE;
@@ -3715,6 +3728,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 	SCB_CleanInvalidateDCache();
 	clearrepeat();
     mycpy(buf, tknbuf, TKNBUFSIZE);                                // save the token buffer because we are going to use it
+    LibCheckProgramFlash(size);                                     // a program in flash may not reach the library's sector
 	i=3;
     while(FlashWriteInit((uint32_t)ProgMemory) && i)i--;                     // erase program memory
     if(i==0)error("Failed to erase flash memory");

@@ -103,6 +103,7 @@ void cmd_redim(void);
 void cmd_csubinterrupt(void);
 void cmd_chain(void);
 void cmd_drive(void);
+void cmd_library(void);
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -525,6 +526,7 @@ void op_inv(void);
 	{ "Interrupt",	    T_CMD,				0, cmd_csubinterrupt },   // INTERRUPT sub | 0 | (none): a CSUB's interrupt
 	{ "Chain",		    T_CMD,				0, cmd_chain	},      // CHAIN fname$ [, cmdline$]: the globals kept
 	{ "Drive",		    T_CMD,				0, cmd_drive	},      // DRIVE "A:" | "C:": the SD card or a USB flash drive
+	{ "Library",	    T_CMD,				0, cmd_library	},      // LIBRARY LOAD/SAVE/DELETE/LIST/DISK (Library.c, the PicoMite's)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
