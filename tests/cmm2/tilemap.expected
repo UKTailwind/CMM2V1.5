@@ -1,0 +1,24 @@
+slot 4: 64 x 32, first bytes 10 32
+empty slot 5 header: 0
+mode 7,8 view 0 0: wrong 0
+mode 7,8 view 13 7: wrong 0
+  320x240 from 10x8 tiles, pixel(0,0) E00000
+  display page, pixel(33,1) E00000 (tile 2, value 8: red)
+mode 7,12 view 0 0: wrong 0
+mode 7,12 view 13 7: wrong 0
+  320x240 from 10x8 tiles, pixel(0,0) FFF0000
+  display page, pixel(33,1) FFF0000 (tile 2, value 8: red)
+mode 7,16 view 0 0: wrong 0
+mode 7,16 view 13 7: wrong 0
+  320x240 from 10x8 tiles, pixel(0,0) FF0000
+  display page, pixel(33,1) FF0000 (tile 2, value 8: red)
+mode 8,8 view 0 0: wrong 0
+mode 8,8 view 13 7: wrong 0
+  320x240 from 10x8 tiles, pixel(0,0) E00000
+  display page, pixel(33,1) E00000 (tile 2, value 8: red)
+tile at 40,40: 0, cols 4, rows 3
+after SET: 7
+collision at 0,0 32x32: 1
+from DATA: 2 1 1 2
+after CLOSE: Tilemap 1 not created
+

@@ -106,6 +106,9 @@ void cmd_drive(void);
 void cmd_library(void);
 void cmd_usbmouse(void);
 void fun_device_fn(void);
+void cmd_tilemap(void);
+void fun_tilemap(void);
+void cmd_flash(void);
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -530,6 +533,8 @@ void op_inv(void);
 	{ "Drive",		    T_CMD,				0, cmd_drive	},      // DRIVE "A:" | "C:": the SD card or a USB flash drive
 	{ "Library",	    T_CMD,				0, cmd_library	},      // LIBRARY LOAD/SAVE/DELETE/LIST/DISK (Library.c, the PicoMite's)
 	{ "Mouse",		    T_CMD,				0, cmd_usbmouse	},      // MOUSE INTERRUPT ENABLE/DISABLE n, MOUSE SET n, x, y [, w] (USBMouse.c)
+	{ "Tilemap",	    T_CMD,				0, cmd_tilemap	},      // TILEMAP CREATE/LOAD/ATTR/SET/DRAW/SCROLL/VIEW/DESTROY/CLOSE/SPRITE (TileMap.c)
+	{ "Flash",		    T_CMD,				0, cmd_flash	},      // FLASH LOAD IMAGE n, f$ [, O]: an image slot (ImageSlots.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
@@ -668,6 +673,7 @@ void op_inv(void);
 	{ "Struct(",	    T_FUN | T_INT,		0, fun_struct	},
 	{ "BitByteFlag(",      T_FUN | T_INT,		0, fun_bitbyteflag },      // BIT( BYTE( FLAG(: one token, the selector 1, 2 or 3 first
 	{ "Device(",	    T_FUN | T_INT,		0, fun_device_fn	},      // DEVICE(MOUSE n, k): the PicoMite's (USBMouse.c)
+	{ "Tilemap(",	    T_FUN | T_INT,		0, fun_tilemap	},      // TILEMAP(TILE|COLLISION|ATTR|VIEWX|VIEWY|COLS|ROWS|SPRITE ...) (TileMap.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

@@ -1059,6 +1059,8 @@ static void HeapWipe(void **keep, int *size, int n) {
     SymBindForget();                                                // and the symbols' bindings
     ProfileForget();                                                // and OPTION PROFILING's counters
     g_myrand = NULL;                                                // and MATH(RAND)'s generator
+    ImageSlotsForget();                                             // and the image slots (ImageSlots.c)
+    TileMapForget();                                                // and the tilemaps (TileMap.c)
 }
 
 void InitHeap(void) {

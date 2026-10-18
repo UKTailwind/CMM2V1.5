@@ -2806,6 +2806,12 @@ void fun_info(void){
 		targ=T_STR;
 		return;
 	}
+	tp=checkstring(ep, "FLASH ADDRESS");                            // an image slot's (ImageSlots.c: the PicoMite's)
+	if(tp){
+		iret = (int64_t)(uint32_t)ImageSlotAddress(getint(tp, 1, MAXIMAGESLOTS));
+		targ=T_INT;
+		return;
+	}
 	if(checkstring(ep, "WRITEBUFF")){                               // the PicoMite's buffer being drawn into: here the write page's
 		iret = (int64_t)GetPageAddress(WritePage);
 		targ=T_INT;
