@@ -79,26 +79,28 @@ int scalesize(int vmode,int vcol, int pageno){
 int pagegen(int Vmode, int Vcol){
   uint32_t startadd=0x24000000;
   int i, size,pageno=0;
+  Rgb121Active=0;                                                   // (the merge stops while the pages are laid out: setmode restarts it)
   memset(&PageTable,0,sizeof(struct s_pagetable)*64);
   ShareNeeded=0;
+  if(Vcol==4)startadd=Rgb121Layout(Vmode, startadd);              // a 4-bit mode: the display the merge writes, then the pages (Rgb121.c)
   while(1){
-    size=RoundUptoPage8(xres[Vmode]*yres[Vmode]*scalesize(Vmode,Vcol,pageno));
+    size=RoundUptoPage8(Vcol==4 ? ((xres[Vmode]+1)/2)*yres[Vmode] : xres[Vmode]*yres[Vmode]*scalesize(Vmode,Vcol,pageno));
     if(startadd+(uint32_t)size>0x24080000 && startadd<(uint32_t)0xD0000000)startadd=(uint32_t)0xD0000000;
     if((startadd+(uint32_t)size>(G1Hardware ? (uint32_t)0xD0300000 : (uint32_t)0xD0700000))  || pageno>MAXPAGES)break;
     PageTable[pageno].address=(uint8_t *)startadd;
-    PageTable[pageno].nbytes=(Vcol!=8)+1;
+    PageTable[pageno].nbytes=(Vcol!=8 && Vcol!=4)+1;                // (4-bit: 1, so sizes made from it are enough)
     if(Vcol==32)PageTable[pageno].nbytes*=2;
     PageTable[pageno].expand=0;
-    if(Vmode==3 || Vmode==5 || Vmode==6 || Vmode==7 || Vmode==12 || Vmode==13 || Vmode==17){
+    if(Vcol!=4 && (Vmode==3 || Vmode==5 || Vmode==6 || Vmode==7 || Vmode==12 || Vmode==13 || Vmode==17)){
     	if(pageno==0 || pageno==1) PageTable[pageno].expand=1;
     	if(pageno==2 && Vcol==12)PageTable[pageno].expand=1;
     }
     PageTable[pageno].xmax=xres[Vmode];
     PageTable[pageno].ymax=yres[Vmode];
     PageTable[pageno].maxlines=pageheight[Vmode];
-    PageTable[pageno].size=xres[Vmode]*yres[Vmode]*scalesize(Vmode,Vcol,pageno);
+    PageTable[pageno].size=(Vcol==4 ? ((xres[Vmode]+1)/2)*yres[Vmode] : xres[Vmode]*yres[Vmode]*scalesize(Vmode,Vcol,pageno));
     startadd+=(uint32_t)size;
-    if(pageno==0 && startadd>(uint32_t)0xD0000000){
+    if(pageno==0 && Vcol!=4 && startadd>(uint32_t)0xD0000000){      // (a 4-bit page 0 is not shown)
     	ShareNeeded=RoundUptoPage512(startadd);
     }
     if(pageno==1 && Vcol==12 && startadd>(uint32_t)0xD0000000)ShareNeeded=RoundUptoPage512(startadd);
@@ -116,6 +118,7 @@ void __attribute__ ((optimize("-O2"))) HAL_LTDC_LineEventCallback(LTDC_HandleTyp
 		pagesetdone=1;
 		Framecomplete=1;
 		if(FrameInterrupt != NULL) IntSignal();
+		if(Rgb121Active) NVIC_SetPendingIRQ(CEC_IRQn);                // a 4-bit mode: the merge, at a low priority (Rgb121.c)
 		HAL_LTDC_ProgramLineEvent(&hltdc, hltdc.Init.AccumulatedActiveH+1);
 }
 HAL_StatusTypeDef PLL3_Config(RCC_PLL3InitTypeDef *pll3, uint32_t Divider)
@@ -217,6 +220,11 @@ void reset_CLUT(void){
     	pagesetdone=0;
     	while(!pagesetdone)CheckAbort();
     	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+	} else if(VideoColour==4){                                       // the PicoMite's 16 colours (Rgb121.c)
+		Rgb121Clut();
+		pagesetdone=0;
+		while(!pagesetdone)CheckAbort();
+		HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
 	}
 }
 
@@ -234,9 +242,13 @@ void setmode(int mode, int colour, int bc, int force){
 		  Option.DefaultFont = gui_font;
 		  if(bc!=VideoBackground || force<0){
 			  VideoBackground=bc;
-			  MX_LTDC_Init(DisplayH, DisplayV, (PageTable[0].expand ? 2 : 1), VideoColour, VideoBackground);
+			  MX_LTDC_Init(DisplayH, DisplayV, (VideoColour==4 ? Rgb121DisplayScale : (PageTable[0].expand ? 2 : 1)), VideoColour, VideoBackground);
 		  }
 		  LastPage=pagegen(VideoMode, VideoColour);
+		  if(VideoColour==4){                                           // (the PicoMite's framebuffers closed, as its MODE does)
+			  WritePage=ReadPage=0;
+			  Rgb121Active=1;
+		  }
 		  return;
 	}
 	cursoron=0;
@@ -250,7 +262,7 @@ void setmode(int mode, int colour, int bc, int force){
     	while(!pagesetdone){
         	routinechecks(1);
     	}
-		if(hltdc.Instance!=0  && (VideoColour==8))HAL_LTDC_DisableCLUT(&hltdc, 0);
+		if(hltdc.Instance!=0  && (VideoColour==8 || VideoColour==4))HAL_LTDC_DisableCLUT(&hltdc, 0);
 		HAL_NVIC_DisableIRQ(LTDC_IRQn);
 		if(VideoColour==12){
 			mymemset(&pLayerCfg1,0,sizeof(LTDC_LayerCfgTypeDef));
@@ -265,7 +277,7 @@ void setmode(int mode, int colour, int bc, int force){
 		if(Option.colourmap==0)mycopy((char *)CLUT,(char *)L8_CLUT_LOW, sizeof(CLUT));
 		else if(Option.colourmap==1)mycopy((char *)CLUT,(char *)L8_CLUT_MEDIUM, sizeof(CLUT));
 		else mycopy((char *)CLUT,(char *)L8_CLUT_HIGH, sizeof(CLUT));
-	}
+	} else if(colour==4) Rgb121Clut();
     hltdc.Instance=0;
     CurrentX=0;
     CurrentY=0;
@@ -437,8 +449,9 @@ void setmode(int mode, int colour, int bc, int force){
 	  Option.DefaultFont = gui_font;
 	}
 	WritePage=0; ReadPage=0;
+	if(VideoColour==4)mymemset(Rgb121Display,0,xres[VideoMode]*yres[VideoMode]*Rgb121DisplayScale);
 	if(oldmode!=VideoMode || force)PLL3_Config(&pll,DIVIDER_P_UPDATE|DIVIDER_Q_UPDATE|DIVIDER_R_UPDATE);
-	MX_LTDC_Init(DisplayH, DisplayV, (PageTable[0].expand ? 2 : 1), VideoColour, VideoBackground);
+	MX_LTDC_Init(DisplayH, DisplayV, (VideoColour==4 ? Rgb121DisplayScale : (PageTable[0].expand ? 2 : 1)), VideoColour, VideoBackground);
 	if( VideoColour==16 || VideoColour==12){
 		DrawRectangle = DrawRectangle16;
 		DrawBitmap = DrawBitmap16;
@@ -451,6 +464,8 @@ void setmode(int mode, int colour, int bc, int force){
 		ReadBufferFast = ReadBufferFast16;
 		BlitShowBuffer=BlitShowBuff16;
 		DrawPixel=DrawPixel16;
+	} else if(VideoColour==4) {
+		Rgb121Pointers();                                           // the 4-bit set (Rgb121.c)
 	} else if(VideoColour==8) {
 		DrawRectangle = DrawRectangle8;
 		DrawBitmap = DrawBitmap8;
@@ -483,6 +498,7 @@ void setmode(int mode, int colour, int bc, int force){
 	SetFont(fnt);
 	Option.DefaultFont = gui_font;
 	clearrepeat();
+	Rgb121Active=(VideoColour==4);                                    // a 4-bit mode: the merge at each frame (Rgb121.c)
 }
 
 /* LTDC init function */
@@ -503,7 +519,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  pLayerCfg.Backcolor.Red = 0;
 		  pLayerCfg.Alpha = 255;
 		  pLayerCfg.Alpha0 = 255;
-		  pLayerCfg.FBStartAdress = (uint32_t)PageTable[0].address;
+		  pLayerCfg.FBStartAdress = (colours==4 ? (uint32_t)Rgb121Display : (uint32_t)PageTable[0].address);
 		  pLayerCfg.WindowX0 = 0;
 		  pLayerCfg.WindowY0 = 0;
 		  pLayerCfg.WindowX1 = x;
@@ -528,7 +544,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  pLayerCfg1.ImageHeight = y*yscale;
 	  } else {
 		  if(colours==16) pLayerCfg.PixelFormat = LTDC_PIXEL_FORMAT_RGB565;
-		  else if(colours==8) pLayerCfg.PixelFormat = LTDC_PIXEL_FORMAT_L8;
+		  else if(colours<=8) pLayerCfg.PixelFormat = LTDC_PIXEL_FORMAT_L8;   // (4-bit: the merge's 8-bit display)
 		  else pLayerCfg.PixelFormat = LTDC_PIXEL_FORMAT_ARGB8888;
 		  pLayerCfg.BlendingFactor1 = LTDC_BLENDING_FACTOR1_CA;
 		  pLayerCfg.BlendingFactor2 = LTDC_BLENDING_FACTOR2_CA;
@@ -537,7 +553,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  pLayerCfg.Backcolor.Red = 0;
 		  pLayerCfg.Alpha = 255;
 		  pLayerCfg.Alpha0 = 255;
-		  pLayerCfg.FBStartAdress = (uint32_t)PageTable[0].address;
+		  pLayerCfg.FBStartAdress = (colours==4 ? (uint32_t)Rgb121Display : (uint32_t)PageTable[0].address);
 		  pLayerCfg.WindowX0 = 0;
 		  pLayerCfg.WindowY0 = 0;
 		  pLayerCfg.WindowX1 = x;
@@ -777,7 +793,7 @@ if(VideoColour==12){
 } //else HAL_LTDC_ConfigLayer(&hltdc, NULL, 1);
 //if(VideoMode==1)HAL_LTDC_SetPitch(&hltdc, 832, 0);
 //if(VideoMode==4)HAL_LTDC_SetPitch(&hltdc, 512, 0);
-if(VideoColour==8){
+if(VideoColour<=8){
 	/*##-2- CLUT Configuration #################################################*/
 	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
 	/*##-3- Enable CLUT For Layer 1 ############################################*/

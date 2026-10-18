@@ -395,6 +395,7 @@ int LibFlashPresent(void);
 int LibraryImageValid(const unsigned char *lib, int limit);
 #include "USBMouse.h"                                  // (UsbMouse, MouseOpenChannel: USBMouse.c)
 #include "ImageSlots.h"                                // (image slots, TILEMAP: ImageSlots.c, TileMap.c)
+#include "Rgb121.h"                                   // (MODE n,4, the PicoMite's RGB121 display: Rgb121.c)
 int ImageIsCurrent(void);                       // does program memory hold an image of this format?
 void SubLayoutForget(void);                     // the SUBs' parameter layouts are gone with the heap (P6 F1)
 void NameIndexForget(void);                     // the index of SUBs, FUNCTIONs and labels is gone with the heap

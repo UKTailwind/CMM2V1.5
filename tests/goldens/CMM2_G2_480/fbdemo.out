@@ -1,9 +1,15 @@
 MODE 2:  320 x  240
 
 20 full-screen fills:
-  screen, SRAM   66.119 ms total
-  buffer, PSRAM  71.87 ms total
+  screen, SRAM   72.154 ms total
+  buffer, PSRAM  72.718 ms total
 
 100 copies of the buffer to the screen:
-Error in line 64: Syntax
+   8.437 ms total
+
+200 frames on the screen, then 200 through the buffer
+  direct    920.759 ms
+  buffered  2665.017 ms
+
+done
 

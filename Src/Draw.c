@@ -540,6 +540,7 @@ void cmd_cursor(char *p){
     tp = checkstring(p, "ON");
     if(tp) {
     	int x=0,y=0;
+    	if(VideoColour==4)error("Invalid for this screen mode");
     	getargs(&tp,7,",");
     	if(cursorenable)return;
 		cursorcolour32=0xFFFEFEFE;
@@ -710,7 +711,7 @@ static void fill_end_fill(int count, int ystart, int yend)
 	if(VideoColour==32){
 		Colour=f;
 	} else if(VideoColour<=8){
-		Colour = (((main_fill.fill_color.red) & 0b11100000)) | (((main_fill.fill_color.green) & 0b11100000)>>3) | ((main_fill.fill_color.blue)>>6);
+		Colour = NATIVE8(f);
 	} else {
 		if(VideoColour==16){
 			red=BIT_5[(main_fill.fill_color.red>>3)]<<11;
@@ -787,7 +788,7 @@ static void fill_fast_fill(int count, int ystart, int yend)
 	if(VideoColour==32){
 		Colour=f;
 	} else if(VideoColour<=8){
-		Colour = (((main_fill.fill_color.red) & 0b11100000)) | (((main_fill.fill_color.green) & 0b11100000)>>3) | ((main_fill.fill_color.blue)>>6);
+		Colour = NATIVE8(f);
 	} else {
 		if(VideoColour==16){
 			red=BIT_5[(main_fill.fill_color.red>>3)]<<11;
@@ -849,6 +850,10 @@ int getColour(char *c, int minus){
 }
 
 void PageCopy(uint32_t fadd, uint32_t tadd, int transparent){
+	if(VideoColour==4){                                            // 4-bit pages (Rgb121.c)
+		Rgb121PageCopy(fadd, tadd, transparent);
+		return;
+	}
 	uint8_t writesave=WritePage, readsave=ReadPage;
 	transparent = (transparent<<2);
 	int copymode=PageTable[fadd].expand | ((PageTable[tadd].expand)<<1) | transparent;
@@ -892,6 +897,10 @@ void PageCopy(uint32_t fadd, uint32_t tadd, int transparent){
 }
 void cmd_framebuffer(void){
 	char *p;
+	if(VideoColour==4){                                            // a 4-bit mode: the PicoMite's FRAMEBUFFER (Rgb121.c)
+		Rgb121Framebuffer();
+		return;
+	}
     p = checkstring(cmdline, "WINDOW");
     if(p) {
     	int tempwrite;
@@ -1788,6 +1797,7 @@ void fun_3D(void){
 }
 void cmd_image(void){
 	char *p;
+	if(VideoColour==4)error("Invalid for this screen mode");
 	if((p=checkstring(cmdline, "ROTATE_FAST"))) {
     	int dontcopyblack=0;
     	getargs(&p,17,",");
@@ -2504,6 +2514,11 @@ uint32_t GetPageAddress(int page){
 void fun_clut(void){
 	int cl=getint(ep,0,255);
 	targ=T_INT;
+	if(VideoColour==4){                                            // the PicoMite's: the colour its RGB121 makes cl of
+		if(cl>15)error("Mode has 16 colours - 0 to 15");
+		iret=((cl & 0b1000)<<20) | ((cl & 0b110)<<13) | ((cl & 0b1)<<7);
+		return;
+	}
 	iret=((cl & 0b11100000)<<16) | ((cl & 0b00011100)<<11) | ((cl & 0b00000011)<<6);
 }
 void cmd_clut(void){
@@ -2543,7 +2558,9 @@ void cmd_clut(void){
 		++cmdline;
 		if(!*cmdline) error("Invalid syntax");
 		int col=getColour(cmdline,0);
-		if(!(VideoColour==8))error("8-bit video mode only");
+		if(VideoColour==4){                                         // the PicoMite's 16 (Rgb121.c)
+			if(cl>15)error("Mode has 16 colours - 0 to 15");
+		} else if(!(VideoColour==8))error("8-bit video mode only");
 		CLUT[cl]=col;
     }
 }
@@ -2553,6 +2570,8 @@ void cmd_page(void){
 	int maxH=PageTable[WritePage].ymax;
     int maxW=PageTable[WritePage].xmax;
     static int Display_Off=0;
+    if(VideoColour==4 && !(checkstring(cmdline, "WRITE") || checkstring(cmdline, "COPY") || checkstring(cmdline, "SCROLL")))
+    	error("Invalid for this screen mode");                       // a 4-bit mode: PAGE WRITE, COPY and SCROLL (Rgb121.c)
     p = checkstring(cmdline, "DISPLAY");
     if(p) {
     	int LayerIDX=LTDC_LAYER_1;
@@ -3286,6 +3305,7 @@ static uint32_t fillwpa, fillmask, fillorigin, fillb;
 static uint8_t *fillseen;
 static inline uint32_t FillRead(int x, int y) {
 	if(optiony) y = fillmaxh - 1 - y;
+	if(VideoColour == 4) return (((uint8_t *)fillwpa)[y * ((fillmaxw + 1) >> 1) + (x >> 1)] >> ((x & 1) << 2)) & 0xF;
 	if(VideoColour == 8) return *(uint8_t *)((y * fillscale * fillmaxw + x) + fillwpa);
 	else if(VideoColour <= 16) return *(uint16_t *)((y * fillscale * fillmaxw + x) * 2 + fillwpa);
 	else return *(uint32_t *)((y * fillscale * fillmaxw + x) * 4 + fillwpa) & fillmask;
@@ -3299,7 +3319,7 @@ static inline int FillIn(int x, int y) {
 }
 static uint32_t FillNative(int f) {                                 // a colour as the page holds it (PIXEL FILL's conversion)
 	if(VideoColour == 32) return f;
-	if(VideoColour <= 8) return ((f & 0xE00000) >> 16) | ((f & 0xE000) >> 11) | ((f & 0xC0) >> 6);
+	if(VideoColour <= 8) return NATIVE8(f);
 	if(VideoColour == 16) return (BIT_5[(f & 0xFF0000) >> 19] << 11) | (BIT_6[(f & 0xFF00) >> 10] << 5) | BIT_5[(f & 0xFF) >> 3];
 	return (BIT_4[(f & 0xFF0000) >> 20] << 8) | (BIT_4[(f & 0xFF00) >> 12] << 4) | BIT_4[(f & 0xFF) >> 4] | ((f & 0xF000000) >> 12);
 }
@@ -3372,7 +3392,7 @@ void cmd_pixel(void) {
 			if(VideoColour==32){
 				ConvertedColour=f;                                  // (it was left as the previous fill's: Gerry's b14)
 			} else if(VideoColour<=8){
-				ConvertedColour = ((f & 0b111000000000000000000000)>>16) | ((f & 0b1110000000000000)>>11) | ((f & 0b11000000)>>6);
+				ConvertedColour = NATIVE8(f);
 			} else {
 				if(VideoColour==16){
 					red=BIT_5[((f & 0xFF0000)>>19)]<<11;
@@ -4337,7 +4357,7 @@ void cmd_box(void) {
 		if(VideoColour==32){
 			map=(ConvertedColour<<32) | ConvertedColour;
 		} else if(VideoColour<=8){
-			ConvertedColour = ((f & 0b111000000000000000000000)>>16) | ((f & 0b1110000000000000)>>11) | ((f & 0b11000000)>>6);
+			ConvertedColour = NATIVE8(f);
 			map=(ConvertedColour<<56) | (ConvertedColour<<48) | (ConvertedColour<<40) | (ConvertedColour<<32) | (ConvertedColour<<24) | (ConvertedColour<<16) | (ConvertedColour<<8) | ConvertedColour;
 		} else {
 			if(VideoColour==16){
@@ -4414,7 +4434,7 @@ void cmd_box(void) {
 		if(VideoColour==32){
 			map=(ConvertedColour<<32) | ConvertedColour;
 		} else if(VideoColour<=8){
-			ConvertedColour = ((f & 0b111000000000000000000000)>>16) | ((f & 0b1110000000000000)>>11) | ((f & 0b11000000)>>6);
+			ConvertedColour = NATIVE8(f);
 			map=(ConvertedColour<<56) | (ConvertedColour<<48) | (ConvertedColour<<40) | (ConvertedColour<<32) | (ConvertedColour<<24) | (ConvertedColour<<16) | (ConvertedColour<<8) | ConvertedColour;
 		} else {
 			if(VideoColour==16){
@@ -4491,7 +4511,7 @@ void cmd_box(void) {
 		if(VideoColour==32){
 			map=(ConvertedColour<<32) | ConvertedColour;
 		} else if(VideoColour<=8){
-			ConvertedColour = ((f & 0b111000000000000000000000)>>16) | ((f & 0b1110000000000000)>>11) | ((f & 0b11000000)>>6);
+			ConvertedColour = NATIVE8(f);
 			map=(ConvertedColour<<56) | (ConvertedColour<<48) | (ConvertedColour<<40) | (ConvertedColour<<32) | (ConvertedColour<<24) | (ConvertedColour<<16) | (ConvertedColour<<8) | ConvertedColour;
 		} else {
 			if(VideoColour==16){
@@ -4880,7 +4900,7 @@ void cmd_cls(void) {
 		if(!(*cmdline == 0 || *cmdline == '\'')){
 			uint32_t i=getColour(cmdline, 0);
 			ClearScreen(i);
-		} else ClearScreen(gui_bcolour);
+		} else if(!Rgb121Cls()) ClearScreen(gui_bcolour);             // (a 4-bit layer: its transparent colour, Rgb121.c)
 		if(WritePage==0)SerUSBPutS("\0337\033[2J\033[H");									// vt100 clear screen and home cursor
 	}
 }
@@ -4921,7 +4941,7 @@ void fun_rgb(void) {
         else error("Invalid colour: $", argv[0]);
         if(VideoColour!=32)iret &= 0xFFFFFFF;
     } else if(argc == 3) {
-    	if(VideoColour==8 || VideoColour==16)error("Transparency not valid for this mode");
+    	if(VideoColour<=8 || VideoColour==16)error("Transparency not valid for this mode");
         if(checkstring(argv[0], "WHITE"))        iret = WHITE;
         else if(checkstring(argv[0], "BLACK"))   iret = BLACK;
         else if(checkstring(argv[0], "NOTBLACK"))   iret = NOTBLACK;
@@ -4953,7 +4973,7 @@ void fun_rgb(void) {
         if(VideoColour==12)iret |= (getint(argv[2], 0, 15)<<24);
         if(VideoColour==32)iret |= (getint(argv[2], 0, 255)<<24);
     } else if(argc == 7) {
-    	if(VideoColour==8 || VideoColour==16)error("Transparency not valid for this mode");
+    	if(VideoColour<=8 || VideoColour==16)error("Transparency not valid for this mode");
         iret = rgb(getint(argv[0], 0, 255), getint(argv[2], 0, 255), getint(argv[4], 0, 255), (VideoColour==12 ? getint(argv[6], 0, 15) : getint(argv[6], 0, 255)));
     } else
         error("Syntax");
@@ -5058,7 +5078,7 @@ void DrawLine(int x1, int y1, int x2, int y2, int w, int c) {
 	if(VideoColour==32){
 		Colour=c;
 	} else if(VideoColour<=8){
-		Colour = ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
+		Colour = NATIVE8(c);
 	} else {
 		if(VideoColour==16){
 			Colour=
@@ -5391,30 +5411,56 @@ void DrawCircle(int x, int y, int radius, int w, int c, int fill, MMFLOAT aspect
 	   }
 	   if(c!=fill){
 		   w=w1; radius=r1;
+		   asp = aspect * (MMFLOAT)(1 << 10);
+		   // the PicoMite's fix (79168bf, 4 Aug): with an aspect over 1 the x coordinates are stretched, so the
+		   // points the circle algorithm gives are more than a pixel apart; they are joined with short rows
+		   int stretched = (asp > 1024), lastA, lastB, lastb;
 		   while(w >= 0 && radius > 0) {
 		       a = 0;
 		       b = radius;
 		       P = 1 - radius;
-		       asp = aspect * (MMFLOAT)(1 << 10);
+		       lastA = 0;
+		       lastB = (b * asp) >> 10;
+		       lastb = b;
 		       do {
 		         A = (a * asp) >> 10;
 		         B = (b * asp) >> 10;
 		         if(w) {
-		             DrawPixel(A+x, b+y, c);
-		             DrawPixel(B+x, a+y, c);
-		             DrawPixel(x-A, b+y, c);
-		             DrawPixel(x-B, a+y, c);
-		             DrawPixel(B+x, y-a, c);
-		             DrawPixel(A+x, y-b, c);
-		             DrawPixel(x-A, y-b, c);
-		             DrawPixel(x-B, y-a, c);
+		        	 if(stretched) {                                  // (A only grows and B only shrinks: left to right)
+		        		 DrawRectangle(x + lastA, y + b, x + A, y + b, c);
+		        		 DrawRectangle(x - A, y + b, x - lastA, y + b, c);
+		        		 DrawRectangle(x + lastA, y - b, x + A, y - b, c);
+		        		 DrawRectangle(x - A, y - b, x - lastA, y - b, c);
+		        		 DrawRectangle(x + B, y + a, x + lastB, y + a, c);
+		        		 DrawRectangle(x - lastB, y + a, x - B, y + a, c);
+		        		 DrawRectangle(x + B, y - a, x + lastB, y - a, c);
+		        		 DrawRectangle(x - lastB, y - a, x - B, y - a, c);
+		        	 } else {
+		        		 DrawPixel(A+x, b+y, c);
+		        		 DrawPixel(B+x, a+y, c);
+		        		 DrawPixel(x-A, b+y, c);
+		        		 DrawPixel(x-B, a+y, c);
+		        		 DrawPixel(B+x, y-a, c);
+		        		 DrawPixel(A+x, y-b, c);
+		        		 DrawPixel(x-A, y-b, c);
+		        		 DrawPixel(x-B, y-a, c);
+		        	 }
 		         }
+		         lastA = A;
+		         lastB = B;
+		         lastb = b;
 		          if(P < 0)
 		             P+= 3 + 2*a++;
 		          else
 		             P+= 5 + 2*(a++ - b--);
 
 		        } while(a <= b);
+		        if(w && stretched) {                                 // the two octants stop short of each other at 45
+		        	DrawRectangle(x + lastA, y + lastb, x + lastB, y + lastb, c);   // degrees: the flat one's last row bridges them
+		        	DrawRectangle(x - lastB, y + lastb, x - lastA, y + lastb, c);
+		        	DrawRectangle(x + lastA, y - lastb, x + lastB, y - lastb, c);
+		        	DrawRectangle(x - lastB, y - lastb, x - lastA, y - lastb, c);
+		        }
 		        w--;
 		        radius--;
 		   }
@@ -5573,7 +5619,7 @@ Draw a triangle
 			if(VideoColour==32){
 				Colour=f;
 			} else if(VideoColour<=8){
-				Colour = ((f & 0b111000000000000000000000)>>16) | ((f & 0b1110000000000000)>>11) | ((f & 0b11000000)>>6);
+				Colour = NATIVE8(f);
 			} else {
 				if(VideoColour==16){
 					Colour=
@@ -5659,7 +5705,7 @@ void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int f) 
 			if(VideoColour==32){
 				Colour=f;
 			} else if(VideoColour<=8){
-				Colour = ((f & 0b111000000000000000000000)>>16) | ((f & 0b1110000000000000)>>11) | ((f & 0b11000000)>>6);
+				Colour = NATIVE8(f);
 			} else {
 				if(VideoColour==16){
 					Colour=

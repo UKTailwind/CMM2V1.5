@@ -14,6 +14,16 @@ Each entry has a kind, which says what `OPTION PICOMITE` would need for it:
 | D | Different behaviour | a run-time switch |
 | E | Hardware the CMM2 does not have | nothing it can do: noted only |
 
+## Any PicoMite MODE 2 or MODE 3 program
+
+The PicoMite's RGB121 display is a CMM2 mode of its own since 18 Oct (`MODE n,4`, `Src/Rgb121.c`): its pages are the PicoMite's framebuffers byte for byte, and its layers are merged onto the display at each frame as the PicoMite's VGA output composites them. So the `FRAMEBUFFER` lines, `BLIT FLASH`, `TILEMAP` and the PEEKs and POKEs of the buffers stay as they are.
+
+| Line | PicoMite | CMM2 | Kind | Why |
+|---|---|---|---|---|
+| any | `MODE 2` | `MODE 7,4` | C | PicoMite MODE 2 is 320x240 in 16 colours; CMM2 MODE 2 is 640x400. |
+| any | `MODE 3` | `MODE 8,4` | C | 640x480 in 16 colours. |
+| any | `FRAMEBUFFER CREATE`, `LAYER`, `WRITE`, `COPY`, `MERGE`, `CLOSE` | unchanged | A/D | The PicoMite's, in a 4-bit mode; in the other modes `FRAMEBUFFER` is the CMM2's own (a world larger than the screen), so a program must set the 4-bit mode first. |
+
 ## Elite
 
 From `PicoMite/Bas/elite` (built 14 Sep 2026): `elite.bas` (4,731 lines), `elite_lib.bas` (1,159 lines, loaded as a library) and `title.jpg`. It needs MODE 2 (320x240), a framebuffer, `DRAW3D`, BBC sound and a 6502-faithful flight model.
@@ -25,12 +35,11 @@ From `PicoMite/Bas/elite` (built 14 Sep 2026): `elite.bas` (4,731 lines), `elite
 | 4 | `OPTION TRACECACHE ON n` | accepted and ignored | A | The PicoMite removed the trace cache on 26 Sep (c50b6bc) and the option is now an error there too, so this Elite build no longer runs on current PicoMite firmware either. |
 | 5 | `OPTION CACHE SUB name, ...` | accepted and ignored (and `OPTION CACHE DEBUG`) | A | As line 4. |
 | 391 | `MODE 1` | `MODE 8,8` | C | PicoMite MODE 1 is 640x480. `tools/goldens.py` already maps MODE 1-5 (`MODEMAP`). |
-| 396 | `MODE 2` | `MODE 7,12` | C | PicoMite MODE 2 is 320x240; CMM2 MODE 2 is 640x400 and was taken without an error, so the game drew at the wrong size. |
+| 396 | `MODE 2` | `MODE 7,4` | C | PicoMite MODE 2 is 320x240 in RGB121; CMM2 MODE 2 is 640x400 and was taken without an error, so the game drew at the wrong size. Until 18 Oct this was `MODE 7,12`, with the FRAMEBUFFER lines turned into PAGE commands and the dashboard copied by BLIT; in MODE 7,4 they are all the PicoMite's again (below). |
 | 389, 399 | `POKE DISPLAY VRES n` | not reached once the mode is right | C | The CMM2's `POKE DISPLAY` has other arguments ("Argument count"). Only used on a screen taller than 240 rows. |
-| 400 | `FRAMEBUFFER CREATE` | `PAGE WRITE 0` | C/D | The CMM2 has a `FRAMEBUFFER` of its own with another meaning (a "world" larger than the screen, with WINDOW, BACKUP and RESTORE), so the PicoMite's took no error and did the wrong thing. On the CMM2 the pages already exist. |
-| 401 | `FRAMEBUFFER WRITE F` | `PAGE WRITE 2` | C/D | Page 2: in a 12-bit mode page 1 is the top layer, shown over page 0 (the PicoMite's layer buffer). MODE 7,12 has pages 0-45. |
-| 23 lines | `FRAMEBUFFER COPY F, N` | `PAGE COPY 2 TO 0` | C/D | |
-| 8 lines | `FRAMEBUFFER CLOSE` | `PAGE WRITE 0` | C/D | |
+| 400, 401, 25 lines, 8 lines | `FRAMEBUFFER CREATE`, `FRAMEBUFFER WRITE F`, `FRAMEBUFFER COPY F, N`, `FRAMEBUFFER CLOSE` | unchanged | A | The PicoMite's FRAMEBUFFER, in a 4-bit mode (`Src/Rgb121.c`). |
 | 2840 | `BOX x, y, w, h, 1, cWhite, -1` | implemented: a fill of -1 is no fill in BOX and RBOX, and in the array forms of BOX, RBOX and CIRCLE | A | CIRCLE and TRIANGLE already took -1 for one fill; BOX and RBOX gave "-1 is invalid". Not in CMM1 mode, whose 8 colours are looked up in a table. |
-| 1013, 1025, 1027 | `fadd = MM.INFO(WRITEBUFF) + DASHY * SCRW / 2` and `MEMORY COPY INTEGER` of the dashboard's rows to and from `dashStore()` | `fadd = 1` (a flag only); `PAGE WRITE 3 : BLIT 0, DASHY, 0, DASHY, SCRW, SCRH - DASHY, 2 : PAGE WRITE 2` to keep it, `BLIT ..., 3` to put it back | A, then D | `MM.INFO(WRITEBUFF)` is implemented (the write page's address). But the arithmetic assumes the PicoMite's 4-bit pixels, and a MODE 7 page stores each row twice (320x480, 2 bytes a pixel), so the copy is done by BLIT between pages, which is independent of the layout. `dashStore()` is no longer used. |
+| 1024 | `CIRCLE CPX, CPY, CPR + 2, 1, 1.25, cDim, -1` (the scanner) | implemented: the PicoMite's fix to a 1-pixel outline with an aspect over 1 (its 79168bf, 4 Aug) | A | The outline had gaps: the points the circle algorithm gives are more than a pixel apart once x is stretched, and the two octants stop short of each other at 45 degrees. They are now joined with short rows. `tests/cmm2/ellipse.bas` fills outlines of aspect 1 to 6 from the centre and checks that nothing leaks out. |
+| 1013, 1025, 1027 | `fadd = MM.INFO(WRITEBUFF) + DASHY * SCRW / 2` and `MEMORY COPY INTEGER` of the dashboard's rows to and from `dashStore()` | unchanged | A | In MODE 7,4 the write page holds the PicoMite's 4-bit pixels, so the address arithmetic is right as it stands. |
 | 3957, 3960 | `tStage = TIMER` and `ResetTick`, around `InfoScreen kChart` | `tStage = TIMER : IF ecmActive > 0 THEN Sfx SFX_ECMOFF` and `ResetTick : IF ecmActive > 0 THEN Sfx SFX_ECM` | Elite bug | Not a CMM2 difference: a bug in Elite (PicoMite issue 39). The E.C.M. hum (duration 255) is stopped only by `ECMService`'s countdown, which runs in the flight loop, and an information screen pauses that loop. The demo opens one 120 frames (2 s) after its E.C.M., inside the 2.6 s burst, so the hum ran 16.8 s, through the screens. It now pauses with the game and resumes with it. |
+

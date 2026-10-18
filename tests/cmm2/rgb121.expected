@@ -1,0 +1,44 @@
+mode 7,4: 7.4 320 240, N at &H24026000
+  CLS red: 88 88
+  pixel 1,0 blue: 18, Pixel( FF0000 FF
+  poked &H5A: FF4000 80FF
+  MAP(5) 8080, MAP(13) 808080
+  counts: green 27 white 341 magenta 277 yellow 29 blue 163
+  layer cleared to 9: 99, at &H24030000
+  display, L over N: 0F 0F 0F 0F 01 01 row 1 0F
+  display, T over L: 0E 0F
+  N itself: FF
+  a second layer: Framebuffer already exists
+  write F: Frame buffer not created
+  closed: 01 01
+  merge F and 2: FF00 FF00FF
+  copy F to N: FF00
+  copy L, not created: Buffer not created
+  BLIT FLASH wrong: 0
+  BLIT wrong: 0
+  page 5 at &H24058000, copy wrong 0
+  PAGE DISPLAY: Invalid for this screen mode
+  IMAGE: Invalid for this screen mode
+mode 8,4: 8.4 640 480, N at &H2404C000
+  CLS red: 88 88
+  pixel 1,0 blue: 18, Pixel( FF0000 FF
+  poked &H5A: FF4000 80FF
+  MAP(5) 8080, MAP(13) 808080
+  counts: green 27 white 661 magenta 277 yellow 29 blue 163
+  layer cleared to 9: 99, at &HD0000000
+  display, L over N: 0F 0F 0F 0F 01 01 row 1 01
+  display, T over L: 0E 0F
+  N itself: FF
+  a second layer: Framebuffer already exists
+  write F: Frame buffer not created
+  closed: 01 01
+  merge F and 2: FF00 FF00FF
+  copy F to N: FF00
+  copy L, not created: Buffer not created
+  BLIT FLASH wrong: 0
+  BLIT wrong: 0
+  page 5 at &HD0098000, copy wrong 0
+  PAGE DISPLAY: Invalid for this screen mode
+  IMAGE: Invalid for this screen mode
+done
+

@@ -23,9 +23,9 @@ DIFF 3 ERROR 73 MATCH 27 NO-EXPECTED 8 TIMEOUT 1
 | dataconst | ERROR | True | 1.4 | Error in line 32: LATE Global variable already declared |
 | dynarr | ERROR | True | 1.5 | Error in line 57: Unknown command |
 | elseif | ERROR | True | 1.4 | Error in line 51: Unexpected text |
-| fbdemo | ERROR | False | 1.8 | Error in line 64: Syntax |
+| fbdemo | NO-EXPECTED | False | 5.5 | (18 Oct: runs to the end in MODE 7,4, the PicoMite's FRAMEBUFFER) |
 | fbwrite | ERROR | True | 1.4 | Error in line 7: Framebuffer not created |
-| flash | ERROR | True | 1.6 | Error in line 7: Syntax |
+| flash | ERROR | True | 1.9 | Error in line 17: Only FLASH LOAD IMAGE is provided on the CMM2 |
 | fnbyref | MATCH | True | 1.4 |  |
 | fnretcat | MATCH | True | 1.4 |  |
 | fontdef | MATCH | True | 1.4 |  |
@@ -103,7 +103,7 @@ DIFF 3 ERROR 73 MATCH 27 NO-EXPECTED 8 TIMEOUT 1
 | t8 | ERROR | True | 1.8 | Error in line 85: Dimensions |
 | text | ERROR | True | 1.5 | Error in line 69: GREYSCALE is not declared |
 | tiger | ERROR | True | 1.7 | Error in line 5: Syntax |
-| tilemap | ERROR | True | 1.9 | Error in line 19: Unknown command |
+| tilemap | ERROR | True | 2.0 | Error in line 19: Only FLASH LOAD IMAGE is provided on the CMM2 |
 | tri | MATCH | True | 1.7 |  |
 | type | ERROR | True | 1.5 | Error in line 7: Unknown command |
 | uptime | MATCH | True | 1.5 |  |

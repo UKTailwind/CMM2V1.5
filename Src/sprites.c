@@ -111,8 +111,8 @@ void zeroLIFOswap(int n, int m){
         if(zeroLIFO[i]==n)zeroLIFO[i]=m;
     }
 }
-uint8_t convert_8bit(uint32_t c){
-    return ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
+uint8_t convert_8bit(uint32_t c){                                  // (RGB121 in a 4-bit mode, whose sprites are a byte a pixel)
+    return NATIVE8(c);
 }
 uint16_t convert_12bit(uint32_t c){
 	uint32_t red,green,blue;
@@ -652,12 +652,12 @@ void loadarray(char *p){
     	q=blitbuff[bnbr].blitbuffptr;
         qq=(uint16_t *)q;
         qqq=(uint32_t *)q;
-		if (VideoColour==8) {
+		if (VideoColour<=8) {
 			int c;
 			for(i=0; i<w*h;i++){
 				if(a3float)c=(int)a3float[i];
 				else c=(int)a3int[i];
-                *q++ = ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
+                *q++ = NATIVE8(c);
 			}
         } else if (VideoColour==16) {
 			int c;
@@ -738,7 +738,7 @@ void loadpng(char *p){
 		q=blitbuff[bnbr].blitbuffptr;
         qq=(uint16_t *)q;
         qqq=(uint32_t *)q;
-		if (VideoColour==8) {
+		if (VideoColour<=8) {
             const unsigned char *rr;
             rr=upng_get_buffer(upng);
             i=upng_get_width(upng)*upng_get_height(upng)*4;
@@ -755,7 +755,7 @@ void loadpng(char *p){
                 else c.rgbbytes[3]=1;
                 if(c.rgbbytes[3]==0)*q=0;
                 else {
-                    *q = ((c.r & 0b111000000000000000000000)>>16) | ((c.r & 0b1110000000000000)>>11) | ((c.r & 0b11000000)>>6);
+                    *q = NATIVE8(c.r);
                     if(*q==0 && c.r!=0){ //problem
                     	*q=convert_8bit(NOTBLACK);
                     }
@@ -967,7 +967,7 @@ void loadsprite(char *p){
 			MMgetline(fnbr, (char *)buff);									    // get the input line
 			while(buff[0]==39)MMgetline(fnbr, (char *)buff);
 			if(strlen(buff)<width)mymemset(&buff[strlen(buff)],32,width-strlen(buff));
-			if(VideoColour==8){
+			if(VideoColour<=8){
 				for(i=0;i<width;i++){
 					if(buff[i]==' ')*q++=0;
 					else if(buff[i]=='0')*q++=convert_8bit(NOTBLACK);
@@ -1210,6 +1210,14 @@ void docompressed(char *fc,int x1, int y1, int w, int h, int8_t blank){
 int blitother(void){
     int x1, y1, w, h;
     char *p;
+    if ((p = checkstring(cmdline, "FLASH"))) {                     // the PicoMite's: from an image slot (ImageSlots.c)
+        BlitFlash(p);
+        return 1;
+    }
+    if ((p = checkstring(cmdline, "FRAMEBUFFER"))) {               // the PicoMite's, between its framebuffers (Rgb121.c)
+        Rgb121BlitFramebuffer(p);
+        return 1;
+    }
     if ((p = checkstring(cmdline, "MEMORY"))) {
         int8_t blank=-1;
         getargs(&p, 7, ",");
@@ -2082,6 +2090,11 @@ void cmd_blit(void) {
         if(w < 1 || h < 1 || x1 < 0 || x1 + w > readlimx || x2 < 0 || x2 + w > maxW || y1 < 0 || y1 + h > readlimy || y2 < 0 || y2 + h > maxH) {
             ReadPage=WritePage;
         	return;
+        }
+        if(VideoColour==4){                                         // 4-bit pages (Rgb121.c)
+            Rgb121Blit(x1, y1, x2, y2, w, h, flip);
+            ReadPage=WritePage;
+            return;
         }
         if(VideoColour==8 && (x1 & 3) == 0 && (x2 & 3) == 0 && (w & 3)==0){
 			docopy=zcopy;

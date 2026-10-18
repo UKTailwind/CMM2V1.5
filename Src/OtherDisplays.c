@@ -2613,6 +2613,7 @@ int ReadPixelFast(int x, int y) {
 	if(optiony)y=maxH-1-y;
 	if(x>=maxW || y>=maxH)return 0;
 	int Scale=(PageTable[ReadPage].expand ? 2 : 1);
+	if(VideoColour==4) return (x < 0 || y < 0) ? 0 : Rgb121Get(x, y);   // a 4-bit page (Rgb121.c)
 	if(VideoColour==8)	return (int)*(char *)((y * Scale * maxW + x) + rpa);
 	else if(VideoColour<=16) return (int)*(uint16_t *)((y * Scale * maxW + x) *2 + rpa);
 	else return (int)*(uint32_t *)((y * Scale * maxW + x) *4 + rpa);
@@ -3171,6 +3172,10 @@ void __attribute__((section(".extra"))) DrawPixelFast(int x, int y, int c){
 	uint32_t wpa=(uint32_t)PageTable[WritePage].address;
 	if(optiony)y=maxH-1-y;
 	if(x>=maxW || y>=maxH || x<0 || y<0)return;
+	if(VideoColour==4){                                            // a 4-bit page, c its RGB121 value (Rgb121.c)
+		Rgb121Set(x, y, c);
+		return;
+	}
 	if(VideoColour==8){
 		if(PageTable[WritePage].expand==0){
 			*(uint8_t *)((y * maxW + x) + wpa)=(uint8_t)c;
@@ -3205,6 +3210,10 @@ void __attribute__((section(".extra"))) DrawHLineFast(int x1, int y, int x2, int
 	}
 	if(x1<0)x1=0;
 	if(x2>=maxW)x2=maxW-1;
+	if(VideoColour==4){                                            // a 4-bit page (Rgb121.c)
+		Rgb121HLine(x1, x2, y, c);
+		return;
+	}
 	if(VideoColour==8){
 		int bulkcolour=c | (c<<8) | (c<<16) | (c <<24);
 		if(PageTable[WritePage].expand==0){

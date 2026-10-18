@@ -1100,6 +1100,10 @@ void MIPS16 cmd_list(void) {
     	do_listfiles(tp);
     } else if((tp = checkstring(cmdline,"PAGES"))){
     	PO("MODE ",3);PInt(VideoMode);putConsole(',');PInt(VideoColour);MMPrintString(" has ");PInt(LastPage+1);MMPrintString(" pages\r\n");
+    	if(VideoColour==4){                                         // the display the merge writes (Rgb121.c)
+    		MMPrintString("Display at &H");PIntH((uint32_t)Rgb121Display);
+    		MMPrintString(", 8-bit: N (page 0) with L (1) and T (4) over it\r\n");
+    	}
     	MMPrintString("Page no.   Page Address   Width   Height   Size   Lines");PRet();
     	for(int i=0;i<=LastPage;i++){
     		putConsole(' ');

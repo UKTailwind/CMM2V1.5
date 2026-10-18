@@ -16,7 +16,10 @@ reads as a zero header, as an empty PicoMite RAM slot does. Slots 1 to 3, the Pi
 
 Drawing (ImageSlotBlit): each 4-bit value becomes a pixel of the page's own format through the PicoMite's 16 RGB121
 colours (its colours[16]), converted once a call as DrawPixel8/16/32 convert a colour; a page that stores each row twice
-(MODE 7 and the like) gets both; OPTION Y AXIS INVERT is honoured. How MAP should act on these colours is to decide (Peter).
+(MODE 7 and the like) gets both; OPTION Y AXIS INVERT is honoured. A 4-bit page (MODE n,4: Rgb121.c) takes the values
+themselves, as the PicoMite's blit121 does, and MAP acts on them there through the CLUT.
+
+  BLIT FLASH n, dest, x1, y1, x2, y2, w, h [, colour]   the PicoMite's: from slot n onto a framebuffer or page
 ***********************************************************************************************************************/
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
@@ -159,6 +162,14 @@ void ImageSlotBlit(const uint8_t *src, int srcw, int srch, int sx, int sy, int w
     if(dx + w > maxW) w = maxW - dx;
     if(dy + h > maxH) h = maxH - dy;
     if(w <= 0 || h <= 0) return;
+    if(VideoColour == 4) {                                          // a 4-bit page: the values themselves (Rgb121.c)
+        for(int y = 0; y < h; y++) {
+            int py = dy + y;
+            if(optiony) py = maxH - 1 - py;
+            Rgb121Row(base + py * ((maxW + 1) >> 1), dx, src + (sy + y) * stride, sx, w, transparent);
+        }
+        return;
+    }
     for(int i = 0; i < 16; i++) native[i] = ImageNative(Rgb121Colours[i]);
     for(int y = 0; y < h; y++) {
         const uint8_t *s = src + (sy + y) * stride;
@@ -177,4 +188,25 @@ void ImageSlotBlit(const uint8_t *src, int srcw, int srch, int sx, int sy, int w
             }
         }
     }
+}
+
+/* BLIT FLASH n, dest, x1, y1, x2, y2, w, h [, colour]: the w x h pixels at x1, y1 of slot n's image onto a framebuffer
+   (N, L, F, 2, T: Rgb121Letter) or a page at x2, y2, a pixel of value 'colour' (0-15) left alone. The PicoMite's. */
+void BlitFlash(char *p) {
+    int sw, sh, x1, y1, x2, y2, w, h, page, blank = -1;
+    uint8_t *s;
+    getargs(&p, 17, ",");
+    if(!(argc == 15 || argc == 17)) error("Syntax");
+    s = ImageSlotPixels(getint(argv[0], 1, MAXIMAGESLOTS), &sw, &sh);
+    if(VideoColour == 4 && checkstring(argv[2], "2") && !(Rgb121Buffers & (1 << RGB121_2))) error("Frame buffer 2 not created");
+    if((page = Rgb121Letter(argv[2])) < 0) page = getint(argv[2], 0, LastPage);
+    x1 = getinteger(argv[4]);
+    y1 = getinteger(argv[6]);
+    x2 = getinteger(argv[8]);
+    y2 = getinteger(argv[10]);
+    w = getinteger(argv[12]);
+    h = getinteger(argv[14]);
+    if(x1 < 0 || y1 < 0 || x1 + w > sw || y1 + h > sh) error("Number out of bounds");
+    if(argc == 17) blank = getint(argv[16], -1, 15);
+    ImageSlotBlit(s, sw, sh, x1, y1, w, h, page, x2, y2, blank);
 }

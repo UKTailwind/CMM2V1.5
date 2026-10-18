@@ -3089,7 +3089,7 @@ void fun_info(void){
 		iret=SystemCoreClock;
 		rettype='I';
 	} else if(checkstring(ep, "MODE")){
-		fret = VideoMode+(VideoColour==8? 0.8: (VideoColour==12? 0.12: (VideoColour==16 ? 0.16 : 0.32)));
+		fret = VideoMode+(VideoColour==4? 0.4: (VideoColour==8? 0.8: (VideoColour==12? 0.12: (VideoColour==16 ? 0.16 : 0.32))));
 	    rettype='N';
 	} else if(checkstring(ep, "DEVICE")){
 	    fun_device();

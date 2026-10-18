@@ -1304,7 +1304,8 @@ void cmd_mode(void){
 		else if(getinteger(argv[2])==32)colour=32;
 		else if(getinteger(argv[2])==12)colour=12;
 		else if(getinteger(argv[2])==8)colour=8;
-		else error("Colour depth must be 8, 12, 16, or 32");
+		else if(getinteger(argv[2])==4)colour=4;                    // the PicoMite's RGB121 (Rgb121.c)
+		else error("Colour depth must be 4, 8, 12, 16, or 32");
 	}
 	if(colour==32 && G1Hardware)error("32-bit mode not available on this H/W");
 	if((colour==12 || colour==32) && mode==9) error("12 and 32-bit colour not available for mode 9");
@@ -1313,6 +1314,7 @@ void cmd_mode(void){
 	if((colour!=8) && mode==15)error("12, 16, and 32-bit colour not available for mode 15");
 	if((colour!=8) && mode==16)error("12, 16, and 32-bit colour not available for mode 16");
    	if(colour!=8 && CMM1)error("Display must be in 8-bit mode for legacy use");
+	if(colour==4 && !Rgb121ModeFits(mode))error("4-bit colour not available for mode %", mode);
 
 	if(argc > 3 && argv[4]){
 		bc=getColour(argv[4],0);

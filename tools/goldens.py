@@ -19,7 +19,7 @@ catches a program that really does run away.
 The corpus is written for the PicoMite, whose MODE numbers mean other resolutions on the
 CMM2 (MODE 1 here is 800x600).  The copies sent to the board have their MODE statements
 mapped as in section 6.3 of docs/PicoMite_Parity_Audit_and_Plan.md (MODE 1 -> MODE 8,8,
-MODE 2 -> MODE 7,12, ...), so every program stays on a 640x480 signal; --nomodemap sends
+MODE 2 -> MODE 7,4, ...), so every program stays on a 640x480 signal; --nomodemap sends
 them unchanged.
 
 A board that no longer answers Ctrl-C after a run is reset through the ST-Link (connect
@@ -44,7 +44,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 CORPUS = r"\\wsl.localhost\Ubuntu\home\peter\src\FUZIX\Applications\mmb2c\tests"
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>78]|\r")     # ESC 7 / ESC 8 (save, restore cursor) come before CMM2 error messages
 CAP = 60.0
-MODEMAP = {"1": "8,8", "2": "7,12", "3": "8,12", "4": "7,16", "5": "7,8"}   # PicoMite 640x480 modes -> CMM2
+MODEMAP = {"1": "8,8", "2": "7,4", "3": "8,4", "4": "7,16", "5": "7,8"}     # PicoMite 640x480 modes -> CMM2 (2 and 3: its RGB121, Rgb121.c)
 
 
 FOREIGN = re.compile(r"(?im)^[ \t]*(?:CSUB|CFUNCTION)\b(?![^\n]*'[^\n]*(?:Cortex-M7 \(CMM2\)|runs on the CMM2))")   # (not one marked as running here)

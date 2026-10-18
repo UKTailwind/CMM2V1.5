@@ -41,8 +41,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 
 /* CMM2 (18 Oct, for Picanoid and Exile): the PicoMite's TILEMAP, its arguments and messages unchanged. A tileset is an
  * image slot (ImageSlots.c: FLASH LOAD IMAGE into slots 4-8) and the tiles are drawn by ImageSlotBlit into a page: the
- * destination letters are the PicoMite's framebuffers as the game ports map them (docs/Game_Porting_Log.md): N the
- * display, page 0; L the layer, page 1; F the framebuffer, page 2; 2 the second framebuffer, page 3; or a page number. */
+ * destination letters are the PicoMite's framebuffers (Rgb121Letter): N page 0, L page 1, F page 2, 2 page 3, T page
+ * 4, which in a 4-bit mode (MODE n,4: Rgb121.c) are its framebuffers themselves, one not created being N; or a page
+ * number. */
 
 // #ifndef PICOMITEMIN
 /* ============================================================================
@@ -275,21 +276,11 @@ static uint16_t *tilemap_read_data(char *label, int count)
     return buf;
 }
 
-/* A destination: one of the PicoMite's framebuffer letters (N, L, F, 2: the pages the game ports put them on) or a
-   page number */
+/* A destination: one of the PicoMite's framebuffer letters (Rgb121Letter) or a page number */
 static int tilemap_get_dest(char *token)
 {
-    if (checkstring(token, "N"))
-        return 0;
-    if (checkstring(token, "L"))
-        return 1;
-    if (checkstring(token, "F"))
-        return 2;
-    if (checkstring(token, "2"))
-        return 3;
-    if (checkstring(token, "T"))
-        error("No second layer on the CMM2");
-    return getint(token, 0, LastPage);
+    int page = Rgb121Letter(token);
+    return page >= 0 ? page : getint(token, 0, LastPage);
 }
 
 /* The image in 'slot' (loaded by FLASH LOAD IMAGE): its header's address (tilemap_install steps over it), width and

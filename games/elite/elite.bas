@@ -29,25 +29,25 @@ LOOP
 ELSE
 IF DEMOSCENE = 9 THEN
 LeftScene
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 PRINT "left-list done"
 END
 ELSEIF DEMOSCENE = 8 THEN
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 DockNPCScene
 PRINT "npc dock done"
 END
 ELSEIF DEMOSCENE = 7 THEN
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 NewbScene
 PRINT "newb done"
 END
 ELSEIF DEMOSCENE = 6 THEN
 MissionScene
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 PRINT "missions done,"; shotNo; " pages"
 END
@@ -57,7 +57,7 @@ MissionBrief 10, 0
 MissionBrief 11, 0
 MissionBrief 222, 0
 MissionBrief 223, 0
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 PRINT "briefings done,"; shotNo; " pages"
 GotoSystem gGal, homeSys
@@ -69,13 +69,13 @@ FOR frames = 1 TO 8
 HangarScreen
 SaveShot frames
 NEXT frames
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 PRINT "hangar done"
 END
 ELSEIF DEMOSCENE = 3 THEN
 DockedScreens
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 PRINT "docked screens done"
 END
@@ -117,7 +117,7 @@ SpawnTraffic
 DockCheck
 prof(5) = prof(5) + TIMER - tStage
 DrawFrame
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 mcnt = (mcnt + 1) AND 255
 frames = frames + 1
 IF frames = 40 OR frames = 80 OR frames = 120 OR frames = 250 THEN SaveShot frames
@@ -128,7 +128,7 @@ ENDIF
 IF dead THEN DeathScreen : PAUSE 1500
 SoundOff
 CloseAll
-PAGE WRITE 0
+FRAMEBUFFER CLOSE
 RestoreScreen
 frameMs = 0
 IF frames > 0 THEN frameMs = tFlight / frames
@@ -393,12 +393,12 @@ ON ERROR CLEAR
 END SUB
 SUB SetupScreen
 ON ERROR SKIP 1
-MODE 7,12
+MODE 7,4
 ON ERROR CLEAR
 scrVres = MM.VRES
 IF scrVres > SCRH THEN POKE DISPLAY VRES SCRH
-PAGE WRITE 0
-PAGE WRITE 2
+FRAMEBUFFER CREATE
+FRAMEBUFFER WRITE F
 homeDir$ = MM.INFO(PATH)
 IF homeDir$ = "NONE" THEN homeDir$ = "A:/"
 cmdrFile$ = homeDir$ + "cmdr.txt"
@@ -1010,7 +1010,7 @@ STATIC INTEGER addr = 0, fadd = 0
 IF fadd = 0 THEN
 LOCAL INTEGER i
 addr = PEEK(VARADDR dashStore())
-fadd = 1
+fadd = MM.INFO(WRITEBUFF) + DASHY * SCRW / 2
 BOX 0, DASHY, SCRW, SCRH - DASHY, 0, cBlack, cBlack
 LINE 0, DASHY, SCRW - 1, DASHY, 1, cCyan
 FOR i = 0 TO 5
@@ -1022,9 +1022,9 @@ TEXT 303, DRY(i) - 1, RLAB$(i), "LT", 7, 1, cWhite
 BOX DR, DRY(i) - 1, DW + 2, 5, 1, cDim, -1
 NEXT i
 CIRCLE CPX, CPY, CPR + 2, 1, 1.25, cDim, -1
-PAGE WRITE 3 : BLIT 0, DASHY, 0, DASHY, SCRW, SCRH - DASHY, 2 : PAGE WRITE 2
+MEMORY COPY INTEGER fadd, addr, DASHWORDS
 ELSE
-BLIT 0, DASHY, 0, DASHY, SCRW, SCRH - DASHY, 3
+MEMORY COPY INTEGER addr, fadd, DASHWORDS
 ENDIF
 END SUB
 SUB DrawDash
@@ -1528,16 +1528,16 @@ FOR i = 1 TO 5 : BuyOne 0 : NEXT i
 FOR i = 1 TO 3 : BuyOne 12 : NEXT i
 eqOwned(EQ_ECM) = 1
 MarketScreen 6
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 SAVE IMAGE "A:/dock_market.bmp"
 StatusScreen
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 SAVE IMAGE "A:/dock_status.bmp"
 EquipScreen 2
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 SAVE IMAGE "A:/dock_equip.bmp"
 InventoryScreen
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 SAVE IMAGE "A:/dock_inv.bmp"
 PRINT "cash after trading "; STR$(cashTenths / 10); " Cr, hold "; STR$(HoldUsed()); "/"; STR$(holdSize)
 SaveCommander "A:/cmdr.txt"
@@ -2746,7 +2746,7 @@ CLS
 TEXT VCX, 60, "GAME OVER", "CT", 1, 2, cRed
 TEXT VCX, 100, "Kills: " + STR$(kills) + "   " + RankName$(), "CT", 7, 1, cWhite
 TEXT VCX, 115, "Cash: " + STR$(cashTenths / 10) + " Cr", "CT", 7, 1, cWhite
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 END SUB
 SUB DockCheck
 LOCAL INTEGER n
@@ -2841,7 +2841,7 @@ BOX VCX - r * 1.25, VCY - r, r * 2.5, r * 2, 1, cWhite, -1
 NEXT k
 DrawDash
 ViewName
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 NEXT i
 END SUB
 SUB HyperTunnel
@@ -2856,7 +2856,7 @@ CIRCLE VCX, VCY, r, 1, 1.25, c, -1
 NEXT k
 DrawDash
 ViewName
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 NEXT i
 END SUB
 SUB StationPolice
@@ -3276,7 +3276,7 @@ DrawShips
 LINE 0, 0, SCRW - 2, 0, 1, cWhite
 BOX 0, 0, 2, VIEWH, 0, cWhite, cWhite
 BOX SCRW - 2, 0, 2, VIEWH, 0, cWhite, cWhite
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 HangarHold
 ClearSlots
 fillBlack = 0
@@ -3320,7 +3320,7 @@ brWord$ = ""
 brY = BRTOP
 brCol = 0
 IF brShip >= 0 THEN DrawShips
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 END SUB
 SUB BriefRow(r AS INTEGER)
 BriefBreak
@@ -3358,12 +3358,12 @@ IF brLine$ = "" THEN EXIT SUB
 TEXT BRLEFT + brCol * 6, brY, brLine$, "LT", 7, 1, cWhite
 brY = brY + BRROW
 brLine$ = ""
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 END SUB
 SUB BriefIncoming
 CLS
 TEXT VCX, 80, "INCOMING MESSAGE", "CT", 7, 1, cWhite
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 PAUSE 2000
 BriefPage
 END SUB
@@ -3387,7 +3387,7 @@ sRol(brShip) = 127
 sPit(brShip) = 127
 MoveShips
 DrawShips
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 END SUB
 SUB BriefWait
 IF DEMOFRAMES > 0 THEN BriefShot : EXIT SUB
@@ -3659,7 +3659,7 @@ t$ = ""
 DO
 MarketScreen i
 TEXT VCX, SCRH - 9, p$ + t$ + "_", "CT", 7, 1, cYellow
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 k = DockKey()
 IF k = 27 THEN EXIT SUB
 IF k = 13 THEN EXIT DO
@@ -3745,7 +3745,7 @@ DO
 BOX 44, 92, 232, 52, 1, cWhite, cBlack
 TEXT VCX, 102, "WHICH MOUNT?", "CT", 7, 1, cWhite
 TEXT VCX, 122, "F1 fore  F2 aft  F3 left  F4 right", "CT", 7, 1, cYellow
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 k = DockKey()
 IF k = 27 THEN demoAsk = 0 : AskView = -1 : EXIT FUNCTION
 LOOP UNTIL k >= 145 AND k <= 148
@@ -3858,7 +3858,7 @@ LINE 24, 190, SCRW - 25, 190, 1, cCyan
 TEXT VCX, 202, "PRESS ANY KEY TO PLAY", "CT", 7, 1, cYellow
 TEXT VCX, 218, "H FOR THE CONTROLS", "CT", 7, 1, cCyan
 ENDIF
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 END SUB
 SUB DrawControls
 LOCAL INTEGER y
@@ -3891,7 +3891,7 @@ KeyLine y, "F1 Launch", "F2 buy, F3 sell" : y = y + 9
 KeyLine y, "F4 Equip ship", "SPACE buys one" : y = y + 9
 KeyLine y, "F fills the tank", "S save, L load" : y = y + 9
 TEXT VCX, SCRH - 9, "any key goes back", "CT", 7, 1, cDim
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 END SUB
 SUB ControlsScreen
 LOCAL INTEGER k
@@ -3985,7 +3985,7 @@ ENDIF
 prof(5) = prof(5) + TIMER - tStage
 DrawFrame
 IF demoMode THEN DemoCaption
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 IF kPause THEN PauseGame
 frames = frames + 1
 LOOP UNTIL dead OR docked
@@ -3999,12 +3999,12 @@ SUB PauseGame
 LOCAL INTEGER k
 DO
 TEXT VCX, VIEWH - 12, "PAUSED", "CT", 7, 1, cWhite
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 k = WaitKey(0)
 IF k <> 68 AND k <> 100 THEN EXIT DO
 tick = 0
 DrawFrame
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 shotNo = shotNo + 1
 SAVE IMAGE homeDir$ + "SCREEN" + STR$(shotNo) + ".BMP"
 LOOP
@@ -4044,7 +4044,7 @@ dirty = 1
 DO
 IF dirty THEN
 DrawDocked
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 dirty = 0
 ENDIF
 k = DockKey()
@@ -4121,7 +4121,7 @@ DO
 DrawDocked
 BOX 0, SCRH - 12, SCRW, 12, 0, cBlack, cBlack
 TEXT VCX, SCRH - 9, p$ + t$ + "_", "CT", 7, 1, cYellow
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 k = DockKey()
 IF k = 27 THEN AskText$ = "" : EXIT FUNCTION
 IF k = 13 THEN EXIT DO
@@ -4245,7 +4245,7 @@ CASE 5 : StatusScreen
 CASE 6 : InventoryScreen
 END SELECT
 DockFooter "F5-F10 screens   arrows move   F1-F4 back"
-PAGE COPY 2 TO 0
+FRAMEBUFFER COPY F, N
 dirty = 0
 ENDIF
 k = DockKey()
