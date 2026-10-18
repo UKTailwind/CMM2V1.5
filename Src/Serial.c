@@ -59,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "tusb.h"
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart4;
@@ -118,6 +119,143 @@ extern volatile int ConsoleTxBufTail;
 
 uint16_t Rx2Buffer;
 extern uint8_t RxBuffer, TxBuffer;
+
+// USB serial devices, COM4-COM7: TinyUSB's CDC host, which drives the USB-UART bridges (FTDI, CP210x, CH34x,
+// PL2303) through the same calls.  COMn is the interface TinyUSB numbers n-4, in the order they were plugged in.
+// The callbacks run inside tuh_task(), in the main thread, as does everything else here, so the ring buffers need no
+// interrupt masking.  A device unplugged while its port is open leaves the port open; plugged back in, it is set up
+// again as OPEN set it up (CdcService).  As on the PicoMite, where they are COM3-COM6.
+struct s_cdccom CdcCom[CDC_PORTS];
+void USBMessage(const char *m);                                     // printed once tuh_task() has returned (USBKeyboard.c)
+
+// A port opened AS GPS: its bytes go from the ring buffer to the NMEA line assembler, as the UART interrupts put them
+// (stm32h7xx_it.c), but only while no finished line waits for processgps() and none is being parsed.  A USB packet
+// can hold more than one line, and the assembler keeps just one.  processgps() calls this again after each parse, as
+// the PicoMite does for its Bluetooth GPS on COM7 (8c1dffc).
+void CdcGpsFeed(void) {
+	if(GPSchannel < CDC_FIRST_COM) return;
+	struct s_cdccom *p = &CdcCom[GPSchannel - CDC_FIRST_COM];
+	if(!p->open || p->Rx_buf == NULL) return;
+	while(gpsready == NULL && !GPSbusy && p->Rx_head != p->Rx_tail) {
+		char cc = p->Rx_buf[p->Rx_tail];
+		p->Rx_tail = (p->Rx_tail + 1) % p->buf_size;
+		*gpsbuf = cc;
+		gpsbuf++;
+		gpscount++;
+		if(cc == 10 || gpscount == 127) {
+			*gpsbuf = 0;
+			gpscount = 0;
+			if(gpscurrent) { gpscurrent = 0; gpsbuf = gpsbuf1; gpsready = gpsbuf2; }
+			else { gpscurrent = 1; gpsbuf = gpsbuf2; gpsready = gpsbuf1; }
+		}
+	}
+}
+
+// The line coding and DTR/RTS that OPEN asked for.  The calls block (TinyUSB runs itself until the device answers);
+// a request never sent (an ACM device that declares no line-state support) leaves its result XFER_RESULT_INVALID and
+// is not an error.  Returns what the device refused, or NULL, and *res how it refused it.
+static const char *CdcLineSetup(int idx, xfer_result_t *res) {
+	struct s_cdccom *p = &CdcCom[idx];
+	cdc_line_coding_t coding = {p->baud, p->stop_bits, p->parity, p->data_bits};
+	*res = XFER_RESULT_INVALID;
+	if(!tuh_cdc_set_line_coding(idx, &coding, NULL, (uintptr_t)res) && *res == XFER_RESULT_INVALID)
+		tuh_cdc_set_baudrate(idx, p->baud, NULL, (uintptr_t)res);
+	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "the baud rate";
+	*res = XFER_RESULT_INVALID;
+	tuh_cdc_set_control_line_state(idx, CDC_CONTROL_LINE_STATE_DTR | CDC_CONTROL_LINE_STATE_RTS, NULL, (uintptr_t)res);
+	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "DTR/RTS";
+	return NULL;
+}
+
+static const char *CdcBridge(uint16_t vid) {
+	switch(vid) {
+		case 0x0403: return "FTDI";
+		case 0x10C4: return "CP210x";
+		case 0x1A86: return "CH34x";
+		case 0x067B: return "PL2303";
+		default:     return "CDC";
+	}
+}
+
+void tuh_cdc_mount_cb(uint8_t idx) {
+	if(idx >= CDC_PORTS) return;
+	char m[80];
+	uint16_t vid = 0, pid = 0;
+	tuh_itf_info_t info;
+	if(tuh_cdc_itf_get_info(idx, &info)) tuh_vid_pid_get(info.daddr, &vid, &pid);
+	strcpy(m, "USB serial device (");
+	strcat(m, CdcBridge(vid));
+	strcat(m, ") Connected as COM");
+	IntToStr(m + strlen(m), idx + CDC_FIRST_COM, 10);
+	strcat(m, "\r\n> ");
+	USBMessage(m);
+	if(CdcCom[idx].open) CdcCom[idx].setup = true;                  // plugged back in while open
+}
+
+void tuh_cdc_umount_cb(uint8_t idx) {
+	if(idx >= CDC_PORTS) return;
+	char m[48];
+	strcpy(m, "USB serial device Disconnected from COM");
+	IntToStr(m + strlen(m), idx + CDC_FIRST_COM, 10);
+	strcat(m, "\r\n> ");
+	USBMessage(m);
+}
+
+void tuh_cdc_rx_cb(uint8_t idx) {
+	uint8_t buf[64];
+	uint32_t count;
+	struct s_cdccom *p = idx < CDC_PORTS ? &CdcCom[idx] : NULL;
+	if(p == NULL || !p->open || p->Rx_buf == NULL) {                // not open: take them anyway so the device is not held up
+		while(tuh_cdc_read(idx, buf, sizeof(buf)) > 0);
+		return;
+	}
+	bool got = false;
+	while((count = tuh_cdc_read(idx, buf, sizeof(buf))) > 0) {
+		got = true;
+		for(uint32_t i = 0; i < count; i++) {
+			p->Rx_buf[p->Rx_head] = buf[i];
+			p->Rx_head = (p->Rx_head + 1) % p->buf_size;
+			if(p->Rx_head == p->Rx_tail) p->Rx_tail = (p->Rx_tail + 1) % p->buf_size; // full: throw away the oldest
+		}
+	}
+	if(GPSchannel == idx + CDC_FIRST_COM) CdcGpsFeed();
+	else if(got && p->interrupt != NULL && SerialRxStatus(idx + CDC_FIRST_COM) >= p->ilevel) IntSignal();
+}
+
+void tuh_cdc_tx_complete_cb(uint8_t idx) {
+	if(idx >= CDC_PORTS) return;
+	struct s_cdccom *p = &CdcCom[idx];
+	if(p->open && p->TX_interrupt != NULL && tuh_cdc_write_available(idx) == CFG_TUH_CDC_TX_BUFSIZE) {
+		p->TX_complete = true;                                      // all of it sent
+		IntSignal();
+	}
+}
+
+// From CheckKeyboard(), after tuh_task(): set up a device plugged back in while its port was open, and take the
+// next NMEA line of a port opened AS GPS
+void CdcService(void) {
+	for(int i = 0; i < CDC_PORTS; i++)
+		if(CdcCom[i].setup) {
+			CdcCom[i].setup = false;
+			xfer_result_t res;
+			if(CdcCom[i].open && tuh_cdc_mounted(i)) CdcLineSetup(i, &res);
+		}
+	CdcGpsFeed();
+}
+
+// The interrupt due from COM4-COM7, if any (check_interrupt)
+char *CdcInterrupt(void) {
+	for(int i = 0; i < CDC_PORTS; i++) {
+		struct s_cdccom *p = &CdcCom[i];
+		if(!p->open) continue;
+		if(p->interrupt != NULL && SerialRxStatus(i + CDC_FIRST_COM) >= p->ilevel) return p->interrupt;
+		if(p->TX_interrupt != NULL && p->TX_complete) {
+			p->TX_complete = false;
+			return p->TX_interrupt;
+		}
+	}
+	return NULL;
+}
 
 void start_console(void){
 	  if(Option.ConsolePort==3){
@@ -491,6 +629,41 @@ void SerialOpen(char *spec) {
     HAL_NVIC_EnableIRQ(USART1_IRQn);
     huart1.Instance->CR1 |= USART_CR1_RXNEIE;
     com3 = true;
+	} else if (spec[3] >= '0' + CDC_FIRST_COM && spec[3] < '0' + CDC_FIRST_COM + CDC_PORTS) {
+	///////////////////////////////// this is COM4-COM7, a USB serial device ////////////////////////////////////
+		int comnbr = spec[3] - '0', idx = comnbr - CDC_FIRST_COM;
+		struct s_cdccom *p = &CdcCom[idx];
+		char m[64];
+		if(p->open) error("Already open");
+		if(oc || de || inv) error("Not available on COM%", comnbr);
+		if(!tuh_cdc_mounted(idx)) error("No USB serial device for COM%", comnbr);
+		p->buf_size = bufsize;
+		p->interrupt = interrupt;
+		p->ilevel = ilevel;
+		p->TX_interrupt = TXinterrupt;
+		p->TX_complete = false;
+		p->Rx_buf = GetMemory(bufsize);
+		p->Rx_head = p->Rx_tail = 0;
+		p->baud = baud;
+		p->stop_bits = s2 ? CDC_LINE_CODING_STOP_BITS_2 : CDC_LINE_CODING_STOP_BITS_1;
+		p->parity = parity == 1 ? CDC_LINE_CODING_PARITY_EVEN : parity == 2 ? CDC_LINE_CODING_PARITY_ODD : CDC_LINE_CODING_PARITY_NONE;
+		p->data_bits = b7 ? 7 : 8;
+		p->setup = false;
+		tuh_cdc_read_clear(idx);                                    // nothing from before it was opened
+		p->open = true;
+		xfer_result_t res;
+		const char *refused = CdcLineSetup(idx, &res);
+		if(refused) {                                               // undone without asking the device anything more
+			p->open = false;
+			p->interrupt = p->TX_interrupt = NULL;
+			FreeMemorySafe((void *)&p->Rx_buf);
+			strcpy(m, "COM");
+			IntToStr(m + strlen(m), comnbr, 10);
+			strcat(m, ": the USB device did not accept ");
+			strcat(m, refused);
+			strcat(m, res == XFER_RESULT_STALLED ? " (it stalled)" : res == XFER_RESULT_TIMEOUT ? " (no answer)" : " (it failed)");
+			error(m);
+		}
 	} else error("Invalid COM port");
 }
 
@@ -536,6 +709,16 @@ void SerialClose(int comnbr) {
 		FreeMemorySafe((void *)&com3Rx_buf);
 		FreeMemorySafe((void *)&com3Tx_buf);
 	}
+
+	else if(comnbr >= CDC_FIRST_COM && comnbr < CDC_FIRST_COM + CDC_PORTS && CdcCom[comnbr - CDC_FIRST_COM].open) {
+		int idx = comnbr - CDC_FIRST_COM;
+		struct s_cdccom *p = &CdcCom[idx];
+		p->open = false;
+		p->interrupt = p->TX_interrupt = NULL;
+		p->setup = false;
+		if(tuh_cdc_mounted(idx)) tuh_cdc_set_control_line_state(idx, 0, NULL, 0);  // DTR and RTS down
+		FreeMemorySafe((void *)&p->Rx_buf);
+	}
 }
 
 
@@ -571,6 +754,17 @@ unsigned char SerialPutchar(int comnbr, unsigned char c) {
 	        huart1.Instance->CR1 |= USART_CR1_TCIE;
 		}
 	}
+	else if(comnbr >= CDC_FIRST_COM && comnbr < CDC_FIRST_COM + CDC_PORTS) {
+		int idx = comnbr - CDC_FIRST_COM;                           // written as it comes, a byte lost while unplugged
+		while(tuh_cdc_mounted(idx) && tuh_cdc_write_available(idx) == 0) {
+			tuh_task();                                             // the device takes what was written
+			CheckAbort();
+		}
+		if(tuh_cdc_mounted(idx)) {
+			tuh_cdc_write(idx, &c, 1);
+			tuh_cdc_write_flush(idx);
+		}
+	}
 	return c;
 }
 
@@ -600,6 +794,13 @@ int SerialRxStatus(int comnbr) {
 	    huart1.Instance->CR1 |= USART_CR1_RXNEIE;
 		if(i < 0) i += com3_buf_size;
 	}
+	else if(comnbr >= CDC_FIRST_COM && comnbr < CDC_FIRST_COM + CDC_PORTS) {
+		struct s_cdccom *p = &CdcCom[comnbr - CDC_FIRST_COM];
+		if(p->open && p->Rx_buf != NULL) {
+			i = p->Rx_head - p->Rx_tail;
+			if(i < 0) i += p->buf_size;
+		}
+	}
 
 	return i;
 }
@@ -626,6 +827,10 @@ int SerialTxStatus(int comnbr) {
 	else if(comnbr == 3) {
 		i = com3Tx_head - com3Tx_tail;
 		if(i < 0) i += TX_BUFFER_SIZE;
+	}
+	else if(comnbr >= CDC_FIRST_COM && comnbr < CDC_FIRST_COM + CDC_PORTS) {
+		int idx = comnbr - CDC_FIRST_COM;
+		if(tuh_cdc_mounted(idx)) i = CFG_TUH_CDC_TX_BUFSIZE - tuh_cdc_write_available(idx);   // (TX_BUFFER_SIZE, tusb_config.h)
 	}
 	return i;
 }
@@ -664,6 +869,13 @@ int SerialGetchar(int comnbr) {
  			com3Rx_tail = (com3Rx_tail + 1) % com3_buf_size;        // and remove from the buffer
 		}
 	    huart1.Instance->CR1 |= USART_CR1_RXNEIE;
+	}
+	else if(comnbr >= CDC_FIRST_COM && comnbr < CDC_FIRST_COM + CDC_PORTS) {
+		struct s_cdccom *p = &CdcCom[comnbr - CDC_FIRST_COM];
+		if(p->open && p->Rx_buf != NULL && p->Rx_head != p->Rx_tail) {
+			c = p->Rx_buf[p->Rx_tail];
+			p->Rx_tail = (p->Rx_tail + 1) % p->buf_size;
+		}
 	}
 	return c;
 }

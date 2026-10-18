@@ -1431,13 +1431,14 @@ void MIPS16 OtherOptions(void) {
 		goto saveandreset;
 	}
 
-    tp = checkstring(cmdline, "MOUSE SENSITIVITY");                // a USB mouse's divisor (the PicoMite's: 0 is the boot reports)
-	if(tp) {
-	    if(CurrentLinePtr) error("Invalid in a program");
+    tp = checkstring(cmdline, "MOUSE SENSITIVITY");                // a USB mouse's divisor (0: 1), read with each report: the
+	if(tp) {                                                        // mouse is always in the report protocol now, so no restart
+	    if(CurrentLinePtr) error("Invalid in a program");          // (Peter, 18 Oct)
 		float sp = getnumber(tp);
 		if(sp < 0.0f || sp > 1000.0f) error("Number out of bounds");
 		memcpy((void *)Option.mousespeed, &sp, sizeof(float));
-		goto saveandreset;
+		SaveOptions(1);
+		return;
 	}
     tp = checkstring(cmdline, "MOUSE");
 	if(tp) {

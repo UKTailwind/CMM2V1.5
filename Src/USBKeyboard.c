@@ -68,6 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Hardware_Includes.h"
 #include "tusb.h"
 #include "KeyboardMap.h"
+#include "USBGamepad.h"
 
 volatile struct s_HID HID[HID_SLOTS] = {0};
 static uint8_t Current_USB_devices = 0;     /* slots in use */
@@ -240,6 +241,7 @@ static void hid_app_task(void)
 			}
 		}
 	}
+	USBGamepadTask(); /* a PS4's light bar and motors */
 }
 
 /* tuh_task() must not run inside itself; the guard is a second line of
@@ -252,6 +254,7 @@ void CheckKeyboard(void)
 	busy = true;
 	tuh_task();
 	hid_app_task();
+	CdcService();
 	usblog_drain();
 	busy = false;
 	if (usbmsg[0])
@@ -261,6 +264,7 @@ void CheckKeyboard(void)
 		usbmsg[0] = 0;
 		MMPrintString(m);
 	}
+	USBGamepadService(); /* GAMEPAD MONITOR's lines */
 }
 
 //--------------------------------------------------------------------+
@@ -293,6 +297,13 @@ static int FindFreeSlot(uint8_t itf_protocol)
 		return 0;
 	if (itf_protocol == HID_ITF_PROTOCOL_MOUSE && !HID[1].active)
 		return 1; /* a mouse is channel 2, as on the PicoMite */
+	if (itf_protocol == HID_ITF_PROTOCOL_NONE)
+	{ /* a gamepad: channel 3, then 4, as on the PicoMite */
+		if (!HID[2].active)
+			return 2;
+		if (!HID[3].active)
+			return 3;
+	}
 	for (int i = HID_SLOTS - 1; i >= 0; i--)
 	{
 		if (!HID[i].active)
@@ -309,8 +320,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 	uint8_t itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 	if (itf_protocol == HID_ITF_PROTOCOL_MOUSE)
 	{ /* a mouse (USBMouse.c): channel 2, and only while no other mouse is open (one at a time) */
-		char m[80];
-		float sp;
+		char m[160];
 		int slot, open = MouseOpenChannel();
 		if (UsbMouse)
 			return; /* a second mouse, or a second mouse interface of the same one */
@@ -330,33 +340,60 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 		HID[slot].Device_address = dev_addr;
 		HID[slot].Device_instance = instance;
 		HID[slot].Device_type = HID_ITF_PROTOCOL_MOUSE;
-		HID[slot].report_rate = 20; // mSec between reports
+		HID[slot].report_rate = 10; // a mouse: every 10 ms, as a PS/2 mouse streams (Peter, 18 Oct)
 		HID[slot].report_timer = -(10 + (slot + 2) * 500);
 		HID[slot].report_requested = false;
 		HID[slot].mouse_type = MOUSE_TYPE_STANDARD_8BIT;
 		memset((void *)&HID[slot].mouse_info, 0, sizeof(mouse_info_t));
-		memcpy(&sp, (const void *)Option.mousespeed, sizeof(float));
-		if (sp > 0.0f && sp <= 1000.0f)
-		{ /* OPTION MOUSE SENSITIVITY: the report protocol, decoded by the descriptor's layout (the wheel) */
-			mouse_info_t mi;
-			if (desc_len > 0 && desc_report != NULL)
-			{
-				HID[slot].mouse_type = analyze_mouse_descriptor(desc_report, desc_len, &mi);
-				memcpy((void *)&HID[slot].mouse_info, &mi, sizeof(mouse_info_t));
-			}
-			tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
+		mouse_info_t mi;                                              /* its own layout, by which its reports are read */
+		memset(&mi, 0, sizeof(mi));
+		if (desc_len > 0 && desc_report != NULL)
+		{
+			HID[slot].mouse_type = analyze_mouse_descriptor(desc_report, desc_len, &mi);
+			memcpy((void *)&HID[slot].mouse_info, &mi, sizeof(mouse_info_t));
 		}
+		/* always the report protocol (Peter, 18 Oct): the wheel is in its reports, and X and Y at the mouse's own width; in the
+		   boot protocol they are a byte each, and a fast mouse that sends the low byte of what it counted wraps */
+		tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
 		USBMouseAttached(slot);
 		HID[slot].active = true;
 		strcpy(m, "USB Mouse Connected on channel ");
 		IntToStr(m + strlen(m), USBMOUSE_CHANNEL, 10);
-		strcat(m, tuh_speed_get(dev_addr) == TUSB_SPEED_LOW ? " (low speed)\r\n> " : " (full speed)\r\n> ");
+		strcat(m, tuh_speed_get(dev_addr) == TUSB_SPEED_LOW ? " (low speed)" : " (full speed)");
+		if (mi.layout_valid)
+		{ /* the layout its descriptor gives (the PicoMite prints it too) */
+			strcat(m, "\r\n  its reports: X ");
+			IntToStr(m + strlen(m), mi.f_x.bit_size, 10);
+			strcat(m, " bits at bit ");
+			IntToStr(m + strlen(m), mi.f_x.bit_offset, 10);
+			strcat(m, ", Y ");
+			IntToStr(m + strlen(m), mi.f_y.bit_size, 10);
+			strcat(m, " bits at bit ");
+			IntToStr(m + strlen(m), mi.f_y.bit_offset, 10);
+			if (mi.has_wheel)
+				strcat(m, ", a wheel");
+			if (mi.uses_report_id)
+			{
+				strcat(m, ", report ID ");
+				IntToStr(m + strlen(m), mi.report_id, 10);
+			}
+			strcat(m, "\r\n> ");
+		}
+		else
+			strcat(m, "\r\n  no X and Y in its descriptor: its reports read as boot reports\r\n> ");
 		USBMessage(m);
 		Current_USB_devices++;
 		return;
 	}
+	if (itf_protocol == HID_ITF_PROTOCOL_NONE)
+	{ /* a gamepad (USBGamepad.c); any other interface stays unclaimed and its slot free */
+		int slot = FindFreeSlot(itf_protocol);
+		if (slot != -1 && Current_USB_devices < HID_SLOTS && USBGamepadMount(dev_addr, instance, slot))
+			Current_USB_devices++;
+		return;
+	}
 	if (itf_protocol != HID_ITF_PROTOCOL_KEYBOARD)
-		return; /* keyboards and a mouse, for now: leave other interfaces unclaimed */
+		return; /* keyboards, a mouse and gamepads: leave other interfaces unclaimed */
 	/* A keyboard with media keys may have a second interface that also says it is a boot keyboard: its report
 	   descriptor adds n-key rollover, the media (consumer) and system keys, even a mouse, each with a report ID.
 	   In the boot protocol TinyUSB sets, it has nothing to send, and those keys are not processed here, so only
@@ -424,6 +461,11 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 			USBMessage("USB Mouse Disconnected\r\n> ");
 			break;
 		}
+		if (HID[i].active && instance == HID[i].Device_instance && dev_addr == HID[i].Device_address && HID[i].Device_type >= GAMEPAD_PS4)
+		{
+			USBGamepadDetached(i);
+			break;
+		}
 	}
 	if (i < HID_SLOTS)
 	{
@@ -462,6 +504,8 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 		process_kbd_report((hid_keyboard_report_t const *)report, n);
 	else if (HID[n].Device_type == HID_ITF_PROTOCOL_MOUSE)
 		USBMouseReport(report, len, n);
+	else if (HID[n].Device_type >= GAMEPAD_PS4)
+		USBGamepadReport(report, len, n);
 	HID[n].report_requested = false;
 	HID[n].report_timer = 0;
 }

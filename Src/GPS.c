@@ -399,19 +399,20 @@ void fun_GPS(void){
 // The PicoMite's (d18b053): the monitor print inside GPS_parse can scroll the screen, and scrolling calls
 // routinechecks(), which calls processgps() again.  So the line is claimed, and gpsready cleared, before it is
 // parsed, and a nested call returns: the old one parsed the same sentence again until the stack overflowed.
+int GPSbusy = false;                                                // a line is being parsed (the USB serial feed waits)
 void processgps(void){
-    static int busy = false;
     if(GPSTimer>2000){
         GPSvalid=0;
     }
-    if(busy) return;
+    if(GPSbusy) return;
     if(gpsready !=NULL){
         char *line = (char *)gpsready;
         gpsready=NULL;
-        busy = true;
+        GPSbusy = true;
         GPS_parse(line);
         GPSTimer=0;
-        busy = false;
+        GPSbusy = false;
+        CdcGpsFeed();                                               // a USB GPS (COM4-COM7): its next queued line
     }
 }
 uint8_t parseHex(char c) {

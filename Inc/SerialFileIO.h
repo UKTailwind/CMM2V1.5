@@ -74,7 +74,7 @@ extern char MMfputc(char c, int fnbr);
 extern void CloseAllFiles(void);
 extern int MMfeof(int fnbr);
 
-#define MAXCOMPORTS 3
+#define MAXCOMPORTS 7                                               // COM1-COM3, and COM4-COM7 the USB serial devices
 
 #define MAXOPENFILES  10
 union uFileTable {

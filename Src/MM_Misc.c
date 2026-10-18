@@ -3099,6 +3099,8 @@ void fun_info(void){
 		rettype='N';
 	} else if(checkstring(ep, "SEARCH PATH")){
 	    strcpy(sret, (char *)Option.path);
+	} else if(checkstring(ep, "PLATFORM") || checkstring(ep, "SYSTEM I2C")){   // the PicoMite's: what a PicoMite with no OPTION
+	    sret[0] = 0;                                                // PLATFORM and no OPTION SYSTEM I2C says (18 Oct: Picofrog)
 	} else if(checkstring(ep, "VERSION")){
 		//char *p;
 	    //fret = (MMFLOAT)strtol(VERSION, &p, 10);
@@ -3517,7 +3519,7 @@ void fun_peek(void) {
     char *p;
     void *pp;
 	getargs(&ep, 3, ",");
-    if((p = checkstring(argv[0], "BYTE"))){
+    if((p = checkstring(argv[0], "BYTE")) || (p = checkstring(argv[0], "INT8"))){   // (INT8: the tokeniser's spelling of PEEK(BYTE)
         if(argc != 1) error("Syntax");
         iret = *(unsigned char *)GetPeekAddr(p);
         targ = T_INT;
@@ -3838,6 +3840,21 @@ static int PolledSourceArmed(void) {
     for(i = 0; i < NBRINTERRUPTS; i++) if(inttbl[i].pin != 0) return 1;
     return 0;
 }
+// GUI CURSOR LINK MOUSE: the cursor to where the mouse is now. Between statements (check_interrupt), and while the
+// console waits for a key (MMgetchar: at the prompt and in INPUT), where no statement runs: the PicoMite's follows
+// the mouse at the prompt too (Peter, 18 Oct)
+void CursorFollowMouse(void) {
+	if(autocursor && mouseupdated){
+		mouseupdated=0;
+		int mouse=MouseOpenChannel();                               // (the mouse in use: a USB one is channel 2)
+		if(mouse<0) mouse=3;
+		if(mousestruct[mouse].ax!=xcursor || mousestruct[mouse].ay!=ycursor){
+			hidecursor(0);
+			showcursor(0, mousestruct[mouse].ax, mousestruct[mouse].ay);
+		}
+	}
+}
+
 int check_interrupt(void) {
 	int i, v;
 	char *intaddr;
@@ -3849,15 +3866,7 @@ int check_interrupt(void) {
 		}
 		GUITimer1=0;
 	}
-	if(autocursor && mouseupdated){
-		mouseupdated=0;
-		int mouse=MouseOpenChannel();                               // (the mouse in use: a USB one is channel 2)
-		if(mouse<0) mouse=3;
-		if(mousestruct[mouse].ax!=xcursor || mousestruct[mouse].ay!=ycursor){
-			hidecursor(0);
-			showcursor(0, mousestruct[mouse].ax, mousestruct[mouse].ay);
-		}
-	}
+	CursorFollowMouse();
 
     ProcessTouch();                                             // check GUI touch
     if(CheckGuiFlag) CheckGui();                                // This implements a LED flash
@@ -3920,6 +3929,8 @@ int check_interrupt(void) {
 			goto GotAnInterrupt;
 		}
     }
+    if((intaddr = CdcInterrupt()) != NULL) goto GotAnInterrupt;     // COM4-COM7, the USB serial devices
+    if((intaddr = GamepadInterrupt()) != NULL) goto GotAnInterrupt; // GAMEPAD INTERRUPT ENABLE's (USBGamepad.c)
     if(gui_int_down && GuiIntDownVector) {                          // interrupt on pen down
         intaddr = GuiIntDownVector;                                 // get a pointer to the interrupt routine
         gui_int_down = false;

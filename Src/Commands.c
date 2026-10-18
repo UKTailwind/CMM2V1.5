@@ -474,11 +474,11 @@ void command_print(char *cmd) {
             }
             i=xsum/16;
             i=i+'0';
-            if(i>'9')i=i-'0'+'A';
+            if(i>'9')i=i-'0'-10+'A';                          // (10-15 as A-F: it was i-'0'+'A', K-P; PicoMite #40)
             SerialPutchar(GPSchannel, i);
             i=xsum % 16;
             i=i+'0';
-            if(i>'9')i=i-'0'+'A';
+            if(i>'9')i=i-'0'-10+'A';
             SerialPutchar(GPSchannel, i);
             SerialPutchar(GPSchannel, 13);
             SerialPutchar(GPSchannel, 10);

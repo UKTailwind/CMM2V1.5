@@ -3545,6 +3545,7 @@ void SerialConsolePutC(int c) {
 		    do {
 //		       ProcessTouch();
 		       ShowCursor(1);
+		       CursorFollowMouse();                                   // (a linked GUI cursor follows the mouse here too)
 		       c = MMInkey();
 		       if(update && Option.showstatus)PrintStatus(0);
 		    } while(c == -1);

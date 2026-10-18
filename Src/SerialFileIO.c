@@ -93,7 +93,7 @@ void cmd_open(void) {
             FileOpen(fname, argv[2], argv[4]);
             return;
         }
-        if(!(mem_equal(fname, "COM1:", 5) || mem_equal(fname, "COM2:", 5) || mem_equal(fname, "COM3:", 5)))  error("Invalid COM port");
+        if(!(mem_equal(fname, "COM", 3) && fname[3] >= '1' && fname[3] <= '0' + MAXCOMPORTS && fname[4] == ':'))  error("Invalid COM port");
         if((*argv[2] == 'G') || (*argv[2] == 'g')){
             MMFLOAT timeadjust=0.0;
             argv[2]++;
@@ -110,9 +110,7 @@ void cmd_open(void) {
             fnbr = FindFreeFileNbr();
             GPSfnbr=fnbr;
             FileTable[fnbr].com = fname[3] - '0';
-            if(mem_equal(fname, "COM1:", 5))GPSchannel=1;
-            if(mem_equal(fname, "COM2:", 5))GPSchannel=2;
-            if(mem_equal(fname, "COM3:", 5))GPSchannel=3;
+            GPSchannel=fname[3] - '0';
             gpsbuf=gpsbuf1;
             gpscurrent=0;
             gpscount=0;

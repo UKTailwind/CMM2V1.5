@@ -105,6 +105,7 @@ void cmd_chain(void);
 void cmd_drive(void);
 void cmd_library(void);
 void cmd_usbmouse(void);
+void cmd_gamepad(void);
 void fun_device_fn(void);
 void cmd_tilemap(void);
 void fun_tilemap(void);
@@ -535,6 +536,7 @@ void op_inv(void);
 	{ "Mouse",		    T_CMD,				0, cmd_usbmouse	},      // MOUSE INTERRUPT ENABLE/DISABLE n, MOUSE SET n, x, y [, w] (USBMouse.c)
 	{ "Tilemap",	    T_CMD,				0, cmd_tilemap	},      // TILEMAP CREATE/LOAD/ATTR/SET/DRAW/SCROLL/VIEW/DESTROY/CLOSE/SPRITE (TileMap.c)
 	{ "Flash",		    T_CMD,				0, cmd_flash	},      // FLASH LOAD IMAGE n, f$ [, O]: an image slot (ImageSlots.c)
+	{ "Gamepad",	    T_CMD,				0, cmd_gamepad	},      // GAMEPAD INTERRUPT/MONITOR/CONFIGURE/HAPTIC/COLOUR (USBGamepad.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
@@ -672,7 +674,7 @@ void op_inv(void);
 	{ "GPS(",	    T_FUN | T_NBR | T_INT| T_STR,		0, fun_GPS	},       // its entry in GPS.h was never in this table
 	{ "Struct(",	    T_FUN | T_INT,		0, fun_struct	},
 	{ "BitByteFlag(",      T_FUN | T_INT,		0, fun_bitbyteflag },      // BIT( BYTE( FLAG(: one token, the selector 1, 2 or 3 first
-	{ "Device(",	    T_FUN | T_INT,		0, fun_device_fn	},      // DEVICE(MOUSE n, k): the PicoMite's (USBMouse.c)
+	{ "Device(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_device_fn	},      // DEVICE(MOUSE n, k), DEVICE(GAMEPAD n, k): the PicoMite's (RAW is a string)
 	{ "Tilemap(",	    T_FUN | T_INT,		0, fun_tilemap	},      // TILEMAP(TILE|COLLISION|ATTR|VIEWX|VIEWY|COLS|ROWS|SPRITE ...) (TileMap.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif

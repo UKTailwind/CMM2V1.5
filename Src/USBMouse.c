@@ -4,8 +4,12 @@ I2C mouse is open a USB mouse is ignored, and while a USB mouse is attached no o
 
 Its state is mousestruct[2], in the PicoMite's nunstruct meanings, which the CMM2's PS/2 and I2C mice now use too: ax, ay
 the position (clamped to the screen), az the wheel's count, L R C the left, right and middle buttons, Z a double click
-(read once), x0 the buttons' bitmap. The reports are the boot protocol's (buttons, X, Y, wheel) unless OPTION MOUSE
-SENSITIVITY is set, when the report descriptor's layout is used (analyze_mouse_descriptor) and the movement divided by it.
+(read once), x0 the buttons' bitmap. The mouse is put in the report protocol (18 Oct, Peter: the wheel is only in its
+reports) and its reports read by its descriptor's layout (analyze_mouse_descriptor), X and Y at its own width; a boot
+report holds them in a byte each, which a fast mouse that sends the low byte of its count wraps (+130 arrives as -126).
+It is asked for a report every 10 ms (USBKeyboard.c), as a PS/2 mouse streams. The movement is halved as on the
+PicoMite and divided by OPTION MOUSE SENSITIVITY (unset or 0: 1), the fraction of a pixel a report leaves kept for the
+next.
 
 DEVICE(MOUSE n, X|Y|L|R|M|W|B|D|T) reads the mouse in use whatever it is (0 when there is none), so a PicoMite program
 reads any of them on channel 2; MOUSE INTERRUPT ENABLE n, sub (any button change or double click), MOUSE INTERRUPT
@@ -17,6 +21,7 @@ kept (CONTROLLER MOUSE OPEN 2 sets the USB mouse's interrupts; its left, right a
 #include "tusb.h"
 #include "keyboard.h"
 #include "USBMouse.h"
+#include "USBGamepad.h"
 
 extern volatile struct s_nunstruct mousestruct[4];
 extern volatile int mouse0, mouse1, mouse2, mouse3;
@@ -196,7 +201,9 @@ mouse_report_type_t analyze_mouse_descriptor(const uint8_t *desc_report, uint16_
 }
 
 /* ---- the state (the PicoMite's process_mouse_input, into mousestruct[2]) ------------------------------------------- */
-static void MouseInput(int16_t dx, int16_t dy, int8_t wheel, uint8_t buttons) {
+static float RemX, RemY;                                            // the fractions of a pixel the last reports left
+// a report's movement dx, dy in the mouse's counts, scale pixels a count
+static void MouseInput(int dx, int dy, int8_t wheel, uint8_t buttons, float scale) {
     static uint64_t leftpress = 0;
     static uint8_t leftstate = 0;
     volatile struct s_nunstruct *m = &mousestruct[USBMOUSE_CHANNEL];
@@ -220,12 +227,16 @@ static void MouseInput(int16_t dx, int16_t dy, int8_t wheel, uint8_t buttons) {
     m->C = (buttons & 4) ? 1 : 0;
     TOUCH_DOWN = m->L;                                              // (the GUI controls' touch, as the CMM2's other mice)
     int xmax = HRes > 0 ? HRes : 1024, ymax = VRes > 0 ? VRes : 1024;
-    m->ax += dx / 2;
-    if(m->ax >= xmax) m->ax = xmax - 1;
-    if(m->ax < 0) m->ax = 0;
-    m->ay += dy / 2;
-    if(m->ay >= ymax) m->ay = ymax - 1;
-    if(m->ay < 0) m->ay = 0;
+    float fx = RemX + (float)dx * scale, fy = RemY + (float)dy * scale;
+    int ix = (int)fx, iy = (int)fy;                                 // (whole pixels, toward zero: the rest is kept)
+    RemX = fx - (float)ix;
+    RemY = fy - (float)iy;
+    m->ax += ix;
+    if(m->ax >= xmax) { m->ax = xmax - 1; RemX = 0.0f; }
+    if(m->ax < 0) { m->ax = 0; RemX = 0.0f; }
+    m->ay += iy;
+    if(m->ay >= ymax) { m->ay = ymax - 1; RemY = 0.0f; }
+    if(m->ay < 0) { m->ay = 0; RemY = 0.0f; }
     m->az += wheel;
     if(m->x0 != buttons) {                                          // any button changed: MOUSE INTERRUPT ENABLE's interrupt
         MouseIntAnyFound = 1;
@@ -255,8 +266,8 @@ void USBMouseReport(uint8_t const *report, uint16_t len, int slot) {
     if(proto == HID_PROTOCOL_BOOT || !mi.layout_valid) {            // the boot layout: buttons, X, Y [, wheel]
         if(len < 3) return;
         buttons = report[0];
-        dx = (int)((float)(int8_t)report[1] / sp);
-        dy = (int)((float)(int8_t)report[2] / sp);
+        dx = (int8_t)report[1];
+        dy = (int8_t)report[2];
         if(len > 3) wheel = (int8_t)report[3];
     } else {
         if(mi.uses_report_id) {
@@ -266,17 +277,18 @@ void USBMouseReport(uint8_t const *report, uint16_t len, int slot) {
         }
         if(len < mi.min_len) return;
         buttons = (uint8_t)mouse_field_value(report, &mi.f_buttons);
-        dx = (int)((float)mouse_field_value(report, &mi.f_x) / sp);
-        dy = (int)((float)mouse_field_value(report, &mi.f_y) / sp);
+        dx = mouse_field_value(report, &mi.f_x);
+        dy = mouse_field_value(report, &mi.f_y);
         wheel = mouse_field_value(report, &mi.f_wheel);
     }
-    MouseInput((int16_t)dx, (int16_t)dy, (int8_t)wheel, buttons);
+    MouseInput(dx, dy, (int8_t)wheel, buttons, 0.5f / sp);           // (halved, as the PicoMite's, and divided by the option)
 }
 
 // the mouse in HID slot 'slot' has been set up (USBKeyboard.c): it is channel 2 from now on
 void USBMouseAttached(int slot) {
     volatile struct s_nunstruct *m = &mousestruct[USBMOUSE_CHANNEL];
     memset((void *)m, 0, sizeof(struct s_nunstruct));
+    RemX = RemY = 0.0f;
     m->ax = (HRes > 0 ? HRes : 1024) / 2;                           // (the CMM2's PS/2 mouse starts at the centre too)
     m->ay = (VRes > 0 ? VRes : 1024) / 2;
     UsbMouse = slot + 1;
@@ -347,6 +359,10 @@ void fun_device_fn(void) {
         } else if(checkstring(k, "T")) iret = c < 0 ? 0 : m->classic[0];
         else error("Syntax");
         targ = T_INT;
+        return;
+    }
+    if((tp = checkstring(ep, "GAMEPAD"))) {                         // DEVICE(GAMEPAD n, funct) (USBGamepad.c)
+        USBGamepadDevice(tp);
         return;
     }
     error("Syntax");

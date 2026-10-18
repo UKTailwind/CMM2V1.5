@@ -112,6 +112,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 	extern uint16_t Rx2Buffer;
 
+	// USB serial devices (Serial.c): COM4-COM7 are TinyUSB's CDC interfaces 0-3
+	#define CDC_FIRST_COM 4
+	#define CDC_PORTS     4
+	struct s_cdccom {
+		int open;															// true while OPEN has it, plugged in or not
+		int buf_size;														// size of the receive buffer
+		char *interrupt, *TX_interrupt;										// the interrupt routines
+		int ilevel;															// chars in the buffer for an interrupt
+		volatile int TX_complete;
+		unsigned char *Rx_buf;												// the receive ring buffer
+		volatile int Rx_head, Rx_tail;
+		uint32_t baud;														// as OPEN asked for it
+		uint8_t stop_bits, parity, data_bits;								// (in CDC's line coding)
+		volatile int setup;													// plugged back in while open: set it up again
+	};
+	extern struct s_cdccom CdcCom[CDC_PORTS];
+	extern char *CdcInterrupt(void);
+	extern void CdcService(void);
+	extern void CdcGpsFeed(void);
+
 
 
 // global functions

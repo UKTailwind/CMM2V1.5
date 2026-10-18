@@ -87,6 +87,7 @@ extern volatile char *gpsbuf;
 extern volatile char gpscount;
 extern volatile int gpscurrent;
 extern volatile char *gpsready;
+extern int GPSbusy;
 extern int gpsmonitor;
 extern MMFLOAT GPSlatitude;
 extern MMFLOAT GPSlongitude;

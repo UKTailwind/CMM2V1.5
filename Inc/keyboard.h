@@ -26,7 +26,7 @@ typedef struct s_HID
 {
 	uint8_t Device_address;
 	uint8_t Device_instance;
-	uint8_t Device_type;            /* HID_ITF_PROTOCOL_KEYBOARD, or 0 when the slot is free */
+	uint8_t Device_type;            /* HID_ITF_PROTOCOL_KEYBOARD or _MOUSE, a GAMEPAD_ type (USBGamepad.h), 0 when free */
 	uint8_t report_rate;
 	int16_t report_timer;
 	uint16_t vid;

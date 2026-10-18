@@ -88,6 +88,14 @@ extern "C" {
 #define CFG_TUH_HID_EPOUT_BUFSIZE   64
 #define CFG_TUH_TASK_QUEUE_SZ       64
 #define CFG_TUH_MSC                 1                   // USB flash drives, as C: (USBDrive.c)
+#define CFG_TUH_CDC                 4                   // USB serial devices, as COM4-COM7 (Serial.c)
+#define CFG_TUH_CDC_FTDI            1                   // the vendor USB-UART bridges, through the same CDC calls
+#define CFG_TUH_CDC_CP210X          1
+#define CFG_TUH_CDC_CH34X           1
+#define CFG_TUH_CDC_PL2303          1                   // Prolific, common in GPS receivers
+#define CFG_TUH_CDC_TX_BUFSIZE      256                 // as the UARTs' TX_BUFFER_SIZE, so LOF() means the same on every COM port
+#define CFG_TUH_CDC_LINE_CONTROL_ON_ENUM 0x00           // DTR and RTS are raised by OPEN, not on connection
+#define CFG_TUH_CDC_LINE_CODING_ON_ENUM {115200, CDC_LINE_CODING_STOP_BITS_1, CDC_LINE_CODING_PARITY_NONE, 8}
 
 #ifdef __cplusplus
 }

@@ -1776,6 +1776,8 @@ const int FoldCount = FOLDS;
 // tokenise()'s half, on a line whose strings and comments are hidden (SubstHide)
 static void SubstFold(char *target) {
     char from[10];
+    str_replace(target, "PEEK(BYTE", "PEEK(INT8", 2);             // PEEK's BYTE, not the BYTE( function (the PicoMite's: PETSCII
+                                                                    // Robots' PEEK(BYTE(y)*129+x)); LIST turns it back
     for(int i = 0; i < FOLDS; i++) {
         int n = strlen(FoldFrom[i]);
         char *p = target, *q;
@@ -1806,6 +1808,7 @@ void ListUnfold(char *b) {
         to[k] = 0;
         str_replace(b, FoldTo[i], to, 2);
     }
+    str_replace(b, "PEEK(INT8", "PEEK(BYTE", 2);
     SubstShow(b, comment);
 }
 

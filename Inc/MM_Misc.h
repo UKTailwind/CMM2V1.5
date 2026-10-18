@@ -68,6 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     extern char *InterruptReturn;
     extern int check_interrupt(void);
+    extern void CursorFollowMouse(void);
     extern char *GetIntAddress(char *p);
     extern long long int Getuptime(void);
     extern volatile uint64_t g_uptime;

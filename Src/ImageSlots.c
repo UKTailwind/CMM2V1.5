@@ -12,6 +12,7 @@ RUN, NEW and a program load, so a program loads its images at every start, as th
 reads as a zero header, as an empty PicoMite RAM slot does. Slots 1 to 3, the PicoMite's flash slots, are not here yet.
 
   FLASH LOAD IMAGE n, f$ [, O | OVERWRITE]     a BMP file into slot n ("Already programmed" if it holds one, unless O)
+  FLASH DISK LOAD n, f$ [, O | OVERWRITE]      a file's bytes into slot n as they are (18 Oct: PETSCII Robots' sprites)
   MM.INFO(FLASH ADDRESS n)                     the slot's address
 
 Drawing (ImageSlotBlit): each 4-bit value becomes a pixel of the page's own format through the PicoMite's 16 RGB121
@@ -130,7 +131,40 @@ void cmd_flash(void) {
         SlotLoading = NULL;
         return;
     }
-    error("Only FLASH LOAD IMAGE is provided on the CMM2");
+    if((p = checkstring(cmdline, "DISK LOAD"))) {                  // FLASH DISK LOAD n, f$ [, O]: a file's bytes into slot n, as
+        int slot, overwrite = 0, fnbr;                              // they are (the PicoMite's, for its flash slots; PETSCII Robots
+        unsigned int size, got = 0;                                 // keeps its sprites so, read at MM.INFO(FLASH ADDRESS n))
+        getargs(&p, 5, ",");
+        if(!(argc == 3 || argc == 5)) error("Syntax");
+        slot = getint(argv[0], 1, MAXIMAGESLOTS);
+        if(argc == 5) {
+            if(checkstring(argv[4], "O") || checkstring(argv[4], "OVERWRITE")) overwrite = 1;
+            else error("Syntax");
+        }
+        if(slot <= MAXFLASHSLOTS) error("Flash slots are not provided: use slots 4 to 8");
+        if(ImageSlot[slot] != NULL && !overwrite) error("Already programmed");
+        if(!InitSDCard()) return;
+        strcpy(fp, getFstring(argv[2]));
+        fnbr = FindFreeFileNbr();
+        if(!BasicFileOpen(fp, fnbr, FA_READ)) return;
+        size = f_size(FileTable[fnbr].fptr);
+        if(size == 0) {
+            FileClose(fnbr);
+            error("Empty file");
+        }
+        if(ImageSlot[slot] != NULL) FreeMemorySafe((void *)&ImageSlot[slot]);
+        SlotLoading = GetMemory(size);
+        FileGetData(fnbr, SlotLoading, size, &got);
+        FileClose(fnbr);
+        if(got != size) {
+            FreeMemorySafe((void *)&SlotLoading);
+            error("File read error");
+        }
+        ImageSlot[slot] = SlotLoading;
+        SlotLoading = NULL;
+        return;
+    }
+    error("Only FLASH LOAD IMAGE and FLASH DISK LOAD are provided on the CMM2");
 }
 
 // a colour as page 'page' stores it (DrawPixel8, DrawPixel16 and DrawPixel32's conversions; opaque in 12-bit)
