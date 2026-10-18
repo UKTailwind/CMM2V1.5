@@ -19,7 +19,7 @@ instr escape:  2 1
 escape on:  3
 instr no escape:  2 1
 escape off:  4
-ver:  6.000007
+ver:  7.000001
 sync: ok
 sync off: SYNC not initialised
 sync unit: Syntax
