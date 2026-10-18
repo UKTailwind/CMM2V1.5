@@ -4,7 +4,8 @@ then any), and its channel is the slot + 1: DEVICE(GAMEPAD n, funct) reads it, G
 calls sub when a button in the mask changes. Recognised by VID and PID: the Sony DualShock 4 and its clones (PS4), the
 DualShock 3 (PS3), three XBox-style pads (XBOX), and the generic pads of the table below, or of GAMEPAD CONFIGURE (SNES).
 The CMM2 adds the Nintendo Switch Pro Controller (SWITCH, 133), as which many third-party pads present themselves in
-their Switch mode (an EasySMX 9013 Pro, 18 Oct): see process_switch_pro().
+their Switch mode (an EasySMX 9013 Pro, 18 Oct): see process_switch_pro(); and Xbox controllers, the Xbox 360 and the
+Xbox One/Series protocols, which are not HID devices (USBXInput.c; their T is XBOX, 131).
 GAMEPAD MONITOR claims any other HID interface as a generic pad and prints its reports as they change (SILENT: prints
 nothing, and DEVICE(GAMEPAD n, RAW) gives the report), so that a CONFIGURE can be worked out for it.
 
@@ -60,6 +61,7 @@ typedef struct {
     uint8_t hat;                                    // the PS4's d-pad, 0-7 from north clockwise; 0xFF centred or none
     uint8_t motorleft, motorright, red, green, blue;    // GAMEPAD HAPTIC and COLOUR, for a PS4
     uint8_t init_step, packet;                      // a Switch Pro Controller's set-up (USBGamepadTask), its subcommands' count
+    uint8_t xbox_one, guide;                        // an Xbox pad: GIP, and its guide button (a report of its own)
     uint32_t init_time;
     char *interrupt;
     volatile int found;
@@ -185,7 +187,8 @@ void USBGamepadDetached(int slot) {
     volatile gamepad_t *g = &Pad[slot + 1];
     char m[48];
     strcpy(m, g->type == GAMEPAD_PS4 ? "PS4 Controller" : g->type == GAMEPAD_PS3 ? "PS3 Controller" :
-              g->type == GAMEPAD_XBOX ? "XBox Controller" : g->type == GAMEPAD_SWITCH ? "Switch Pro Controller" : "Generic Gamepad");
+              g->type == GAMEPAD_XBOX ? "XBox Controller" : g->type == GAMEPAD_SWITCH ? "Switch Pro Controller" :
+              g->type == GAMEPAD_XINPUT ? (g->xbox_one ? "XBox One Controller" : "XBox 360 Controller") : "Generic Gamepad");
     strcat(m, " Disconnected\r\n> ");
     USBMessage(m);
     g->lx = g->ly = g->rx = g->ry = g->l = g->r = 0;               // nothing held (the interrupt and its mask stay)
@@ -403,6 +406,121 @@ void USBGamepadReport(uint8_t const *report, uint16_t len, int slot) {
     }
 }
 
+// An Xbox pad (USBXInput.c, the CMM2's): a HID slot, so a channel, as for the other gamepads. It is not a HID
+// interface, so its slot is never polled by hid_app_task (report_requested stays set) and never matches a HID callback
+// (its instance is 0xFF); USBXInput.c keeps its transfers going and passes each report here.
+int USBGamepadXInputMount(uint8_t daddr, bool one) {
+    uint16_t vid = 0, pid = 0;
+    char m[96];
+    int slot = USBGamepadSlot();
+    if(slot < 0) return -1;
+    tuh_vid_pid_get(daddr, &vid, &pid);
+    volatile gamepad_t *g = &Pad[slot + 1];
+    g->lx = g->ly = g->rx = g->ry = 128;
+    g->l = g->r = 0;
+    g->b = 0; g->found = 0; g->hat = 0xFF;
+    memset((void *)g->gyro, 0, sizeof(g->gyro));
+    memset((void *)g->accs, 0, sizeof(g->accs));
+    g->motorleft = g->motorright = 0;
+    g->init_step = 0;
+    g->xbox_one = one;
+    g->guide = 0;
+    memset((void *)&g->decode, 0, sizeof(gp_decode_t));
+    g->type = GAMEPAD_XINPUT;
+    HID[slot].vid = vid;
+    HID[slot].pid = pid;
+    HID[slot].Device_address = daddr;
+    HID[slot].Device_instance = 0xFF;
+    HID[slot].Device_type = GAMEPAD_XINPUT;
+    HID[slot].report_requested = true;
+    HID[slot].active = true;
+    strcpy(m, one ? "XBox One Controller Connected on channel " : "XBox 360 Controller Connected on channel ");
+    IntToStr(m + strlen(m), slot + 1, 10);
+    strcat(m, " (vid &H");
+    IntToStr(m + strlen(m), vid, 16);
+    strcat(m, ", pid &H");
+    IntToStr(m + strlen(m), pid, 16);
+    strcat(m, ")\r\n");
+    if(monitor) MonAdd(m);
+    else {
+        strcat(m, "> ");
+        USBMessage(m);
+    }
+    return slot;
+}
+
+void USBGamepadXInputDetached(int slot) {
+    USBGamepadDetached(slot);
+    USBGamepadSlotFree(slot);
+}
+
+// The reports, mapped by position as the PicoMite maps every pad: Y (top) bit 10, B (right) 11, X (left) 12, A
+// (bottom) 13; START/MENU 1, BACK/VIEW as SELECT 3, the guide button as HOME 2, LB 4, RB 0, LT and RT as L2 and R2 (14
+// and 9, set past an eighth of their travel) and 0-255 in L and R; the sticks 0-255, up and left 0; the d-pad also as
+// H. An Xbox 360 pad's report 0 (20 bytes) holds it all; an Xbox One/Series pad's report 0x20 all but the guide button,
+// which comes in its report 0x07.
+static uint16_t xbox_stick(uint8_t const *p) {                      // 16-bit signed to 0-255
+    return (uint16_t)((((int16_t)(p[0] | p[1] << 8)) + 32768) >> 8);
+}
+void USBGamepadXInputReport(uint8_t const *r, uint16_t len, int slot) {
+    volatile gamepad_t *g = &Pad[slot + 1];
+    uint8_t dpad, face, lt, rt;                                     // the d-pad as up 1 down 2 left 4 right 8; Y X B A as 8 4 2 1
+    uint16_t b = 0;
+    uint8_t const *sticks;
+    if(len > 64) len = 64;
+    memcpy((void *)&HID[slot].report[1], r, len);                  // DEVICE(GAMEPAD n, RAW)
+    HID[slot].report[0] = len;
+    if(g->xbox_one) {
+        if(len >= 5 && r[0] == 0x07) {                              // the guide button
+            g->guide = r[4] & 0x01;
+            SetButtons(g, (g->b & ~(1 << 2)) | (g->guide ? 1 << 2 : 0));
+            return;
+        }
+        if(len < 18 || r[0] != 0x20) return;                        // (an announcement, a status report)
+        dpad = r[5] & 0x0F;
+        face = ((r[4] & 0x80) ? 8 : 0) | ((r[4] & 0x40) ? 4 : 0) | ((r[4] & 0x20) ? 2 : 0) | ((r[4] & 0x10) ? 1 : 0);
+        if(r[4] & 0x04) b |= 1 << 1;                                // MENU
+        if(r[4] & 0x08) b |= 1 << 3;                                // VIEW
+        if(r[5] & 0x10) b |= 1 << 4;                                // LB
+        if(r[5] & 0x20) b |= 1;                                     // RB
+        if(g->guide) b |= 1 << 2;
+        lt = (uint8_t)((r[6] | r[7] << 8) >> 2);                    // 0-1023
+        rt = (uint8_t)((r[8] | r[9] << 8) >> 2);
+        sticks = r + 10;
+    } else {
+        if(len < 14 || r[0] != 0x00 || r[1] < 0x14) return;        // the input report (not an LED or rumble status)
+        dpad = r[2] & 0x0F;
+        face = ((r[3] & 0x80) ? 8 : 0) | ((r[3] & 0x40) ? 4 : 0) | ((r[3] & 0x20) ? 2 : 0) | ((r[3] & 0x10) ? 1 : 0);
+        if(r[2] & 0x10) b |= 1 << 1;                                // START
+        if(r[2] & 0x20) b |= 1 << 3;                                // BACK
+        if(r[3] & 0x01) b |= 1 << 4;                                // LB
+        if(r[3] & 0x02) b |= 1;                                     // RB
+        if(r[3] & 0x04) b |= 1 << 2;                                // guide
+        lt = r[4];
+        rt = r[5];
+        sticks = r + 6;
+    }
+    if(dpad & 0x01) b |= 1 << 7;                                    // up
+    if(dpad & 0x02) b |= 1 << 5;                                    // down
+    if(dpad & 0x04) b |= 1 << 8;                                    // left
+    if(dpad & 0x08) b |= 1 << 6;                                    // right
+    if(face & 8) b |= 1 << 10;                                      // Y
+    if(face & 4) b |= 1 << 12;                                      // X
+    if(face & 2) b |= 1 << 11;                                      // B
+    if(face & 1) b |= 1 << 13;                                      // A
+    if(lt > 32) b |= 1 << 14;                                       // LT
+    if(rt > 32) b |= 1 << 9;                                        // RT
+    g->l = lt;
+    g->r = rt;
+    g->lx = xbox_stick(sticks);
+    g->ly = 255 - xbox_stick(sticks + 2);
+    g->rx = xbox_stick(sticks + 4);
+    g->ry = 255 - xbox_stick(sticks + 6);
+    static const uint8_t hat[16] = {0xFF, 0, 4, 0xFF, 6, 7, 5, 0xFF, 2, 1, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // by up|down<<1|left<<2|right<<3
+    g->hat = hat[dpad];
+    SetButtons(g, b);
+}
+
 // every 50 ms, a PS4's light bar and motors (GAMEPAD COLOUR and HAPTIC), as on the PicoMite
 void USBGamepadTask(void) {
     static uint32_t last;
@@ -414,6 +532,7 @@ void USBGamepadTask(void) {
     last = HAL_GetTick();
     for(int i = 0; i < HID_SLOTS; i++) {
         volatile gamepad_t *g = &Pad[i + 1];
+        if(HID[i].active && HID[i].Device_type == GAMEPAD_XINPUT) XInputRumble(i, g->motorleft, g->motorright);
         if(!HID[i].active || HID[i].Device_type != GAMEPAD_PS4) continue;
         sony_ds4_output_report_t out = {0};
         out.set_rumble = 1;
@@ -458,7 +577,7 @@ void USBGamepadDevice(char *tp) {
     else if(checkstring(k, "AX")) iret = g->accs[0];
     else if(checkstring(k, "AY")) iret = g->accs[1];
     else if(checkstring(k, "AZ")) iret = g->accs[2];
-    else if(checkstring(k, "T")) iret = g->type;
+    else if(checkstring(k, "T")) iret = g->type == GAMEPAD_XINPUT ? GAMEPAD_XBOX : g->type;
     else if(checkstring(k, "RAW")) {                                // the last report: its length, then its bytes
         sret = GetTempStrMemory();
         memcpy(sret, (void *)HID[n - 1].report, HID[n - 1].report[0] + 1);
@@ -525,7 +644,7 @@ void cmd_gamepad(void) {
         getargs(&tp, 5, ",");
         if(argc != 5) error("Syntax");
         n = getint(argv[0], 1, HID_SLOTS);
-        if(Pad[n].type != GAMEPAD_PS4) error("PS4 only");
+        if(Pad[n].type != GAMEPAD_PS4 && Pad[n].type != GAMEPAD_XINPUT) error("PS4 or Xbox controller only");
         Pad[n].motorleft = getint(argv[2], 0, 255);
         Pad[n].motorright = getint(argv[4], 0, 255);
     } else if((tp = checkstring(cmdline, "COLOUR")) || (tp = checkstring(cmdline, "COLOR"))) {

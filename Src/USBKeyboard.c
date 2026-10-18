@@ -281,9 +281,31 @@ void tuh_dwc2_ls_hub_refused_cb(uint8_t hub_addr, uint8_t hub_port)
 	USBMessage("USB low-speed device behind a hub is not supported: plug it in directly\r\n> ");
 }
 
+/* A device none of the drivers here took (all its interfaces configured): say so, with its VID and PID, so that a
+   pad can be configured or reported. Not for a mouse already reported as ignored. */
+static uint8_t ignored_daddr;
 void tuh_mount_cb(uint8_t dev_addr)
 {
-	(void)dev_addr;
+	for (int i = 0; i < HID_SLOTS; i++)
+		if (HID[i].active && HID[i].Device_address == dev_addr)
+			return;
+	if (dev_addr == ignored_daddr || tuh_msc_mounted(dev_addr) || XInputClaimed(dev_addr))
+		return;
+	for (uint8_t i = 0; i < CFG_TUH_CDC; i++)
+	{
+		tuh_itf_info_t info;
+		if (tuh_cdc_mounted(i) && tuh_cdc_itf_get_info(i, &info) && info.daddr == dev_addr)
+			return;
+	}
+	uint16_t vid = 0, pid = 0;
+	char m[80];
+	tuh_vid_pid_get(dev_addr, &vid, &pid);
+	strcpy(m, "USB device (vid &H");
+	IntToStr(m + strlen(m), vid, 16);
+	strcat(m, ", pid &H");
+	IntToStr(m + strlen(m), pid, 16);
+	strcat(m, ") connected: not supported\r\n> ");
+	USBMessage(m);
 }
 
 void tuh_umount_cb(uint8_t dev_addr)
@@ -312,6 +334,23 @@ static int FindFreeSlot(uint8_t itf_protocol)
 	return -1;
 }
 
+/* A slot for a gamepad that is not a HID interface (an X-input pad, USBXInput.c), counted as a device */
+int USBGamepadSlot(void)
+{
+	int slot = FindFreeSlot(HID_ITF_PROTOCOL_NONE);
+	if (slot == -1 || Current_USB_devices >= HID_SLOTS)
+		return -1;
+	Current_USB_devices++;
+	return slot;
+}
+
+void USBGamepadSlotFree(int slot)
+{
+	memset((void *)&HID[slot], 0, sizeof(struct s_HID));
+	HID[slot].report_requested = true;
+	Current_USB_devices--;
+}
+
 // Invoked when device with hid interface is mounted
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
 {
@@ -326,6 +365,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 			return; /* a second mouse, or a second mouse interface of the same one */
 		if (open >= 0)
 		{
+			ignored_daddr = dev_addr;
 			strcpy(m, "USB mouse ignored: the mouse on channel ");
 			IntToStr(m + strlen(m), open, 10);
 			strcat(m, " is open\r\n> ");
