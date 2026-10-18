@@ -725,9 +725,8 @@ InitHeap();
 InitBasic();
 InitFileIO();
 BasicRunning = true;
-if(Option.USBKeyboard != NO_KEYBOARD){
-  USBKeyboardInit();                                          // TinyUSB host: devices enumerate from routinechecks()
-}
+USBKeyboardInit();                                              // TinyUSB host: devices enumerate from routinechecks() (always:
+                                                                // a USB mouse or drive works with no USB keyboard option)
 _excep_keys=10;
 HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);

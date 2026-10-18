@@ -291,6 +291,8 @@ static int FindFreeSlot(uint8_t itf_protocol)
 {
 	if (itf_protocol == HID_ITF_PROTOCOL_KEYBOARD && !HID[0].active)
 		return 0;
+	if (itf_protocol == HID_ITF_PROTOCOL_MOUSE && !HID[1].active)
+		return 1; /* a mouse is channel 2, as on the PicoMite */
 	for (int i = HID_SLOTS - 1; i >= 0; i--)
 	{
 		if (!HID[i].active)
@@ -302,13 +304,59 @@ static int FindFreeSlot(uint8_t itf_protocol)
 // Invoked when device with hid interface is mounted
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
 {
-	(void)desc_report;
-	(void)desc_len;
 	__DSB();
 	uint16_t pid, vid;
 	uint8_t itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+	if (itf_protocol == HID_ITF_PROTOCOL_MOUSE)
+	{ /* a mouse (USBMouse.c): channel 2, and only while no other mouse is open (one at a time) */
+		char m[80];
+		float sp;
+		int slot, open = MouseOpenChannel();
+		if (UsbMouse)
+			return; /* a second mouse, or a second mouse interface of the same one */
+		if (open >= 0)
+		{
+			strcpy(m, "USB mouse ignored: the mouse on channel ");
+			IntToStr(m + strlen(m), open, 10);
+			strcat(m, " is open\r\n> ");
+			USBMessage(m);
+			return;
+		}
+		if ((slot = FindFreeSlot(itf_protocol)) == -1 || Current_USB_devices == HID_SLOTS)
+			return;
+		tuh_vid_pid_get(dev_addr, &vid, &pid);
+		HID[slot].vid = vid;
+		HID[slot].pid = pid;
+		HID[slot].Device_address = dev_addr;
+		HID[slot].Device_instance = instance;
+		HID[slot].Device_type = HID_ITF_PROTOCOL_MOUSE;
+		HID[slot].report_rate = 20; // mSec between reports
+		HID[slot].report_timer = -(10 + (slot + 2) * 500);
+		HID[slot].report_requested = false;
+		HID[slot].mouse_type = MOUSE_TYPE_STANDARD_8BIT;
+		memset((void *)&HID[slot].mouse_info, 0, sizeof(mouse_info_t));
+		memcpy(&sp, (const void *)Option.mousespeed, sizeof(float));
+		if (sp > 0.0f && sp <= 1000.0f)
+		{ /* OPTION MOUSE SENSITIVITY: the report protocol, decoded by the descriptor's layout (the wheel) */
+			mouse_info_t mi;
+			if (desc_len > 0 && desc_report != NULL)
+			{
+				HID[slot].mouse_type = analyze_mouse_descriptor(desc_report, desc_len, &mi);
+				memcpy((void *)&HID[slot].mouse_info, &mi, sizeof(mouse_info_t));
+			}
+			tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
+		}
+		USBMouseAttached(slot);
+		HID[slot].active = true;
+		strcpy(m, "USB Mouse Connected on channel ");
+		IntToStr(m + strlen(m), USBMOUSE_CHANNEL, 10);
+		strcat(m, tuh_speed_get(dev_addr) == TUSB_SPEED_LOW ? " (low speed)\r\n> " : " (full speed)\r\n> ");
+		USBMessage(m);
+		Current_USB_devices++;
+		return;
+	}
 	if (itf_protocol != HID_ITF_PROTOCOL_KEYBOARD)
-		return; /* keyboards only, for now: leave other interfaces unclaimed */
+		return; /* keyboards and a mouse, for now: leave other interfaces unclaimed */
 	/* A keyboard with media keys may have a second interface that also says it is a boot keyboard: its report
 	   descriptor adds n-key rollover, the media (consumer) and system keys, even a mouse, each with a report ID.
 	   In the boot protocol TinyUSB sets, it has nothing to send, and those keys are not processed here, so only
@@ -370,6 +418,12 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 			USBMessage("USB Keyboard Disconnected\r\n> ");
 			break;
 		}
+		if (HID[i].active && instance == HID[i].Device_instance && dev_addr == HID[i].Device_address && HID[i].Device_type == HID_ITF_PROTOCOL_MOUSE)
+		{
+			USBMouseDetached();
+			USBMessage("USB Mouse Disconnected\r\n> ");
+			break;
+		}
 	}
 	if (i < HID_SLOTS)
 	{
@@ -406,6 +460,8 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 	HID[n].report[0] = (len > 64 ? 64 : len);
 	if (HID[n].Device_type == HID_ITF_PROTOCOL_KEYBOARD && len >= sizeof(hid_keyboard_report_t))
 		process_kbd_report((hid_keyboard_report_t const *)report, n);
+	else if (HID[n].Device_type == HID_ITF_PROTOCOL_MOUSE)
+		USBMouseReport(report, len, n);
 	HID[n].report_requested = false;
 	HID[n].report_timer = 0;
 }

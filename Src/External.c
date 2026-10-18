@@ -2011,6 +2011,7 @@ void ClearExternalIO(void) {
     mouse0Interruptu=NULL;
     mouse1Interruptu=NULL;
     mouse2Interruptu=NULL;
+    MouseIntAny=NULL; MouseIntAnyFound=0;                          // MOUSE INTERRUPT ENABLE's (USBMouse.c)
     mouse3Interruptu=NULL;
 //    *lcd_pins = 0;                                                  // close the LCD
     ds18b20Timer = -1;                                              // turn off the ds18b20 timer

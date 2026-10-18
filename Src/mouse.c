@@ -341,17 +341,18 @@ void MNInterrupt(void) {
                             mouseupdated=1;
                              if(mousestruct[0].ay<0)mousestruct[0].ay=0;
                             if(mousestruct[0].ay>=maxH)mousestruct[0].ay=maxH-1;
-                            TOUCH_DOWN = mousestruct[0].Z = mouse[0] & 0b1;
-                            mousestruct[0].C=(mouse[0] & 0b10)>>1;
-                            mousestruct[0].L=(mouse[0] & 0b100)>>2;
-                            if(mousestruct[0].type>1000) mousestruct[0].R=0;
+                            TOUCH_DOWN = mousestruct[0].L = mouse[0] & 0b1;
+                            mousestruct[0].R=(mouse[0] & 0b10)>>1;
+                            mousestruct[0].C=(mouse[0] & 0b100)>>2;
+                            mousestruct[0].x0 = mouse[0] & 7;                 // the buttons' bitmap (the PicoMite's: DEVICE(MOUSE n, B))
+                            if(mousestruct[0].type>1000) mousestruct[0].Z=0;
                             if((mouse[0] & 3) != (LastCode & 3)){
                             	if((mouse[0] & 1) && !(LastCode & 1) && (mSecTimer-lefttimer>16)){ //left button press
                             		mouse0foundz=1;
                             		IntSignal();
                             		if(mousestruct[0].type>=500 || mousestruct[0].type<100) mousestruct[0].type=0;
                             		else {
-                            			mousestruct[0].R=1;
+                            			mousestruct[0].Z=1;
                             			mousestruct[0].type=500 ;
                             		}
                             		lefttimer=mSecTimer;

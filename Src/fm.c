@@ -233,9 +233,9 @@ static int editorReadKey(int cursor, int prompt, int buflen) {
 				hidecursor(1);
 				showcursor(1, mousestruct[Option.Mouse].ax, mousestruct[Option.Mouse].ay);
 			}
-			if(mousestruct[Option.Mouse].R){
-				mousestruct[Option.Mouse].R=0;
-				while(mousestruct[Option.Mouse].L){}
+			if(mousestruct[Option.Mouse].Z){
+				mousestruct[Option.Mouse].Z=0;
+				while(mousestruct[Option.Mouse].C){}
 				mouse0foundz=0;
 				mouse0foundc=0;
 				mouse1foundz=0;
@@ -254,8 +254,8 @@ static int editorReadKey(int cursor, int prompt, int buflen) {
 				mousestruct[Option.Mouse].az=0;
 				return DOWN;
 			}
-			if(mousestruct[Option.Mouse].Z != lastZ){
-				lastZ=mousestruct[Option.Mouse].Z;
+			if(mousestruct[Option.Mouse].L != lastZ){
+				lastZ=mousestruct[Option.Mouse].L;
 				if(lastZ){
 					int line=mousestruct[Option.Mouse].ay/gui_font_height;
 					if(line<=F.screenrows){
@@ -264,8 +264,8 @@ static int editorReadKey(int cursor, int prompt, int buflen) {
 					}
 				}
 			}
-			if(mousestruct[Option.Mouse].C != lastC){
-				lastC=mousestruct[Option.Mouse].C;
+			if(mousestruct[Option.Mouse].R != lastC){
+				lastC=mousestruct[Option.Mouse].R;
 				if(lastC){
 					int line=mousestruct[Option.Mouse].ay/gui_font_height;
 					if(line>=F.screenrows/2) return PDOWN;
@@ -946,7 +946,7 @@ static int editorProcessKeypress() {
   	  	      MM_Delay(100);
   	  	      while(1){
   	  	    	  if(MMInkey()!=-1)break;
-  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].Z )break;
+  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].L )break;
   	  	      }
   		      mymemset(inpbuf,0,STRINGSIZE);
   	  		  if(pagerestore==2)strcpy(inpbuf,"MODE x ,8:PAGE COPY 2 TO 0");
@@ -986,7 +986,7 @@ static int editorProcessKeypress() {
   	  	      MM_Delay(100);
   	  	      while(1){
   	  	    	  if(MMInkey()!=-1)break;
-  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].Z )break;
+  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].L )break;
   	  	      }
   		      mymemset(inpbuf,0,STRINGSIZE);
   	  		  if(pagerestore==2)strcpy(inpbuf,"MODE x ,8:PAGE COPY 2 TO 0");
@@ -1025,7 +1025,7 @@ static int editorProcessKeypress() {
   	  	      MM_Delay(100);
   	  	      while(1){
   	  	    	  if(MMInkey()!=-1)break;
-  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].Z )break;
+  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].L )break;
   	  	      }
   		      mymemset(inpbuf,0,STRINGSIZE);
   	  		  if(pagerestore==2)strcpy(inpbuf,"MODE x ,8:PAGE COPY 2 TO 0");
@@ -1064,7 +1064,7 @@ static int editorProcessKeypress() {
   	  	      MM_Delay(100);
   	  	      while(1){
   	  	    	  if(MMInkey()!=-1)break;
-  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].Z )break;
+  	  	    	  if(Option.Mouse>=0 && mousestruct[Option.Mouse].L )break;
   	  	      }
   		      mymemset(inpbuf,0,STRINGSIZE);
   	  		  if(pagerestore==2)strcpy(inpbuf,"MODE x ,8:PAGE COPY 2 TO 0");

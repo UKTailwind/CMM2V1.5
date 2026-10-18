@@ -650,7 +650,7 @@ void cmd_cursor(char *p){
     	if(!cursorenable)error("Cursor Off");
     	if(autocursor!=0)error("Already linked");
     	if(GUIactive)error("Mouse in use for GUI");
-    	if(!(mouse3 || mouse2 || mouse1 || mouse0 ))error("Not open");
+    	if(MouseOpenChannel() < 0)error("Not open");                // (a USB mouse too)
     	autocursor=1;
     	return;
     }

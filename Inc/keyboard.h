@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "USBMouse.h"
 
 /* One HID interface the host is servicing (the PicoMite's struct s_HID,
    keyboard fields only for now).  report_timer counts milliseconds since
@@ -34,6 +35,8 @@ typedef struct s_HID
 	bool report_requested;
 	bool notfirsttime;
 	uint8_t sendlights;             /* the boot keyboard's LED output report */
+	uint8_t mouse_type;             /* a mouse: its report layout (USBMouse.c) */
+	mouse_info_t mouse_info;
 	uint8_t report[65];             /* the last report: length, then its bytes */
 } a_HID;
 

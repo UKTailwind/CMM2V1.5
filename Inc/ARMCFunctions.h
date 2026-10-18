@@ -246,6 +246,7 @@ struct option_s {
 	unsigned char layout;                     // OPTION_LAYOUT; options saved before the keys above have erased flash there
 	unsigned char libflash;                   // LIBRARY: 'L' when the flash library is there
 	unsigned char libhash[4];
+	unsigned char mousespeed[4];
 	unsigned char end;
 // 128
 };

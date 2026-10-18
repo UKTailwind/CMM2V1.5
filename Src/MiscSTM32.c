@@ -283,6 +283,17 @@ void printoptions(void){
     if(Option.CPUmode & 2)PO2Str("BASELINE", "ON",1);
     if(Option.CPUmode & 0x10)PO2Str("OVERCLOCK", "ON",1);
     if(Option.Mouse>=0)PO3Int("MOUSE",Option.Mouse, Option.Sensitivity);
+    {                                                               // OPTION MOUSE SENSITIVITY (erased flash: not set)
+        float sp;
+        memcpy(&sp, (const void *)Option.mousespeed, sizeof(float));
+        if(sp > 0.0f && sp <= 1000.0f) {
+            char b[40];
+            MMPrintString("OPTION MOUSE SENSITIVITY ");
+            FloatToStr(b, sp, 0, STR_AUTO_PRECISION, ' ');
+            MMPrintString(b);
+            MMPrintString("\r\n");
+        }
+    }
     if(Option.ConsolePort!=3)PO2Int("CONSOLE PORT COM",Option.ConsolePort);
     if(Option.editfont == 3) PO2Str("EDIT FONT","VERY LARGE",1);
     if(Option.editfont == 7) PO2Str("EDIT FONT","SMALL",1);
@@ -390,29 +401,30 @@ void mouseproc(int chan){
 	testx=(mousebuff[0]<<8) | mousebuff[1];
 	testy=(mousebuff[2]<<8) | mousebuff[3];
 	TOUCH_DOWN=mousebuff[4];
-    if(mousestruct[chan].type>1000) mousestruct[chan].R=0;
+    if(mousestruct[chan].type>1000) mousestruct[chan].Z=0;
 	if(testx>=0 && testx<maxW && testy>=0 && testy<maxH){
 		mousestruct[chan].ax=testx;
 		mousestruct[chan].ay=testy;
-		mousestruct[chan].Z=mousebuff[4];
-		mousestruct[chan].C=mousebuff[5];
-		mousestruct[chan].L=mousebuff[6];
+		mousestruct[chan].L=mousebuff[4];
+		mousestruct[chan].R=mousebuff[5];
+		mousestruct[chan].C=mousebuff[6];
+		mousestruct[chan].x0 = (mousebuff[4] & 1) | ((mousebuff[5] & 1) << 1) | ((mousebuff[6] & 1) << 2);   // the buttons' bitmap
 		if(mousebuff[9]==0xFF)mousestruct[chan].az++;
 		else if (mousebuff[9]==0x01)mousestruct[chan].az--;
-		if(lastc[chan]==0 && mousestruct[chan].C){
+		if(lastc[chan]==0 && mousestruct[chan].R){
 			lastc[chan]=1;
 			if(chan==1)mouse1foundc=1;
 			if(chan==2)mouse2foundc=1;
 			if(chan==3)mouse3foundc=1;
 			IntSignal();
 		}
-		if(lastz[chan]==0 && mousestruct[chan].Z){
+		if(lastz[chan]==0 && mousestruct[chan].L){
 			int xmove=abs(lastxclick-mousestruct[chan].ax);
 			int ymove=abs(lastyclick-mousestruct[chan].ay);
 			lastz[chan]=1;
 			if(mousestruct[chan].type>=500 || mousestruct[chan].type<100 || xmove>10 || ymove>10) mousestruct[chan].type=0;
 			else {
-				mousestruct[chan].R=1;
+				mousestruct[chan].Z=1;
 				mousestruct[chan].type=500 ;
 			}
 			if(chan==1)mouse1foundz=1;
@@ -422,14 +434,14 @@ void mouseproc(int chan){
 			lastxclick=mousestruct[chan].ax;
 			lastyclick=mousestruct[chan].ay;
 		}
-		if(lastz[chan]==1 && !mousestruct[chan].Z){
+		if(lastz[chan]==1 && !mousestruct[chan].L){
 			if(chan==1)mouse1leftup=1;
 			if(chan==2)mouse2leftup=1;
 			if(chan==3)mouse3leftup=1;
 			IntSignal();
 		}
-		if(mousestruct[chan].C==0)lastc[chan]=0;
-		if(mousestruct[chan].Z==0)lastz[chan]=0;
+		if(mousestruct[chan].R==0)lastc[chan]=0;
+		if(mousestruct[chan].L==0)lastz[chan]=0;
 	}
 	mouseupdated=1;
 }
@@ -871,6 +883,17 @@ void cmd_mouse(char *cmd){
 	if(tp) {
 		getargs(&tp,9,",");
 		if(argc>=1 && *argv[0])nchan=getint(argv[0],0,3);
+		if(UsbMouse) {                                               // a USB mouse is channel 2: OPEN 2 only sets its interrupts
+			if(nchan != 2) error("The USB mouse is in use (channel 2)");
+			if(argc>=3 && *argv[2]) { mouse2Interruptz = GetIntAddress(argv[2]); IntSignal(); }
+			if(argc>=5 && *argv[4]) { mouse2Interruptc = GetIntAddress(argv[4]); IntSignal(); }
+			if(argc>=9 && *argv[8]) { mouse2Interruptu = GetIntAddress(argv[8]); IntSignal(); }
+			return;
+		}
+		{
+			int open = MouseOpenChannel();                           // one mouse at a time (Peter, 17 Oct)
+			if(open >= 0 && open != nchan) error("The mouse on channel % is open", open);
+		}
 		if(nchan==0){
 	    	if(ExtCurrentConfig[INT3PIN] == EXT_PER_IN || ExtCurrentConfig[INT3PIN] == EXT_CNT_IN || ExtCurrentConfig[INT3PIN] == EXT_FREQ_IN ) error("H/W interrupt in use for pin-15 (COUNT 3)");
 			CheckPin(MOUSE_CLOCK, CP_CHECKALL);
@@ -1134,6 +1157,10 @@ void cmd_mouse(char *cmd){
 	if(tp) {
 		getargs(&tp,1,",");
 		if(argc==1)nchan=getint(argv[0],0,3);
+		if(nchan==2 && UsbMouse) {                                   // the USB mouse stays: its interrupts go
+			mouse2Interruptc=NULL; mouse2Interruptz=NULL; mouse2Interruptu=NULL;
+			return;
+		}
 		if(nchan==0){
 			mouse0close();
 		} else if(nchan==1){
@@ -1402,6 +1429,14 @@ void MIPS16 OtherOptions(void) {
 		goto saveandreset;
 	}
 
+    tp = checkstring(cmdline, "MOUSE SENSITIVITY");                // a USB mouse's divisor (the PicoMite's: 0 is the boot reports)
+	if(tp) {
+	    if(CurrentLinePtr) error("Invalid in a program");
+		float sp = getnumber(tp);
+		if(sp < 0.0f || sp > 1000.0f) error("Number out of bounds");
+		memcpy((void *)Option.mousespeed, &sp, sizeof(float));
+		goto saveandreset;
+	}
     tp = checkstring(cmdline, "MOUSE");
 	if(tp) {
 	    if(CurrentLinePtr) error("Invalid in a program");

@@ -534,18 +534,18 @@ void fun_mouse(void){
 	char *p;
 	getargs(&ep,3,",");
 	if(argc==3)chan=getint(argv[2],0,3);
-	if(!((chan==3 && mouse3) || (chan==2 && mouse2) || (chan==1 && mouse1) || (chan==0 && mouse0) ))error("Not open");
+	if(!((chan==3 && mouse3) || (chan==2 && (mouse2 || UsbMouse)) || (chan==1 && mouse1) || (chan==0 && mouse0) ))error("Not open");
 	p=argv[0];
 	if(toupper(*p)=='X')iret=mousestruct[chan].ax;
 	else if(toupper(*p)=='Y')iret=mousestruct[chan].ay;
-	else if(toupper(*p)=='L')iret=mousestruct[chan].Z;
-	else if(toupper(*p)=='R')iret=mousestruct[chan].C;
-	else if(toupper(*p)=='W')iret=mousestruct[chan].L;
+	else if(toupper(*p)=='L')iret=mousestruct[chan].L;
+	else if(toupper(*p)=='R')iret=mousestruct[chan].R;
+	else if(toupper(*p)=='W')iret=mousestruct[chan].C;
 	else if(toupper(*p)=='S')iret=mousestruct[chan].az;
 	else if(toupper(*p)=='T')iret=mousestruct[chan].classic[0];
 	else if(toupper(*p)=='D'){
-		iret=mousestruct[chan].R;
-		mousestruct[chan].R=0;                                      // read once (it was reported for ever: Gerry's b14)
+		iret=mousestruct[chan].Z;
+		mousestruct[chan].Z=0;                                      // read once (it was reported for ever: Gerry's b14)
 	}
 	else if(toupper(*p)=='Z'){
 		iret=mousestruct[chan].az;
@@ -3845,7 +3845,8 @@ int check_interrupt(void) {
 	}
 	if(autocursor && mouseupdated){
 		mouseupdated=0;
-		int mouse=(mouse0?0:mouse1?1:mouse2?2:3);
+		int mouse=MouseOpenChannel();                               // (the mouse in use: a USB one is channel 2)
+		if(mouse<0) mouse=3;
 		if(mousestruct[mouse].ax!=xcursor || mousestruct[mouse].ay!=ycursor){
 			hidecursor(0);
 			showcursor(0, mousestruct[mouse].ax, mousestruct[mouse].ay);
@@ -4044,6 +4045,11 @@ int check_interrupt(void) {
 		if(mouse1Interruptu !=NULL && mouse1leftup){
 			mouse1leftup=0;
 			intaddr=mouse1Interruptu;
+			goto GotAnInterrupt;
+		}
+		if(MouseIntAny !=NULL && MouseIntAnyFound){                // MOUSE INTERRUPT ENABLE (the PicoMite's): any button, a double click
+			MouseIntAnyFound=0;
+			intaddr=MouseIntAny;
 			goto GotAnInterrupt;
 		}
 		if(mouse2Interruptz !=NULL && mouse2foundz){

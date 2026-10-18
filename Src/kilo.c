@@ -358,8 +358,8 @@ static int editorReadKey(int cursor, int prompt, int buflen) {
 				hidecursor(1);
 				showcursor(1, mousestruct[Option.Mouse].ax, mousestruct[Option.Mouse].ay);
 			}
-			if(mousestruct[Option.Mouse].R){
-				mousestruct[Option.Mouse].R=0;
+			if(mousestruct[Option.Mouse].Z){
+				mousestruct[Option.Mouse].Z=0;
 				if(mousestruct[Option.Mouse].ax==0) return HOME;
 				else if(mousestruct[Option.Mouse].ax==maxW-1) return END;
 			}
@@ -372,8 +372,8 @@ static int editorReadKey(int cursor, int prompt, int buflen) {
 				return DOWN;
 			}
 
-			if(mousestruct[Option.Mouse].Z != lastZ){ //left button has changed
-				lastZ=mousestruct[Option.Mouse].Z;
+			if(mousestruct[Option.Mouse].L != lastZ){ //left button has changed
+				lastZ=mousestruct[Option.Mouse].L;
 				MouseTimer=0;
 				if(lastZ){ //new left press
 					int line=mousestruct[Option.Mouse].ay/gui_font_height;
@@ -463,15 +463,15 @@ static int editorReadKey(int cursor, int prompt, int buflen) {
 						ShowCursor(true);
 					}
 				}
-			} else if(mousestruct[Option.Mouse].Z==0)MouseTimer=0;
+			} else if(mousestruct[Option.Mouse].L==0)MouseTimer=0;
 			else if(MouseTimer>500 && callback==NULL){
 				lefthold=1;
 				lastCX=E.cx;
 				lastCY=E.cy;
 				return F4;
 			}
-			if(mousestruct[Option.Mouse].C != lastC){
-				lastC=mousestruct[Option.Mouse].C;
+			if(mousestruct[Option.Mouse].R != lastC){
+				lastC=mousestruct[Option.Mouse].R;
 				if(lastC){
 					int line=mousestruct[Option.Mouse].ay/gui_font_height;
 					if(callback==NULL){
