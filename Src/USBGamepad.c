@@ -3,6 +3,8 @@ USB gamepads (the PicoMite's, 18 Oct: Peter). A gamepad takes a HID slot as on t
 then any), and its channel is the slot + 1: DEVICE(GAMEPAD n, funct) reads it, GAMEPAD INTERRUPT ENABLE n, sub [, mask]
 calls sub when a button in the mask changes. Recognised by VID and PID: the Sony DualShock 4 and its clones (PS4), the
 DualShock 3 (PS3), three XBox-style pads (XBOX), and the generic pads of the table below, or of GAMEPAD CONFIGURE (SNES).
+The CMM2 adds the Nintendo Switch Pro Controller (SWITCH, 133), as which many third-party pads present themselves in
+their Switch mode (an EasySMX 9013 Pro, 18 Oct): see process_switch_pro().
 GAMEPAD MONITOR claims any other HID interface as a generic pad and prints its reports as they change (SILENT: prints
 nothing, and DEVICE(GAMEPAD n, RAW) gives the report), so that a CONFIGURE can be worked out for it.
 
@@ -57,6 +59,8 @@ typedef struct {
     uint8_t type;                                   // GAMEPAD_PS4 ... ; 0 when there is none
     uint8_t hat;                                    // the PS4's d-pad, 0-7 from north clockwise; 0xFF centred or none
     uint8_t motorleft, motorright, red, green, blue;    // GAMEPAD HAPTIC and COLOUR, for a PS4
+    uint8_t init_step, packet;                      // a Switch Pro Controller's set-up (USBGamepadTask), its subcommands' count
+    uint32_t init_time;
     char *interrupt;
     volatile int found;
     gp_decode_t decode;                             // a generic pad's
@@ -87,6 +91,9 @@ static bool is_xbox(uint16_t vid, uint16_t pid) {
     return (vid == 0x11c0 && pid == 0x5500)                         // EasySMX Wireless, Android mode
         || (vid == 0x11c1 && pid == 0x9101)                         // EasySMX Wireless, PC mode, D-input
         || (vid == 0x2F24 && pid == 0x0048);
+}
+static bool is_switch_pro(uint16_t vid, uint16_t pid) {
+    return vid == 0x057E && pid == 0x2009;                          // Nintendo Switch Pro Controller, and pads in its mode
 }
 static const gp_decode_t *generic_decode(uint16_t vid, uint16_t pid) {
     if(MyPad.vid == vid && MyPad.pid == pid && (vid || pid)) return &MyPad;
@@ -127,6 +134,7 @@ bool USBGamepadMount(uint8_t dev_addr, uint8_t instance, int slot) {
     if(is_sony_ds4(vid, pid)) type = GAMEPAD_PS4, strcpy(m, "PS4 Controller");
     else if(is_sony_ds3(vid, pid)) type = GAMEPAD_PS3, strcpy(m, "PS3 Controller");
     else if(is_xbox(vid, pid)) type = GAMEPAD_XBOX, strcpy(m, "XBox Controller");
+    else if(is_switch_pro(vid, pid)) type = GAMEPAD_SWITCH, strcpy(m, "Switch Pro Controller");
     else if((d = generic_decode(vid, pid)) != NULL || monitor) type = GAMEPAD_SNES, strcpy(m, "Generic Gamepad");
     else return false;                                              // not a gamepad: its slot stays free
     volatile gamepad_t *g = &Pad[ch];
@@ -135,6 +143,9 @@ bool USBGamepadMount(uint8_t dev_addr, uint8_t instance, int slot) {
     memset((void *)g->gyro, 0, sizeof(g->gyro));
     memset((void *)g->accs, 0, sizeof(g->accs));
     g->motorleft = g->motorright = 0;
+    g->init_step = type == GAMEPAD_SWITCH ? 1 : 0;                  // its USB set-up (USBGamepadTask)
+    g->init_time = HAL_GetTick();
+    g->packet = 0;
     if(d) memcpy((void *)&g->decode, d, sizeof(gp_decode_t));
     else memset((void *)&g->decode, 0, sizeof(gp_decode_t));
     g->type = type;
@@ -145,6 +156,10 @@ bool USBGamepadMount(uint8_t dev_addr, uint8_t instance, int slot) {
     HID[slot].Device_type = type;
     HID[slot].report_rate = 20;                                     // ms between reports
     HID[slot].report_timer = -(10 + (slot + 2) * 500);
+    if(type == GAMEPAD_SWITCH) {                                    // read from the start: it answers each set-up command
+        HID[slot].report_rate = 8;                                  // with a report, and drops off the bus about 2 s after
+        HID[slot].report_timer = 8;                                 // connecting if they are not read; then the full reports
+    }                                                               // come about every 15 ms
     HID[slot].report_requested = false;
     HID[slot].active = true;
     if(type == GAMEPAD_PS3) tuh_hid_get_report(dev_addr, instance, 0xF2, HID_REPORT_TYPE_FEATURE, ds3_feature, 17);
@@ -170,7 +185,7 @@ void USBGamepadDetached(int slot) {
     volatile gamepad_t *g = &Pad[slot + 1];
     char m[48];
     strcpy(m, g->type == GAMEPAD_PS4 ? "PS4 Controller" : g->type == GAMEPAD_PS3 ? "PS3 Controller" :
-              g->type == GAMEPAD_XBOX ? "XBox Controller" : "Generic Gamepad");
+              g->type == GAMEPAD_XBOX ? "XBox Controller" : g->type == GAMEPAD_SWITCH ? "Switch Pro Controller" : "Generic Gamepad");
     strcat(m, " Disconnected\r\n> ");
     USBMessage(m);
     g->lx = g->ly = g->rx = g->ry = g->l = g->r = 0;               // nothing held (the interrupt and its mask stay)
@@ -320,18 +335,81 @@ static void process_sony_ds4(uint8_t const *report, uint16_t len, int ch) {
     SetButtons(g, b);
 }
 
+// A Switch Pro Controller, as Linux's hid-nintendo drives one on USB. At connection it is sent output report 0x80 with
+// the commands 02 (handshake), 03 (3 Mbit), 02 and 04 (no timeout: without it the pad drops off the bus and comes back
+// every few seconds, still waiting for a host on its Bluetooth link), then subcommand 03 with 30 (the full input
+// report, 0x30, about every 15 ms) and subcommand 30 with 01 (player 1's light). One step per 100 ms (USBGamepadTask);
+// the replies (reports 0x81 and 0x21) are not waited for. Report 0x30: the buttons in bytes 3-5, the sticks 12 bits
+// each in bytes 6-8 and 9-11. Mapped by position, as the PicoMite maps every pad: X the top face button (bit 10), A
+// the right (11), Y the left (12), B the bottom (13); + START, - SELECT, HOME, Capture as the touchpad (15); ZL and ZR
+// are L2 and R2, read 255 or 0 as the analogue L and R. The sticks 0-255, up and left 0, as the others.
+static void process_switch_pro(uint8_t const *report, uint16_t len, int ch) {
+    volatile gamepad_t *g = &Pad[ch];
+    if(len < 12 || report[0] != 0x30) return;
+    uint8_t r = report[3], s = report[4], l = report[5];
+    uint16_t b = 0;
+    if(r & 0x40) b |= 1;                                            // R
+    if(s & 0x02) b |= 1 << 1;                                       // +
+    if(s & 0x10) b |= 1 << 2;                                       // HOME
+    if(s & 0x01) b |= 1 << 3;                                       // -
+    if(l & 0x40) b |= 1 << 4;                                       // L
+    if(l & 0x01) b |= 1 << 5;                                       // down
+    if(l & 0x04) b |= 1 << 6;                                       // right
+    if(l & 0x02) b |= 1 << 7;                                       // up
+    if(l & 0x08) b |= 1 << 8;                                       // left
+    if(r & 0x80) b |= 1 << 9;                                       // ZR
+    if(r & 0x02) b |= 1 << 10;                                      // X
+    if(r & 0x08) b |= 1 << 11;                                      // A
+    if(r & 0x01) b |= 1 << 12;                                      // Y
+    if(r & 0x04) b |= 1 << 13;                                      // B
+    if(l & 0x80) b |= 1 << 14;                                      // ZL
+    if(s & 0x20) b |= 1 << 15;                                      // Capture
+    g->lx = (report[6] | ((report[7] & 0x0F) << 8)) >> 4;
+    g->ly = 255 - ((((report[7] >> 4) | (report[8] << 4)) >> 4) & 0xFF);
+    g->rx = (report[9] | ((report[10] & 0x0F) << 8)) >> 4;
+    g->ry = 255 - ((((report[10] >> 4) | (report[11] << 4)) >> 4) & 0xFF);
+    g->l = (l & 0x80) ? 255 : 0;
+    g->r = (r & 0x80) ? 255 : 0;
+    static const uint8_t hat[16] = {0xFF, 0, 2, 1, 4, 0xFF, 3, 0xFF, 6, 7, 0xFF, 0xFF, 5, 0xFF, 0xFF, 0xFF}; // by up|right<<1|down<<2|left<<3
+    g->hat = hat[((l >> 1) & 1) | (((l >> 2) & 1) << 1) | ((l & 1) << 2) | (((l >> 3) & 1) << 3)];
+    SetButtons(g, b);
+}
+
+static void switch_pro_step(int slot) {
+    volatile gamepad_t *g = &Pad[slot + 1];
+    uint8_t a = HID[slot].Device_address, i = HID[slot].Device_instance;
+    static const uint8_t usbcmd[4] = {0x02, 0x03, 0x02, 0x04};    // handshake, 3 Mbit, handshake, no timeout
+    if(g->init_step >= 1 && g->init_step <= 4) {
+        if(!tuh_hid_send_report(a, i, 0x80, &usbcmd[g->init_step - 1], 1)) return;     // (busy: next time)
+    } else if(g->init_step == 5 || g->init_step == 6) {
+        // output report 1: a packet number, a neutral rumble, the subcommand and its argument
+        uint8_t sub[11] = {0, 0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40, 0, 0};
+        sub[0] = g->packet++ & 0x0F;
+        sub[9] = g->init_step == 5 ? 0x03 : 0x30;                   // the input report mode, the player lights
+        sub[10] = g->init_step == 5 ? 0x30 : 0x01;                  // the full report, player 1
+        if(!tuh_hid_send_report(a, i, 0x01, sub, sizeof(sub))) return;
+    }
+    g->init_step = g->init_step >= 6 ? 0 : g->init_step + 1;
+    g->init_time = HAL_GetTick();
+}
+
 void USBGamepadReport(uint8_t const *report, uint16_t len, int slot) {
     switch(Pad[slot + 1].type) {
         case GAMEPAD_PS4:  process_sony_ds4(report, len, slot + 1); break;
         case GAMEPAD_PS3:  process_sony_ds3(report, len, slot + 1); break;
         case GAMEPAD_XBOX: process_xbox(report, len, slot + 1); break;
         case GAMEPAD_SNES: process_generic(report, len, slot + 1); break;
+        case GAMEPAD_SWITCH: process_switch_pro(report, len, slot + 1); break;
     }
 }
 
 // every 50 ms, a PS4's light bar and motors (GAMEPAD COLOUR and HAPTIC), as on the PicoMite
 void USBGamepadTask(void) {
     static uint32_t last;
+    for(int i = 0; i < HID_SLOTS; i++)                              // a Switch Pro Controller's set-up, a step per 100 ms
+        if(HID[i].active && HID[i].Device_type == GAMEPAD_SWITCH && Pad[i + 1].init_step &&
+           HAL_GetTick() - Pad[i + 1].init_time >= 100 && tuh_hid_send_ready(HID[i].Device_address, HID[i].Device_instance))
+            switch_pro_step(i);
     if(HAL_GetTick() - last < 50) return;
     last = HAL_GetTick();
     for(int i = 0; i < HID_SLOTS; i++) {

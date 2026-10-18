@@ -9,6 +9,7 @@
 #define GAMEPAD_PS3  129
 #define GAMEPAD_SNES 130                            // a generic gamepad, decoded by its table entry
 #define GAMEPAD_XBOX 131
+#define GAMEPAD_SWITCH 133                          // the CMM2's: a Switch Pro Controller, or a pad in its mode (132 is the PicoMite's UNKNOWN)
 
 bool USBGamepadMount(uint8_t dev_addr, uint8_t instance, int slot);    // claims the slot if it is a known gamepad
 void USBGamepadReport(uint8_t const *report, uint16_t len, int slot);
