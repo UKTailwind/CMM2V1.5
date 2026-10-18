@@ -1,0 +1,11 @@
+# The game's own artwork, levels, tables and sounds, converted from Jordan Mechner's source release by the
+# game's setup.py, must not be distributed (README.md, "Keep what comes out to yourself"): never commit them.
+*.bmp
+*.dat
+*.bin
+*.idx
+*.log
+board/
+release/
+music/
+player.min.bas*
