@@ -1,5 +1,5 @@
-# 04 F6: the file is saved, not loaded, and the editor exits; RUN loads the program from its file, so it runs the new one
-# (the plan's "RUN still runs the old program" is the PicoMite's, where the program is what is in program memory)
+# 04 ^Q saves and exits as F1 does (the PicoMite's key; kilo's F6, save without loading, has no PicoMite key); RUN runs the new program
+# (the CMM2's RUN loads the program from its file)
 put t.bas start1.bas
 cmd RUN
 prompt
@@ -10,7 +10,7 @@ key end
 key left
 type !
 status (modified)
-key f6
+key ^Q
 prompt
 get t.bas expect4.bas
 cmd RUN

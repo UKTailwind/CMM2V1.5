@@ -1,4 +1,5 @@
 # 13 F12 shows the help for the word under the cursor, Esc leaves it with the screen as it was, F11 inserts the topic's syntax
+known help in the editor comes with E5, its keys to be settled (F12 is Beautify in the PicoMite's keys, F11 is free)
 put t.bas start1.bas
 cmd EDIT "t.bas"
 key down

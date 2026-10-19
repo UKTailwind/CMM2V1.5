@@ -1,27 +1,35 @@
-# 12 F7 inserts a file; F8 and ^B save the paste buffer to a file
+# 12 F9 inserts a file at the cursor; F10 and ^B save the clipboard to a file; in mark mode F10 saves the selection (the PicoMite's keys)
 put t.bas start1.bas
 put ins.bas start2.bas
-kill buf1.txt buf2.txt
+kill buf1.txt buf2.txt buf3.txt
 cmd EDIT "t.bas"
-key f7
+key f9
+message Import
 type ins.bas
 key enter
+message IMPORTED
 status 15 lines
-# the first line copied, then saved with F8 and with ^B
-key home
-key home
+# the first line copied, then saved with F10 and with ^B
 key f4
 key down
-key ^C
-key f8
+key f5
+key f10
 type buf1.txt
 key enter
+message EXPORTED
 key ^B
 type buf2.txt
+key enter
+# the first line selected, and saved with F10 in mark mode
+key f4
+key down
+key f10
+type buf3.txt
 key enter
 key f1
 prompt
 get t.bas expect12.bas
 get buf1.txt expect12buf.txt
 get buf2.txt expect12buf.txt
-kill ins.bas buf1.txt buf2.txt
+get buf3.txt expect12buf.txt
+kill ins.bas buf1.txt buf2.txt buf3.txt

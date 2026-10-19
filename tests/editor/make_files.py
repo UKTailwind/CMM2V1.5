@@ -26,8 +26,6 @@ FILES = {
     'expect9.bas': ['bb', 'c', 'ddd', 'eee', 'fff', 'ddd', ''],
     'start10.bas': ['apple one', 'banana two', 'Apple three', 'cherry four', 'APPLE five'],
     'expect10.bas': ['apple one', 'banana two', 'Apple three', 'banana four', 'APPLE five'],
-    'expect11.bas': ["X' editor test file 1", 'Dim a%, b$', 'For a% = 1 To 3', '  Print "line"; a%', 'Next',
-                     'b$ = "done"', 'Print b$'],
     'expect12.bas': ["' editor test 2", 'Print "one";', 'Print " two"', 'x = 1 +', '2', 'Print "a";', '"b"', 'Print x',
                      "' editor test file 1", 'Dim a%, b$', 'For a% = 1 To 3', '  Print "line"; a%', 'Next',
                      'b$ = "done"', 'Print b$'],

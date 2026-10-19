@@ -1,38 +1,31 @@
-# 10 search: as you type, forwards, backwards, wrapping, any case; Esc goes back, Enter stays; ^V replaces with the paste buffer
+# 10 search: F3 finds the next match after the cursor, in any case; F6 and ^G find it again, wrapping; Esc at the prompt cancels; F7 replaces the match with typed text
 put t.bas start10.bas
 cmd EDIT "t.bas"
-# 'banana' copied to the paste buffer
-key down
-key f4
-key right 6
-key ^C
-key up
-# 'apple' as typed: the first match from the cursor, then on (Down), wrapping, and back (Up)
 key f3
+message Find
 type apple
-status 1/1/5
-key down
+key enter
 status 1/3/5
-key down
+key f6
 status 1/5/5
-key down
+key f6
 status 1/1/5
-key up
-status 1/5/5
-# Enter stays on the match
-key enter
-status 1/5/5
-# Esc goes back to where the search began
+key ^G
+status 1/3/5
+# Esc at the prompt: no search, the cursor where it was
 key f3
-type cherry
-status 1/4/5
 key esc
-status 1/5/5
-# ^V replaces the match with the paste buffer
+status 1/3/5
+# F7 replaces the match found with typed text
 key f3
 type cherry
-key ^V
 key enter
+status 1/4/5
+key f7
+message Replace
+type banana
+key enter
+line 3 banana four
 key f1
 prompt
 get t.bas expect10.bas

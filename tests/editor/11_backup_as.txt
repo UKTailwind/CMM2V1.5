@@ -1,21 +1,11 @@
-# 11 ^W (Backup as): a copy is written under another name and editing goes on; the file's own name saves it in place
+# 11 ^W saves and runs as F2 does (the PicoMite's key; kilo's ^W, Backup as, has no PicoMite key)
 put t.bas start1.bas
-kill copy.bas t.bas.bak
 cmd EDIT "t.bas"
-type X
+key down 5
+key end
+key left
+type !
 key ^W
-type copy.bas
-key enter
-message written to disk as copy.bas
-status t.bas
-key ^W
-type t.bas
-key enter
-message written to disk as t.bas
-# still "modified" after a Backup as, so Esc three times
-key esc 3
 prompt
-get copy.bas expect11.bas
-get t.bas expect11.bas
-exists t.bas.bak
-kill copy.bas
+output done!
+get t.bas expect4.bas
