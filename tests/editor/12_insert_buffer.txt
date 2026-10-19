@@ -26,6 +26,7 @@ key down
 key f10
 type buf3.txt
 key enter
+message EXPORTED 16 CHARS
 key f1
 prompt
 get t.bas expect12.bas

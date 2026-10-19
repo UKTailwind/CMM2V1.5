@@ -24,6 +24,8 @@ A script is one step a line ('#' starts a comment; the first comment line is the
   colour NAME TEXT   every character of TEXT, where it first is on the screen, has the foreground NAME: the colour
                      coding's VT100 colours (COLOURS: normal, comment, keyword, quote, number)
   show               print the screen (for writing a script)
+  requires EXPR      the script runs only where the board prints 1 for EXPR, and is otherwise reported as SKIP:
+                     what it needs that is not always there (a USB drive: mm.info(exists dir "C:/"))
   known TEXT         kilo fails this script, for the reason TEXT: its failure is reported as KNOWN, not FAIL (the
                      script still says what the editor should do, and the new editor has to pass it)
 A failed check is reported and the script goes on; a step that cannot be done (no prompt, a transfer that fails, a
@@ -52,6 +54,10 @@ COLOURS = {'normal': 37, 'comment': 33, 'keyword': 36, 'quote': 35, 'number': 32
 
 
 class Abort(Exception):
+    pass
+
+
+class Skip(Exception):
     pass
 
 
@@ -177,6 +183,10 @@ class Run:
             else:
                 p = arg.split()
                 t.key(p[0], int(p[1]) if len(p) > 1 else 1)
+        elif verb == 'requires':
+            out = self.at_prompt('print ' + arg).replace('\r', '').split('\n')
+            if len(out) < 2 or out[1].strip() != '1':
+                raise Skip(arg)
         elif verb == 'known':
             self.known = arg
         elif verb == 'wait':
@@ -255,7 +265,7 @@ def main():
     run.recover()
     run.at_prompt('if not mm.info(exists dir "%s") then mkdir "%s"' % (CARDDIR, CARDDIR))
     run.at_prompt('chdir "%s"' % CARDDIR)
-    passed = known = 0
+    passed = known = skipped = 0
     for path in scripts:
         name = os.path.basename(path)[:-4]
         lines = [l.rstrip('\n') for l in open(path, encoding='latin-1')]
@@ -268,6 +278,10 @@ def main():
                 l = l.strip()
                 if l and not l.startswith('#'):
                     run.step(l)
+        except Skip as e:
+            print('SKIP  %-22s         %s (it needs %s)' % (name, title, e))
+            skipped += 1
+            continue
         except Abort as e:
             run.fails.append('ABORT: ' + str(e).split('\n')[0])
             run.recover()
@@ -289,9 +303,10 @@ def main():
         else:
             passed += 1
             print('PASS  %-22s %5.1fs  %s%s' % (name, secs, title, ' (was known: %s)' % run.known if run.known else ''))
-    print('%d of %d passed%s' % (passed, len(scripts), ', %d known failures' % known if known else ''))
+    print('%d of %d passed%s%s' % (passed, len(scripts), ', %d known failures' % known if known else '',
+                                   ', %d skipped' % skipped if skipped else ''))
     term.close()
-    sys.exit(0 if passed + known == len(scripts) else 1)
+    sys.exit(0 if passed + known + skipped == len(scripts) else 1)
 
 
 if __name__ == '__main__':

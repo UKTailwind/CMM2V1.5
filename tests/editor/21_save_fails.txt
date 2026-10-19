@@ -1,0 +1,40 @@
+# 21 (E3) a save that fails leaves the editor open with the text: the temporary file cannot be made (a directory of
+# its name is in the way); the file stays as it was, and once the way is clear F1 saves (a .bak made, no .$$$ left)
+put t.bas start1.bas
+kill t.bas.bak
+cmd MKDIR "t.bas.$$$"
+cmd EDIT "t.bas"
+key down 5
+key end
+key left
+type !
+key f1
+message SAVE FAILED
+status t.bas
+status (modified)
+# an export to a path that is not there fails the same way (mark mode's F10, the selection)
+key f4
+key down
+key f10
+type nodir/x.txt
+key enter
+message CANNOT CREATE FILE
+status (modified)
+key esc
+message discard
+type Y
+key enter
+prompt
+get t.bas start1.bas
+cmd RMDIR "t.bas.$$$"
+cmd EDIT "t.bas"
+key down 5
+key end
+key left
+type !
+key f1
+prompt
+get t.bas expect4.bas
+exists t.bas.bak
+missing t.bas.$$$
+kill t.bas.bak

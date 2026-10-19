@@ -47,6 +47,8 @@ FILES = {
     'start17.bas': ["' a comment line", 'Dim s$ = Left$("abc", 2)', 'x = 123 + 4.5', 'Rem a rem line', '/* a block',
                     'still comment', '*/', 'Print s$, x'],
     'start18.bas': ['Sub A', '    Print 1', 'End Sub'],
+    'expect22.bas': ['Print "usb"'],
+    'expect22b.bas': ['Print "usb!"'],
     'expect18.bas': ['Sub A', '    Print 1', '    Print 2', '  Print 3', 'x=1', 'End Sub'],
 }
 # 09b: all of it cut and pasted back, which leaves the empty line the cut left after it

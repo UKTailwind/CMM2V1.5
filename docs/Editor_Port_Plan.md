@@ -86,7 +86,7 @@ Found and fixed on the way:
 
 **Still to do by hand:** the USB keyboard's keys in the engine; the screen-only console.
 
-**D1 revised (Peter, 19 Oct):** the PicoMite's keys stay, with kilo's Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn added (see Decisions). Scripts 08, 09 and 14 were rewritten for these keys and pass. Next: the rest of the kilo scripts for the PicoMite's keys, then E3.
+**D1 revised (Peter, 19 Oct):** the PicoMite's keys stay, with kilo's Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn added (see Decisions). All the kilo scripts were rewritten for these keys (see E2 below); 18 of 20 pass, and 09b and 13 wait for E4 and E5. Then E3, safe saving, was done the same day (below).
 
 ## Review, 19 Oct
 
@@ -407,7 +407,18 @@ The engine scrolls only the cursor's line and snaps back to column 1 on Up/Down 
 
 **E2 after D1 revised (19 Oct).** The key map goes: the PicoMite's keys stay. Of kilo's smaller functions, Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn are done (D1 revised). The rest of the list below is not taken up: ^K (End in the PicoMite's keys), ^X and ^C in select mode, Esc three times, the unpasted-buffer warning, kilo's message line, control characters as ^letter, and whole-screen sideways scrolling.
 
-The kilo scripts that test kilo's keys (4, 5, 10-13) are to be rewritten for the PicoMite's keys, as 08, 09 and 14 were on 19 Oct. They test the functions, not the keys, and the functions E3-E5 bring.
+The kilo scripts that tested kilo's keys were rewritten for the PicoMite's keys on 19 Oct:
+- 04: ^Q saves and exits as F1 does (kilo's F6, save without loading, has no PicoMite key).
+- 05: Esc asks "Exit and discard"; N stays and Y leaves.
+- 08: Shift-Tab and Shift-Del (kilo's ^K delete-line went: ^K is End).
+- 09: select with F4 and with Shift and the arrows.
+- 10: F3, then F6 or ^G for the next match, and F7 replace.
+- 11: ^W saves and runs (kilo's ^W was Backup as).
+- 12: F9 import, F10 and ^B export.
+- 14: two-stage paging.
+- 13 (help) waits for E5, its key to be settled (F12 is Beautify, F11 is free), and 09b for E4.
+
+The suite: 18 of 20, with 09b and 13 known.
 
 **E2 as first planned, the key map and kilo's smaller functions.** The `KEY_*` map above, plus the kilo functions the engine lacks:
 - ^K;
@@ -437,6 +448,25 @@ On any failure, the editor shows "Save failed: reason" in the message line and s
   - script 11;
   - card removed, bad drive, path removed: each leaves the buffer intact;
   - then the card back in and F1 succeeds.
+
+**E3 as built (19 Oct).** In `Src/Editor.c`:
+- `EdOpen` checks the drive first: the SD card's detect pin for A: and B:, `usb_msc_is_mounted` for C:. FatFs does not know a card has gone until it reads it.
+- `EdWriteFile` writes a range of the text with CR LF line ends, 4 KB at a time. It returns FatFs's result, and deletes the file if anything failed.
+- `EdSave` writes `name.$$$`, deletes an older `name.bak`, renames the file `name.bak`, then renames `name.$$$` to `name`. Whatever fails, the file or its .bak is whole, and the text is still in the editor.
+- F1, ^Q, F2 and ^W save before the screen is torn down. A failure shows " SAVE FAILED: reason " and the editor stays open.
+- F10 and ^B (the clipboard), mark mode's F10 (the selection) and F9 (import) use the same calls. They show " CANNOT CREATE FILE: reason ", " CANNOT OPEN FILE: reason " or " READ FAILED: reason ". The import also reports OUT OF MEMORY, which " IMPORTED n CHARS " used to overwrite.
+- The reasons are FatFs's messages, cut to the screen's width: a longer message would wrap on the display's bottom row and scroll it.
+- Mark mode's F10 message is put back after the redraw that follows mark mode. Before, its result, success or failure, was never seen.
+- Print Screen turns OPTION FILE ERROR ABORT off while it saves, as FM does round its own file calls. A failed screenshot no longer ends the editor.
+
+Checked on the board:
+- script 21: a directory named `t.bas.$$$` makes the save fail; the editor stays open and the file is unchanged. An export to a missing path fails the same way. With the directory gone, F1 saves, leaving a .bak and no .$$$.
+- script 22 saves on the USB drive. It needs the drive (the `requires` step), so it is skipped when the drive is out.
+- the save scripts (1-7, 11, 12) pass through the new save.
+
+By hand (Peter, 19 Oct): with the card taken out, F1 says " SAVE FAILED: SD card not present " and the editor stays open; with the card back, F1 saves. With the flash drive plugged in, script 22 passes.
+
+The PicoMite's save, import and export have the same fault: issue #56 (with mark mode's F10 message in a comment on it).
 
 **E4, the clipboard.**
 - The clipboard becomes a heap buffer that grows as needed (`ReAllocMemory`, `Memory.h:76`), as kilo's does (964-987). The engine's 1 KB `MAXCLIP` and its check go (P 478, 8056).
@@ -540,7 +570,8 @@ Timing comes from the serial traffic.
 **As built (E0, 19 Oct).** `tools/edit_test.py [--only 01,09b] [--show]` runs `tests/editor/NN_*.txt` in A:/e. The scripts are in a small step language, described at the top of the runner:
 - `put` and `get` move files by ZMODEM, so `get` compares exact bytes;
 - `cmd`, `type`, `typen` (a text repeated) and `key` send to the console;
-- `screen`, `status`, `message` and `line` check the screen; `colour` checks the foreground of a text (the colour coding's VT100 colours); `output` checks the console output; `exists` and `missing` check the card.
+- `screen`, `status`, `message` and `line` check the screen; `colour` checks the foreground of a text (the colour coding's VT100 colours); `output` checks the console output; `exists` and `missing` check the card;
+- `requires` skips a script unless the board prints 1 for an expression (for the USB drive).
 
 `tools/vt100drive.py` keeps the screen: the characters, and for each cell its colours and reverse.
 
@@ -587,6 +618,8 @@ What the scripts found:
 18. Auto-indent and tabbed backspace.
 19. Selecting backwards and by page; whole-screen sideways scrolling, with Up and Down keeping the column.
 20. Keys typed straight after the Esc that leaves the editor reach the prompt, and the next EDIT opens the file unchanged (written 19 Oct for the look-ahead after Esc).
+21. (E3) A save that fails leaves the editor open with the text and the file unchanged, and so does an export; once the way is clear F1 saves, with a .bak and no .$$$.
+22. (E3) A file on the USB drive saves the same way. With `requires`, it is skipped when the drive is out.
 
 **By hand:**
 - the local screen in several modes and edit fonts;

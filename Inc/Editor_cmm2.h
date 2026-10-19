@@ -92,6 +92,8 @@ extern void cmd_mouse(char *cmd);                       // MiscSTM32.c: CONTROLL
 extern volatile struct s_nunstruct mousestruct[4];      // the mice's state, in the display's pixels
 extern volatile unsigned long long int mSecTimer;
 extern int docheck;                                     // main.c: the prompt's status line, which checks the program's file
+extern BYTE MDD_SDSPI_CardDetectState(void);            // mmc_stm32.c: the SD card is in
+extern bool usb_msc_is_mounted(void);                   // USB drive C: is there (E3: the editor's saves look first)
 extern void i2c_disable(void), i2c2_disable(void), i2c3_disable(void);
 extern void CloseAllFiles(void);
 

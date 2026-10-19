@@ -1,0 +1,18 @@
+# 22 (E3) a file on the USB drive (C:, which must be plugged in) saves through the same safe save: made by F1, then saved again with its .bak
+requires mm.info(exists dir "C:/")
+kill C:/edtest.bas C:/edtest.bas.bak
+cmd EDIT "C:/edtest.bas"
+type Print "usb"
+key f1
+prompt
+get C:/edtest.bas expect22.bas
+cmd EDIT "C:/edtest.bas"
+key end
+key left
+type !
+key f1
+prompt
+get C:/edtest.bas expect22b.bas
+exists C:/edtest.bas.bak
+missing C:/edtest.bas.$$$
+kill C:/edtest.bas C:/edtest.bas.bak

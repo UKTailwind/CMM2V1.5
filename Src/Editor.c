@@ -132,6 +132,11 @@ void MarkMode(char *cb, char *buf);
 void PositionCursor(char *curp);
 static int multilinecomment = false;
 static char *EdFileName = "";                           // CMM2: the file being edited, for the status bar
+/* CMM2: the message on the message line, while it is up (editDisplayMsg; PrintFunctKeys draws the legend over it), so
+   that it can be put back after a redraw: mark mode's F10 export ends with one, which edit mode's redraw after mark
+   mode hid */
+static char EdLastMsg[128];
+static int EdMsgUp;
 #define MAXCLIP 1024
 #define EDIT_BUFFER_BYTES (1024 * 1024)         // CMM2: the edit buffer, from the SDRAM heap (Editor_Port_Plan.md D5)
 
@@ -440,6 +445,106 @@ static void EdDefaultExtension(char *name)
     char *s = strrchr(name, '/');
     if (strchr(s ? s : name, '.') == NULL && strlen(name) + 4 < FF_MAX_LFN)
         strcat(name, ".bas");
+}
+
+/* ---- CMM2 (Editor_Port_Plan.md E3): files written and read without leaving the editor ----------------------------
+   With FatFs's own calls, which return an error, so that a failure is reported on the message line and the editor
+   stays open with the text. The PicoMite's BasicFileOpen, FilePutChar and FileClose end in error() on a FatFs error,
+   which left the editor and lost the edits (its save did not look at what BasicFileOpen returned either). */
+#define EDIO_BYTES 4096                                 // (files are written and read this much at a time)
+
+// the drive a name is on: its own, or the current one
+static char EdDrive(char *name)
+{
+    return toupper((name[0] && name[1] == ':') ? name[0] : filepath[0]);
+}
+
+// open name, its drive checked first: FatFs does not know a card has gone until it reads it
+static FRESULT EdOpen(FIL *fp, char *name, BYTE mode)
+{
+    if (EdDrive(name) == 'C' ? !usb_msc_is_mounted() : !MDD_SDSPI_CardDetectState())
+        return FR_NOT_READY;
+    return f_open(fp, name, mode);
+}
+
+// what, " what: the reason " on the message line, cut to the screen's width (a longer one wraps and scrolls it)
+static void EdFileMsg(char *what, FRESULT r, char *name)
+{
+    char msg[128];
+    const char *why = r == FR_NOT_READY ? FErrorMsg[EdDrive(name) == 'C' ? 21 : 20] :
+                      (r > 0 && r < 20 ? FErrorMsg[r] : "error");
+    snprintf(msg, sizeof(msg), " %s: %s ", what, why);
+    if (VWidth > 1 && VWidth - 1 < (int)sizeof(msg))
+        msg[VWidth - 1] = 0;
+    editDisplayMsg(msg);
+}
+
+/* write the text from from to end as the file name, each '\n' as CR LF, and with crlf a CR LF after the last line;
+   FR_OK, or what failed (the file is then deleted) */
+static FRESULT EdWriteFile(char *name, char *from, char *end, int crlf)
+{
+    FIL *fp = GetMemory(sizeof(FIL) + EDIO_BYTES);
+    char *b = (char *)(fp + 1);
+    UINT n = 0, w;
+    FRESULT r = EdOpen(fp, name, FA_WRITE | FA_CREATE_ALWAYS), rc;
+    if (r == FR_OK)
+    {
+        while (r == FR_OK && (from < end || crlf || n))
+        {
+            if (from < end)
+            {
+                if (*from == '\n')
+                    b[n++] = '\r';
+                b[n++] = *from++;
+            }
+            else if (crlf)
+            {
+                b[n++] = '\r';
+                b[n++] = '\n';
+                crlf = 0;
+            }
+            if (n >= EDIO_BYTES - 2 || (from >= end && !crlf && n))
+            {
+                r = f_write(fp, b, n, &w);
+                if (r == FR_OK && w != n)
+                    r = FR_DENIED;                      // (the disk is full)
+                n = 0;
+            }
+        }
+        rc = f_close(fp);
+        if (r == FR_OK)
+            r = rc;
+        if (r != FR_OK)
+            f_unlink(name);
+    }
+    FreeMemory(fp);
+    return r;
+}
+
+/* the text saved as fname: written as fname.$$$, then the old file kept as fname.bak (an older .bak deleted) and the
+   new one renamed fname. Whatever fails, the file or its .bak is as it was, and the text is still in the editor. */
+static FRESULT EdSave(char *fname)
+{
+    char tmp[FF_MAX_LFN + 8], bak[FF_MAX_LFN + 8];
+    FRESULT r;
+    if (strlen(fname) + 5 > FF_MAX_LFN)
+        return FR_INVALID_NAME;
+    sprintf(tmp, "%s.$$$", fname);
+    sprintf(bak, "%s.bak", fname);
+    if ((r = EdWriteFile(tmp, EdBuff, EdBuff + strlen(EdBuff), 1)) != FR_OK)
+        return r;
+    if (EdFileExists(fname, NULL))
+    {
+        if (EdFileExists(bak, NULL) && (r = f_unlink(bak)) != FR_OK)
+            goto failed;
+        if ((r = f_rename(fname, bak)) != FR_OK)
+            goto failed;
+    }
+    if ((r = f_rename(tmp, fname)) == FR_OK)
+        return FR_OK;
+failed:
+    f_unlink(tmp);
+    return r;
 }
 
 /* EDIT [file$] (CMM2): the file, or with none the program's own file (ProgName) at the line an error left in it
@@ -1808,6 +1913,16 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                         editDisplayMsg((char *)buff);
                         break;
                     }
+                    /* CMM2: every key but Esc saves, as kilo's F1 and F2 do whether or not the text changed, and
+                       (E3) while the editor is still up: if it fails, the editor stays open with the text */
+                    FRESULT r = EdSave(fname);
+                    if (r != FR_OK)
+                    {
+                        EdFileMsg("SAVE FAILED", r, fname);
+                        break;
+                    }
+                    StartEditLine = edy + cury;         // EDIT with no file opens here next (kilo's editorSave)
+                    StartEditCharacter = edx + curx;
                 }
                 PrintString("\033[?1000l");        // Tera Term turn off mouse click report in vt200 mode
                 PrintString("\033[?7h");           // restore autowrap (was disabled by setterminal on entry)
@@ -1816,31 +1931,6 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 PrintString(VT100_C_NORMAL);
                 PrintString("\033[0m");
                 BreakKey = BreakKeySave;
-                /* CMM2: every key but Esc saves, as kilo's F1 and F2 do whether or not the text changed: the old
-                   file becomes name.bak, then the text is written with CR LF line ends (E3 makes this safe). */
-                if (c != ESC)
-                {
-                    char backup[FF_MAX_LFN + 8];
-                    int fnbr1;
-                    StartEditLine = edy + cury;         // EDIT with no file opens here next (kilo's editorSave)
-                    StartEditCharacter = edx + curx;
-                    strcpy(backup, fname);
-                    strcat(backup, ".bak");
-                    if (EdFileExists(backup, NULL))
-                        f_unlink(backup);
-                    f_rename(fname, backup);
-                    fnbr1 = FindFreeFileNbr();
-                    BasicFileOpen(fname, fnbr1, FA_WRITE | FA_CREATE_ALWAYS);
-                    for (p = EdBuff; *p; p++)
-                    {
-                        if (*p == '\n')
-                            FilePutChar('\r', fnbr1);
-                        FilePutChar(*p, fnbr1);
-                    }
-                    FilePutChar('\r', fnbr1);           // the last line ended as the others are (kilo's), the
-                    FilePutChar('\n', fnbr1);           // terminator the load did not keep
-                    FileClose(fnbr1);
-                }
                 EdMouseClose();
                 EdDisplayRestore();
                 ClearTempMemory();                      // (the edit buffer, the clipboard)
@@ -1923,6 +2013,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
             case F4:
                 MarkMode(clipboard, &buf[1]);
                 {
+                    int msgup = EdMsgUp;                // (CMM2: a message mark mode ended with, put back below)
                     // While selecting along a long line, mark-mode navigation drags
                     // edx (the horizontal scroll) to the right but only redraws the
                     // current line.  If we now redraw the whole screen with that
@@ -1947,6 +2038,8 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                         printLine(edy + cury);
                     }
                     curx = abs_col - edx;
+                    if (msgup)
+                        editDisplayMsg(EdLastMsg);
                 }
                 PositionCursor(txtp);
                 break;
@@ -2029,33 +2122,41 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 // Save current cursor position
                 char *saved_txtp = txtp;
 
-                // Open the file (CMM2: a name with its drive opens on that drive)
-                int fnbr = FindFreeFileNbr();
-                if (!BasicFileOpen(importfile, fnbr, FA_READ))
+                // Open the file (CMM2 (E3): FatFs's calls, so that a failure is reported and the editor stays open)
+                FIL *fp = GetMemory(sizeof(FIL) + EDIO_BYTES);
+                char *fb = (char *)(fp + 1);
+                UINT got = 0;
+                FRESULT r = EdOpen(fp, importfile, FA_READ);
+                if (r != FR_OK)
                 {
-                    editDisplayMsg(" CANNOT OPEN FILE ");
+                    FreeMemory(fp);
+                    EdFileMsg("CANNOT OPEN FILE", r, importfile);
                     break;
                 }
 
                 // Read file and insert each character
                 char ch;
-                int insert_count = 0;
-                while (!FileEOF(fnbr))
+                int insert_count = 0, full = 0;
+                do
                 {
-                    ch = FileGetChar(fnbr);
-                    if (ch == '\r')
-                        continue; // skip carriage returns
-                    if (ch == '\n')
-                        nbrlines++;
-                    if (!editInsertChar((unsigned char)ch, &multi, edit_buff_size))
+                    r = f_read(fp, fb, EDIO_BYTES, &got);
+                    for (UINT k = 0; r == FR_OK && k < got && !full; k++)
                     {
-                        FileClose(fnbr);
-                        editDisplayMsg(" OUT OF MEMORY ");
-                        break;
+                        ch = fb[k];
+                        if (ch == '\r')
+                            continue; // skip carriage returns
+                        if (!editInsertChar((unsigned char)ch, &multi, edit_buff_size))
+                            full = 1;
+                        else
+                        {
+                            if (ch == '\n')
+                                nbrlines++;
+                            insert_count++;
+                        }
                     }
-                    insert_count++;
-                }
-                FileClose(fnbr);
+                } while (r == FR_OK && got == EDIO_BYTES && !full);
+                f_close(fp);
+                FreeMemory(fp);
 
                 // Restore cursor to original position (before inserted text)
                 txtp = saved_txtp;
@@ -2064,10 +2165,17 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 printScreen();
                 PositionCursor(txtp);
 
-                // Display success message
+                // Display success message (CMM2: or why it stopped short, the characters before it inserted)
                 char msg[40];
-                sprintf(msg, " IMPORTED %d CHARS ", insert_count);
-                editDisplayMsg((char *)msg);
+                if (r != FR_OK)
+                    EdFileMsg("READ FAILED", r, importfile);
+                else if (full)
+                    editDisplayMsg(" OUT OF MEMORY ");
+                else
+                {
+                    sprintf(msg, " IMPORTED %d CHARS ", insert_count);
+                    editDisplayMsg((char *)msg);
+                }
             }
             break;
 
@@ -2094,25 +2202,14 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 // Add .bas extension if no extension specified
                 EdDefaultExtension(exportfile);
 
-                // Open file for writing (CMM2: a name with its drive opens on that drive)
-                int fnbr = FindFreeFileNbr();
-                if (!BasicFileOpen(exportfile, fnbr, FA_WRITE | FA_CREATE_ALWAYS))
+                // Write clipboard contents to file, CR LF line ends (CMM2 (E3): a failure reported, the editor open)
+                int export_count = strlen(clipboard);
+                FRESULT r = EdWriteFile(exportfile, clipboard, clipboard + export_count, 0);
+                if (r != FR_OK)
                 {
-                    editDisplayMsg(" CANNOT CREATE FILE ");
+                    EdFileMsg("CANNOT CREATE FILE", r, exportfile);
                     break;
                 }
-
-                // Write clipboard contents to file
-                int export_count = 0;
-                char *cp = clipboard;
-                while (*cp)
-                {
-                    if (*cp == '\n')
-                        FilePutChar('\r', fnbr); // Add CR before LF for proper line endings
-                    FilePutChar(*cp++, fnbr);
-                    export_count++;
-                }
-                FileClose(fnbr);
 
                 // Display success message
                 char msg[40];
@@ -2582,34 +2679,19 @@ void MarkMode(char *cb, char *buf)
                         // Add .bas extension if no extension specified
                         EdDefaultExtension(exportfile);
 
-                        // Open file for writing (CMM2: a name with its drive opens on that drive)
-                        int fnbr = FindFreeFileNbr();
-                        if (BasicFileOpen(exportfile, fnbr, FA_WRITE | FA_CREATE_ALWAYS))
+                        // Write the selection to the file, CR LF line ends (CMM2 (E3): a failure reported, the editor
+                        // open)
+                        char *cp = (mark <= txtp) ? mark : txtp;
+                        char *cpend = (mark <= txtp) ? txtp : mark;
+                        FRESULT r = EdWriteFile(exportfile, cp, cpend, 0);
+                        if (r == FR_OK)
                         {
-                            // Write clipboard contents to file
-                            // Note: cb has been incremented, so use buf parameter which points to original clipboard
-                            int export_count = 0;
-                            char *cp = buf; // buf points to start of clipboard passed to MarkMode
-                            // Actually we need the original clipboard start - recalculate
-                            cp = (mark <= txtp) ? mark : txtp;
-                            char *cpend = (mark <= txtp) ? txtp : mark;
-                            while (cp < cpend)
-                            {
-                                if (*cp == '\n')
-                                    FilePutChar('\r', fnbr);
-                                FilePutChar(*cp++, fnbr);
-                                export_count++;
-                            }
-                            FileClose(fnbr);
-
                             char msg[40];
-                            sprintf(msg, " EXPORTED %d CHARS ", export_count);
+                            sprintf(msg, " EXPORTED %d CHARS ", (int)(cpend - cp));
                             editDisplayMsg((char *)msg);
                         }
                         else
-                        {
-                            editDisplayMsg(" CANNOT CREATE FILE ");
-                        }
+                            EdFileMsg("CANNOT CREATE FILE", r, exportfile);
                     }
                 }
                 // Calculate line number of txtp and adjust edy if needed
@@ -3569,6 +3651,7 @@ void PrintFunctKeys(int typ)
     int x = curx, y = cury;
     const char *p = pickFunctKeyString(typ, VWidth);
 
+    EdMsgUp = 0;                                        // (CMM2: the message line is the legend again)
     EdStatusBar();
     EdCursor(0, (VHeight + 1) * gui_font_height);
     EdPutS((char *)p, GUI_C_STATUS, gui_bcolour); // display the string on the display attached to the MX470
@@ -3593,6 +3676,9 @@ void EdPrintStatus(void)
 // display a message in the status line
 void editDisplayMsg(char *msg)
 {
+    if (msg != EdLastMsg)
+        snprintf(EdLastMsg, sizeof(EdLastMsg), "%s", msg);
+    EdMsgUp = 1;
     SCursor(0, VHeight + 1);
     if (EdColourCode)
         PrintString(VT100_C_ERROR);

@@ -110,9 +110,12 @@ void ScreenShot(void) {
     }
     if(n == 1000) return;
     sprintf(cmd, "IMAGE \"%s\"", name);
+    int oldabort = OptionFileErrorAbort;                // a file error not thrown (FM's way): from the editor it
+    OptionFileErrorAbort = 0;                           // would leave it and lose the edits (E3)
     cmdline = cmd;
     cmd_save();
     cmdline = saved_cmdline;
+    OptionFileErrorAbort = oldabort;
 }
 
 // the serial terminal asked to be the console's size (xterm's resize: ESC [ 8 ; rows ; cols t)
