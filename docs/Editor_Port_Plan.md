@@ -539,6 +539,36 @@ kilo keeps an array of rows, so it does none of this. Near the end of a 300 KB f
 
 The targets are a full redraw under 50 ms and a keystroke under 5 ms (estimates). At the least, no worse than kilo on the same file.
 
+**E6 as built (19 Oct).** In `Src/Editor.c`:
+- **findLine** keeps two places (`EdFind[]`): the screen's top line when it was last looked up, and the last line looked up, each with the block-comment state at its start. A line at or after one is found from the nearest. A redraw now counts from the top line, row after row, and the display and terminal halves of `printLine` find the same line at once.
+- **The cursor's line.** `EdLineOf` keeps the line of the last place asked for, and counts on from it either way. `PositionCursor`, `EdShowCursor`, `restoreColourFromLineStart` and mark mode's line numbers use it. Mark mode's visible range comes from `findLine`.
+- **Invalidation.** The text before a place does not change while the editor edits after it. So `EdChanged(p)`, called wherever the text changes, drops only the places after `p`, or whose state is read from `p` (a line's first characters, for `/*` and `*/`). The changes are editInsertChar, Del, overtype, mark mode's delete, the paste, and Beautify, which drops them all, as a new EDIT does.
+- **editInsertChar** finds the text's end from the cursor, not from the start.
+- **Mark mode scrolls a line** (`EdMarkScroll`) as edit mode's Scroll and ScrollDown do, instead of redrawing the whole screen for each line.
+
+Measured with `tools/edit_speed.py` on a 284 KB file (4,000 lines). Each time includes the serial line, about 60 ms for a key and 150 ms for a full redraw:
+
+| At the file's end | Before | After | At its top |
+|---|---|---|---|
+| A keystroke | 99 ms | 67 ms | 82 ms |
+| Enter | 538 ms | 141 ms | 152 ms |
+| Backspace joining lines | 540 ms | 150 ms | 146 ms |
+| PgUp a page | 543 ms | 151 ms | 54 ms (no redraw at the top) |
+| PgDn a page | 540 ms | 144 ms | 149 ms |
+
+So the end of the file now costs what its top does. What is left is the terminal output: a redraw is 3.8 KB at 460800 baud.
+
+A search (F3) from the top for a line 10 from the end takes 159 ms, the redraw where it lands included (3.3 KB of output). It scans 280 KB.
+
+kilo's way of selecting to the end, 419 Downs at 20 a second in mark mode, now keeps up: each Down at the bottom scrolls one line. Before, it overran the console's 256-byte queue and keys were lost.
+
+Checked:
+- script 24: colours after `/*` typed mid-file and taken out again, the screen after paging away and back, and mark mode scrolling a line at a time both ways;
+- photographs of mark mode's scroll on the display;
+- the whole suite.
+
+`tools/vt100drive.py` gained reverse index (ESC M), which ScrollDown has always sent, and keeps its cursor moves on the screen.
+
 ## S: the switch-over
 
 **Gate:**

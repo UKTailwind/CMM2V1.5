@@ -52,6 +52,7 @@ FILES = {
     'expect22b.bas': ['Print "usb!"'],
     'start23.txt': ['a\tb'],
     'expect23.txt': ['a\tb', 'a\tb'],
+    'start24.bas': ['Print "L%02d"' % i for i in range(1, 61)],
     'expect18.bas': ['Sub A', '    Print 1', '    Print 2', '  Print 3', 'x=1', 'End Sub'],
 }
 

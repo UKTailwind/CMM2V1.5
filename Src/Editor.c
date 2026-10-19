@@ -129,6 +129,7 @@ void GetInputString(char *prompt);
 static void EdGetInput(char *prompt, char *def);
 void Scroll(void);
 void ScrollDown(void);
+static void EdMarkScroll(int down);
 void MarkMode(char *buf);
 void PositionCursor(char *curp);
 static int multilinecomment = false;
@@ -138,6 +139,69 @@ static char *EdFileName = "";                           // CMM2: the file being 
    mode hid */
 static char EdLastMsg[128];
 static int EdMsgUp;
+
+/* ---- CMM2 (Editor_Port_Plan.md E6): where lines are, kept ---------------------------------------------------------
+   The PicoMite's editor finds a line by counting the text's newlines from its start: findLine for every row drawn
+   (twice: the display and the terminal), PositionCursor and editInsertChar for every key. Near the end of a 284 KB file
+   a redraw took 0.4 s more than at its top. Places are kept instead, and counted on from:
+   - findLine's: the screen's top line when it was last looked up, and the last line looked up, each with the block
+     comment state at its start (EdFind[]);
+   - the line of the place last asked for by EdLineOf (PositionCursor's): EdPosP, EdPosN.
+   The text before a line does not change while the editor edits after it, so a kept place is dropped only when the
+   text changes before it, or where its state is read from (EdChanged). */
+static struct
+{
+    char *p;                                            // the start of line n (NULL: none kept)
+    char *dep;                                          // how far its comment state was read from (its first characters)
+    int n, m;                                           // the line, and findLine's inmulti at its start
+} EdFind[2];                                            // [0] the screen's top line, [1] the last line looked up
+static char *EdPosP;                                    // the start of line EdPosN (NULL: none kept)
+static int EdPosN;
+
+// none kept (a new text, or one rewritten whole)
+static void EdCacheReset(void)
+{
+    EdFind[0].p = EdFind[1].p = NULL;
+    EdPosP = NULL;
+}
+
+// the text changes at p (characters put in or taken out there): a place kept after it has moved
+static void EdChanged(char *p)
+{
+    for (int i = 0; i < 2; i++)
+        if (EdFind[i].p && p < EdFind[i].dep)
+            EdFind[i].p = NULL;
+    if (EdPosP && p < EdPosP)
+        EdPosP = NULL;
+}
+
+// the line of at (a place in the text), and in *colp its column, counted from the kept place either way
+static int EdLineOf(char *at, int *colp)
+{
+    char *p, *ls;
+    int ln;
+    if (EdPosP && at < EdPosP)
+    {                                                   // back from the kept line: its number less the newlines
+        for (p = at, ln = EdPosN; p < EdPosP; p++)       // between
+            if (*p == '\n')
+                ln--;
+        for (ls = at; ls > EdBuff && ls[-1] != '\n'; ls--)
+            ;
+    }
+    else
+    {
+        p = EdPosP ? EdPosP : EdBuff;
+        ln = EdPosP ? EdPosN : 0;
+        for (ls = p; p < at; p++)
+            if (*p == '\n')
+                ln++, ls = p + 1;
+    }
+    EdPosP = ls;
+    EdPosN = ln;
+    if (colp)
+        *colp = at - ls;
+    return ln;
+}
 #define MAXCLIP 1024
 #define EDIT_BUFFER_BYTES (1024 * 1024)         // CMM2: the edit buffer, from the SDRAM heap (Editor_Port_Plan.md D5)
 
@@ -458,13 +522,7 @@ static int EdSetClip(char *from, int len)
    past the right edge (only the cursor's line, as the editor does elsewhere) */
 static void EdShowCursor(int ahead)
 {
-    int ln = 0, col = 0;
-    char *p;
-    for (p = EdBuff; p < txtp; p++)
-        if (*p == '\n')
-            ln++, col = 0;
-        else
-            col++;
+    int col, ln = EdLineOf(txtp, &col);                 // (E6)
     if (ln < edy || ln >= edy + VHeight)
     {
         edy = ln - VHeight / 2;
@@ -495,6 +553,7 @@ static void EdPaste(int edit_buff_size)
         editDisplayMsg(" OUT OF MEMORY ");
         return;
     }
+    EdChanged(txtp);                                    // (E6: the lines kept after it move)
     memmove(txtp + EdClipLen, txtp, end - txtp + 1);     // (the zero after the text too)
     memcpy(txtp, EdClip, EdClipLen);
     for (i = 0; i < EdClipLen; i++)
@@ -881,6 +940,7 @@ static void edit(char *cmdline)
     multilinecomment = false;
     EdClip = NULL;                                      // (E4: empty; a clipboard of an earlier EDIT went at the prompt)
     EdClipLen = 0;
+    EdCacheReset();                                     // (E6: no line kept from an earlier EDIT's text)
     EdBuff = GetTempMemory(edit_buff_size);             // (from the heap, which EdDisplaySetup gave back; freed at the prompt)
     *EdBuff = 0;
     nbrlines = 0;
@@ -1866,6 +1926,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 }
                 else
                     lastdel = 0;
+                EdChanged(txtp);                        // (CMM2 (E6): the lines kept after it move)
                 while (*p)
                 {
                     p[0] = p[1];
@@ -2514,6 +2575,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                     }
                 }
                 editBeautify(edit_buff_size, keep_blanks);
+                EdCacheReset();                         // (CMM2 (E6): the text rewritten whole)
                 TextChanged = true;
                 for (nbrlines = 1, p = EdBuff; *p; p++)     // CMM2: Beautify adds and removes blank lines
                     if (*p == '\n')
@@ -2541,7 +2603,10 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                         break; // insert it
                 }
                 else
+                {
+                    EdChanged(txtp);                    // (CMM2 (E6))
                     *txtp++ = c; // or just overtype
+                }
                 if (curx >= VWidth - 1 - SCROLLCHARS)
                     edx++;
                 printLine(edy + cury); // redraw the whole line so that colour coding will occur
@@ -2572,18 +2637,8 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
 void PositionCursor(char *curp)
 {
     int ln, col;
-    char *p;
 
-    for (p = EdBuff, ln = col = 0; p < curp; p++)
-    {
-        if (*p == '\n')
-        {
-            ln++;
-            col = 0;
-        }
-        else
-            col++;
-    }
+    ln = EdLineOf(curp, &col);                          // CMM2 (E6): from the line kept, not the text's start
     if (ln < edy || ln >= edy + VHeight)
         return;
     SCursor(col - edx, ln - edy);
@@ -2675,8 +2730,10 @@ void MarkMode(char *buf)
                     cury--;
                 else if (edy > 0)
                 {
-                    edy--;
-                    need_redraw = 1;
+                    if (need_redraw)
+                        edy--;
+                    else
+                        EdMarkScroll(0);                // (CMM2 (E6): a line, not the whole screen)
                 }
                 if (need_redraw)
                 {
@@ -2713,8 +2770,10 @@ void MarkMode(char *buf)
                     cury++;
                 else if (edy + VHeight < nbrlines)
                 {
-                    edy++;
-                    need_redraw = 1;
+                    if (need_redraw)
+                        edy++;
+                    else
+                        EdMarkScroll(1);                // (CMM2 (E6): a line, not the whole screen)
                 }
                 if (need_redraw)
                 {
@@ -2943,11 +3002,7 @@ void MarkMode(char *buf)
                     }
                 }
                 // Calculate line number of txtp and adjust edy if needed
-                int ln;
-                char *pp;
-                for (pp = EdBuff, ln = 0; pp < txtp; pp++)
-                    if (*pp == '\n')
-                        ln++;
+                int ln = EdLineOf(txtp, NULL);          // (CMM2 (E6): from the line kept)
                 // If txtp is off-screen, adjust edy to center it
                 if (ln < edy || ln >= edy + VHeight)
                 {
@@ -2974,6 +3029,7 @@ void MarkMode(char *buf)
             for (p = txtp; p < mark; p++)
                 if (*p == '\n')
                     nbrlines--;
+            EdChanged(txtp);                            // (CMM2 (E6): the lines kept after it move)
             for (p = txtp; *mark;)
                 *p++ = *mark++;
             *p++ = 0;
@@ -2981,11 +3037,7 @@ void MarkMode(char *buf)
             TextChanged = true;
             // Calculate line number of txtp and adjust edy if needed
             {
-                int ln;
-                char *pp;
-                for (pp = EdBuff, ln = 0; pp < txtp; pp++)
-                    if (*pp == '\n')
-                        ln++;
+                int ln = EdLineOf(txtp, NULL);          // (CMM2 (E6): from the line kept)
                 // If txtp is off-screen, adjust edy to center it
                 if (ln < edy || ln >= edy + VHeight)
                 {
@@ -3012,12 +3064,8 @@ void MarkMode(char *buf)
         // Calculate visible line range
         char *visStart, *visEnd;
         int ln;
-        for (visStart = EdBuff, ln = 0; ln < edy && *visStart; visStart++)
-            if (*visStart == '\n')
-                ln++;
-        for (visEnd = visStart, ln = 0; ln < VHeight && *visEnd; visEnd++)
-            if (*visEnd == '\n')
-                ln++;
+        visStart = findLine(edy, &ln);                  // (CMM2 (E6): from the lines kept, not the text's start)
+        visEnd = findLine(edy + VHeight, &ln);
 
         // Determine the marked range (low to high)
         char *markLow = (mark < txtp) ? mark : txtp;
@@ -3229,15 +3277,28 @@ void MarkMode(char *buf)
 char *findLine(int ln, int *inmulti)
 {
     char *p, *q;
+    int want = ln, k = -1;
     *inmulti = false;
     int inquote = false;
     int incomment = false;
-    p = q = EdBuff;
-    skipspace(q);
-    if (q[0] == '/' && q[1] == '*')
-        *inmulti = true;
-    if (q[0] == '*' && q[1] == '/')
-        *inmulti = false;
+    for (int i = 0; i < 2; i++)                         // CMM2 (E6): on from the nearest kept line at or before ln
+        if (EdFind[i].p && EdFind[i].n <= ln && (k < 0 || EdFind[i].n > EdFind[k].n))
+            k = i;
+    if (k >= 0)
+    {
+        p = EdFind[k].p;
+        *inmulti = EdFind[k].m;
+        ln -= EdFind[k].n;
+    }
+    else
+    {
+        p = q = EdBuff;
+        skipspace(q);
+        if (q[0] == '/' && q[1] == '*')
+            *inmulti = true;
+        if (q[0] == '*' && q[1] == '/')
+            *inmulti = false;
+    }
     while (ln && *p)
     {
         if (*p == '\n')
@@ -3273,6 +3334,17 @@ char *findLine(int ln, int *inmulti)
                 inquote = !inquote;
         }
         p++;
+    }
+    if (ln == 0)
+    {                                                   // CMM2 (E6): kept, as the last line looked up, and as the
+        q = p;                                          // screen's top line when it is that
+        skipspace(q);
+        EdFind[1].p = p;
+        EdFind[1].dep = q + 2;
+        EdFind[1].n = want;
+        EdFind[1].m = *inmulti;
+        if (want == edy)
+            EdFind[0] = EdFind[1];
     }
     // Report continuation colour state via inmulti
     if (!*inmulti && inquote)
@@ -3615,11 +3687,8 @@ void SetColour(char *p, int DoVT100)
 void restoreColourFromLineStart(char *target)
 {
     int inmulti = 0;
-    int ln = 0;
+    int ln = EdLineOf(target, NULL);                    // (CMM2 (E6): from the line kept)
     char *q;
-    for (q = EdBuff; q < target && *q; q++)
-        if (*q == '\n')
-            ln++;
     SetColour(NULL, false);
     char *ls = (char *)findLine(ln, &inmulti);
     if (inmulti == 3)
@@ -3798,13 +3867,13 @@ int editInsertChar(unsigned char c, char *multi, int edit_buff_size)
 {
     char *p;
 
-    for (p = EdBuff; *p; p++)
-        ; // find the end of the text in memory
+    p = txtp + strlen(txtp); // find the end of the text in memory (CMM2 (E6): from the cursor, not the start)
     if (p >= EdBuff + edit_buff_size - 10)
     { // and check that we have the space (allow 10 bytes for slack)
         editDisplayMsg(" OUT OF MEMORY ");
         return false;
     }
+    EdChanged(txtp);                                    // (CMM2 (E6): the lines kept after it move)
     for (; p >= txtp; p--)
         *(p + 1) = *p; // shift everything down
     *multi = 0;
@@ -4056,6 +4125,37 @@ void ScrollDown(void)
     PrintFunctKeys(EDIT);
     PositionCursor(txtp);
     // (CMM2: the keys typed meanwhile kept: see printScreen)
+}
+
+/* CMM2 (E6): mark mode's scroll by a line, as Scroll and ScrollDown are edit mode's: the screen moved and the new
+   line drawn, where mark mode redrew the whole screen for every line (a held arrow outran the console's queue).
+   curx and cury, the selection's end, are kept; MarkMode then draws the selection. */
+static void EdMarkScroll(int down)
+{
+    int x = curx, y = cury;
+    SCursor(0, VHeight);
+    PrintString("\033[J");                              // (the status bar and the key line, drawn again below)
+    if (down)
+    {
+        edy++;
+        PrintString("\033[99B\n");                      // to the end of the screen, where a line feed scrolls it
+        EdCursor(0, VHeight * gui_font_height);
+        MX470Scroll(gui_font_height);
+        SCursor(0, VHeight - 1);
+        printLine(edy + VHeight - 1);
+    }
+    else
+    {
+        edy--;
+        SCursor(0, 0);
+        PrintString("\033M");                           // reverse index at the top: the screen moves down a line
+        MX470Scroll(-gui_font_height);
+        SCursor(0, 0);
+        printLine(edy);
+    }
+    curx = x;                                           // (first: the status bar gives the selection's end)
+    cury = y;
+    PrintFunctKeys(MARK);
 }
 
 #endif // EDITOR_ENGINE

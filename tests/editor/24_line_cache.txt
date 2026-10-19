@@ -1,0 +1,28 @@
+# 24 (E6) the kept line places stay right: the colours after "/*" typed mid-file and taken out again, the screen after paging away and back, and mark mode scrolling a line at a time both ways
+put t.bas start24.bas
+cmd EDIT "t.bas"
+key down 9
+type /*
+colour comment "L12"
+key bksp 2
+colour quote "L12"
+status (modified)
+key pgdn 2
+key pgup 2
+line 0 Print "L01"
+colour quote "L05"
+# mark mode: F4 on the bottom row, then Down scrolls a line at a time, and Up back
+key pgdn
+key f4
+key down 3
+line 0 Print "L04"
+line 37 Print "L41"
+key up 40
+line 0 Print "L01"
+line 37 Print "L38"
+key esc
+key esc
+message discard
+type Y
+key enter
+prompt

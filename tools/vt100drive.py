@@ -17,7 +17,7 @@ the shifted keys of the CMM2's own keyboard, are sent as the codes that keyboard
 (Hardware_Includes.h: SHIFT_TAB 0x9F, SHIFT_DEL 0xA0, DOWNSEL 0xA1, RIGHTSEL 0xA3): the serial console passes bytes
 of 0x80 and over through unchanged (checked 19 Oct), so the editor cannot tell them from the keyboard's.
 
-The screen is a small VT100: cursor moves (H f A B C D, ESC 7/8, ESC[s/u), erase (2J, K), SGR (foreground,
+The screen is a small VT100: cursor moves (H f A B C D, ESC 7/8, ESC[s/u, ESC M), erase (2J, K), SGR (foreground,
 background and reverse, kept for each cell), the size from the terminal resize the CMM2 asks for (ESC[8;rows;colst).
 """
 import re
@@ -127,16 +127,26 @@ class Screen:
                         self.saved = (self.r, self.c)
                     elif f == 'u':
                         self.r, self.c = self.saved
-                    elif f in 'ABCD':
+                    elif f in 'ABCD':                   # (a terminal stops the cursor at the screen's edges)
                         n = int(params or 1)
-                        self.r += {'A': -n, 'B': n}.get(f, 0)
-                        self.c += {'C': n, 'D': -n}.get(f, 0)
+                        self.r = min(max(self.r + {'A': -n, 'B': n}.get(f, 0), 0), self.rows - 1)
+                        self.c = min(max(self.c + {'C': n, 'D': -n}.get(f, 0), 0), self.cols - 1)
                     continue
                 if s[i + 1:i + 2] in ('7', '8'):
                     if s[i + 1] == '7':
                         self.saved = (self.r, self.c)
                     else:
                         self.r, self.c = self.saved
+                    i += 2
+                    continue
+                if s[i + 1:i + 2] == 'M':               # reverse index: up a row, or at the top the screen down a row
+                    if self.r > 0:
+                        self.r -= 1
+                    else:
+                        self.ch.pop()
+                        self.ch.insert(0, [' '] * self.cols)
+                        self.at.pop()
+                        self.at.insert(0, [(None, None, False)] * self.cols)
                     i += 2
                     continue
                 if len(s) - i < 16 and not re.search(r'[A-Za-z@~]', s[i + 1:]):
