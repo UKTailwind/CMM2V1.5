@@ -1,23 +1,19 @@
-# 08 ^K at column 1 and mid-line, Shift-Tab, Shift-Del, and Tab with OPTION TAB 2, 3, 4 and 8
+# 08 Shift-Tab, Shift-Del, and Tab with OPTION TAB 2, 3, 4 and 8 (the PicoMite's keys and kilo's Shift keys, Peter 19 Oct)
 put t.bas start8.bas
 cmd OPTION TAB 2
 prompt
 cmd EDIT "t.bas"
-# ^K at column 1 deletes the line
-key ^K
-line 0 line two keep
-# ^K mid-line deletes to the end of the line and goes to the start of the next
-key right 8
-key ^K
-status 1/2/
 # Shift-Tab deletes up to one tab stop of spaces at the cursor
-key down
+key down 3
 key shift-tab
-# Shift-Del at column 1 deletes the leading spaces; elsewhere it deletes the next character
+line 3   indented four
+# Shift-Del at the start of a line deletes its leading spaces; elsewhere it deletes the next character
 key down
 key shift-del
+line 4 indented five
 key down
 key shift-del
+line 5 yz
 # Tab to the next stop (2)
 key end
 key enter
@@ -30,8 +26,9 @@ get t.bas expect8a.bas
 cmd OPTION TAB 4
 prompt
 cmd EDIT "t.bas"
-key down 6
+key down 7
 key shift-tab
+key up 2
 key end
 key enter
 type e
@@ -39,11 +36,10 @@ key tab
 type f
 key f1
 prompt
-# Tab 3, then 8, at the end of the file (End twice)
+# Tab 3, then 8, on new lines after the first (no indent to carry)
 cmd OPTION TAB 3
 prompt
 cmd EDIT "t.bas"
-key end
 key end
 key enter
 type b
@@ -57,7 +53,6 @@ prompt
 cmd OPTION TAB 8
 prompt
 cmd EDIT "t.bas"
-key end
 key end
 key enter
 type g

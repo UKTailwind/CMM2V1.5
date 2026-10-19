@@ -18,6 +18,15 @@ key home
 status 1/100/100
 key home
 status 1/1/100
+# in mark mode too: F4 and PgDn select to the screen's bottom row; Del deletes those lines
+key f4
+key pgdn
+key del
+status 63 lines
+line 0 line 038
 key esc
+message discard
+type Y
+key enter
 prompt
 get t.bas start14.bas

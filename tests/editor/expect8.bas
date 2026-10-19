@@ -1,11 +1,12 @@
-line two
+line one
+g       h
+b  c
+   d
+line two keep
 line three
   indented four
 indented five
 yz
+e   f
   a
   six
-e   f
-b  c
-   d
-g       h

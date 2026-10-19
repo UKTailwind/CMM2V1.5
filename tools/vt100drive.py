@@ -37,6 +37,7 @@ KEYS = {
     'tab': b'\t', 'enter': b'\r', 'esc': b'\x1b', 'bksp': b'\x08',
     # the CMM2 keyboard's own codes (no VT100 sequence)
     'shift-tab': b'\x9f', 'shift-del': b'\xa0', 'shift-down': b'\xa1', 'shift-left': b'\xa2', 'shift-right': b'\xa3',
+    'shift-up': b'\xa4',
 }
 
 

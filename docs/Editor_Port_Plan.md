@@ -84,7 +84,9 @@ Found and fixed on the way:
 
 **PicoMite bugs found in this part** (filed 19 Oct): #53, the long-line number; #54, the Beautify count; #55, the yellow display with colour coding off. The `CurrentLinePtr` one does not show on the PicoMite as far as can be seen: its FM runs PrepareProgram after each load, which clears it.
 
-**Still to do by hand:** the USB keyboard's keys in the engine; the screen-only console. Next: E2.
+**Still to do by hand:** the USB keyboard's keys in the engine; the screen-only console.
+
+**D1 revised (Peter, 19 Oct):** the PicoMite's keys stay, with kilo's Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn added (see Decisions). Scripts 08, 09 and 14 were rewritten for these keys and pass. Next: the rest of the kilo scripts for the PicoMite's keys, then E3.
 
 ## Review, 19 Oct
 
@@ -209,6 +211,14 @@ The upgrades go into the CMM2 copy first. The PicoMite takes them later, gated p
 
 ## Decisions (Peter, 17 Oct)
 
+**D1 revised (Peter, 19 Oct): the PicoMite's keys, with four of kilo's added.** The editor keeps the PicoMite's key map as it is, so both boards have one editor with the same keys. Four kilo behaviours are added, on keys the PicoMite's editor does not use (done 19 Oct; scripts 08, 09 and 14):
+- Shift-Tab: up to a tab stop's worth of spaces at the cursor deleted (at a line's start, the indent back a stop);
+- Shift-Del: at a line's start, its leading spaces deleted; elsewhere, Del;
+- Shift with any arrow: mark mode, the arrow being its first move; in mark mode the shifted arrows are arrows (kilo had Shift-Down and Shift-Right; the CMM2 keyboard sends all four: 0xA1-0xA4);
+- PgUp and PgDn in two stages: first to the screen's top or bottom row (or the last line), then a page; in mark mode too.
+
+The original D1, and the key map below, are kept as the record of what was planned:
+
 **D1, the key map: keep the CMM2's.**
 - Every key kilo uses keeps its kilo meaning.
 - The engine's features that kilo has no key for go on keys kilo leaves free. Beautify goes on ^A, with no confirmation.
@@ -241,7 +251,7 @@ The CMM2 reads `mousestruct[Option.Mouse]` until the parity plan settles whether
 - That is larger than any source whose program fits the 512 KB image, and leaves the G1's 5 MB heap room for the clipboard.
 - A larger file is refused on entry, as now (P 736).
 
-## The CMM2 key map (D1)
+## The CMM2 key map (D1, as planned on 17 Oct; replaced by D1 revised)
 
 **Edit mode:**
 
@@ -395,7 +405,11 @@ The engine scrolls only the cursor's line and snaps back to column 1 on Up/Down 
 
 ## E2-E6: kilo parity
 
-**E2, the key map and kilo's smaller functions.** The `KEY_*` map above, plus the kilo functions the engine lacks:
+**E2 after D1 revised (19 Oct).** The key map goes: the PicoMite's keys stay. Of kilo's smaller functions, Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn are done (D1 revised). The rest of the list below is not taken up: ^K (End in the PicoMite's keys), ^X and ^C in select mode, Esc three times, the unpasted-buffer warning, kilo's message line, control characters as ^letter, and whole-screen sideways scrolling.
+
+The kilo scripts that test kilo's keys (4, 5, 10-13) are to be rewritten for the PicoMite's keys, as 08, 09 and 14 were on 19 Oct. They test the functions, not the keys, and the functions E3-E5 bring.
+
+**E2 as first planned, the key map and kilo's smaller functions.** The `KEY_*` map above, plus the kilo functions the engine lacks:
 - ^K;
 - Shift-Tab and Shift-Del;
 - Shift-Down and Shift-Right;

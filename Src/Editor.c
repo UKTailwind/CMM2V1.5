@@ -407,6 +407,22 @@ static void EdClick(int x, int y)
     EdPrintStatus();
 }
 
+/* CMM2 (kilo's two-stage PgUp and PgDn, Peter 19 Oct): the cursor to row y of the screen, or the last line if the
+   text ends before it, at the column Up and Down keep (tempx, with the line not scrolled sideways, as they leave it) */
+static void EdToRow(int y)
+{
+    if (edx != 0)
+    {
+        edx = 0;
+        SCursor(0, cury);
+        printLine(edy + cury);
+    }
+    txtp = EdTextAt(txtp, 0, y);
+    for (curx = 0; curx < tempx && *txtp && *txtp != '\n'; curx++)
+        txtp++;
+    PositionCursor(txtp);
+}
+
 // CMM2: is there a file (not a directory) of this name, and its size
 static int EdFileExists(char *name, FSIZE_t *size)
 {
@@ -1526,6 +1542,24 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                     printScreen();
                 break;
 
+            case SHIFT_TAB:                             // CMM2 (kilo's): up to a tab stop's worth of the spaces at the
+                for (i = 0; i < Option.Tab && txtp[i] == ' '; i++)  // cursor deleted (at a line's start, it
+                    buf[i + 1] = DEL;                   // takes the indent back a stop)
+                buf[i + 1] = 0;
+                break;
+
+            case SHIFT_DEL:                             // CMM2 (kilo's): at the start of a line, its leading spaces
+                i = 0;                                  // deleted; anywhere else Del
+                if (txtp == EdBuff || txtp[-1] == '\n')
+                    while (txtp[i] == ' ' && i < MAXCLIP - 1)
+                        i++;
+                if (i == 0)
+                    i = 1;
+                buf[i + 1] = 0;
+                while (i)
+                    buf[i--] = DEL;
+                break;
+
             case CTRLKEY('N'):
             case INSERT:
                 insert = !insert;
@@ -1621,6 +1655,11 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
 
             case CTRLKEY('P'):
             case PUP:
+                if (cury > 0)
+                {                                       // CMM2 (kilo's): first to the screen's top row
+                    EdToRow(0);
+                    break;
+                }
                 if (edy == 0)
                 {                  // if we are already showing the top of the text
                     buf[1] = HOME; // force the editing point to the start of the text
@@ -1657,6 +1696,11 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
 
             case CTRLKEY('L'):
             case PDOWN:
+                if (cury < VHeight - 1 && edy + cury < nbrlines - 1)
+                {                                       // CMM2 (kilo's): first to the screen's bottom row (or the
+                    EdToRow(VHeight - 1);               // last line, when the text ends before it)
+                    break;
+                }
                 if (nbrlines <= edy + VHeight + 1)
                 {                 // if we are already showing the end of the text
                     buf[1] = END; // force the editing point to the end of the text
@@ -1869,6 +1913,12 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 break;
 
             // Mark
+            case UPSEL:                                 // CMM2 (kilo's): Shift and an arrow start mark mode, the
+            case DOWNSEL:                               // arrow being its first move (given back for MarkMode)
+            case LEFTSEL:
+            case RIGHTSEL:
+                EdUnget(buf[0]);
+                // fall through
             case CTRLKEY('T'):
             case F4:
                 MarkMode(clipboard, &buf[1]);
@@ -2230,6 +2280,7 @@ void MarkMode(char *cb, char *buf)
             SCursor(curx, cury);
             return;
 
+        case UPSEL:                                     // (CMM2: the shifted arrows as the arrows, kilo's)
         case CTRLKEY('E'):
         case UP:
             if (cury <= 0 && edy == 0)
@@ -2278,6 +2329,7 @@ void MarkMode(char *cb, char *buf)
             }
             break;
 
+        case DOWNSEL:
         case CTRLKEY('X'):
         case DOWN:
             for (p = mark; *p != 0 && *p != '\n'; p++)
@@ -2315,6 +2367,7 @@ void MarkMode(char *cb, char *buf)
             }
             break;
 
+        case LEFTSEL:
         case CTRLKEY('S'):
         case LEFT:
             if (curx == 0 && edx == 0)
@@ -2329,6 +2382,7 @@ void MarkMode(char *cb, char *buf)
                 curx--;
             break;
 
+        case RIGHTSEL:
         case CTRLKEY('D'):
         case RIGHT:
             if (*mark == 0 || *mark == '\n')
@@ -2395,6 +2449,11 @@ void MarkMode(char *cb, char *buf)
 
         case CTRLKEY('P'):
         case PUP:
+            if (cury > 0)
+            {                                           // CMM2 (kilo's): first to the screen's top row
+                mark = EdTextAt(mark, curx, 0);
+                break;
+            }
             if (edy == 0)
             {
                 // Already at top, move mark to beginning of file
@@ -2438,6 +2497,11 @@ void MarkMode(char *cb, char *buf)
 
         case CTRLKEY('L'):
         case PDOWN:
+            if (cury < VHeight - 1 && edy + cury < nbrlines - 1)
+            {                                           // CMM2 (kilo's): first to the screen's bottom row (or the
+                mark = EdTextAt(mark, curx, VHeight - 1);   // last line)
+                break;
+            }
             if (edy + VHeight >= nbrlines)
             {
                 // Already showing end, move mark to end of file

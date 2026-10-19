@@ -46,6 +46,10 @@ static int EdColourCode;
 static inline void EdSerialPutS(char *s) { if(OptionConsole & 1) SerUSBPutS(s); }
 static inline char EdSerialPutC(char c, int flush) { if(OptionConsole & 1) SerUSBPutC(c); return c; }
 
+// the CMM2 keyboard's shifted arrows (KeyboardMap.c; Hardware_Includes.h has DOWNSEL and RIGHTSEL): select (kilo's)
+#define UPSEL               0xA4
+#define LEFTSEL             0xA2
+
 // the shifted function keys: MMInkey gives a terminal's SHIFT-F3 to F10 as the key + 0x20 (main.c), as the PicoMite does
 #define SHIFT_F3            (F3 + 0x20)
 #define SHIFT_F4            (F4 + 0x20)
