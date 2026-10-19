@@ -192,12 +192,10 @@ static void EdDisplayRestore(void)
      one MMInkey makes 2 ms after a CR when nothing else has come) is dropped, as MMgetchar drops it. Waiting for that
      LF alone would lose the Enters of a CR typed ahead or pasted with more after it.
    - Print Screen (0x9D) saves the display (ScreenShot, Console.c) and is not a key. */
-static int EdPushed[4], EdPushedN = 0;                  // keys looked at and given back (EdUnget)
-static void EdUnget(int c)
-{
-    if (c != -1 && EdPushedN < 4)
-        EdPushed[EdPushedN++] = c;
-}
+/* keys looked at and given back: to MMInkey (main.c), which returns them before any other, so that those typed after
+   an Esc that leaves the editor reach the prompt (as kilo's did, through MMInkey's own look-ahead). A queue of the
+   editor's own kept them for its next session instead, where they were typed into the file. */
+#define EdUnget(c) MMInkeyUnget(c)
 
 /* CMM2: after Esc, a terminal's mouse report (ESC [ M b x y, Tera Term's) or not: its next two keys are looked at and
    given back unless they are '[' 'M'. The PicoMite's editor took them with MMInkey and so lost a key typed straight
@@ -213,7 +211,7 @@ static int EdMouseReport(void)
     b = MMInkey();
     if (b != 'M')
     {
-        EdUnget(b);                                     // (given back in the order they came: EdInkey takes the
+        EdUnget(b);                                     // (given back in the order they came: MMInkey returns the
         EdUnget(a);                                     // last given first)
         return 0;
     }
@@ -223,7 +221,7 @@ static int EdMouseReport(void)
 static int EdInkey(void)
 {
     static int lastcr = 0;
-    int c = EdPushedN ? EdPushed[--EdPushedN] : MMInkey();
+    int c = MMInkey();
     if (c == -1)
         return -1;
     if (c == 0x9D)
@@ -238,6 +236,175 @@ static int EdInkey(void)
     }
     lastcr = (c == '\r');
     return lastcr ? '\n' : c;
+}
+
+/* CMM2: the mouse (Editor_Port_Plan.md D2), with OPTION MOUSE set and the display a console. A USB mouse, when one is
+   plugged in, is the one read: only its channel, 2, can be open then. Its state is mousestruct[] in the display's pixels.
+   While the editor waits for a key:
+   - the pointer (the GUI cursor) follows it, and is hidden while the editor draws;
+   - the wheel is Up or Down, and a double click at the left or right edge Home or End (kilo's);
+   - left: the cursor to the character under the pointer; in mark mode, the selection's end;
+   - left held for 0.5 s, or dragged to another character: mark mode, the selection following the pointer while the
+     button is down (kilo's drag, which needed the hold);
+   - right: mark mode from the pointer; in mark mode, cut (F4);
+   - middle: paste at the pointer (F5); in mark mode, copy (F5).
+   The PicoMite's right and middle buttons extend a selection to the pointer before the cut or the copy; here they act
+   on the selection as it is, the left button being the one that moves it. */
+#define EDMOUSE_CELL 9999                               // (not a key) the left button at EdMouseX, EdMouseY
+static int EdMouseChan = -1;                            // the mouse's channel, -1 when the editor has none
+static int EdMouseX, EdMouseY;                          // the editing area's cell under the pointer
+
+static void EdMouseOpen(void)
+{
+    char open[24];
+    EdMouseChan = -1;
+    if (Option.Mouse < 0 || !(OptionConsole & 2) || VideoColour == 4)
+        return;                                         // (GUI CURSOR has no 4-bit modes)
+    EdMouseChan = UsbMouse ? 2 : Option.Mouse;
+    sprintf(open, "OPEN %d,,,%d", EdMouseChan, Option.Sensitivity);
+    cmd_cursor("ON");
+    cmd_mouse(open);                                    // (kilo's GUI CURSOR ON:CONTROLLER MOUSE OPEN n,,,s)
+}
+
+static void EdMouseClose(void)
+{
+    char close[24];
+    if (EdMouseChan < 0)
+        return;
+    sprintf(close, "CLOSE %d", EdMouseChan);
+    EdMouseChan = -1;
+    cmd_mouse(close);
+    cmd_cursor("OFF");
+}
+
+// the pointer where the mouse is (show), or hidden while the editor draws (!show)
+static void EdPointer(int show)
+{
+    volatile struct s_nunstruct *m;
+    if (EdMouseChan < 0)
+        return;
+    m = &mousestruct[EdMouseChan];
+    if (!show)
+        hidecursor(1);
+    else if (!cursoron || m->ax != xcursor || m->ay != ycursor)
+    {
+        hidecursor(1);
+        showcursor(1, m->ax, m->ay);
+    }
+}
+
+/* what the mouse has done since it was last read, as a key (UP, DOWN, HOME, END, F4, F5), EDMOUSE_CELL, or -1. A key
+   that follows a move of the cursor (right and middle in edit mode) is given back (EdUnget) for the next read. */
+static int EdMouse(int marking)
+{
+    static int lastL, lastR, lastC, drag, held;
+    static unsigned long long pressed;
+    volatile struct s_nunstruct *m;
+    int x, y, k = -1, inside, right, middle;
+    if (EdMouseChan < 0)
+        return -1;
+    m = &mousestruct[EdMouseChan];
+    x = m->ax / gui_font_width;
+    y = m->ay / gui_font_height;
+    if (x >= VWidth)
+        x = VWidth - 1;
+    inside = (y < VHeight);                             // (not on the status bar or the message line)
+    if (m->az)
+    {                                                   // the wheel: the PS/2 and I2C mice count up toward the user, a
+        int down = (EdMouseChan == 2 && UsbMouse) ? m->az < 0 : m->az > 0;   // USB mouse (HID) away from them
+        m->az = 0;
+        return down ? DOWN : UP;
+    }
+    if (m->Z)
+    {                                                   // a double click
+        m->Z = 0;
+        if (inside && m->ax == 0)
+            k = HOME;
+        else if (inside && m->ax >= EdHRes - 1)
+            k = END;
+    }
+    if (m->L && !lastL)
+    {                                                   // left pressed
+        lastL = 1;
+        held = 0;
+        pressed = mSecTimer;
+        drag = (k == -1 && inside);                     // (from the cell EdMouseX, EdMouseY)
+        if (drag)
+        {
+            EdMouseX = x;
+            EdMouseY = y;
+            k = EDMOUSE_CELL;
+        }
+    }
+    else if (!m->L)
+        lastL = drag = 0;
+    else if (drag && inside)
+    {                                                   // left held down
+        int moved = (x != EdMouseX || y != EdMouseY);
+        if (!marking && !held && (moved || mSecTimer - pressed >= 500))
+        {
+            held = 1;
+            k = F4;                                     // mark mode from the press, where the cursor is
+        }
+        else if (marking && moved)
+        {
+            EdMouseX = x;
+            EdMouseY = y;
+            k = EDMOUSE_CELL;
+        }
+    }
+    right = m->R && !lastR;
+    middle = m->C && !lastC;
+    lastR = m->R;
+    lastC = m->C;
+    if (k == -1 && (right || middle) && inside)         // (on the status bar or the message line, nothing)
+    {
+        k = right ? F4 : F5;
+        if (!marking)
+        {                                               // in edit mode, at the pointer
+            EdUnget(k);
+            EdMouseX = x;
+            EdMouseY = y;
+            k = EDMOUSE_CELL;
+        }
+    }
+    return k;
+}
+
+/* the text at the editing area's cell (x, y), found from p, the text in row cury; curx and cury become the cell's.
+   The PicoMite's, for its mouse and Tera Term's clicks. */
+static char *EdTextAt(char *p, int x, int y)
+{
+    while (*p != 0 && y > cury)
+        if (*p++ == '\n')
+            cury++;
+    while (p != EdBuff && y < cury)
+        if (*--p == '\n')
+            cury--;
+    while (p != EdBuff && *(p - 1) != '\n')
+        p--;
+    for (curx = 0; curx < edx + x && *p && *p != '\n'; curx++)
+        p++;
+    curx -= edx;
+    if (curx < 0)
+        curx = 0;
+    return p;
+}
+
+/* edit mode: the cursor to the cell (x, y). Only the cursor's line is scrolled sideways (as Up and Down leave it), so
+   for a click on another line the old one goes back to its start first. */
+static void EdClick(int x, int y)
+{
+    if (y != cury && edx != 0)
+    {
+        edx = 0;
+        SCursor(0, cury);
+        printLine(edy + cury);
+    }
+    txtp = EdTextAt(txtp, x, y);
+    PositionCursor(txtp);
+    tempx = curx;
+    EdPrintStatus();
 }
 
 // CMM2: is there a file (not a directory) of this name, and its size
@@ -317,6 +484,8 @@ static void edit(char *cmdline)
     }
 
     EdDisplaySetup();
+    sendCRLF = 3;                                       // (kilo's: the keyboard's Enter as CR LF, and the prompt's status
+    docheck = 1;                                        // line to look for the program's file again)
     MM_Delay(3);                                        // CMM2: the keys typed with EDIT gone, its Enter's '\n' too (MMInkey
     while (MMInkey() != -1)                             // makes one 2 ms after a CR): as kilo's cmd_newedit
         ;
@@ -379,6 +548,7 @@ static void edit(char *cmdline)
     }
     if (nbrlines == 0)
         nbrlines++;
+    EdMouseOpen();                                      // CMM2: (after the buffer and the load, which can end in an error)
     setterminal();                                      // CMM2: the serial terminal asked to be the console's size
     PrintString("\033[?1000h");        // Tera Term turn on mouse click report in VT200 mode
     PrintString("\033[?7l");           // disable autowrap while in editor
@@ -445,6 +615,7 @@ int find_longest_line_length(const char *text, int *linein)
     if (current_length > max_length)
     {
         max_length = current_length;
+        *linein = line + 1;                             // (CMM2: its number as well; the text's last line has no '\n')
     }
 
     return max_length;
@@ -1064,13 +1235,23 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
         do
         {
             ShowCursor(true);
-
-                c = EdInkey();                          // (CMM2: Enter is '\n', EdInkey)
-
+            EdPointer(1);                               // (CMM2: the mouse's pointer, and its actions: EdMouse)
+            c = EdInkey();                              // (CMM2: Enter is '\n', EdInkey)
+            if (c == -1 && (c = EdMouse(0)) == EDMOUSE_CELL)
+            {
+                ShowCursor(false);
+                EdPointer(0);
+                EdClick(EdMouseX, EdMouseY);
+                c = -1;
+            }
             if (statuscount++ == 5000)
+            {
+                EdPointer(0);
                 EdPrintStatus();
+            }
         } while (c == -1);
         ShowCursor(false);
+        EdPointer(0);
 
         if (drawstatusline)
             PrintFunctKeys(EDIT);
@@ -1616,6 +1797,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                     FilePutChar('\n', fnbr1);           // terminator the load did not keep
                     FileClose(fnbr1);
                 }
+                EdMouseClose();
                 EdDisplayRestore();
                 ClearTempMemory();                      // (the edit buffer, the clipboard)
                 if (c == ESC)
@@ -1926,6 +2108,9 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 }
                 editBeautify(edit_buff_size, keep_blanks);
                 TextChanged = true;
+                for (nbrlines = 1, p = EdBuff; *p; p++)     // CMM2: Beautify adds and removes blank lines
+                    if (*p == '\n')
+                        nbrlines++;
                 /* After buffer rewrite, restore cursor to start of buffer */
                 txtp = EdBuff;
                 edx = edy = curx = cury = 0;
@@ -2010,8 +2195,17 @@ void MarkMode(char *cb, char *buf)
     txtpy = oldy = cury;
     while (1)
     {
-        c = -1;
-            c = EdInkey();
+        c = EdInkey();
+        if (c == -1)
+            c = EdMouse(1);                             // (CMM2: the mouse, EdMouse)
+        if (c == -1)
+        {
+            EdPointer(1);
+            continue;
+        }
+        EdPointer(0);
+        if (c == EDMOUSE_CELL)
+            mark = EdTextAt(mark, EdMouseX, EdMouseY);  // (the selection's end to the pointer)
         if (c != -1 && errmsg)
         {
             PrintFunctKeys(MARK);
@@ -2411,7 +2605,7 @@ void MarkMode(char *cb, char *buf)
             }
             PositionCursor(txtp);
             return;
-        case 9999:
+        case EDMOUSE_CELL:
             break;
         default:
             continue;
@@ -3083,8 +3277,8 @@ void printLine(int ln)
         {
             if (!inmulti || inmulti == 3)
                 SetColour((char *)p, false); // set the colour for the LCD display only
-            else
-                gui_fcolour = GUI_C_COMMENT;
+            else if (EdColourCode)                  // (CMM2: only when colour coding: SetColour, which puts the colour
+                gui_fcolour = GUI_C_COMMENT;        // back, does nothing without it, so a /* block left the rest yellow)
             MX470PutC(*p++); // print on the MX470 display
             i--;
         }

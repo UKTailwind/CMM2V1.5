@@ -35,6 +35,19 @@ FILES = {
     'start14.bas': ['line %03d' % i for i in range(1, 101)],
     # 09b: about 100 KB in 420 lines of 238 characters (kilo's lines stop at 240)
     'big9.bas': ['L%03d ' % i + ''.join(chr(65 + (i + j) % 26) for j in range(233)) for i in range(420)],
+    # the engine's scripts (15-19)
+    'expect15.txt': ['0123456789' * 30],
+    'start16.bas': ['Sub Show(n)', 'Print n', 'End Sub', 'For i = 1 To 3', 'If i = 2 Then', 'Print "two"', 'Else',
+                    'Print i', 'End If', 'Next i', 'Do', 'x = x + 1', 'Loop Until x > 3', 'Select Case x', 'Case 4',
+                    'Print "four"', 'Case Else', 'Print "other"', 'End Select'],
+    'expect16.bas': ['Sub Show(n)', '  Print n', 'End Sub', '', 'For i = 1 To 3', '  If i = 2 Then',
+                     '    Print "two"', '  Else', '    Print i', '  End If', 'Next i', 'Do', '  x = x + 1',
+                     'Loop Until x > 3', 'Select Case x', 'Case 4', '  Print "four"', 'Case Else', '  Print "other"',
+                     'End Select'],
+    'start17.bas': ["' a comment line", 'Dim s$ = Left$("abc", 2)', 'x = 123 + 4.5', 'Rem a rem line', '/* a block',
+                    'still comment', '*/', 'Print s$, x'],
+    'start18.bas': ['Sub A', '    Print 1', 'End Sub'],
+    'expect18.bas': ['Sub A', '    Print 1', '    Print 2', '  Print 3', 'x=1', 'End Sub'],
 }
 # 09b: all of it cut and pasted back, which leaves the empty line the cut left after it
 FILES['expect9b.bas'] = FILES['big9.bas'] + ['']

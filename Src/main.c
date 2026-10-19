@@ -3382,6 +3382,13 @@ void SerialConsolePutC(int c) {
 	// SHIFT F4-F12 Added as per piciomite 6.00.02B0
 	//NB: SHIFT F1, F2, F11, and F12 don't appear to generate anything
 
+	static int InkeyUngot[4], InkeyUngotN = 0;                     // keys given back (MMInkeyUnget), read before any other
+	// a key a reader has looked at and gives back, for whatever reads the console next: the editor looks at the keys
+	// after an Esc for a terminal's mouse report, and those typed straight after an Esc that leaves it go to the prompt
+	void MMInkeyUnget(int c) {
+	    if(c != -1 && InkeyUngotN < 4) InkeyUngot[InkeyUngotN++] = c;
+	}
+
  	int MMInkey(void) {
 	    unsigned int c = -1;                                            // default no character
 	    unsigned int tc = -1;                                           // default no character
@@ -3392,6 +3399,7 @@ void SerialConsolePutC(int c) {
 	    static unsigned int c4 = -1;
 	    static int crseen = 0;
 
+	    if(InkeyUngotN) return InkeyUngot[--InkeyUngotN];             // a key given back comes first
 	    if(c1 != -1) {                                                  // check if there are discarded chars from a previous sequence
 	        c = c1; c1 = c2; c2 = c3; c3 = c4; c4 = -1;                 // shuffle the queue down
 	        return c;                                                   // and return the head of the queue
@@ -3734,6 +3742,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     CommandToken endtoken;
     int nbr, i, n, SaveSizeAddr;
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realflashsave;
+    char *SavedLinePtr = CurrentLinePtr;                            // (the scan below points it at each line, for its errors)
 	SCB_CleanInvalidateDCache();
 	clearrepeat();
     mycpy(buf, tknbuf, TKNBUFSIZE);                                // save the token buffer because we are going to use it
@@ -4043,8 +4052,9 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         MMPrintString(" bytes\r\n");
     }
     memcpy(tknbuf, buf, TKNBUFSIZE);                                // restore the token buffer in case there are other commands in it
-    initConsole();
-	clearrepeat();
+    CurrentLinePtr = SavedLinePtr;                                  // not left on the program's last line: a command that loads
+    initConsole();                                                  // a program and goes on (FM after EDIT's F1) is still not
+	clearrepeat();                                                  // in a program
 //    SCB_EnableICache() ;
 //    SCB_EnableDCache() ;
     return;
@@ -4071,6 +4081,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     int nbr, i, n, SaveSizeAddr;
 	SCB_CleanInvalidateDCache();
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realmemsave, retvalue;
+    char *SavedLinePtr = CurrentLinePtr;                            // (the scan below points it at each line, for its errors)
 	clearrepeat();
     mycpy(buf, tknbuf, TKNBUFSIZE);                                // save the token buffer because we are going to use it
     SDMemory=GetMemory(512*1024);
@@ -4371,8 +4382,9 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
         MMPrintString(" bytes\r\n");
     }
     memcpy(tknbuf, buf, TKNBUFSIZE);                                // restore the token buffer in case there are other commands in it
-    initConsole();
-	clearrepeat();
+    CurrentLinePtr = SavedLinePtr;                                  // not left on the program's last line: a command that loads
+    initConsole();                                                  // a program and goes on (FM after EDIT's F1) is still not
+	clearrepeat();                                                  // in a program
 //    SCB_EnableICache() ;
 //    SCB_EnableDCache() ;
     return retvalue;

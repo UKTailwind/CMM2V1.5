@@ -16,13 +16,13 @@ Line numbers are the CMM2's unless marked P. Nothing has been built.
 - The scripts are `tests/editor/NN_*.txt`; their files come from `tests/editor/make_files.py`.
 - Against kilo: 14 of 15 pass, and 09b is a known kilo failure.
 
-**E1 in progress, 19 Oct.** The engine builds, runs and passes E1's file scripts (1, 2, 3, 6, 7) with the "Editor" CMake preset.
+**E1 done, 19 Oct, apart from what needs someone at the board** (the USB keyboard and the screen-only console; Peter has tried the mouse: see "The rest of E1" below). With the "Editor" CMake preset the engine passes E1's scripts (1, 2, 3, 6, 7, 15-18 and 20), FM's checks and the heap checks, and is right under every edit font and COLOURCODE mode, with the console on both and on serial only.
 
 The pieces:
 - `tools/port_editor.py` makes `Src/Editor.c` from the PicoMite's file; `Inc/Editor_cmm2.h` is the platform layer.
 - What kilo shared with the rest of MMBasic is now in `Src/Console.c`.
 - Each of `kilo.c` and `Editor.c` holds its editor only without or with `EDITOR_ENGINE`.
-- The engine is in `.bank2`, and is 16.9 KB at -Oz against kilo's 15.1 KB.
+- The engine is in `.bank2`, and is 18.3 KB at -Oz with the mouse, against kilo's 15.1 KB. Bank 2 sector 0 holds 43.0 KB of its 128 KB.
 
 Done for the CMM2:
 - the entry and exit (as kilo's: F1 saves and loads, F2 saves and runs or returns to FM);
@@ -35,26 +35,56 @@ Done for the CMM2:
 Changes to the engine's behaviour on the CMM2. Each was found by the scripts or the photographs:
 - **Keys are not thrown away after a redraw.** printScreen, Scroll and ScrollDown emptied the key queue. That lost keys typed during a redraw: Enters at the bottom of the screen, text pasted into a terminal, and the tests' keys.
 - **Enter is a CR, or an LF that does not follow a CR** (EdInkey, as MMgetchar). MMInkey's LF after a CR comes only when nothing follows for 2 ms, so a CR typed ahead was lost.
-- **After Esc, the next two keys are looked at and given back** unless they are a Tera Term mouse report (`EdMouseReport`). Before, a key typed straight after Esc was lost: the Y of "Exit and discard".
+- **After Esc, the next two keys are looked at and given back** unless they are a Tera Term mouse report (`EdMouseReport`). Before, a key typed straight after Esc was lost: the Y of "Exit and discard". They are given back to MMInkey (`MMInkeyUnget`, main.c), which returns them before any other key. A queue of the editor's own (the first version) kept a key typed straight after the Esc that left the editor until the next EDIT, which typed it into the file; the prompt lost it. Now the prompt gets it, as with kilo.
 - **A file's last line ending is not kept in the buffer, and the save writes it back.** Before, the text ended in an empty line that is not in the file, and that the cursor could go to (row 101 of 100).
 - **Esc does not check line lengths.** Discarding the changes is always possible.
 - **A new file's buffer is ended properly.** Before, the code wrote 0 at address 0.
 
-**PicoMite bugs found by the port** (to file, with Peter's agreement):
-- A key typed straight after Esc is lost (the mouse-report check).
-- EDIT of a file that does not exist writes 0 to address 0 (`p` is still NULL at `*p = 0`).
-- Esc on a .bas file with a line over 255 characters cannot leave without saving.
-- The key queue is emptied after each redraw, so pasted text loses characters.
-- A file's last line ending leaves an empty line the cursor can go to.
+**PicoMite bugs found by the port** (filed on UKTailwind/PicoMite, 19 Oct 2026):
+- #48: a key typed straight after Esc is lost (the mouse-report check).
+- #49: EDIT of a file that does not exist writes 0 to address 0 (`p` is still NULL at `*p = 0`).
+- #50: Esc on a .bas file with a line over 255 characters cannot leave without saving.
+- #51: the key queue is emptied after each redraw, so pasted text loses characters.
+- #52: a file's last line ending leaves an empty line the cursor can go to.
 
-**Still to do in E1:**
-- consoles serial-only, screen-only and both;
-- the four edit fonts;
-- COLOURCODE ON, OFF and REVERSE;
-- MM.INFO(HEAP) the same before and after;
-- D2's mouse (`mousestruct[Option.Mouse]`);
-- scripts 15-18;
-- FM's F2 and N, through the new editor.
+**The rest of E1, 19 Oct.**
+
+The mouse (D2), in `EdMouse` and `EdPointer`:
+- It is on with OPTION MOUSE set and the display a console. A USB mouse, when one is plugged in, is the one read: only its channel, 2, can be open then (`CONTROLLER MOUSE OPEN` refuses another). Entry and exit open and close it as kilo did (GUI CURSOR ON and CONTROLLER MOUSE OPEN n,,,s).
+- The pointer follows the mouse while the editor waits for a key, and is hidden while it draws.
+- The wheel is Up and Down. A double click at the left or right edge is Home or End (kilo's).
+- Left places the cursor; in mark mode it moves the selection's end.
+- Left held for 0.5 s, or dragged to another character, starts mark mode, and the selection follows the pointer while the button is down. kilo needed the hold; the drag is new.
+- Right starts mark mode at the pointer; in mark mode it cuts. Middle pastes at the pointer; in mark mode it copies.
+- The PicoMite's right and middle buttons also move the selection's end to the pointer before the cut or copy. Here they act on the selection as it is, since the left button is the one that moves it.
+- A USB mouse's wheel count (`az`) goes the other way from the PS/2 and I2C mice's, on both boards (HID counts away from the user). The editor allows for it; DEVICE(MOUSE) is unchanged.
+- On the status bar and the message line the buttons do nothing (the wheel still works). At first the right and middle buttons sent their keys there, and Peter's middle click on the status bar pasted.
+- Tried by hand by Peter with a USB mouse (19 Oct), and right after that fix.
+
+Checked on the board, with the "Editor" build:
+- **Scripts 15-18 and 20 pass** (below, Tests): the long line, Beautify, colour coding, auto-indent, and keys typed straight after the Esc that leaves. With 1, 2, 3, 6 and 7, every E1 script passes: 10 of the 20. Scripts 4, 5 and 8-14 wait for E2-E5's keys, and 09b is kilo's known failure.
+- **tests/cmm2** (goldens.py, for main.c's changes): 67 MATCH and the 3 expected ERRORs, as on 19 Oct before them.
+- **FM** (`tools/edit_fm_test.py`; 16 checks): E then Esc; E then F2 (the program runs and FM comes back); N, typing and F1 (the new file holds the text); a program stopped by an error, then E (the editor opens at the error's line).
+- **MM.INFO(HEAP) and MM.INFO(IHEAP)** (`tools/edit_heap_test.py`; 8 checks): the same after Esc on an unchanged file and after Esc and Y. F1 (which loads the program) gives the same figures each time, and NEW brings them back. With a module playing they are unchanged by two edits, and the module plays on.
+- **The edit fonts, COLOURCODE and the consoles** (`tools/edit_photos.py`): each photographed open, 30 lines down, and in mark mode.
+  - The five edit fonts: NORMAL (80x40), LARGE (53x24), VERY LARGE (40x20), MEDIUM (64x30) and SMALL (106x48). Each has one status bar on its second-last row, scrolls right, draws the selection, and asks the terminal for its size. The legend is the longest that fits.
+  - COLOURCODE ON, OFF and REVERSE. OFF is white on black, and REVERSE black on white through the CLUT, with a black status bar and selection.
+  - The console serial only: the editor works on the terminal and leaves the display as it was.
+  - Screen only cannot be driven over the serial port: with OPTION CONSOLE SCREEN the console UART takes no input. It is left to check by hand, with the USB keyboard.
+
+Found and fixed on the way:
+- **Every program load left `CurrentLinePtr` on the program's last line.** `SaveProgramToFlash` and `SaveProgramToMemory` (main.c) point it at each line in turn as they scan for CSUBs, for their error messages, and never put it back. At the prompt, the next prompt clears it. FM is one command, though, so after EDIT's F1 (which loads the program) FM's relaunch said "Error in line n: Invalid in a program". This was kilo's path too. Both now restore it.
+- **Beautify did not count the lines again**, though it adds a blank line after END SUB and END FUNCTION and can drop blank lines. The status bar showed the old count.
+- **"LINE n TOO LONG" named the wrong line when the long line was the last**: the last line has no `\n`, and only a `\n` set the number.
+- GUI.c's `mouseon` wrote a sensitivity of 10 into `inpbuf` instead of its own command.
+- **A key typed straight after the Esc that left the editor was typed into the next EDIT's file** (see "After Esc" above). The photographs found it: commands sent while the editor was still busy with a Print Screen.
+- **With colour coding off (COLOURCODE OFF or REVERSE, or a file that is not .bas), a `/*` block turned the display yellow** from that line to the bottom of the screen. printLine set the comment colour itself inside a block, and SetColour, which puts the colour back, does nothing without colour coding. The photographs found it.
+
+**Print Screen takes 5-6 s** in a 640x480 mode: SAVE IMAGE writes the 921 KB BMP a row (1,920 bytes) at a time, about 170 KB/s. The keys typed meanwhile wait, and nothing is lost. Writing a band of rows at a time would let FatFs write many sectors at once (not measured).
+
+**PicoMite bugs found in this part** (filed 19 Oct): #53, the long-line number; #54, the Beautify count; #55, the yellow display with colour coding off. The `CurrentLinePtr` one does not show on the PicoMite as far as can be seen: its FM runs PrepareProgram after each load, which clears it.
+
+**Still to do by hand:** the USB keyboard's keys in the engine; the screen-only console. Next: E2.
 
 ## Review, 19 Oct
 
@@ -135,7 +165,7 @@ E1's gate gains FM: E then Esc, E then F2 (the program runs and FM comes back), 
 
 FM's `fm_display_setup` (FileManager.c) is a copy of kilo's entry sequence (1913-1951), and so is E1's. Under E1, one function in the new `Console.c` serves both.
 
-**4. The mouse (D2).** A USB mouse is `mousestruct[2]` (`USBMouse.c`, 17 Oct), so `mousestruct[Option.Mouse]` already covers it. The open question is still whether the editor should prefer a USB mouse. FM has no mouse support: the PicoMite's has none, and the old fm.c read `Option.Mouse`. Both can be settled together.
+**4. The mouse (D2).** A USB mouse is `mousestruct[2]` (`USBMouse.c`, 17 Oct), so `mousestruct[Option.Mouse]` already covers it. The open question is still whether the editor should prefer a USB mouse. FM has no mouse support: the PicoMite's has none, and the old fm.c read `Option.Mouse`. Both can be settled together. **As built (19 Oct):** with OPTION MOUSE set, the editor reads a USB mouse when one is plugged in, since only its channel can be open then, and otherwise the mouse OPTION MOUSE names. FM still has none.
 
 **5. The test driver (E0).** `cmm2serial.py` is a minimal reader. FM's test driver (fmdrive.py, scratchpad, 19 Oct) already has the pieces E0 needs:
 - a small VT100 screen;
@@ -495,10 +525,15 @@ Timing comes from the serial traffic.
 
 **As built (E0, 19 Oct).** `tools/edit_test.py [--only 01,09b] [--show]` runs `tests/editor/NN_*.txt` in A:/e. The scripts are in a small step language, described at the top of the runner:
 - `put` and `get` move files by ZMODEM, so `get` compares exact bytes;
-- `cmd`, `type` and `key` send to the console;
-- `screen`, `status`, `message` and `line` check the screen; `output` checks the console output; `exists` and `missing` check the card.
+- `cmd`, `type`, `typen` (a text repeated) and `key` send to the console;
+- `screen`, `status`, `message` and `line` check the screen; `colour` checks the foreground of a text (the colour coding's VT100 colours); `output` checks the console output; `exists` and `missing` check the card.
 
 `tools/vt100drive.py` keeps the screen: the characters, and for each cell its colours and reverse.
+
+E1 added three checks beside the scripts:
+- `tools/edit_fm_test.py`: FM driving the editor;
+- `tools/edit_heap_test.py`: the heap before and after;
+- `tools/edit_photos.py`: the edit fonts, COLOURCODE modes and consoles, photographed with Print Screen. It needs Pillow, and takes about 25 minutes.
 
 Keys:
 - Keys that a terminal has are sent as it sends them.
@@ -530,13 +565,14 @@ What the scripts found:
 13. F12 shows the topic for the word under the cursor; F11 inserts its syntax.
 14. PgUp and PgDn in two stages; Home and End twice.
 
-**The engine:**
+**The engine** (15-18 written 19 Oct, and passing; 19 waits for E2's keys):
 
 15. A 300-character line saves in a `.txt`. In a `.bas` it is refused with a message, and the editor stays open.
 16. ^A Beautify on a sample with IF, FOR, DO, SELECT and SUB, against its expected file.
 17. Colour coding, from the captured VT100 colour codes: keywords, a folded function (LEFT$), strings, numbers, a `'` comment, REM, a `/* */` block.
 18. Auto-indent and tabbed backspace.
 19. Selecting backwards and by page; whole-screen sideways scrolling, with Up and Down keeping the column.
+20. Keys typed straight after the Esc that leaves the editor reach the prompt, and the next EDIT opens the file unchanged (written 19 Oct for the look-ahead after Esc).
 
 **By hand:**
 - the local screen in several modes and edit fonts;

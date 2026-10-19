@@ -1,0 +1,24 @@
+# 15 a line of 300 characters: a .txt file saves it; in a .bas file F1 is refused with a message and the editor stays open
+kill long.txt long.txt.bak long.bas long.bas.bak
+cmd EDIT "long.txt"
+status long.txt
+typen 30 0123456789
+key f1
+prompt
+get long.txt expect15.txt
+cmd EDIT "long.bas"
+status long.bas
+type x$ = "
+typen 30 0123456789
+type "
+key f1
+message LINE 1 TOO LONG
+status long.bas
+# Esc still leaves without saving (#50 on the PicoMite)
+key esc
+message discard
+type Y
+key enter
+prompt
+missing long.bas
+kill long.txt long.txt.bak

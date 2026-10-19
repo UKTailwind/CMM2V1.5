@@ -84,6 +84,10 @@ extern void closeall3d(void);
 extern void closeallsprites(void);
 extern void SymBindFree(void);
 extern void mouse0close(void);
+extern void cmd_mouse(char *cmd);                       // MiscSTM32.c: CONTROLLER MOUSE (OPEN, CLOSE)
+extern volatile struct s_nunstruct mousestruct[4];      // the mice's state, in the display's pixels
+extern volatile unsigned long long int mSecTimer;
+extern int docheck;                                     // main.c: the prompt's status line, which checks the program's file
 extern void i2c_disable(void), i2c2_disable(void), i2c3_disable(void);
 extern void CloseAllFiles(void);
 

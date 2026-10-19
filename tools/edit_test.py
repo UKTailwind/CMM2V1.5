@@ -9,6 +9,7 @@ A script is one step a line ('#' starts a comment; the first comment line is the
   kill NAME...       delete each NAME on the card, if it is there
   cmd TEXT           TEXT and Enter at the prompt (the console output is collected from here)
   type TEXT          TEXT a character at a time; Python escapes (\\t \\r \\xNN) work
+  typen N TEXT       TEXT N times over (a long line)
   key NAME [N]       a key, N times (vt100drive.keybytes: f1, ^K, shift-tab, ...)
   wait SECS          read for SECS seconds
   prompt             wait for the prompt (the editor has exited)
@@ -20,6 +21,8 @@ A script is one step a line ('#' starts a comment; the first comment line is the
   message TEXT       the message line (the last row) holds TEXT
   output TEXT        the console output since the last cmd holds TEXT;   nooutput TEXT: it does not
   line N TEXT        row N of the screen starts with TEXT (rows from 0)
+  colour NAME TEXT   every character of TEXT, where it first is on the screen, has the foreground NAME: the colour
+                     coding's VT100 colours (COLOURS: normal, comment, keyword, quote, number)
   show               print the screen (for writing a script)
   known TEXT         kilo fails this script, for the reason TEXT: its failure is reported as KNOWN, not FAIL (the
                      script still says what the editor should do, and the new editor has to pass it)
@@ -44,6 +47,8 @@ import zmodem_pc
 
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tests', 'editor')
 CARDDIR = 'A:/e'
+# the colour coding on a terminal (Inc/Editor_cmm2.h, VT100_C_*): SGR foreground codes
+COLOURS = {'normal': 37, 'comment': 33, 'keyword': 36, 'quote': 35, 'number': 32}
 
 
 class Abort(Exception):
@@ -160,12 +165,15 @@ class Run:
         elif verb == 'cmd':
             t.cmd(arg)
             t.settle(0.5)
-        elif verb in ('type', 'key'):
+        elif verb in ('type', 'typen', 'key'):
             if t.at_prompt():                           # (the editor has closed: keys now would be commands)
                 last = [l for l in t.text().replace('\r', '').split('\n') if l.strip() and l.strip() != '>']
                 raise Abort('the editor has closed' + (': ' + last[-1].strip() if last else ''))
             if verb == 'type':
                 t.type(codecs.decode(arg.encode('latin-1'), 'unicode_escape'))
+            elif verb == 'typen':
+                n, _, text = arg.partition(' ')
+                t.type(codecs.decode(text.encode('latin-1'), 'unicode_escape') * int(n))
             else:
                 p = arg.split()
                 t.key(p[0], int(p[1]) if len(p) > 1 else 1)
@@ -214,6 +222,17 @@ class Run:
             n, _, text = arg.partition(' ')
             t.settle(0.3)
             self.check(t.screen.line(int(n)).startswith(text), 'line %s: %r, not %r' % (n, t.screen.line(int(n)), text))
+        elif verb == 'colour':
+            name, _, text = arg.partition(' ')
+            t.settle(0.3)
+            at = t.screen.find(text)
+            if at is None:
+                self.fails.append('colour %s: %r is not on the screen' % (name, text))
+            else:
+                r, c = at
+                got = [t.screen.at[r][c + i][0] for i in range(len(text))]
+                self.check(all(g == COLOURS[name] for g in got), 'colour %s %r (%d): %s' % (
+                    name, text, COLOURS[name], got))
         elif verb == 'show':
             t.settle(0.3)
             t.screen.show()

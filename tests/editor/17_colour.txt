@@ -1,0 +1,18 @@
+# 17 colour coding on the terminal (COLOURCODE ON): keywords, a folded function (LEFT$), strings, numbers, a ' comment, REM, a /* */ block
+put t.bas start17.bas
+cmd EDIT "t.bas"
+status 8 lines
+colour comment ' a comment line
+colour keyword Dim
+colour keyword Left$
+colour quote "abc"
+colour number 123
+colour number 4.5
+colour comment Rem a rem line
+# a block comment: /* and */ each start a line (MMBasic's rule), and the line after */ is coloured again
+colour comment /* a block
+colour comment still comment
+colour comment */
+colour keyword Print
+key esc
+prompt

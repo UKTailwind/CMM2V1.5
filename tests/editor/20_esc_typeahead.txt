@@ -1,0 +1,14 @@
+# 20 keys typed straight after the Esc that leaves the editor go to the prompt, not into the next EDIT's file
+put t.bas start1.bas
+cmd EDIT "t.bas"
+status 7 lines
+# Esc, then a command 20 ms a character behind it: inside the 50 ms the editor waits after Esc for a mouse report
+type \x1b? 12345\r
+prompt
+output 12345
+cmd EDIT "t.bas"
+status 7 lines
+line 0 ' editor test file 1
+key esc
+prompt
+nooutput Unknown command

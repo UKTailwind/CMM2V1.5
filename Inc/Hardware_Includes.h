@@ -86,6 +86,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	#define PROG_FLASH_SIZE 0x80000
     // console related I/O
     int MMInkey(void);
+    void MMInkeyUnget(int c);                                       // a key given back to MMInkey (main.c)
     int MMgetchar(int update);
     char MMputchar(char c);
     extern void CheckAbort(void) ;

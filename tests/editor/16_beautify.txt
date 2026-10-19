@@ -1,0 +1,11 @@
+# 16 ^A Beautify: IF, FOR, DO, SELECT and SUB indented by two, a blank line after END SUB, and the line count with it
+put t.bas start16.bas
+cmd EDIT "t.bas"
+status 19 lines
+key ^A
+message BEAUTIFIED
+status 20 lines
+status (modified)
+key f1
+prompt
+get t.bas expect16.bas

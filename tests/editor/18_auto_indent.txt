@@ -1,0 +1,16 @@
+# 18 auto-indent: Enter at the end of a line indents the next as it is; Backspace in the indent goes back a tab stop (OPTION TAB 2)
+put t.bas start18.bas
+cmd EDIT "t.bas"
+key down
+key end
+key enter
+type Print 2
+key enter
+key bksp
+type Print 3
+key enter
+key bksp
+type x=1
+key f1
+prompt
+get t.bas expect18.bas

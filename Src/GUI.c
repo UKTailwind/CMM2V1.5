@@ -253,8 +253,8 @@ void mouseon(void){
 		mouseopen[5]=Option.Mouse+48;
     	if(Option.Sensitivity<10)mouseopen[9]=Option.Sensitivity+48;
     	else {
-    		inpbuf[9]='1';
-    		inpbuf[10]='0';
+    		mouseopen[9]='1';                                    // (sensitivity 10: it was written into inpbuf)
+    		mouseopen[10]='0';
     	}
     	cmd_cursor("ON");
     	cmd_mouse(mouseopen);
