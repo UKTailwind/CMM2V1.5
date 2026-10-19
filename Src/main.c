@@ -674,6 +674,8 @@ MX_GPIO_Init();
 RAMSETUP();
 FMC_Bank1_R->BTCR[1] = 0x000030D2;
 if(Option.ProgramStartCode>=0){
+	if(Option.ProgramStartCode < PROGRAMSTARTCODE || Option.ProgramStartCode > 6)   // (sector 0 is firmware: options from
+		Option.ProgramStartCode = PROGRAMSTARTCODE;             // another firmware may name it)
 	ProgMemory=(char *)((uint32_t)progstart[Option.ProgramStartCode]);
 	if(!(*ProgMemory==0 || ImageIsCurrent())){                  // erased, or an image from another format
 		char *nm = NULL;                                            // an older firmware's image: the file its first line names

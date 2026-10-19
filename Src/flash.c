@@ -92,6 +92,7 @@ int FlashWriteInit(uint32_t sector) {
 //	__IO uint32_t SectorsWRPStatus = 0xFFF;
     // Unlock the Flash to enable the flash control register access
 	if(Option.ProgramStartCode<0){ realflashpointer=(uint32_t)ProgMemory;mymemset(ProgMemory,0xFF,512*1024); return 0; }
+	if(sector < FLASH_FIRMWARE_END) return 1;                       // (bank 2 sector 0 is firmware: never erased here)
 	int i=0;
 	uint32_t *j;
     SCB_DisableICache() ;

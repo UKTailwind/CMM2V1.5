@@ -11,6 +11,102 @@ Line numbers are the CMM2's unless marked P. Nothing has been built.
 - Next: E0.
 - E8 (help from help.txt) waits for the HELP command from help.txt, which is a separate P4 item.
 
+## Review, 19 Oct
+
+Checked against the CMM2 tree after the FM port (`Src/FileManager.c`), and against the PicoMite's `misc/Editor.c`.
+That file has not changed since 13 Oct (`c271835`), so every P line number below still holds.
+
+**1. Flash: the engine does not fit beside help.h.**
+
+The 1 MB code region (bank 1) ends at 0x080FA1E8, which leaves 23.5 KB free. The measured sizes:
+
+| What | Flash |
+|---|---|
+| kilo.c, at -Oz | 15.7 KB |
+| FileManager.c, at -Oz (4,500 lines of the same file's style) | 24.8 KB |
+| help.h: 1,171 strings and their pointers | about 35 KB |
+
+By FileManager.c's measure, the engine's 4,500 lines come to 20-25 KB at -Oz. Without kilo, that is 5-10 KB more than now; E2-E7 add more. Bank 2 is already used: the program, the library, the image slots and the options.
+
+Retiring help.h (E8) frees about 35 KB, more than all the space now free.
+- E8 no longer waits for anything: HELP already reads A:/help.txt (`Commands.c:242-286`).
+- help.h is now only HELP's fallback when the card has no help.txt, and kilo's F12/F11 (`kilo.c:1703`).
+- Proposed: E8 before E1. F12/F11 then use help.txt from the start (E5's help part becomes E8's), and HELP without help.txt says so. This needs Peter's agreement, because a card without help.txt then has no help at all.
+
+**Done, 19 Oct (Peter): bank 2 sector 0 is firmware.** This is the first step of the parity plan's 15 Oct budget, which allows firmware up to bank 2 sectors 0-1.
+
+The program has always started at sector 1 (`FLASH_PROGRAM_ADDR`, and OPTION FLASH 1-6), so nothing moves and OPTION FLASH keeps its range.
+
+`STM32H743II_FLASH.ld` has a `FLASHB2` region with a `.bank2` section, filled file by file:
+- FileManager.c and kilo.c now;
+- the engine's Editor.c, and help text if it stays, later.
+
+It is not an overflow of `.text`. Writing the bank (a program, the library, the options) stalls any fetch from it, so interrupt code, routinechecks() code and their tables must stay in bank 1.
+
+The image is still one block: the .bin ends in sector 0 and never reaches the program's sector.
+
+The guards:
+- `FlashWriteInit` refuses addresses below `FLASH_FIRMWARE_END` (bank 2 sector 1).
+- At boot, an `Option.ProgramStartCode` outside 1-6 (saved by another firmware) becomes 1.
+
+After the move:
+
+| Region | Used | Free |
+|---|---|---|
+| Bank 1 | to 0x080F0648 | 62.4 KB |
+| Bank 2 sector 0 | FM and kilo, 39.3 KB | 88.7 KB |
+
+So E1 fits without E8, and E8 can be done on its own merits.
+
+**2. The file manager now drives the editor.**
+
+FM (`Src/FileManager.c`, the PicoMite's) opens EDIT for its E/F4 and N keys. It does this through `cmd_newedit` with the file name in `cmdline` (FileManager.c, its `edit_from_fm` block), using two hooks (`Inc/FileManager.h`):
+- `fm_pending_edit_seek_valid/_line/_char`: the editor opens at an error's line. In kilo, this is in `cmd_newedit`, after it clears `StartEditLine`.
+- `fm_editing`: 1 while FM's EDIT is open. On F2, kilo saves the file, sets it to 2 and returns, instead of running the program. FM then runs the program through the prompt and comes back after it.
+
+The engine has the same two hooks under `MMBASIC_FM`:
+- the seek, at P 764-788;
+- `fm_edit_wants_run`, at P 7219.
+
+The engine's return to the caller is its EDIT FILE branch (`cmdfile == false`, P 7216-7223), so D4 is refined as follows:
+- The branch's `SaveContext` and `RestoreContext` stay out. FM has cleared the heap itself.
+- Its return to the caller stays. On the CMM2 the trigger is `fm_editing != 0`, not `cmdfile`.
+- F2 sets `fm_editing = 2`. The PicoMite's ^W also runs the file; that is not kept, because ^W is kilo's "Backup as" (D1).
+
+E1's gate gains FM: E then Esc, E then F2 (the program runs and FM comes back), N (a new file), and E after an error (the editor opens at the line).
+
+**3. Who uses kilo.c's exports now** (the table under Source layout, updated; fm.c has gone):
+
+| Symbol (kilo.c) | Used by |
+|---|---|
+| `fstrstr` | `MMBasic.c` |
+| `strcasechr`, `bstrstr` | kilo.c only |
+| `setterminal` | `FileManager.c`, `MM_Misc.c`, `main.c` |
+| `MX470Display`, `MX470Cursor`, `MX470PutS` | `FileManager.c`, `MMBasic.c`, `MM_Misc.c`, `main.c`, `Hardware_Includes.h` |
+| `parseanddisplay`, `abAppend` | kilo.c only |
+| `StartEditLine`, `StartEditCharacter` | `MMBasic.c`, `MM_Misc.c` |
+| `BreakKeySave` | `XModem.c`, `ZModem.c` |
+| `cmd_newedit` | `allcommands.h:504` (EDIT), `FileManager.c` |
+
+FM's `fm_display_setup` (FileManager.c) is a copy of kilo's entry sequence (1913-1951), and so is E1's. Under E1, one function in the new `Console.c` serves both.
+
+**4. The mouse (D2).** A USB mouse is `mousestruct[2]` (`USBMouse.c`, 17 Oct), so `mousestruct[Option.Mouse]` already covers it. The open question is still whether the editor should prefer a USB mouse. FM has no mouse support: the PicoMite's has none, and the old fm.c read `Option.Mouse`. Both can be settled together.
+
+**5. The test driver (E0).** `cmm2serial.py` is a minimal reader. FM's test driver (fmdrive.py, scratchpad, 19 Oct) already has the pieces E0 needs:
+- a small VT100 screen;
+- the size from the terminal-resize sequence;
+- highlight and colour attributes per cell;
+- keys as a terminal sends them.
+
+It becomes `tools/vt100drive.py`, and `tools/edit_test.py` is built on it. Script 17 (colour coding) reads the colours from that screen.
+
+**6. Smaller corrections.**
+- EDIT's table entry is `allcommands.h:504`, not 495.
+- `error()` records the main file's line in `MMBasic.c`'s `error()`, which also hands it to `FmNoteError`.
+- The kilo line numbers are still those of `f382824`. kilo.c has gained the FM hooks since (about 12 lines, in F2 and in `cmd_newedit`).
+
+**Proposed order:** E0 → E1 (with FM's gate; Editor.c in `.bank2`) → E2-E6 → S → E7 → E8 → E9. E8 can come earlier if Peter wants help.h's 35 KB back, or F12 on help.txt sooner.
+
 ## The approach
 
 The PicoMite editor becomes the engine. The CMM2 keeps kilo's keys and behaviour (D1).

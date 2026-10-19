@@ -51,7 +51,8 @@ FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 1024K
 FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 896K
 FLASH7 (rx)	    : ORIGIN = 0x080E0000, LENGTH = 128K
 */
-FLASH2 (r)      : ORIGIN = 0x08100000, LENGTH = 1024K
+FLASHB2 (rx)    : ORIGIN = 0x08100000, LENGTH = 128K   /* bank 2 sector 0: firmware too (.bank2 below, 19 Oct 2026) */
+FLASH2 (r)      : ORIGIN = 0x08120000, LENGTH = 896K   /* the program (OPTION FLASH 1-6), the library, the options */
 /*RAM_D5 (rw)     : ORIGIN = 0x38800000, LENGTH = 4K*/
 }
 
@@ -91,6 +92,24 @@ SECTIONS
    
 /* used by the startup to initialize data */
   _siITCM = LOADADDR(.ITCMSection);
+
+  /* .bank2: bank 2 sector 0, right after bank 1, so the firmware is still one block (one .bin, which ends in this
+     sector and never reaches the program's). Only code that runs in the foreground goes here, named file by file:
+     the bank's sectors are erased and written for a program, the library and the options, and a fetch from the bank
+     waits until that is done (up to a second or two for an erase), so nothing an interrupt or routinechecks() runs
+     may be here. It comes before .text, which would otherwise take these files' sections (the first output section
+     that matches an input section gets it). The flash writer refuses this sector (flash.c, FlashWriteInit). */
+  .bank2 :
+  {
+    . = ALIGN(4);
+    *FileManager.o(.text .text* .rodata .rodata*)        /* FM */
+    *FileManager.c.obj(.text .text* .rodata .rodata*)
+    *kilo.o(.text .text* .rodata .rodata*)               /* the editor */
+    *kilo.c.obj(.text .text* .rodata .rodata*)
+    *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
+    . = ALIGN(4);
+    _ebank2 = .;
+  } >FLASHB2
 
 
   /* The program code and other data goes into FLASH */
