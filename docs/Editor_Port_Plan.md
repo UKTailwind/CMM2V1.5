@@ -11,6 +11,11 @@ Line numbers are the CMM2's unless marked P. Nothing has been built.
 - Next: E0.
 - E8 (help from help.txt) waits for the HELP command from help.txt, which is a separate P4 item.
 
+**Status, 19 Oct:** E0 done (below, Tests). Next: E1.
+- The driver is `tools/vt100drive.py` and the runner `tools/edit_test.py`.
+- The scripts are `tests/editor/NN_*.txt`; their files come from `tests/editor/make_files.py`.
+- Against kilo: 14 of 15 pass, and 09b is a known kilo failure.
+
 ## Review, 19 Oct
 
 Checked against the CMM2 tree after the FM port (`Src/FileManager.c`), and against the PicoMite's `misc/Editor.c`.
@@ -98,7 +103,7 @@ FM's `fm_display_setup` (FileManager.c) is a copy of kilo's entry sequence (1913
 - highlight and colour attributes per cell;
 - keys as a terminal sends them.
 
-It becomes `tools/vt100drive.py`, and `tools/edit_test.py` is built on it. Script 17 (colour coding) reads the colours from that screen.
+It becomes `tools/vt100drive.py`, and `tools/edit_test.py` is built on it. Script 17 (colour coding) reads the colours from that screen. Done, 19 Oct: see Tests.
 
 **6. Smaller corrections.**
 - EDIT's table entry is `allcommands.h:504`, not 495.
@@ -121,7 +126,7 @@ The PicoMite editor becomes the engine. The CMM2 keeps kilo's keys and behaviour
 
 **What kilo has that the engine lacks**, which E2-E6 add:
 - the CMM2 key map;
-- an unlimited clipboard;
+- a clipboard that grows (in kilo only as far as the internal heap allows: script 09b);
 - interactive search, both ways;
 - a save that checks the card first, and "Backup as";
 - help on F12 and F11.
@@ -447,6 +452,27 @@ That is about five to six weeks. Keeping kilo's key map adds about a week to the
 6. compares it with the script's expected file.
 
 Timing comes from the serial traffic.
+
+**As built (E0, 19 Oct).** `tools/edit_test.py [--only 01,09b] [--show]` runs `tests/editor/NN_*.txt` in A:/e. The scripts are in a small step language, described at the top of the runner:
+- `put` and `get` move files by ZMODEM, so `get` compares exact bytes;
+- `cmd`, `type` and `key` send to the console;
+- `screen`, `status`, `message` and `line` check the screen; `output` checks the console output; `exists` and `missing` check the card.
+
+`tools/vt100drive.py` keeps the screen: the characters, and for each cell its colours and reverse.
+
+Keys:
+- Keys that a terminal has are sent as it sends them.
+- The CMM2 keyboard's shifted keys (Shift-Tab 0x9F, Shift-Del 0xA0, Shift-Down 0xA1, Shift-Right 0xA3) have no VT100 sequence on either board. They are sent as those codes, which the serial console passes through, so the editor gets what the keyboard gives it.
+
+The runner stops a script if the editor closes, so no more keys reach the prompt, where F-keys type commands. A script that kilo fails says why on a `known` line; its failure is reported as KNOWN, and the new editor has to pass it.
+
+The first run against kilo: 14 of 15 pass, and 09b is KNOWN. The full run takes about 4.5 minutes.
+
+What the scripts found:
+- **Script 4.** On the CMM2, RUN loads the program from its file, so after F6 RUN runs the new program. The "RUN still runs the old program" below is the PicoMite's way, where the program is what is in program memory.
+- **Script 09b.** kilo's paste buffer is not unlimited. It grows line by line in the internal heap: D2 RAM, 256 KB at most, and each growth needs the old and the new copy at once. A 100 KB cut stops with "Not enough internal memory", and that error leaves the editor, so the unsaved edits are lost. E4's buffer in the SDRAM heap fixes this.
+- **Script 09.** A second F4 with an unpasted buffer only warns, and the next F4 selects. That is kilo's warning (879-883), now tested.
+- Not scripted: ^K in the middle of the last line moves the cursor past the end of the file (`E.cy++` with no check).
 
 **kilo baseline**, run against kilo in E0 and against the new editor before S. Where kilo's behaviour is a bug, the script says so.
 1. Open, then F1 an unchanged file: identical bytes, CRLF endings, a `.bak`.

@@ -1,0 +1,70 @@
+# 08 ^K at column 1 and mid-line, Shift-Tab, Shift-Del, and Tab with OPTION TAB 2, 3, 4 and 8
+put t.bas start8.bas
+cmd OPTION TAB 2
+prompt
+cmd EDIT "t.bas"
+# ^K at column 1 deletes the line
+key ^K
+line 0 line two keep
+# ^K mid-line deletes to the end of the line and goes to the start of the next
+key right 8
+key ^K
+status 1/2/
+# Shift-Tab deletes up to one tab stop of spaces at the cursor
+key down
+key shift-tab
+# Shift-Del at column 1 deletes the leading spaces; elsewhere it deletes the next character
+key down
+key shift-del
+key down
+key shift-del
+# Tab to the next stop (2)
+key end
+key enter
+key tab
+type a
+key f1
+prompt
+get t.bas expect8a.bas
+# Tab 4: Shift-Tab deletes four spaces; Tab after one character inserts three
+cmd OPTION TAB 4
+prompt
+cmd EDIT "t.bas"
+key down 6
+key shift-tab
+key end
+key enter
+type e
+key tab
+type f
+key f1
+prompt
+# Tab 3, then 8, at the end of the file (End twice)
+cmd OPTION TAB 3
+prompt
+cmd EDIT "t.bas"
+key end
+key end
+key enter
+type b
+key tab
+type c
+key enter
+key tab
+type d
+key f1
+prompt
+cmd OPTION TAB 8
+prompt
+cmd EDIT "t.bas"
+key end
+key end
+key enter
+type g
+key tab
+type h
+key f1
+prompt
+cmd OPTION TAB 2
+prompt
+get t.bas expect8.bas

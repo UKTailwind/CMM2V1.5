@@ -1,0 +1,12 @@
+# 07 EDIT of a missing file makes it on F1; a file on a drive that does not exist is refused on entry
+kill new.bas new.bas.bak
+cmd EDIT "new.bas"
+status new.bas
+type Print "new"
+key f1
+prompt
+get new.bas expect7.bas
+cmd EDIT "Z:/x/new.bas"
+prompt
+output Invalid drive
+kill new.bas new.bas.bak

@@ -1,0 +1,10 @@
+# 01 F1 on an unchanged file: the same bytes, CRLF endings, and a .bak
+put t.bas start1.bas
+kill t.bas.bak
+cmd EDIT "t.bas"
+status t.bas
+status 7 lines
+key f1
+prompt
+get t.bas start1.bas
+exists t.bas.bak

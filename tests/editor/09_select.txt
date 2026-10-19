@@ -1,0 +1,44 @@
+# 09 select with F4 and with Shift-Down; ^X cut, ^C copy, F5 paste, Del in select mode, F4 cut and F5 copy
+put t.bas start9.bas
+cmd EDIT "t.bas"
+# F4, Down, ^X: the first line cut
+key f4
+key down
+key ^X
+status 5 lines
+status Paste Buffer 5
+# pasted above 'ddd'
+key down 2
+key f5
+line 2 aaa
+line 3 ddd
+# Shift-Down selects 'ddd' and its line end; ^C copies it; pasted after the last line
+key shift-down
+key ^C
+key end
+key end
+key enter
+key f5
+# F4 and two Rights select 'cc' of 'ccc'; Del deletes it
+key home
+key home
+key down
+key f4
+key right 2
+key del
+line 1 c
+# F4, Right, F5: 'b' copied (not cut); then F4 warns once of the unpasted buffer, and F4, Right, F4 cuts 'b'
+key up
+key f4
+key right
+key f5
+line 0 bbb
+key f4
+message Warning unpasted buffer
+key f4
+key right
+key f4
+line 0 bb
+key f1
+prompt
+get t.bas expect9.bas

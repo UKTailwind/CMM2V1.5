@@ -1,0 +1,10 @@
+# 03 F2: the file is saved and the program runs
+put t.bas start1.bas
+cmd EDIT "t.bas"
+status 7 lines
+key f2
+prompt
+output line 1
+output line 3
+output done
+get t.bas start1.bas

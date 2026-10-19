@@ -1,0 +1,34 @@
+# 02 typing, deleting and joining lines, then F1: the expected file, and RUN runs the new program
+put t.bas start2.bas
+cmd EDIT "t.bas"
+status 8 lines
+# 'Print "one";' loses its ';' (Backspace at the end)
+key down
+key end
+key bksp
+# a new line after 'Print " two"' (Enter at the end), typed
+key down
+key end
+key enter
+type Print "three"
+# 'x = 1 +' joined with the '2' below (Del at the end of the line)
+key down
+key end
+key del
+# '"b"' joined onto 'Print "a";' (Backspace at the start of the line)
+key down
+key down
+key home
+key bksp
+status (modified)
+status 7 lines
+key f1
+prompt
+get t.bas expect2.bas
+cmd RUN
+prompt
+output one
+output  two
+output three
+output ab
+output  3

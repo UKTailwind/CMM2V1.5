@@ -1,0 +1,15 @@
+# 13 F12 shows the help for the word under the cursor, Esc leaves it with the screen as it was, F11 inserts the topic's syntax
+put t.bas start1.bas
+cmd EDIT "t.bas"
+key down
+key f12
+screen ?  Dim
+screen DIM [type] decl [,decl]...
+key esc
+line 0 ' editor test file 1
+noscreen DIM [type]
+key f11
+line 1 DIM [type] decl [,decl]...Dim a%, b$
+key f1
+prompt
+get t.bas expect13.bas

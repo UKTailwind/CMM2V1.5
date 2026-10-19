@@ -1,0 +1,27 @@
+# 12 F7 inserts a file; F8 and ^B save the paste buffer to a file
+put t.bas start1.bas
+put ins.bas start2.bas
+kill buf1.txt buf2.txt
+cmd EDIT "t.bas"
+key f7
+type ins.bas
+key enter
+status 15 lines
+# the first line copied, then saved with F8 and with ^B
+key home
+key home
+key f4
+key down
+key ^C
+key f8
+type buf1.txt
+key enter
+key ^B
+type buf2.txt
+key enter
+key f1
+prompt
+get t.bas expect12.bas
+get buf1.txt expect12buf.txt
+get buf2.txt expect12buf.txt
+kill ins.bas buf1.txt buf2.txt

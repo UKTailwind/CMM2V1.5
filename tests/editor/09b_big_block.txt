@@ -1,0 +1,16 @@
+# 09b a 100 KB block (all 420 lines of 238 characters) cut, then pasted back: the paste buffer grows to hold it
+known kilo's paste buffer is in the internal heap (D2 RAM, 256 KB at most, and each growth needs the old and the new copy): the cut stops with "Not enough internal memory", which leaves the editor and loses the edits (E4)
+put t.bas big9.bas
+cmd EDIT "t.bas"
+status 420 lines
+key f4
+key down 419
+key end
+key ^X
+status 1 lines
+status Paste Buffer 100800
+key f5
+status 421 lines
+key f1
+prompt
+get t.bas expect9b.bas

@@ -1,0 +1,12 @@
+# 05 Esc on a changed file: one or two presses stay in the editor, three leave it with the file unchanged
+put t.bas start1.bas
+cmd EDIT "t.bas"
+type X
+status (modified)
+key esc
+message Press ESC 2 more times
+key esc
+message Press ESC 1 more times
+key esc
+prompt
+get t.bas start1.bas

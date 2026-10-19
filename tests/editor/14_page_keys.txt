@@ -1,0 +1,23 @@
+# 14 PgUp and PgDn in two stages (to the screen's edge, then a page); Home and End twice (the line's end, then the file's)
+put t.bas start14.bas
+cmd EDIT "t.bas"
+status 1/1/100
+key pgdn
+status 1/38/100
+key pgdn
+status 1/76/100
+key pgup
+status 1/39/100
+key pgup
+status 1/1/100
+key end
+status 9/1/100
+key end
+status 9/100/100
+key home
+status 1/100/100
+key home
+status 1/1/100
+key esc
+prompt
+get t.bas start14.bas

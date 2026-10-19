@@ -1,0 +1,18 @@
+# 04 F6: the file is saved, not loaded, and the editor exits; RUN loads the program from its file, so it runs the new one
+# (the plan's "RUN still runs the old program" is the PicoMite's, where the program is what is in program memory)
+put t.bas start1.bas
+cmd RUN
+prompt
+output done
+cmd EDIT "t.bas"
+key down 5
+key end
+key left
+type !
+status (modified)
+key f6
+prompt
+get t.bas expect4.bas
+cmd RUN
+prompt
+output done!
