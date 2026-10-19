@@ -264,8 +264,8 @@ Most PicoMite keywords are simply absent on the CMM2 and can be added (section 3
 | mouse | `CONTROLLER MOUSE OPEN [n] [,LB] [,RB] [,sens] [,LBUp]`, `MOUSE(f [,ch])` with W = wheel button, T = type | `MOUSE OPEN ch, clk, data`, `MOUSE INTERRUPT ENABLE/DISABLE`, `MOUSE SET`, `DEVICE(MOUSE ch, f)` with W = wheel delta, M, B | both command families kept; `DEVICE(MOUSE ...)` reads the same state; W follows the switch |
 | Wii | `CONTROLLER|WII CLASSIC OPEN [n] [,int [,mask]]`, `CLASSIC(f [,ch])`, `NUNCHUK(ch, f)` with calibration codes, interrupt on press | `WII [CLASSIC] OPEN [,int]` (any change), `WII NUNCHUCK OPEN`, `DEVICE(WII [CLASSIC] f)`, `DEVICE(NUNCHUCK f)` | aliases (`NUNCHUCK` spelling, `DEVICE(...)` forms); interrupt-on-change follows the switch |
 | `KEYDOWN()` | shifted F-keys add &H40 | shifted F-keys add &H20 | follows the switch |
-| `FILES` | opens the file manager; `LIST FILES`, `LS` list | lists files; `FM` is the manager | follows the switch (`FM` and `LS` always work) |
-| drives | `A:` = SD card, nothing else | `A:` = flash file system, `B:` = SD card, `C:` = USB drive, `DRIVE`, `COPY A2B` etc. | mapping table (6.5) |
+| `FILES` | opens the file manager; `LIST FILES`, `LS` list | lists files; `FM` is the manager | follows the switch (`FM` and `LS` always work). **19 Oct: the PicoMite's, always** (FILES lists, FM manages, F1 types FM) |
+| drives | `A:` = SD card, nothing else | `A:` = flash file system, `B:` = SD card, `C:` = USB drive, `DRIVE`, `COPY A2B` etc. | mapping table (6.5). **19 Oct:** `A:` and `B:` the SD card, `C:` a USB drive |
 | program storage | the program is a file on the SD card, copied into flash or SDRAM to run; no `LOAD`/`SAVE`/`FLASH`/`LIBRARY`/`CHAIN` | program memory with `LOAD`, `SAVE`, `NEW`, `CHAIN`, `FLASH` slots, `LIBRARY`, `SAVE/LOAD CONTEXT`, `EDIT FILE` | under strategy B the PicoMite model is native and the CMM2's "run from the SD card" habit is kept as `RUN file$` plus `OPTION FLASH`/`OPTION RAM`; under A, `LOAD ,R` and `CHAIN` become `RUN` and `FLASH n` becomes `A:/FLASH/SLOTn.BAS` |
 | `RUN` in a program | the loader keeps a RUN line's argument as text, so `RUN file` needs no quotes, and `RUN f$, args$` runs the current program again with "f$, args$" as its command line (found by the SP Tools runner, 15 Oct) | `RUN file$ [, cmdline$]` evaluates both expressions | follows the switch: PicoMite programs chain with `RUN f$` |
 | `MM.INFO(CPUSPEED)` | a number (480000000) | a string ("378000000"), so programs write `VAL(MM.INFO(CPUSPEED))` (`bench_micro.bas`) | follows the switch |
@@ -504,6 +504,40 @@ Gate: the CMM2 demo programs under `CMM2`; the PicoMite's `Bas/` games (Exile, E
 
 - Decision: the PicoMite `Editor.c` (long lines, find/replace, beautify, `EDIT FILE`, mouse) replaces `kilo.c`, or `kilo.c` gains those features. The PicoMite editor is what every other variant uses and the harness exercises; recommend it, keeping the CMM2's colour scheme and mouse behaviour.
 - **The file manager:** replace (or update) the CMM2's `FILES` with the PicoMite's `FM`, which copies between drives (Peter, 17 Oct); `LIST FILES` can then become `FILES`, as on the PicoMite.
+  **Done 19 Oct.** The commands and keys:
+  - `FM` is the PicoMite's two-panel file manager.
+  - `FILES [pattern$] [, sort]` lists files, as `LIST FILES` does (it stays).
+  - The prompt's F1 types `FM`.
+  - The old `Src/fm.c` has gone.
+
+  The source:
+  - `Src/FileManager.c` is made by `tools/port_fm.py` from the PicoMite's `misc/Editor.c` (its `MMBASIC_FM` part), then fixed by hand where the CMM2 differs.
+  - The platform layer is `Inc/FileManager_cmm2.h`.
+  - FM keeps the PicoMite's drive numbers inside. Drive 0, its flash drive, does not exist here; the SD card is A: (or B:) and the USB drive C:.
+
+  What differs from the PicoMite:
+  - FM's panels are kept in RAM until a restart, not in a file.
+  - RUN goes through the prompt's RUN, as END cmd$ does. At the program's end, or its error, the prompt runs FM again (`fm_program_launched_from_fm`).
+  - An error's message is shown on FM's status line, and E opens the editor at its line (`FmNoteError`, from `error()`).
+  - EDIT is kilo's `cmd_newedit`. Its F2 comes back to FM, which runs the file (`fm_editing`).
+  - Audio, images and LIST go through PLAY, LOAD and LIST, with their errors caught (`fm_try`).
+  - Copies are FatFs on both drives (`fm_copy_one`).
+  - MIDI is refused.
+  - USB notices are held back while FM is open.
+
+  Also from this work:
+  - The SD card answers to B: as well as A:: FatFs's `get_ldnumber`, `PathDrive`, `SetDrive`, `DRIVE`, and `B:` at the prompt. Some PicoMite programs name B:.
+  - A track list may mix WAV, FLAC and MP3 (`PlayAlbumTrack`, also used by PLAY NEXT/PREVIOUS and the automatic advance).
+
+  Tested on the board:
+  - both panels and both drives, and type-select;
+  - copy (a file, and a directory of 14 files across drives, compared byte for byte), duplicate, move, rename, mkdir, delete, recursive delete;
+  - LIST, help, the drive keys (B is A:);
+  - a BMP, WAV, MOD, and a mixed track list stepped with "." to its end;
+  - RUN and back, an error then E at the line, F2 from FM's EDIT, N (a new file);
+  - F1 at the prompt.
+
+  Not yet tested: the local screen by eye, and the mouse (the PicoMite's FM has none; the old fm.c had).
 - `FM`; `YMODEM` (`ZMODEM` is already in from P0); `LOAD ,C`; `AUTOSAVE N`; `OPTION DISK SAVE/LOAD`; `HELP` from `help.txt` on the SD card, generated by `tools/gen_help.py` from the manual with a CMM2 filter (the CMM2 `help.h` retired, 599 lines of flash back); `CALC` mode; `LIST` variants; `MM.INFO` completeness.
 
 #### P5: performance (3-6 weeks)

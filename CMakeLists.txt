@@ -110,7 +110,7 @@ set(RELEASE_O2_FILES
     Timers.c flash.c ltdc.c main.c mmc_stm32.c stm32h7xx_it.c
     Symbols.c Struct.c                                      # (on every variable reference: 17 Oct, measured)
 )
-set(RELEASE_OZ_FILES fm.c kilo.c)
+set(RELEASE_OZ_FILES FileManager.c kilo.c)
 list(TRANSFORM RELEASE_O2_FILES PREPEND Src/)
 list(TRANSFORM RELEASE_OZ_FILES PREPEND Src/)
 set_property(SOURCE ${RELEASE_O2_FILES} APPEND PROPERTY COMPILE_OPTIONS $<$<CONFIG:Release>:-O2>)

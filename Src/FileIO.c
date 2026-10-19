@@ -1116,12 +1116,13 @@ int resolve_path(char *path,char *result,char *pos)
     }
     return 0;
 }
-// the drive a path names (A: the SD card, C: a USB flash drive; 0: is A:), or else the current one (filepath's)
+// the drive a path names (A: the SD card, C: a USB flash drive; 0: and B: are A:), or else the current one (filepath's).
+// B: is the PicoMite's name for its SD card (A: is its flash), so PicoMite programs reach the card by either (19 Oct).
 char PathDrive(const char *p) {
     char d = filepath[0];
     if(p[0] && p[1] == ':') {
         d = toupper(p[0]);
-        if(d == '0') d = 'A';
+        if(d == '0' || d == 'B') d = 'A';
         if(d != 'A' && d != 'C') error("Invalid drive");
     }
     return d;
@@ -1130,9 +1131,15 @@ char PathDrive(const char *p) {
 // each drive's current directory while the other drive is current
 static char DrivePaths[2][FF_MAX_LFN] = { "A:/", "C:/" };
 
+// drive d's current directory, "A:/DIR" (A: or C:; FM's panels start there)
+const char *DriveDir(char d) {
+    return (d == filepath[0]) ? filepath : DrivePaths[d == 'C'];
+}
+
 // the current drive made d (A or C), with the directory it had (the PicoMite's DRIVE)
 void SetDrive(char d) {
     char old[FF_MAX_LFN];
+    if(d == 'B') d = 'A';                                           // (the PicoMite's name for the SD card)
     if(d != 'A' && d != 'C') error("Invalid drive");
     if(d == filepath[0]) return;
     if(d == 'C' && !usb_msc_is_mounted()) error((char *)FErrorMsg[21]);
@@ -1151,7 +1158,7 @@ void SetDrive(char d) {
     }
 }
 
-// DRIVE "A:" | "C:": the SD card or a USB flash drive
+// DRIVE "A:" | "B:" | "C:": the SD card (A: or B:) or a USB flash drive
 void cmd_drive(void) {
     char *p = getFstring(cmdline);
     if(strlen(p) != 2 || p[1] != ':') error("Invalid drive");

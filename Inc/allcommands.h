@@ -228,7 +228,7 @@ void cmd_kill(void);
 void cmd_seek(void);
 void cmd_copy(void);
 void cmd_save(void);
-void cmd_files(void);
+void cmd_fm(void);
 void cmd_name(void);
 void cmd_can(void);
 //
@@ -477,7 +477,7 @@ void op_inv(void);
 	{ "Chdir",		T_CMD,				0, cmd_chdir	},
 	{ "Kill",		T_CMD,				0, cmd_kill	    },
 	{ "Seek",		T_CMD,				0, cmd_seek     },
-	{ "Files",		T_CMD,				0, cmd_files    },
+	{ "Files",		T_CMD,				0, cmd_listfiles },     // FILES [pattern$] [, sort]: LIST FILES (the PicoMite's name)
 	{ "Rename",		T_CMD,				0, cmd_name     },
 	{ "Copy",		T_CMD,				0, cmd_copy     },
 	{ "DAC",		T_CMD,				0, cmd_DAC		},
@@ -541,6 +541,7 @@ void op_inv(void);
 	{ "Gamepad",	    T_CMD,				0, cmd_gamepad	},      // GAMEPAD INTERRUPT/MONITOR/CONFIGURE/HAPTIC/COLOUR (USBGamepad.c)
 	{ "Randomize",	    T_CMD,				0, cmd_randomize	},  // RANDOMIZE [n]: seeds C's rand(), not RND (the PicoMite's)
 	{ "Flush",		    T_CMD,				0, cmd_flush	},      // FLUSH [#]n: a file to the card, a COM port's output sent (the PicoMite's)
+	{ "FM",			    T_CMD,				0, cmd_fm		},      // FM: the two-panel file manager (FileManager.c, the PicoMite's)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

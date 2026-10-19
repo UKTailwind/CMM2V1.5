@@ -98,6 +98,8 @@ extern const int mapping[101];
 typedef struct sa_flist {
     char fn[FF_MAX_LFN];
 } a_flist;
+#define MAXALBUM 20                                                 // the tracks an album (alist) holds
+extern int PlayAlbumTrack(int n);
 
 extern unsigned char *sampledConsonantFlag; // tab44800
 #endif

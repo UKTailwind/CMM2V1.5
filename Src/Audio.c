@@ -84,7 +84,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "sam.h"
 #include "reciter.h"
 extern BYTE MDD_SDSPI_CardDetectState(void);
-#define MAXALBUM 20
 extern int InitSDCard(void);
 extern const int ErrorMap[21];
 extern TIM_HandleTypeDef htim4;
@@ -1497,6 +1496,28 @@ void flaccallback(char *p){
     playreadcomplete=0;
 }
 
+/* Track n of the album - the files of a directory given to PLAY WAV, FLAC or MP3, or FM's marked files - started with
+   the player its extension needs, so that one list may mix the three (the PicoMite's, which has MIDI as well). Sets
+   trackplaying; 0 when there is no such track or no player for it (19 Oct 2026). */
+int PlayAlbumTrack(int n) {
+	char *fn, *ext;
+	int type;
+	if(alist == NULL || n < 0 || n > trackstoplay) return 0;
+	fn = alist[n].fn;
+	ext = strrchr(fn, '.');
+	if(ext == NULL) return 0;
+	if(strcasecmp(ext, ".wav") == 0) type = P_WAV;
+	else if(strcasecmp(ext, ".flac") == 0) type = P_FLAC;
+	else if(strcasecmp(ext, ".mp3") == 0) type = P_MP3;
+	else return 0;
+	if(CurrentlyPlaying != P_NOTHING && CurrentlyPlaying != type) CloseAudio(0);   // (each player closes its own)
+	trackplaying = n;
+	if(type == P_WAV) wavcallback(fn);
+	else if(type == P_FLAC) flaccallback(fn);
+	else mp3callback(fn);
+	return 1;
+}
+
 // The MMBasic command:  PLAY
 void cmd_play(void) {
     char *tp;
@@ -1506,53 +1527,23 @@ void cmd_play(void) {
         return;
     }
     if(checkstring(cmdline, "NEXT")) {
-		if(CurrentlyPlaying == P_MP3){
+		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV){
 			if(trackplaying==trackstoplay){
 				if(!CurrentLinePtr)MMPrintString("Last track is playing\r\n");
 				return;
 			}
-			trackplaying++;
-			mp3callback(alist[trackplaying].fn);
-		} else if(CurrentlyPlaying == P_FLAC){
-			if(trackplaying==trackstoplay){
-				if(!CurrentLinePtr)MMPrintString("Last track is playing\r\n");
-				return;
-			}
-			trackplaying++;
-			flaccallback(alist[trackplaying].fn);
-		} else if(CurrentlyPlaying == P_WAV){
-			if(trackplaying==trackstoplay){
-				if(!CurrentLinePtr)MMPrintString("Last track is playing\r\n");
-				return;
-			}
-			trackplaying++;
-			wavcallback(alist[trackplaying].fn);
+			PlayAlbumTrack(trackplaying + 1);
 		} else error("Nothing to play");
 
     	return;
     }
     if(checkstring(cmdline, "PREVIOUS")) {
-		if(CurrentlyPlaying == P_MP3){
+		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV){
 			if(trackplaying==0){
 				if(!CurrentLinePtr)MMPrintString("First track is playing\r\n");
 				return;
 			}
-			trackplaying--;
-			mp3callback(alist[trackplaying].fn);
-		} else if(CurrentlyPlaying == P_FLAC){
-			if(trackplaying==0){
-				if(!CurrentLinePtr)MMPrintString("First track is playing\r\n");
-				return;
-			}
-			trackplaying--;
-			flaccallback(alist[trackplaying].fn);
-		} else if(CurrentlyPlaying == P_WAV){
-			if(trackplaying==0){
-				if(!CurrentLinePtr)MMPrintString("First track is playing\r\n");
-				return;
-			}
-			trackplaying--;
-			wavcallback(alist[trackplaying].fn);
+			PlayAlbumTrack(trackplaying - 1);
 		} else error("Nothing to play");
 
     	return;
@@ -2394,16 +2385,7 @@ void checkWAVinput(void){
     		playreadcomplete=1;
     	}
     	else {
-    		if(CurrentlyPlaying == P_MP3){
-    			trackplaying++;
-    			mp3callback(alist[trackplaying].fn);
-    		} else if(CurrentlyPlaying == P_FLAC){
-    			trackplaying++;
-    			flaccallback(alist[trackplaying].fn);
-    		} else if(CurrentlyPlaying == P_WAV){
-    			trackplaying++;
-    			wavcallback(alist[trackplaying].fn);
-    		}
+    		PlayAlbumTrack(trackplaying + 1);                           // (the next track's player, by its extension)
     	}
     }
     if(wav_filesize<=0 && CurrentlyPlaying == P_MOD && CurrentlyPlayinge == P_WAV){

@@ -70,6 +70,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Commands.h"
 #include "Operators.h"
 #include "Custom.h"
+#include "FileManager.h"
 #include "allcommands.h"
 #include "Hardware_Includes.h"
 
@@ -4163,6 +4164,7 @@ void MMErrorchar(char c){
 // this uses longjump to skip back to the command input and cleanup the stack
 void error(char *msg, ...) {
     va_list ap;
+    int fmline = 0;                                                 // the program's line, for FM (FmNoteError)
 	ScrewUpTimer=0;
     if(MMerrno == 0) MMerrno = 16;                                  // indicate an error
     MMerrline = 0;                                                  // (the line, below, if the error is in one)
@@ -4204,6 +4206,7 @@ void error(char *msg, ...) {
        		if(LHDR_FILE(CurrentLinePtr) == 1 && !inlib && !OptionErrorSkip) {
        			StartEditLine = LHDR_LINE(CurrentLinePtr) - 1;     // EDIT opens the program at the line
        			StartEditCharacter = 0;
+       			fmline = LHDR_LINE(CurrentLinePtr);                 // (and FM's E, for a program FM ran)
        		}
        		MMErrorString(": ");
         }
@@ -4283,6 +4286,7 @@ void error(char *msg, ...) {
 		CurrentY=maxH-(gui_font_height*2);
 		ShortScroll=Option.showstatus;
 	}
+	FmNoteError(fmline);                                            // a program FM ran: FM, back, shows the error
 	SCB_CleanInvalidateDCache();
     longjmp(mark, 1);
 }

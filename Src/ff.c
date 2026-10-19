@@ -3266,6 +3266,9 @@ static int get_ldnumber (	/* Returns logical drive number (-1:invalid drive numb
 		if (IsDigit(*tp) && tp + 2 == tt) {	/* Is it a numeric volume ID + colon? */
 			i = (int)*tp - '0';	/* Get the logical drive number */
 		}
+		else if ((*tp == 'B' || *tp == 'b') && tp + 2 == tt) {	/* CMM2: B: is the SD card as well as A: (the */
+			i = 0;												/* PicoMite's name for its SD card), 19 Oct */
+		}
 #if FF_STR_VOLUME_ID == 1	/* Arbitrary string volume ID is enabled */
 		else {
 			i = 0;	/* Find volume ID string in the preconfigured table */

@@ -82,6 +82,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "Memory.h"
+#include "FileManager.h"
 #include <time.h>
 
 /* USER CODE END Includes */
@@ -238,7 +239,7 @@ const uint32_t progstart[]={
 		ADDR_FLASH_SECTOR_6_BANK2,
 };
 char FunKey[NBRPROGKEYS][MAXKEYLEN + 1]= {		// data storage for the function keys
-		{"FILES\r\n"},//Run immediately
+		{"FM\r\n"},//Run immediately (the file manager: FILES lists, as on the PicoMite, 19 Oct)
 		{"RUN\r\n"},
 		{"LIST\r\n"},
 		{"EDIT\r\n"},
@@ -960,6 +961,11 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
       }
       _excep_code = 0;
       PrepareProgram(false);
+      fm_active = 0;                                              // (FM is not open at the prompt: an error may have ended it)
+      if((fm_program_launched_from_fm || fm_relaunch_status_valid) && !*EndLine) {   // a program FM ran has ended (or
+          fm_program_launched_from_fm = 0;                        // stopped with an error): FM again (FileManager.c, the
+          strcpy(EndLine, "FM");                                  // PicoMite's). (FM's RUN "file" is EndLine until it runs.)
+      }
       if(*EndLine) {                                              // END cmd$: the command the program ended with, as if typed
           strcpy(inpbuf, EndLine);
           *EndLine = 0;
@@ -982,7 +988,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 	  char *p=inpbuf;
 	  skipspace(p);
 
-	  if(strlen(p) == 2 && p[1] == ':' && (toupper(*p) == 'A' || toupper(*p) == 'C')) {   // A: or C: alone: DRIVE (the PicoMite's)
+	  if(strlen(p) == 2 && p[1] == ':' && (toupper(*p) == 'A' || toupper(*p) == 'B' || toupper(*p) == 'C')) {   // A:, B: or C: alone: DRIVE (the PicoMite's)
 		  char d = toupper(*p);
 		  strcpy(p, "DRIVE \"A:\"");
 		  p[7] = d;

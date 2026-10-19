@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "FileManager.h"
 extern BYTE MDD_SDSPI_CardDetectState(void);
 extern volatile uint8_t pagesetdone;
 extern volatile struct s_nunstruct mousestruct[4];
@@ -1610,6 +1611,11 @@ int editorProcessKeypress() {
 			SetFont(Option.DefaultFont);
 	    	setterminal();
 			reset_CLUT();
+			if(fm_editing) {                    // FM's EDIT (FileManager.c): back to FM, which runs the file and comes
+				fm_editing = 2;                 // back to FM after it, as the PicoMite's FM does
+				E.lastkey = F1;                 // (the rows are freed: cmd_newedit is not to free them again)
+				return 0;
+			}
 	  		strcpy(inpbuf,"RUN\r\n");
 	  	    tokenise(true);                                             // turn into executable code
 	  	    ExecuteProgram(tknbuf);                                     // execute the line straight away
@@ -1959,6 +1965,11 @@ void cmd_newedit(void) {
 	        if(fr != FR_OK || (fno.fattrib & AM_DIR))strcat(q, ".BAS");
 	    }
 	    StartEditLine = StartEditCharacter = 0;
+	    if(fm_pending_edit_seek_valid) {                        // FM's EDIT of a program that stopped with an error: at its line
+	    	StartEditLine = fm_pending_edit_seek_line;
+	    	StartEditCharacter = fm_pending_edit_seek_char;
+	    	fm_pending_edit_seek_valid = 0;
+	    }
     } else {
 		if((c = ProgName()) == NULL)error("Nothing to edit");
 		strcpy(q,c);

@@ -69,6 +69,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tusb.h"
 #include "KeyboardMap.h"
 #include "USBGamepad.h"
+#include "FileManager.h"
 
 volatile struct s_HID HID[HID_SLOTS] = {0};
 static uint8_t Current_USB_devices = 0;     /* slots in use */
@@ -82,8 +83,8 @@ extern const char *KBrdList[];
 static char usbmsg[160];
 void USBMessage(const char *m)
 {
-	if (CurrentLinePtr)
-		return; /* not while a program runs */
+	if (CurrentLinePtr || fm_active)
+		return; /* not while a program runs, nor in FM (its screen; FM finds a drive when it is asked for) */
 	if (strlen(usbmsg) + strlen(m) < sizeof(usbmsg))
 		strcat(usbmsg, m);
 }
