@@ -1,16 +1,16 @@
-# 09b a 100 KB block (all 420 lines of 238 characters) cut with F4, then pasted back with F5: the clipboard grows to hold it
-known the engine's clipboard is 1 KB (MAXCLIP: "MARKED TEXT EXCEEDS BUFFER SIZE"); E4 makes it grow, and puts its size on the status bar (kilo's grew in the internal heap, 256 KB at most, and stopped with "Not enough internal memory")
+# 09b a 100 KB block (all 420 lines of 238 characters) cut with F4, then pasted back with F5: the clipboard (E4) grows to hold it
 put t.bas big9.bas
 cmd EDIT "t.bas"
 status 420 lines
+# selected to the end with PgDn (419 Downs at 20 a second overrun the console's queue: in mark mode each scroll
+# redraws the screen)
 key f4
-key down 419
-key end
+key pgdn 15
 key f4
 status 1 lines
-status Paste Buffer 100800
+status Paste Buffer 100379 chars
 key f5
-status 421 lines
+status 420 lines
 key f1
-prompt
-get t.bas expect9b.bas
+prompt 120
+get t.bas big9.bas

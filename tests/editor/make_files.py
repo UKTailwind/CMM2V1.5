@@ -49,10 +49,10 @@ FILES = {
     'start18.bas': ['Sub A', '    Print 1', 'End Sub'],
     'expect22.bas': ['Print "usb"'],
     'expect22b.bas': ['Print "usb!"'],
+    'start23.txt': ['a\tb'],
+    'expect23.txt': ['a\tb', 'a\tb'],
     'expect18.bas': ['Sub A', '    Print 1', '    Print 2', '  Print 3', 'x=1', 'End Sub'],
 }
-# 09b: all of it cut and pasted back, which leaves the empty line the cut left after it
-FILES['expect9b.bas'] = FILES['big9.bas'] + ['']
 
 
 def main():

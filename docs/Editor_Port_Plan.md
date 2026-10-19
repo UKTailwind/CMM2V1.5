@@ -86,7 +86,7 @@ Found and fixed on the way:
 
 **Still to do by hand:** the USB keyboard's keys in the engine; the screen-only console.
 
-**D1 revised (Peter, 19 Oct):** the PicoMite's keys stay, with kilo's Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn added (see Decisions). All the kilo scripts were rewritten for these keys (see E2 below); 18 of 20 pass, and 09b and 13 wait for E4 and E5. Then E3, safe saving, was done the same day (below).
+**D1 revised (Peter, 19 Oct):** the PicoMite's keys stay, with kilo's Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn added (see Decisions). All the kilo scripts were rewritten for these keys (see E2 below). E3 (safe saving) and E4 (the clipboard) followed the same day (below). The suite is now 22 of 23, and 13 (help) waits for E5.
 
 ## Review, 19 Oct
 
@@ -418,7 +418,7 @@ The kilo scripts that tested kilo's keys were rewritten for the PicoMite's keys 
 - 14: two-stage paging.
 - 13 (help) waits for E5, its key to be settled (F12 is Beautify, F11 is free), and 09b for E4.
 
-The suite: 18 of 20, with 09b and 13 known.
+The suite then: 18 of 20, with 09b and 13 known. After E3 and E4: 22 of 23, with 13 known.
 
 **E2 as first planned, the key map and kilo's smaller functions.** The `KEY_*` map above, plus the kilo functions the engine lacks:
 - ^K;
@@ -478,6 +478,21 @@ The PicoMite's save, import and export have the same fault: issue #56 (with mark
 - Today paste feeds the type-ahead buffer one character at a time (P 7365-7376), which drops TAB characters (P 7582).
 - The status bar shows the size, as kilo's does.
 - **Gate:** script 9, with a 100 KB block.
+
+**E4 as built (19 Oct).** In `Src/Editor.c`:
+- The clipboard (`EdClip`, `EdClipLen`) is made as large as what it holds by `EdSetClip`, for mark mode's copy and cut and for F7's replacement text.
+- It is temporary memory, not a growing heap block, so it is freed at the prompt however the editor ends. It is at least 8 KB + 1, so that it comes from the heap rather than the internal heap, and the heap's free space is checked first, since GetMemory throws. Without room it says " NOT ENOUGH MEMORY " and the editor goes on.
+- `EdPaste` puts it in at the cursor in one go: the tail moved once, the text copied, its lines counted, and the screen redrawn once with the cursor after it (`EdShowCursor`). A TAB stays a TAB.
+- The status bar shows ", Paste Buffer n chars".
+- The type-ahead buffer stays 1 KB. It holds only the keys the editor makes itself (a Tab's spaces, Shift-Del's Dels, the replace's Dels and F5).
+
+Checked on the board:
+- 09b: the whole 100 KB file (420 lines of 238 characters) cut, shown as "Paste Buffer 100379 chars" with 1 line left, pasted back as 420 lines, and saved byte for byte as it was. The selection is made with PgDn.
+- 09: checks the size after a cut.
+- 23: a pasted TAB.
+- the heap check: a copied block is freed at Esc.
+
+**Noted for E6:** in mark mode every line scrolled redraws the whole screen. kilo's way of selecting to the end, 419 Downs at 20 a second, overruns the console's 256-byte receive queue, and keys are lost. Edit mode scrolls a line with `Scroll`.
 
 **E5, search and help.**
 - **Search** is kilo's interactive search, on the engine's buffer:

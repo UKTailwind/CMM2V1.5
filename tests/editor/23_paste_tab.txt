@@ -1,0 +1,15 @@
+# 23 (E4) a paste puts the clipboard in as it is, a TAB included (the PicoMite's paste, a key at a time, made it spaces)
+put t.txt start23.txt
+cmd EDIT "t.txt"
+key f4
+key end
+key f5
+status Paste Buffer 3 chars
+key end
+key enter
+key f5
+status 2 lines
+key f1
+prompt
+get t.txt expect23.txt
+kill t.txt t.txt.bak

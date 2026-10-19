@@ -128,7 +128,7 @@ void editDisplayMsg(char *msg);
 void GetInputString(char *prompt);
 void Scroll(void);
 void ScrollDown(void);
-void MarkMode(char *cb, char *buf);
+void MarkMode(char *buf);
 void PositionCursor(char *curp);
 static int multilinecomment = false;
 static char *EdFileName = "";                           // CMM2: the file being edited, for the status bar
@@ -428,6 +428,80 @@ static void EdToRow(int y)
     PositionCursor(txtp);
 }
 
+/* ---- CMM2 (Editor_Port_Plan.md E4): the clipboard, as large as what it holds ---------------------------------------
+   The PicoMite's is 1 KB ("MARKED TEXT EXCEEDS BUFFER SIZE"). Temporary memory, so that it is freed at the prompt
+   however the editor ends. At least 8 KB + 1, so that it comes from the heap (GetTempMemory takes smaller blocks from
+   the internal heap), whose free space is checked first: GetMemory throws when there is no room. */
+static char *EdClip;                                    // the clipboard's text, NULL when it is empty
+static int EdClipLen;
+
+// the clipboard set to len characters from from; 0, and the clipboard empty, when the heap has no room for them
+static int EdSetClip(char *from, int len)
+{
+    int size = len + 1 > 8193 ? len + 1 : 8193;
+    if (EdClip)
+        ClearSpecificTempMemory(EdClip);
+    EdClip = NULL;
+    EdClipLen = 0;
+    if (FreeSpaceOnHeap() < size + 8192)
+        return 0;
+    EdClip = GetTempMemory(size);
+    memcpy(EdClip, from, len);
+    EdClip[len] = 0;
+    EdClipLen = len;
+    return 1;
+}
+
+/* after a change that may have moved the cursor anywhere: the screen redrawn with the cursor's line on it (centred if
+   it was off the screen), scrolled sideways if the cursor is past the right edge (only the cursor's line, as the
+   editor does elsewhere) */
+static void EdShowCursor(void)
+{
+    int ln = 0, col = 0;
+    char *p;
+    for (p = EdBuff; p < txtp; p++)
+        if (*p == '\n')
+            ln++, col = 0;
+        else
+            col++;
+    if (ln < edy || ln >= edy + VHeight)
+    {
+        edy = ln - VHeight / 2;
+        if (edy < 0)
+            edy = 0;
+    }
+    edx = 0;
+    printScreen();
+    if (col > VWidth - 1)
+    {
+        edx = col - (VWidth - 1 - SCROLLCHARS);
+        SCursor(0, ln - edy);
+        printLine(ln);
+    }
+    PositionCursor(txtp);
+}
+
+/* the clipboard put in at the cursor in one go, the cursor after it. The PicoMite's paste fed it through the
+   type-ahead buffer a key at a time, scanning the whole text and redrawing for each, and a TAB in it became spaces. */
+static void EdPaste(int edit_buff_size)
+{
+    char *end = txtp + strlen(txtp);
+    int i;
+    if ((end - EdBuff) + EdClipLen >= edit_buff_size - 10)
+    {
+        editDisplayMsg(" OUT OF MEMORY ");
+        return;
+    }
+    memmove(txtp + EdClipLen, txtp, end - txtp + 1);     // (the zero after the text too)
+    memcpy(txtp, EdClip, EdClipLen);
+    for (i = 0; i < EdClipLen; i++)
+        if (EdClip[i] == '\n')
+            nbrlines++;
+    txtp += EdClipLen;
+    TextChanged = true;
+    EdShowCursor();
+}
+
 // CMM2: is there a file (not a directory) of this name, and its size
 static int EdFileExists(char *name, FSIZE_t *size)
 {
@@ -612,6 +686,8 @@ static void edit(char *cmdline)
         ;
     EdColourCode = (Option.colourmode == 1) && fstrstr(filename, ".bas") != NULL;
     multilinecomment = false;
+    EdClip = NULL;                                      // (E4: empty; a clipboard of an earlier EDIT went at the prompt)
+    EdClipLen = 0;
     EdBuff = GetTempMemory(edit_buff_size);             // (from the heap, which EdDisplaySetup gave back; freed at the prompt)
     *EdBuff = 0;
     nbrlines = 0;
@@ -1332,9 +1408,9 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
     edit_is_bas = (fname == NULL || fstrstr(fname, ".bas") != NULL);
     EdFileName = fname;
     int c = -1, i;
-    // CMM2: the type-ahead buffer and the clipboard from the heap (2 KB the stack, with the heap in 18 KB of DTCM,
-    // cannot spare: Editor_Port_Plan.md E1); temporary memory, freed at the prompt
-    char *buf = GetTempMemory(MAXCLIP + 2), *clipboard = GetTempMemory(MAXCLIP + 2);
+    // CMM2: the type-ahead buffer from the heap (1 KB the stack, with the heap in 18 KB of DTCM, cannot spare:
+    // Editor_Port_Plan.md E1); temporary memory, freed at the prompt. The clipboard is EdClip (E4).
+    char *buf = GetTempMemory(MAXCLIP + 2);
     char *p, *tp, BreakKeySave;
     char currdel = 0, nextdel = 0, lastdel = 0;
     char multi = false;
@@ -1344,7 +1420,6 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
     drawstatusline = true;
     unsigned char lastkey = 0;
     int y, statuscount;
-    clipboard[0] = 0;
     buf[0] = 0;
     insert = true;
     TextChanged = false;
@@ -2011,7 +2086,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 // fall through
             case CTRLKEY('T'):
             case F4:
-                MarkMode(clipboard, &buf[1]);
+                MarkMode(&buf[1]);
                 {
                     int msgup = EdMsgUp;                // (CMM2: a message mark mode ended with, put back below)
                     // While selecting along a long line, mark-mode navigation drags
@@ -2049,8 +2124,11 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 GetInputString("Replace: ");
                 if (*inpbuf == 0 || *inpbuf == ESC)
                     break;
-                if (!(*inpbuf == 0xb3 || *inpbuf == F3))
-                    strcpy((char *)clipboard, (char *)inpbuf);
+                if (!(*inpbuf == 0xb3 || *inpbuf == F3) && !EdSetClip((char *)inpbuf, strlen((char *)inpbuf)))
+                {                                       // (CMM2 (E4): the replacement goes in the clipboard)
+                    editDisplayMsg(" NOT ENOUGH MEMORY ");
+                    break;
+                }
             case CTRLKEY('I'):
             case SHIFT_F5:
             case F8:
@@ -2059,7 +2137,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                     editDisplayMsg(" NOTHING TO REPLACE ");
                     break;
                 }
-                if (*clipboard == 0)
+                if (EdClipLen == 0)
                 {
                     editDisplayMsg(" CLIPBOARD IS EMPTY ");
                     break;
@@ -2069,18 +2147,17 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                     buf[i + 1] = DEL;
                 }
                 buf[i + 1] = F5;
+                buf[i + 2] = 0;
                 break;
             case CTRLKEY('Y'):
             case CTRLKEY('V'):
             case F5:
-                if (*clipboard == 0)
+                if (EdClipLen == 0)
                 {
                     editDisplayMsg(" CLIPBOARD IS EMPTY ");
                     break;
                 }
-                for (i = 0; clipboard[i]; i++)
-                    buf[i + 1] = clipboard[i];
-                buf[i + 1] = 0;
+                EdPaste(edit_buff_size);                // CMM2 (E4): in one go, not a key at a time
                 break;
 
             // F9 - Import file at current position
@@ -2184,7 +2261,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
             case F10:
             {
                 // Check if clipboard has content
-                if (clipboard[0] == 0)
+                if (EdClipLen == 0)
                 {
                     editDisplayMsg(" CLIPBOARD IS EMPTY ");
                     break;
@@ -2203,8 +2280,8 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 EdDefaultExtension(exportfile);
 
                 // Write clipboard contents to file, CR LF line ends (CMM2 (E3): a failure reported, the editor open)
-                int export_count = strlen(clipboard);
-                FRESULT r = EdWriteFile(exportfile, clipboard, clipboard + export_count, 0);
+                int export_count = EdClipLen;
+                FRESULT r = EdWriteFile(exportfile, EdClip, EdClip + export_count, 0);
                 if (r != FR_OK)
                 {
                     EdFileMsg("CANNOT CREATE FILE", r, exportfile);
@@ -2331,7 +2408,7 @@ void PositionCursor(char *curp)
 
 // mark mode
 // implement the mark mode (when the user presses F4)
-void MarkMode(char *cb, char *buf)
+void MarkMode(char *buf)
 {
     char *p, *mark, *oldmark;
     int c = -1, x, y, i, oldx, oldy, txtpx, txtpy, errmsg = false;
@@ -2640,28 +2717,16 @@ void MarkMode(char *cb, char *buf)
         case F4:
         case CTRLKEY('B'):
         case F10:
-            if (c != F10 && (txtp - mark > MAXCLIP || mark - txtp > MAXCLIP))
-            {
-                editDisplayMsg(" MARKED TEXT EXCEEDS BUFFER SIZE");
-                errmsg = true;
-                SCursor(curx, cury);
-                continue;
-            }
             if (c != F10)
-            {
-                if (mark <= txtp)
+            {                                           // CMM2 (E4): the clipboard made as large as the selection
+                char *lo = mark <= txtp ? mark : txtp;
+                if (!EdSetClip(lo, (mark <= txtp ? txtp : mark) - lo))
                 {
-                    p = mark;
-                    while (p < txtp)
-                        *cb++ = *p++;
+                    editDisplayMsg(" NOT ENOUGH MEMORY ");
+                    errmsg = true;
+                    SCursor(curx, cury);
+                    continue;
                 }
-                else
-                {
-                    p = txtp;
-                    while (p <= mark - 1)
-                        *cb++ = *p++;
-                }
-                *cb = 0;
             }
             if (c == F5 || c == CTRLKEY('Y') || c == F10)
             {
@@ -3623,9 +3688,11 @@ static const char *pickFunctKeyString(int typ, int avail)
    line and column at the right of the row under them. */
 static void EdStatusBar(void)
 {
-    char left[96], right[48], line[256];
+    char left[128], right[48], line[256], clip[32] = "";
     int x = curx, y = cury, n, r, w = VWidth < (int)sizeof(line) ? VWidth : (int)sizeof(line) - 1;
-    snprintf(left, sizeof(left), "%.60s - %d lines %s", EdFileName, nbrlines, TextChanged ? "(modified)" : "");
+    if (EdClipLen)                                      // (E4: the clipboard's size, as kilo showed it)
+        snprintf(clip, sizeof(clip), ", Paste Buffer %d chars", EdClipLen);
+    snprintf(left, sizeof(left), "%.60s - %d lines%s%s", EdFileName, nbrlines, TextChanged ? " (modified)" : "", clip);
     r = snprintf(right, sizeof(right), "%s%s,%s | %d/%d/%d", (edit_is_bas && current_line_length() > MAXSTRLEN) ? "LONG " : "",
                  insert ? "INS" : "OVR", edit_is_bas ? "bas" : "no ft", edx + curx + 1, edy + cury + 1, nbrlines);
     memset(line, ' ', w);

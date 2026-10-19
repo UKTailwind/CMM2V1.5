@@ -12,7 +12,7 @@ A script is one step a line ('#' starts a comment; the first comment line is the
   typen N TEXT       TEXT N times over (a long line)
   key NAME [N]       a key, N times (vt100drive.keybytes: f1, ^K, shift-tab, ...)
   wait SECS          read for SECS seconds
-  prompt             wait for the prompt (the editor has exited)
+  prompt [SECS]      wait for the prompt (the editor has exited), 20 s at most or SECS
   get NAME LOCAL     NAME, fetched by ZMODEM, has the bytes of tests/editor/LOCAL
   exists NAME        the card has NAME
   missing NAME       it has not
@@ -195,7 +195,7 @@ class Run:
                 t.read()
         elif verb == 'prompt':
             try:
-                t.prompt()
+                t.prompt(float(arg) if arg else 20.0)
             except TimeoutError as e:
                 raise Abort(str(e))
         elif verb == 'get':

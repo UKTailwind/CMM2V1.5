@@ -6,6 +6,7 @@ key f4
 key down
 key f4
 status 5 lines
+status Paste Buffer 4 chars
 line 0 bbb
 # pasted above 'ddd'
 key down 2
