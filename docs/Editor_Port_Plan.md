@@ -86,7 +86,7 @@ Found and fixed on the way:
 
 **Still to do by hand:** the USB keyboard's keys in the engine; the screen-only console.
 
-**D1 revised (Peter, 19 Oct):** the PicoMite's keys stay, with kilo's Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn added (see Decisions). All the kilo scripts were rewritten for these keys (see E2 below). E3 (safe saving) and E4 (the clipboard) followed the same day (below). The suite is now 22 of 23, and 13 (help) waits for E5.
+**D1 revised (Peter, 19 Oct):** the PicoMite's keys stay, with kilo's Shift-Tab, Shift-Del, Shift and the arrows, and two-stage PgUp/PgDn added (see Decisions). All the kilo scripts were rewritten for these keys (see E2 below). E3 (safe saving), E4 (the clipboard) and E5 (search and help, as decided) followed the same day (below). Every script passes: 23 of 23.
 
 ## Review, 19 Oct
 
@@ -416,9 +416,9 @@ The kilo scripts that tested kilo's keys were rewritten for the PicoMite's keys 
 - 11: ^W saves and runs (kilo's ^W was Backup as).
 - 12: F9 import, F10 and ^B export.
 - 14: two-stage paging.
-- 13 (help) waits for E5, its key to be settled (F12 is Beautify, F11 is free), and 09b for E4.
+- 13 (help) waited for E5, its key then to be settled (F12 is Beautify, F11 was free), and 09b for E4.
 
-The suite then: 18 of 20, with 09b and 13 known. After E3 and E4: 22 of 23, with 13 known.
+The suite then: 18 of 20, with 09b and 13 known. After E3 and E4: 22 of 23, with 13 known. After E5: 23 of 23.
 
 **E2 as first planned, the key map and kilo's smaller functions.** The `KEY_*` map above, plus the kilo functions the engine lacks:
 - ^K;
@@ -502,6 +502,21 @@ Checked on the board:
   - F5/^V replaces the match with the paste buffer.
 - **Help.** F12 and F11 call the CMM2's existing `do_help` (`Commands.c:120`) as kilo does: the top rows are saved with `PAGE COPY 0 TO 1` and restored, and the serial terminal is saved and restored with `ESC[s`/`ESC[u` (1670-1707). E8 moves it to help.txt.
 - **Gate:** scripts 10 and 13.
+
+**E5 as decided and built (Peter, 19 Oct).** Under D1 revised, the PicoMite's search stays, with its gaps fixed, and help goes on F11.
+- **Search:**
+  - A match is brought into view with the whole match on the screen (`EdShowCursor`). The line scrolls sideways if it must, and the screen re-centres only if the match was off it. The PicoMite's set `edy` but not `edx`, so a match past the right edge was off the screen.
+  - F3's prompt offers the last search (`EdGetInput`): Enter takes it, a typed character replaces it, and Backspace edits it. F3, SHIFT-F3 and Esc at a prompt return alone; after typed text they used to be added to it, and the repeat was missed.
+  - F6, ^G and SHIFT-F3 find the next match; F7 and F8 replace, through the E4 clipboard.
+- **Help (F11):**
+  - The word at the cursor, or just before it, is looked up as HELP does: in A:/help.txt when the card has one (the topics `~NAME` and their text), otherwise in the built-in help (help.h's name and syntax pairs). Topics named the word, or the word and more after a space, are shown: DIM shows DIM, DIM FLOAT, DIM INTEGER and DIM STRING.
+  - The help is shown in the editing area under a "HELP: word" title bar, scrolled with Up, Down, PgUp and PgDn. Esc or F11 goes back to the text as it was.
+  - There is no syntax insertion (kilo's F11), and F12 stays Beautify. The legends show F11 where there is room.
+- **Checked:**
+  - 10: a match at column 152 is shown whole; F3 offers the last text.
+  - 13: the built-in help for Dim, "NO HELP FOR a%", and topics from a help.txt put on the card for the test.
+  - Photographs of the help page and of the text after Esc.
+- The PicoMite's search has both faults: issue #57.
 
 **E6, speed on large files.** The engine finds a line by counting newlines from the start of the buffer:
 - `printLine` does this twice, for the screen and the terminal (P 8878, 8905);

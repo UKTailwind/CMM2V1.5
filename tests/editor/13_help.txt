@@ -1,16 +1,33 @@
-# 13 F12 shows the help for the word under the cursor, Esc leaves it with the screen as it was, F11 inserts the topic's syntax
-known help in the editor comes with E5, its keys to be settled (F12 is Beautify in the PicoMite's keys, F11 is free)
+# 13 (E5) F11 shows the help for the word at the cursor, from A:/help.txt or without it the built-in help; Esc goes back to the text as it was
 put t.bas start1.bas
+put help.txt helptest.txt
 cmd EDIT "t.bas"
 key down
-key f12
-screen ?  Dim
-screen DIM [type] decl [,decl]...
-key esc
-line 0 ' editor test file 1
-noscreen DIM [type]
 key f11
-line 1 DIM [type] decl [,decl]...Dim a%, b$
+status HELP: Dim
+screen DIM [type] decl [,decl]...
+screen DIM FLOAT decl [,decl]...
+key esc
+line 1 Dim a%, b$
+status t.bas
+# a word with no topic
+key right 4
+key f11
+message NO HELP FOR a%
 key f1
 prompt
-get t.bas expect13.bas
+get t.bas start1.bas
+# with A:/help.txt the topics come from it: the word's, and those that start with it and a space
+cmd COPY "help.txt" TO "A:/help.txt"
+cmd EDIT "t.bas"
+key down
+key f11
+screen test text for DIM
+screen DIM FLOAT decl
+noscreen FOR counter
+key esc
+line 1 Dim a%, b$
+key esc
+prompt
+cmd KILL "A:/help.txt"
+kill help.txt

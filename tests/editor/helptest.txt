@@ -1,0 +1,7 @@
+~DIM
+DIM [type] decl [,decl]..
+test text for DIM
+~DIM FLOAT
+DIM FLOAT decl
+~FOR
+FOR counter = start TO finish

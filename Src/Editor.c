@@ -126,6 +126,7 @@ void PrintFunctKeys(int);
 void EdPrintStatus(void);
 void editDisplayMsg(char *msg);
 void GetInputString(char *prompt);
+static void EdGetInput(char *prompt, char *def);
 void Scroll(void);
 void ScrollDown(void);
 void MarkMode(char *buf);
@@ -453,9 +454,9 @@ static int EdSetClip(char *from, int len)
 }
 
 /* after a change that may have moved the cursor anywhere: the screen redrawn with the cursor's line on it (centred if
-   it was off the screen), scrolled sideways if the cursor is past the right edge (only the cursor's line, as the
-   editor does elsewhere) */
-static void EdShowCursor(void)
+   it was off the screen), scrolled sideways if the cursor, and the ahead characters after it (a search's match), are
+   past the right edge (only the cursor's line, as the editor does elsewhere) */
+static void EdShowCursor(int ahead)
 {
     int ln = 0, col = 0;
     char *p;
@@ -472,9 +473,11 @@ static void EdShowCursor(void)
     }
     edx = 0;
     printScreen();
-    if (col > VWidth - 1)
+    if (col + ahead > VWidth - 1)
     {
-        edx = col - (VWidth - 1 - SCROLLCHARS);
+        edx = col + ahead - (VWidth - 1 - SCROLLCHARS);
+        if (edx > col)
+            edx = col;                                  // (the cursor itself on the screen)
         SCursor(0, ln - edy);
         printLine(ln);
     }
@@ -499,7 +502,7 @@ static void EdPaste(int edit_buff_size)
             nbrlines++;
     txtp += EdClipLen;
     TextChanged = true;
-    EdShowCursor();
+    EdShowCursor(0);
 }
 
 // CMM2: is there a file (not a directory) of this name, and its size
@@ -619,6 +622,196 @@ static FRESULT EdSave(char *fname)
 failed:
     f_unlink(tmp);
     return r;
+}
+
+/* ---- CMM2 (Editor_Port_Plan.md E5): help on F11 (Peter, 19 Oct) ---------------------------------------------------
+   The word at the cursor looked up as HELP does: in A:/help.txt when the card has one (each topic a line ~NAME and the
+   text after it), otherwise in the built-in help (help.h: a name and its syntax). Every topic named the word, or the
+   word and more after a space (DIM FLOAT for DIM), is shown in the editing area, which Up, Down, PgUp and PgDn
+   scroll; Esc or F11 goes back to the text as it was. kilo's was on F12, the PicoMite's Beautify. */
+#define EDHELP_BYTES 32768                              // (the most topic text shown at once)
+
+// the name at the cursor, or just before it, with its type suffix, in w; its length (0: none)
+static int EdHelpWord(char *w, int size)
+{
+    char *s = txtp;
+    int n = 0;
+    while (s > EdBuff && isnamechar(s[-1]))
+        s--;
+    if (!isnamestart(*s))
+        return 0;
+    while (isnamechar(*s) && n < size - 2)
+        w[n++] = *s++;
+    if (*s == '$' || *s == '%' || *s == '!')
+        w[n++] = *s;
+    w[n] = 0;
+    return n;
+}
+
+/* is a topic's name (len characters) the word, or the word and more after a space? Blind to case; a name's trailing
+   spaces and '(' (the built-in help's: "LEFT$(  ") left out */
+static int EdHelpMatch(const char *name, int len, const char *w, int wl)
+{
+    while (len > 0 && (name[len - 1] == ' ' || name[len - 1] == '('))
+        len--;
+    if (len < wl || strncasecmp(name, w, wl))
+        return 0;
+    return len == wl || name[wl] == ' ';
+}
+
+// the topics' text for the word w, each line ended by '\n', a blank line between topics, in out; its length
+static int EdHelpText(char *w, char *out, int size)
+{
+    int wl = strlen(w), n = 0, in = 0, ll = 0, i;
+    char line[STRINGSIZE];
+    if (EdFileExists("A:/help.txt", NULL))
+    {
+        FIL *fp = GetMemory(sizeof(FIL) + EDIO_BYTES);
+        char *b = (char *)(fp + 1);
+        UINT got = 0;
+        if (EdOpen(fp, "A:/help.txt", FA_READ) == FR_OK)
+        {
+            do
+            {
+                if (f_read(fp, b, EDIO_BYTES, &got) != FR_OK)
+                    got = 0;
+                for (UINT k = 0; k <= got; k++)
+                {
+                    char c = k < got ? b[k] : (got < EDIO_BYTES && ll ? '\n' : 0);   // (a last line with no end)
+                    if (c == 0 || c == '\r')
+                        continue;
+                    if (c != '\n')
+                    {
+                        if (ll < STRINGSIZE - 1)
+                            line[ll++] = c;
+                        continue;
+                    }
+                    line[ll] = 0;
+                    ll = 0;
+                    if (line[0] == '~')
+                    {
+                        if ((in = EdHelpMatch(line + 1, strlen(line + 1), w, wl)) && n && n < size - 1)
+                            out[n++] = '\n';
+                        continue;
+                    }
+                    for (i = 0; in && line[i] && n < size - 2; i++)
+                        out[n++] = line[i];
+                    if (in && n < size - 1)
+                        out[n++] = '\n';
+                }
+            } while (got == EDIO_BYTES);
+            f_close(fp);
+        }
+        FreeMemory(fp);
+    }
+    else
+        for (i = 0; *help[i] != 'Z'; i += 2)
+            if (EdHelpMatch(help[i], strlen(help[i]), w, wl) && n + strlen(help[i + 1]) + 1 < size)
+            {
+                strcpy(out + n, help[i + 1]);
+                n += strlen(help[i + 1]);
+                out[n++] = '\n';
+            }
+    out[n] = 0;
+    return n;
+}
+
+// one row of the screen: s on the display and the terminal, cleared to the end; reverse for the title row (s, a row[]
+// of 256, padded to the width, so that the reverse bar covers the status bar that was there)
+static void EdHelpRow(int y, char *s, int reverse)
+{
+    if (reverse)
+    {
+        int n = strlen(s);
+        while (n < VWidth && n < 255)
+            s[n++] = ' ';
+        s[n] = 0;
+    }
+    SCursor(0, y);
+    PrintString(reverse ? "\033[7m" : "\033[0m");
+    PrintString(s);
+    PrintString("\033[K\033[0m");
+    EdPutS(s, reverse ? BLACK : GUI_C_NORMAL, reverse ? WHITE : GUI_C_BCOLOUR);
+    if (!reverse)
+        EdDisplay(CLEAR_TO_EOL);
+}
+
+// F11: the help page for the word at the cursor, until Esc or F11
+static void EdHelp(void)
+{
+    char w[64], row[256], *text;
+    int *start, len, nl = 0, top = 0, i, r, c, width = VWidth - 1 < (int)sizeof(row) - 1 ? VWidth - 1 : (int)sizeof(row) - 1;
+    if (!EdHelpWord(w, sizeof(w)))
+    {
+        editDisplayMsg(" NO WORD AT THE CURSOR ");
+        return;
+    }
+    text = GetTempMemory(EDHELP_BYTES);
+    if ((len = EdHelpText(w, text, EDHELP_BYTES)) == 0)
+    {
+        ClearSpecificTempMemory(text);
+        snprintf(row, sizeof(row), " NO HELP FOR %.40s ", w);
+        editDisplayMsg(row);
+        return;
+    }
+    for (i = 0, c = 0; i < len; i++)                    // the rows: each line of the text cut at the screen's width
+        if (text[i] == '\n' || ++c == width)
+            nl++, c = 0;
+    start = GetTempMemory((nl + 2) * sizeof(int));
+    for (i = 0, c = 0, nl = 0, start[0] = 0; i < len; i++)
+        if (text[i] == '\n' || ++c == width)
+            start[++nl] = i + 1, c = 0;
+    while (1)
+    {
+        for (r = 0; r < VHeight; r++)
+        {
+            int k = 0;
+            if (top + r < nl)
+                for (i = start[top + r]; i < len && text[i] != '\n' && k < width && i < start[top + r + 1]; i++)
+                    row[k++] = text[i];
+            row[k] = 0;
+            EdHelpRow(r, row, 0);
+        }
+        snprintf(row, sizeof(row), " HELP: %.40s   %d-%d of %d ", w, top + 1, top + VHeight < nl ? top + VHeight : nl, nl);
+        row[width] = 0;
+        EdHelpRow(VHeight, row, 1);
+        strcpy(row, "Esc:Back  Up Dn PgUp PgDn:Scroll");
+        row[width] = 0;
+        EdHelpRow(VHeight + 1, row, 0);
+        c = EdGetKey();
+        if (c == ESC)
+        {
+            uSec(50000);
+            if (EdMouseReport())
+            {                                           // (a terminal's mouse report: ignored)
+                MMInkey();
+                MMInkey();
+                MMInkey();
+                continue;
+            }
+            break;
+        }
+        if (c == F11)
+            break;
+        if (c == UP || c == CTRLKEY('E'))
+            top--;
+        else if (c == DOWN || c == CTRLKEY('X'))
+            top++;
+        else if (c == PUP || c == CTRLKEY('P'))
+            top -= VHeight;
+        else if (c == PDOWN || c == CTRLKEY('L'))
+            top += VHeight;
+        if (top > nl - VHeight)
+            top = nl - VHeight;
+        if (top < 0)
+            top = 0;
+    }
+    ClearSpecificTempMemory(start);
+    ClearSpecificTempMemory(text);
+    EdDisplay(DISPLAY_CLS);
+    printScreen();
+    PrintFunctKeys(EDIT);
+    PositionCursor(txtp);
 }
 
 /* EDIT [file$] (CMM2): the file, or with none the program's own file (ProgName) at the line an error left in it
@@ -1419,7 +1612,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
     SCursor(xx, yy);
     drawstatusline = true;
     unsigned char lastkey = 0;
-    int y, statuscount;
+    int statuscount;
     buf[0] = 0;
     insert = true;
     TextChanged = false;
@@ -2030,7 +2223,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
             // Search
             case CTRLKEY('R'):
             case F3:
-                GetInputString("Find (Use SHIFT-F3 to repeat): ");
+                EdGetInput("Find (Use SHIFT-F3 to repeat): ", (char *)tknbuf);    // (CMM2: the last search offered)
                 if (*inpbuf == 0 || *inpbuf == ESC)
                     break;
                 if (!(*inpbuf == 0xb3 || *inpbuf == F3))
@@ -2061,20 +2254,9 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                     editDisplayMsg(" NOT FOUND ");
                     break;
                 }
-                for (y = 0, txtp = EdBuff; txtp != p; txtp++)
-                { // find the line and column of the string
-                    if (*txtp == '\n')
-                    {
-                        y++; // y is the line
-                    }
-                }
-                edy = y - VHeight / 2; // edy is the line displayed at the top
-                if (edy < 0)
-                    edy = 0; // compensate if we are near the start
-                printScreen();
-                PositionCursor(txtp);
-                foundit = true;
-                // SCursor(x, y);
+                txtp = p;                               // CMM2 (E5): the match brought into view, sideways too (the
+                EdShowCursor(i);                        // PicoMite's set edy but not edx, so a match past the right
+                foundit = true;                         // edge was off the screen)
                 break;
 
             // Mark
@@ -2295,8 +2477,9 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
             }
             break;
 
-            // F11 - reserved
+            // F11 - CMM2 (E5, Peter 19 Oct): help on the word at the cursor
             case F11:
+                EdHelp();
                 break;
 
             // F12 / Ctrl-A - Beautify (re-indent block structures)
@@ -3660,10 +3843,10 @@ static int current_line_length(void)
 static const char *pickFunctKeyString(int typ, int avail)
 {
     static const char *edit_keys[] = {
-        "ESC:Exit F1:Save F2:Run F3/6:Find/r F4:Mrk F5:Paste F7/8:Rpl/r F9:In F10:Out F12/^A:Beautify",
-        "F1:Save F2:Run F3:Find F4:Mark F5:Paste F7:Repl F7/8:Rpl/r F12/^A:Btfy",
-        "F1:Save F2:Run F3:Find F4:Mrk F5:Pst F9:In F10:Out ^A:Btfy",
-        "F1:Save F2:Run F3:Find F4:Mrk F5:Pst ^A:Btfy",
+        "ESC:Exit F1:Save F2:Run F3/6:Find/r F4:Mrk F5:Paste F7/8:Rpl/r F9:In F10:Out F11:Help F12/^A:Beautify",
+        "F1:Save F2:Run F3:Find F4:Mark F5:Paste F7/8:Rpl/r F11:Help F12/^A:Btfy",    // (CMM2: F11, E5)
+        "F1:Save F2:Run F3:Find F4:Mrk F5:Pst F9:In F10:Out F11:Hlp",
+        "F1:Save F2:Run F3:Find F4:Mrk F5:Pst F11:Hlp ^A:Btfy",
         "EDIT MODE",
     };
     static const char *mark_keys[] = {
@@ -3764,9 +3947,12 @@ void editDisplayMsg(char *msg)
 
 // save the program in the editing buffer into the program memory
 // get an input string from the user and save into inpbuf
-void GetInputString(char *prompt)
+/* CMM2 (E5): with def, that text is offered: shown after the prompt, Enter takes it, a typed character replaces it and
+   Backspace edits it (F3's Find offers the last search). F3, SHIFT-F3 and Esc return alone in inpbuf, as the callers
+   test them (after typed text they were added to it). */
+static void EdGetInput(char *prompt, char *def)
 {
-    int i;
+    int i, fresh = 0;
     SCursor(0, VHeight + 1);
     PrintString((char *)prompt);
     EdCursor(0, (VHeight + 1) * gui_font_height);
@@ -3780,6 +3966,15 @@ void GetInputString(char *prompt)
     EdCursor(strlen((char *)prompt) * gui_font_width, (VHeight + 1) * gui_font_height);
     int len = 0;
     int maxlen = STRINGSIZE - 1;
+    if (def && *def)
+    {                                                   // (as much of it as the line has room for)
+        for (len = 0; def[len] && len < maxlen && len < VWidth - (int)strlen(prompt) - 1; len++)
+            inpbuf[len] = def[len];
+        inpbuf[len] = 0;
+        PrintString((char *)inpbuf);
+        EdPutS((char *)inpbuf, gui_fcolour, gui_bcolour);
+        fresh = 1;
+    }
     while (1)
     { // get the input
         unsigned char ch = EdGetKey();
@@ -3787,10 +3982,20 @@ void GetInputString(char *prompt)
             break;
         if (ch == 0xb3 || ch == F3 || ch == ESC)
         {
-            if (len < maxlen)
-                inpbuf[len++] = ch;
+            inpbuf[0] = ch;
+            len = 1;
             break;
         } // return if it is SHIFT-F3, F3 or ESC
+        if (isprint(ch) && fresh)
+        {                                               // (a character typed: the offered text goes)
+            while (len > 0)
+            {
+                len--;
+                PrintString("\b \b");
+                EdPutS("\b \b", gui_fcolour, gui_bcolour);
+            }
+        }
+        fresh = 0;
         if (ch == '\b')
         {
             if (len > 0)
@@ -3814,6 +4019,11 @@ void GetInputString(char *prompt)
     inpbuf[len] = 0; // terminate the input string
     PositionCursor(txtp);                               // CMM2: (first: the status bar gives the cursor's place)
     PrintFunctKeys(EDIT);
+}
+
+void GetInputString(char *prompt)
+{
+    EdGetInput(prompt, NULL);
 }
 
 // scroll up the video screen

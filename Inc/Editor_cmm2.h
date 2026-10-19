@@ -82,6 +82,7 @@ extern void MX470Cursor(int x, int y);
 extern void MX470Display(int fn);
 extern char *fstrstr(const char *s1, const char *s2);   // Console.c: strstr blind to case
 extern void ScreenShot(void);                           // Console.c: Print Screen
+extern const char *const help[];                        // help.h (Commands.c): the built-in help, name and syntax pairs
 extern void cleanend(void);
 extern volatile uint8_t pagesetdone;
 extern void closeall3d(void);
