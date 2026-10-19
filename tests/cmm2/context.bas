@@ -23,6 +23,6 @@ Load Context
 Print "loaded again:"; n; " "; s$; a(4)
 On Error Skip
 Load Context
-Print "a third LOAD: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ": ") + 2)
+Print "a third LOAD: "; MM.ErrMsg$
 Save Context
 Run "context_b.inc"

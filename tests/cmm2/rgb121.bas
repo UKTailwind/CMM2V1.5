@@ -118,5 +118,5 @@ Mode 8
 Print "done"
 
 Function em$()
-  em$ = Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ": ") + 2)
+  em$ = MM.ErrMsg$
 End Function

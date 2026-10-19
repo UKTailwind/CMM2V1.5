@@ -368,14 +368,14 @@ If 0 Then
 ElseIf 1 / zz Then
   Print "no"
 EndIf
-Print "ELSEIF 1/0: "; Mid$(MM.ErrMsg$, 7)
+Print "ELSEIF 1/0: "; "in line " + Str$(MM.ErrLine) + ": " + MM.ErrMsg$
 On Error Skip
 If 0 Then
   Print "no"
 ElseIf
   Print "no"
 EndIf
-Print "ELSEIF with no condition: "; Mid$(MM.ErrMsg$, 7)
+Print "ELSEIF with no condition: "; "in line " + Str$(MM.ErrLine) + ": " + MM.ErrMsg$
 
 Print "-- DO forms"
 i = 0 : Do While i < 5 : i = i + 1 : Loop : Print "DO WHILE i < 5:"; i

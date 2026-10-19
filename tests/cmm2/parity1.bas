@@ -20,7 +20,7 @@ Mid$(s$, 1, 4) = "ab"
 Print "mid replace: "; s$
 On Error Skip 1
 Mid$(s$, 5, 3) = "z"
-e$ = MM.ErrMsg$ : Print "mid beyond: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "mid beyond: "; e$
 
 ' LMID does the same on a LONGSTRING
 LongString Clear ls%()
@@ -35,7 +35,7 @@ LMid(ls%(), 1, 4) = "ab"
 Print "lmid replace: "; LGetStr$(ls%(), 1, LLen(ls%()))
 On Error Skip 1
 LMid(ls%(), 5, 3) = "z"
-e$ = MM.ErrMsg$ : Print "lmid beyond: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "lmid beyond: "; e$
 
 ' LINPUT( reads n bytes of a file into a LONGSTRING; MEMORY INPUT reads fewer bytes than the file holds
 Open "parity1.tmp" For Output As #1
@@ -55,7 +55,7 @@ Memory Input #1, 8, raw%()
 Print "memory input 2: "; Hex$(raw%(0), 16)
 On Error Skip 1
 Memory Input #1, 8, raw%()
-e$ = MM.ErrMsg$ : Print "memory input at end: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "memory input at end: "; e$
 Close #1
 Kill "parity1.tmp"
 
@@ -82,10 +82,10 @@ Print "sync: "; Choice(t >= 38 And t <= 44, "ok", "bad " + Str$(t))
 SYNC 0
 On Error Skip 1
 SYNC
-e$ = MM.ErrMsg$ : Print "sync off: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "sync off: "; e$
 On Error Skip 1
 SYNC 5, X
-e$ = MM.ErrMsg$ : Print "sync unit: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "sync unit: "; e$
 
 ' SETPIN pin, CIN, option: the edge and the pull
 SetPin 7, CIN, 3
@@ -93,12 +93,12 @@ Print "cin: "; Pin(7)
 SetPin 7, Off
 On Error Skip 1
 SetPin 7, CIN, 6
-e$ = MM.ErrMsg$ : Print "cin option: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "cin option: "; e$
 
 ' TEMPR's conversion timeouts (no sensor on the pin: 1000)
 On Error Skip 1
 fl = Tempr(7, 50)
-e$ = MM.ErrMsg$ : Print "tempr timeout: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "tempr timeout: "; e$
 Print "tempr no sensor: "; Tempr(7, 100)
 Tempr Start 7, 1, 150
 Print "tempr start: "; Tempr(7)
@@ -109,7 +109,7 @@ Print "onewire: "; MM.OneWire
 Print "function negative: "; sx(-24)
 On Error Skip 1
 n = arr(-1)
-e$ = MM.ErrMsg$ : Print "array negative: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "array negative: "; e$
 
 ' a string literal without its closing quote is closed at the end of the line
 Print "unterminated: "; "no closing quote

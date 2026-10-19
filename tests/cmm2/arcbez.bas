@@ -50,11 +50,11 @@ showmap(400, 300, 32, 17)
 CLS
 On Error Skip 1
 Bezier bx(), b5y()
-Print "mismatch: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "mismatch: "; MM.ErrMsg$
 On Error Skip 1
 Arc 412, 312, 9, 6, 0, 90
-Print "radii: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "radii: "; MM.ErrMsg$
 On Error Skip 1
 Arc 412, 312, 6, 9, 45, 45
-Print "radials: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "radials: "; MM.ErrMsg$
 Print "done"

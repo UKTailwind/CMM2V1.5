@@ -41,7 +41,7 @@ Bottomless
 x = MM.ErrNo : s$ = MM.ErrMsg$
 On Error Abort
 Check "too many locals is an error", x <> 0, 1
-Print "  the message: "; Mid$(s$, Instr(s$, ":") + 2)
+Print "  the message: "; s$
 Print "  depth reached:"; deep%
 Check "it went deep first", deep% > 50, 1
 Check "VARCNT back after the overflow", MM.Info(VARCNT) - base%, 0

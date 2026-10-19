@@ -2529,6 +2529,31 @@ void cmd_clut(void){
 		HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
     } else if((p=checkstring(cmdline, "RESET"))){
     	reset_CLUT();
+    } else if(checkstring(cmdline, "GREYSCALE") || checkstring(cmdline, "GRAYSCALE")) {
+        // the PicoMite's: in an 8-bit mode eight ramps of 32 (grey, blue, green, cyan, red, magenta, yellow, white),
+        // in a 4-bit mode 16 greys
+        if(VideoColour == 8) {
+            for(int i = 1; i <= 32; i++) {
+                int j = i * 8 - (8 - i / 4 + 1);
+                if(j < 0) j = 0;
+                CLUT[i - 1] = j * 65536 + j * 256 + j;
+                CLUT[i + 31] = j;
+                CLUT[i + 63] = j * 256;
+                CLUT[i + 95] = j * 256 + j;
+                CLUT[i + 127] = j * 65536;
+                CLUT[i + 159] = j * 65536 + j;
+                CLUT[i + 191] = j * 65536 + j * 256;
+                CLUT[i + 223] = j * 65536 + j * 256 + j;
+            }
+        } else if(VideoColour == 4) {
+            for(int i = 1; i <= 16; i++) {
+                int j = i * 16 - (16 - i + 1);
+                CLUT[i - 1] = j * 65536 + j * 256 + j;
+            }
+        } else error("Set 8-bit or 4-bit mode");
+    	pagesetdone=0;
+    	while(!pagesetdone)CheckAbort();
+    	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
     } else if((p=checkstring(cmdline, "MAXIMITE"))){
     	if(VideoColour!=8)error("Set 8-bit mode to use compatibility");
     	CLUT[48]=0;
@@ -5020,7 +5045,43 @@ void cmd_font(void) {
 
 
 
+// COLOUR MAP in(), out() [, map()], the PicoMite's: each element of in(), a colour code 0-15, as the 24-bit colour
+// it stands for in a 4-bit mode (Rgb121Colours, the PicoMite's RGB121 colours, or the 16 of map()), into out().
+// (The PicoMite does not refuse a negative code.)
+static void ColourMap(char *tp) {
+    extern const int Rgb121Colours[16];
+    int64_t *cptr = NULL, *fptr = NULL;
+    MMFLOAT *cfptr = NULL, *ffptr = NULL;
+    int nf, n, i, map[16];
+    getargs(&tp, 5, ",");
+    for(i = 0; i < 16; i++) map[i] = Rgb121Colours[i];
+    if(!(argc == 3 || argc == 5)) StandardError(2);
+    n = parsenumberarray(argv[0], &cfptr, &cptr, 1, 1, NULL, true, NULL);
+    if(argc == 5) {                                                 // a map of its own
+        MMFLOAT *a3float = NULL;
+        int64_t *a3int = NULL;
+        if(parsenumberarray(argv[4], &a3float, &a3int, 3, 1, NULL, true, NULL) != 16) error("Array size not 16 elements");
+        for(i = 0; i < 16; i++) {
+            map[i] = a3int != NULL ? (int)a3int[i] : (int)a3float[i];
+            if(map[i] < 0 || map[i] > 0xFFFFFF) error("Invalid colour");
+        }
+    }
+    nf = parsenumberarray(argv[2], &ffptr, &fptr, 1, 1, NULL, false, NULL);
+    if(nf != n) error("Array size mismatch %, %", n, nf);
+    for(i = 0; i < n; i++) {
+        int in = cptr == NULL ? (int)cfptr[i] : (int)cptr[i];
+        if(in < 0 || in >= 16) error("Input range error on element %", i);
+        if(fptr == NULL) ffptr[i] = map[in];
+        else fptr[i] = map[in];
+    }
+}
+
 void cmd_colour(void) {
+    char *tp;
+    if((tp = checkstring(cmdline, "MAP"))) {
+        ColourMap(tp);
+        return;
+    }
     getargs(&cmdline, 3, ",");
     if(argc < 1) error("Argument count");
     gui_fcolour = getColour(argv[0], 0);

@@ -56,19 +56,19 @@ Print "dither 6 (Atkinson, RGB332): "; Choice(bad = 0, "every pixel an RGB332 co
 CLS
 On Error Skip 1
 Load JPG "jd_q", 0, 0, 3
-Print "dither 3: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "dither 3: "; MM.ErrMsg$
 On Error Skip 1
 Load JPG "jd_q", 0, 0, , , , 3
-Print "scale 3: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "scale 3: "; MM.ErrMsg$
 On Error Skip 1
 Load JPG "jd_q", 0, 0, , 64
-Print "x offset 64: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "x offset 64: "; MM.ErrMsg$
 On Error Skip 1
 Load JPG "jd_prog"
-Print "progressive: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "progressive: "; MM.ErrMsg$
 On Error Skip 1
 Load JPG "bd_bad.bmp"
-Print "not a JPEG: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "not a JPEG: "; MM.ErrMsg$
 Open "jpgdec.tmp" For Output As #10 : Close #10 : Kill "jpgdec.tmp"
 Print "file 10 free"
 CLS

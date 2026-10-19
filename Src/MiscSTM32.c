@@ -1646,6 +1646,8 @@ void MIPS16 OtherOptions(void) {
         	if(!(OptionConsole & 1))start_console();
         	OptionConsole = 1;
             HAL_NVIC_EnableIRQ(USART1_IRQn);
+        } else if(checkstring(tp, "NONE")) {                        // the PicoMite's: output to neither (the serial
+        	OptionConsole = 0;                                          // port, if it runs, still takes input: Ctrl-C)
         } else if(checkstring(tp, "SAVE")) {
         	Option.Console=OptionConsole;
             goto saveandreset;

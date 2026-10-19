@@ -29,7 +29,7 @@ Execute "Bump 1" : Check "EXECUTE a SUB call", r%, 11
 On Error Skip 1
 Dim Bump = 1
 Check "a variable named like a SUB is an error", MM.ErrNo <> 0, 1
-CheckS "and says so", Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2), "A sub/fun has the same name: BUMP"
+CheckS "and says so", MM.ErrMsg$, "A sub/fun has the same name: BUMP"
 
 ' ---- SETTICK to a SUB and to a label -------------------------------------------------------
 t% = 0 : SetTick 10, TickSub, 1

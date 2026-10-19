@@ -9,41 +9,41 @@ Dim string e$
 Erase a
 On Error Skip 1
 n = a
-e$ = MM.ErrMsg$ : Print "erase: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "erase: "; e$
 Erase b, c
 On Error Skip 1
 n = c
-e$ = MM.ErrMsg$ : Print "erase two: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "erase two: "; e$
 Dim integer a = 10
 Print "made again"; a
 On Error Skip 1
 I2C Close
-e$ = MM.ErrMsg$ : Print "i2c: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "i2c: "; e$
 On Error Skip 1
 I2C2 Close
-e$ = MM.ErrMsg$ : Print "i2c2: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "i2c2: "; e$
 On Error Skip 1
 I2C3 Close
-e$ = MM.ErrMsg$ : Print "i2c3: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "i2c3: "; e$
 On Error Skip 1
 SPI2 Close
-e$ = MM.ErrMsg$ : Print "spi2: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "spi2: "; e$
 On Error Skip 1
 SPI Close
-e$ = MM.ErrMsg$ : Print "spi: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "spi: "; e$
 On Error Skip 1
 Humid 0, arr(0), arr(1)
-e$ = MM.ErrMsg$ : Print "humid: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "humid: "; e$
 On Error Skip 1
 DHT22 0, arr(0), arr(1)
-e$ = MM.ErrMsg$ : Print "dht22: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "dht22: "; e$
 On Error Skip 1
 WS2812 O, 0, 1, arr()
-e$ = MM.ErrMsg$ : Print "ws2812: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "ws2812: "; e$
 On Error Skip 1
 Bitstream 0, 2, arr()
-e$ = MM.ErrMsg$ : Print "bitstream: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "bitstream: "; e$
 On Error Skip 1
 Bitbang Bitstream 0, 2, arr()
-e$ = MM.ErrMsg$ : Print "bitbang bitstream: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "bitbang bitstream: "; e$
 Print "done"

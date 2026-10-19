@@ -758,6 +758,7 @@ void cmd_load(void) {
         return;
     }
     p = checkstring(cmdline, "BMP");
+	if(!p) p = checkstring(cmdline, "IMAGE");                       // (the PicoMite's name for it: file$ [, x, y])
 	if(p) {
         LoadImage(p);
        return;
@@ -1248,6 +1249,11 @@ void cmd_chdir(void){
 void fun_cwd(void) {
     sret = GetTempStrMemory();                                    // this will last for the life of the command
 	strcpy(sret,filepath);
+    {   // the names as the card has them (f_getcwd), as the PicoMite gives them: CHDIR keeps filepath in capitals
+        char b[STRINGSIZE];
+        if(f_getcwd(b, sizeof(b)) == FR_OK && toupper(b[0]) == toupper(filepath[0]) && b[1] == ':' && strlen(b) <= MAXSTRLEN)
+            strcpy(sret, b);
+    }
     sret = CtoM(sret);
     targ = T_STR;
 }

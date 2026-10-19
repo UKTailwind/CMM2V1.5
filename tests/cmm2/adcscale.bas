@@ -32,6 +32,6 @@ ADC Start a()
 Print "trigger timeout: completed"
 On Error Skip 1
 ADC Trigger 1, 4
-e$ = MM.ErrMsg$ : Print "trigger voltage: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "trigger voltage: "; e$
 ADC Close
 Print "done"

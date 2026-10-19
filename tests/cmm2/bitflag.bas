@@ -19,22 +19,22 @@ Flags = &H1234
 Print "flags set: "; Hex$(MM.Flags); " "; Flag(2); Flag(4); Flag(12)
 On Error Skip 1
 Bit(s$, 1) = 1
-e$ = MM.ErrMsg$ : Print "bit of a string: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "bit of a string: "; e$
 On Error Skip 1
 Byte(x, 1) = 1
-e$ = MM.ErrMsg$ : Print "byte of an integer: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "byte of an integer: "; e$
 On Error Skip 1
 Bit(c, 1) = 1
-e$ = MM.ErrMsg$ : Print "bit of a constant: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "bit of a constant: "; e$
 On Error Skip 1
 Bit(x, 64) = 1
-e$ = MM.ErrMsg$ : Print "bit 64: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "bit 64: "; e$
 On Error Skip 1
 n = Byte(s$, 0)
-e$ = MM.ErrMsg$ : Print "byte 0: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "byte 0: "; e$
 On Error Skip 1
 n = Flag(3, 4)
-e$ = MM.ErrMsg$ : Print "flag two args: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "flag two args: "; e$
 Print "spaced: "; Bit (x, 0); Byte (s$, 1); Flag (12)
 Print "in expr: "; Bit(x, 0) + Byte(s$, 1) * 2 + Flag(12)
 Print "lower: "; bit(x, 63); byte(s$, 6); flag(4)

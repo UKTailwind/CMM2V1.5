@@ -23,16 +23,16 @@ Check "two name lines", nnames%, 2
 Check "some lines are longer than 0xFD bytes", nlong% >= 1, 1
 CheckS "the name lines", names$, "LINES.BAS,lines.inc"
 
-' ---- errors name the line and the file --------------------------------------------------
+' ---- an error's line, MM.ERRLINE, in the program and in an #INCLUDE file (the console names the file) ----
 On Error Skip 1
 Error "main"
-e$ = MM.ErrMsg$
-CheckS "an error in the program", e$, "Error in line 28: main"
+e$ = Str$(MM.ErrLine) + ": " + MM.ErrMsg$
+CheckS "an error in the program", e$, "28: main"
 On Error Ignore
 IncError
-e$ = MM.ErrMsg$
+e$ = Str$(MM.ErrLine) + ": " + MM.ErrMsg$
 On Error Abort
-CheckS "an error in the #INCLUDE file", e$, "Error in lines.inc line 13: inc"
+CheckS "an error in the #INCLUDE file", e$, "13: inc"
 
 ' ---- TRACE -------------------------------------------------------------------------------
 Trace On

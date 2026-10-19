@@ -111,7 +111,7 @@ From `2026-03-26_035852_picofrog6_b9_3.zip` (Martin Herhaus 2022, Volhout 2025):
 
 - MODE 2 as MODE 7,4 and MODE 3 as MODE 8,4 (MODE 1 as 8,8).
 - MM.DEVICE$ as "PicoMiteVGA".
-- LOAD IMAGE as LOAD BMP.
+- ~~LOAD IMAGE as LOAD BMP~~: accepted by the CMM2 as it stands (19 Oct), so no option is needed for it.
 - RESOLUTION accepted and ignored where the CMM2 mode already has the timing.
 - GPnn pin names and MM.INFO(PINNO GPn) through the mapping table (plan 6.4), deferred.
 - FRAMEBUFFER as the PicoMite's in every mode, not only in a 4-bit one.

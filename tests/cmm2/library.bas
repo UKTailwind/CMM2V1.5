@@ -18,7 +18,7 @@ LibReadOwn r() : Print "library restore"; r(0); r(1)
 Font 9 : d1 = MM.Info(FONTWIDTH) : Font 1 : Print "font width"; d1
 On Error Ignore
 LibDiv 0
-Print "error: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, "library_lib"))
+Print "error: line"; MM.ErrLine; ": "; MM.ErrMsg$
 On Error Abort
 Print "done"
 Data 1

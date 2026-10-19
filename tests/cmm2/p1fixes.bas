@@ -47,5 +47,5 @@ Sub Tick
 End Sub
 
 Function em$()
-  em$ = Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ": ") + 2)
+  em$ = MM.ErrMsg$
 End Function

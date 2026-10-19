@@ -106,6 +106,8 @@ void cmd_drive(void);
 void cmd_library(void);
 void cmd_usbmouse(void);
 void cmd_gamepad(void);
+void cmd_randomize(void);
+void cmd_flush(void);
 void fun_device_fn(void);
 void cmd_tilemap(void);
 void fun_tilemap(void);
@@ -537,6 +539,8 @@ void op_inv(void);
 	{ "Tilemap",	    T_CMD,				0, cmd_tilemap	},      // TILEMAP CREATE/LOAD/ATTR/SET/DRAW/SCROLL/VIEW/DESTROY/CLOSE/SPRITE (TileMap.c)
 	{ "Flash",		    T_CMD,				0, cmd_flash	},      // FLASH LOAD IMAGE n, f$ [, O]: an image slot (ImageSlots.c)
 	{ "Gamepad",	    T_CMD,				0, cmd_gamepad	},      // GAMEPAD INTERRUPT/MONITOR/CONFIGURE/HAPTIC/COLOUR (USBGamepad.c)
+	{ "Randomize",	    T_CMD,				0, cmd_randomize	},  // RANDOMIZE [n]: seeds C's rand(), not RND (the PicoMite's)
+	{ "Flush",		    T_CMD,				0, cmd_flush	},      // FLUSH [#]n: a file to the card, a COM port's output sent (the PicoMite's)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

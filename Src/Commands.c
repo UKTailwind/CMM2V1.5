@@ -4228,3 +4228,14 @@ void array_slice(char *tp)
 	}
 	return;
 }
+
+// RANDOMIZE [n], the PicoMite's: seeds the C library's rand() (MATH RANDOMIZE and the like), with n or the
+// microsecond clock. RND comes from the hardware generator and is not affected, as on the PicoMite.
+void cmd_randomize(void) {
+    int i;
+    getargs(&cmdline, 1, ",");
+    if(argc == 1) i = getinteger(argv[0]);
+    else i = (int)(ReadCoreTimer() & 0x7FFFFFFF);
+    if(i < 0) StandardError(21);
+    srand(i);
+}

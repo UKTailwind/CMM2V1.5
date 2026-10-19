@@ -57,9 +57,9 @@ Print "box arrays, widths:"; count(ref, 90, 90, 140, 30); " (" ; 2 * (20 + 30 + 
 CLS RGB(Black)
 On Error Skip 1
 Fill 15, 15
-Print "fill arguments: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "fill arguments: "; MM.ErrMsg$
 On Error Skip 1
 Fill MM.HRes, 15, RGB(Green)
-Print "fill x: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "fill x: "; MM.ErrMsg$
 CLS
 Print "done"

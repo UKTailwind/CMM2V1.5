@@ -2763,7 +2763,7 @@ getvalue_varend:;
                                         p++;
                                          if(i==0)error("Illegal escape sequence, use CHR$(0) for the Null character","$");
                                          *p1++=i;
-                                    } else *p1++='x';
+                                    } else *p1++='&';             // (without two hex digits: the & itself, as on the PicoMite; it was 'x')
                                     break;
                                 default:
                                     *p1++=*p++;
@@ -4209,6 +4209,7 @@ void error(char *msg, ...) {
         }
     }
 //    if(!OptionErrorSkip)MMErrorString("Error");
+    int msgstart = errpos;                                          // (MM.ERRMSG$ is what follows the "Error in line N: ")
     if(*msg) {
 //    	if(!OptionErrorSkip)MMErrorString(": ");
         va_start(ap, msg);
@@ -4241,7 +4242,16 @@ void error(char *msg, ...) {
         }
         if(!OptionErrorSkip)MMErrorString("\r\n");
     }
-    MMErrMsg = errstring;
+    {   // MM.ERRMSG$: the message alone, as on the PicoMite (18 Oct, Peter); its line is MM.ERRLINE. The console
+        // still shows errstring, "Error in line N: " and all.
+        static char errmsg[256];
+        char *s = errstring + msgstart;
+        int n = strlen(s);
+        while(n && (s[n - 1] == '\r' || s[n - 1] == '\n')) n--;
+        memcpy(errmsg, s, n);
+        errmsg[n] = 0;
+        MMErrMsg = errmsg;
+    }
     // Clean up after and error in DefindedSubFun
     if(DefinedSubFunMem){
        	if(LocalIndex != DefinedSubFunLocalIndex) ClearVars(LocalIndex);

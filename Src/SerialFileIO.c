@@ -415,3 +415,20 @@ void CloseAllFiles(void) {
 	}
 }
 
+// FLUSH [#]n, the PicoMite's: what has been written to file n goes to the card (f_sync), or for a COM port, waits
+// until its output has been sent. #0, the console, does nothing.
+void cmd_flush(void) {
+    int fnbr;
+    getargs(&cmdline, 1, ",");
+    if(argc != 1) error("Syntax");
+    if(*argv[0] == '#') argv[0]++;
+    fnbr = getinteger(argv[0]);
+    if(fnbr == 0) return;
+    if(fnbr < 1 || fnbr > MAXOPENFILES) StandardError(18);
+    if(FileTable[fnbr].com == 0) StandardError(19);
+    if(FileTable[fnbr].com > MAXCOMPORTS) {
+        FSerror = f_sync(FileTable[fnbr].fptr);
+        ErrorCheck(0);                                              // (the file stays open)
+    } else
+        while(SerialTxStatus(FileTable[fnbr].com)) CheckAbort();
+}

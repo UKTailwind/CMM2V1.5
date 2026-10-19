@@ -98,5 +98,5 @@ End Sub
 
 ' the error message without its "Error in line n: " (the line is MM.ERRLINE)
 Function em$()
-  em$ = Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ": ") + 2)
+  em$ = MM.ErrMsg$
 End Function

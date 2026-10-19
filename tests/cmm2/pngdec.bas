@@ -57,13 +57,13 @@ Mode 8, 32
 CLS
 On Error Skip 1
 Load PNG "pd_16"
-Print "16 bits: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "16 bits: "; MM.ErrMsg$
 On Error Skip 1
 Load PNG "bd_bad.bmp"
-Print "not a PNG: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "not a PNG: "; MM.ErrMsg$
 On Error Skip 1
 Load PNG "pd_rgb", 0, 0, , , 6
-Print "x offset 6: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "x offset 6: "; MM.ErrMsg$
 Open "pngdec.tmp" For Output As #10 : Close #10 : Kill "pngdec.tmp"
 Print "file 10 free"
 CLS

@@ -7,6 +7,6 @@ label data 101 102
 own data, then the library's 1 101
 library restore 101 102
 font width 4
-error: library_lib.inc line 37: Divide by zero
+error: line 37: Divide by zero
 done
 

@@ -177,8 +177,7 @@ End Sub
 ' the error message without "Error in line n: "
 Function ErrText$()
   Local integer c
-  c = Instr(MM.ErrMsg$, ": ")
-  If c Then ErrText$ = Mid$(MM.ErrMsg$, c + 2) Else ErrText$ = MM.ErrMsg$
+  ErrText$ = MM.ErrMsg$
 End Function
 
 Sub Check(n$, got, want)

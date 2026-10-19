@@ -35,7 +35,7 @@ Next
 CLS
 On Error Skip 1
 Load BMP "bd_bad"
-Print "not a BMP: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+Print "not a BMP: "; MM.ErrMsg$
 Open "bmpdec.tmp" For Output As #10 : Close #10 : Kill "bmpdec.tmp"
 Print "file 10 free"
 Mode 8, 8

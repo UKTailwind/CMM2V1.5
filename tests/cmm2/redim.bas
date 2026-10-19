@@ -19,21 +19,21 @@ ReDim Preserve s$(6)
 Print "string: "; s$(0); " "; s$(3); " ["; s$(6); "] "; Bound(s$(), 1)
 On Error Skip 1
 s$(6) = "123456789"
-e$ = MM.ErrMsg$ : Print "length kept: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "length kept: "; e$
 f(1, 2) = 1.5
 ReDim Preserve f(2, 5)
 Print "2d last bound: "; f(1, 2); Bound(f(), 1); Bound(f(), 2)
 On Error Skip 1
 ReDim Preserve f(5, 5)
-e$ = MM.ErrMsg$ : Print "2d first bound: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "2d first bound: "; e$
 ReDim f(5, 5)
 Print "2d anew: "; f(1, 2); Bound(f(), 1); Bound(f(), 2)
 ReDim Preserve a(n + 3)
 Print "expression bound: "; Bound(a(), 1)
 On Error Skip 1
 ReDim i(3)
-e$ = MM.ErrMsg$ : Print "not an array: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "not an array: "; e$
 On Error Skip 1
 ReDim nosuch(3)
-e$ = MM.ErrMsg$ : Print "not declared: "; Mid$(e$, Instr(e$, ":") + 2)
+e$ = MM.ErrMsg$ : Print "not declared: "; e$
 Print "done"

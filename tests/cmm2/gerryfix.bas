@@ -11,7 +11,7 @@ On Error Skip 1
 x = 1 \ 0
 Dim string m$ = MM.ErrMsg$, after$
 Dim integer e = MM.ErrNo
-Print "main error: "; e; " "; Mid$(m$, Instr(m$, ":") + 2)
+Print "main error: "; e; " "; m$
 SetTick 20, isr, 1
 Do While fired = 0 : Loop
 SetTick 0, 0, 1

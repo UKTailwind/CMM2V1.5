@@ -21,9 +21,9 @@ t$ = "LEFT$(s$, 1) MAX(1,2) in a string": Print t$     ' and LEFT$( MAX( in a co
 Print "MIN(1,2) stays"; ' MIN(
 Restore d1: Read t$: Print t$
 Print MyLeft$("abc"); MyMax(1); Tobase$(2, 5); " "; Show$(UCase$("sub"))
-On Error Skip: Print Left$(s$): Print "err "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
-On Error Skip: Print Right$(s$): Print "err "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
-On Error Skip: Print Max(): Print "err "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ":") + 2)
+On Error Skip: Print Left$(s$): Print "err "; MM.ErrMsg$
+On Error Skip: Print Right$(s$): Print "err "; MM.ErrMsg$
+On Error Skip: Print Max(): Print "err "; MM.ErrMsg$
 Print "done"
 End
 d1: Data "LEFT$(quoted)"

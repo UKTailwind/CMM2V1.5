@@ -86,5 +86,5 @@ End Function
 
 ' the error message without its "Error in line n: "
 Function em$()
-  em$ = Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ": ") + 2)
+  em$ = MM.ErrMsg$
 End Function

@@ -13,7 +13,7 @@ If pass = 1 Then
   Print "ticks after CHAIN:"; tickc
   On Error Skip
   Print #1, "x"
-  Print "file #1: "; Mid$(MM.ErrMsg$, Instr(MM.ErrMsg$, ": ") + 2)
+  Print "file #1: "; MM.ErrMsg$
 EndIf
 If pass < 20 Then Chain "chain_b.inc"
 h = MM.Info(HEAP)                                               ' (in a statement of its own: a PRINT's strings take some)
