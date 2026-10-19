@@ -60,6 +60,7 @@ extern void MX470PutS(char *s, int fc, int bc);         // kilo.c
 extern void MX470Cursor(int x, int y);
 extern void MX470Display(int fn);
 extern void setterminal(void);
+extern void ScreenShot(void);                           // Console.c: Print Screen
 extern volatile int ConsoleRxBufHead, ConsoleRxBufTail;
 extern volatile uint8_t pagesetdone;
 extern char errstring[];                                // MMBasic.c's error(): the message the prompt shows

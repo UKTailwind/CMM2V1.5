@@ -212,6 +212,7 @@ extern void printoptions(void);
 extern void setterminal(void);
 void initConsole(void);
 void EditInputLine(void);
+extern void ScreenShot(void);                                       // Console.c: Print Screen
 static void PutRunToken(char *p, int n);
 volatile uint64_t Count5High = 0;
 uint32_t ticks_per_microsecond;
@@ -4465,6 +4466,10 @@ void EditInputLine(void) {
     BufEdited = false; //(CharIndex != 0);
     while(1) {
         c = MMgetchar(1);
+        if(c == 0x9D) {                                                                // Print Screen: the display saved as
+            ScreenShot();                                                              // A:/SCREENnnn.BMP (Console.c), as in
+            continue;                                                                  // the editor and FM (Peter, 19 Oct)
+        }
         if(c == TAB) {
             strcpy(buf, "        ");
             switch (Option.Tab) {

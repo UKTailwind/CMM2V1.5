@@ -3796,6 +3796,11 @@ fm_relaunch:
             if (type_select_active)
                 ShowCursor(1); // the local display's cursor blinks from here, as MMgetchar's does
             c = MMInkey();
+            if (c == 0x9D)
+            {                                           // CMM2: Print Screen saves the display (Console.c)
+                ScreenShot();
+                c = -1;
+            }
         }
 
         if (type_select_active)

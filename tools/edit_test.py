@@ -74,7 +74,12 @@ class Run:
         self.at_prompt('')
 
     def recover(self):
-        """back to the prompt, whatever was open"""
+        """back to the prompt, whatever was open: Esc, Y and Enter leave the PicoMite editor ("Exit and discard all
+        changes (Y/N)"), three more Escs leave kilo (and FM), then Ctrl-C and Enter"""
+        self.t.send(b'\x1b', settle=False)
+        time.sleep(0.4)
+        self.t.send(b'Y\r', settle=False)
+        time.sleep(0.6)
         for _ in range(3):
             self.t.send(b'\x1b', settle=False)
             time.sleep(0.3)
@@ -105,12 +110,24 @@ class Run:
         finally:
             shutil.rmtree(d, ignore_errors=True)
 
+    def zmodem_started(self, timeout=10.0):
+        """wait for the board's ZMODEM sender to begin (its ZRQINIT, '**' ZDLE 'B'): the receiver's handshake sent
+        before that would reach the prompt as typed text, where '**...' is RUN of a name that is not one"""
+        t0, seen = time.time(), b''
+        while time.time() - t0 < timeout:
+            seen += self.t.b.s.read(64)
+            if b'**\x18B' in seen:
+                return True
+        return False
+
     def get(self, name):
         d = tempfile.mkdtemp()
         try:
             self.t.mark()
+            self.t.settle(0.3)
             self.t.b.s.write(('ZMODEM SEND "%s"\r' % name).encode('latin-1'))
-            time.sleep(0.3)
+            if not self.zmodem_started():
+                raise Abort('get %s: the board did not start sending' % name)
             try:
                 with contextlib.redirect_stdout(io.StringIO()):
                     zmodem_pc.recv(self.t.b.s, self.t.b.baud, d)
@@ -233,9 +250,13 @@ def main():
                 if l and not l.startswith('#'):
                     run.step(l)
         except Abort as e:
-            run.fails.append('ABORT: ' + str(e))
+            run.fails.append('ABORT: ' + str(e).split('\n')[0])
             run.recover()
-            run.at_prompt('chdir "%s"' % CARDDIR)
+            try:
+                run.at_prompt('chdir "%s"' % CARDDIR)
+            except Abort as e2:
+                print('the board did not come back to the prompt: ' + str(e2).split('\n')[0])
+                run.recover()
         secs = time.time() - t0
         if run.fails:
             print('%s %-22s %5.1fs  %s' % ('KNOWN' if run.known else 'FAIL ', name, secs, title))

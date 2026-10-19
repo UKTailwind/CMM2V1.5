@@ -16,6 +16,46 @@ Line numbers are the CMM2's unless marked P. Nothing has been built.
 - The scripts are `tests/editor/NN_*.txt`; their files come from `tests/editor/make_files.py`.
 - Against kilo: 14 of 15 pass, and 09b is a known kilo failure.
 
+**E1 in progress, 19 Oct.** The engine builds, runs and passes E1's file scripts (1, 2, 3, 6, 7) with the "Editor" CMake preset.
+
+The pieces:
+- `tools/port_editor.py` makes `Src/Editor.c` from the PicoMite's file; `Inc/Editor_cmm2.h` is the platform layer.
+- What kilo shared with the rest of MMBasic is now in `Src/Console.c`.
+- Each of `kilo.c` and `Editor.c` holds its editor only without or with `EDITOR_ENGINE`.
+- The engine is in `.bank2`, and is 16.9 KB at -Oz against kilo's 15.1 KB.
+
+Done for the CMM2:
+- the entry and exit (as kilo's: F1 saves and loads, F2 saves and runs or returns to FM);
+- kilo's status bar;
+- colour coding with the tokeniser's folds;
+- FM's hooks (E, N, F2, the error line).
+
+**Print Screen (Peter, 19 Oct).** The keyboard's Print Screen (0x9D) saves the display as A:/SCREENnnn.BMP, with the next free number. It works in the editor (in any of its states), in FM and at the prompt (`ScreenShot`, Console.c). The tests send the same code to photograph the display: the bottom rows Peter saw doubled were checked across scrolling, paging, deleting, joining, long lines, mark mode and the prompts. All of them show one status bar now.
+
+Changes to the engine's behaviour on the CMM2. Each was found by the scripts or the photographs:
+- **Keys are not thrown away after a redraw.** printScreen, Scroll and ScrollDown emptied the key queue. That lost keys typed during a redraw: Enters at the bottom of the screen, text pasted into a terminal, and the tests' keys.
+- **Enter is a CR, or an LF that does not follow a CR** (EdInkey, as MMgetchar). MMInkey's LF after a CR comes only when nothing follows for 2 ms, so a CR typed ahead was lost.
+- **After Esc, the next two keys are looked at and given back** unless they are a Tera Term mouse report (`EdMouseReport`). Before, a key typed straight after Esc was lost: the Y of "Exit and discard".
+- **A file's last line ending is not kept in the buffer, and the save writes it back.** Before, the text ended in an empty line that is not in the file, and that the cursor could go to (row 101 of 100).
+- **Esc does not check line lengths.** Discarding the changes is always possible.
+- **A new file's buffer is ended properly.** Before, the code wrote 0 at address 0.
+
+**PicoMite bugs found by the port** (to file, with Peter's agreement):
+- A key typed straight after Esc is lost (the mouse-report check).
+- EDIT of a file that does not exist writes 0 to address 0 (`p` is still NULL at `*p = 0`).
+- Esc on a .bas file with a line over 255 characters cannot leave without saving.
+- The key queue is emptied after each redraw, so pasted text loses characters.
+- A file's last line ending leaves an empty line the cursor can go to.
+
+**Still to do in E1:**
+- consoles serial-only, screen-only and both;
+- the four edit fonts;
+- COLOURCODE ON, OFF and REVERSE;
+- MM.INFO(HEAP) the same before and after;
+- D2's mouse (`mousestruct[Option.Mouse]`);
+- scripts 15-18;
+- FM's F2 and N, through the new editor.
+
 ## Review, 19 Oct
 
 Checked against the CMM2 tree after the FM port (`Src/FileManager.c`), and against the PicoMite's `misc/Editor.c`.

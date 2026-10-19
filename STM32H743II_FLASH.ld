@@ -106,6 +106,8 @@ SECTIONS
     *FileManager.c.obj(.text .text* .rodata .rodata*)
     *kilo.o(.text .text* .rodata .rodata*)               /* the editor */
     *kilo.c.obj(.text .text* .rodata .rodata*)
+    *Editor.o(.text .text* .rodata .rodata*)             /* the PicoMite's editor (EDITOR_ENGINE) */
+    *Editor.c.obj(.text .text* .rodata .rodata*)
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
     . = ALIGN(4);
     _ebank2 = .;

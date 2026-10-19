@@ -44,6 +44,7 @@
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "FileManager.h"
+#ifndef EDITOR_ENGINE                                   // (with it, EDIT is the PicoMite's: Src/Editor.c)
 extern BYTE MDD_SDSPI_CardDetectState(void);
 extern volatile uint8_t pagesetdone;
 extern volatile struct s_nunstruct mousestruct[4];
@@ -65,61 +66,14 @@ void cutpasteselectCallback(char *cutbuf, int key);
 	#define PaintOff 188
 //    #define dx(...) {char s[140];sprintf(s,  __VA_ARGS__); SerUSBPutS(s); SerUSBPutS("\r\n");}
 
-    void MX470PutS(char *s, int fc, int bc) {
-        int tfc, tbc;
-        tfc = gui_fcolour; tbc = gui_bcolour;
-        gui_fcolour = fc; gui_bcolour = bc;
-        DisplayPutS(s);
-        gui_fcolour = tfc; gui_bcolour = tbc;
-    }
-
-
-    void MX470Cursor(int x, int y) {
-        if((OptionConsole & 2)) {
-            CurrentX = x;
-            CurrentY = y;
-        }
-    }
-
-    void MX470Display(int fn) {
-        int t;
-        int maxW=PageTable[WritePage].xmax;
-    	int maxH=PageTable[WritePage].ymax;
-        if(!(OptionConsole & 2)) return;
-        switch(fn) {
-            case DISPLAY_CLS:       ClearScreen(gui_bcolour);
-                                    break;
-            case REVERSE_VIDEO:     t = gui_fcolour;
-                                    gui_fcolour = gui_bcolour;
-                                    gui_bcolour = t;
-                                    break;
-            case CLEAR_TO_EOL:      DrawBox(CurrentX, CurrentY, maxW, CurrentY + gui_font_height, 0, 0, gui_bcolour);
-                                    break;
-            case CLEAR_TO_EOS:      DrawBox(CurrentX, CurrentY, maxW, CurrentY + gui_font_height, 0, 0, gui_bcolour);
-                                    DrawRectangle(0, CurrentY + gui_font_height, maxW-1, maxH-1, gui_bcolour);
-                                    break;
-            case SCROLL_DOWN:
-                                    break;
-            case DRAW_LINE:         DrawBox(0, gui_font_height * (Option.Height - 2), maxW - 1, maxH - 1, 0, 0, gui_bcolour);
-                                    DrawLine(0, maxH - gui_font_height - 6, maxW - 1, maxH - gui_font_height - 6, 1, GUI_C_LINE);
-                                    CurrentX = 0; CurrentY = maxH - gui_font_height;
-                                    break;
-        }
-    }
+// MX470PutS, MX470Cursor, MX470Display, setterminal, fstrstr, strcasechr, bstrstr, StartEditLine, StartEditCharacter
+// and BreakKeySave are in Console.c (shared with the PicoMite editor, Editor_Port_Plan.md E1)
+extern void MX470PutS(char *s, int fc, int bc);
+extern void MX470Cursor(int x, int y);
+extern void MX470Display(int fn);
 char *fstrstr (const char *s1, const char *s2);
-char *strcasechr(const char *p, int ch)
-{
-	char c;
-
-	c = toupper(ch);
-	for (;; ++p) {
-		if (toupper(*p) == c)
-			return ((char *)p);
-		if (*p == '\0')
-			return (NULL);
-	}
-	/* NOTREACHED */
-}
+char *bstrstr (const char *s1, const char *s3, const char *s2);
+char *strcasechr(const char *p, int ch);
 
 
 void (*callback)(char *, int);
@@ -136,9 +90,9 @@ extern volatile int ConsoleRxBufHead;
 extern volatile int ConsoleRxBufTail;
 extern uint32_t repeattime;
 void setterminal(void);
-int StartEditLine=0, StartEditCharacter=0;
+extern int StartEditLine, StartEditCharacter;
 int newmarkmode=0;
-int BreakKeySave;
+extern int BreakKeySave;
 char *editCbuff=NULL;
 int showdefault=0;
 int bufferpasted=0;
@@ -1141,29 +1095,6 @@ void cutpasteselectCallback(char *cutbuf, int key){
 	  }
 }
 /** find **/
-char *fstrstr (const char *s1, const char *s2)
-{
-  const char *p = s1;
-  const size_t len = strlen (s2);
-
-  for (; (p = strcasechr (p, *s2)) != 0; p++)
-    {
-      if (strncasecmp (p, s2, len) == 0)
-	return (char *)p;
-    }
-  return (0);
-}
-char *bstrstr (const char *s1, const char *s3, const char *s2)
-{
-  const char *p = s1-strlen(s2);
-  const size_t len = strlen (s2);
-  while(p-- >= s3)
-    {
-      if (strncasecmp (p, s2, len) == 0)
-        return (char *)p;
-    }
-  return (0);
-}
 void editorFindCallback(char *query, int key) {
   static int last_match = -1;
   static int direction = 1;
@@ -1879,15 +1810,6 @@ int editorProcessKeypress() {
 }
 
 /*** init ***/
-void setterminal(void){
-	  char sp[50]={0};
-	  strcpy(sp,"\033[8;");
-	  IntToStr(&sp[strlen(sp)],Option.Height,10);
-	  strcat(sp,";");
-	  IntToStr(&sp[strlen(sp)],Option.Width+1,10);
-	  strcat(sp,"t");
-	  SerUSBPutS(sp);						//
-}
 void initEditor() {
   E.cx = 0;
   E.cy = 0;
@@ -2080,3 +2002,4 @@ void cmd_newedit(void) {
     editorRefreshScreen();
   }
 }
+#endif // EDITOR_ENGINE
