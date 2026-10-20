@@ -150,6 +150,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern uint32_t deferredfadd, deferredtadd, deferredtransparent;
 	extern void PageCopy(uint32_t p1, uint32_t p2, int transparent);
 	extern int getColour(char *c, int minus);
+	extern void PageDisplayOn(void);
 	extern int xcursor;
 	extern int ycursor;
 	extern int cursoron;

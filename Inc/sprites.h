@@ -48,7 +48,7 @@ struct blitbuffer{
     char * blitbuffptr; //points to the sprite image, set to NULL if not in use
     char * blitstoreptr; //points to the stored background, set to NULL if not in use
     char  collisions[MAXCOLLISIONS+1]; //set to NULL if not in use, otherwise contains current collisions
-    int64_t master; //bitmask of which sprites are copies
+    int64_t master; //the number of copies of this sprite; -1 for a copy, or a buffer not in use
     uint64_t lastcollisions;
     short x; //set to 1000 if not in use
     short y;

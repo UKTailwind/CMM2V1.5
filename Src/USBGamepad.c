@@ -596,6 +596,7 @@ char *GamepadInterrupt(void) {
 }
 
 void GamepadInterruptsOff(void) {
+    monitor = nooutput = false;                                     // GAMEPAD MONITOR too, which nothing turned off
     for(int n = 1; n <= HID_SLOTS; n++) {
         Pad[n].interrupt = NULL;
         Pad[n].found = 0;
@@ -624,6 +625,8 @@ void cmd_gamepad(void) {
         Pad[n].found = 0;
     } else if((tp = checkstring(cmdline, "MONITOR SILENT"))) {
         monitor = nooutput = true;
+    } else if((tp = checkstring(cmdline, "MONITOR OFF"))) {       // (the PicoMite's: it was taken as MONITOR)
+        monitor = nooutput = false;
     } else if((tp = checkstring(cmdline, "MONITOR"))) {
         monitor = true;
     } else if((tp = checkstring(cmdline, "CONFIGURE"))) {

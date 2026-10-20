@@ -211,9 +211,10 @@ int GUIactive=0;
 #define GET_Y_AXIS 2
 #define TOUCH_ERROR -1
 int GetTouch(int axis){
-	if(!TOUCH_DOWN)return TOUCH_ERROR;
-	if(axis==GET_X_AXIS)return mousestruct[Option.Mouse].ax;
-	if(axis==GET_Y_AXIS)return mousestruct[Option.Mouse].ay;
+	int m = (Option.Mouse >= 0 ? Option.Mouse : MouseOpenChannel());   // (without OPTION MOUSE, a USB mouse's button read
+	if(!TOUCH_DOWN || m < 0)return TOUCH_ERROR;                       // mousestruct[-1])
+	if(axis==GET_X_AXIS)return mousestruct[m].ax;
+	if(axis==GET_Y_AXIS)return mousestruct[m].ay;
 	return 0;
 }
 // the MMBasic TOUCH() function
@@ -245,12 +246,17 @@ void fun_touch(void) {
  It returns with the control's reference number in case the caller wants to make some
  more adjustments.
  ********************************************************************************************/
+// the GUI controls' mouse: OPTION MOUSE's channel, or without it a USB mouse (channel 2), as the editor takes one
+int GuiMouse(void){
+	return Option.Mouse >= 0 ? Option.Mouse : (UsbMouse ? USBMOUSE_CHANNEL : -1);
+}
 void mouseon(void){
-	if(Option.Mouse<0)error("Mouse not enabled");
+	int m = GuiMouse();
+	if(m<0)error("Mouse not enabled");
     if(!GUIactive){
 		char mouseopen[20]={0};
 		strcpy(mouseopen,"OPEN n,,,m");
-		mouseopen[5]=Option.Mouse+48;
+		mouseopen[5]=m+48;
     	if(Option.Sensitivity<10)mouseopen[9]=Option.Sensitivity+48;
     	else {
     		mouseopen[9]='1';                                    // (sensitivity 10: it was written into inpbuf)

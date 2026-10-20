@@ -17,4 +17,212 @@ TURTLE GRAPHICS TEST SUITE
 0.  Exit
 
 Select test: 
-> 
+13
+Running all tests...
+==========================================
+Basic Movement Tests
+==========================================
+
+Test 1: Square with FD and RT
+  (Press any key for next test)
+Test 2: Square with short commands (FD, RT)
+  (Press any key for next test)
+Test 3: Triangle with FD and LT
+  (Press any key for next test)
+Test 4: Star pattern
+  (Press any key for next test)
+Test 5: Forward and Back
+  (Press any key for next test)
+Test 6: Spiral using increasing distances
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Pen Control Tests
+==========================================
+
+Test 1: Dashed line with PENUP/PENDOWN
+  (Press any key for next test)
+Test 2: Rainbow colors
+  (Press any key for next test)
+Test 3: Varying line widths
+  (Press any key for next test)
+Test 4: Colored thick spiral
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Position Control Tests
+==========================================
+
+Test 1: Connect four corners with SETXY
+  (Press any key for next test)
+Test 2: Grid pattern with SETX/SETY
+  (Press any key for next test)
+Test 3: Radial lines with SETHEADING
+  (Press any key for next test)
+Test 4: Random walk then HOME
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Circle Tests
+==========================================
+
+Test 1: Concentric circles
+  (Press any key for next test)
+Test 2: Circle grid
+  (Press any key for next test)
+Test 3: Dots of varying sizes
+  (Press any key for next test)
+Test 4: Filled circles - solid
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Rectangle Tests
+==========================================
+
+Test 1: Axis-aligned filled rectangles
+  (Press any key for next test)
+Test 2: Rotated rectangles with ARECT
+  (Press any key for next test)
+Test 3: ARECT vs FRECT at 45 degrees
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Arc Tests
+==========================================
+
+Test 1: Simple arc - semicircle
+  (Press any key for next test)
+Test 2: Flower with arc petals
+  (Press any key for next test)
+Test 3: ARCL vs ARCR
+  (Press any key for next test)
+Test 4: Arc spiral
+  (Press any key for next test)
+Test 5: Pac-Man with WEDGE
+  (Press any key for next test)
+Test 6: Simple pie chart
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Fill Pattern Tests
+==========================================
+
+Test 1: Pattern showcase (0-15)
+  (Press any key for next test)
+Test 2: Pattern showcase (16-31)
+  (Press any key for next test)
+Test 3: Patterns on rectangles
+  (Press any key for next test)
+Test 4: Density gradient (sparse to dense)
+  (Press any key for next test)
+Test 5: Patterns on rotated rectangles
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Polygon Fill Tests
+==========================================
+
+Test 1: Filled triangle with BEGIN_FILL/END_FILL
+  (Press any key for next test)
+Test 2: Filled star
+  (Press any key for next test)
+Test 3: Pattern-filled hexagon
+  (Press any key for next test)
+Test 4: Polygon with arcs
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Stack (PUSH/POP) Tests
+==========================================
+
+Test 1: Basic PUSH/POP - draw and return
+  (Press any key for next test)
+Test 2: Recursive tree with PUSH/POP
+  (Press any key for next test)
+Test 3: Nested PUSH/POP
+  (Press any key for next test)
+Test 4: Snowflake pattern
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Cursor Tests
+==========================================
+
+Test 1: Toggle cursor visibility
+Cursor should be visible
+  (Press any key for next test)
+Cursor should be hidden
+  (Press any key for next test)
+Test 2: Cursor following movement
+  (Press any key for next test)
+Test 3: Different cursor sizes
+  (Press any key for next test)
+Test 4: Different cursor colors
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Complex Drawing Tests
+==========================================
+
+Test 1: Draw a house
+  (Press any key for next test)
+Test 2: Flower garden
+  (Press any key for next test)
+Test 3: Spiral galaxy
+  (Press any key for next test)
+Test 4: Mandala pattern
+  (Press any key for next test)
+
+Test section complete.
+==========================================
+Stress Tests
+==========================================
+
+Test 1: 1000 random lines
+Time: 37.864 ms
+  (Press any key for next test)
+Test 2: 100 random circles
+Time: 8.934 ms
+  (Press any key for next test)
+Test 3: Deep PUSH/POP stack (10 levels)
+  (Press any key for next test)
+Test 4: 100-sided polygon fill
+Time: 1.695 ms
+  (Press any key for next test)
+
+Test section complete.
+
+ALL TESTS COMPLETE!
+
+Press any key to continue...
+TURTLE GRAPHICS TEST SUITE
+==========================
+
+1.  Basic Movement Tests
+2.  Pen Control Tests
+3.  Position Tests
+4.  Shape Tests (Circles)
+5.  Shape Tests (Rectangles)
+6.  Arc Tests
+7.  Fill Pattern Tests
+8.  Polygon Fill Tests
+9.  Stack (PUSH/POP) Tests
+10. Cursor Tests
+11. Complex Drawing Tests
+12. Stress Tests
+13. Run All Tests
+0.  Exit
+
+Select test: 
+0
+

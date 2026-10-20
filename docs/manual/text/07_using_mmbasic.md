@@ -267,6 +267,6 @@ Note that while constants can be defined, they will not be visible because a con
 
 ## MM.END
 
-If a subroutine named MM.END exists in the program it will be executed whenever the program ends with an END command. It is not executed if the program simply runs off its last line, or ends with an error or a Ctrl-C.
+If a subroutine named MM.END exists in the program it will be executed whenever the program ends with an END command or by running off its last line (an implied END). It is not executed if the program ends with an error or a Ctrl-C.
 
 The optional parameter 'noend' to the END command can be used to block execution of the MM.END subroutine if needed (see the END command for more information).

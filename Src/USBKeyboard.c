@@ -442,6 +442,11 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 	for (int i = 0; i < HID_SLOTS; i++)
 		if (HID[i].active && HID[i].Device_address == dev_addr && HID[i].Device_type == HID_ITF_PROTOCOL_KEYBOARD)
 			return;
+	if (Option.USBKeyboard == NO_KEYBOARD)
+	{ /* OPTION USBKEYBOARD DISABLE: the keyboard is not used (it was read with the UK layout) */
+		USBMessage("USB Keyboard ignored: OPTION USBKEYBOARD DISABLE\r\n> ");
+		return;
+	}
 	int slot = FindFreeSlot(itf_protocol);
 	if (slot == -1 || Current_USB_devices == HID_SLOTS)
 		return; /* all slots in use: skip quietly rather than error mid-enumeration */

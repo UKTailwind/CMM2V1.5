@@ -251,7 +251,7 @@ static void HelpFile(char *topic) {
 		return;
 	}
 	fnbr = FindFreeFileNbr();
-	if(!BasicFileOpen("/help.txt", fnbr, FA_READ)) return;
+	if(!BasicFileOpen("A:/help.txt", fnbr, FA_READ)) return;       // (the SD card's, as cmd_help found it: not the current drive's)
 	ListCnt = CurrentY / (FontTable[gui_font >> 4][1] * (gui_font & 0b1111)) + 2;
 	while(have || HelpLine(fnbr, buff)) {
 		have = 0;
@@ -299,6 +299,9 @@ void execute(char *mycmd){
     skipspace(mycmd);
 	strcpy(inpbuf, getCstring(mycmd));                                      // then copy the argument
 	if(!(toupper(inpbuf[0])=='R' && toupper(inpbuf[1])=='U' && toupper(inpbuf[2])=='N')){ //convert the string to upper case
+		 char savetkn[TKNBUFSIZE];                                      // an EXECUTE run from inside another (by a SUB that one
+		 int savescrew = ScrewUpTimer;                                  // called) keeps the outer one's line, which runs from
+		 memcpy(savetkn, tknbuf, TKNBUFSIZE);                           // tknbuf, and its timeout (it cleared it)
 		 while(inpbuf[i]){
 			if(inpbuf[i]==34){
 				if(toggle==0)toggle=1;
@@ -317,7 +320,8 @@ void execute(char *mycmd){
 		 ttp = nextstmt;                                                 // save the globals used by commands
 		 ScrewUpTimer=1000;
 		 ExecuteProgram(tknbuf);                                              // execute the function's code
-		 ScrewUpTimer=0;
+		 ScrewUpTimer=savescrew;
+		 memcpy(tknbuf, savetkn, TKNBUFSIZE);
 // TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
 		 nextstmt = ttp;
 		 return;
@@ -980,7 +984,7 @@ void MIPS16 cmd_list(void) {
         	char *buff=GetTempStrMemory();
         	strcpy(buff,getCstring(argv[0]));
 			getfullfilepath(buff,qq);
-    		if(strchr(qq, '.') == NULL) strcat(buff, ".BAS");
+    		{ char *b = strrchr(qq, '/'); if(strchr(b ? b : qq, '.') == NULL) strcat(qq, ".BAS"); }   // (to qq, the name listed: it went to buff)
             ListFile(qq, true);
         } else {
         	ListProgram((char *)ProgMemory, true);
@@ -1195,7 +1199,7 @@ void MIPS16 cmd_list(void) {
         	char *buff=GetTempStrMemory();
         	strcpy(buff,getCstring(argv[0]));
 			getfullfilepath(buff,qq);
-    		if(strchr(qq, '.') == NULL) strcat(buff, ".BAS");
+    		{ char *b = strrchr(qq, '/'); if(strchr(b ? b : qq, '.') == NULL) strcat(qq, ".BAS"); }   // (to qq, the name listed: it went to buff)
 			ListFile(qq, false);
         } else {
         	ListProgram((char *)ProgMemory, false);
@@ -1321,8 +1325,7 @@ void MIPS16 cmd_run(void) {
 
 // RUN and CHAIN, the program loaded and the runtime cleared: prepare it and start at its first line
 static void MIPS16 RunStart(int runlib) {
-    WatchdogSet = false;
-	PrepareProgram(true);
+	PrepareProgram(true);                                           // (MM.WATCHDOG is kept for the program: cleanend clears it)
     IgnorePIN = false;
     if(*ProgMemory != T_NEWLINE) return;                             // no program to run
     setmode(Option.mode,DEFCOLOUR,0,Option.mode==12?1:0);
@@ -1412,10 +1415,14 @@ void cmd_call(void){
 		*q=toupper(*q);
 		q++;
 	}
-	q=cmdline;
-	while(*q){
-		if(*q==',' || *q=='\'')break;
-		q++;
+	q=cmdline;                                  // the arguments follow the name's expression: its first comma at the top
+	while(*q && *q!=',' && *q!='\''){            // level, as makeargs finds it (CALL MID$(n$,2), x split inside MID$)
+		if(*q=='"'){
+			q++;
+			while(*q && *q!='"') q++;
+			if(*q) q++;
+		} else if(*q=='(' || (tokentype(*q) & T_FUN)) q = getclosebracket(q) + 1;
+		else q++;
 	}
 	if(*q==',')q++;
 	i = FindSubFun(p, false);                   // it could be a defined command
@@ -1803,6 +1810,17 @@ void cmd_end(void) {
 	cleanend();
 }
 
+// a program that runs off its last line ends as END does: SUB MM.END runs first (the PicoMite manual's "actual or
+// implied END"; only the END command ran it)
+void ImpliedEnd(void) {
+	if(!InMMEND && FindSubFun("MM.END", 0) >= 0) {
+		InMMEND = true;
+		ExecuteProgram("MM.END\0");
+	}
+	InMMEND = false;
+	cleanend();
+}
+
 #if !defined(LITE)
 
 void cmd_select(void) {
@@ -2178,7 +2196,11 @@ void cmd_new(void){
     FlashWriteClose();
 	ClearProgram();
     WatchdogSet = false;
-    Option.Autorun = false;
+    LoadOptions();                                                  // NEW turns OPTION AUTORUN off, saved (as b14 says; the
+    if(Option.Autorun) {                                            // prompt reloaded the saved options, so it stayed on). The
+        Option.Autorun = false;                                     // saved record first, so that nothing set only in memory
+        SaveOptions(1);                                             // is saved with it
+    }
     mymemset(inpbuf,0,STRINGSIZE);
     mymemset(lastcmd,0,STRINGSIZE*4);
 	SCB_CleanInvalidateDCache();
@@ -4065,11 +4087,11 @@ void array_insert(char *tp)
 	}
 	if (t & T_STR)
 	{
-		parsestringarray(argv[i * 2 + 2], &a2str, i + 1, 1, dims, true, &size2);
+		parsestringarray(argv[i * 2 + 2], &a2str, i + 2, 1, dims, true, &size2);
 	}
 	else
 	{
-		parsenumberarray(argv[i * 2 + 2], &a2float, &a2int, i + 1, 1, dims, true, NULL);
+		parsenumberarray(argv[i * 2 + 2], &a2float, &a2int, i + 2, 1, dims, true, NULL);
 	}
 	if (target == -1)
 		error("One index must be omitted"); // the omitted one is the dimension inserted into
@@ -4175,11 +4197,11 @@ void array_slice(char *tp)
 		error("One index must be omitted"); // the omitted one is the dimension sliced
 	if (t & T_STR)
 	{
-		toarray = parsestringarray(argv[i * 2 + 2], &a2str, i + 1, 1, dims, true, &size2) - 1;
+		toarray = parsestringarray(argv[i * 2 + 2], &a2str, i + 2, 1, dims, true, &size2) - 1;
 	}
 	else
 	{
-		toarray = parsenumberarray(argv[i * 2 + 2], &a2float, &a2int, i + 1, 1, dims, true, NULL) - 1;
+		toarray = parsenumberarray(argv[i * 2 + 2], &a2float, &a2int, i + 2, 1, dims, true, NULL) - 1;
 	}
 	if (dim[target] != toarray)
 		error("Size mismatch between slice and target array");

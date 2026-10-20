@@ -493,6 +493,7 @@ void USART1_IRQHandler(void)
   			    com3Tx_tail = (com3Tx_tail + 1) % TX_BUFFER_SIZE;       // advance the tail of the queue
   			} else {
   		        huart1.Instance->CR1 &= ~USART_CR1_TCIE;
+  		        if(com3_TX_interrupt != NULL) { com3_TX_complete = true; IntSignal(); }  // all of it sent: OPEN's transmit interrupt
   			}
   		}
   	}
@@ -583,6 +584,7 @@ void USART2_IRQHandler(void)
 				com1Tx_tail = (com1Tx_tail + 1) % TX_BUFFER_SIZE;       // advance the tail of the queue
 			} else {
 				huart2.Instance->CR1 &= ~USART_CR1_TCIE;
+				if(com1_TX_interrupt != NULL) { com1_TX_complete = true; IntSignal(); }  // all of it sent: OPEN's transmit interrupt
 			}
 		}
   	}
@@ -673,6 +675,7 @@ void UART4_IRQHandler(void)
 				com2Tx_tail = (com2Tx_tail + 1) % TX_BUFFER_SIZE;       // advance the tail of the queue
 			} else {
 				huart4.Instance->CR1 &= ~USART_CR1_TCIE;
+				if(com2_TX_interrupt != NULL) { com2_TX_complete = true; IntSignal(); }  // all of it sent: OPEN's transmit interrupt
 			}
 		}
   	}
@@ -778,8 +781,8 @@ void TIM7_IRQHandler(void)
 						lastread=c;
 						ADCpos--;
 						a1float[ADCpos]=(MMFLOAT)c1 * ADCscale[0] + ADCbottom[0];
-						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2 * ADCscale[1] + ADCbottom[1];
-						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3 * ADCscale[2] + ADCbottom[2];
+						if(ADCchannelB && a2float!=NULL)a2float[ADCpos]=(MMFLOAT)c2 * ADCscale[1] + ADCbottom[1];
+						if(ADCchannelC && a3float!=NULL)a3float[ADCpos]=(MMFLOAT)c3 * ADCscale[2] + ADCbottom[2];
 					}
 				} else {
 					if(lastread<=ADCtriggervalue && c>ADCtriggervalue){
@@ -788,8 +791,8 @@ void TIM7_IRQHandler(void)
 						lastread=c;
 						ADCpos--;
 						a1float[ADCpos]=(MMFLOAT)c1 * ADCscale[0] + ADCbottom[0];
-						if(ADCchannelB)a2float[ADCpos]=(MMFLOAT)c2 * ADCscale[1] + ADCbottom[1];
-						if(ADCchannelC)a3float[ADCpos]=(MMFLOAT)c3 * ADCscale[2] + ADCbottom[2];
+						if(ADCchannelB && a2float!=NULL)a2float[ADCpos]=(MMFLOAT)c2 * ADCscale[1] + ADCbottom[1];
+						if(ADCchannelC && a3float!=NULL)a3float[ADCpos]=(MMFLOAT)c3 * ADCscale[2] + ADCbottom[2];
 					}
 				}
 			}

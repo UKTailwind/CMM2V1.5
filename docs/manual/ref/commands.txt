@@ -12,7 +12,8 @@ Starts a comment and any text following it will be ignored.  Comments can be pla
 {t=l1863} \*foo	RUN "foo" 
 {t=l1863} \*foo --wombat	RUN "foo", --wombat
 {t=l1863} \*foo "wom"	RUN "foo", "wom"
-The file name ends at the first space, so it cannot contain a space and cannot be in quotes (use RUN for such a name).  Anything after the space is passed to the program as its command line (MM.CMDLINE$) exactly as it was typed: it is not evaluated.  See the RUN command.
+{t=l1863} \*"foo bar" -x	RUN "foo bar", -x
+The file name ends at the first space, or it is given in quotes, which allows a name with spaces.  Anything after the name is passed to the program as its command line (MM.CMDLINE$) exactly as it was typed: it is not evaluated.  See the RUN command.
 
 ===  ? (question mark)
 --- keep
@@ -27,7 +28,7 @@ Shortcut for the PRINT command.
 or
 \#COMMENT END
 --- keep
-Directives for multi-line comments.  When the program is loaded (by RUN, or by F1 or F2 in the editor or AUTOSAVE) the lines between #COMMENT START and #COMMENT END are dropped: they are not loaded into program memory.  The directives must be the first non-space characters on their lines.  They can also be used in an #INCLUDE file.  See also /\* and \*/.
+Directives for multi-line comments.  When the program is loaded (by RUN, or by F1 or F2 in the editor or AUTOSAVE) the lines between #COMMENT START and #COMMENT END are dropped: they are not loaded into program memory, and a directive among them (an #INCLUDE or a #DEFINE) has no effect.  The directives must be the first non-space characters on their lines.  They can also be used in an #INCLUDE file.  See also /\* and \*/.
 
 === \#DEFINE "before", "after"
 --- keep
@@ -267,7 +268,7 @@ CAN OPEN sets the global filter to accept every message into FIFO 1 (as CAN FILT
 
 =+= CAN FILTER index, eid, type, config, id1, id2
 ---
-Sets the filter ‘index’ (0 to 20) for 11-bit identifiers (‘eid’ 0) or for 29-bit identifiers (‘eid’ 1).  The filters are tested in order of ‘index’; a message that matches none is dealt with by the global filter (below).
+Sets the filter ‘index’ (0 to 31) for 11-bit identifiers (‘eid’ 0) or for 29-bit identifiers (‘eid’ 1).  The filters are tested in order of ‘index’; a message that matches none is dealt with by the global filter (below).
 ‘type’ is 0 for a range (the identifiers from ‘id1’ to ‘id2’), 1 for two identifiers (‘id1’ or ‘id2’), 2 for a classic filter (‘id1’ is the identifier and ‘id2’ the mask) or 3 for a range without the extended ID mask.
 ‘config’ is 0 to disable the filter, 1 to put a matching message in FIFO 0, 2 to put it in FIFO 1 or 3 to reject it.
 ‘id1’ and ‘id2’ are 0 to &H7FF for 11-bit identifiers and 0 to &H1FFFFFFF for 29-bit identifiers.
@@ -603,7 +604,7 @@ See the multiline IF statement for more details.
 or
 END cmd$
 --- keep
-End the running program and return to the command prompt. If a subroutine named MM.END exists in the program it will be executed when the program ends with an END command. It is not executed if the program ends by running past its last line, with an error or with the break character (ie, Ctrl-C). 
+End the running program and return to the command prompt. If a subroutine named MM.END exists in the program it will be executed when the program ends with an END command or by running past its last line. It is not executed if the program ends with an error or with the break character (ie, Ctrl-C). 
 The optional parameter ‘noend’ can be used to block execution of the MM.END subroutine eg, “END noend”
 if 'cmd$' is specified then it will be executed as though at the command prompt after the program finishes. Note: if "END cmd$" is used but a subroutine MM.END exists it will be executed and cmd$ ignored.
 
@@ -732,12 +733,12 @@ FRAMEBUFFER can be given as the page number to PAGE WRITE (which is the same as 
 =+= FRAMEBUFFER CREATE [width] [, height]
 --- keep
 Creates a framebuffer with the width and height specified in pixels.  Each must be at least the size of the write page (normally MM.HRES and MM.VRES, which are also the defaults) and can be at most 1600 by 1200 on the Generation 1 and 4096 by 2048 on the Generation 2.  There must be enough free variable memory for it ("Not enough memory for framebuffer").
-To change the size of an existing framebuffer close it first with FRAMEBUFFER CLOSE.
+FRAMEBUFFER CREATE with a framebuffer already there replaces it with the new size and deletes its backup.  This is refused while the framebuffer is the write page ("Framebuffer is set for write").
 
-=+= FRAMEBUFFER WRITE
+=+= FRAMEBUFFER WRITE [F | N]
 --- keep
 Sets all drawing commands to write to the framebuffer and inherit its width and height (MM.HRES and MM.VRES report them).  PAGE WRITE n returns the drawing to a page.
-Anything after WRITE is ignored, so the PicoMite's `FRAMEBUFFER WRITE N` also selects the framebuffer in these colour depths: use `PAGE WRITE 0` to draw on the display again.
+The PicoMite's letters are accepted too, as a letter or a string: FRAMEBUFFER WRITE F is the same as FRAMEBUFFER WRITE, and FRAMEBUFFER WRITE N draws on the display again, as PAGE WRITE 0 does.  The other letters are for the 4-bit colour depth only (see below).
 
 =+= FRAMEBUFFER BACKUP
 --- keep
@@ -761,7 +762,7 @@ Releases the memory used by the framebuffer and its backup, allowing a new frame
 --- keep
 __IN THE 4-BIT COLOUR DEPTH ONLY__ In the 4-bit colour depth (MODE r, 4) the FRAMEBUFFER command is the PicoMite's, so that programs written for the PicoMite's VGA and HDMI versions work as they do there (see the chapter Video Modes and Pages).  Its framebuffers are pages 0 to 4: N (the display, page 0), L (the layer, page 1), F (the framebuffer, page 2), 2 (the second framebuffer, page 3) and T (the top layer, page 4).  They are held in the video memory, not in the variable memory, and MODE closes them.  Creating a buffer that exists already is an error.  BLIT FRAMEBUFFER, BLIT FLASH and TILEMAP use the same letters.
 A colour given as a number from 0 to 15 is one of the 16 colours: 0 black, 1 blue, 2 myrtle, 3 cobalt, 4 midgreen, 5 cerulean, 6 green, 7 cyan, 8 red, 9 magenta, 10 rust, 11 fuchsia, 12 brown, 13 lilac, 14 yellow and 15 white (unless changed by MAP).
-FRAMEBUFFER CREATE creates the framebuffer F, cleared to black, with the resolution of the current mode.
+FRAMEBUFFER CREATE creates the framebuffer F, cleared to black, with the resolution of the current mode.  It takes no size (the Colour Maximite 2's FRAMEBUFFER CREATE w, h gives the error "Unexpected text" in this depth).
 
 =+= FRAMEBUFFER CREATE 2
 --- keep
@@ -847,7 +848,7 @@ Causes the left and right vibration motors to operate on a PS4 controller or an 
 GAMEPAD INTERRUPT DISABLE channel
 {}
 GAMEPAD MONITOR or GAMEPAD MONITOR SILENT
-{}
+GAMEPAD MONITOR OFF
 {}
 GAMEPAD CONFIGURE vid,pid,i0,c0,i1,c1,i2,c2,i3,c3,i4,c4,i5,c5,i6,c6,i7,c7,i8,c8,i9,c9,i10,c10,i11,c11,i12,c12,i13,c13,i14,c14,i15,c15
 ---
@@ -856,7 +857,7 @@ Enables interrupts on the button presses on a USB game controller. The optional 
 Disables interrupts from the gamepad on the channel specified
 {}
 {}
-{b=0}Use GAMEPAD MONITOR before plugging in a gamepad and when plugged in it will show the before and after report with each change of buttons.  GAMEPAD MONITOR SILENT turns the same monitoring on but suppresses the printed report.  While the monitoring is on a gamepad that MMBasic does not otherwise recognise is accepted as a generic gamepad, and every generic gamepad (one that MMBasic or GAMEPAD CONFIGURE describes, too) is only monitored, not decoded; the PS4, PS3, Xbox and Switch Pro controllers are not affected.  The monitoring stays on until the Colour Maximite 2 is restarted: the PicoMite's GAMEPAD MONITOR OFF is not available (it is taken as GAMEPAD MONITOR).
+{b=0}Use GAMEPAD MONITOR before plugging in a gamepad and when plugged in it will show the before and after report with each change of buttons.  GAMEPAD MONITOR SILENT turns the same monitoring on but suppresses the printed report.  While the monitoring is on a gamepad that MMBasic does not otherwise recognise is accepted as a generic gamepad, and every generic gamepad (one that MMBasic or GAMEPAD CONFIGURE describes, too) is only monitored, not decoded; the PS4, PS3, Xbox and Switch Pro controllers are not affected.  GAMEPAD MONITOR OFF turns the monitoring off; running a program (and NEW) turns it off too.
 {}
 Use to configure a gamepad that isn’t supported by the firmware. Run the command before plugging in the gamepad. All 34 parameters are mandatory. In each case the i/c parameters define the index into the report and the bit number at that index for the data that corresponds to the relevant bit. See DEVICE(GAMEPAD n,B) for more information on bit usage (0-15).  The code is a bit number 0-7 (the button is pressed when that bit is set), 128-135 (pressed when bit code-128 is clear), 64 (pressed when the byte is below 64) or 192 (pressed when it is above 192).  An index of 255 marks a button the gamepad does not have.  Any other code is an error
 {}
@@ -910,12 +911,12 @@ GUI CURSOR COLOUR changes the colour of cursor numbers 0 and 1.  It does not aff
 
 =+= GUI CURSOR LOAD fname$
 --- keep tight
-GUI CURSOR LOAD loads cursor number 2 from the file ‘fname$’, which must be given with its extension, and GUI CURSOR ON 2 then displays it.  The cursor must be off when it is loaded ("Cursor On").  The file uses the same layout and colour coding as a sprite file (see SPRITE LOAD) except that the header line is: width, height, xoffset, yoffset.  The two offsets define the position of the cursor’s active point within the image - the mouse pointer (cursor 0) has offsets 0,0 (the tip of the arrow) and the cross hair (cursor 1) has 7,7 (its centre).  The cursor is held in the pixel format of the colour depth in use when it is loaded, so it should be loaded after the MODE command.
+GUI CURSOR LOAD loads cursor number 2 from the file ‘fname$’ (".CUR" is added if it has no extension), and GUI CURSOR ON 2 then displays it.  The cursor must be off when it is loaded ("Cursor On").  The file uses the same layout and colour coding as a sprite file (see SPRITE LOAD) except that the header line is: width, height, xoffset, yoffset.  The two offsets define the position of the cursor’s active point within the image - the mouse pointer (cursor 0) has offsets 0,0 (the tip of the arrow) and the cross hair (cursor 1) has 7,7 (its centre).  The cursor is held in the pixel format of the colour depth in use when it is loaded, so it should be loaded after the MODE command.
 
 =+= GUI CURSOR LINK MOUSE
 GUI CURSOR UNLINK MOUSE
 --- keep tight
-GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "Not open").  The cursor cannot be linked while the GUI controls are using the mouse ("Mouse in use for GUI").
+GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "Not open").  The cursor cannot be linked while the GUI controls are using the mouse ("Mouse in use for GUI").  The cursor's active point (see GUI CURSOR LOAD) follows the mouse, and GUI CURSOR OFF also breaks the link.
 
 === HELP [searchtext]
 ---
@@ -1378,7 +1379,7 @@ In the 8-bit depth, sets the colour map to the colours of the original Colour Ma
 
 =+= {b=0 a=0}MATH RANDOMIZE [n]
 --- tight
-{b=0 a=0}Seeds the Mersenne Twister algorithm used by MATH(RAND). \nIf n is not specified the seed is a number from the hardware random number generator.  Otherwise ‘n’ is 1 to 2147483647, and the same ‘n’ always gives the same sequence of numbers.\nThe Mersenne Twister algorithm gives a much better random number than the C-library inbuilt function.
+{b=0 a=0}Seeds the Mersenne Twister algorithm used by MATH(RAND). \nIf n is not specified the seed is a number from the hardware random number generator.  Otherwise ‘n’ is 0 to 4294967295, and the same ‘n’ always gives the same sequence of numbers.\nThe Mersenne Twister algorithm gives a much better random number than the C-library inbuilt function.
 {b=0 a=0}
 {b=0 a=0}
 
@@ -1793,8 +1794,8 @@ All resolutions except 10, 11, 12, 14 and 16 work perfectly with monitors that h
 {b=0 a=0 l=720}32 = ARGB8888, 16,777,216 colours (Generation 2 only)
 Not every combination is available: modes 9, 11 and 12 have no 12 or 32-bit depth, modes 15 and 16 have the 8-bit depth only, and the 4-bit depth is not available in modes 9, 11, 12, 15, 16 and 18.  With OPTION LEGACY ON only the 8-bit depth can be used.
 ‘bg’ is the background colour and can be used in the 12-bit depth.  If the pixels in page 0 (the lower layer) are not set to solid (transparency = 15) then the background will show through as determined by the transparency value of the pixel.  This parameter is ignored in the other depths.
-‘int’ is a subroutine that will be called at the start of each frame blanking (useful for updating the screen without tearing).  A MODE command without it cancels the interrupt.  To give ‘int’ without a background colour use 0 for ‘bg’.
-MODE sets the colours to white on black and the default font for the resolution: font 7 in modes 3, 5, 6, 7, 13 and 17, font 4 in modes 9, 11, 15 and 18, font 3 in mode 16 and font 1 in the others.  When it changes the resolution or the colour depth it also clears the screen and makes page 0 the write page.
+‘int’ is a subroutine that will be called at the start of each frame blanking (useful for updating the screen without tearing).  A MODE command without it cancels the interrupt.  To give ‘int’ without a background colour leave ‘bg’ out (MODE r, bits, , int) or give 0.
+MODE sets the colours to white on black and the default font for the resolution: font 7 in modes 3, 5, 6, 7, 13 and 17, font 4 in modes 9, 11, 15 and 18, font 3 in mode 16 and font 1 in the others.  When it changes the resolution or the colour depth it also clears the screen and makes page 0 the write page.  A change of colour depth also closes the sprites and deletes a cursor loaded by GUI CURSOR LOAD, as they are held in the pixel format of the old depth.
 A program is started (RUN) in the default mode, MODE 1 or the mode set by OPTION DEFAULT MODE with the 8-bit depth, and the display returns to it when the program ends.
 The display always shows the contents of page 0 (pages 0 and 1 in the 12-bit depth, page 1 being the upper layer) unless overridden with the PAGE DISPLAY command.  Use PAGE WRITE and PAGE COPY to avoid the artefacts of flashing and tearing.  The pages available in each mode and colour depth, and how to PEEK and POKE them, are listed in the chapter Video Modes and Pages.  MM.INFO(MAX PAGES) returns the highest page number in the current mode.
 The 4-bit depth gives the display of the PicoMite's VGA and HDMI versions in their 16 colour modes: MODE 7,4 (320 x 240) is the PicoMite's MODE 2 and MODE 8,4 (640 x 480) is its MODE 3.  Its 16 colours can be changed with MAP and its FRAMEBUFFER command is the PicoMite's (see FRAMEBUFFER).  PAGE DISPLAY and the IMAGE commands are not available in it.
@@ -1892,7 +1893,7 @@ See also ON ERROR and MM.ERRNO for error handling.
 === OPEN comspec$ AS [#]fnbr
 --- keep
 {t=l2592}Will open a serial communications port for reading and writing.  COM1: and COM2: are on the rear I/O connector.  COM3: is the port of the serial console (on the USB connector used for power) and can be opened when the serial console is disabled with OPTION CONSOLE SCREEN.  COM4: to COM7: are USB serial devices plugged into the USB connector (see the chapter *Keyboard, Mouse and Gamepad*).
-‘comspec$’ is the communication specification, a string of the form "COMn: baud, buf, int, int-trigger" followed by any of the options DEP or DEN, 7BIT, ODD or EVEN, INV, OC and S2.  The default is 9600 baud (the minimum is 1200), a receive buffer of 1024 bytes, 8 data bits, no parity and one stop bit.  DEP and DEN (RS485 mode, using the COM1 DE pin, pin 37) are available on COM1: only, and INV, OC, DEP and DEN do not apply to COM4: to COM7:.  For a full description with examples see *Appendix A*.
+‘comspec$’ is the communication specification, a string of the form "COMn: baud, buf, int, int-trigger, tx-int" followed by any of the options DEP or DEN, 7BIT, ODD or EVEN, INV, OC and S2.  The default is 9600 baud (the minimum is 1200), a receive buffer of 1024 bytes, 8 data bits, no parity and one stop bit.  DEP and DEN (RS485 mode, using the COM1 DE pin, pin 37) are available on COM1: only, and INV, OC, DEP and DEN do not apply to COM4: to COM7:.  For a full description with examples see *Appendix A*.
 ‘fnbr’ is the file number (1 to 10).  Using ‘fnbr’ the port can be written to and read from using any command or function that uses a file number, and it is closed with CLOSE.
 
 === OPEN comspec$ AS GPS [, timezone_offset] [, monitor]
@@ -1928,7 +1929,7 @@ will display the current contents of page 3.  In the 12-bit depth ‘layer’ ca
 {l=720}`PAGE DISPLAY 4, 1`
 ‘layer’ 0, the default, is the lower layer.  The command executes in the next frame blanking period.  When a program ends for any reason page 0 is displayed again.
 In modes 3, 5, 6, 7, 12, 13 and 17 only pages 0 and 1 (pages 0, 1 and 2 in the 12-bit depth) can be displayed, as only they hold each line twice.  A page must also lie in the first 3 MB of the video memory (MM.INFO(PAGE ADDRESS n) plus the size of the page no higher than &HD0300000), so on the Generation 2 the higher pages cannot be displayed (the error "Display page address > &HD0300000 - use a lower page number").
-PAGE DISPLAY -1 turns off the display (the monitor no longer receives the synchronisation signals).  It is only valid in a program.  To turn the display back on select a valid display page (PAGE DISPLAY 0 can also be used at the command prompt).
+PAGE DISPLAY -1 turns off the display (the monitor no longer receives the synchronisation signals).  It is only valid in a program.  To turn the display back on select a valid display page; the display is also turned back on when the program ends.
 
 =+= PAGE COPY n TO m [, when] [, T]
 ---
@@ -1941,7 +1942,7 @@ If T (or 1) is added then only the non-black pixels are copied, for example `PAG
 
 =+= PAGE SCROLL pageno, x, y [, fillcolour]
 --- keep
-Will scroll the image on the page specified by ‘pageno’ by the amount defined by ‘x’ pixels to the right and ‘y’ pixels up (negative values scroll it left and down).  ‘x’ can be from -MM.HRES/2-1 to MM.HRES/2 and ‘y’ from -MM.VRES/2-1 to MM.VRES/2.  By default the area scrolled off the page appears on the other side.
+Will scroll the image on the page specified by ‘pageno’ by the amount defined by ‘x’ pixels to the right and ‘y’ pixels up (negative values scroll it left and down).  ‘x’ can be from -w/2-1 to w/2 and ‘y’ from -h/2-1 to h/2, where ‘w’ and ‘h’ are the width and height of the page (MM.HRES and MM.VRES unless it has been resized).  By default the area scrolled off the page appears on the other side.
 If ‘fillcolour’ is specified it will replace the area left behind by the scroll with the colour specified.  If ‘fillcolour’ is set to -1 then the area left behind by the scroll is left untouched.  This is the most efficient version and is suitable if there is a black background.
 
 =+= PAGE RESIZE pageno, w, h
@@ -2496,6 +2497,7 @@ The first line of the file holds the width of the sprites and their number, and 
 {l=720}8 = light grey, 9 = grey, A = orange, B = pink, C = gold, D = salmon, E = beige, F = brown
 Any other character is also transparent, a short line is filled out with spaces, and lines starting with an apostrophe (') are comments.
 The sprites are loaded as the sprite numbers from ‘start_sprite_number’ (1 if it is omitted) on.  Multiple sprite files can be loaded by specifying a different ‘start_sprite_number’ for each file.  The programmer is responsible for making sure that the sprite numbers used by the files do not overlap.
+A sprite number already in use is loaded again, as SPRITE READ reads into one: a sprite that is showing takes the new image and stays where it is, if it is the same size ("Sprite n is showing, at another size" otherwise), and a copy, or a sprite that has copies, cannot be loaded into ("Sprite n is a copy", "Sprite n has copies").  The file's first line must give a width of 1 to 255 and at least one sprite ("Invalid sprite file").
 
 =+= SPRITE LOADARRAY [#]n, w, h, array%()
 --- keep
@@ -2647,7 +2649,7 @@ or
 TIME$ = sec
 --- keep
 Sets the time of the internal clock.  MM and SS are optional and will default to zero if not specified.  For example TIME$ = "14:30" will set the clock to 14:30 with zero seconds.
-TIME$ = sec, where ‘sec’ is a number rather than a string, adds ‘sec’ seconds to the current time (or subtracts them when it is negative), which makes it easy to fine tune the clock.
+TIME$ = sec, where ‘sec’ is a number rather than a string, adds ‘sec’ seconds to the current time (or subtracts them when it is negative), which makes it easy to fine tune the clock; the date changes too if the adjustment crosses midnight.
 The clock is the battery backed real time clock of the processor, or the DS3231 of a Generation 2 with OPTION DS3231 ON, so the time is kept while the power is off (see Backup Battery in the chapter *Hardware Features*).  The time is "00:00:00" when the clock is first powered.
 
 === TILEMAP

@@ -160,28 +160,37 @@ char brs=0;
 char fdcan=0;
 //static const uint8_t DLCtoBytes[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
 uint8_t DLCtoBytes[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
+// A message's bytes in an integer variable or array: a big-endian number the length of dlc rounded up to whole
+// integers, the first byte in the top byte of the last integer: msg byte (L-1-i) is data byte i, L = dlc rounded up
+// to 8 (Classical CAN: L is 8, one integer).  SEND and READ both use it (SEND in FD mode reversed only dlc bytes, so
+// a message not a multiple of 8 long came back from READ in other places).
+static int CANroom(void *msg) {                                     // the bytes from msg to the end of its variable
+    if(DimIsRealArray(VREC(VarIndex)->dimtbl[0]))
+        return (DimElements(VREC(VarIndex)->dimtbl[0]) - ((long long int *)msg - VREC(VarIndex)->val.ia)) * 8;
+    return 8;
+}
+// close the CAN and release its pins (CAN CLOSE, and ClearExternalIO at RUN and NEW: a program run again said
+// "Already open")
+void CANclose(void) {
+    if(!canopen) return;
+    HAL_FDCAN_Stop(&hfdcan);
+    HAL_FDCAN_DeInit(&hfdcan);
+    if (canopen==1) {
+        if(ExtCurrentConfig[CAN_1A_RX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_1A_RX, EXT_NOT_CONFIG, 0);   // reset to not in use
+        if(ExtCurrentConfig[CAN_1A_TX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_1A_TX, EXT_NOT_CONFIG, 0);
+    }
+    if (canopen==2 ) {
+        if(ExtCurrentConfig[CAN_2A_RX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_2A_RX, EXT_NOT_CONFIG, 0);   // reset to not in use
+        if(ExtCurrentConfig[CAN_2A_TX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_2A_TX, EXT_NOT_CONFIG, 0);
+    }
+    canopen=0;
+}
 void cmd_can(void) {
 	int speed,cansave;
     char *p,*tp;
 
     if(checkstring(cmdline, "CLOSE")) {
-
-        /* Stop the FDCAN module */
-        HAL_FDCAN_Stop(&hfdcan);
-    	HAL_FDCAN_DeInit(&hfdcan);
-
-
-      	if (canopen==1) {
-    		if(ExtCurrentConfig[CAN_1A_RX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_1A_RX, EXT_NOT_CONFIG, 0);   // reset to not in use
-    		if(ExtCurrentConfig[CAN_1A_TX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_1A_TX, EXT_NOT_CONFIG, 0);
-    	}
-      	if (canopen==2 ) {
-      	   if(ExtCurrentConfig[CAN_2A_RX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_2A_RX, EXT_NOT_CONFIG, 0);   // reset to not in use
-      	   if(ExtCurrentConfig[CAN_2A_TX] != EXT_BOOT_RESERVED)  ExtCfg(CAN_2A_TX, EXT_NOT_CONFIG, 0);
-      	}
-
-
-      	canopen=0;
+        CANclose();
         return;
     }
 
@@ -226,12 +235,17 @@ void cmd_can(void) {
     	 }
     	 rtr=getint(argv[4],0,1);
        	 dlc=getint(argv[6],0,64);
+       	 if (!(dlc<=8 || dlc==12 || dlc==16 || dlc==20 || dlc==24 || dlc==32 || dlc==48 || dlc==64))
+       	     error("dlc must be 0-8, 12, 16, 20, 24, 32, 48 or 64");
        	 if (dlc>datasize)error("dlc exceeds configured datasize");
     	// mybuff.iTxBuffer=getinteger(argv[8]);
     	// msgp=getinteger(argv[8]);
     	// *msg=msgp;
     	 ptr1 = findvar(argv[8], V_FIND | V_EMPTY_OK);
     	 CHECK_STRUCT_MEMBER_ARRAY();
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for msg");
+    	 int len = (dlc + 7) & ~7; if(len == 0) len = 8;                // (the bytes the data takes in msg: see CANroom)
+    	 if(!g_StructMemberType && CANroom(ptr1) < len) error("msg is too small for % bytes", dlc);
     	 msg = (uint8_t *)ptr1;
 
     	 ret = findvar(argv[10], V_FIND);
@@ -271,7 +285,7 @@ void cmd_can(void) {
      	 }else if (dlc==64){
     		 TxHeader.DataLength = FDCAN_DLC_BYTES_64;
     	 }else{
-    		 TxHeader.DataLength =(dlc<<16);
+    		 TxHeader.DataLength = dlc;                                  // (0-8: the code is the length; since HAL 1.11.6 it is not shifted)
        	 }
 
     	 TxHeader.ErrorStateIndicator = FDCAN_ESI_PASSIVE;
@@ -295,15 +309,7 @@ void cmd_can(void) {
     	 //TxHeader.MessageMarker = 0x52;
     	 /* reverse the passed in data  */
     	 //MMPrintString("SEND");PRet();
-    	 if (fdcan==0){
-    		 for (i=0;i<8;i++){TxData[7-i]=msg[i];}
-    	 }else{
-    	   for (i=0;i<dlc;i++){
-    		// TxData[(datasize-1)-i]=0;
-    		 TxData[(dlc-1)-i]=msg[i];
-    		// PIntHC(msg[i]);
-    	   }
-    	 }
+    	 for (i=0;i<dlc;i++) TxData[i]=msg[len-1-i];                  // (data byte i is msg byte len-1-i, as READ)
     	// PRet();
     	 if(HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan, &TxHeader, TxData)!=0){;
     	   *ret=1;
@@ -343,7 +349,8 @@ void cmd_can(void) {
     	 if(!(FoundType() & T_INT)) error("Invalid variable for dl");
     	 msg = findvar(argv[10], V_FIND | V_EMPTY_OK);
     	 CHECK_STRUCT_MEMBER_ARRAY();
-    	 if(!(VREC(VarIndex)->type & T_INT)) error("Invalid variable for msg");
+    	 if(!(FoundType() & T_INT)) error("Invalid variable for msg");
+    	 int room = g_StructMemberType ? 8 : CANroom(msg);
     	 fmi = findvar(argv[12], V_FIND);
     	 if(!(FoundType() & T_INT)) error("Invalid variable for fmi");
     	 ret = findvar(argv[14], V_FIND);
@@ -363,8 +370,9 @@ void cmd_can(void) {
        	          }else{
        	       		*fmi=99;
        	          }
-				  *rtr=RxHeader.RxFrameType;
-				  *dlc=DLCtoBytes[(RxHeader.DataLength>>16)];
+				  *rtr=(RxHeader.RxFrameType==FDCAN_REMOTE_FRAME);   // (0 or 1: the HAL gives &H20000000)
+				  *dlc=DLCtoBytes[RxHeader.DataLength & 0xF];   // (since HAL 1.11.6 the DLC code is not shifted)
+				  if((*dlc > 8 ? (*dlc + 7) & ~7 : 8) > room) error("msg is too small for % bytes", *dlc);
 				  if(*dlc==12 || *dlc==20)adj=4;
 				  if (RxHeader.IdType==FDCAN_EXTENDED_ID){*eid=1;}else{*eid=0;}
 
@@ -393,8 +401,9 @@ void cmd_can(void) {
         	   	   }else{
         	   		*fmi=99;
         	   	   }
-        	 	   *rtr=RxHeader.RxFrameType;
-        	 	   *dlc=DLCtoBytes[(RxHeader.DataLength>>16)];
+        	 	   *rtr=(RxHeader.RxFrameType==FDCAN_REMOTE_FRAME);   // (0 or 1: the HAL gives &H20000000)
+        	 	   *dlc=DLCtoBytes[RxHeader.DataLength & 0xF];   // (since HAL 1.11.6 the DLC code is not shifted)
+				  if((*dlc > 8 ? (*dlc + 7) & ~7 : 8) > room) error("msg is too small for % bytes", *dlc);
         	 	   if(*dlc==12 || *dlc==20)adj=4;
         	 	   if (RxHeader.IdType==FDCAN_EXTENDED_ID){*eid=1;}else{*eid=0;}
 
@@ -469,7 +478,7 @@ void cmd_can(void) {
      	uint32_t index,idtype,type,config,id1,id2;
         getargs(&p, 11, ",");
        	if(!(argc == 11 )) error("Incorrect argument count");
-     	index=getint(argv[0],0,20);
+     	index=getint(argv[0],0,31);                                    // (32 filters of each kind: StdFiltersNbr, ExtFiltersNbr)
      	idtype=getint(argv[2],0,1);
        	type=getint(argv[4],0,3);
      	config=getint(argv[6],0,3);
@@ -552,6 +561,7 @@ void cmd_can(void) {
 
         datasize=8; //datasize
         brs=0;     //No BRS
+        fdcan=0;   // (Classical unless this OPEN says FD: an FD OPEN left it set for the next)
         prescaler=1;seg1=0;seg2=0;sjw=0;dprescaler=1;dseg1=0;dseg2=0;dsjw=0;
 
 
@@ -610,7 +620,7 @@ void cmd_can(void) {
        if (fdcan==0){
     	   hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC; //FDCAN_FRAME_FD_BRS; FDCAN_FRAME_FD_BNO_BRS
        }else{
-          if(brs){ hfdcan.Init.FrameFormat = FDCAN_FRAME_FD_NO_BRS;}else{hfdcan.Init.FrameFormat = FDCAN_FRAME_FD_BRS;}
+          if(brs){ hfdcan.Init.FrameFormat = FDCAN_FRAME_FD_BRS;}else{hfdcan.Init.FrameFormat = FDCAN_FRAME_FD_NO_BRS;}
        }
        if(canmode==1){
          hfdcan.Init.Mode = FDCAN_MODE_INTERNAL_LOOPBACK;   //FDCAN_MODE_INTERNAL_LOOPBACK
@@ -671,7 +681,7 @@ void cmd_can(void) {
       hfdcan.Init.NominalTimeSeg2 = 16;
       hfdcan.Init.NominalSyncJumpWidth =16;
      // MMPrintString("Speed 500000 \r\n");
-  }else if (speed==10000000){
+  }else if (speed==1000000){
       hfdcan.Init.NominalPrescaler = 1;     /* tq = NominalPrescaler x (1/fdcan_ker_ck) */
       hfdcan.Init.NominalTimeSeg1 = 31;    /* NominalTimeSeg1 = Propagation_segment + Phase_segment_1 */
       hfdcan.Init.NominalTimeSeg2 = 8;

@@ -30,7 +30,7 @@ wider than the screen: C83228 28B43C 323CC8 DCC828 B428B4 28B4B4 787878 E6781E 1
 at x 637: 0A14C8 5A148C
 BLIT LOADPNG:  0A5AC8 325AAA 5A5A8C 825A6E AA5A50 D25A32
 alpha cut, t none, cutoff none: 1111111
-alpha cut, t 1, cutoff none: 1111111
+alpha cut, t 1, cutoff none: 0111111
 alpha cut, t 8, cutoff none: 0001111
 alpha cut, t none, cutoff 200: 0000011
 indexed, transparent index 0, t 2: 0111

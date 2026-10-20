@@ -273,50 +273,23 @@ void fun_sprite(void){
     }
     targ = T_INT;   
 }
+// an edge of the screen as a collision (0xF1 left, 0xF2 top, 0xF4 right, 0xF8 bottom), while there is room in
+// collisions[]: an edge left out is reported by a later move, as its bit in edges stays clear
+static void edgecollision(int bnbr, int *n, int out, int bit){
+	if(!out) blitbuff[bnbr].edges &= ~bit;
+	else if(!(blitbuff[bnbr].edges & bit) && *n < MAXCOLLISIONS){
+		blitbuff[bnbr].edges |= bit;
+		blitbuff[bnbr].collisions[(*n)++] = 0xF0 | bit;
+	}
+}
 void checklimits(int bnbr, int *n){
     int maxW=PageTable[WritePage].xmax;
     int maxH=PageTable[WritePage].ymax;
-		blitbuff[bnbr].collisions[*n]=0;
-		if(blitbuff[bnbr].x<0){
-        	if(!(blitbuff[bnbr].edges & 1)){
-        		blitbuff[bnbr].edges|=1;
-        		blitbuff[bnbr].collisions[*n]=0xF1;
-        		(*n)++;
-        	}
-        } else blitbuff[bnbr].edges &= ~1;
-
-        if(blitbuff[bnbr].y<0){
-        	if(!(blitbuff[bnbr].edges &2)){
-        		blitbuff[bnbr].edges|=2;
-        		if(blitbuff[bnbr].collisions[*n] & 0xF0)blitbuff[bnbr].collisions[*n]|=0xF2;
-        		else {
-        			blitbuff[bnbr].collisions[*n]=0xF2;
-        			(*n)++;
-        		}
-        	}
-        }  else blitbuff[bnbr].edges &= ~2;
-
-        if(blitbuff[bnbr].x + blitbuff[bnbr].w > maxW){
-        	if(!(blitbuff[bnbr].edges &4)){
-        		blitbuff[bnbr].edges|=4;
-         		if(blitbuff[bnbr].collisions[*n] & 0xF0)blitbuff[bnbr].collisions[*n]|=0xF4;
-        		else {
-        			blitbuff[bnbr].collisions[*n]=0xF4;
-        			(*n)++;
-        		}
-            }
-        }  else blitbuff[bnbr].edges &= ~4;
-
-        if(blitbuff[bnbr].y + blitbuff[bnbr].h > maxH){
-        	if(!(blitbuff[bnbr].edges & 8)){
-        		blitbuff[bnbr].edges|=8;
-         		if(blitbuff[bnbr].collisions[*n] & 0xF0)blitbuff[bnbr].collisions[*n]|=0xF8;
-        		else {
-        			blitbuff[bnbr].collisions[*n]=0xF8;
-        			(*n)++;
-        		}
-        	}
-        }  else blitbuff[bnbr].edges &= ~8;
+	if(*n <= MAXCOLLISIONS) blitbuff[bnbr].collisions[*n]=0;
+	edgecollision(bnbr, n, blitbuff[bnbr].x < 0, 1);
+	edgecollision(bnbr, n, blitbuff[bnbr].y < 0, 2);
+	edgecollision(bnbr, n, blitbuff[bnbr].x + blitbuff[bnbr].w > maxW, 4);
+	edgecollision(bnbr, n, blitbuff[bnbr].y + blitbuff[bnbr].h > maxH, 8);
 }
 
 void ProcessCollisions(int bnbr){
@@ -920,7 +893,7 @@ void showsafe(int bnbr,int x,int y){
 
 }
 void loadsprite(char *p){
-    int fnbr, width, number,height=0, newsprite=1, startsprite=1, bnbr, lc, i;
+    int fnbr, width=0, number=0,height=0, newsprite=1, startsprite=1, bnbr, lc, i;
     char *q, *fname;
     short *qq;
 	uint32_t *qqq;
@@ -929,35 +902,56 @@ void loadsprite(char *p){
     fnbr = FindFreeFileNbr();
     fname = getFstring(argv[0]);
     if(argc==3)startsprite=getint(argv[2],1,64);
-    if(strchr(fname, '.') == NULL) strcat(p, ".SPR");
+    if(strchr(fname, '.') == NULL) strcat(fname, ".SPR");
     if(!BasicFileOpen(fname, fnbr, FA_READ)) error("File not found");
 	MMgetline(fnbr, (char *)buff);							    // get the input line
 	while(buff[0]==39)MMgetline(fnbr, (char *)buff);
 	sscanf((char *)buff, "%d,%d, %d", &width, &number, &height);
 	if(height==0)height=width;
+	if(width<1 || width>MAXSTRLEN || height<1 || number<1){		// (a line of the file is at most MAXSTRLEN characters)
+		FileClose(fnbr);
+		error("Invalid sprite file");
+	}
 	bnbr=startsprite;
 	if(number+startsprite>MAXBLITBUF){
 		FileClose(fnbr);
 		error("Maximum of 64 sprites");
 	}
-	while(!FileEOF(fnbr) && bnbr<=number+startsprite) {                                     // while waiting for the end of file
+	while(!FileEOF(fnbr) && bnbr<number+startsprite) {                                     // while waiting for the end of file
 		if(newsprite){
 			newsprite=0;
+			if(blitbuff[bnbr].blitbuffptr!=NULL){				// a sprite there already is loaded into, as SPRITE READ reads into one
+				char *why = NULL;
+				if(blitbuff[bnbr].mymaster != -1) why = "Sprite % is a copy";
+				else if(blitbuff[bnbr].master > 0) why = "Sprite % has copies";
+				else if(!(blitbuff[bnbr].w==width && blitbuff[bnbr].h==height)){
+					if(blitbuff[bnbr].active) why = "Sprite % is showing, at another size";
+					else {
+						FreeMemorySafe((void *)&blitbuff[bnbr].blitbuffptr);
+						FreeMemorySafe((void *)&blitbuff[bnbr].blitstoreptr);
+					}
+				}
+				if(why){
+					FileClose(fnbr);
+					error(why, bnbr);
+				}
+			}
 	        if(blitbuff[bnbr].blitbuffptr==NULL)blitbuff[bnbr].blitbuffptr = GetMemory(width*height* (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
 	        if(blitbuff[bnbr].blitstoreptr==NULL)blitbuff[bnbr].blitstoreptr = GetMemory(width*height* (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
-	        blitbuff[bnbr].bc=0;
-	        blitbuff[bnbr].w=width;
-	        blitbuff[bnbr].h=height;
-	        blitbuff[bnbr].master=0;
-	        blitbuff[bnbr].mymaster=-1;
-	        blitbuff[bnbr].x=10000;
-	        blitbuff[bnbr].y=10000;
-	        blitbuff[bnbr].layer=-1;
-	        blitbuff[bnbr].next_x = 10000;
-	        blitbuff[bnbr].next_y = 10000;
-	        blitbuff[bnbr].active=false;
-	        blitbuff[bnbr].lastcollisions=0;
-	        blitbuff[bnbr].edges=0;
+	        if(!blitbuff[bnbr].active){							// (a sprite showing keeps its place, and gets the new image)
+		        blitbuff[bnbr].bc=0;
+		        blitbuff[bnbr].w=width;
+		        blitbuff[bnbr].h=height;
+		        blitbuff[bnbr].master=0;
+		        blitbuff[bnbr].mymaster=-1;
+		        blitbuff[bnbr].x=10000;
+		        blitbuff[bnbr].y=10000;
+		        blitbuff[bnbr].layer=-1;
+		        blitbuff[bnbr].next_x = 10000;
+		        blitbuff[bnbr].next_y = 10000;
+		        blitbuff[bnbr].lastcollisions=0;
+		        blitbuff[bnbr].edges=0;
+	        }
 	        q=blitbuff[bnbr].blitbuffptr;
 	        qq=(short *)blitbuff[bnbr].blitbuffptr;
 	        qqq=(uint32_t *)blitbuff[bnbr].blitbuffptr;
@@ -1045,7 +1039,7 @@ void loadsprite(char *p){
 					else if(buff[i]=='6')*qqq++=YELLOW;
 					else if(buff[i]=='7')*qqq++=WHITE;
 					else if(buff[i]=='8')*qqq++=LITEGRAY;
-					else if(buff[i]=='9')*qqq++=convert_16bit(GRAY);
+					else if(buff[i]=='9')*qqq++=GRAY;
 					else if(buff[i]=='A' || buff[i]=='a')*qqq++=ORANGE;
 					else if(buff[i]=='B' || buff[i]=='b')*qqq++=PINK;
 					else if(buff[i]=='C' || buff[i]=='c')*qqq++=GOLD;
@@ -1122,7 +1116,7 @@ void copyframetoscreen(uint8_t *s,int xstart, int xend, int ystart, int yend, in
 }
 void docompressed(char *fc,int x1, int y1, int w, int h, int8_t blank){
     if(blank==-1){
-        char tobuff[w/2], *to;
+        char tobuff[(w+1)/2], *to;              // (an odd width has a last half byte)
         int ww=w;
         int xx1=x1;
         if(x1<0){
@@ -1155,7 +1149,7 @@ void docompressed(char *fc,int x1, int y1, int w, int h, int8_t blank){
             if(ww>0 && xx1<HRes)copyframetoscreen((unsigned char *)tobuff,xx1, xx1+ww-1, y, y, 0);
         }
     } else {
-        char tobuff[w/2], *to;
+        char tobuff[(w+1)/2], *to;              // (an odd width has a last half byte)
         getnextnibble(&fc,1); //reset the decoder
         for(int y=y1;y<y1+h;y++){
             int x=x1;
@@ -1235,7 +1229,7 @@ int blitother(void){
         } else {
             if(blank==-1){
                  char *fc=from;
-                 char tobuff[w/2], *to;
+                 char tobuff[(w+1)/2], *to;              // (an odd width has a last half byte)
                  int ww=w;
                  int xx1=x1;
                  if(x1<0){
@@ -1269,7 +1263,7 @@ int blitother(void){
                  }
              } else {
                  char *fc=from;
-                 char tobuff[w/2], *to;
+                 char tobuff[(w+1)/2], *to;              // (an odd width has a last half byte)
                  getnextuncompressednibble(&fc,1); //reset the decoder
                  for(int y=y1;y<y1+h;y++){
                      int x=x1;
@@ -1479,6 +1473,7 @@ void cmd_blit(void) {
     } else if((p = checkstring(cmdline, "HIDE"))) {
         getargs(&p, 1,",");
         if(argc !=1) error("Syntax");
+		if(hideall)error("Sprites are hidden");
         if(*argv[0] == '#') argv[0]++;
         bnbr = getint(argv[0],1,MAXBLITBUF-1);									// get the number
         if(blitbuff[bnbr].blitbuffptr!=NULL){
@@ -1512,14 +1507,16 @@ void cmd_blit(void) {
 		if(hideall)error("Sprites are hidden");
         if(*argv[0] == '#') argv[0]++;
         bnbr = getint(argv[0],1,MAXBLITBUF-1);									// get the number
-        if(*argv[2] == '#') argv[0]++;
+        if(*argv[2] == '#') argv[2]++;
         rbnbr = getint(argv[2],1,MAXBLITBUF-1);									// get the number
         if(blitbuff[bnbr].blitbuffptr==NULL || blitbuff[bnbr].active==false) error("Original buffer not displayed");
         if(!blitbuff[bnbr].active)error("Original buffer not displayed");
         if(blitbuff[rbnbr].active) error("New buffer already displayed");
         if(!(blitbuff[rbnbr].w ==blitbuff[bnbr].w && blitbuff[rbnbr].h ==blitbuff[bnbr].h)) error("Size mismatch");
 // copy the relevant data
-        blitbuff[rbnbr].blitstoreptr=blitbuff[bnbr].blitstoreptr;
+        char *store=blitbuff[rbnbr].blitstoreptr;                      // the background stores are exchanged: the new sprite
+        blitbuff[rbnbr].blitstoreptr=blitbuff[bnbr].blitstoreptr;    // takes the one under the old (the old kept it too, so
+        blitbuff[bnbr].blitstoreptr=store;                           // closing both freed it twice; the new one's leaked)
         blitbuff[rbnbr].x=blitbuff[bnbr].x;
         blitbuff[rbnbr].y=blitbuff[bnbr].y;
         blitbuff[rbnbr].layer=blitbuff[bnbr].layer;
@@ -1581,6 +1578,7 @@ void cmd_blit(void) {
         } 
         if(argc==11){
         	if(checkstring(argv[10], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[10],0,LastPage);
@@ -1603,7 +1601,7 @@ void cmd_blit(void) {
         if(blitbuff[bnbr].blitbuffptr!=NULL){
             if(*argv[2] == '#') argv[2]++;
             c1 = cpy = getint(argv[2], 1, MAXBLITBUF-1);
-            n1 = nbr = getint(argv[4], 1, MAXBLITBUF-2);
+            n1 = nbr = getint(argv[4], 1, MAXBLITBUF-cpy);
 
             while(n1) {
                 if(blitbuff[c1].blitbuffptr!=NULL)error("Buffer already in use %",c1);
@@ -1625,7 +1623,7 @@ void cmd_blit(void) {
                 blitbuff[cpy].mymaster=bnbr;
                 blitbuff[cpy].master=-1;
                 blitbuff[cpy].edges=0;
-                blitbuff[bnbr].master |= (1<<cpy);
+                blitbuff[bnbr].master++;                       // (the number of copies)
         		blitbuff[bnbr].lastcollisions=0;
     			blitbuff[cpy].active=false;
                 nbr--;
@@ -1676,7 +1674,7 @@ void cmd_blit(void) {
      		   sprites_in_use--;
      	   }
            if(blitbuff[bnbr].mymaster==-1)FreeMemorySafe((void *)&blitbuff[bnbr].blitbuffptr);
-           else blitbuff[blitbuff[bnbr].mymaster].master &= ~(1<<bnbr);
+           else blitbuff[blitbuff[bnbr].mymaster].master--;
    		    FreeMemorySafe((void *)&blitbuff[bnbr].blitstoreptr);
    	        blitbuff[bnbr].blitbuffptr = NULL;
    	        blitbuff[bnbr].blitstoreptr = NULL;
@@ -1961,7 +1959,7 @@ void cmd_blit(void) {
 		if(hideall)error("Sprites are hidden");
         x = getint(argv[0],-maxW/2-1, maxW);
         y = getint(argv[2],-maxH/2-1, maxH);
-        if(argc==5)blank=getColour(argv[2], 1);
+        if(argc==5)blank=getColour(argv[4], 1);
         if(!(x==0 && y==0)){
     		int cursorhidden=0;
     		if(cursoron){
@@ -2041,6 +2039,7 @@ void cmd_blit(void) {
         h = getinteger(argv[10]);
         if(argc>=13 && *argv[12]){
         	if(checkstring(argv[12], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[12],0,LastPage);

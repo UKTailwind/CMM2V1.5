@@ -178,7 +178,7 @@ The internal clock/calendar will keep track of the time and date including leap 
 
 === DATETIME$(n)
 ---
-Returns the date and time corresponding to the epoch number ‘n’ (number of seconds that have elapsed since midnight GMT on January 1, 1970). 
+Returns the date and time corresponding to the epoch number ‘n’ (number of seconds that have elapsed since midnight GMT on January 1, 1970), from -2147483648 to 2147483647 (13 December 1901 to 19 January 2038). 
 The format of the returned string is “dd-mm-yyyy hh:mm:ss”. Use the text NOW to get the current datetime string, ie,  DATETIME$(NOW)
 
 === DAY$(date$)
@@ -349,7 +349,7 @@ See also CINT() .
 {t=l432,l1152 l=1152 h=1152}	g	Automatically format the number for the best presentation.
 {t=l432,l1152 l=1152 h=1152}	f	Format the number with the decimal point and following digits
 {t=l432,l1152 l=1152 h=1152}	e	Format the number in exponential format
-If uppercase G or E is used the exponential output will use an uppercase E.  If the format specification is not specified “%g” is assumed.  Only one format specification is allowed.
+If uppercase G or E is used the exponential output will use an uppercase E.  If the format specification is not specified “%g” is assumed.  Only one format specification is allowed, and the result can be at most 255 characters long ("String too long").
 Examples:	format$(45) will return 45\nformat$(45, “%g”) will return 45\nformat$(24.1, “%g”) will return 24.1\nformat$(24.1, “%f”) will return 24.100000\nformat$(24.1, “%e”) will return 2.410000e+01\nformat$(24.1, “%09.3f”) will return 00024.100\nformat$(24.1, “%+.3f”) will return +24.100
 
 === GETSCANLINE
@@ -566,7 +566,7 @@ Returns the hyperbolic tan of a
 [,endmask] [,reverseIn]
 [,reverseOut])
 --- tight
-Calculates the CRC to n bits (8, 12, 16, 32) of “data”. “data” can be an integer or floating point array or a string variable. “Length” is optional and if not specified the size of the array or string length is used. The defaults for startmask, endmask reverseIn, and reversOut are all zero. reverseIn, and reversOut are both Booleans and take the value 1 or 0. The defaults for polynomes are CRC8=&H07, CRC12=&H80D, CRC16=&H1021, crc32=&H04C11DB7.  polynome, startmask and endmask must fit in n bits.  An array must be one-dimensional and each element must be a byte value (0 to 255).  “Length” is 1 to 65535 and must not be more than the number of elements or characters in “data”.
+Calculates the CRC to n bits (8, 12, 16, 32) of “data”. “data” can be an integer or floating point array or a string variable. “Length” is optional and if not specified the size of the array or string length is used. The defaults for startmask, endmask reverseIn, and reversOut are all zero. reverseIn, and reversOut are both Booleans and take the value 1 or 0: the result is reversed, if reverseOut says so, before it is XORed with endmask. The defaults for polynomes are CRC8=&H07, CRC12=&H80D, CRC16=&H1021, crc32=&H04C11DB7.  polynome, startmask and endmask must fit in n bits.  An array must be one-dimensional and each element must be a byte value (0 to 255).  “Length” is 1 to 65535 and must not be more than the number of elements or characters in “data”.
 eg, for crc16_CCITT use  MATH(CRC16 array(), n,, &HFFFF)
 {}
 
@@ -668,7 +668,7 @@ complex1% = MATH(C_CONJ complex2%)\ncomplex1% = MATH(C_SIN complex2%)\ncomplex1%
 complex1% = MATH(C_ADD complex2%,complex3%)\ncomplex1% = MATH(C_SUB complex2%,complex3%)\ncomplex1% = MATH(C_MUL complex2%,complex3%)\ncomplex1% = MATH(C_DIV complex2%,complex3%)\ncomplex1% = MATH(C_POW complex2%,complex3%)
 --- wide
 MMBasic supports a full range of functions to allow the manipulation of complex numbers. In this implementation complex numbers have a 32-bit real and 32-bit imaginary part and to make this work in MMBasic, it uses integers (64-bit) to hold these.
-The angle given to C_POLAR and the phase returned by C_PHASE respect OPTION ANGLE; C_CARG returns the same angle in radians.  C_ABS returns the modulus as a complex number (with an imaginary part of zero), and C_MOD as a floating point number.
+The angle given to C_POLAR and the phase returned by C_PHASE respect OPTION ANGLE; C_CARG returns the same angle in radians (C_ARG is another name for C_CARG).  C_ABS returns the modulus as a complex number (with an imaginary part of zero), and C_MOD as a floating point number.
 
 === MATH(PID channel, setpoint!, measurement!)
 --- keep
@@ -842,7 +842,7 @@ See the chapter *Graphics Functions* for a definition of the colours and graphic
 === PORT(start, nbr [,start, nbr]…)
 ---
 Returns the value of a number of I/O pins in one operation.
-{kl=1}'start' is an I/O pin number and its value will be returned as bit 0.  'start'+1 will be returned as bit 1, 'start'+2 will be returned as bit 2, and so on for 'nbr' number of bits. I/O pins used must be numbered consecutively and any I/O pin that is invalid or not configured as a digital input (DIN, INTH, INTL or INTB) will cause the error "Invalid input pin".  The start/nbr pair can be repeated if additional groups of input pins need to be added: the first pair gives the lowest bits.
+{kl=1}'start' is an I/O pin number and its value will be returned as bit 0.  'start'+1 will be returned as bit 1, 'start'+2 will be returned as bit 2, and so on for 'nbr' number of bits. I/O pins used must be numbered consecutively and any I/O pin that is invalid or not configured as a digital input or output (DIN, INTH, INTL, INTB or DOUT) will cause the error "Invalid input pin".  An output pin returns its state.  The start/nbr pair can be repeated if additional groups of input pins need to be added: the first pair gives the lowest bits.
 {t=l2592}This can be used to conveniently communicate with parallel devices like memory chips.
 {kl=1}See the PORT command to simultaneously output to a number of pins.
 
@@ -870,7 +870,7 @@ Generates an RGB true colour value.
 'red', 'blue' and 'green' represent the intensity of each colour.  A value of zero represents black and 255 represents full intensity.
 'shortcut' allows common colours to be specified by naming them.  The colours that can be named are white, black, blue, green, cyan, red, magenta, yellow, brown, grey (or gray), lightgrey (or lightgray), orange, pink, gold, salmon, beige, lilac, fuchsia, rust, cerulean, midgreen, cobalt and myrtle.  For example, RGB(red) or RGB(cyan).
 There is also one special colour, notblack: in any colour depth this is the darkest colour that is not treated as black (transparent) by the graphics commands that support transparency.
-'trans' is the level of transparency: 0 (transparent) to 15 (opaque, the default) in the 12-bit colour depth, and 0 to 255 in the 32-bit colour depth.  In the other colour depths it gives the error "Transparency not valid for this mode".
+'trans' is the level of transparency: 0 (transparent) to 15 (opaque, the default) in the 12-bit colour depth, and 0 to 255 in the 32-bit colour depth, where a colour holds 16 levels of transparency as in the 12-bit depth (the top 4 bits of ‘trans’ are kept: 255 is opaque).  In the other colour depths it gives the error "Transparency not valid for this mode".
 
 === RIGHT$( string$, number-of-chars )
 ---

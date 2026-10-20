@@ -1,5 +1,5 @@
 """goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--from NAME] [--put] [--dir A:/g] [--pre CMD] [--listflash]
-                         [--cap SECONDS] [--nomodemap]
+                         [--cap SECONDS] [--nomodemap] [--inputs DIR]
 goldens.py --recompare OUTDIR [--corpus DIR]     re-diff saved outputs against .expected
 goldens.py --reclassify OUTDIR [--corpus DIR]    score saved outputs again from scratch
 
@@ -13,8 +13,9 @@ there, or of a different size, are sent (--put sends them all), in ZMODEM batche
 every program: CHDIR to A:/g, then RUN "name.bas" twice (the CMM2 has no LOAD: programs run
 from the card).  The driver watches every byte and ends a
 run as soon as it is over: back at the prompt, an Error, or an INPUT it has no answer for
-(Ctrl-C).  It answers INPUT from <name>.in and PRESS ANY KEY with a space.  A 60 s cap only
-catches a program that really does run away.
+(Ctrl-C).  It answers INPUT from <name>.in (in the corpus, or in --inputs DIR for a corpus that is not ours to add
+files to), at a prompt ending in "?" or, while the file has answers left, in ":"; and PRESS ANY KEY (any case) with a
+space.  A 60 s cap only catches a program that really does run away.
 
 The corpus is written for the PicoMite, whose MODE numbers mean other resolutions on the
 CMM2 (MODE 1 here is 800x600).  The copies sent to the board have their MODE statements
@@ -44,6 +45,15 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 CORPUS = r"\\wsl.localhost\Ubuntu\home\peter\src\FUZIX\Applications\mmb2c\tests"
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>78]|\r")     # ESC 7 / ESC 8 (save, restore cursor) come before CMM2 error messages
 CAP = 60.0
+INPUTS = None                                           # --inputs: more <name>.in files, for a corpus outside this repo
+
+
+def read_inputs(corpus, n):
+    """The answers for program n's INPUTs: <n>.in in the corpus, else in the --inputs directory."""
+    for d in (corpus, INPUTS):
+        if d and os.path.exists(os.path.join(d, n + ".in")):
+            return open(os.path.join(d, n + ".in"), encoding="latin-1").read().splitlines()
+    return []
 MODEMAP = {"1": "8,8", "2": "7,4", "3": "8,4", "4": "7,16", "5": "7,8"}     # PicoMite 640x480 modes -> CMM2 (2 and 3: its RGB121, Rgb121.c)
 
 
@@ -177,8 +187,7 @@ def recompare(outdir, corpus):
         exp = os.path.join(corpus, n + ".expected")
         if r["class"] not in ("MATCH", "DIFF") or not os.path.exists(outf) or not os.path.exists(exp):
             continue
-        inp = os.path.join(corpus, n + ".in")
-        inputs = open(inp, encoding="latin-1").read().splitlines() if os.path.exists(inp) else []
+        inputs = read_inputs(corpus, n)
         got = norm(open(outf, encoding="utf-8").read(), inputs)
         want = norm(open(exp, encoding="latin-1").read())
         dpath = os.path.join(outdir, n + ".diff")
@@ -237,8 +246,7 @@ def reclassify(outdir, corpus):
             t = ANSI.sub("", open(p, encoding="utf-8").read()) if os.path.exists(p) else ""
             open(p, "w", encoding="utf-8").write(t)
             o.append(t)
-        inp = os.path.join(corpus, n + ".in")
-        inputs = open(inp, encoding="latin-1").read().splitlines() if os.path.exists(inp) else []
+        inputs = read_inputs(corpus, n)
         s1 = "ERROR" if re.search(r"\bError\b", o[0]) else "OK"
         rows[i] = score(n, s1, o[0], o[1], r.get("secs", ""), inputs, corpus, outdir)
     json.dump(rows, open(os.path.join(outdir, "summary.json"), "w"), indent=1)
@@ -250,6 +258,7 @@ def run_program(b, run, inputs):
     b.drain(0.2)
     b.send_line(run)
     buf, t0, fed, last = "", time.time(), 0, time.time()
+    anykey = 0                                          # "Press any key" (not upper case) prompts answered
     status = None
     while True:
         t = b._read()
@@ -264,11 +273,17 @@ def run_program(b, run, inputs):
             b.s.write(b" ")
             buf = buf.replace("PRESS ANY KEY", "PRESS-ANY-KEY")
             continue
+        k = len(re.findall(r"[Pp]ress any key", clean))    # (counted, so the output is left as printed)
+        if k > anykey:
+            time.sleep(0.1)
+            b.s.write(b" ")
+            anykey = k
+            continue
         quiet = now - last > 0.3
         if quiet and re.search(r"\n> ?$", clean):
             status = "ERROR" if re.search(r"\bError\b", clean) else "OK"
             break
-        if quiet and clean.rstrip(" ").endswith("?"):
+        if quiet and (clean.rstrip(" ").endswith("?") or (clean.rstrip(" ").endswith(":") and fed < len(inputs))):
             if fed < len(inputs):
                 b.send_line(inputs[fed])
                 fed += 1
@@ -322,6 +337,8 @@ def arg(name, default=None):
 
 
 def main():
+    global CAP, INPUTS
+    INPUTS = arg("--inputs")
     if sys.argv[1] in ("--recompare", "--reclassify"):
         outdir = sys.argv[2]
         corpus = arg("--corpus", CORPUS)
@@ -335,7 +352,6 @@ def main():
         return
     port, outdir = sys.argv[1], sys.argv[2]
     baud = int(arg("--baud", "460800"))
-    global CAP
     CAP = float(arg("--cap", CAP))                      # seconds a run may take before Ctrl-C (perfguide needs more)
     corpus = arg("--corpus", CORPUS)
     only = arg("--only").split(",") if "--only" in sys.argv else None
@@ -396,8 +412,7 @@ def main():
         b.zmodem_put(todo[i:i + 40])
     print("sent %d of %d files to %s" % (len(todo), len(files), gdir), flush=True)
     for n in names:
-        inp = os.path.join(corpus, n + ".in")
-        inputs = open(inp, encoding="latin-1").read().splitlines() if os.path.exists(inp) else []
+        inputs = read_inputs(corpus, n)
         b.attention()
         b.cmd('CHDIR "%s"' % gdir, 10)
         if pre:

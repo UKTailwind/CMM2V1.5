@@ -362,6 +362,8 @@ static void init_fastcode_section(void) {
 
 void cleanend(void){
 	int i, adjust=0;
+	WatchdogSet = false;                                            // MM.WATCHDOG: true until a program ends (RUN cleared it, so
+	                                                                // the program AUTORUN starts after the restart read 0)
 #ifdef PCSAMPLER
 	PcsReport();                                                    // the "Sampler" build: where the program's time went
 #endif
@@ -379,6 +381,7 @@ void cleanend(void){
 	if(mouse1)i2c_disable();                                                  // close I2C
     if(mouse2)i2c2_disable();                                                  // close I2C
     if(mouse3)i2c3_disable();                                                  // close I2C
+	PageDisplayOn();													// (PAGE DISPLAY -1 left the display off)
 	ShareNeeded=RoundUptoPage512((uint32_t)PageTable[0].address);
 	MPU_Config_nCacheable(0);
 	HAL_LTDC_SetAddress(&hltdc,  (uint32_t)PageTable[0].address, LTDC_LAYER_1);
@@ -562,6 +565,9 @@ if(_excep_code == RESTART_BOOT0){
 	  int sdspeed=Option.SDspeed;
 	  int mode=Option.mode;
 	  int mouse=Option.Mouse;
+	  int sensitivity=Option.Sensitivity;                         // (OPTION MOUSE's second number and its SENSITIVITY, kept with
+	  uint8_t mousespeed[4];                                        // the channel: they were reset)
+	  memcpy(mousespeed, (const void *)Option.mousespeed, 4);
 	  uint8_t noLED=Option.noLED;
 	  int RTCi=Option.RTCinstalled;
 	  int editfont=Option.editfont;
@@ -576,6 +582,8 @@ if(_excep_code == RESTART_BOOT0){
 	  Option.mode=mode;
 	  Option.editfont=editfont;
 	  Option.Mouse=mouse;
+	  Option.Sensitivity=sensitivity;
+	  memcpy((void *)Option.mousespeed, mousespeed, 4);
 	  Option.RTCinstalled=RTCi;
 	  Option.MaxCtrls=maxctrls;
 	  SaveOptions(0);
@@ -770,9 +778,9 @@ memtest=(uint32_t *)0xD0000000;
 for(i=0;i<2097152*( G1Hardware ? 1 : 4);i++)*memtest++ = 0x0;
 int maxW=PageTable[WritePage].xmax;
 int maxH=PageTable[WritePage].ymax;
-if (__HAL_RCC_GET_FLAG(RCC_FLAG_PINRST) != RESET)strcpy(bootcause,"Switch\r\n");
-if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)strcpy(bootcause,"Power-On\r\n");
-if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET)strcpy(bootcause,"Software\r\n");
+if (__HAL_RCC_GET_FLAG(RCC_FLAG_PINRST) != RESET)strcpy(bootcause,"Switch");
+if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)strcpy(bootcause,"Power-On");
+if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET)strcpy(bootcause,"Software");
 uint32_t resetflags = RCC->RSR;                                  // every reset since the flags were last cleared
 int probereset = ((resetflags & RCC_RSR_SFTRSTF) && _reset_magic != SOFTRESET_MAGIC);   // e.g. SYSRESETREQ from the debug probe
 int brownout = ((resetflags & RCC_RSR_BORRSTF) && !(resetflags & RCC_RSR_PORRSTF));     // supply dip without a power cycle
@@ -900,7 +908,7 @@ if(setjmp(mark) != 0) {
 	  tokenise(true);                                             // turn into executable code
 	  executerun=1;
 	  ExecuteProgram(tknbuf);                                     // execute the line straight away
-	  if(executerun)cleanend();                                   // a program without END is cleaned up as from the prompt (Gerry's b14)
+	  if(executerun)ImpliedEnd();                                   // a program without END is cleaned up as from the prompt (Gerry's b14)
 	} else if(Option.Autorun && Option.ProgramStartCode >= 0 && *staleimage && _excep_code != RESTART_NOAUTORUN) {
 	  strcpy(inpbuf,"RUN \"");                                   // the image was erased at boot: load the program again from its file
 	  strcat(inpbuf,staleimage);
@@ -909,7 +917,7 @@ if(setjmp(mark) != 0) {
 	  tokenise(true);                                             // turn into executable code
 	  executerun=1;
 	  ExecuteProgram(tknbuf);                                     // execute the line straight away
-	  if(executerun)cleanend();
+	  if(executerun)ImpliedEnd();
 	}
 	if(Option.Autorun && Option.ProgramStartCode < 0 && _excep_code != RESTART_NOAUTORUN) {
 	  FRESULT fr;
@@ -1001,25 +1009,31 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 		  p[7] = d;
 	  }
 	  if(*p=='*'){ //shortform RUN command so convert to a normal version
-		  if(strlen(inpbuf) + 5 > MAXSTRLEN) error("Line is too long");   // it grows by up to five characters
-		  if((p[1]==' ')|(p[1]==0)){  //no filename provided
-			   memmove(&p[4],&p[1],strlen(p)+1);
-			   p[0]='R';p[1]='U';p[2]='N';p[3]=' ';
-		  }else{
-
-			  memmove(&p[4],&p[0],strlen(p)+1);
-			  p[0]='R';p[1]='U';p[2]='N';p[3]='$';p[4]=34;
-			  char  *q;
-			  if((q=strchr(p,' ')) != 0){ //command line after the filename
-			    *q=','; //chop the command at the first space character
-			    memmove(&q[1],&q[0],strlen(q)+1);
-			    q[0]=34;
-			  } else{
-			    strcat(p,"\"");
-		      }
-			  p[3]=' ';
+		  // *name [text] is RUN "name",text and *"a name" [text] is RUN "a name",text (the quoted name was split at its
+		  // first space: RUN ""a",name"); * followed by a space is RUN text. The text is MM.CMDLINE$, as typed
+		  char tmp[STRINGSIZE + 8], *s = p + 1, *e;
+		  if(*s == ' ' || *s == 0) {                                   // no name: the program in memory
+			  strcpy(tmp, "RUN ");
+			  skipspace(s);
+		  } else {
+			  if(*s == '"') {
+				  if((e = strchr(s + 1, '"')) == NULL) error("Unterminated string");
+				  e++;
+				  strcpy(tmp, "RUN ");
+				  strncat(tmp, s, e - s);
+			  } else {
+				  for(e = s; *e && *e != ' '; e++);
+				  strcpy(tmp, "RUN \"");
+				  strncat(tmp, s, e - s);
+				  strcat(tmp, "\"");
+			  }
+			  s = e;
+			  skipspace(s);
+			  if(*s) strcat(tmp, ",");
 		  }
-		 // PRet();MMPrintString(inpbuf);PInt(nofile);PRet();
+		  if(strlen(tmp) + strlen(s) > MAXSTRLEN) error("Line is too long");
+		  strcat(tmp, s);
+		  strcpy(p, tmp);
 	  }
 
 	  if(toupper(p[0])=='R' && toupper(p[1])=='U' && toupper(p[2])=='N' && (strlen(p)==3 || p[3]==' ')){
@@ -1085,7 +1099,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 	  PrepareProgram(false);
       CurrentLinePtr=0;
       ExecuteProgram(tknbuf);                                     // execute the line straight away
-	  if(executerun)cleanend();
+	  if(executerun)ImpliedEnd();
   	  if(Option.showstatus && CurrentY >= maxH-(gui_font_height*2)-1){
 		  MX470PutS("\r\n",WHITE,BLACK);
 		  CurrentY= maxH-(gui_font_height*2);
@@ -3161,10 +3175,30 @@ void CheckAbort(void) {
     	cleanend();
     }
 }
+// OPTION SLEEP: any key that reaches the console (USB, PS/2 or serial, read by a program or not) turns the display
+// back on and starts the time again. Only MMgetchar (the prompt, INPUT) did, so in a program that reads its keys
+// with INKEY$ the display went off for good
+static void SleepCheck(void){
+	static int lasthead = -1;
+	if(!Option.sleep || ConsoleRxBufHead == lasthead) return;
+	lasthead = ConsoleRxBufHead;
+	if(sleeping){
+		GPIO_InitTypeDef GPIO_InitStruct = {0};
+		GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;
+		GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+		GPIO_InitStruct.Pull = GPIO_NOPULL;
+		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+		GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
+		HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
+		sleeping=0;
+	}
+	SleepTimer=Option.sleep*1000*60;
+}
 void routinechecks(int all){
 	if(USBtime){
 		mT4IntEnable(0);
 		CheckKeyboard();
+		SleepCheck();
 		if(all){
 			CheckSDCard();
 			if(Option.MaxCtrls)ProcessTouch();

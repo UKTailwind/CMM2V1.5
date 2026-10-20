@@ -179,7 +179,7 @@ void cmd_pwm(void) {
     	{
     		error("HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig)");
     	}
-    } else if(f!=f2){
+    } else if(channel==1 && f!=f2){								// (controller 2's timer: not when controller 1 keeps its frequency)
     	htim8.Instance = TIM8;
     	htim8.Init.Prescaler = prescale;
     	htim8.Init.CounterMode =  (centre ? TIM_COUNTERMODE_CENTERALIGNED3 :TIM_COUNTERMODE_UP);
@@ -242,7 +242,7 @@ void cmd_pwm(void) {
         } else {
         	htim3.Instance->CCR1 = dcy[0][0];
         	htim3.Instance->CCER &=~(1<<1);
-        	htim3.Instance->CCER |= (invertchannel[0][0] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<1;
+        	htim3.Instance->CCER |= (invertchannel[0][0] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<0;   // (CCxP: TIM_OCPOLARITY_LOW is bit 1 already)
         }
 
         // this is output 1B
@@ -271,9 +271,9 @@ void cmd_pwm(void) {
                 }
                 oc2 = true;
             } else {
-            	htim3.Instance->CCR1 = dcy[0][1];
+            	htim3.Instance->CCR2 = dcy[0][1];							// (output B's register: CCR1 is output A's)
             	htim3.Instance->CCER &=~(1<<5);
-            	htim3.Instance->CCER |= (invertchannel[0][1] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<5;
+            	htim3.Instance->CCER |= (invertchannel[0][1] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<4;   // (CCxP: TIM_OCPOLARITY_LOW is bit 1 already)
             }
         }
         // this is output 1C
@@ -302,9 +302,9 @@ void cmd_pwm(void) {
                 }
                 oc3 = true;
             } else {
-            	htim3.Instance->CCR1 = dcy[0][2];
+            	htim3.Instance->CCR3 = dcy[0][2];							// (output C's register)
             	htim3.Instance->CCER &=~(1<<9);
-            	htim3.Instance->CCER |= (invertchannel[0][2] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<9;
+            	htim3.Instance->CCER |= (invertchannel[0][2] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<8;   // (CCxP: TIM_OCPOLARITY_LOW is bit 1 already)
             }
         }
         // now set the timer for channel 2
@@ -338,7 +338,7 @@ void cmd_pwm(void) {
         } else {
         	htim8.Instance->CCR1 = dcy[1][0];
         	htim8.Instance->CCER &=~(1<<1);
-        	htim8.Instance->CCER |= (invertchannel[1][0] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<1;
+        	htim8.Instance->CCER |= (invertchannel[1][0] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<0;   // (CCxP: TIM_OCPOLARITY_LOW is bit 1 already)
         }
 
         // this is output 2B
@@ -367,9 +367,9 @@ void cmd_pwm(void) {
                 }
                 oc5 = true;
             } else {
-            	htim8.Instance->CCR1 = dcy[1][1];
+            	htim8.Instance->CCR2 = dcy[1][1];							// (output B's register)
             	htim8.Instance->CCER &=~(1<<5);
-            	htim8.Instance->CCER |= (invertchannel[1][1] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<5;
+            	htim8.Instance->CCER |= (invertchannel[1][1] ? TIM_OCPOLARITY_LOW : TIM_OCPOLARITY_HIGH)<<4;   // (CCxP: TIM_OCPOLARITY_LOW is bit 1 already)
             }
         }
     }

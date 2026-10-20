@@ -328,7 +328,7 @@ volatile int mouseupdated=0;
 
 ****************************************************************************************************/
 void loadcursor(char *p){
-	int fnbr, width, height=0, xoffset, yoffset, lc, i;
+	int fnbr, width=0, height=0, xoffset=0, yoffset=0, lc, i;
 	char *q, *fname;
 	short *qq;
 	uint32_t *qqq;
@@ -340,11 +340,16 @@ void loadcursor(char *p){
 	yloffcursor=0;
 	fnbr = FindFreeFileNbr();
 	fname = getCstring(argv[0]);
-	if(strchr(fname, '.') == NULL) strcat(p, ".CUR");
+	if(strchr(fname, '.') == NULL) strcat(fname, ".CUR");
 	if(!BasicFileOpen(fname, fnbr, FA_READ)) error("File not found");
 	MMgetline(fnbr, (char *)buff);							    // get the input line
 	while(buff[0]==39)MMgetline(fnbr, (char *)buff);
 	sscanf((char *)buff, "%d,%d,%d,%d", &width,  &height, &xoffset, &yoffset);
+	if(width<1 || width>MAXSTRLEN || height<1 || height>MAXSTRLEN){
+		FileClose(fnbr);
+		error("Invalid cursor file");
+	}
+	FreeMemorySafe((void *)&loadcursordata);					// (the cursor loaded before: GUI CURSOR LOAD is refused while it is on)
 	loadcursordata = GetMemory(width * height * (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
 	q=(char *)loadcursordata;
 	qq=(short *)loadcursordata;
@@ -432,7 +437,7 @@ void loadcursor(char *p){
 				else if(buff[i]=='6')*qqq++=YELLOW;
 				else if(buff[i]=='7')*qqq++=WHITE;
 				else if(buff[i]=='8')*qqq++=LITEGRAY;
-				else if(buff[i]=='9')*qqq++=convert_16bit(GRAY);
+				else if(buff[i]=='9')*qqq++=GRAY;
 				else if(buff[i]=='A' || buff[i]=='a')*qqq++=ORANGE;
 				else if(buff[i]=='B' || buff[i]=='b')*qqq++=PINK;
 				else if(buff[i]=='C' || buff[i]=='c')*qqq++=GOLD;
@@ -467,6 +472,7 @@ void closecursor(void){
 	ycursor=0;
 	cursorenable=0;
 	cursor=0;
+	autocursor=0;												// (the link to the mouse ends with the cursor)
 	FreeMemorySafe((void *)&cursorsave);
 	cursorsave=NULL;
 }
@@ -500,7 +506,7 @@ void showcursor(int override, int x, int y){
     	short *q=(short *)cursorsave;
     	short *r=(cursor == 0 ? (short *)cursor16 : (cursor==1 ? (short *)cross16 : (short *)loadcursordata));
     	if(cursor<2)*r = *r & cursorcolour16;
-    	while(bytecount-=2){
+    	while((bytecount-=2)>=0){
     	    if(*r){
     	    	if(cursor<2)*p = cursorcolour16;
     	    	else *p=*r;
@@ -515,7 +521,7 @@ void showcursor(int override, int x, int y){
     	uint32_t *q=(uint32_t *)cursorsave;
     	uint32_t *r=(cursor == 0 ? (uint32_t *)cursor32 : (cursor==1 ? (uint32_t *)cross32 : (uint32_t *)loadcursordata));
     	if(cursor<2)*r = *r & cursorcolour32;
-    	while(bytecount-=4){
+    	while((bytecount-=4)>=0){
     	    if(*r){
     	    	if(cursor<2)*p = cursorcolour32;
     	    	else *p=*r;
@@ -597,6 +603,7 @@ void cmd_cursor(char *p){
     	return;
     }
     tp = checkstring(p, "COLOUR");
+    if(!tp) tp = checkstring(p, "COLOR");
     if(tp) {
     	if(!cursorenable)return;
 		c=getColour(tp, 0);
@@ -895,6 +902,19 @@ void PageCopy(uint32_t fadd, uint32_t tadd, int transparent){
 	WritePage=writesave;
 	ReadPage=readsave;
 }
+static int Display_Off=0;
+// PAGE DISPLAY -1 turned the sync signals off: on again (at the end of the program too)
+void PageDisplayOn(void){
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+	if(!Display_Off)return;
+	Display_Off=0;
+	GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+	GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
+	HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
+}
 void cmd_framebuffer(void){
 	char *p;
 	if(VideoColour==4){                                            // a 4-bit mode: the PicoMite's FRAMEBUFFER (Rgb121.c)
@@ -930,8 +950,22 @@ void cmd_framebuffer(void){
     }
     p = checkstring(cmdline, "WRITE");
     if(p) {
-		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
-		WritePage=ReadPage=WPN;
+    	int page=WPN;												// FRAMEBUFFER WRITE, or the PicoMite's FRAMEBUFFER WRITE F or N
+    	skipspace(p);
+    	if(*p && *p!='\''){
+    		char *q;
+    		if(checkstring(p, "N")) q = "N";
+    		else if(checkstring(p, "F")) q = "F";
+    		else {
+    			getargs(&p, 1, ",");
+    			if(argc != 1) error("Syntax");
+    			q = getCstring(argv[0]);
+    		}
+    		if(strcasecmp(q, "N") == 0) page = 0;					// the display: PAGE WRITE 0
+    		else if(strcasecmp(q, "F") != 0) error("Syntax");
+    	}
+		if(page==WPN && PageTable[WPN].address==NULL)error("Framebuffer not created");
+		WritePage=ReadPage=page;
     	HRes=PageTable[WritePage].xmax;
     	VRes=PageTable[WritePage].ymax;
     	WritePageAddressExternal=ReadPageAddressExternal=(uint32_t)PageTable[WritePage].address;
@@ -955,7 +989,7 @@ void cmd_framebuffer(void){
     if(p) {
 		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
     	if(PageTable[BPN].address==NULL){
-        	if(PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[BPN].nbytes>FreeSpaceOnHeap()-32768)error("Not enough memory for framebuffer backup");
+        	if(PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[WPN].nbytes>FreeSpaceOnHeap()-32768)error("Not enough memory for framebuffer backup");
     		PageTable[BPN].address=GetMemory(PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[WPN].nbytes);
         	PageTable[BPN].address=(uint8_t *)PageTable[BPN].address;
         	PageTable[BPN].expand=0;
@@ -994,9 +1028,14 @@ void cmd_framebuffer(void){
     p = checkstring(cmdline, "CREATE");
     if(p) {
     	getargs(&p,3,",");
+		if(PageTable[WPN].address!=NULL && WritePage==WPN)error("Framebuffer is set for write");   // (before the sizes: their minimum is the write page's)
     	int w = PageTable[WritePage].xmax, h = PageTable[WritePage].ymax;	// no size given: the page being written (the PicoMite form)
     	if(argc >= 1 && *argv[0]) w = getint(argv[0],PageTable[WritePage].xmax,(G1Hardware ? 1600: 4096));	// argv[] past argc is not set
     	if(argc >= 3 && *argv[2]) h = getint(argv[2],PageTable[WritePage].ymax,(G1Hardware ? 1200: 2048));
+		FreeMemorySafe((void *)&PageTable[BPN].address);			// (a backup is of the framebuffer this one replaces)
+    	PageTable[BPN].address=NULL;
+    	PageTable[BPN].expand=0;
+    	PageTable[BPN].nbytes=0;
         PageTable[WPN].xmax=w;
     	PageTable[WPN].ymax=h;
     	FreeMemorySafe((void *)&PageTable[WPN].address);
@@ -1033,7 +1072,7 @@ void fun_at(void) {
     //      where x and y are ASCII string integers.
     //      Assumes overall font size of 6x12 pixels (480/80 x 432/36), including gaps between characters and lines
 
-    sprintf(buf, "\033[%d;%df", (int)CurrentY/(FontTable[gui_font >> 4][1] * (gui_font & 0b1111))+1, (int)CurrentX/(FontTable[gui_font >> 4][0] * (gui_font & 0b1111)));
+    sprintf(buf, "\033[%d;%df", (int)CurrentY/(FontTable[gui_font >> 4][1] * (gui_font & 0b1111))+1, (int)CurrentX/(FontTable[gui_font >> 4][0] * (gui_font & 0b1111))+1);
     SerUSBPutS(buf);								                // send it to the USB
 	if(PrintPixelMode==2 || PrintPixelMode==5)SerUSBPutS("\033[7m");
     targ=T_STR;
@@ -1059,12 +1098,12 @@ void Free3DMemory(int i){
 }
 void closeall3d(void){
     int i;
-    for(i = 0; i < MAX3D; i++) {
+    for(i = 1; i <= MAX3D; i++) {								// (objects 1 to MAX3D)
     	if(struct3d[i]!=NULL){
     		Free3DMemory(i);
     	}
     }
-    for(i=1; i<4;i++){
+    for(i=1; i<=MAXCAM;i++){
     	camera[i].viewplane=-32767;
     }
 }
@@ -1573,6 +1612,7 @@ void cmd_3D(void){
 		getargs(&p,9,",");
 		if(argc!=9)error("Argument count");
 		int n=getint(argv[0],1,MAX3D);
+		if(struct3d[n]==NULL)error("Object % does not exist",n);
 		struct3d[n]->light.x=getint(argv[2],-32766,32766);
 		struct3d[n]->light.y=getint(argv[4],-32766,32766);
 		struct3d[n]->light.z=getint(argv[6],-32766,32766);
@@ -1600,13 +1640,14 @@ void cmd_3D(void){
 		getargs(&p, ((MAX_ARG_COUNT-1) * 2) - 1, ",");
 		if((argc & 0b11) != 0b11) error("Invalid syntax");
 		int n=getint(argv[0],1,MAX3D);
+		if(struct3d[n]==NULL)error("Object % does not exist",n);
 		int flag=getint(argv[2],0,255);
 	    // step over the equals sign and get the value for the assignment
 	    for(i = 4; i < argc; i += 4) {
 	        face = getinteger(argv[i]);
 	        nbr = getinteger(argv[i + 2]);
 
-	        if(nbr <= 0 || nbr>struct3d[n]->nf-face) error("Invalid argument");
+	        if(face < 0 || face >= struct3d[n]->nf || nbr <= 0 || nbr>struct3d[n]->nf-face) error("Invalid argument");
 
 	        while(--nbr>=0) {
 	        	struct3d[n]->flags[face+nbr]=flag;
@@ -1664,6 +1705,7 @@ void cmd_3D(void){
 		if((argc & 0x01 || argc<3) == 0) error("Argument count");
 		for(i = 0; i < argc; i += 2) {
 			n=getint(argv[i],1,MAX3D);
+			if(struct3d[n]==NULL)error("Object % does not exist",n);
 			for(v=0;v<struct3d[n]->nv;v++){
 				mycpy(&struct3d[n]->q_vertices[v],&struct3d[n]->r_vertices[v], sizeof(s_quaternion));
 			}
@@ -1742,7 +1784,7 @@ void cmd_3D(void){
 		if(argc>=5 && *argv[4])	camera[n].x=getnumber(argv[4]);
 		if(camera[n].x > 32766 || camera[n].x < -32766 )error("Valid is -32766 to 32766");
 		if(argc>=7 && *argv[6])	camera[n].y=getnumber(argv[6]);
-		if(camera[n].y > 32766 || camera[n].x < -32766 )error("Valid is -32766 to 32766");
+		if(camera[n].y > 32766 || camera[n].y < -32766 )error("Valid is -32766 to 32766");
 		if(argc>=9 && *argv[8])	camera[n].panx=getint(argv[8],-32766-camera[n].x,32766-camera[n].x);
 		if(argc==11 )camera[n].pany=getint(argv[10],-32766-camera[n].y,32766-camera[n].y);
 		return;
@@ -1809,6 +1851,7 @@ void cmd_image(void){
         }
         if(argc>=15 && *argv[14]){
         	if(checkstring(argv[14], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[14],0,LastPage);
@@ -1885,7 +1928,7 @@ void cmd_image(void){
 							}
 						}
 					} else {
-						c=buff[xs+ys*width];
+						c=((uint32_t *)buff)[xs+ys*width];
 						if(dontcopyblack==0 || c){
 							yy=y+ny;
 							xx=x+nx;
@@ -1919,6 +1962,7 @@ void cmd_image(void){
         }
         if(argc>=15 && *argv[14]){
         	if(checkstring(argv[14], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[14],0,LastPage);
@@ -1957,6 +2001,7 @@ void cmd_image(void){
         }
         if(argc>=21 && *argv[20]){
         	if(checkstring(argv[20], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[20],0,LastPage);
@@ -2013,7 +2058,7 @@ void cmd_image(void){
 					if(dontcopyblack==0 || c){
 						yp=yy+ys;
 						xp=xx+nx;
-						if(optiony)yy=maxH-1-yy;
+						if(optiony)yp=maxH-1-yp;
 						if(xp<maxW && yp<maxH && xp>=0 && yp>=0){
 							if(Scale==1){
 								*(uint8_t *)((yp * maxW + xp) + wpa)=(uint8_t)c;
@@ -2040,7 +2085,7 @@ void cmd_image(void){
 					if(dontcopyblack==0 || c){
 						yp=yy+ys;
 						xp=xx+nx;
-						if(optiony)yy=maxH-1-yy;
+						if(optiony)yp=maxH-1-yp;
 						if(xp<maxW && yp<maxH && xp>=0 && yp>=0){
 							if(Scale==1){
 								*(uint16_t *)((yp * maxW + xp) * 2 + wpa)=(uint16_t)c;
@@ -2063,11 +2108,11 @@ void cmd_image(void){
 				routinechecks(1);
 				for(yy=0;yy<ye-ys;yy++){
 					py = (yy*yshift)>>16;
-					c=buff[px+py*w1];
+					c=((uint32_t *)buff)[px+py*w1];
 					if(dontcopyblack==0 || c){
 						yp=yy+ys;
 						xp=xx+nx;
-						if(optiony)yy=maxH-1-yy;
+						if(optiony)yp=maxH-1-yp;
 						if(xp<maxW && yp<maxH && xp>=0 && yp>=0){
 							if(Scale==1){
 								*(uint32_t *)((yp * maxW + xp) * 4 + wpa)=(uint32_t)c;
@@ -2097,6 +2142,7 @@ void cmd_image(void){
         }
         if(argc>=21 && *argv[20]){
         	if(checkstring(argv[20], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[20],0,LastPage);
@@ -2153,7 +2199,7 @@ void cmd_image(void){
 					if(dontcopyblack==0 || c){
 						yp=yy+ny;
 						xp=xx+xs;
-						if(optiony)yy=maxH-1-yy;
+						if(optiony)yp=maxH-1-yp;
 						if(xp<maxW && yp<maxH && xp>=0 && yp>=0){
 							if(Scale==1){
 								*(uint8_t *)((yp * maxW + xp) + wpa)=(uint8_t)c;
@@ -2180,7 +2226,7 @@ void cmd_image(void){
 					if(dontcopyblack==0 || c){
 						yp=yy+ny;
 						xp=xx+xs;
-						if(optiony)yy=maxH-1-yy;
+						if(optiony)yp=maxH-1-yp;
 						if(xp<maxW && yp<maxH && xp>=0 && yp>=0){
 							if(Scale==1){
 								*(uint16_t *)((yp * maxW + xp) * 2 + wpa)=(uint16_t)c;
@@ -2203,11 +2249,11 @@ void cmd_image(void){
 				routinechecks(1);
 				for(xx=0;xx<xe-xs;xx++){
 					px = (xx*xshift)>>16;
-					c=buff[px+py*w1];
+					c=((uint32_t *)buff)[px+py*w1];
 					if(dontcopyblack==0 || c){
 						yp=yy+ny;
 						xp=xx+xs;
-						if(optiony)yy=maxH-1-yy;
+						if(optiony)yp=maxH-1-yp;
 						if(xp<maxW && yp<maxH && xp>=0 && yp>=0){
 							if(Scale==1){
 								*(uint32_t *)((yp * maxW + xp) * 4 + wpa)=(uint32_t)c;
@@ -2236,6 +2282,7 @@ void cmd_image(void){
     	int dontcopyblack=0;
         if(argc>=17 && *argv[16]){
         	if(checkstring(argv[16], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[16],0,LastPage);
@@ -2400,7 +2447,7 @@ void cmd_image(void){
 						py = (i*y_ratio)>>16 ;
 						for (int j=0;j<w2;j++) {
 							px = (j*x_ratio)>>16 ;
-							c=buff[(int)(px+py*w1)];
+							c=((uint32_t *)buff)[(int)(px+py*w1)];
 							if(dontcopyblack==0 || c){
 								*cout1=c;
 							}
@@ -2418,7 +2465,7 @@ void cmd_image(void){
 						cout2=start2;
 						for (int j=0;j<w2;j++) {
 							px = (j*x_ratio)>>16 ;
-							c=buff[(int)(px+py*w1)];
+							c=((uint32_t *)buff)[(int)(px+py*w1)];
 							if(dontcopyblack==0 || c){
 								*cout1=c;
 								*cout2=c;
@@ -2449,6 +2496,7 @@ void cmd_image(void){
         }
         if(argc>=17 && *argv[16]){
         	if(checkstring(argv[16], "FRAMEBUFFER")){
+        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
         		ReadPage=WPN;
         	} else {
 				ReadPage=getint(argv[16],0,LastPage);
@@ -2594,7 +2642,6 @@ void cmd_page(void){
 	int cursorhidden=0;
 	int maxH=PageTable[WritePage].ymax;
     int maxW=PageTable[WritePage].xmax;
-    static int Display_Off=0;
     if(VideoColour==4 && !(checkstring(cmdline, "WRITE") || checkstring(cmdline, "COPY") || checkstring(cmdline, "SCROLL")))
     	error("Invalid for this screen mode");                       // a 4-bit mode: PAGE WRITE, COPY and SCROLL (Rgb121.c)
     p = checkstring(cmdline, "DISPLAY");
@@ -2615,17 +2662,8 @@ void cmd_page(void){
 		    HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 			return;
 		}
-		if(fadd!=-1 && Display_Off){
-			GPIO_InitTypeDef GPIO_InitStruct = {0};
-			Display_Off=0;
-		    GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;
-		    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-		    GPIO_InitStruct.Pull = GPIO_NOPULL;
-		    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-		    GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
-		    HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
-		}
-		if((VideoMode==3 || VideoMode==5 || VideoMode==6 || VideoMode==7 || VideoMode==12 || VideoMode==13) && fadd>(VideoColour==12 ? 2: 1))error(VideoColour==12 ? "Display page limited to 0, 1 and 2 in this mode": "Display page limited to 0 and 1 in this mode");
+		if(fadd!=-1)PageDisplayOn();
+		if((VideoMode==3 || VideoMode==5 || VideoMode==6 || VideoMode==7 || VideoMode==12 || VideoMode==13 || VideoMode==17) && fadd>(VideoColour==12 ? 2: 1))error(VideoColour==12 ? "Display page limited to 0, 1 and 2 in this mode": "Display page limited to 0 and 1 in this mode");
     	Address=(uint32_t)PageTable[fadd].address;
     	if(Address>=0x24000000 &&  Address < 0x24000000+512*1024-PageTable[0].size){
 			pagesetdone=0;
@@ -2746,6 +2784,9 @@ void cmd_page(void){
     	getargs(&p,7,",");
 		int multiplier=(VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4));
     	if(argc<5)error("Syntax");
+    	int page=getint(argv[0],0,LastPage);
+    	maxW=PageTable[page].xmax;									// (the limits are the scrolled page's, not the write page's)
+    	maxH=PageTable[page].ymax;
     	x=getint(argv[2],-maxW/2-1,maxW/2);
     	y=getint(argv[4],-maxH/2-1,maxH/2);
     	if(x==0 && y==0)return;
@@ -2754,7 +2795,7 @@ void cmd_page(void){
     	if(n>m)m=n;
     	if(argc==7)blank=getColour(argv[6], 1);
 		if(blank==-2)current=GetTempMemory(m);
-		ReadPage=WritePage=getint(argv[0],0,LastPage);
+		ReadPage=WritePage=page;
     	if(cursoron && ReadPage==(VideoColour==12 ? 1 : 0)){
     		hidecursor(0);
     		cursorhidden=1;
@@ -2799,6 +2840,11 @@ void cmd_page(void){
     	int32_t fadd=getint(argv[0],0,LastPage);
     	int32_t tadd=getint(argv[2],0,LastPage);
     	if(!(PageTable[fadd].xmax==PageTable[tadd].xmax && PageTable[fadd].ymax==PageTable[tadd].ymax))error("Page size mismatch - use BLIT");
+    	int deferred=0;
+    	if(argc==7){
+    		char *p=argv[6];
+    		if (toupper(*p)=='T' || *p=='1')transparent=1;
+    	}
     	if(argc>=5 && *argv[4]){
     		char *p=argv[4];
     		if (toupper(*p)!='I'){
@@ -2808,19 +2854,17 @@ void cmd_page(void){
     					CheckAbort();
     				}
     			} else if (toupper(*p)=='D'){
-    				deferredcopy=1;
-    				pagesetdone=0;
+    				deferred=1;
+    				deferredcopy=0;										// (one still waiting is replaced)
     				deferredfadd=fadd;
     				deferredtadd=tadd;
+    				deferredtransparent=transparent;
+    				pagesetdone=0;
+    				deferredcopy=1;
     			} else error("Syntax");
     		}
     	}
-    	if(argc==7){
-    		char *p=argv[6];
-    		if (toupper(*p)=='T' || *p=='1')transparent=1;
-    		if(deferredcopy)deferredtransparent=1;
-    	}
-    	if(!deferredcopy){
+    	if(!deferred){
         	if(cursoron && (tadd==(VideoColour==12 ? 1 : 0) || fadd==(VideoColour==12 ? 1 : 0))){
         	    uint8_t readsave=ReadPage, writesave=WritePage; //save the current read and write page
         	    ReadPage = WritePage = (VideoColour==12 ? 1 : 0);
@@ -2858,7 +2902,7 @@ void cmd_page(void){
 			ReadPage=readsave;
 			WritePage=writesave;
 		}
-    	int offset=getint(argv[6],0,maxW);
+    	int offset=getint(argv[6],0,PageTable[tadd].xmax);
 		if(PageTable[tadd].expand){
 			PageTable[TPN].address=GetTempMemory(PageTable[fadd1].size);
 			PageTable[TPN].expand=0;
@@ -3411,8 +3455,9 @@ void cmd_pixel(void) {
 		{
 			int x1, y1, f, red, blue, green, trans;
 			getargs(&nostackp,5,",");
-			x1 = getint(argv[0],0,fillmaxW);
-			y1 = getint(argv[2],0,fillmaxH);
+			if(argc!=5)error("Argument count");
+			x1 = getint(argv[0],0,fillmaxW-1);
+			y1 = getint(argv[2],0,fillmaxH-1);
 			f = getColour(argv[4], 0);
 			if(VideoColour==32){
 				ConvertedColour=f;                                  // (it was left as the previous fill's: Gerry's b14)
@@ -3775,11 +3820,11 @@ void polygon(char *p, int close){
         if(yptr)yptr2=*yptr;
         else yfptr2=*yfptr;
         c = gui_fcolour;                                    // setup the defaults
-        if(argc > 5 && *argv[6]) c = getint(argv[6], 0, WHITE);
+        if(argc > 5 && *argv[6]) c = getColour(argv[6], 0);
         if(argc > 7 && *argv[8]){
         	main_fill_polyX=(TFLOAT  *)GetTempMemory(xtot * sizeof(TFLOAT));
         	main_fill_polyY=(TFLOAT  *)GetTempMemory(xtot * sizeof(TFLOAT));
-        	f = getint(argv[8], 0, WHITE);
+        	f = getColour(argv[8], 0);
     		fill_set_fill_color((f>>16) & 0xFF, (f>>8) & 0xFF , f & 0xFF, (f>>24)&0xF);
         	fill_set_pen_color((c>>16) & 0xFF, (c>>8) & 0xFF , c & 0xFF, (c>>24)&0xF);
     //	    main_field_width = maxW;
@@ -3852,7 +3897,7 @@ void polygon(char *p, int close){
     	main_fill_polyY=(TFLOAT  *)GetTempMemory(xmax * sizeof(TFLOAT));
 		if(argc > 5 && *argv[6]){ //foreground colour specified
 			getargaddress(argv[6], &cptr, &cfptr, &nc);
-			if(nc == 1) for(i=0;i<n;i++)cc[i] = getint(argv[6], 0, WHITE);
+			if(nc == 1) for(i=0;i<n;i++)cc[i] = getColour(argv[6], 0);
 			else {
 				if(nc < n) error("Foreground colour Dimensions");
 				for(i=0;i<n;i++){
@@ -3868,7 +3913,7 @@ void polygon(char *p, int close){
 		} else for(i=0;i<n;i++)cc[i] = gui_fcolour;
 		if(argc > 7){ //background colour specified
 			getargaddress(argv[8], &fptr, &ffptr, &nf);
-			if(nf == 1) for(i=0;i<n;i++) ff[i] = getint(argv[8], 0, WHITE);
+			if(nf == 1) for(i=0;i<n;i++) ff[i] = getColour(argv[8], 0);
 			else {
 				if(nf < n) error("Background colour Dimensions");
 				for(i=0;i<n;i++){
@@ -4026,7 +4071,7 @@ void cmd_circle(void) {
 			}
 			if(argc > 9 && *argv[10]){
 				getargaddress(argv[10], &cptr, &cfptr, &nc);
-				if(nc == 1) c = getint(argv[10], 0, WHITE);
+				if(nc == 1) c = getColour(argv[10], 0);
 				else if(nc>1) {
 					if(nc > 1 && nc < n) n=nc; //adjust the dimensionality
 					for(i=0;i<nc;i++){
@@ -4042,7 +4087,7 @@ void cmd_circle(void) {
 			}
 			if(argc > 11){
 				getargaddress(argv[12], &fptr, &ffptr, &nf);
-				if(nf == 1) f = getint(argv[12], -1, WHITE);
+				if(nf == 1) f = getColour(argv[12], 1);
 				else if(nf>1) {
 					if(nf > 1 && nf < n) n=nf; //adjust the dimensionality
 					for(i=0;i<nf;i++){
@@ -4254,11 +4299,11 @@ void cmd_line(void) {
             if(argc>=9 && *argv[8])ys=getint(argv[8],OptionBase,n-2+OptionBase);
             if(argc>=11 && *argv[10])yinc=getint(argv[10],1,n-1);
             c = gui_fcolour;  w = 1;                                        // setup the defaults
-            if(argc == 13) c = getint(argv[12], 0, WHITE);
+            if(argc == 13) c = getColour(argv[12], 0);
             int y=ys-OptionBase;
             for(i=0;i<(nc-1);i++){
-              if(y>=nc)break;
-              if(y+yinc>=nc)break;
+              if(y>=n)break;
+              if(y+yinc>=n)break;
               x1 = xs+i*xinc;
               y1 = (y1fptr==NULL ? y1ptr[y] : (int)y1fptr[y]);
               if(y1<0)y1=0;
@@ -4401,6 +4446,7 @@ void cmd_box(void) {
 		}
 		if(argc>=10){
 			if(checkstring(argv[10], "FRAMEBUFFER")){
+				if(PageTable[WPN].address==NULL)error("Framebuffer not created");
 				ReadPage=WPN;
 			} else {
 				ReadPage=getint(argv[10],0,LastPage);
@@ -4478,6 +4524,7 @@ void cmd_box(void) {
 		}
 		if(argc>=10){
 			if(checkstring(argv[10], "FRAMEBUFFER")){
+				if(PageTable[WPN].address==NULL)error("Framebuffer not created");
 				ReadPage=WPN;
 			} else {
 				ReadPage=getint(argv[10],0,LastPage);
@@ -4555,6 +4602,7 @@ void cmd_box(void) {
 		}
 		if(argc>=10){
 			if(checkstring(argv[10], "FRAMEBUFFER")){
+				if(PageTable[WPN].address==NULL)error("Framebuffer not created");
 				ReadPage=WPN;
 			} else {
 				ReadPage=getint(argv[10],0,LastPage);
@@ -4811,6 +4859,7 @@ void fun_pixel(void) {
     y = getinteger(argv[2]);
     if(argc==5){
     	if(checkstring(argv[4], "FRAMEBUFFER")){
+    		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
     		ReadPage=WPN;
     	} else {
 			ReadPage=getint(argv[4],0,LastPage);
@@ -4996,10 +5045,11 @@ void fun_rgb(void) {
         else error("Invalid colour: $", argv[0]);
         iret &= 0xFFFFFF;
         if(VideoColour==12)iret |= (getint(argv[2], 0, 15)<<24);
-        if(VideoColour==32)iret |= (getint(argv[2], 0, 255)<<24);
+        if(VideoColour==32)iret |= ((getint(argv[2], 0, 255)>>4)<<24);   // (a colour holds 4 bits of it, as RGB(r, g, b, t) keeps
+                                                                    // them: 255 is 15; the 8 bits made a colour no command took)
     } else if(argc == 7) {
     	if(VideoColour<=8 || VideoColour==16)error("Transparency not valid for this mode");
-        iret = rgb(getint(argv[0], 0, 255), getint(argv[2], 0, 255), getint(argv[4], 0, 255), (VideoColour==12 ? getint(argv[6], 0, 15) : getint(argv[6], 0, 255)));
+        iret = rgb(getint(argv[0], 0, 255), getint(argv[2], 0, 255), getint(argv[4], 0, 255), (VideoColour==12 ? getint(argv[6], 0, 15) : getint(argv[6], 0, 255)>>4));   // (32-bit: its top 4 bits; RGB() kept the bottom 4, so 128 was 0)
     } else
         error("Syntax");
     targ = T_INT;

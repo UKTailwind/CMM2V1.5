@@ -176,7 +176,7 @@ void cmd_ds18b20(void) {
     timeout = 100 << precision;                                     // the conversion time for the precision, or as given
     if(argc == 5) timeout = getint(argv[4], 100, 2000);
     Init_ds18b20(pin, precision);
-    if(ds18b20Timers == NULL) ds18b20Timers = GetMemory(NBRPINS*sizeof(long long int));   // if this is the first time allocate memory for the timer array
+    if(ds18b20Timers == NULL) ds18b20Timers = GetMemory((NBRPINS+1)*sizeof(long long int));   // if this is the first time allocate memory for the timer array
     ds18b20Timers[pin] = ds18b20Timer + timeout;                    // set the timer count to wait for the conversion
 }
 

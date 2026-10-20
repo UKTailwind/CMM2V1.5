@@ -1,0 +1,61 @@
+ok  a #DEFINE inside #COMMENT START ... END is a comment (it took effect)
+ok  a line that starts with MMDEBUGGER is kept (every MMDEBUG... line was dropped)
+ok  SPRITE LOAD adds .SPR (it was appended to the statement)
+ok  it loads the number of sprites the file declares (it read one more)
+ok  SPRITE LOAD over a sprite of another size takes the new size (the old buffer was kept)
+ok  SPRITE COPY to 33 and 34, those closed, then the original (1<<33 overflowed)
+ok  SPRITE COPY past sprite 64
+ok  SPRITE SWAP with # before the second number (it gave an error)
+ok    the second is showing
+ok  SPRITE HIDE during SPRITE HIDE ALL is refused
+ok  SPRITE SCROLL x, y, colour fills with the colour (it took y's value)
+ok  GUI CURSOR LOAD adds .CUR
+ok  GUI CURSOR COLOR (only COLOUR was taken)
+ok  FRAMEBUFFER CREATE again deletes the backup (RESTORE copied the new size through the old)
+ok  FRAMEBUFFER WRITE: MM.HRES is the framebuffer's
+ok  FRAMEBUFFER CREATE is refused while the framebuffer is written to
+ok  the PicoMite's FRAMEBUFFER WRITE N draws on the display again
+ok  PAGE AND_PIXELS with a bigger write page: the pages' own size
+ok  an immediate PAGE COPY while a D copy waits is made (it was skipped)
+ok  PIXEL FILL off the page
+ok  DRAW3D LIGHT on an object that does not exist (it faulted)
+ok  DATETIME$(0) (every number was refused)
+ok  EPOCH with 61 minutes (it tested the month)
+ok  FORMAT$ longer than a string (it overran its buffer)
+ok  LONGSTRING LOAD with a count over the string's length (it copied the count)
+ok  LONGSTRING LEFT with a negative count (it ran away)
+ok  LINSTR's regular expression form with start past the string (it read past it)
+ok  STR2BIN with more than 8 bytes (it overwrote the stack)
+ok  CHOICE(0.5, ...) is the first (the condition was truncated)
+ok  TRIM$ with a lower case where$
+ok  DATE$ = a year the clock cannot hold
+ok  MM.INFO$(RESET) has no CR LF
+ok  MM.INFO(OPTION CONSOLE PORT) (CONSOLE was matched first)
+ok  MATH(C_ADD) with one argument (it read an unset one)
+ok  MATH FFT with one argument
+ok  MATH(C_ARG), b14's name for C_CARG
+ok  MATH RANDOMIZE 0 (every number after it was 0)
+ok  MATH RANDOMIZE's seed is 32 bits (2^32 seeded with 0)
+ok  MATH SHIFT's fourth argument is U (another was ignored)
+ok  MATH WINDOW's minimum into an integer is rounded (1.6 was 1)
+ok  CRC8's endmask after reverseOut, as CRC12's and CRC16's (it came out reflected)
+ok  CRC32's too
+ok  a trailing comma is an argument left out: argv[argc] is empty (makeargs, 9ad3be8)
+ok  a negative byte for MATH(CRC8)
+ok  MATH AES128 into a string of LENGTH 4 (it wrote 16 bytes)
+ok  MATH(BASE64) into a string of LENGTH 4 (it wrote 8 bytes)
+ok  CALL with a comma in the name's expression (the arguments were split inside MID$)
+ok  EXECUTE inside an EXECUTE (the outer one's line was overwritten)
+ok  CAN: a Classical message comes back
+ok    its identifier
+ok    its length (CAN READ always read 0 bytes)
+ok    its data, from the most significant byte (SEND made the HAL read out of bounds)
+ok    not a remote frame (rtr was &H20000000 for one)
+ok  CAN FD: a 12-byte message comes back
+ok    its length
+ok    its first 8 bytes, the last integer
+ok    its last 4, the top of the integer before (SEND and READ disagreed)
+ok  MODE 15 in another depth: the message
+ok  MODE r, bits, , interrupt (Syntax: argv[4] was tested, not *argv[4])
+m4fixes: 59 of 59 passed
+

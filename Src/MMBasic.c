@@ -4818,6 +4818,7 @@ static void MIPS16 ClearRuntimeAll(int keep) {
     CFuncInt1 = CFuncInt2 = CFuncInt3 = CFuncInt4 = CFuncmSec = 0;  // the program (a pin or the 1 ms tick called them after NEW)
     OptionErrorSkip = 0;
     MMerrline = 0;
+    MMerrno = 0;                                                    // (MM.ERRNO too, as MM.ERRLINE and MM.ERRMSG$: the PicoMite's)
     FunReturnArrayCount = 0;
     InMMEND = false;
     *MMErrMsg = 0;

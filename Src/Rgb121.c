@@ -456,6 +456,7 @@ void Rgb121Framebuffer(void) {
     if((p = checkstring(cmdline, "CREATE 2"))) {
         FbCreate(RGB121_2, 0, "Framebuffer 2 already exists");
     } else if((p = checkstring(cmdline, "CREATE"))) {
+        checkend(p);                                                // (no size: F is the size of the screen)
         FbCreate(RGB121_F, 0, "Framebuffer already exists");
     } else if((p = checkstring(cmdline, "LAYER TOP"))) {
         int t = 0;

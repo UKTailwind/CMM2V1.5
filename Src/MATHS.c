@@ -148,6 +148,8 @@ inline static void m_seedRand(MTRand *rand, unsigned long seed)
 	 * from Line 25 of Table 1 in: Donald Knuth, "The Art of Computer
 	 * Programming," Vol. 2 (2nd Ed.) pp.102.
 	 */
+	if ((seed & 0xffffffff) == 0)
+		seed = 4357; // a seed of 0 would make every word of the state 0, and every number after it 0
 	rand->mt[0] = seed & 0xffffffff;
 	for (rand->index = 1; rand->index < STATE_VECTOR_LENGTH; rand->index++)
 	{
@@ -326,7 +328,7 @@ unsigned int b64_decode(const unsigned char *in, unsigned int in_len, unsigned c
  */
 MMFLOAT genRand(MTRand *rand)
 {
-	return ((MMFLOAT)genRandLong(rand) / (unsigned long)0xffffffff);
+	return ((MMFLOAT)genRandLong(rand) / 4294967296.0); // 2^32: below 1, as documented (0xFFFFFFFF could give 1)
 }
 
 MMFLOAT determinant(MMFLOAT **matrix, int size);
@@ -510,9 +512,9 @@ uint8_t crc8(uint8_t *array, uint16_t length, const uint8_t polynome,
 			}
 		}
 	}
-	crc ^= endmask;
 	if (reverseOut)
 		crc = reverse8(crc);
+	crc ^= endmask; // (after the reflection, as CRC12 and CRC16)
 	return crc;
 }
 
@@ -618,9 +620,9 @@ uint32_t crc32(const uint8_t *array, uint16_t length, const uint32_t polynome,
 			}
 		}
 	}
-	crc ^= endmask;
 	if (reverseOut)
 		crc = reverse32(crc);
+	crc ^= endmask; // (after the reflection, as CRC12 and CRC16)
 	return crc;
 }
 
@@ -652,9 +654,9 @@ uint64_t crc64(const uint8_t *array, uint16_t length, const uint64_t polynome,
 			}
 		}
 	}
-	crc ^= endmask;
 	if (reverseOut)
 		crc = reverse64(crc);
+	crc ^= endmask; // (after the reflection, as CRC12 and CRC16)
 	return crc;
 }
 int parseintegerarray(char *tp, int64_t **a1int, int argno, int dimensions, int *dims, bool ConstantNotAllowed, int *stride)
@@ -1134,6 +1136,7 @@ int parseany(char *tp, MMFLOAT **a1float, int64_t **a1int, unsigned char **a1str
 	;
 	return *length;
 }
+static int AESoutsize = 255;										// the output string's size (its LENGTH), for returnAES
 unsigned char *parseAES(char *p, int ivadd, uint8_t *keyx, uint8_t *ivx, int64_t **outint, unsigned char **outstr, MMFLOAT **outfloat, int *card2)
 {
 	int64_t *a1int = NULL, *a2int = NULL, *a3int = NULL, *a4int = NULL;
@@ -1165,6 +1168,8 @@ unsigned char *parseAES(char *p, int ivadd, uint8_t *keyx, uint8_t *ivx, int64_t
 	unsigned char *inx = (unsigned char *)GetTempMemory(*card2 + 16);
 	length = 0;
 	card3 = parseany(argv[4], &a3float, &a3int, &a3str, &length, false);
+	if (a3str != NULL)
+		AESoutsize = FoundSize();
 	if (card3 != *card2 + ivadd && a3str == NULL)
 		error("Array size mismatch");
 	if (argc == 7)
@@ -1278,6 +1283,8 @@ unsigned char *parseB64(char *p, int64_t **outint, unsigned char **outstr, MMFLO
 	*card1 = parseany(argv[0], &a1float, &a1int, &a1str, &length, false);
 	length = 0;
 	*card2 = parseany(argv[2], &a3float, &a3int, &a3str, &length, false);
+	if (a3str != NULL)
+		AESoutsize = FoundSize();
 	unsigned char *keyx = (unsigned char *)GetTempMemory(b64e_size(*card1) + 1);
 	if (a1int != NULL)
 	{
@@ -1366,7 +1373,7 @@ void returnAES(int64_t *outint, MMFLOAT *outflt, uint8_t *outstr, uint8_t *inx, 
 	{
 		if (iv)
 		{
-			if (card + 16 >= 256)
+			if (card + 16 > AESoutsize)							// (its LENGTH: 255 at most)
 				error("Too many elements for string output");
 			memcpy(&outstr[1], iv, 16);
 			memcpy(&outstr[17], inx, card);
@@ -1374,7 +1381,7 @@ void returnAES(int64_t *outint, MMFLOAT *outflt, uint8_t *outstr, uint8_t *inx, 
 		}
 		else
 		{
-			if (card >= 256)
+			if (card > AESoutsize)
 				error("Too many elements for string output");
 			memcpy(&outstr[1], inx, card);
 			*outstr = card;
@@ -1499,6 +1506,8 @@ void cmd_math(void)
 
 			if (frequency <= 0.0 || frequency > 0.5)
 				error("Frequency must be >0 and <=0.5");
+			if (m != n && n < 2)
+				error("Interpolation needs at least 2 input points");
 
 			if (parsefloatarray(argv[0], &a1float, 1, 1, NULL, false, NULL) < n)
 				StandardError(17);
@@ -1602,6 +1611,8 @@ void cmd_math(void)
 			getargs(&tp, 7, ",");
 			if (!(argc == 5 || argc == 7))
 				StandardError(2);
+			if (argc == 7 && !checkstring(argv[6], "U"))
+				SyntaxError();
 			card1 = parseintegerarray(argv[0], &a1int, 1, 0, dims, false, NULL);
 			evaluate(argv[2], &f, &i64, &s, &t, false);
 			int shift = getint(argv[2], -63, 63);
@@ -1876,10 +1887,10 @@ void cmd_math(void)
 			parsefloatarray(argv[0], &a1float, 1, 2, dims, false, NULL);
 			numcols = DimUpper(dims[0]) - OptionBase;
 			numrows = DimUpper(dims[1]) - OptionBase;
-			parsefloatarray(argv[2], &a2float, 1, 1, dims, false, NULL);
+			parsefloatarray(argv[2], &a2float, 2, 1, dims, false, NULL);
 			if ((DimUpper(dims[0]) - OptionBase) != numcols)
 				StandardError(16);
-			parsefloatarray(argv[4], &a3float, 1, 1, dims, true, NULL);
+			parsefloatarray(argv[4], &a3float, 3, 1, dims, true, NULL);
 			if ((DimUpper(dims[0]) - OptionBase) != numrows)
 				StandardError(16);
 			if (a3float == a1float || a3float == a2float)
@@ -2650,7 +2661,7 @@ void cmd_math(void)
 				if (!(scale_vtype & (T_NBR | T_INT)))
 					StandardError(6);
 				if (scale_vtype & T_INT)
-					*(long long int *)ptr1 = (long long int)inmin;
+					*(long long int *)ptr1 = FloatToInt64(inmin);
 				else
 					*(MMFLOAT *)ptr1 = inmin;
 				void *ptr2 = findvar(argv[10], V_FIND);
@@ -2662,7 +2673,7 @@ void cmd_math(void)
 				if (!(scale_vtype & (T_NBR | T_INT)))
 					StandardError(6);
 				if (scale_vtype & T_INT)
-					*(long long int *)ptr2 = (long long int)inmax;
+					*(long long int *)ptr2 = FloatToInt64(inmax);
 				else
 					*(MMFLOAT *)ptr2 = inmax;
 			}
@@ -2695,13 +2706,13 @@ void cmd_math(void)
 		tp = checkstring(cmdline, "RANDOMIZE");
 		if (tp)
 		{
-			int i;
+			long long int i;
 			getargs(&tp, 1, ",");
 			if (argc == 1)
 				i = getinteger(argv[0]);
 			else
 				i = get_rand_32() & 0x7FFFFFFF; // the hardware RNG, kept positive
-			if (i < 0)
+			if (i < 0 || i > 0xFFFFFFFFLL) // (a 32-bit seed: 2^32 went into an int as 0)
 				StandardError(21);
 			if (g_myrand == NULL)
 				g_myrand = (struct tagMTRand *)GetMemory(sizeof(struct tagMTRand));
@@ -2885,7 +2896,7 @@ void fun_math(void)
 					fret *= optionangle;
 				targ = T_NBR;
 			}
-			else if ((tp = checkstring(&ep[2], "CARG")))
+			else if ((tp = checkstring(&ep[2], "CARG")) || (tp = checkstring(&ep[2], "ARG")))	// (C_ARG: the PicoMite's and b14's manuals' name)
 			{
 				fret = (MMFLOAT)cargf(getComplex(tp));
 				targ = T_NBR;
@@ -2893,30 +2904,40 @@ void fun_math(void)
 			else if ((tp = checkstring(&ep[2], "ADD")))
 			{
 				getargs(&tp, 3, ",");
+				if (argc != 3)
+					SyntaxError();
 				fcplx x = getComplex(argv[0]) + getComplex(argv[2]);
 				retComplex(x);
 			}
 			else if ((tp = checkstring(&ep[2], "MUL")))
 			{
 				getargs(&tp, 3, ",");
+				if (argc != 3)
+					SyntaxError();
 				fcplx x = getComplex(argv[0]) * getComplex(argv[2]);
 				retComplex(x);
 			}
 			else if ((tp = checkstring(&ep[2], "SUB")))
 			{
 				getargs(&tp, 3, ",");
+				if (argc != 3)
+					SyntaxError();
 				fcplx x = getComplex(argv[0]) - getComplex(argv[2]);
 				retComplex(x);
 			}
 			else if ((tp = checkstring(&ep[2], "DIV")))
 			{
 				getargs(&tp, 3, ",");
+				if (argc != 3)
+					SyntaxError();
 				fcplx x = getComplex(argv[0]) / getComplex(argv[2]);
 				retComplex(x);
 			}
 			else if ((tp = checkstring(&ep[2], "POW")))
 			{
 				getargs(&tp, 3, ",");
+				if (argc != 3)
+					SyntaxError();
 				fcplx x = cpowf(getComplex(argv[0]), getComplex(argv[2]));
 				retComplex(x);
 			}
@@ -3013,12 +3034,16 @@ void fun_math(void)
 			else if ((tp = checkstring(&ep[2], "CPLX")))
 			{
 				getargs(&tp, 3, ",");
+				if (argc != 3)
+					SyntaxError();
 				fcplx x = (float)(getnumber(argv[0])) + (float)(getnumber(argv[2])) * I;
 				retComplex(x);
 			}
 			else if ((tp = checkstring(&ep[2], "POLAR")))
 			{
 				getargs(&tp, 3, ",");
+				if (argc != 3)
+					SyntaxError();
 				MMFLOAT r = getnumber(argv[0]);
 				MMFLOAT theta = getnumber(argv[2]) / optionangle;
 				MMFLOAT stheta = sin(theta) * r;
@@ -3066,14 +3091,14 @@ void fun_math(void)
 			{
 				if (a1float)
 				{
-					if (a1float[i] > 255)
+					if (a1float[i] < 0 || a1float[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1float[i];
 				}
 				else if (a1int)
 				{
-					if (a1int[i] > 255)
+					if (a1int[i] < 0 || a1int[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1int[i];
@@ -3120,14 +3145,14 @@ void fun_math(void)
 			{
 				if (a1float)
 				{
-					if (a1float[i] > 255)
+					if (a1float[i] < 0 || a1float[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1float[i];
 				}
 				else if (a1int)
 				{
-					if (a1int[i] > 255)
+					if (a1int[i] < 0 || a1int[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1int[i];
@@ -3174,14 +3199,14 @@ void fun_math(void)
 			{
 				if (a1float)
 				{
-					if (a1float[i] > 255)
+					if (a1float[i] < 0 || a1float[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1float[i];
 				}
 				else if (a1int)
 				{
-					if (a1int[i] > 255)
+					if (a1int[i] < 0 || a1int[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1int[i];
@@ -3228,14 +3253,14 @@ void fun_math(void)
 			{
 				if (a1float)
 				{
-					if (a1float[i] > 255)
+					if (a1float[i] < 0 || a1float[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1float[i];
 				}
 				else if (a1int)
 				{
-					if (a1int[i] > 255)
+					if (a1int[i] < 0 || a1int[i] > 255)
 						StandardError(39);
 					else
 						array[i] = (uint8_t)a1int[i];
@@ -3989,6 +4014,8 @@ void cmd_FFT(char *pp)
 	if (tp)
 	{
 		getargs(&tp, 3, ",");
+		if (argc != 3)
+			SyntaxError();
 		card1 = parsefloatarray(argv[0], &a3float, 1, 1, dims, false, NULL);
 		card2 = parsefloatarray(argv[2], &a4float, 2, 1, dims, true, NULL);
 		if (card1 != card2)
@@ -4017,6 +4044,8 @@ void cmd_FFT(char *pp)
 	if (tp)
 	{
 		getargs(&tp, 3, ",");
+		if (argc != 3)
+			SyntaxError();
 		card1 = parsefloatarray(argv[0], &a3float, 1, 1, dims, false, NULL);
 		card2 = parsefloatarray(argv[2], &a4float, 2, 1, dims, true, NULL);
 		if (card1 != card2)
@@ -4045,6 +4074,8 @@ void cmd_FFT(char *pp)
 	if (tp)
 	{
 		getargs(&tp, 3, ",");
+		if (argc != 3)
+			SyntaxError();
 		card1 = parsefloatarray(argv[0], &a4float, 1, 2, dims, false, NULL);
 		if (DimElements(dims[0]) != 2)
 			error("Argument 1 must be a 2 x n array"); // real and imaginary per element
@@ -4073,6 +4104,8 @@ void cmd_FFT(char *pp)
 		return;
 	}
 	getargs(&pp, 3, ",");
+	if (argc != 3)
+		SyntaxError();
 	card1 = parsefloatarray(argv[0], &a3float, 1, 1, dims, false, NULL);
 	card2 = parsefloatarray(argv[2], &a4float, 2, 2, dims, true, NULL);
 	if (DimElements(dims[0]) != 2)

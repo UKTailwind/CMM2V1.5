@@ -227,11 +227,11 @@ void cmd_save(void) {
         	x=0; y=0; h=maxH; w=maxW;
         } else {
         	x=getint(argv[2],0,maxW-1);
-    		if(optiony) x=maxW-1-x;
         	y=getint(argv[4],0,maxH-1);
-    		if(optiony) y=maxH-1-y;
         	w=getint(argv[6],1,maxW-x);
         	h=getint(argv[8],1,maxH-y);
+    		if(optiony) y=maxH-y-h;                                 // Y axis up: the area from y up, as BOX draws it (x was mirrored
+    		                                                        // too, and the area below y saved)
         }
     	int savey=optiony;
     	optiony=0;
@@ -386,13 +386,13 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 			else if(sbuff[0] == '*' && sbuff[1] == '/') blockcomment = 0;     // (a /* line with its own */ is a line)
 			continue;
 		}
-		if(ignore && sbuff[0]!='#')*sbuff='\'';
+		if(ignore && !(sbuff[0]=='#' && cmpstr("COMMENT END",&sbuff[1])==0))*sbuff='\'';   // (# lines too, but its END)
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
 			sbuff+=2;
 			*sbuff='\'';
 			continue;
 		}
-		if(strncasecmp(sbuff,"mmdebug ",7)==0 && convertdebug==1){   // as the program's own (it was never dropped here)
+		if(strncasecmp(sbuff,"mmdebug",7)==0 && !isnamechar(sbuff[7]) && convertdebug==1){   // the word (not MMDEBUGGER), as the program's own
 			sbuff+=6;
 			*sbuff='\'';
 			continue;
@@ -553,13 +553,13 @@ int FileLoadProgram(char *fname, int mode) {
 			else if(sbuff[0] == '*' && sbuff[1] == '/') blockcomment = 0;     // (a /* line with its own */ is a line)
 			continue;
 		}
-		if(ignore && sbuff[0]!='#')*sbuff='\'';
+		if(ignore && !(sbuff[0]=='#' && cmpstr("COMMENT END",&sbuff[1])==0))*sbuff='\'';   // (# lines too, but its END)
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
 			sbuff+=2;
 			*sbuff='\'';
 			continue;
 		}
-		if(strncasecmp(sbuff,"mmdebug ",7)==0 && convertdebug==1){
+		if(strncasecmp(sbuff,"mmdebug",7)==0 && !isnamechar(sbuff[7]) && convertdebug==1){   // (the word: not MMDEBUGGER)
 			sbuff+=6;
 			*sbuff='\'';
 			continue;
@@ -821,6 +821,7 @@ void fun_dir(void) {
     char *p;
     static FILINFO fnod;
     static char pp[FF_MAX_LFN];
+    static char drive = 'A';                                        // the drive listed: the SD card's state is A:'s only
     char q[FF_MAX_LFN]={0};
     getargs(&ep, 3, ",");
     if(argc != 0) dirflags = -1;
@@ -858,13 +859,14 @@ void fun_dir(void) {
 		if(pp[0]==0)strcpy(pp,"*");
 		if(!InitSDCard()) error((char *)FErrorMsg[20]);					// setup the SD card
 		fullpath(q);
+		drive = toupper(fullpathname[1] == ':' ? fullpathname[0] : filepath[0]);
         if(pp[0]==0)strcpy(pp,"*");
         djd.pat = pp;
         if(!InitSDCard()) return;                                   // setup the SD card
         FSerror = f_opendir(&djd, fullpathname);
         ErrorCheck(0);
     }
-        if(disk_status(0) & STA_NOINIT){
+        if(drive != 'C' && (disk_status(0) & STA_NOINIT)){           // (on C: it said "SD card not found" with no card)
            f_closedir(&djd);
             error("SD card not found");
         }
@@ -1462,7 +1464,7 @@ void LoadPNG(char *p) {
 	}
 	if(argc >= 7 && *argv[6]) transparent=getint(argv[6],0,15);
 	if(transparent){
-		if(transparent>1)force=transparent<<4;
+		force=transparent<<4;                                       // (t = 1 too: an alpha below 16 is cut; it cut nothing)
 		transparent=4;
 	}
 	if(argc >= 9 && *argv[8]) { force = getint(argv[8], 1, 254) & 0xF0; transparent = 4; }   // the cut itself (DrawBuffer takes its top four bits)

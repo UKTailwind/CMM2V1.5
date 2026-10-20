@@ -385,6 +385,7 @@ void fun_str2bin(void){
 	char *p;
 	p = getstring(argv[2]);
 	int len=p[0];
+	if(len>8)error("String length");                               // (map is 8 bytes: a longer string overwrote the stack)
 	map.l=0;
     for(j=0;j<len;j++)map.c[j]=p[j+1];
     if(argc==5){ // big endian so swap byte order
@@ -625,7 +626,7 @@ void fun_trim(void)
 			where = 'B';
 		else
 		{
-			where = (char)*getCstring(argv[4]);
+			where = (char)toupper(*getCstring(argv[4]));
 			if (!(where == 'L' || where == 'R' || where == 'B'))
 				error("Syntax");
 		}
@@ -1468,8 +1469,8 @@ void fun_ternary(void){
     int t = T_NOTYPE;
 	getargs(&ep,5,",");
 	if(argc!=5)error("Syntax");
-	int which=getnumber(argv[0]);
-	if(which){
+	MMFLOAT which=getnumber(argv[0]);                              // (not truncated: CHOICE(0.5, a, b) is a)
+	if(which != 0){
 		evaluate(argv[2], &f, &i64, &s, &t, false);
 	} else {
 		evaluate(argv[4], &f, &i64, &s, &t, false);

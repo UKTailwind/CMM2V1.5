@@ -422,6 +422,7 @@ extern int MMerrno;
 extern int MMerrline;                          // MM.ERRLINE
 extern char EndLine[];                         // END cmd$ (Commands.c)
 extern int InMMEND;                            // SUB MM.END is running (Commands.c)
+extern void ImpliedEnd(void);                  // the end of a program that runs off its last line (Commands.c)
 extern int FunReturnArrayCount;               // a FUNCTION's whole-array result (DefinedSubFun)
 extern int ErrorSkipDepth;                     // the ExecuteProgram depth ON ERROR SKIP was given at
 extern int ExecDepth;                          // how deep ExecuteProgram is (MMBasic.c)

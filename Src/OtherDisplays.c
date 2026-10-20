@@ -254,120 +254,33 @@ void __attribute__((section(".extra"))) copyfromfloat(uint8_t ***input, int xs, 
 	}
 }
 
+// the pixels of two pages combined into a third (AND_PIXELS, OR_PIXELS, XOR_PIXELS): the three are the same size (cmd_page
+// checks), so each is one block of rows, its size the target's, not the write page's (which can be bigger), and of any
+// width (whole 64-bit words of each row only were combined)
+static void PageLogic(uint32_t fadd1, uint32_t fadd2, uint32_t taddt, int op){
+	int n=PageTable[taddt].xmax * PageTable[taddt].ymax * PageTable[taddt].nbytes, w=n>>2, i;
+	uint32_t *s1=(uint32_t *)PageTable[fadd1].address, *s2=(uint32_t *)PageTable[fadd2].address, *d=(uint32_t *)PageTable[taddt].address;
+	if(op==0) for(i=0;i<w;i++) d[i] = s1[i] & s2[i];
+	else if(op==1) for(i=0;i<w;i++) d[i] = s1[i] | s2[i];
+	else for(i=0;i<w;i++) d[i] = s1[i] ^ s2[i];
+	uint8_t *b1=(uint8_t *)(s1+w), *b2=(uint8_t *)(s2+w), *bd=(uint8_t *)(d+w);
+	for(i=0;i<(n&3);i++) bd[i] = (op==0 ? (b1[i] & b2[i]) : (op==1 ? (b1[i] | b2[i]) : (b1[i] ^ b2[i])));
+}
 void __attribute__((section(".extra"))) PageAnd(uint32_t fadd1, uint32_t fadd2, uint32_t taddt){
-	uint32_t wpa=(uint32_t)PageTable[taddt].address;
-	uint32_t rpa1=(uint32_t)PageTable[fadd1].address;
-	uint32_t rpa2=(uint32_t)PageTable[fadd2].address;
-    int maxW=PageTable[WritePage].xmax;
-	int h=PageTable[taddt].ymax;
-    int x,y;
-	uint64_t *s1, *s2, *d ;
-    if(VideoColour<=8){
-        for(y=0;y<h;y++){
-    		s1=(uint64_t *)((y * maxW ) + rpa1);
-    		s2=(uint64_t *)((y * maxW ) + rpa2);
-    		d=(uint64_t *)((y * maxW ) + wpa);
-    		for(x=0;x<(maxW>>3);x++)*d++ = ((*s1++) & (*s2++));
-        }
-    } else if(VideoColour<=16){
-         for(y=0;y<h;y++){
-            for(y=0;y<h;y++){
-        		s1=(uint64_t *)((y * maxW * 2) + rpa1);
-        		s2=(uint64_t *)((y * maxW *2 ) + rpa2);
-        		d=(uint64_t *)((y * maxW  *2 ) + wpa);
-        		for(x=0;x<(maxW>>2);x++)*d++ = ((*s1++) & (*s2++));
-            }
-        }
-    } else {
-        for(y=0;y<h;y++){
-           for(y=0;y<h;y++){
-       		s1=(uint64_t *)((y * maxW * 4) + rpa1);
-       		s2=(uint64_t *)((y * maxW *4 ) + rpa2);
-       		d=(uint64_t *)((y * maxW  *4 ) + wpa);
-       		for(x=0;x<(maxW>>1);x++)*d++ = ((*s1++) & (*s2++));
-           }
-       }
-    }
+	PageLogic(fadd1, fadd2, taddt, 0);
 }
-
 void __attribute__((section(".extra"))) PageOr(uint32_t fadd1, uint32_t fadd2, uint32_t taddt){
-	uint32_t wpa=(uint32_t)PageTable[taddt].address;
-	uint32_t rpa1=(uint32_t)PageTable[fadd1].address;
-	uint32_t rpa2=(uint32_t)PageTable[fadd2].address;
-    int maxW=PageTable[WritePage].xmax;
-	int h=PageTable[taddt].ymax;
-    int x,y;
-	uint64_t *s1, *s2, *d ;
-    if(VideoColour<=8){
-        for(y=0;y<h;y++){
-    		s1=(uint64_t *)((y * maxW ) + rpa1);
-    		s2=(uint64_t *)((y * maxW ) + rpa2);
-    		d=(uint64_t *)((y * maxW ) + wpa);
-    		for(x=0;x<(maxW>>3);x++)*d++ = ((*s1++) | (*s2++));
-        }
-    } else if(VideoColour<=16){
-         for(y=0;y<h;y++){
-            for(y=0;y<h;y++){
-        		s1=(uint64_t *)((y * maxW * 2) + rpa1);
-        		s2=(uint64_t *)((y * maxW *2 ) + rpa2);
-        		d=(uint64_t *)((y * maxW  *2 ) + wpa);
-        		for(x=0;x<(maxW>>2);x++)*d++ = ((*s1++) | (*s2++));
-            }
-        }
-    } else {
-        for(y=0;y<h;y++){
-           for(y=0;y<h;y++){
-       		s1=(uint64_t *)((y * maxW * 4) + rpa1);
-       		s2=(uint64_t *)((y * maxW *4 ) + rpa2);
-       		d=(uint64_t *)((y * maxW  *4 ) + wpa);
-       		for(x=0;x<(maxW>>1);x++)*d++ = ((*s1++) | (*s2++));
-           }
-       }
-
-    }
+	PageLogic(fadd1, fadd2, taddt, 1);
 }
-
 void __attribute__((section(".extra"))) PageXor(uint32_t fadd1, uint32_t fadd2, uint32_t taddt){
-	uint32_t wpa=(uint32_t)PageTable[taddt].address;
-	uint32_t rpa1=(uint32_t)PageTable[fadd1].address;
-	uint32_t rpa2=(uint32_t)PageTable[fadd2].address;
-    int maxW=PageTable[WritePage].xmax;
-	int h=PageTable[taddt].ymax;
-    int x,y;
-	uint64_t *s1, *s2, *d ;
-    if(VideoColour<=8){
-        for(y=0;y<h;y++){
-    		s1=(uint64_t *)((y * maxW ) + rpa1);
-    		s2=(uint64_t *)((y * maxW ) + rpa2);
-    		d=(uint64_t *)((y * maxW ) + wpa);
-    		for(x=0;x<(maxW>>3);x++)*d++ = ((*s1++) ^ (*s2++));
-        }
-    } else if(VideoColour<=16){
-         for(y=0;y<h;y++){
-            for(y=0;y<h;y++){
-        		s1=(uint64_t *)((y * maxW * 2) + rpa1);
-        		s2=(uint64_t *)((y * maxW *2 ) + rpa2);
-        		d=(uint64_t *)((y * maxW  *2 ) + wpa);
-        		for(x=0;x<(maxW>>2);x++)*d++ = ((*s1++) ^ (*s2++));
-            }
-        }
-    } else {
-        for(y=0;y<h;y++){
-           for(y=0;y<h;y++){
-       		s1=(uint64_t *)((y * maxW * 4) + rpa1);
-       		s2=(uint64_t *)((y * maxW *4 ) + rpa2);
-       		d=(uint64_t *)((y * maxW  *4 ) + wpa);
-       		for(x=0;x<(maxW>>1);x++)*d++ = ((*s1++) ^ (*s2++));
-           }
-       }
-    }
+	PageLogic(fadd1, fadd2, taddt, 2);
 }
 void __attribute__((section(".extra"))) Merge(uint32_t fadd1, uint32_t fadd2, uint32_t tadd, int c){
 	uint32_t wpa=(uint32_t)PageTable[tadd].address;
 	uint32_t rpa1=(uint32_t)PageTable[fadd1].address;
 	uint32_t rpa2=(uint32_t)PageTable[fadd2].address;
-    int maxW=PageTable[WritePage].xmax;
-	int maxH=PageTable[WritePage].ymax;
+    int maxW=PageTable[tadd].xmax;									// (the pages' size, not the write page's)
+	int maxH=PageTable[tadd].ymax;
     int x,y;
     unsigned int sc;
     if(VideoColour<=8){
@@ -434,8 +347,8 @@ void __attribute__((section(".extra"))) Stitch(uint32_t fadd1, uint32_t fadd2, u
 	uint32_t wpa=(uint32_t)PageTable[tadd].address;
 	uint32_t rpa1=(uint32_t)PageTable[fadd1].address;
 	uint32_t rpa2=(uint32_t)PageTable[fadd2].address;
-    int maxW=PageTable[WritePage].xmax;
-	int maxH=PageTable[WritePage].ymax;
+    int maxW=PageTable[tadd].xmax;									// (the pages' size, not the write page's)
+	int maxH=PageTable[tadd].ymax;
     int y;
     if(VideoColour<=8){
         uint8_t *s, *d;

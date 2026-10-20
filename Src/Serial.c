@@ -347,7 +347,7 @@ int get_baudrate(int comport, int timeout){
 }
 void fun_baudrate(void){
     getargs(&ep, 3,",");
-    int i= getint(argv[0] ,1 ,3), timeout;
+    int i= getint(argv[0] ,1 ,2), timeout;                     // (COM3's receive pin is not on a connector)
     if(argc==3)timeout=getint(argv[2],1,10);
     else timeout=1;
     iret = get_baudrate(i,timeout);
@@ -603,7 +603,7 @@ void SerialOpen(char *spec) {
 
 	// setup for transmit
 	com3Tx_buf = GetMemory(TX_BUFFER_SIZE);						// setup the buffer
-	com3Tx_head = com2Tx_tail = 0;
+	com3Tx_head = com3Tx_tail = 0;
 	com3_bit9 = com3_mode = 0;
     if(de) {
     	error("Not available on COM3");

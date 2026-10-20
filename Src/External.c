@@ -97,6 +97,7 @@ extern TIM_HandleTypeDef htim17;
 extern void MNInterrupt(void);
 void WS2812(char *q);
 void FastTickStop(void);                                            // (MM_Custom.c)
+void CANclose(void);                                                // (CAN.c)
 extern void CallCFuncInt1(void);                                    // this is implemented in CFunction.c
 extern unsigned int CFuncInt1;                                      // we should call the CFunction Int2 function if this is non zero
 extern void CallCFuncInt2(void);                                    // this is implemented in CFunction.c
@@ -944,7 +945,8 @@ void fun_pin(void) {
 // first get the arguments then step over the closing bracket.  Search through the rest of the command line looking
 // for the equals sign and step over it, evaluate the rest of the command and set the pins accordingly
 void cmd_port(void) {
-	int pin, nbr, value;
+	int pin, nbr;
+	uint64_t value;                                                 // (unsigned: beyond 32 pins a signed int repeated bit 31)
     int i;
 	getargs(&cmdline, NBRPINS * 4, ",");
 
@@ -977,7 +979,8 @@ void cmd_port(void) {
 
 // this is invoked as a function (ie, x = port(10,8) )
 void fun_port(void) {
-	int pin, nbr, i, value = 0;
+	int pin, nbr, i;
+	int64_t value = 0;                                              // (up to 64 pins)
 
 	getargs(&ep, NBRPINS * 4, ",");
 	if((argc & 0b11) != 0b11) error("Invalid syntax");
@@ -990,7 +993,8 @@ void fun_port(void) {
         pin += nbr - 1;                                             // we start by reading the most significant bit
 
         while(nbr) {
-            if(IsInvalidPin(pin) || !(ExtCurrentConfig[pin] == EXT_DIG_IN || ExtCurrentConfig[pin] == EXT_INT_HI || ExtCurrentConfig[pin] == EXT_INT_LO || ExtCurrentConfig[pin] == EXT_INT_BOTH)) error("Invalid input pin");
+            if(IsInvalidPin(pin) || !(ExtCurrentConfig[pin] == EXT_DIG_IN || ExtCurrentConfig[pin] == EXT_INT_HI || ExtCurrentConfig[pin] == EXT_INT_LO || ExtCurrentConfig[pin] == EXT_INT_BOTH
+                || ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Invalid input pin");   // (an output's state too, as b14's and the PicoMite's)
             value <<= 1;
             value |= PinRead(pin);
             nbr--;
@@ -1865,7 +1869,7 @@ void fun_distance(void) {
     }
     techo=ReadCoreTimer();
     // we have the echo, convert the time to centimeters
-    fret = ((MMFLOAT)techo)/11600.0;  //200 ticks per us, 58 us per cm
+    fret = ((MMFLOAT)techo)/((MMFLOAT)ticks_per_microsecond * 58.0);  // 58 us per cm (11600 assumed 200 ticks a microsecond: at 480 MHz there are 240)
     targ = T_NBR;
 }
 
@@ -2036,6 +2040,7 @@ void ClearExternalIO(void) {
     for(i = 0; i <= NBRSETTICKS; i++) TickInt[i] = NULL;
     for(i = 0; i < NBRSETTICKS; i++) TickActive[i] = 1;
     FastTickStop();                                                 // (SETTICK FAST's TIM13)
+    CANclose();                                                     // (a program run again found it open)
 
 
 	for(i = 0; i < NBR_PULSE_SLOTS; i++) PulseCnt[i] = 0;           // disable any pending pulse commands

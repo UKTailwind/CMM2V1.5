@@ -323,16 +323,47 @@ static int EdInkey(void)
 static int EdMouseChan = -1;                            // the mouse's channel, -1 when the editor has none
 static int EdMouseX, EdMouseY;                          // the editing area's cell under the pointer
 
+/* CONTROLLER MOUSE OPEN for the editor, its errors kept from ending EDIT: the mouse OPTION MOUSE names may not be
+   there (OPTION MOUSE 2 with the USB mouse unplugged tries an I2C mouse: "Mouse not connected"), and the editor then
+   goes on without one. Under OptionErrorSkip error() prints nothing and longjmps to ErrNext, so both are borrowed for
+   the call, and MM.ERRNO and MM.ERRMSG$ put back after it. 1 if the mouse opened. */
+extern jmp_buf ErrNext;
+static int EdMouseTry(char *open)
+{
+    jmp_buf save;
+    int skip = OptionErrorSkip, errno_was = MMerrno, line_was = MMerrline, ok = 1;
+    char msg[STRINGSIZE];
+    strcpy(msg, MMErrMsg);
+    memcpy(save, ErrNext, sizeof(jmp_buf));
+    OptionErrorSkip = 1;
+    if (setjmp(ErrNext) == 0)
+        cmd_mouse(open);
+    else
+        ok = 0;
+    memcpy(ErrNext, save, sizeof(jmp_buf));
+    OptionErrorSkip = skip;
+    if (!ok) {
+        mT4IntEnable(1);                                // (some of the open's failures left the controllers' tick off)
+        MMerrno = errno_was;
+        MMerrline = line_was;
+        strcpy(MMErrMsg, msg);
+    }
+    return ok;
+}
+
 static void EdMouseOpen(void)
 {
     char open[24];
     EdMouseChan = -1;
-    if (Option.Mouse < 0 || !(OptionConsole & 2) || VideoColour == 4)
-        return;                                         // (GUI CURSOR has no 4-bit modes)
-    EdMouseChan = UsbMouse ? 2 : Option.Mouse;
-    sprintf(open, "OPEN %d,,,%d", EdMouseChan, Option.Sensitivity);
+    if ((Option.Mouse < 0 && !UsbMouse) || !(OptionConsole & 2) || VideoColour == 4)
+        return;                                         // (a USB mouse needs no OPTION MOUSE; GUI CURSOR has no 4-bit modes)
+    sprintf(open, "OPEN %d,,,%d", UsbMouse ? 2 : Option.Mouse, Option.Sensitivity);
     cmd_cursor("ON");
-    cmd_mouse(open);                                    // (kilo's GUI CURSOR ON:CONTROLLER MOUSE OPEN n,,,s)
+    if (!EdMouseTry(open)) {                            // (kilo's GUI CURSOR ON:CONTROLLER MOUSE OPEN n,,,s)
+        cmd_cursor("OFF");                              // no mouse: the editor without one
+        return;
+    }
+    EdMouseChan = UsbMouse ? 2 : Option.Mouse;
 }
 
 static void EdMouseClose(void)

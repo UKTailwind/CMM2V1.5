@@ -12,7 +12,7 @@ OPTION AUTORUN OFF
 Instructs MMBasic to automatically run the program in program memory on power up or restart (for example, by the WATCHDOG timer).  OFF is the default.  The program is not run after the restart that an OPTION command causes.
 If the Colour Maximite 2 is set to run programs from RAM (OPTION RAM) MMBasic instead looks for the file AUTORUN.BAS on the SD card on power up or restart and runs it if it is found.
 Entering the break key (default CTRL-C) at the console will interrupt the running program and return to the command prompt.
-A firmware upgrade turns this option off.
+The NEW command turns this option off, and so does a firmware upgrade.
 
 === OPTION BASE 0 | 1
 --- keep roomy
@@ -212,13 +212,13 @@ Sets the mouse used by the editor and the GUI controls.  ‘channel’ is 0 for 
 While this option is set, a USB mouse plugged into the USB connector is used by the editor in place of the mouse set here.  The GUI controls use the channel set here, which must be 2 for a USB mouse.
 If a Hobbytronic interface is set but not connected the error "Mouse not connected" is reported when the editor is started.
 OPTION MOUSE OFF (the default) disables it.  MM.INFO(OPTION MOUSE) returns the channel, or -1 when it is off.
-This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade (the sensitivity returns to 0).
+This command can only be run from the command line and will cause a reboot.  This setting, with its sensitivity, is kept through a firmware upgrade.
 
 === OPTION MOUSE SENSITIVITY n
 --- P keep roomy
 Sets the speed of a USB mouse: its movement is divided by ‘n’, so a number above 1 slows the mouse down and a number below 1 speeds it up.  ‘n’ can be 0 to 1000 and need not be a whole number; 0 or 1 (the default) leaves the mouse as it is.  The setting applies at once, in the editor and in programs.
 The firmware always reads the full report of a USB mouse (its wheel and all its buttons), so unlike the PicoMite this option does not change how the mouse is read.
-This command can only be run from the command line.
+This command can only be run from the command line.  The setting is kept through a firmware upgrade; OPTION RESET returns it to the default.
 
 === OPTION OVERCLOCK ON
 or
@@ -289,7 +289,7 @@ This command can only be run from the command line and will cause a reboot.
 
 === OPTION SLEEP n
 --- P keep roomy
-Turns the monitor off (the VGA sync signals are stopped, so that the monitor goes into its power saving mode) when no key has been pressed at the command prompt for ‘n’ minutes (1 to 255).  Any key press will wake the monitor.  Set ‘n’ to 0 (the default) to disable this.
+Turns the monitor off (the VGA sync signals are stopped, so that the monitor goes into its power saving mode) when no key has been pressed for ‘n’ minutes (1 to 255), at the command prompt or while a program runs.  Any key press will wake the monitor, and the key is still read by the prompt or the program.  Set ‘n’ to 0 (the default) to disable this.
 
 === OPTION STATUS ON | OFF
 --- P keep roomy
@@ -324,7 +324,7 @@ OPTION USBKEYBOARD DISABLE
 --- P keep roomy
 Set the layout of the USB keyboard.  ‘nn’ is a two character code: US for the standard keyboard layout in the USA, Australia and New Zealand, UK for the United Kingdom (the default), DE for Germany, FR for France, ES for Spain and BE for Belgium.  The layout is also asked for when MMBasic is first loaded.
 The optional ‘noLED’ parameter can be set to 1 to block sending the command to the keyboard that lights the LEDs relating to Caps Lock etc.  This may be needed on some keyboards which do not process this command properly and may lock up.  It defaults to 0 if not specified (ie, the LED commands are sent).
-OPTION USBKEYBOARD DISABLE is accepted, from earlier versions, but the keyboard still works, with the UK layout.  MM.INFO(OPTION USBKEYBOARD) returns the layout.
+OPTION USBKEYBOARD DISABLE stops MMBasic using a USB keyboard: one that is plugged in is ignored (a message on the console says so), and the console must then be used through the serial port.  MM.INFO(OPTION USBKEYBOARD) returns the layout, or "Disabled".
 This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
 === OPTION VCC voltage

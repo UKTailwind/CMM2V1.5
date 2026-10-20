@@ -254,6 +254,10 @@ void setmode(int mode, int colour, int bc, int force){
 	cursoron=0;
 	cursorenable=0;
 	FreeMemorySafe((void *)&cursorsave);
+	if(VideoColour!=colour){										// the sprites and a loaded cursor are in the old depth's pixels
+		closeallsprites();
+		FreeMemorySafe((void *)&loadcursordata);
+	}
 	//FreeMemorySafe((void *)&main_turtle_polyX);
 	//FreeMemorySafe((void *)&main_turtle_polyY);
 	if(mode>=0){

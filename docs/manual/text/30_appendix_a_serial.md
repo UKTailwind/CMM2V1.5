@@ -23,13 +23,14 @@ OPEN comspec$ AS #fnbr
 
 'fnbr' is the file number to be used. It must be in the range of 1 to 10. The # is optional.
 
-'comspec$' is the communication specification and is a string (it can be a string variable) specifying the serial port to be opened and optional parameters. The default is 9600 baud, 8 data bits, no parity and one stop bit. It has the form "COMn: baud, buf, int, int-trigger, 7BIT, (ODD or EVEN), INV, OC, S2" where:
+'comspec$' is the communication specification and is a string (it can be a string variable) specifying the serial port to be opened and optional parameters. The default is 9600 baud, 8 data bits, no parity and one stop bit. It has the form "COMn: baud, buf, int, int-trigger, tx-int, 7BIT, (ODD or EVEN), INV, OC, S2" where:
 
 - 'n' is the serial port number, 1 to 7.
 - 'baud' is the baud rate. This can be any value from 1200 (the minimum). Default is 9600.
 - 'buf' is the receive buffer size in bytes (default size is 1024). The transmit buffer is fixed at 256 bytes.
 - 'int' is a user defined subroutine which will be called when the serial port has received some data. The default is no interrupt.
 - 'int-trigger' sets the trigger condition for calling the interrupt subroutine. It is an integer and the interrupt subroutine will be called when this number of characters has arrived in the receive queue.
+- 'tx-int' is a user defined subroutine which will be called when everything in the transmit buffer has been sent. The default is no interrupt.
 
 All parameters except the serial port name (COMn:) are optional. If any parameter is left out then all the following parameters must also be left out and the defaults will be used.
 

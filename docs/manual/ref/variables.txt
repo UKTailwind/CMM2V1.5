@@ -82,7 +82,7 @@ The size, in bytes, of the program in program memory, as MMBasic prepared it whe
 
 =+= MM.INFO(CPUSPEED)
 --- keep
-The speed of the processor's clock in Hz, as a number: 400000000 for the Rev Y version of the STM32H743 and 480000000 for the Rev V (see the chapter Hardware Features), or 504000000 with OPTION OVERCLOCK ON.
+The speed of the processor's clock in Hz, as a number: 400000000 for the Rev Y version of the STM32H743 and 480000000 for the Rev V (see the chapter Hardware Features), or 504000000 with OPTION OVERCLOCK ON.  (The PicoMite returns the speed as a string: a PicoMite program that reads MM.INFO$(CPUSPEED) into a string needs STR$() here.)
 
 =+= MM.INFO$(CURRENT)
 MM.INFO$(PATH)
@@ -170,14 +170,14 @@ The current setting of one of the options that affect how a program runs.  ‘op
 {l=720}AUTORUN: "On" or "Off"
 {l=720}BASE: 0 or 1 (a number)
 {l=720}BREAK: the character code of the break key (a number: 3 for Ctrl-C, 0 when it is disabled)
-{l=720}CONSOLE: "Serial", "Screen" or "Both"
+{l=720}CONSOLE: "Serial", "Screen", "Both" or "None"
 {l=720}CONSOLE PORT: the serial port the console uses, 1 to 3 (a number: see OPTION CONSOLE PORT)
 {l=720}DEFAULT: "Integer", "Float", "String" or "None"
 {l=720}EXPLICIT: "On" or "Off"
 {l=720}LEGACY: "On" or "Off"
 {l=720}MOUSE: the channel set by OPTION MOUSE (a number), or -1 when none is set
 {l=720}PROFILING: "On" or "Off"
-{l=720}USBKEYBOARD: the layout of the USB keyboard: "UK", "US", "DE", "FR", "ES", "BE" or "IT"
+{l=720}USBKEYBOARD: the layout of the USB keyboard: "UK", "US", "DE", "FR", "ES", "BE" or "IT", or "Disabled" (OPTION USBKEYBOARD DISABLE)
 {l=720}Y_AXIS: "UP" or "DOWN"
 
 =+= MM.INFO(OVERRUN)
@@ -246,4 +246,4 @@ The version number of the firmware as a floating point number in the form aa.bbc
 
 === MM.WATCHDOG
 --- keep
-An integer which is true (1) if MMBasic was restarted as the result of a watchdog timeout (see the WATCHDOG command), otherwise false (0).
+An integer which is true (1) if MMBasic was restarted as the result of a watchdog timeout (see the WATCHDOG command), otherwise false (0).  It stays true until a program ends, so the program that OPTION AUTORUN runs after the restart can see it.

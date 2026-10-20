@@ -498,7 +498,7 @@ void fun_datetime(void){
 		struct tm  *tm;
 		struct tm tma;
 		tm=&tma;
-	    time_t timestamp = getint(ep, 0x80000000, 0x7FFFFFFF); /* See README.md if your system lacks timegm(). */
+	    time_t timestamp = getint(ep, -2147483648LL, 2147483647LL);    // (0x80000000 was +2147483648: every number was refused) /* See README.md if your system lacks timegm(). */
 	    tm=gmtime(&timestamp);
 	    IntToStrPad(sret, tm->tm_mday, '0', 2, 10);
 	    sret[2] = '-'; IntToStrPad(sret + 3, tm->tm_mon+1, '0', 2, 10);
@@ -582,7 +582,7 @@ void fun_format(void) {
 	}
 	if(inspec != 2) error("Format specification not found");
 	sret = GetTempStrMemory();									// this will last for the life of the command
-	sprintf(sret, fmt, getnumber(argv[0]));
+	if(snprintf(sret, STRINGSIZE, fmt, getnumber(argv[0])) > MAXSTRLEN) error("String too long");   // (a width of 300 overran sret)
 	CtoM(sret);
 	targ=T_STR;
 }
@@ -743,10 +743,7 @@ void fun_epoch(void){
 			h = atoi(argv[6]);
 			min  = atoi(argv[8]);
 			s = atoi(argv[10]);
-			if(h < 0 || h > 23 || min < 0 || m > 59 || s < 0 || s > 59) error("Invalid time");
-			day = d;
-			month = m;
-			year = y;
+			if(h < 0 || h > 23 || min < 0 || min > 59 || s < 0 || s > 59) error("Invalid time");   // (it tested m)
 			tm->tm_year = y - 1900;
 			tm->tm_mon = m - 1;
 			tm->tm_mday = d;
@@ -903,13 +900,13 @@ void cmd_longString(void){
         int i,j;
         getargs(&tp, 5, ( char *)",");
         if(argc != 5)error("Argument count");
-        int64_t nbr=getinteger(argv[2]);
-        i=nbr;
+        int64_t nbr=getint(argv[2], 0, 0x7FFFFFFF);
         j=parseintegerarray(argv[0],&dest,1,1,NULL,true, NULL)-1;
         q=(char *)&dest[1];
         dest[0]=0;
         p=(char *)getstring(argv[4]);
         if(nbr> *p)nbr=*p;
+        i=nbr;                                                      // (the count as cut to the string: nbr was copied)
         p++;
         if(j*8 < dest[0]+nbr)error("Integer array too small");
         while(i--)*q++=*p++;
@@ -928,7 +925,7 @@ void cmd_longString(void){
         q=(char *)&dest[1];
         parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
-        nbr=i=getinteger(argv[4]);
+        nbr=i=getint(argv[4], 0, 0x7FFFFFFF);                       // (a negative count ran away)
         if(nbr>src[0])nbr=i=src[0];
         if(j*8 < i)error("Destination array too small");
         while(i--)*q++=*p++;
@@ -947,7 +944,7 @@ void cmd_longString(void){
         q=(char *)&dest[1];
         parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
-        nbr=i=getinteger(argv[4]);
+        nbr=i=getint(argv[4], 0, 0x7FFFFFFF);
         if(nbr>src[0]){
             nbr=i=src[0];
         } else p+=(src[0]-nbr);
@@ -969,7 +966,7 @@ void cmd_longString(void){
         parseintegerarray(argv[2],&src,2,1,NULL,false, NULL);
         p=(char *)&src[1];
         start=getint(argv[4],1,src[0]);
-        if(argc==7)nbr=getinteger(argv[6]);
+        if(argc==7)nbr=getint(argv[6], 0, 0x7FFFFFFF);
         else nbr=src[0];
         p+=start-1;
         if(nbr+start>src[0]){
@@ -1376,6 +1373,13 @@ void fun_LInstr(void){
         if(!(FoundType() & (T_NBR | T_INT))) error("Invalid variable");
         if(FoundType() & T_INT) tempi = temp;
         else tempf = temp;
+        if(start < 0 || start > src[0]) {                           // a start outside the string: 0, as without size
+            iret = 0;
+            if(tempf) *tempf = 0.0;
+            else *tempi = 0;
+            targ = T_INT;
+            return;
+        }
         int hay_len = (int)src[0] - (int)start;                     // the long string from start, terminated
         if(hay_len < 0) hay_len = 0;
         char *hay = GetTempMemory(hay_len + 1);
@@ -2141,7 +2145,7 @@ void cmd_date(void) {
 		yy = atoi(argv[4]);
 		if(yy >= 0 && yy < 100) yy += 2000;
 	    //check year
-	    if(yy>=1900 && yy<=9999)
+	    if(yy>=2000 && yy<=2099)                                       // (the RTC and the DS3231 hold 2000 to 2099)
 	    {
 	        //check month
 	        if(mm>=1 && mm<=12)
@@ -2311,14 +2315,26 @@ void cmd_time(void) {
 	    time_t timestamp = timegm(tm); /* See README.md if your system lacks timegm(). */
 	    timestamp+=offset;
 	    tm=gmtime(&timestamp);
+	    if(tm->tm_year + 1900 < 2000 || tm->tm_year + 1900 > 2099) error("Invalid time");
 		mT4IntEnable(0);       										// disable the timer interrupt to prevent any conflicts while updating
 		hour = tm->tm_hour;
 		minute = tm->tm_min;
 		second = tm->tm_sec;
+		day = tm->tm_mday;                                          // (across midnight the date changes too)
+		month = tm->tm_mon + 1;
+		year = tm->tm_year + 1900;
+		day_of_week = (tm->tm_wday == 0 ? 7 : tm->tm_wday);
 		SecondsTimer = 0;
 		update_clock();
     	mT4IntEnable(1);       										// enable interrupt
-
+		if(Option.RTCinstalled){
+			uint8_t c[4];
+			c[0]=day_of_week;
+			c[1]=((day/10)<<4) + (day % 10);
+			c[2]=((month/10)<<4) + (month % 10);
+			c[3]=(((year-2000)/10)<<4) + ((year-2000) % 10);
+			DS3231_WR_Reg(3,c,4);
+		}
 	}
 	if(Option.RTCinstalled){
 		uint8_t c[3];
@@ -3048,9 +3064,14 @@ void fun_info(void){
 		} else if(checkstring(tp, "AUTORUN")){
 			if(Option.Autorun == false)strcpy(sret,"Off");
 			else strcpy(sret,"On");
+		} else if(checkstring(tp, "CONSOLE PORT")){				// (before CONSOLE, which matched it)
+			iret=Option.ConsolePort;
+			targ=T_INT;
+			return;
 		} else if(checkstring(tp, "CONSOLE")){
 			if(OptionConsole == 3)strcpy(sret,"Both");
 			else if(OptionConsole == 2)strcpy(sret,"Screen");
+			else if(OptionConsole == 0)strcpy(sret,"None");
 			else strcpy(sret,"Serial");
 		} else if(checkstring(tp, "EXPLICIT")){
 			if(OptionExplicit == false)strcpy(sret,"Off");
@@ -3062,7 +3083,7 @@ void fun_info(void){
 			if(Option.profile)strcpy(sret,"On");
 			else strcpy(sret,"Off");
 		} else if(checkstring(tp, "USBKEYBOARD")){
-			strcpy(sret,(char *)KBrdList[(int)Option.USBKeyboard]);
+			strcpy(sret,(Option.USBKeyboard == NO_KEYBOARD ? "Disabled" : (char *)KBrdList[(int)Option.USBKeyboard]));
 		} else if(checkstring(tp, "DEFAULT")){
 			if(DefaultType == T_INT)strcpy(sret,"Integer");
 			else if(DefaultType == T_NBR)strcpy(sret,"Float");
@@ -3075,10 +3096,6 @@ void fun_info(void){
 			return;
 		} else if(checkstring(tp, "MOUSE")){
 			iret=Option.Mouse;
-			targ=T_INT;
-			return;
-		} else if(checkstring(tp, "CONSOLE PORT")){
-			iret=Option.ConsolePort;
 			targ=T_INT;
 			return;
 		} else if(checkstring(tp, "BREAK")){
@@ -3853,9 +3870,10 @@ void CursorFollowMouse(void) {
 		mouseupdated=0;
 		int mouse=MouseOpenChannel();                               // (the mouse in use: a USB one is channel 2)
 		if(mouse<0) mouse=3;
-		if(mousestruct[mouse].ax!=xcursor || mousestruct[mouse].ay!=ycursor){
+		int x=mousestruct[mouse].ax-xoffcursor, y=mousestruct[mouse].ay-yoffcursor;   // (the cursor's point at the mouse, as GUI CURSOR x, y puts it)
+		if(x!=xcursor || y!=ycursor){
 			hidecursor(0);
-			showcursor(0, mousestruct[mouse].ax, mousestruct[mouse].ay);
+			showcursor(0, x, y);
 		}
 	}
 }
@@ -3865,9 +3883,11 @@ int check_interrupt(void) {
 	char *intaddr;
 	static char rti[4];		// a dummy IRETURN statement: the token (up to two bytes) and zeros to end it
 	if(GUIactive && GUITimer1>=16){
-		if(mousestruct[Option.Mouse].ax!=xcursor || mousestruct[Option.Mouse].ay!=ycursor){
+		int gm=GuiMouse();                                           // (OPTION MOUSE's, or a USB mouse)
+		int x=mousestruct[gm<0 ? 0 : gm].ax-xoffcursor, y=mousestruct[gm<0 ? 0 : gm].ay-yoffcursor;
+		if(gm>=0 && (x!=xcursor || y!=ycursor)){
 			hidecursor(0);
-			showcursor(0, mousestruct[Option.Mouse].ax, mousestruct[Option.Mouse].ay);
+			showcursor(0, x, y);
 		}
 		GUITimer1=0;
 	}

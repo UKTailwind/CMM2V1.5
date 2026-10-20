@@ -70,6 +70,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern int gui_fcolour, gui_bcolour;
     extern int last_fcolour, last_bcolour;
     extern int GUIactive;
+    extern int GuiMouse(void);                          // the GUI controls' mouse channel, -1 for none (GUI.c)
     extern int InvokingCtrl;
     extern int gui_click_pin;                  // the sound pin
     extern int display_backlight;              // the brightness of the backlight (1 to 100)

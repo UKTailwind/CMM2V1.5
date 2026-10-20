@@ -247,8 +247,6 @@ void printoptions(void){
 
     if(Option.Autorun == true) PO2Str("AUTORUN", "ON",1);
     if(Option.Baudrate != CONSOLE_BAUDRATE) PO2Int("BAUDRATE", Option.Baudrate);
-    if(Option.Invert == true) PO2Str("CONSOLE", "INVERT",1);
-    if(Option.Invert == 2) PO2Str("CONSOLE", "AUTO",1);
     if(!Option.colourmode) PO2Str("COLOURCODE", "OFF",1);
     if(Option.colourmode==-1) PO2Str("COLOURCODE", "REVERSE",1);
     if(Option.Listcase != CONFIG_TITLE) PO2Str("CASE", CaseList[(int)Option.Listcase],1);
@@ -262,18 +260,24 @@ void printoptions(void){
     	sprintf(buff,"OPTION SLEEP %d\r\n",Option.sleep);
     	MMPrintString(buff);
     }
-    if(Option.rtcdrive!=2){
-    	if(Option.rtcdrive==0)PO2Str("RTC DRIVE", "LOW",1);
-    	if(Option.rtcdrive==1)PO2Str("RTC DRIVE", "MEDIUMLOW",1);
-    	if(Option.rtcdrive==3)PO2Str("RTC DRIVE", "HIGH",1);
-    }
+    if(Option.rtcdrive!=2)PO2Int("RTC DRIVE", Option.rtcdrive);   // (a number, as OPTION RTC DRIVE takes it)
     if(Option.RTCinstalled)PO2Str("DS3231", "ON",1);
     if(Option.profile)PO2Str("PROFILING", "ON",1);
-    if(OptionConsole == 0) PO2Str("CONSOLE","OFF",1);
+    if(OptionConsole == 0) PO2Str("CONSOLE","NONE",1);
     else if(OptionConsole == 1) PO2Str("CONSOLE","SERIAL",1);
     else if(OptionConsole == 2) PO2Str("CONSOLE","SCREEN",1);
-    if(!Option.SerialPullup) PO2Str("SERIAL PULLUPS", "OFF",1);
-    if(Option.USBKeyboard != NO_KEYBOARD){
+    if(!Option.SerialPullup) PO2Str("SERIAL PULLUP", "DISABLE",1);
+    if(!Option.showstatus) PO2Str("STATUS", "OFF",1);
+    if(Option.colourmap == 1) PO2Str("VGA OUTPUT", "MEDIUM",1);
+    else if(Option.colourmap == 0) PO2Str("VGA OUTPUT", "LOW",1);
+    for(int m = 1; m <= MAX_MODES; m++) if(Option.offsets[m]) {
+    	char buff[40];
+    	sprintf(buff,"OPTION HORIZONTAL OFFSET %d,%d\r\n", m, Option.offsets[m]);
+    	MMPrintString(buff);
+    }
+    if(Option.USBPolling != 2) PO2Int("USB POLLING", Option.USBPolling);
+    if(Option.USBKeyboard == NO_KEYBOARD) PO2Str("USBKEYBOARD", "DISABLE",1);
+    else {
     	PO("USBKEYBOARD",1);
     	MMPrintString((char *)KBrdList[(int)Option.USBKeyboard]);
     	if(Option.noLED)PIntComma(Option.noLED);
@@ -307,7 +311,7 @@ void printoptions(void){
     	sprintf(buff,"OPTION RTC CALIBRATE %d\r\n",Option.RTC_Calibrate);
     	MMPrintString(buff);
     }
-    if(!(Option.RepeatStart==600 && Option.RepeatRate==150)){
+    if(!(Option.RepeatStart==500 && Option.RepeatRate==75)){          // (the default ResetAllOptions sets: 600,150 was b14's)
     	char buff[40]={0};
     	sprintf(buff,"OPTION KEYBOARD REPEAT %d,%d\r\n",Option.RepeatStart, Option.RepeatRate);
     	MMPrintString(buff);
@@ -1311,15 +1315,14 @@ void cmd_mode(void){
 	if((colour==12 || colour==32) && mode==9) error("12 and 32-bit colour not available for mode 9");
 	if((colour==12 || colour==32) && mode==11)error("12 and 32-bit colour not available for mode 11");
 	if((colour==12 || colour==32) && mode==12)error("12 and 32-bit colour not available for mode 12");
-	if((colour!=8) && mode==15)error("12, 16, and 32-bit colour not available for mode 15");
-	if((colour!=8) && mode==16)error("12, 16, and 32-bit colour not available for mode 16");
+	if((colour!=8) && (mode==15 || mode==16))error("Mode % has 8-bit colour only", mode);
    	if(colour!=8 && CMM1)error("Display must be in 8-bit mode for legacy use");
 	if(colour==4 && !Rgb121ModeFits(mode))error("4-bit colour not available for mode %", mode);
 
-	if(argc > 3 && argv[4]){
+	if(argc > 3 && *argv[4]){
 		bc=getColour(argv[4],0);
 	}
-	if(argc > 5 && argv[6]){
+	if(argc > 5 && *argv[6]){
         FrameInterrupt = GetIntAddress(argv[6]);					// get the interrupt location
         IntSignal();
 	} else FrameInterrupt=NULL;

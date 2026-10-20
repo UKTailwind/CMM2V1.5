@@ -446,9 +446,9 @@
  },
  {
   "name": "turtletest",
-  "class": "TIMEOUT",
-  "deterministic": true,
-  "secs": 61.4,
-  "note": ">"
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 31.6,
+  "note": ""
  }
 ]

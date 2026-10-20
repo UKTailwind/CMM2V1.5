@@ -555,6 +555,7 @@ void ResetAllOptions(void) {
 	Option.ConsolePort=3;
 	Option.Mouse=-1;
 	Option.Sensitivity=0;
+	mymemset((char *)Option.mousespeed,0,sizeof(Option.mousespeed));   // OPTION MOUSE SENSITIVITY: not set
 	Option.RTCinstalled=0;
 	Option.sleep=0;
 	Option.profile=0;

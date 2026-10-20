@@ -332,7 +332,7 @@ void cmd_ADC(void){
         freq=getnumber(argv[0])*2.0L;
         ADCb=16;
         if(freq>1000000.0)error("Frequency greater than 500KHz");
-        if(freq>960000.0 && SystemCoreClock==400000)error("Frequency greater than 480KHz");
+        if(freq>960000.0 && SystemCoreClock==400000000)error("Frequency greater than 480KHz");
         if(freq>20000.0)ADCb=14;
         if(freq>40000.0)ADCb=12;
         if(freq>80000.0)ADCb=10;
@@ -521,7 +521,7 @@ void cmd_ADC(void){
         freq=getnumber(argv[0])*2.0L;
         newbits=16;
         if(freq>1000000.0)error("Frequency greater than 500KHz");
-        if(freq>960000.0 && SystemCoreClock==400000)error("Frequency greater than 480KHz");
+        if(freq>960000.0 && SystemCoreClock==400000000)error("Frequency greater than 480KHz");
         if(freq>20000.0)newbits=14;
         if(freq>40000.0)newbits=12;
         if(freq>80000.0)newbits=10;
