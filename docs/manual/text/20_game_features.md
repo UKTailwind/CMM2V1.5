@@ -34,7 +34,7 @@ Images can also be loaded into memory with FLASH LOAD IMAGE, into the image slot
 
 ## Fonts
 
-Built in to MMBasic is support for eight fonts ranging from small to large. In addition user supported fonts can be defined by the BASIC program or dynamically loaded from the SD card. All fonts can be displayed in various colours, scaled and rotated.
+Built in to MMBasic is support for seven fonts ranging from small to large. In addition user supported fonts can be defined by the BASIC program or dynamically loaded from the SD card. All fonts can be displayed in various colours, scaled and rotated.
 
 ## Playing Audio
 
