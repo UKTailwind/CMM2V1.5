@@ -78,7 +78,7 @@ The VS Code task **Flash (ST-Link)** runs the same command.
 
 ## Working in the tree
 
-- **Line endings vary.** Most sources are CRLF, but `Commands.c`, `FileIO.c`, `kilo.c` and the docs are LF.
+- **Line endings vary.** Most sources are CRLF, but `Commands.c`, `FileIO.c`, the editor's `Editor.c`, `Console.c` and `FileManager.c`, and the docs are LF.
   Keep each file as it is.
 - **Tests:** each program in `tests\cmm2` has a `.expected` file holding the output it should give. To run them
   all on a board: `python tools\goldens.py COM4 OUTDIR --corpus tests\cmm2 --dir A:/c`

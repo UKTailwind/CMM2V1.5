@@ -1655,7 +1655,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 // the target as it was and sets strreplace_overflow, which the callers report as "Line ... is too long" (one
 // 251-character line of DHT22s, each made BITBANG DHT22, ran past the buffers and hung the board).
 int strreplace_overflow = 0;
-extern char *fstrstr(const char *s1, const char *s2);                // strstr blind to case (kilo.c): a DATA line keeps its case
+extern char *fstrstr(const char *s1, const char *s2);                // strstr blind to case (Console.c): a DATA line keeps its case
 
 // Replace each needle in target that is a whole word: no name character before it (bit 0 of ignoresurround waives
 // that, as the start of the line does) and nothing after it that could continue a name (bit 1 waives that).  An

@@ -582,6 +582,19 @@ Checked:
 - `kilo.c` is deleted;
 - the parity plan's P4 entry and 7.4 (block comments) are updated.
 
+**S as built (19 Oct).** Peter chose to switch first and give the day of use after; the rest of the gate was met: 24 of 24 scripts and E6's timings. After the switch the Release build passes 24 of 24 as well.
+- `Src/kilo.c` is deleted (it is in git history before this commit).
+- `EDITOR_ENGINE` is gone: the CMake option, the "Editor" preset and the guard in `Src/Editor.c`. Every build has the PicoMite's editor: `build.cmd Release` and Debug both link it, and both fit bank 2's sector 0.
+- The linker script's `.bank2` names `Editor.o`, not `kilo.o`.
+- Leftovers taken out with kilo:
+  - `bstrstr` (kilo's backward search) from `Console.c`;
+  - the `cmd_filemanager` prototype in `allcommands.h`, which outlived the old `fm.c`.
+- `tools/port_editor.py` writes no guard now.
+- The comments that named `kilo.c` for code now in `Console.c` or `Editor.c` name those files.
+- The parity plan's P4, decision 8 and 7.4 record the switch.
+
+The scripts' `known` lines and the E0 notes still name kilo: they record what the scripts found against it. VS Code's CMake extension, if it was on the "Editor" preset, needs Release chosen again.
+
 ## After the switch-over
 
 **E7, additions:**

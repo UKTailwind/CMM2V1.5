@@ -97,13 +97,6 @@ endif()
 
 # Equivalence checks for performance work (the "Check" preset): a Release build that raises an error where a
 # shortcut and the slow path it replaces disagree (FINDVAREND_CHECK: findvar's end against skipvar's).
-# The PicoMite's editor (Src/Editor.c) in place of kilo.c, until it replaces it (docs/Editor_Port_Plan.md): the
-# "Editor" preset. Each file holds its editor only with or without EDITOR_ENGINE, so the build has one of them.
-option(CMM2_EDITOR_ENGINE "Build the PicoMite editor in place of kilo.c" OFF)
-if(CMM2_EDITOR_ENGINE)
-    target_compile_definitions(${TARGET} PRIVATE EDITOR_ENGINE)
-endif()
-
 option(CMM2_CHECKS "Build the equivalence checks (diagnostic)" OFF)
 if(CMM2_CHECKS)
     target_compile_definitions(${TARGET} PRIVATE FINDVAREND_CHECK)
@@ -117,7 +110,7 @@ set(RELEASE_O2_FILES
     Timers.c flash.c ltdc.c main.c mmc_stm32.c stm32h7xx_it.c
     Symbols.c Struct.c                                      # (on every variable reference: 17 Oct, measured)
 )
-set(RELEASE_OZ_FILES FileManager.c kilo.c Editor.c)
+set(RELEASE_OZ_FILES FileManager.c Editor.c)
 list(TRANSFORM RELEASE_O2_FILES PREPEND Src/)
 list(TRANSFORM RELEASE_OZ_FILES PREPEND Src/)
 set_property(SOURCE ${RELEASE_O2_FILES} APPEND PROPERTY COMPILE_OPTIONS $<$<CONFIG:Release>:-O2>)

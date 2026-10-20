@@ -1,9 +1,9 @@
 /***********************************************************************************************************************
-Console.c - what the editor (kilo.c, or the PicoMite's Src/Editor.c with EDITOR_ENGINE) shares with the rest of MMBasic:
+Console.c - what the editor (the PicoMite's, Src/Editor.c; kilo.c until 19 Oct 2026) shares with the rest of MMBasic:
 the display console's helpers (MX470PutS, MX470Cursor, MX470Display), the serial terminal's size (setterminal), the
-case-blind searches (fstrstr, bstrstr), where EDIT opens a program (StartEditLine, StartEditCharacter, which error()
-sets) and the break key the transfers restore (BreakKeySave). Moved here from kilo.c unchanged (Editor_Port_Plan.md,
-E1), so that either editor can be the one in the build (19 Oct 2026).
+case-blind search (fstrstr), where EDIT opens a program (StartEditLine, StartEditCharacter, which error() sets) and
+the break key the transfers restore (BreakKeySave). Moved here from kilo.c unchanged (Editor_Port_Plan.md, E1), so
+that either editor could be the one in the build; kilo's backward search (bstrstr) went with it (S, 19 Oct 2026).
 ***********************************************************************************************************************/
 #include <ctype.h>
 #include <string.h>
@@ -80,18 +80,6 @@ char *fstrstr (const char *s1, const char *s2)
     {
       if (strncasecmp (p, s2, len) == 0)
 	return (char *)p;
-    }
-  return (0);
-}
-
-char *bstrstr (const char *s1, const char *s3, const char *s2)
-{
-  const char *p = s1-strlen(s2);
-  const size_t len = strlen (s2);
-  while(p-- >= s3)
-    {
-      if (strncasecmp (p, s2, len) == 0)
-        return (char *)p;
     }
   return (0);
 }

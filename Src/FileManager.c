@@ -3503,7 +3503,7 @@ static int fm_list_file(const fm_panel_t *panel, const fm_entry_t *entry, char *
     return 1;
 }
 
-/* CMM2: the display as the editor sets it up (kilo.c's cmd_newedit): the mode, the editor's font and the CLUT, so
+/* CMM2: the display as the editor sets it up (Editor.c's EdDisplaySetup): the mode, the editor's font and the CLUT, so
    that Option.Width and Option.Height are the display's columns and rows; and what the last program left (its
    variables, sprites, the I2C and the mouse) cleared away, as EDIT clears it. The PicoMite clears the runtime and
    keeps its display as the program left it. */
@@ -4460,7 +4460,7 @@ fm_check_run:
         int wants_run;
         fm_set_default_drive_dir(&panels[active]);
         ClearTempMemory();
-        /* CMM2: EDIT "file" (kilo.c): ESC and F1 come back here; F2 saves the file and comes back with fm_editing 2,
+        /* CMM2: EDIT "file" (Editor.c): ESC and F1 come back here; F2 saves the file and comes back with fm_editing 2,
            for FM to run it (the PicoMite's edit() sets fm_edit_wants_run) */
         fm_editing = 1;
         cmdline = run_edit_file;

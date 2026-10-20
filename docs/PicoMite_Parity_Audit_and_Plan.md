@@ -346,13 +346,37 @@ Under the switch, `B:` is the SD card root, `A:` is a directory on the SD card (
 
 Each phase ends at a gate that is run on the board through the harness; a phase does not start until the previous gate is met. Estimates are guesses in weeks of focused work.
 
-**Where things stand (17 Oct).**
-- **P0:** done apart from two items: the post-link check that `.ITCMSection` is not empty, and the fate of `.ramcode`. Section-name ITCM placement (`.itcm*`, `ITCM_CODE`) came in with the first performance round.
-- **P1:** steps 1 to 8 are done, with 6a (the function-token folds), 6b (mmb2csub for the CMM2) and 8a (MATH). The items left open in them were done on 17 Oct: the last three bugs of step 2, `/* */` block comments in the loader, the PicoMite's buffered PRINT, and OPTION LOCAL VARIABLES. The editor's colouring of block comments is deferred (7.4).
-- **P5, first round:** Peter brought performance forward, ahead of step 9. The first round is done: solar_eclipse takes 6.02 s, against 7.39 s on the original and 7.97 s before the round (section P5). Its full regression (s24, s24b) is clean but for one fault, fixed: `a(p.x) = 2.5` stored an integer, because the fast `findvar` cleared the structure member's type before the index `p.x` set it again. Committed as fd1b0b0.
-- **PicoMite CSUBs run unaltered (17 Oct, step 6b):** vector slot 7 holds the CallTable in the PicoMite's soft-float convention, slot 8 the CMM2's hard-float one. The PicoMite's chess and Julia CSUBs run as built for the PicoMite and give the same results as the interpreter and as `--target cmm2` builds.
-- **Next:** step 9 (libraries, slots, CSUBs). The rest of the performance round waits for the compiler (7.4), but for the copies, done 17 Oct.
-- **Waiting on Peter:** the SP Tools baseline refresh, whether only the G2 build gets the compiler, and the size of the compiler's SDRAM area (512 KB or 1 MB).
+**Where things stand (20 Oct).** Since 17 Oct the work has followed the game ports and Peter's priorities, so P2-P4 went ahead of P1's gate.
+- **P0:** done apart from two items, which moved to P5 with the rest of the placement work: the post-link check that `.ITCMSection` is not empty, and the fate of `.ramcode`. Section-name ITCM placement (`.itcm*`, `ITCM_CODE`) came in with the first performance round.
+- **P1:** steps 1 to 8 are done, with 6a (the function-token folds), 6b (mmb2csub for the CMM2) and 8a (MATH), and the items left open in them (17 Oct). PicoMite CSUBs run unaltered: vector slot 7 holds the CallTable in the PicoMite's soft-float convention, slot 8 the CMM2's hard-float one. Step 9:
+  - LIBRARY (17 Oct), the RAM image slots (18 Oct) and the CSUB CallTable are done;
+  - the one FLASH slot is not (FLASH LOAD IMAGE refuses slots 1-3).
+
+  **The gate has not been run since the baseline of 15 Oct** (`tests/goldens`, `tests/testfiles`), which came before steps 3-9. Where P1 stands is not measured.
+- **P2:**
+  - USB is done: the keyboard (15 Oct); the mouse on channel 2, gamepads, USB serial as COM4-7 and the USB drive as C: (17-18 Oct).
+  - Also done: FatFs R0.16 and the audio merge.
+  - Open: I2C sharing steps 2-5, the hardware tests owed (7.4), and the System item (6), not yet reviewed.
+- **P3:** brought forward by the game ports (Chuckie Egg, Exile, Picanoid, Prince of Pico, Elite).
+  - Done: image slots, MODE n,4 with the PicoMite's FRAMEBUFFER, and TILEMAP (18 Oct).
+  - Not started: the dialect switch (`OPTION PICOMITE`), SPRITE, RAY, FRAME, DRAW3D, turtle, GUI, LAYER and MERGE.
+- **P4:** FM (19 Oct), and the PicoMite's editor in place of kilo (19 Oct, `docs/Editor_Port_Plan.md` E0-E6 and S). Open:
+  - the editor's E7-E9;
+  - a mouse for FM;
+  - the rest of P4's list: YMODEM, `LOAD ,C`, `AUTOSAVE N`, `OPTION DISK SAVE/LOAD`, HELP from help.txt, CALC, the LIST variants, MM.INFO.
+- **P5:** Peter brought performance forward. The first round is done (fd1b0b0): solar_eclipse takes 6.02 s, against 7.39 s on the original and 7.97 s before the round. Route B is not started.
+- **P6:** done but for two items: the `.ioc` (regenerate `main.c`'s `MX_*_Init` from it, or retire it) and the GNU regex (7.2 item 9).
+- **P7:** not started.
+- **Next** (review of 20 Oct):
+  1. Peter's day of use of the new editor.
+  2. Run the goldens and `Testfiles/` again, and commit the result as the new baseline. It sorts what fails into P1 language gaps, P3 graphics, hardware the CMM2 lacks, and the web commands.
+  3. Close P1: those language gaps and the flash slot.
+  4. Then the dialect switch (P3), which needs decisions 5, 6 and 11 first.
+- **Waiting on Peter:**
+  - whether only the G2 gets the compiler, and the size of its SDRAM area (512 KB or 1 MB), so that Route B is not held up;
+  - the SP Tools baseline refresh;
+  - FM's mouse;
+  - what becomes of the I2C mouse on channel 2.
 - **Deferred:** everything put off is listed in 7.4.
 
 #### P0: foundations (2-3 weeks)
@@ -456,7 +480,7 @@ In the order the goldens and the games need them:
 
 1. **Video.** `ltdc.c`, `dma2d.c`, the page allocator, `MODE 1-18` with 8/12/16/32-bit colour, `PAGE`, the LTDC second layer, the mouse cursor, `GETSCANLINE`, the frame interrupt. Hooked in through the function pointers the drawing engine already uses (`DrawRectangle`, `DrawBitmap`, `DrawBuffer`, `ReadBuffer`, `ScrollLCD`, `DrawPixel`, `SetPixel`), so `Draw.c`, `DrawFill.c`, `Blit.c`, `Sprite.c`, `TileMap.c`, `Draw3D.c`, `Raycaster.c`, `Turtle.c`, `GUI.c`, `Pointer.c` work unchanged. `PageTable` stays; `FRAMEBUFFER` is mapped onto it (section 6). D-cache: pages that the LTDC reads stay non-cacheable or are cleaned after drawing, as `MPU_Config_nCacheable` does today; DMA2D for `PAGE COPY`, `BLIT` and `FRAMEBUFFER MERGE`.
 2. **Keyboard and mouse.** Decision: TinyUSB host on the OTG FS controller (dwc2 driver; the PicoMite's `input/USBKeyboard.c`, `KeyboardMap.c`, CDC host and MSC come with it; hub support; TinyUSB 0.19 added STM32 data-cache handling to dwc2) or the ST host library updated to 3.5.5 (HID only, no hub, the existing `keyboard.c`). Recommend TinyUSB, with the ST path as the fallback if dwc2 host on the H7 FS port proves immature. The PS/2-style mouse (`mouse.c`) and the Wii controllers stay. **Keyboard done 15 Oct, ahead of P1 step 4** (Peter: the ST host stack hung on a keyboard hot-plug): TinyUSB master efab607b8, the PicoMite's tree, vendored as the host subset in `Middlewares/Third_Party/tinyusb` (dwc2 in slave mode, hubs on); the PicoMite's `KeyboardMap.c` (layouts and decoder; it gives Shift+Up and Shift+Left their own codes, 164 and 162, and the German layout its codes 200-209) and the keyboard part of its `USBKeyboard.c` (HID slots, callbacks, report polling, repeat); the ST host library and `keyboard.c` removed. Found on the way: the STM32 OTG cores on a full-speed PHY hang for good when a packet goes through a hub to a **low-speed** device (ES0392 2.25.3, every revision, no workaround), so on the CMM2's port a low-speed keyboard or mouse behind a hub, the Raspberry Pi keyboard among them, cannot work; the one tinyusb patch (`hcd_dwc2-ls-behind-hub.patch`) refuses such a device before any packet reaches it, with a message, so the hub and its other devices carry on. Tested: direct low- and full-speed keyboards with hot-plug; a hub with a full-speed Cherry keyboard, an HP flash drive and a DualShock 4 together (the drive and the pad enumerate; MSC and gamepads are the next layer); a low-speed mouse on the hub refused without disturbing the rest. The callbacks no longer print from inside the USB stack: the message waits until `tuh_task()` returns, since printing can reach `routinechecks()` and, through `CheckSDCard()`, a longjmp. **A keyboard's second interface (17 Oct, 1efedd5; PicoMite issue 36):** a keyboard with media keys (VID 28E9 PID 31EA) showed as connected on channels 1 and 4. Both of its HID interfaces say they are boot keyboards; the second's report descriptor carries n-key rollover, the media and system keys, a mouse and two vendor reports, each with a report ID. In the boot protocol TinyUSB sets it sent nothing (a diagnostic build logged every mount and report: every key, the media keys included, came on interface 0), so now only a device's first keyboard interface takes a slot. USB media keys are processed by neither firmware; for them, that interface would go to the report protocol and its report ID 2 to `process_consumer_report`.
-   **Next: mice, gamepads, USB serial and USB drives** (Peter, 17 Oct: the PicoMite's code, not anything the CMM2 has, with the interface to the rest of the firmware made compatible). Nothing USB-side needs keeping: the CMM2's USB code is already the keyboard part of the PicoMite's, and the ST stack is gone. So the rest of the PicoMite's host code comes over whole: the mouse and gamepad parts of `input/USBKeyboard.c`, the CDC callbacks in `io/Serial.c` and the MSC callbacks in `misc/SDCard.c`. What gets adapted is where that code hands over:
+   **Then mice, gamepads, USB serial and USB drives, all done 17-18 Oct** (Peter, 17 Oct: the PicoMite's code, not anything the CMM2 has, with the interface to the rest of the firmware made compatible). Nothing USB-side needs keeping: the CMM2's USB code is already the keyboard part of the PicoMite's, and the ST stack is gone. So the rest of the PicoMite's host code comes over whole: the mouse and gamepad parts of `input/USBKeyboard.c`, the CDC callbacks in `io/Serial.c` and the MSC callbacks in `misc/SDCard.c`. What gets adapted is where that code hands over:
    - **The controller structure.** Both trees keep controller state in `nunstruct[]`, laid out differently. The PicoMite's has six slots (0 the Wii controller on I2C, 1-4 the USB HID devices that `DEVICE(MOUSE n, ...)` and `DEVICE(GAMEPAD n, ...)` read), a 64-bit `type` and `gyro[3]`/`accs[3]` for the PS4 controller. The CMM2's has four slots, all I2C Nunchuk and Classic channels, and a 32-bit `type`. Take the PicoMite's structure, with the USB devices in slots of their own so the I2C channels do not move.
    - **Mice.** The PicoMite's USB mice go through `process_mouse_input()` into `nunstruct`. The CMM2's mice are in a separate `mousestruct[4]`: channel 0 the PS/2 mouse (`mouse.c`), 1-3 I2C mice, opened by `CONTROLLER MOUSE OPEN n` and read by `MOUSE()`, `GUI CURSOR`, the editor and the file manager. So `process_mouse_input()` also feeds a CMM2 mouse channel, and everything that works with a mouse today works with a USB one. **A USB mouse is channel 2** (Peter, 17 Oct), as on the PicoMite, where a USB mouse takes HID slot 1, which is channel 2, and its PS/2 mouse and its GUI use `nunstruct[2]` too. The CMM2's channel 2 is today the I2C mouse on the second I2C bus (`mouseproc(2)`, `i2c2`), which has to give way to it or share the number. **Done 17 Oct (for Picanoid; Peter's full-speed mouse, direct and through the hub, and on 18 Oct a keyboard, the mouse and a flash drive together through one hub):** `Src/USBMouse.c`, the PicoMite's: HID slot 1, so channel 2; boot reports, or with OPTION MOUSE SENSITIVITY f the report descriptor's layout (`analyze_mouse_descriptor`) and the movement divided by f; the PicoMite's state update (position clamped to the screen, the wheel's count, a double click within 500 ms, the whole button bitmap, the character cell). The CMM2's mice now use the PicoMite's field meanings in `mousestruct` (L R C the left, right and middle buttons, Z a double click, x0 the bitmap; they were Z C L and R), in the PS/2 and I2C drivers, `MOUSE()`, the editor and the file manager, so `MOUSE()` answers as before. New, as the PicoMite's: `DEVICE(MOUSE n, X|Y|L|R|M|W|B|D|T)`, which reads the mouse in use whatever it is (0 when there is none), and `MOUSE INTERRUPT ENABLE n, sub` (any button change or double click), `MOUSE INTERRUPT DISABLE n`, `MOUSE SET n, x, y [, w]`. One mouse at a time (Peter): a USB mouse is ignored while another is open, and while it is attached CONTROLLER MOUSE OPEN 2 only sets its interrupts (its left, right and left-up ones work for it) and any other channel is refused. The USB host now starts whatever the keyboard option. A statement starting `mouse` is now the MOUSE command, as on the PicoMite.
    - **Interrupts.** The PicoMite's per-slot interrupt pointers arm and fire through `IntSignal()`, as the other sources do since P1 step 7.
@@ -503,6 +527,14 @@ Gate: the CMM2 demo programs under `CMM2`; the PicoMite's `Bas/` games (Exile, E
 #### P4: editor, file manager, transfers, help (2-4 weeks)
 
 - Decision: the PicoMite `Editor.c` (long lines, find/replace, beautify, `EDIT FILE`, mouse) replaces `kilo.c`, or `kilo.c` gains those features. The PicoMite editor is what every other variant uses and the harness exercises; recommend it, keeping the CMM2's colour scheme and mouse behaviour.
+  **Decided 19 Oct (Peter): the PicoMite's.** It replaced `kilo.c` the same day (`docs/Editor_Port_Plan.md`, E0-E6 and S):
+  - It has the PicoMite's keys, with kilo's Shift-Tab, Shift-Del, Shift-arrows and two-stage PgUp/PgDn added.
+  - Saving cannot lose the edits.
+  - The clipboard is as large as its text.
+  - F11 gives help.
+  - The end of a large file is as quick as its top.
+
+  `tests/editor` (24 scripts, `tools/edit_test.py`) checks it. E7-E9 are left: the additions, help from help.txt, and the documentation.
 - **The file manager:** replace (or update) the CMM2's `FILES` with the PicoMite's `FM`, which copies between drives (Peter, 17 Oct); `LIST FILES` can then become `FILES`, as on the PicoMite.
   **Done 19 Oct.** The commands and keys:
   - `FM` is the PicoMite's two-panel file manager.
@@ -519,7 +551,7 @@ Gate: the CMM2 demo programs under `CMM2`; the PicoMite's `Bas/` games (Exile, E
   - FM's panels are kept in RAM until a restart, not in a file.
   - RUN goes through the prompt's RUN, as END cmd$ does. At the program's end, or its error, the prompt runs FM again (`fm_program_launched_from_fm`).
   - An error's message is shown on FM's status line, and E opens the editor at its line (`FmNoteError`, from `error()`).
-  - EDIT is kilo's `cmd_newedit`. Its F2 comes back to FM, which runs the file (`fm_editing`).
+  - EDIT is the PicoMite's editor (`Src/Editor.c`; kilo's until 19 Oct). Its F2 comes back to FM, which runs the file (`fm_editing`).
   - Audio, images and LIST go through PLAY, LOAD and LIST, with their errors caught (`fm_try`).
   - Copies are FatFs on both drives (`fm_copy_one`).
   - MIDI is refused.
@@ -691,15 +723,15 @@ In this order, each a commit with the goldens run after it: ~~STM32CubeH7 v1.13.
 ### 7.2 Decisions needed
 
 1. Strategy A or B (7.0). **Decided 15 Oct: A.**
-2. Flash budget: program size, number of flash slots, library slot (P0). **Decided 15 Oct:** 384 KB program (bank 2 sectors 2-4), one flash slot (sector 5), the library (sector 6), options (sector 7); firmware up to 1,280 KB (bank 1 and bank 2 sectors 0-1). **19 Oct (Peter): bank 2 sector 0 is firmware.** The program keeps sectors 1-6 (OPTION FLASH unchanged), since it has always started at sector 1. The linker script's `.bank2` (FLASHB2) holds foreground code named file by file (FM and kilo now), because writing bank 2 stalls fetches from it. `FlashWriteInit` refuses sector 0, and boot resets a program sector outside 1-6. Bank 1 has 62 KB free, sector 0 89 KB. Sector 1 follows when needed, with the program moving to sectors 2-4 as decided.
+2. Flash budget: program size, number of flash slots, library slot (P0). **Decided 15 Oct:** 384 KB program (bank 2 sectors 2-4), one flash slot (sector 5), the library (sector 6), options (sector 7); firmware up to 1,280 KB (bank 1 and bank 2 sectors 0-1). **19 Oct (Peter): bank 2 sector 0 is firmware.** The program keeps sectors 1-6 (OPTION FLASH unchanged), since it has always started at sector 1. The linker script's `.bank2` (FLASHB2) holds foreground code named file by file (FM and the editor now), because writing bank 2 stalls fetches from it. `FlashWriteInit` refuses sector 0, and boot resets a program sector outside 1-6. Bank 1 has 62 KB free, sector 0 89 KB. Sector 1 follows when needed, with the program moving to sectors 2-4 as decided.
 3. CSUB ABI: keep the fixed-address `CallTable` for old CMM2 CSUBs, or move to the PicoMite layout (P0). **Decided 15 Oct: the PicoMite layout** (found through VTOR slot 7, the same offsets as `PicoCFunctions.h`), CSUBs compiled for the M7 with the hardware FPU. Built that way a CSUB needs no helper for double or single arithmetic, square root, float conversions, 32-bit divide, 64-bit multiply or shifts; it still needs 64-bit divide and modulo (the M7 divides 32-bit integers only), 64-bit integer to and from float, and the transcendental functions. The redundant slots keep their one-line implementations so the header stays shared; hardware the CMM2 lacks (PIO) gets a stub that raises an error. Existing CMM2 CSUBs are rebuilt.
-4. USB host stack: TinyUSB or the ST library (P2).
+4. USB host stack: TinyUSB or the ST library (P2). **Decided 15 Oct: TinyUSB** (P2 item 2); the ST host library is gone.
 5. Drive letters under each dialect (section 6).
 6. Pin naming under the PicoMite dialect: a fixed `GPn`-to-connector-pin map, a user-settable map (`OPTION PICOMITE PINS`), or `GPn` refused (section 6).
 7. The default dialect on a CMM2 (the CMM2's) and how a PicoMite program selects the other (saved option, `OPTION PICOMITE ON` as the first line, or `RUN file$, P`). **Named 17 Oct (Peter): `OPTION PICOMITE ON | OFF`.**
-8. Editor: PicoMite `Editor.c` or `kilo.c` (P4).
+8. Editor: PicoMite `Editor.c` or `kilo.c` (P4). **Decided 19 Oct (Peter): the PicoMite's.** It replaced `kilo.c` the same day.
 9. The GNU regex engine: keep or replace (P6).
-10. Line attribution: the 5-byte line header with a file-name table (recommended, 2.2), or keep the trailing `'|file,line` marker.
+10. Line attribution: the 5-byte line header with a file-name table (recommended, 2.2), or keep the trailing `'|file,line` marker. **Done 15 Oct: the line header** (P1 step 3); the `'|` marker is gone.
 11. An on-chip `A:` drive: none (recommended; the SD card is `A:` under the CMM2 dialect), or littlefs on two spare 128 KB sectors (tiny, slow to erase), or on a battery-backed SDRAM image (lost at power-off).
 
 ### 7.3 Risks
@@ -720,7 +752,7 @@ Everything put off for later, in one place (Peter, 17 Oct), so that it need not 
 
 **Interpreter and language**
 - **A program with a CSUB is always reflashed** (P1 step 3): SaveProgramToMemory stores SDRAM addresses in its CFunction entries, so the image never matches.
-- **The editor's colour coding for `/* */` block comments** (P1 step 8). The loader takes block comments now, so a PicoMite program that has them runs; the editor still colours them as code.
+- **The editor's colour coding for `/* */` block comments** (P1 step 8). The loader takes block comments now, so a PicoMite program that has them runs; kilo coloured them as code. **Done 19 Oct** with the PicoMite's editor, which colours them (`tests/editor`, scripts 17 and 24).
 - **Pin interrupts through EXTI** (P1 step 7): interrupt pins are still polled while armed, which makes an empty FOR loop five times slower (1.83 us a pass, against 0.363 with nothing armed or a SETTICK armed; measured 17 Oct). The PicoMite reads the RP2040's latched edge registers, and the STM32's EXTI has one line per pin number across all the ports, which may make the PicoMite's way unworkable here: to be checked.
 
 **USB**
@@ -737,7 +769,7 @@ Everything put off for later, in one place (Peter, 17 Oct), so that it need not 
 - Whether only the G2 gets the compiler, and the size of its SDRAM area (512 KB or 1 MB).
 
 **Later phases, noted here as well**
-- The file manager: the PicoMite's `FM` in place of (or into) the CMM2's `FILES`, for copying between drives; `LIST FILES` then becomes `FILES` (P4).
+- The file manager: the PicoMite's `FM` in place of (or into) the CMM2's `FILES`, for copying between drives; `LIST FILES` then becomes `FILES` (P4). **Done 19 Oct** (P4).
 
 ## Appendix A. Keyword table diff (`Inc/allcommands.h` against `AllCommands.h`)
 

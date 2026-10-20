@@ -56,7 +56,7 @@ static inline int lfs_file_close(lfs_t *l, lfs_file_t *f) { return 0; }
 /* ---- the console and the display ----------------------------------------------------------------------------------
    PrintString is the serial console's (FM draws the display itself, through MX470PutS), as the PicoMite's is. */
 #define PrintString(s)      SerUSBPutS((char *)(s))
-extern void MX470PutS(char *s, int fc, int bc);         // kilo.c
+extern void MX470PutS(char *s, int fc, int bc);         // Console.c
 extern void MX470Cursor(int x, int y);
 extern void MX470Display(int fn);
 extern void setterminal(void);
@@ -82,7 +82,7 @@ static void SCursor(int x, int y) {
 #define AUDIO_CONFIGURED    1                           // (the CMM2 always has its audio)
 extern a_flist *alist;
 extern int PlayAlbumTrack(int n);                       // Audio.c
-extern void cmd_newedit(void);                          // kilo.c: EDIT
+extern void cmd_newedit(void);                          // Editor.c: EDIT
 extern void ListFile(char *pp, int all);                // Commands.c
 extern void cmd_chdir(void);                            // FileIO.c
 extern void CloseAllFiles(void);

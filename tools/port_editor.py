@@ -127,16 +127,15 @@ d = d.replace('extern void routinechecks(void);\n', '')         # (the CMM2's ta
 head = '''/***********************************************************************************************************************
 Editor.c - EDIT, the PicoMite's full-screen editor (misc/Editor.c without its MMBASIC_FM part), for the CMM2 in place
 of kilo.c (Editor_Port_Plan.md; Peter, 19 Oct 2026). Made by tools/port_editor.py from the PicoMite's source, then
-fixed by hand where the CMM2 differs; the platform layer is Inc/Editor_cmm2.h. Built with EDITOR_ENGINE (the CMake
-preset "Editor") until it replaces kilo.c.
+fixed by hand where the CMM2 differs; the platform layer is Inc/Editor_cmm2.h. It replaced kilo.c on 19 Oct 2026
+(Editor_Port_Plan.md, S); kilo.c is in git history before then.
 ***********************************************************************************************************************/
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
-#ifdef EDITOR_ENGINE
 #include "Editor_cmm2.h"
 
 '''
-open(dst, 'w', encoding='latin-1', newline='\n').write(head + d + '\n#endif // EDITOR_ENGINE\n')
+open(dst, 'w', encoding='latin-1', newline='\n').write(head + d)
 print('written', dst, d.count('\n') + 1, 'lines')
 for w in ('getcsargs', 'DISPLAY_TYPE', 'nunstruct', 'tilefcols', 'llist', 'SaveToProgMemory', 'StartEditPoint',
           'ProgMemory', 'drivecheck', 'FatFSFileSystem', 'ExistsFile', 'FileSize', 'StandardError', 'MX470Scroll',

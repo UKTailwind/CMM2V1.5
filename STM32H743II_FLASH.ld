@@ -104,9 +104,7 @@ SECTIONS
     . = ALIGN(4);
     *FileManager.o(.text .text* .rodata .rodata*)        /* FM */
     *FileManager.c.obj(.text .text* .rodata .rodata*)
-    *kilo.o(.text .text* .rodata .rodata*)               /* the editor */
-    *kilo.c.obj(.text .text* .rodata .rodata*)
-    *Editor.o(.text .text* .rodata .rodata*)             /* the PicoMite's editor (EDITOR_ENGINE) */
+    *Editor.o(.text .text* .rodata .rodata*)             /* the editor (the PicoMite's: EDIT) */
     *Editor.c.obj(.text .text* .rodata .rodata*)
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
     . = ALIGN(4);

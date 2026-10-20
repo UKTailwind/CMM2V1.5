@@ -2,7 +2,7 @@
 
 Each script drives EDIT on the serial console (tools/vt100drive.py) and checks the screen, the console's output and
 the files the editor leaves on the card. The scripts were written against kilo (Editor_Port_Plan.md, E0), and the
-PicoMite editor's port must pass them before it replaces kilo (S). They run in A:/e, made if it is not there.
+PicoMite editor's port passed them before it replaced kilo (S, 19 Oct 2026). They run in A:/e, made if it is not there.
 
 A script is one step a line ('#' starts a comment; the first comment line is the script's title):
   put NAME LOCAL     send tests/editor/LOCAL to the card as NAME (ZMODEM)

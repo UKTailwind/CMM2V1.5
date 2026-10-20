@@ -211,7 +211,6 @@ void cmd_Controller(void);
 void cmd_sort(void);
 void cmd_uSec(void);
 void cmd_newedit(void);
-void cmd_filemanager(void);
 void cmd_guiMX170(void);
 void cmd_gui(void);
 void cmd_JumpToBootloader(void);

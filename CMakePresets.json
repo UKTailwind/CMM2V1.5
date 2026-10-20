@@ -36,19 +36,12 @@
             "displayName": "Release with the PC sampler (diagnostic)",
             "inherits": "base",
             "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMM2_PCSAMPLER": "ON" }
-        },
-        {
-            "name": "Editor",
-            "displayName": "Release with the PicoMite editor in place of kilo (Editor_Port_Plan.md)",
-            "inherits": "base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMM2_EDITOR_ENGINE": "ON" }
         }
     ],
     "buildPresets": [
         { "name": "Debug", "configurePreset": "Debug" },
         { "name": "Release", "configurePreset": "Release" },
         { "name": "Check", "configurePreset": "Check" },
-        { "name": "Sampler", "configurePreset": "Sampler" },
-        { "name": "Editor", "configurePreset": "Editor" }
+        { "name": "Sampler", "configurePreset": "Sampler" }
     ]
 }
