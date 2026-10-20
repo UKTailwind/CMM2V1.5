@@ -1,2 +1,9 @@
-Error in line 36: Dimensions
+PASS  B01  3x3 inverse filled by MATH into the result (A*inv(A) = I)
+PASS  B02  return dims follow the argument (2x2 through the same function)
+PASS  B03  return dim from a scalar parameter (5 then 8)
+PASS  B04  3x3 result into a 2x2 rejected  [Array size mismatch]
+PASS  B05  Ramp(6) into a 5 element array rejected  [Array size mismatch]
+
+----------------------------------------
+ 5 tests,  0 failed  *** ALL PASS ***
 

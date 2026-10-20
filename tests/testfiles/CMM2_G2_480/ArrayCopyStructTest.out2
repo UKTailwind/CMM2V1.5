@@ -1,2 +1,12 @@
-Error in line 23: Unknown command
+PASS  S01a struct array copy
+PASS  S01b copy is by value
+PASS  S02a different structure types rejected  [Structure types must match]
+PASS  S02b struct array count mismatch rejected  [Array size mismatch]
+PASS  S02c integer() = struct() rejected  [Incompatible type]
+PASS  S03a dest struct member array rejected  [Dimensions]
+PASS  S03b source struct member array rejected  [Dimensions]
+PASS  S04  STRUCT COPY still works
+
+----------------------------------------
+ 8 tests,  0 failed  *** ALL PASS ***
 

@@ -1,0 +1,15 @@
+--- expected
++++ board
+@@ -1,8 +1,8 @@
+-1: Buffer in use
++1: Existing buffer is incorrect size
+ 2: Buffer not in use
+ 3: Buffer not in use
+-4: Buffer not in use
+-5: Invalid blit mode
+-6: Invalid blit buffer number
++4:
++5: 8 is invalid (valid is 0 to 7)
++6: 65 is invalid (valid is 1 to 64)
+ 7: Buffer not in use
+ blit surface ok

@@ -1,2 +1,13 @@
-Error in line 2: Unknown command
+Testing STATIC variable with structure parameter:
+  Inside function: counter= 1 st.x= 10 st.y= 20
+Call 1: result =  31
+  Inside function: counter= 2 st.x= 10 st.y= 20
+Call 2: result =  32
+  Inside function: counter= 3 st.x= 10 st.y= 20
+Call 3: result =  33
+  Inside function: counter= 4 st.x= 10 st.y= 20
+Call 4: result =  34
+
+Expected: counter should increment each call (1, 2, 3, 4)
+If counter resets or corrupts, there's a bug
 

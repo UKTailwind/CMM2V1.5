@@ -1,6 +1,8 @@
-add int  :Error in line 28: Unknown command
-add flt  :Error in line 31: Unknown command
-add str  :Error in line 34: Unknown command
-scale    :Error in line 37: Size mismatch
-Error in line 42: Unknown command
+add int  :Array size mismatch
+add flt  :Array size mismatch
+add str  :Array size mismatch
+scale    :Size mismatch
+add ok   : 11 12 13 14
+scale ok : 3 6 9 12
+adds ok  : a! b! c! d!
 

@@ -1,2 +1,125 @@
-Error in line 22: Unknown command
+=============================================
+Subroutine Parameter Passing Test Suite
+=============================================
+
+
+--- Test 1: Simple Type Parameters ---
+  PASS # 1: Integer param received correctly
+  PASS # 2: Integer param unchanged after sub
+  PASS # 3: Float param received correctly
+  PASS # 4: Float param unchanged after sub
+  PASS # 5: String param received correctly
+  PASS # 6: String param unchanged after sub
+  PASS # 7: Integer param received correctly
+  PASS # 8: Float param received correctly
+  PASS # 9: String param received correctly
+  PASS # 10: Integer param received correctly
+  PASS # 11: Float param received correctly
+
+--- Test 2: Array Parameters ---
+  PASS # 12: Integer array received correctly
+  PASS # 13: Float array received correctly
+  PASS # 14: String array received correctly
+  PASS # 15: Integer array element modified by sub
+  PASS # 16: Float array element modified by sub
+  PASS # 17: String array element modified by sub
+  PASS # 18: Integer param received correctly
+  PASS # 19: Array element unchanged when passed by value
+
+--- Test 3: Structure Member Parameters ---
+  PASS # 20: Integer param received correctly
+  PASS # 21: Integer param received correctly
+  PASS # 22: Struct member pt.x passed correctly
+  PASS # 23: Integer param received correctly
+  PASS # 24: Integer param received correctly
+  PASS # 25: Nested struct member passed correctly
+  PASS # 26: Float param received correctly
+  PASS # 27: Float struct member passed correctly
+  PASS # 28: Integer param received correctly
+  PASS # 29: Integer struct member passed correctly
+  PASS # 30: String param received correctly
+  PASS # 31: String struct member passed correctly
+  PASS # 32: String param received correctly
+  PASS # 33: Nested string member passed correctly
+
+--- Test 4: Whole Structure Parameters ---
+  PASS # 34: Struct param received (x)
+  PASS # 35: Struct param received (y)
+  PASS # 36: Structure modified by sub (x)
+  PASS # 37: Structure modified by sub (y)
+  PASS # 38: Struct array element received (x)
+  PASS # 39: Struct array element received (y)
+  PASS # 40: Structure array element modified (x)
+  PASS # 41: Structure array element modified (y)
+  PASS # 42: Nested struct received (topLeft.x)
+  PASS # 43: Nested struct received (bottomRight.x)
+  PASS # 44: Nested struct modified (topLeft.x)
+  PASS # 45: Struct string member modified
+
+--- Test 5: BYVAL and BYREF Modifiers ---
+  PASS # 46: BYVAL integer not modified
+  PASS # 47: BYVAL float not modified
+  PASS # 48: BYVAL string not modified
+  PASS # 49: BYREF integer modified
+  PASS # 50: BYREF float modified
+  PASS # 51: BYREF string modified
+
+--- Test 6: Type Conversions ---
+  PASS # 52: Integer converted to float param
+  PASS # 53: Float converted to integer param (rounded)
+  PASS # 54: Float param received correctly
+  PASS # 55: Integer param received correctly
+
+--- Test 7: String Length Variations ---
+  PASS # 56: String param received correctly
+  PASS # 57: String param received correctly
+  PASS # 58: String param received correctly
+  PASS # 59: Fixed length string concatenated
+  PASS # 60: Short string preserved
+  PASS # 61: Struct string member received
+  PASS # 62: Struct string member modified
+
+--- Test 8: LOCAL and STATIC Variables ---
+  PASS # 63: Static counter increments: 1
+  PASS # 64: Static counter increments: 2
+  PASS # 65: Static counter increments: 3
+  PASS # 66: Local shadows global correctly
+  PASS # 67: Global unchanged by local of same name
+  PASS # 68: Static struct.x = 10
+  PASS # 69: Static struct.y = 20
+  PASS # 70: Static struct.x = 20
+  PASS # 71: Static struct.y = 40
+  PASS # 72: Static struct.x = 30
+  PASS # 73: Static struct.y = 60
+
+--- Test 9: Nested Structure Access ---
+  PASS # 74: Integer param received correctly
+  PASS # 75: Integer param received correctly
+  PASS # 76: String param received correctly
+  PASS # 77: Rect array nested member received
+  PASS # 78: Rect array string member received
+  PASS # 79: Rect array nested member modified
+
+--- Test 10: Edge Cases ---
+  PASS # 80: Integer param received correctly
+  PASS # 81: Zero integer handled
+  PASS # 82: Integer param received correctly
+  PASS # 83: Zero struct member handled
+  PASS # 84: Integer param received correctly
+  PASS # 85: Integer param received correctly
+  PASS # 86: String param received correctly
+  PASS # 87: Single element array handled
+
+--- Test 11: Function Return Values ---
+  PASS # 88: Integer function return
+  PASS # 89: Float function return
+  PASS # 90: String function return
+  PASS # 91: Function with struct member param (zero)
+  PASS # 92: Function with struct member param
+  PASS # 93: Struct function return (x)
+  PASS # 94: Struct function return (y)
+
+=============================================
+RESULTS:  94 passed,  0 failed
+=============================================
 

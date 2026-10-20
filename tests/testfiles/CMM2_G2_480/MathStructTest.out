@@ -1,2 +1,82 @@
-Error in line 15: Unknown command
+========================================
+MATH Commands Structure Array Test Suite
+========================================
+
+TEST 1: MATH C_ADD
+  PASS: C_ADD with float struct arrays
+  PASS: C_ADD with integer struct arrays
+
+TEST 2: MATH C_SUB
+  PASS: C_SUB with float struct arrays
+
+TEST 3: MATH C_MUL
+  PASS: C_MUL with float struct arrays
+
+TEST 4: MATH C_DIV
+  PASS: C_DIV with float struct arrays
+
+TEST 5: MATH SCALE
+  PASS: SCALE with float struct arrays
+
+TEST 6: MATH ADD
+  PASS: ADD with float struct arrays
+
+TEST 7: MATH POWER
+  PASS: POWER with float struct arrays
+
+TEST 8: MATH(MAX)
+  PASS: MAX with float struct array =  30
+  PASS: MAX with index =  30 at index  5
+
+TEST 9: MATH(MIN)
+  PASS: MIN with float struct array = -20
+  PASS: MIN with index = -20 at index  0
+
+TEST 10: MATH(MEAN)
+  PASS: MEAN with float struct array =  35
+
+TEST 11: MATH(SUM)
+  PASS: SUM with float struct array =  210
+
+TEST 12: MATH V_ROTATE
+  PASS: V_ROTATE 90 degrees: (100,0) -> ( 6.123233996e-15, 100)
+
+TEST 13: MATH WINDOW
+  PASS: WINDOW normalized to 0-100
+  PASS: WINDOW returned input min= 0 max= 50
+  PASS: Normal array WINDOW: out= 0, 100 min/max= 0, 50
+
+TEST 14: Mixed struct/regular arrays
+  PASS: Mixed struct input with regular array
+
+TEST 15: Normal float arrays (regression)
+  PASS: Normal float C_ADD
+  PASS: Normal float C_MUL
+  PASS: Normal float SCALE
+  PASS: Normal float MAX =  30
+  PASS: Normal float MIN = -20
+  PASS: Normal float SUM =  210
+
+TEST 16: Normal integer arrays (regression)
+  PASS: Normal integer C_ADD
+  PASS: Normal integer C_MUL
+  PASS: Normal integer C_SUB
+
+TEST 17: ARRAY SET with struct members
+  PASS: ARRAY SET struct float member
+  PASS: ARRAY SET struct integer member
+
+TEST 18: ARRAY ADD with struct members
+  PASS: ARRAY ADD struct float members
+  PASS: ARRAY ADD struct integer members
+  PASS: ARRAY ADD copy (add 0) struct members
+
+========================================
+TEST SUMMARY
+========================================
+Passed:  33
+Failed:  0
+Total:   33
+
+*** ALL TESTS PASSED ***
 

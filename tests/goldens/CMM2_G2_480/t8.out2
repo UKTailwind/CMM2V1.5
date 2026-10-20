@@ -28,5 +28,15 @@ instr 'zzz'  = 0
 compare equal = 0
 compare shorter =-1
 -- LONGSTRING PRINT and file round trip --
-Error in line 85: Dimensions
+read back 31bytes:
+written through a long string
+
+-- GOSUB / RETURN --
+back from simple, count = 1
+back from outer, count = 1111
+after loop, count = 1114
+after IF, count = 1115
+after ON GOSUB, tally$ = [123]
+gosub inside a SUB gave k = 0
+done
 

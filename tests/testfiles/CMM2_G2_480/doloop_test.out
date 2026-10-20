@@ -1,4 +1,27 @@
 Test 1 PASS  DO...LOOP UNTIL
 Test 2 PASS  DO...LOOP WHILE
+Test 3 PASS  DO UNTIL...LOOP
+Test 4 PASS  DO WHILE...LOOP
+Test 5 PASS  DO WHILE (false on entry, body skipped)
+Test 6 PASS  DO UNTIL (true on entry, body skipped)
+Test 7 PASS  DO...LOOP WHILE (false: executes once)
+Test 8 PASS  DO...LOOP UNTIL (true: executes once)
+Test 9 PASS  EXIT DO from DO...LOOP
+Test 10 PASS  EXIT DO from DO WHILE...LOOP
+Test 11 PASS  EXIT DO from DO UNTIL...LOOP
+Test 12 PASS  EXIT DO from DO...LOOP WHILE
+Test 13 PASS  EXIT DO from DO...LOOP UNTIL
+Test 14 PASS  Nested DO, EXIT DO exits innermost
+Test 15 PASS  DO WHILE nesting DO UNTIL
+Test 16 PASS  DO...LOOP UNTIL nesting DO...LOOP WHILE
+Test 17 PASS  Three-level nesting with EXIT DO on middle
+Test 18 PASS  Loop vars correct after EXIT DO + new loop
+Test 19 PASS  DO WHILE float condition
+Test 20 PASS  DO...LOOP UNTIL float condition
+Test 21 PASS  DO...LOOP UNTIL 100000 iterations
+Test 22 PASS  DO WHILE...LOOP 100000 iterations
+Test 23 PASS  DO UNTIL...LOOP 100000 iterations
 
-> 
+Results: 23passed, 0failed
+ALL TESTS PASSED
+

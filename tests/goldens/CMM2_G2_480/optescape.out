@@ -15,7 +15,7 @@ wrap: 231
 hex:AB
 hexcase:jK
 twodigits:[65]
-onehex:[x4]
+onehex:[&4]
 unknown:[z]
 upper:[N]
 trail:[x\]

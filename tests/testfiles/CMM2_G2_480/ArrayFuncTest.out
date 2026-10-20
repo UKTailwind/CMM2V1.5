@@ -1,2 +1,18 @@
-Error in line 32: Dimensions
+PASS  F01a integer array function
+PASS  F01b second call gives a fresh result
+PASS  F02  float 3x2 return reshaped into 6
+PASS  F03  LOCAL build + fib() = r%() self assign
+PASS  F04  recursive array function
+PASS  F05a scalar = array function rejected  [Array function is only valid in an array assignment]
+PASS  F05b PRINT array function rejected  [Array function is only valid in an array assignment]
+PASS  F05c array function in arithmetic rejected  [Array function is only valid in an array assignment]
+PASS  F05d CALL() of array function rejected  [Array function is only valid in an array assignment]
+PASS  F06a count mismatch rejected  [Array size mismatch]
+PASS  F06b float() = integer function rejected  [Incompatible type]
+PASS  F07  scalar function as array source rejected  [Expected an array]
+PASS  F08  AS STRING(n) rejected  [Variable type]
+PASS  F09  scalar functions unchanged
+
+----------------------------------------
+ 14 tests,  0 failed  *** ALL PASS ***
 

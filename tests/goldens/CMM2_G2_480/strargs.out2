@@ -1,6 +1,6 @@
-1: Error in line 33: Framebuffer not created
-2: Error in line 36: Position must be L, R, or B
-3: Error in line 39: Position must be L, R, or B
-4: Error in line 42: Position must be L, R, or B
+1: Framebuffer not created
+2: 
+3: Position must be L, R, or B
+4: Invalid type
 strargs ok
 

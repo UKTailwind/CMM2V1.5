@@ -1,0 +1,19 @@
+--- expected
++++ board
+@@ -28,11 +28,11 @@
+ COLOUR MAP - the array form of MAP()
+   codes  = 0 3 6 9 12 15
+   MAP(0) = 000000  MAP() agrees: 1
+-  MAP(3) = 004080  MAP() agrees: 1
+-  MAP(6) = 00C000  MAP() agrees: 1
+-  MAP(9) = 800080  MAP() agrees: 1
+-  MAP(12) = 808000  MAP() agrees: 1
+-  MAP(15) = 80C080  MAP() agrees: 1
++  MAP(3) = 0040FF  MAP() agrees: 0
++  MAP(6) = 00FF00  MAP() agrees: 0
++  MAP(9) = FF00FF  MAP() agrees: 0
++  MAP(12) = FF8000  MAP() agrees: 0
++  MAP(15) = FFFFFF  MAP() agrees: 0
+   with a palette of its own
+   pal(0) = 000000
+   pal(3) = 030303

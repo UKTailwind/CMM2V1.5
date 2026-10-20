@@ -1,2 +1,26 @@
-Error in line 5: Unknown command
+Direct access with literal index:
+boxes(0).w =  100
+boxes(1).w =  80
+boxes(2).w =  150
+
+Access with variable index:
+boxes( 0).x =  10
+boxes( 0).y =  10
+boxes( 0).w =  100
+boxes( 0).h =  50
+
+boxes( 1).x =  120
+boxes( 1).y =  20
+boxes( 1).w =  80
+boxes( 1).h =  60
+
+boxes( 2).x =  50
+boxes( 2).y =  80
+boxes( 2).w =  150
+boxes( 2).h =  40
+
+Testing multiple args on one line:
+ 10 10 100 50
+ 120 20 80 60
+ 50 80 150 40
 

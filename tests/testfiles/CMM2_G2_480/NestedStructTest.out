@@ -1,2 +1,92 @@
-Error in line 18: Unknown command
+=============================================
+Nested Structure Test Suite
+=============================================
+
+
+--- Test 1: Basic Nested Access ---
+  PASS # 1: Nested member topLeft.x
+  PASS # 2: Nested member topLeft.y
+  PASS # 3: Nested member bottomRight.x
+  PASS # 4: Nested member bottomRight.y
+  PASS # 5: String member name
+  PASS # 6: Widget id
+  PASS # 7: Widget bounds.topLeft.x
+  PASS # 8: Widget bounds.bottomRight.y
+  PASS # 9: Widget foreground.r
+  PASS # 10: Widget background.b
+  PASS # 11: Widget label
+
+--- Test 2: Nested Assignment ---
+  PASS # 12: Copied nested member x
+  PASS # 13: Copied nested member y
+  PASS # 14: Modified nested member x
+  PASS # 15: Modified nested member y
+  PASS # 16: Simple struct from nested x
+  PASS # 17: Simple struct from nested y
+  PASS # 18: Nested from simple x
+  PASS # 19: Nested from simple y
+
+--- Test 3: Nested Arrays ---
+  PASS # 20: Array[0] nested x
+  PASS # 21: Array[3] nested x
+  PASS # 22: Array[5] nested y
+  PASS # 23: Array[2] name
+  PASS # 24: Widget array[0] id
+  PASS # 25: Widget array[2] bounds.topLeft.x
+  PASS # 26: Widget array[3] foreground.r
+  PASS # 27: Widget array[1] label
+
+--- Test 4: Nested Params to Subs ---
+  PASS # 28: Integer param value: 25
+  PASS # 29: Integer param value: 135
+  PASS # 30: Integer param value: 10
+  PASS # 31: Integer param value: 128
+  PASS # 32: Rect param topLeft.x received
+  PASS # 33: Rect param bottomRight.y received
+  PASS # 34: Rect modified by sub (topLeft.x)
+  PASS # 35: String param value: ParamRect
+  PASS # 36: String param value: 
+
+--- Test 5: Deep Nesting ---
+  PASS # 37: Deep nested topLeft.x
+  PASS # 38: Deep nested topLeft.y
+  PASS # 39: Deep nested bottomRight.x
+  PASS # 40: Nested color r
+  PASS # 41: Nested color g
+  PASS # 42: Nested border color b
+  PASS # 43: Simple member visible
+  PASS # 44: Deep nested string
+
+--- Test 6: Nested Modification ---
+  PASS # 45: Modified nested x (+10)
+  PASS # 46: Modified nested y (*2)
+  PASS # 47: Array nested modified x
+  PASS # 48: Array nested modified y
+  PASS # 49: Swapped array[0] x
+  PASS # 50: Swapped array[1] x
+
+--- Test 7: Nested String Members ---
+  PASS # 51: Simple string in nested struct
+  PASS # 52: Nested struct string
+  PASS # 53: Top level string
+  PASS # 54: Array[0] nested string
+  PASS # 55: Array[1] nested string
+  PASS # 56: Array[2] nested string
+  PASS # 57: Concatenated nested strings
+  PASS # 58: Modified nested string
+
+--- Test 8: Nested in Expressions ---
+  PASS # 59: Sum of nested members
+  PASS # 60: Difference of nested members
+  PASS # 61: Product of nested members
+  PASS # 62: Abs() with nested members
+  PASS # 63: Max() with nested members
+  PASS # 64: Min() with nested members
+  PASS # 65: Nested comparison (less than)
+  PASS # 66: Sum of RGB nested members
+  PASS # 67: Average of RGB nested members
+
+=============================================
+RESULTS:  67 passed,  0 failed
+=============================================
 

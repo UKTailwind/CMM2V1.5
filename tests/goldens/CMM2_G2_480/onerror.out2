@@ -1,10 +1,13 @@
-skip1:  99 errno  16 [Error in line 15: Divide by zero]
+skip1:  99 errno  16 [Divide by zero]
 cleared:  0 []
 skip2:  7  16
-ignore: still here [Error in line 31: Divide by zero]
+ignore: still here [Divide by zero]
 afterclear:  0
-part: 
-
-
-Error in line 41: Divide by zero
+next: still running
+  sub: r= 0
+  sub: reached the end
+aftersub:  16
+func:  0
+done
+Error in line 48: Divide by zero
 

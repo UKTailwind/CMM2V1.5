@@ -1,3 +1,15 @@
 BIT
-Error in line 12: BIT is not declared
+  set 0,3,63     v = 8000000000000009
+  read back       1 0 1 1
+  cleared 3      v = 8000000000000001
+  bits 0-7       v =  255 (255 expected)
+
+BYTE
+  s$ = HellO   len= 5
+  Byte(s$,1) =  72  Byte(s$,5) =  79
+
+FLAG
+
+
+Error in line 38: Syntax
 

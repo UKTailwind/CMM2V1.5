@@ -1,9 +1,9 @@
-1: Error in line 7: 5 is invalid (valid is 1 to 4)
-2: Error in line 10: Valid is 1Hz to 20KHz
-3: Error in line 13: 99 is invalid (valid is 0 to 25)
-4: Error in line 16: -5 is invalid (valid is 0 to 2147483647)
+1: 5 is invalid (valid is 1 to 4)
+2: Valid is 1Hz to 20KHz
+3: 99 is invalid (valid is 0 to 25)
+4: -5 is invalid (valid is 0 to 2147483647)
 5: 
-6: Error in line 22: Samples play over MOD file
-7: Error in line 25: Samples play over MOD file
+6: Samples play over MOD file
+7: Samples play over MOD file
 play surface ok
 

@@ -15,5 +15,8 @@ first steps (loudness, period, Hz, BBC pitch):
   12  45  2777  217
   12  43  2906  220
 A: through PLAY BBC SOUND ...
-Error in line 177: Unknown command
+B: through PLAY SOUND at the exact frequency ...
 
+A = PLAY BBC SOUND   B = exact reference   Q = quit
+
+> 

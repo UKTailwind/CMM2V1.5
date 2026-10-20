@@ -1,2 +1,25 @@
-Error in line 29: Dimensions
+PASS  T01a integer 1-D copy
+PASS  T01b copy is by value (source edit does not affect dest)
+PASS  T01c float 1-D copy
+PASS  T01d string 1-D copy
+PASS  T02a 2-D exact copy
+PASS  T02b reshape 2x3 -> 6 (shape-agnostic)
+PASS  T03a count mismatch rejected  [Array size mismatch]
+PASS  T03b float() = integer() rejected  [Incompatible type]
+PASS  T03c string LENGTH mismatch rejected  [String length]
+PASS  T03d string copy with matching LENGTH works
+PASS  T04a undeclared destination rejected  [Cannot find NOSUCHDST]
+PASS  T04b no half-created stub (DIM after failure works)
+PASS  T04c undeclared source rejected  [Cannot find NOSUCHSRC]
+PASS  T05a copy via byref parameters
+PASS  T05b aliased self-assign via parameters is a no-op
+PASS  T05c direct self-copy is a no-op
+PASS  T05d copy into LOCAL array
+PASS  T06a a() = scalar rejected  [Expected an array]
+PASS  T06b array arithmetic rejected  [Unexpected text: 1]
+PASS  T06c scalar = whole array rejected  [Dimensions]
+PASS  T07  scalar and element LET unchanged
+
+----------------------------------------
+ 21 tests,  0 failed  *** ALL PASS ***
 

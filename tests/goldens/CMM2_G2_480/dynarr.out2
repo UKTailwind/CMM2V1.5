@@ -14,5 +14,11 @@ sum        30
 -- MATH works on it too
 after set  7 7
 -- REDIM discards, REDIM PRESERVE keeps
-Error in line 57: Unknown command
+grown      6 : 1 2 3 4 0 0 0
+shrunk     2 : 1 2 3
+plain      4 : 0 0 0 0 0
+-- ERASE really gives a run-time array back
+
+
+Error in line 72: Cannot find P
 

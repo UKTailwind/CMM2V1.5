@@ -1,4 +1,79 @@
 Example 1: Clean 440 Hz sine, 2 seconds...
   Attack=0  Decay=0  Sustain=100%  Release=0
-Error in line 41: Unknown command
+Done.
+
+Example 2: Piano tone at 262 Hz (middle C)...
+  Attack=5ms  Decay=300ms  Sustain=20%  Release=500ms
+Done.
+
+Example 3: Same pitch, different envelopes (stereo)...
+  LEFT  (piano):  freq=440  A=5  D=300  S=20  R=500
+  RIGHT (string): freq=440  A=150  D=200  S=75  R=800
+Done.
+
+Example 4: Stereo fifth - C4 piano (L) + G4 string (R)...
+  LEFT  (piano):  freq=261.6  A=5  D=300  S=20  R=500
+  RIGHT (string): freq=392.0  A=150  D=200  S=75  R=800
+Done.
+
+Example 5: Chromatic scale with stereo harmony...
+  L= 440Hz  R= 554.356Hz
+  L= 466.2Hz  R= 587.36538Hz
+  L= 493.9Hz  R= 622.26461Hz
+  L= 523.3Hz  R= 659.30567Hz
+  L= 554.4Hz  R= 698.48856Hz
+  L= 587.3Hz  R= 739.93927Hz
+  L= 622.3Hz  R= 784.03577Hz
+  L= 659.3Hz  R= 830.65207Hz
+  L= 698.5Hz  R= 880.04015Hz
+  L= 740Hz  R= 932.326Hz
+  L= 784Hz  R= 987.7616Hz
+  L= 830.6Hz  R= 1046.47294Hz
+  L= 880Hz  R= 1108.712Hz
+Scale complete.
+
+Example 6: Twinkle Twinkle - piano melody (L) + string harmony (R)...
+  melody= 261.6Hz  harmony= 329.6Hz  dur= 350ms
+  melody= 261.6Hz  harmony= 329.6Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 440Hz  harmony= 523.3Hz  dur= 350ms
+  melody= 440Hz  harmony= 523.3Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 700ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 293.7Hz  harmony= 349.2Hz  dur= 350ms
+  melody= 293.7Hz  harmony= 349.2Hz  dur= 350ms
+  melody= 261.6Hz  harmony= 329.6Hz  dur= 700ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 293.7Hz  harmony= 349.2Hz  dur= 700ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 293.7Hz  harmony= 349.2Hz  dur= 700ms
+  melody= 261.6Hz  harmony= 329.6Hz  dur= 350ms
+  melody= 261.6Hz  harmony= 329.6Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 350ms
+  melody= 440Hz  harmony= 523.3Hz  dur= 350ms
+  melody= 440Hz  harmony= 523.3Hz  dur= 350ms
+  melody= 392Hz  harmony= 493.9Hz  dur= 700ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 349.2Hz  harmony= 440Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 329.6Hz  harmony= 392Hz  dur= 350ms
+  melody= 293.7Hz  harmony= 349.2Hz  dur= 350ms
+  melody= 293.7Hz  harmony= 349.2Hz  dur= 350ms
+  melody= 261.6Hz  harmony= 329.6Hz  dur= 700ms
+Tune complete.
 

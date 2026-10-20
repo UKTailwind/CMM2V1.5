@@ -352,7 +352,16 @@ Each phase ends at a gate that is run on the board through the harness; a phase 
   - LIBRARY (17 Oct), the RAM image slots (18 Oct) and the CSUB CallTable are done;
   - the one FLASH slot is not (FLASH LOAD IMAGE refuses slots 1-3).
 
-  **The gate has not been run since the baseline of 15 Oct** (`tests/goldens`, `tests/testfiles`), which came before steps 3-9. Where P1 stands is not measured.
+  **The gate, run again on 20 Oct** (the new baselines in `tests/goldens` and `tests/testfiles`):
+  - **The corpus:** MATCH 36, DIFF 12, ERROR 53, NO-EXPECTED 10, TIMEOUT 1. On 15 Oct it was MATCH 27, DIFF 3, ERROR 73.
+    - 8 programs went from ERROR to MATCH.
+    - 10 went from ERROR to DIFF: they run now, and each difference is still to be checked.
+    - The one that went from MATCH to DIFF, `jsonpath`, is the PicoMite's JSON$ path fix (its 9749c83, here d588507): `arr[0]` gives 10. The corpus's expected file is older than the fix.
+  - **Testfiles:** ERROR 22, NO-EXPECTED 31, TIMEOUT 7, SKIPPED 5, NEEDS-INPUT 1. On 15 Oct it was ERROR 47.
+    - The structure, array, MATH and parameter tests run to the end now (22 programs).
+    - `solar_eclipse` waits at its INPUT as before; the driver now names this NEEDS-INPUT.
+
+  What the errors are now: unknown commands (FRAME, MANDELBROT, RAY, the RAM image commands), flash image slots, pin names and numbers, and the syntax of a few programs. These are what is left of P1, with the 10 DIFFs.
 - **P2:**
   - USB is done: the keyboard (15 Oct); the mouse on channel 2, gamepads, USB serial as COM4-7 and the USB drive as C: (17-18 Oct).
   - Also done: FatFs R0.16 and the audio merge.
@@ -369,7 +378,7 @@ Each phase ends at a gate that is run on the board through the harness; a phase 
 - **P7:** not started.
 - **Next** (review of 20 Oct):
   1. Peter's day of use of the new editor.
-  2. Run the goldens and `Testfiles/` again, and commit the result as the new baseline. It sorts what fails into P1 language gaps, P3 graphics, hardware the CMM2 lacks, and the web commands.
+  2. Run the goldens and `Testfiles/` again, and commit the result as the new baseline. It sorts what fails into P1 language gaps, P3 graphics, hardware the CMM2 lacks, and the web commands. **Done 20 Oct** (see P1 above).
   3. Close P1: those language gaps and the flash slot.
   4. Then the dialect switch (P3), which needs decisions 5, 6 and 11 first.
 - **Waiting on Peter:**

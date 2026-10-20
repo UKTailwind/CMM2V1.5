@@ -1,2 +1,18 @@
-Error in line 5: Unknown command
+=== Testing struct param member to untyped param ===
+Direct: p.x= 50 p.y= 75
+To typed param:
+  Typed: p.x =  50
+  Typed: p.y =  75
+To UNtyped param:
+  Untyped: p.x =  50
+  Untyped: p.y =  75
+
+With local struct:
+Direct: p.x= 50 p.y= 75
+To typed param:
+  Typed: p.x =  50
+  Typed: p.y =  75
+To UNtyped param:
+  Untyped: p.x =  50
+  Untyped: p.y =  75
 

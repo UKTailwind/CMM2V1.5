@@ -1,2 +1,7 @@
-Error in line 10: Unknown command
+=== Drawing Commands Stride Test ===
 
+Test 1: LINE PLOT
+Red = standard array, Green = struct array
+Press any key...
+
+> 

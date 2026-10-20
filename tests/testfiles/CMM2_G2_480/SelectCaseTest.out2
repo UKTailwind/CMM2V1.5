@@ -9,11 +9,11 @@ Tests complete. Failures: 0
 
 Check MEMORY command for heap usage
 Program:
-  13K ( 2%) Program (475 lines)
- 503K (98%) Free
+  12K ( 2%) Program (475 lines)
+ 504K (98%) Free
 
 Data:
    1K ( 1%) 4 Variables
-   0K ( 0%) General
-24799K (99%) Free
+   2K ( 0%) General
+24285K (99%) Free
 

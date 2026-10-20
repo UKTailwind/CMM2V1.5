@@ -13,5 +13,5 @@
 -- integers and bits --
 800F0000FFFF0044
  2 7 5 16 16
-Error in line 25: BIT is not declared
+Error in line 25: Variable name
 

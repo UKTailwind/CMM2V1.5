@@ -1,2 +1,9 @@
-Error in line 18: MM.ERRLINE is not declared
+PASS  E01  clear at start of RUN
+PASS  E02  ON ERROR SKIP records line 23 (got 23)
+PASS  E03  ON ERROR CLEAR resets MM.ERRLINE
+PASS  E04  second error updates line (got 32)
+PASS  E05  error in a SUB records the SUB's line (got 41)
+
+----------------------------------------
+ 5 tests,  0 failed  *** ALL PASS ***
 

@@ -1,2 +1,24 @@
-Error in line 5: Unknown command
+Before sub call:
+globalPts(2).x =  20
+globalPts(2).y =  200
+
+In sub (global array):
+pts(0).x =  0 (expect 0)
+pts(1).x =  10 (expect 10)
+pts(2).x =  20 (expect 20)
+pts(2).y =  200 (expect 200)
+
+After sub call:
+globalPts(1).x =  999
+
+=== Now testing with LOCAL array ===
+Before sub call:
+localPts(2).x =  20
+
+In sub (local array param):
+pts(0).x =  0 (expect 0)
+pts(1).x =  10 (expect 10)
+pts(2).x =  20 (expect 20)
+After sub call:
+localPts(1).x =  888
 

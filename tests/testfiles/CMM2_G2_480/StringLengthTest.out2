@@ -1,2 +1,29 @@
-Error in line 16: Unknown command
+=============================================
+Structure String Length Test Suite
+=============================================
+
+
+--- Test 1: Direct Assignment ---
+  PASS # 1: Short string assignment OK
+  PASS # 2: Exact length assignment OK
+  PASS # 3: Medium exact length OK
+  (Manual test: d.shortStr = TooLong should error)
+
+--- Test 2: String Concatenation ---
+  PASS # 4: Concatenation within limit OK
+  PASS # 5: Concatenation at exact limit OK
+  (Manual test: d.shortStr=ABCDE then +=  F should error)
+
+--- Test 3: MID$ Command ---
+  PASS # 6: MID$ same length replacement OK
+  (Manual test: MID$ extending beyond limit should error)
+
+--- Test 4: READ Command ---
+  PASS # 7: READ short string OK
+  PASS # 8: READ medium string OK
+  (Manual test: READ string longer than limit should error)
+
+=============================================
+RESULTS:  8 passed,  0 failed
+=============================================
 

@@ -2,5 +2,27 @@ Single element dimensions - matrix multiplication
 =================================================
 
 1. Dot product   (1x3) . (3x1) -> 1x1
-Error in line 29: Dimensions
+   [1 2 3] . [4 5 6]' =  32   (expected 32)
+
+2. Matrix x vector   (3x3) . (3x1) -> 3x1
+   diag(2,3,4) . [1 2 3]' = [ 2 6 12 ]
+
+3. Outer product   (3x1) . (1x3) -> 3x3
+   [1 2 3]' . [10 20 30]:
+  10.0000,   20.0000,   30.0000
+  20.0000,   40.0000,   60.0000
+  30.0000,   60.0000,   90.0000
+
+4. Chained   (1x3).(3x3) -> (1x3), then .(3x1) -> 1x1
+   [1 2 3] . diag(2,3,4) = [ 2 6 12 ]
+   ... then . [4 5 6]' =  110   (expected 2*4+6*5+12*6 = 110)
+
+5. Computed dimension that lands on one element
+   n =  3 -> DIM v(n-1) ok, bound =  2, v(0) =  300
+   n =  2 -> DIM v(n-1) ok, bound =  1, v(0) =  200
+   n =  1 -> DIM v(n-1) ok, bound =  0, v(0) =  100
+
+=================================================
+PASS:  10   FAIL:  0
+All checks passed.
 

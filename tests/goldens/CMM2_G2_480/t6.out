@@ -18,7 +18,7 @@ after patch: [FIRST]
 -- housekeeping --
 copy lof = 70
 moved first line: [FIRST]
-cwd ends with subdir: no
+cwd ends with subdir: yes
 found [inner.txt]
 cleaned up
 

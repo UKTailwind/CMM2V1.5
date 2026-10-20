@@ -1,2 +1,14 @@
-Error in line 9: Unknown command
+ok:   integer in place
+ok:   integer to another array
+ok:   float
+ok:   integer to float
+ok:   float to integer
+ok:   equal limits
+ok:   structure integer member
+ok:   structure float member
+ok:   low above high is refused: Low limit above high limit
+ok:   size mismatch is refused: Size mismatch
+MATH CLAMP of 16 integers: 11 us a call
+10 of 10 checks passed
+PASS
 

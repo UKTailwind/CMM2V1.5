@@ -1,2 +1,16 @@
-Error in line 5: Unknown command
+=== Testing nested struct array parameter ===
+Before sub call:
+rects(0).topLeft.x =  0 (expect 0)
+rects(1).topLeft.x =  10 (expect 10)
+rects(2).topLeft.x =  20 (expect 20)
+rects(2).name = 'Rect2' (expect 'Rect 2')
+
+In sub:
+r(0).topLeft.x =  0 (expect 0)
+r(1).topLeft.x =  10 (expect 10)
+r(2).topLeft.x =  20 (expect 20)
+r(2).name = 'Rect2' (expect 'Rect 2')
+
+After sub call:
+rects(1).topLeft.x =  555 (expect 555)
 

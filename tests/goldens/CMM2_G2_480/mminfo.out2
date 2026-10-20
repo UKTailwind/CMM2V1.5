@@ -1,4 +1,13 @@
 -- what this machine is
 device   [Colour Maximite 2 G2]
-Error in line 13: Syntax
+platform []
+drive    [A:]
+same      1
+version   1
+-- OPTION BASE is known when we translate
+base      0
+-- pin names
+
+
+Error in line 26: GP0 is not declared
 

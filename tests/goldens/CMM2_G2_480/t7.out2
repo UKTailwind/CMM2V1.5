@@ -26,5 +26,21 @@ s$ = [abcdefghi]
   target two
   target three
 -- ARRAY / MATH --
-Error in line 136: Unknown command
+set: 2.5 2.5
+scaled: 10 10
+added: 11 11
+sum = 112
+mean = 16
+max = 42
+  at index 5
+min = 4
+  at index 0
+median = 15
+sd = 13.40397951
+-- TIMER / PAUSE --
+timer advanced: yes
+-- ERASE --
+
+
+Error in line 162: STAT is not declared
 

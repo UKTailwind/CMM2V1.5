@@ -1,2 +1,6 @@
-Error in line 5: Unknown command
+Str$(2) = '2' length= 1
+'Rect' + Str$(2) = 'Rect2'
+t.name = 'Rect2'
+t.name (with space) = 'Rect 2'
+t.name direct = 'Test String'
 

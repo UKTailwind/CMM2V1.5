@@ -1,2 +1,16 @@
-Error in line 5: Unknown command
+=== Test 1: LOCAL vs GLOBAL struct ===
+Global before: gPt.x= 50 gPt.y= 75
+In sub (global): p.x= 50 p.y= 75
+Global after:  gPt.x= 999 gPt.y= 888
+
+Local before: pt.x= 50 pt.y= 75
+In sub (local): p.x= 50 p.y= 75
+Local after:  pt.x= 999 pt.y= 888
+
+=== Test 2: LOCAL vs GLOBAL integer array ===
+Global arr: 0= 0 1= 10 2= 20 3= 30
+In sub (global): 0= 0 1= 10 2= 20 3= 30
+
+Local arr: 0= 0 1= 10 2= 20 3= 30
+In sub (local): 0= 0 1= 10 2= 20 3= 30
 
