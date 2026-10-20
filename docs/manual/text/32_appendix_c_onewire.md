@@ -18,7 +18,7 @@ Where:
 - pin - The I/O pin (located in the rear connector) to use. It can be any pin capable of digital I/O.
 - flag - A combination of the following options: 1 - Send reset before command; 2 - Send reset after command; 4 - Only send/recv a bit instead of a byte of data; 8 - Invoke a strong pullup after the command (the pin will be set high and open drain disabled)
 - length - Length of data to send or receive
-- data - Data to send or variable to receive. The number of data items must agree with the length parameter.
+- data - The data to send (WRITE) or where the received data goes (READ), in any one of three forms: a list of items, one for each byte (or bit), whose number must agree with the length parameter (for WRITE each item is a constant, variable or expression; for READ each is a numeric variable; array elements such as a(3) are allowed); an array, floating point or integer, specified with empty brackets (eg, array()), used from its first element; or a string variable (for WRITE its first 'length' characters are sent; for READ the bytes received are stored as its characters and its length is set to 'length').
 
 And the automatic variable:
 

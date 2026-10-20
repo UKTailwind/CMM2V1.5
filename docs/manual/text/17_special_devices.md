@@ -146,9 +146,9 @@ WS2812 type, pin, nbr, colours%()
 - S = SK6812
 - W = SK6812W (RGBW)
 
-'nbr' is the number of LEDs in the chain (1 to 512). The colours%() array should be an integer array with at least as many elements as there are LEDs to be driven. For the first three types each element in the array should contain the colour in the normal RGB888 format (0 to &HFFFFFF); for type W it should contain an RGBW value (0 to &HFFFFFFFF). If only one LED is connected then a single integer can be used instead of the array.
+'nbr' is the number of LEDs in the chain (1 to 512). The colours%() array should be an integer array with at least as many elements as there are LEDs to be driven. For the first three types each element in the array should contain the colour in the normal RGB888 format (0 to &HFFFFFF); for type W it should contain an RGBW value (0 to &HFFFFFFFF). If only one LED is connected then a single integer can be used instead of the array, with the same range.
 
-Note that the pin must be set to a digital output before this command is used. For example:
+The pin is made a digital output if it is not one already. For example:
 
 ```
 DIM b%(4)=(RGB(red), RGB(green), RGB(blue), RGB(yellow), RGB(cyan))

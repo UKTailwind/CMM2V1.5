@@ -167,18 +167,20 @@ What the chapters found:
   - the first boot asking the screen type (it asks the keyboard, the time and the date);
   - TTS as a command (it is PLAY TTS);
   - TIMER "in microseconds" (it counts milliseconds);
-  - SETTICK FAST (not in the build: `cmd_fasttick` is unreachable, as P1 step 7 found);
+  - SETTICK FAST (not in the build then: `cmd_fasttick` was unreachable, as P1 step 7 found; it is now, see below);
   - names "up to 31 characters" (32), and a 50-level recursion limit (100).
-- **In the code**, to fix or decide (not manual work):
-  - OPTION DEFAULT MODE tests "8" twice (`MiscSTM32.c:1573` and `:1579`), so its branch for mode 9 is dead.
-  - WS2812 with one LED takes a value of at most &HFFFFFF, even for type W (RGBW).
-  - CAN OPEN's error lists the speed "5000000" for 500000.
-  - `KBrdList` names IT, but nothing can select it: OPTION USBKEYBOARD and the first boot take six layouts.
-  - I2C WRITE/READ option 1 (keep the bus) is stored and never read, so every transfer ends with a stop. The manual says so.
-  - TURTLE lacks the PicoMite's later spellings (PEN COLOR, PENCOLOUR and the others).
-  - A program's OPTION EXPLICIT stays in force at the prompt after it ends: "FOR a = 1 TO 20" then fails with "A is not declared" until NEW. Is this as the PicoMite does?
-  - The Xbox controllers (`USBXInput.c`) are named in the manual but untested with a genuine controller.
+- **In the code.** Peter (20 Oct): fix them all but OPTION EXPLICIT, which is by design, and the Xbox controllers, which wait for a genuine controller; and bring the PicoMite's data forms to SPI, I2C and ONEWIRE. Done 20 Oct, with `tests/cmm2/commsdata.bas` (40 checks):
+  - **The data of SPI, I2C and ONEWIRE's READ and WRITE**, as the PicoMite takes it: a list (array elements allowed), a whole array with empty brackets, or a string, through the PicoMite's `GetCommsTxData`, `GetCommsRxDest` and `PutCommsRxData` (now in `MMBasic.c`). ONEWIRE took a list only, SPI READ an integer array only. An element alone, `SPI WRITE 4, a(2)`, is one item now ("Argument count"), as on the PicoMite; it used to send four from a(2), which b14 never documented. A READ into a string checks the string's LENGTH (the PicoMite's does not, and writes past it: PicoMite issue #59), and SPI READ with nothing to read into is a syntax error (the PicoMite's reads an unset argument: #58).
+  - **I2C option 1** keeps the bus: the transfers are done by the registers (the HAL's always end with a stop and wait for a free bus first), so the next one begins with a repeated start. CHECK, CLOSE and the end of the program release a kept bus. On the way: a timeout of 0 now means none (the HAL's timed out at once), MM.I2C is 2 for a timeout as documented (the HAL gave 1 for both), READ takes any length (it was 1-255) and WRITE up to 256, a READ no longer writes through the pointers of an earlier READ into another type (it wrote the bytes to a string read before, say), and I2C2 and I2C3 OPEN reserve SCL (they reserved SDA twice). Untested with a device: none answers on Peter's board.
+  - **OPTION DEFAULT MODE:** the dead second "8" branch removed (mode 9 has its own).
+  - **WS2812:** one LED of type W takes all 32 bits; its value is read as 64-bit (a 32-bit one was read through a 64-bit pointer); and the bit buffer is 3 or 4 bytes an LED (it was one, so a chain of more than 85 LEDs, or 64 of type W, overran it).
+  - **CAN OPEN's** message says 500000.
+  - **TURTLE** takes PEN COLOR, PENCOLOUR, FILL COLOR, FILLCOLOUR, CURSOR COLOR and CURSORCOLOUR.
+  - **SETTICK FAST** is reached from SETTICK (a variable called FAST is still a period), and its timer stops with SETTICK FAST 0 and when the program ends (it ran on at the prompt). At END, signals left over from the program are cleared too: they sent every statement at the prompt through `check_interrupt` (a tight loop 45% slower until the next RUN).
+  - Still open: `KBrdList` names IT, but nothing can select it: OPTION USBKEYBOARD and the first boot take six layouts. A program's OPTION EXPLICIT stays in force at the prompt after it ends (by design). The Xbox controllers (`USBXInput.c`) are untested with a genuine controller.
 - **In this project's own documents:** the parity plan and `chapters.md` said the build has the CMM2's turtle; it has the PicoMite's (from b14). Both are corrected.
+
+**M4 begun (20 Oct).** Each reference section's table is text in `docs/manual/ref/` (`variables.txt`, `options.txt`, `commands.txt`, `functions.txt`, `obsolete.txt`), one entry a row: its syntax lines, a `---` line with the row's flags, its description, in the inline marks of `chapter.py` with a few more. `tools/manual/reftext.py` writes the tables out (`extract`), builds them back into the manual (`build`), and compares two builds character by character with each character's formatting (`check`). The round trip is exact for the text and its formatting; the rows are rebuilt from one template row, so a few odd rows (narrower cells, an empty paragraph) came out like the rest. The audit edits the text files. The first entries done are those the code fixes above changed: I2C (with I2C2 and I2C3, and no I2C SLAVE), SPI and SPI2, ONEWIRE, SETTICK (with FAST), TURTLE and WS2812, with Appendices B, C, D and G and the chapters that mention them.
 
 ## The new manual's structure (proposed; M-A4 settles it)
 

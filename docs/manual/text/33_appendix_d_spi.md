@@ -62,17 +62,19 @@ SPI WRITE nbr, string$
 SPI WRITE nbr, array()
 ```
 
-In the first method 'nbr' is the number of data items to send and the data is the expressions in the argument list (ie, 'data1', 'data2' etc). The data can be an integer or a floating point variable or a constant.
+In the first method 'nbr' is the number of data items to send and the data is the expressions in the argument list (ie, 'data1', 'data2' etc). The data can be an integer or a floating point variable or a constant, and array elements such as a(3) are allowed.
 
-In the second or third method listed above the data to be sent is contained in the 'string$' or the contents of 'array()' (which must be a single dimension array of integer or floating point numbers). The string length, or the size of the array must be the same or greater than nbr. Any data returned from the slave is discarded.
+In the second or third method listed above the data to be sent is contained in the 'string$' or the contents of 'array()' (which must be a single dimension array of integer or floating point numbers, specified with empty brackets, and is sent from its first element). The string length, or the size of the array must be the same or greater than nbr. Any data returned from the slave is discarded.
 
-Data can also be received in bulk:
+Data can also be received in bulk, in the same three forms:
 
 ```
+SPI READ nbr, var1, var2, var3, … etc
+SPI READ nbr, string$
 SPI READ nbr, array()
 ```
 
-Where 'nbr' is the number of data items to be received and array() is a single dimension integer array where the received data items will be saved. This command sends zeros while reading the data from the slave.
+Where 'nbr' is the number of data items to be received. In the first method each item is stored in a numeric variable of the list (array elements such as a(3) are allowed). In the second the items are stored as the characters of 'string$', whose length is set to 'nbr' (so 'nbr' can be no more than 255). In the third they are stored in sequential elements of 'array()', integer or floating point, starting with the first. This command sends zeros while reading the data from the slave.
 
 ## SPI Close
 

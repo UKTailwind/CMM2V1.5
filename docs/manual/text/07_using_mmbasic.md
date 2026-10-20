@@ -158,7 +158,7 @@ You can get the current date and time using the DATE$ and TIME$ functions and yo
 
 You can freeze program execution for a number of milliseconds using PAUSE. MMBasic also maintains an internal stopwatch function (the TIMER function) which counts up in milliseconds. You can reset this timer to zero or any other number by assigning a value to the TIMER.
 
-Using SETTICK you can setup up to four "ticks" which will generate regular interrupts with a period from one millisecond to over a month.
+Using SETTICK you can setup up to four "ticks" which will generate regular interrupts with a period from one millisecond to over a month, and SETTICK FAST sets up one more, from a hardware timer, at up to tens of thousands a second.
 
 ## Watchdog Timer
 

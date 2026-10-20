@@ -1,0 +1,533 @@
+# Predefined Read Only Variables: the reference entries (tools/manual/reftext.py)
+
+=== MM.VER
+---
+Returns the version number of the firmware as a floating point number in the form aa.bbcc where aa is the major version number, bb is the minor version number and cc is the revision number.  For example version 6.03.00 would return 6.03 and version 6.03.01 will return 6.0301.
+{}
+
+=== {}
+MM.ADDRESS$
+{}
+---
+{a=0}__WIFI VERSIONS ONLY__
+{a=0}This variable returns the IP address of the sender of the last UDP datagram or MQTT packet received
+
+=== MM.CMDLINE$
+---
+{a=0 l=219}This function returns any command line arguments passed to the\ncurrent program when an MMBasic program runs.\nsee RUN and \* commands for details.\nThe function will return an empty string for programs run from the editor or using OPTION AUTORUN.
+
+=== MM.CODE
+---
+{a=0 l=219}__RP2350 VERSIONS ONLY__ Returns the number of free slots remaining in the G-code buffer used by the STEPPER command.  See the file Stepper_Reference.pdf for the details.\n\n\n
+
+=== MM.DEVICE$
+---
+{a=0}A string representing the device or platform that MMBasic is running on.  
+
+=== MM.DISPLAY
+---
+Returns 1 if a physical display is configured, otherwise 0
+
+=== MM.ERRNO 
+MM.ERRMSG$
+MM.ERRLINE
+---
+If a statement caused an error which was ignored these variables will be set accordingly.  MM.ERRNO is a number where non zero means that there was an error and MM.ERRMSG$ is a string representing the error message that would have normally been displayed on the console.  They are reset to zero and an empty string by RUN, ON ERROR IGNORE or ON ERROR SKIP.
+MM.ERRLINE is the number of the program line that caused the error.  It is zero if the error did not occur in the program (eg, at the command prompt or in the library) and it is reset to zero along with the other two variables.
+
+=== MM.FLAGS
+---
+Returns the value of the system flags register
+
+=== MM.FONTHEIGHT
+MM.FONTWIDTH
+---
+Returns the height or width of the current font in pixels
+
+=== MM.HRES 
+MM.VRES
+---
+{b=0}Integers representing the current horizontal and vertical resolution of the VGA/HDMI video output or the LCD display panel (if configured) in pixels.
+
+=== MM.HEIGHT
+MM.WIDTH
+---
+{b=0 a=0}Returns the number of characters across the physical display with the current font or the number of characters down the display with the current font
+
+=== MM.HPOS
+MM.VPOS
+---
+{b=0 a=0}Returns the current horizontal and vertical position (in pixels) following the last graphics or print command.
+{b=0 a=0}
+
+=== MM.SUPPLY
+---
+For modules with a pin allocated to measure the incoming supply voltage \nsuch as the Pico and Pico2, MM.SUPPLY will return the voltage.
+
+=== MM.INFO()
+{b=0 a=0}MM.INFO$()
+---
+These two versions can be used interchangeably but good programming practice would require that you use the one corresponding to the returned datatype.
+
+=+= {b=0 a=0}MM.INFO$(AUTORUN)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(ADC)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(ADC DMA)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(BATTERY)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(BBC BUFFER)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(BIOS)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(BLUETOOTH device)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(BOOT) 
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(BOOT COUNT)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(CHARGING)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(CALLTABLE)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(CPUSPEED)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(LCDPANEL)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(LCD320)
+{b=0 a=0}
+---
+{b=0 a=0}Returns the setting of the OPTION AUTORUN command
+{b=0 a=0}
+{b=0 a=0}Returns the number of the buffer currently ready to read when using ADC RUN (1 or 2). Returns 0 if nothing ready.
+{b=0 a=0}
+{b=0 a=0}Returns true (1) if the ADC DMA is active.
+{b=0 a=0}
+{b=0 a=0}__PicoCalc only__: Returns the battery level 
+{b=0 a=0}
+{b=0 a=0}Returns the number of free slots in the PLAY BBC SOUND queue for channel n (0 to 3), or in the emptiest of the four channels if n is omitted.
+{b=0 a=0}
+{b=0 a=0}__PicoCalc only__: Returns the bios version
+{b=0 a=0}
+{b=0 a=0}__BLUETOOTH HOST VERSIONS ONLY__
+{b=0 a=0}Returns the address of the connected Bluetooth keyboard (or mouse), speaker or serial device if ‘device’ is KEYBOARD, SPEAKER or SERIAL, or an empty string if there is none.
+{b=0 a=0}
+{b=0 a=0}Tells you the reason for the last restart of the Pico
+{b=0 a=0}Returns:
+{b=0 a=0}Restart            - the device has been restarted with CPU RESTART or an OPTION command
+{b=0 a=0}S/W Watchdog       - the device has been restarted by a software watchdog timeout
+{b=0 a=0}H/W Watchdog       - the device has been restarted by a hardware watchdog timeout
+{b=0 a=0}Firmware update    - the device has been restarted following a firmware update
+{b=0 a=0}Power On           - the device has been powered up
+{b=0 a=0}Brown Out          - RP2350 only: the core supply fell below the brown-out threshold
+{b=0 a=0}Reset Switch       - the device has been restarted using the reset switch
+{b=0 a=0}Unknown code &Hn   - unknown reason - please report the code and version RP2040/2350
+{b=0 a=0}
+{b=0 a=0}Returns the number of times the Pico has been restarted since the flash drive was last formatted.
+{b=0 a=0}
+{b=0 a=0}__PicoCalc only__: Returns the charging status 
+{b=0 a=0}
+{b=0 a=0}Returns the base address of the MMBasic call table which contains pointers to each MMBasic function.
+{b=0 a=0}
+{b=0 a=0}Returns the CPU speed as a string.
+{b=0 a=0}
+{b=0 a=0}Returns the name of the configured LCD panel or a blank string. In the case of VGA or HDMI versions returns the current mode.
+{b=0 a=0}
+{b=0 a=0}Returns true if the display is capable of 320x240 operation using the OPTION LCD320 command
+
+=+= {b=0 a=0}
+{b=80 a=80}MM.INFO$(COMPILE)
+--- keep
+{b=0}__RP2350 VERSIONS ONLY__
+{b=0 a=80}Returns what the last RUN did with the compiler (see OPTION COMPILE), for example COMPILED 3 REUSED 1 STMTS 3227 RAN 714382 MISS 25707 CODE 680945 SIZE 132348 OF 966656.  COMPILED (NONE at the command prompt) and REUSED count the compiles, and the runs that found the program already compiled, since power on.  STMTS is the number of statements compiled, RAN the number of statements the last run executed and CODE how many of those ran as compiled code, so CODE divided by RAN is the share that ran compiled.  SIZE gives the space used, of the space available.  MISS is internal.  Returns OFF when the compiler is off, or TEXT: and the reason when the program ran entirely on the interpreter.
+
+=== MM.INFO$(KEYBOARD)
+---
+{b=0 a=0}USB versions with GUI controls: returns “On” if the on-screen keyboard is currently displayed under program control (see the KEYBOARD command and OPTION SCREEN KEYBOARD), otherwise “Off”.
+
+=+= {b=0 a=0}MM.INFO$(SDCARD)
+---
+{b=0 a=0}Returns the status of the SD Card. Valid returns are:
+{b=0 a=0}DISABLED, NOT PRESENT, READY, and UNUSED
+
+=+= {b=0 a=0}MM.INFO$(CURRENT)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(PATH)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(DISK SIZE)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(DRIVE)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(EXISTS FILE fname$)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(EXISTS DIR dirname$)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(FREE SPACE)
+---
+{b=0 a=0}Returns the name of the current program when loaded from a file or NONE if called after a NEW, AUTOSAVE, XMODEM or EDIT Command.
+{b=0 a=0}
+{b=0 a=0}Returns the path of the current program or NONE if called after a NEW or EDIT Command.
+{b=0 a=0}
+{b=0 a=0}Returns the capacity of the Flash Filesystem or SD Card, whichever is the active drive, in bytes
+{b=0 a=0}
+{b=0 a=0}Returns the active drive “A:” or “B:”
+{b=0 a=0}
+{b=0 a=0}Returns 1 if the file specified exists, returns -1 if fname$ is a directory, otherwise returns 0.
+{b=0 a=0}
+{b=0 a=0}Returns a Boolean indicating whether the directory specified exits.
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}Returns the free space on the Flash Filesystem or SD Card whichever is the active drive.
+
+=+= {b=0 a=0}MM.INFO(FILESIZE file$)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(MODIFIED file$)
+---
+{b=0 a=0}Returns the size of file$ in bytes or 0 if not found.
+{b=0 a=0}
+{b=0 a=0}Returns the date/time that file$ was modified, Empty string if not found.
+
+=+= MM.INFO$(SYSTEM I2C)
+{}
+MM.INFO(FCOLOUR)
+{}
+MM.INFO(BCOLOUR)
+---
+Returns “I2C”, “I2C2”, or “Not set” depending on the status of OPTION SYSTEM I2C
+Returns the current foreground colour.
+{}
+Returns the current background colour.
+
+=+= {b=0 a=0}MM.INFO(FONT)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(FONT ADDRESS n)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(FONT POINTER n)
+---
+{b=0 a=0}Returns the number of the currently active font.
+{b=0 a=0}
+{b=0 a=0}Returns the address of the memory location with the address of FONT n .
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}Returns a POINTER to the start of FONT n in memory.
+
+=+= {b=0 a=0}MM.INFO(FONTHEIGHT) 
+{b=0 a=0}MM.INFO(FONTWIDTH) 
+{b=0 a=0}
+{b=0 a=0}MM.INFO(FLASH) 
+---
+{b=0 a=0}Integers representing the height and width of the current font (in pixels).
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}Reports which flash slot the program was loaded from if applicable.
+
+=== MM.INFO(FLASHTOP)
+---
+{b=0 a=0}Returns the address of the first byte of flash memory above the area used by the firmware, options, saved variables, flash slots and program storage.
+
+=+= {b=0 a=0}MM.INFO(FLASH ADDRESS n)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(HEAP)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(HPOS) 
+{b=0 a=0}MM.INFO(VPOS)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(ID)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(IP ADDRESS)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(MAX GP)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(MAX VARS)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(MODBUFF ADDRESS)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(OPTION option)
+{b=0 a=0}
+---
+{b=0 a=0}Returns the address of image slot n: a flash slot for 1 to 3 or, on an RP2350 with PSRAM, RAM slot n-3 for 4 to 8 (see FLASH LOAD IMAGE).
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}Returns the amount of MMbasic Heap memory free. MMBasic heap is used for strings, arrays and various other temporary and permanent buffers (eg, audio) 
+{b=0 a=0}
+{b=0 a=0}The current horizontal and vertical position (in pixels) following the last 
+{b=0 a=0}graphics or print command.
+{b=0 a=0}
+{b=0 a=0}Returns the unique ID of the Pico.
+{b=0 a=0}
+{b=0 a=0}Returns the IP address of the WebMite
+{b=0 a=0}
+{b=0 a=0}Returns the highest valid GPno on the chip
+{b=0 a=0}
+{b=0 a=0}Returns the total number of variables available in the current version
+{b=0 a=0}
+{b=0 a=0}Returns the address in memory of the buffer used for storing MOD files
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}Returns the current value of a range of options that affect how a program 
+{b=0 a=0}will run. “option” can be one of AUTORUN, AUDIO, BASE, BREAK, 
+{b=0 a=0}CONSOLE, DEFAULT, EXPLICIT, KEYBOARD, ANGLE, HEIGHT, WIDTH, FLASH SIZE, AUTOREFRESH or SSID (WebMite only)
+
+=+= {b=0 a=0}MM.INFO(HEAPEND) MM.INFO(STACKPEAK) MM.INFO(CHEAPMAX) MM.INFO(CHEAPTOTAL) MM.INFO(TLSHEAP) MM.INFO(TLSHEAPMAX) MM.INFO(TLSHEAPERR)
+---
+{b=0 a=0}These report internal memory-allocator values and exist to help debug the firmware itself.  They are not part of the supported MMBasic language and may change or be withdrawn without notice, so programs should not rely on them.  MM.INFO(HEAPEND) is available on all versions; the others are on the WiFi versions only (MM.INFO(STACKPEAK) on WebMiteRP2350, PicoMiteHDMIWEB and PicoMitePC3 only).
+
+=+= {b=0 a=0}MM.INFO$(PIN pinno)
+---
+{b=0 a=0}Returns the status of I/O pin 'pinno'. Valid returns are:
+{b=0 a=0 l=720}OFF, DIN, DOUT, AIN, etc
+
+=+= {b=0 a=0}MM.INFO(PINNO GPnn)
+{b=0 a=0}
+{b=0 a=0 z=18}
+{b=0 a=0 z=18}
+{b=0 a=0 z=16}
+{b=0 a=0}MM.INFO(PIO RX DMA)
+{b=0 a=0 z=24}
+{b=0 a=0}MM.INFO(PIO TX DMA)
+---
+{b=0}Returns the physical pin number for a given GP number.  GPnn can be an unquoted string (GP01), a string literal(“GP01”) or a string variable. Ie, A$=”GP01”: MM.INFO(PINNO A$) .
+{b=0 z=16}
+{b=0}Indicates whether the PIO RX DMA channel is busy
+{b=0 z=16}
+{b=0}Indicates whether the PIO TX DMA channel is busy
+
+=+= {b=0 a=0}MM.INFO$(PLATFORM)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(PROGRAM)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(PSRAM SIZE)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(PS2)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(PWM COUNT)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(PWM DUTY C%, n%)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(PWM SLICE pinno)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(SOUND)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(SPI SPEED
+{b=0 a=0}
+{b=0 a=0}MM.INFO(STACK)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(SYSTEM HEAP)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(SYSTICK)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(TILE HEIGHT)
+{b=0 a=0 z=24}
+{b=0 a=0}MM.INFO(TRACK)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(TOUCH)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(USB n)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(USB VID n)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(USB PID n)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(VARCNT)
+{b=0 a=0}
+{b=0 a=0}MM.INFO$(LINE)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(UPTIME)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(VALID CPUSPEED speed%)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(VERSION)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}MM.INFO(WRITEBUFF)
+---
+{b=0 a=0}Returns the string previously set with OPTION PLATFORM.
+{b=0 a=0}
+{b=0 a=0}Returns the address in memory of the currently running program
+{b=0 a=0}
+{b=0 a=0}Returns the size of any PSRAM if available. The RP2040 always returns 0.
+{b=0 a=0}
+{b=0 a=0}Reports the last raw message received on the PS2 interface if enabled.
+{b=0 a=0}
+{b=0 a=0}Returns the number of PWM channels supported by the chip
+{b=0 a=0}
+{b=0 a=0}Returns the current duty cycle in clock counts of PWM channel C%,N%
+{b=0 a=0}Where N%=0 for A and 1 for B
+{b=0 a=0}
+{b=0 a=0}This returns the PWM slice for a given pin (0-7 RP2040, 0-11 RP2350)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}Returns the current activity on the audio output: OFF, TONE, SOUND, BBC, WAV, FLAC, MP3, MOD, MIDI, STREAM, ARRAY or SAMPLE, or PAUSED followed by the name of the paused activity (e.g. PAUSED BBC)
+{b=0 a=0}
+{b=0 a=0}Returns the actual speed of the SYSTEM SPI or an error if not set
+{b=0 a=0}
+{b=0 a=0}Returns the C stack pointer. Complex or recursive Basic code may result in the error "Stack overflow, expression too complex at depth %" This will occur when the stack is below &H 2003f800. Monitoring the stack will allow the programmer to identify simplifications to the Basic code to avoid the error.
+{b=0 a=0}
+{b=0 a=0}Returns the free space on the System Heap.
+{b=0 a=0}
+{b=0 a=0}Returns the current value of the system 24-bit systick timer which runs at the CPU clock speed
+{b=0 a=0}
+{b=0 a=0}__VGA AND HDMI VERSIONS ONLY__
+{b=0 a=0}Returns the current setting of the tile height.
+{b=0 a=0}
+{b=0 a=0}Returns the name of the FLAC, MP3, WAV or MIDI file currently playing on the audio output.
+{b=0 a=0}
+{b=0 a=0}Returns the status of the Touch controller. Valid returns are:
+{b=0 a=0}“Disabled”, “Not calibrated”, and “Ready”.
+{b=0 a=0}
+{b=0 a=0}Return the device code for any device connected to channel ‘n’ which is a number from 1 to 4.  The returned device code can be:
+{b=0 a=0}0=not in use, 1=keyboard, 2=mouse, 128=ps4, 129=ps3, 130=SNES/Generic, 131=xbox, 132=unknown, 133=touch screen, 134=touch screen (pointer mode), 135=Switch Pro Controller
+{b=0 a=0}By default a connected keyboard will be allocated to channel 1, a mouse the channel 2, and gamepads to channel 3 and then channel 4.  If 2 or more keyboards or mice are connected or 3 or more gamepads then the additional devices will be allocated to the highest available channel.
+{b=0 a=0}
+{b=0 a=0}Returns the VID of the USB device on channel n
+{b=0 a=0}
+{b=0 a=0}Returns the PID of the USB device on channel n
+{b=0 a=0}
+{b=0 a=0}Returns the number of variables in use in the MMBasic program.
+{b=0 a=0}
+{b=0 a=0}Returns the current line number as a string. LIBRARY returned if in the Library and UNKNOWN if not in a program. Assists in diagnostics while unit testing.
+{b=0 a=0}
+{b=0 a=0}Returns the time in seconds since booted as a floating point number.
+{b=0 a=0}
+{b=0 a=0}Returns 1 if ‘speed%’ is valid for OPTION CPUSPEED ‘speed%’
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}The version number of the firmware (MM.VER converts to this)
+{b=0 a=0}
+{b=0 a=0}
+{b=0 a=0}Returns the address in memory of the current buffer used for drawing commands.
+
+=== MM.INFO(SCROLL)
+{}
+MM.INFO(SCREENBUFF)
+---
+{b=0 a=0}RP2350 versions with a buffered LCD panel: returns the current vertical scroll offset of the display in pixels.
+{b=0 a=0}
+{b=0 a=0}RP2350 versions with a buffered LCD panel: returns the address in memory of the screen buffer.
+
+=+= {b=0 a=0}
+{b=0 a=80}MM.INFO(TCP PORT)
+{b=0 a=80}MM.INFO(UDP PORT)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(MAX CONNECTIONS)
+{b=0 a=0}
+{b=0 a=0}MM.INFO(TCP REQUEST n)
+--- keep
+{b=0}__WIFI VERSIONS ONLY__
+{b=0 a=80}Returns the TCP port set as a server or 0 if not set
+{b=0 a=80}Returns the UDP port set as a server or 0 if not set
+{b=0}
+{b=0}Returns the maximum number of simultaneous connections supported by the TCP server.  Typically used to step through the connections in a WEB TCP INTERRUPT subroutine.
+{b=0}
+{b=0}Returns true if connection number ‘n’ (1 to MM.INFO(MAX CONNECTIONS)) has a request pending for the TCP server.
+
+=+= {b=0 a=0}
+{b=80 a=80}MM.INFO(TCPIP STATUS)
+{b=0 a=80}MM.INFO(WIFI STATUS)
+{b=0 a=0}
+--- keep
+{b=0}__WIFI VERSIONS ONLY__
+{b=0 a=80}Returns the TCPIP status of the connection
+{b=0 a=0}Returns the WIFI status of the connection. 
+{b=80 a=0}Valid returns are:
+{t=r468 b=0 a=0}		 0   WiFi is down
+{t=r468 b=0 a=0}		 1   Connected to WiFi
+{t=r468 b=0 a=0}		 2   Connected to WiFi, but no IP address (TCPIP STATUS only)
+{t=r468 b=0 a=0}		 3   Connected to WiFi with an IP address (TCPIP STATUS only)
+{t=r468 b=0 a=0}		-1   Connection failed
+{t=r468 b=0 a=0}		-2   No matching SSID found (could be out of range, or down)
+{t=r468 b=0 a=0}		-3   Authentication failure
+
+=+= {b=0 a=0}
+{b=80 a=80}MM.INFO(TELNET)
+--- keep
+{b=0}__WIFI VERSIONS ONLY__
+{b=0 a=80}Returns 1 if a Telnet client is currently connected to the console, otherwise 0.  This reports the connection, not the setting, so it will return 0 whenever nothing is connected even though OPTION TELNET CONSOLE is set to ON or ONLY.
+
+=== MM.MESSAGE$
+---
+{b=0 a=0}__WIFI VERSIONS ONLY__
+{b=0}Returns the contents of the last UDP datagram received or last MQTT packet received
+
+=== MM.TOPIC$
+---
+{b=0 a=0}__WIFI VERSIONS ONLY__
+{b=0}Returns the topic of the last MQTT packet received
+
+=== MM.ONEWIRE
+---
+{b=0}Following a 1-Wire reset function this integer variable will be set to indicate the result of the operation:  0 = Device not found, 1 = Device found, 2=Device timeout.
+
+=== MM.I2C
+---
+{b=0}Following an I2C write or read command this integer variable will be set to indicate the result of the operation as follows:
+{b=0}0 = The command completed without error.
+{b=0}1 = Received a NACK response
+{b=0}2 = Command timed out
+
+=== MM.PERSISTENT
+---
+{b=0}Returns a value saved with the command SAVE PERSISTENT
+
+=== MM.PS2
+---
+{b=0 a=0}Returns the last code received on the PS2 interface if enabled.
+{b=0}
+
+=== MM.USB
+---
+{b=0 a=0}On versions with USB support: returns the last code received from a USB keyboard (the USB equivalent of MM.PS2 which is not available on these versions).
+
+=== MM.WATCHDOG
+---
+{b=0}An integer which is true if MMBasic was restarted as the result of a Watchdog timeout (see the WATCHDOG command) otherwise false.
