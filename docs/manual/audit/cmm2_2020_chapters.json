@@ -1,0 +1,261 @@
+[
+ {
+  "chapter": "Introduction",
+  "sections": []
+ },
+ {
+  "chapter": "Quick Start Tutorial",
+  "sections": [
+   "Command Prompt",
+   "Your First Program",
+   "Something More Complicated"
+  ]
+ },
+ {
+  "chapter": "Hardware Features",
+  "sections": [
+   "STM32H743IIT6 Cortex-M7 32-bit RISC CPU",
+   "Waveshare CoreH743I CPU Board",
+   "Firmware Upload Switch",
+   "Reset Switch",
+   "USB Keyboard Connector",
+   "Power & Serial Console Connector",
+   "Audio Connector",
+   "Temperature Sensor",
+   "VGA Monitor Connector",
+   "External I/O connector",
+   "IR Receiver",
+   "Wii Nunchuk and Wii Classic Connector",
+   "Power & SD Card Activity LEDs",
+   "SD Card Connector",
+   "Backup Battery"
+  ]
+ },
+ {
+  "chapter": "Using MMBasic",
+  "sections": [
+   "Commands and Program Input",
+   "Editing the Command Line",
+   "Console Keyboard/Display",
+   "Keyboard Shortcuts",
+   "Line Numbers and Program Structure",
+   "All Programs Are Run From the SD Card",
+   "Status Line",
+   "Running Programs",
+   "Expressions",
+   "Standards and Compatibility",
+   "Saved Variables",
+   "Timing",
+   "Watchdog Timer",
+   "PIN Security",
+   "The Serial Console",
+   "Resetting MMBasic"
+  ]
+ },
+ {
+  "chapter": "File Manager",
+  "sections": []
+ },
+ {
+  "chapter": "Full Screen Editor",
+  "sections": [
+   "Colour Coded Editor Display",
+   "Serial Console",
+   "Memory Usage"
+  ]
+ },
+ {
+  "chapter": "Variables and Expressions",
+  "sections": [
+   "Variables",
+   "Constants",
+   "OPTION DEFAULT",
+   "OPTION EXPLICIT",
+   "DIM and LOCAL",
+   "STATIC",
+   "CONST",
+   "Expressions and Operators",
+   "Mixing Floating Point and Integers",
+   "64-bit Unsigned Integers"
+  ]
+ },
+ {
+  "chapter": "Subroutines and Functions",
+  "sections": [
+   "Subroutines",
+   "Local Variables",
+   "Functions",
+   "Passing Arguments by Reference",
+   "Passing Arrays",
+   "Early Exit",
+   "Examples"
+  ]
+ },
+ {
+  "chapter": "Basic Graphics",
+  "sections": [
+   "Screen Coordinates",
+   "Read Only Variables",
+   "Colours",
+   "Fonts",
+   "Drawing Commands",
+   "Example of Basic Graphics",
+   "Rotated Text",
+   "Transparent Text",
+   "Displaying Images",
+   "Advanced Graphics Tutorial"
+  ]
+ },
+ {
+  "chapter": "SD Card Support",
+  "sections": [
+   "Program Management Commands",
+   "File Access Within a Program",
+   "File and Directory Management",
+   "Play Audio Files",
+   "Load and Save Images",
+   "Sequential File Access",
+   "Random File Access"
+  ]
+ },
+ {
+  "chapter": "Audio Output",
+  "sections": [
+   "Playing WAV, MP3 and FLAC Files",
+   "Background Music",
+   "Generating Sine Waves",
+   "Specialised Audio Output",
+   "Utility Commands"
+  ]
+ },
+ {
+  "chapter": "Special Device Support",
+  "sections": [
+   "Infrared Remote Control Decoder",
+   "Infrared Remote Control Transmitter",
+   "Measuring Temperature",
+   "Measuring Humidity and Temperature",
+   "Measuring Distance",
+   "WS2812 Support"
+  ]
+ },
+ {
+  "chapter": "Game Playing Features",
+  "sections": [
+   "VGA Resolution, Colour Depth and Pages",
+   "Scrolling and Sprites",
+   "Displaying Images",
+   "Fonts",
+   "Playing Audio",
+   "Keyboard Keys",
+   "Wii Nunchuk Support",
+   "Wii Classic Support"
+  ]
+ },
+ {
+  "chapter": "Porting Programs",
+  "sections": [
+   "Variables",
+   "Floating Point",
+   "Graphic Commands",
+   "Fonts",
+   "BLIT",
+   "Sprites",
+   "SOUND and TONE",
+   "SD Card and File Related Commands",
+   "Special Devices",
+   "CONFIG Commands",
+   "Error Handling",
+   "Random Number Generator"
+  ]
+ },
+ {
+  "chapter": "Predefined Read Only Variables",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Operators",
+  "sections": [
+   "Detailed Listing",
+   "Numeric Operators (Float or Integer)",
+   "String Operators"
+  ]
+ },
+ {
+  "chapter": "Options",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Commands",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Functions",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Obsolete Commands and Functions",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Appendix A – Serial Communications",
+  "sections": [
+   "The OPEN Command",
+   "Input/Output Pin Allocation",
+   "Examples",
+   "Reading and Writing",
+   "Interrupts",
+   "Low Cost RS-232 Interface"
+  ]
+ },
+ {
+  "chapter": "Appendix B – I2C Communications",
+  "sections": [
+   "7-Bit Addressing",
+   "I/O Pins",
+   "Example"
+  ]
+ },
+ {
+  "chapter": "Appendix C – 1-Wire Communications",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix D – SPI Communications",
+  "sections": [
+   "I/O Pins",
+   "SPI Open",
+   "Transmission Format",
+   "Standard Send/Receive",
+   "Bulk Send/Receive",
+   "SPI Close",
+   "Examples"
+  ]
+ },
+ {
+  "chapter": "Appendix E – Sprites",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix F – Special Keyboard Keys",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix G – Loading the Firmware",
+  "sections": [
+   "Alternative Method",
+   "Third Method",
+   "Linux and the Raspberry Pi"
+  ]
+ }
+]

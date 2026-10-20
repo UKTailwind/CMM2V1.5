@@ -1,0 +1,434 @@
+[
+ {
+  "chapter": "Introduction",
+  "sections": []
+ },
+ {
+  "chapter": "Firmware Versions and Files",
+  "sections": [
+   "Self Contained Computer",
+   "Embedded Controller",
+   "Processor Support",
+   "PicoCalc Support",
+   "Pico Computer 3 Support",
+   "File Names",
+   "Loading the Firmware"
+  ]
+ },
+ {
+  "chapter": "Serial Console",
+  "sections": [
+   "Virtual Serial Port",
+   "Terminal Emulator",
+   "The Console",
+   "Windows 7 and 8.1",
+   "Apple Macintosh",
+   "Linux",
+   "Android"
+  ]
+ },
+ {
+  "chapter": "First Steps",
+  "sections": [
+   "A Simple Program",
+   "Flashing a LED",
+   "Tutorial on Programming in the BASIC Language"
+  ]
+ },
+ {
+  "chapter": "Hardware Details",
+  "sections": [
+   "Third Party Modules",
+   "WebMite version for the Raspberry Pi Pico W or Pico 2 W",
+   "CPU Variations",
+   "PSRAM",
+   "I/O Pin Limits",
+   "Power Supply",
+   "Clock Speed",
+   "Power Consumption"
+  ]
+ },
+ {
+  "chapter": "Using MMBasic",
+  "sections": [
+   "Commands and Program Input",
+   "Program Structure",
+   "Editing the Command Line",
+   "Shortcut Keys",
+   "Interrupting A Running Program",
+   "Setting Options",
+   "Saved Variables",
+   "Watchdog Timer",
+   "PIN Security",
+   "The Library",
+   "Program Initialisation",
+   "MM.STARTUP",
+   "MM.PROMPT",
+   "MM.END"
+  ]
+ },
+ {
+  "chapter": "Calculator Immediate Mode",
+  "sections": []
+ },
+ {
+  "chapter": "Full Screen Editor",
+  "sections": [
+   "Edit Functions",
+   "Mark Mode",
+   "Alternate Keys",
+   "Long Lines",
+   "Using a Mouse",
+   "Colour Coded Editor Display"
+  ]
+ },
+ {
+  "chapter": "File Manager",
+  "sections": []
+ },
+ {
+  "chapter": "Variables and Expressions",
+  "sections": [
+   "Variables",
+   "Constants",
+   "OPTION DEFAULT",
+   "OPTION EXPLICIT",
+   "DIM and LOCAL",
+   "STATIC",
+   "CONST",
+   "Special Characters in Strings",
+   "Expressions and Operators",
+   "Mixing Floating Point and Integers",
+   "Structures",
+   "64-bit Unsigned Integers"
+  ]
+ },
+ {
+  "chapter": "Subroutines and Functions",
+  "sections": [
+   "Subroutines",
+   "Functions",
+   "Passing Arguments by Reference",
+   "Passing Arrays",
+   "Early Exit",
+   "Recursion",
+   "Examples"
+  ]
+ },
+ {
+  "chapter": "Video Output",
+  "sections": [
+   "VGA Video",
+   "HDMI Video",
+   "VGA/PS2 Reference Design (Raspberry Pi Pico)",
+   "HDMI/USB Reference Design (Raspberry Pi Pico 2)"
+  ]
+ },
+ {
+  "chapter": "Keyboard/Mouse/Gamepad",
+  "sections": [
+   "PS2 Keyboard on the Raspberry Pi Pico (RP2040)",
+   "PS2 Keyboard on the Raspberry Pi Pico 2 (RP2350)",
+   "PS2 Mouse",
+   "USB Interface",
+   "USB Hub",
+   "USB Keyboard",
+   "USB Mouse",
+   "USB Gamepad",
+   "USB Touch Screen",
+   "USB Serial Devices (COM3 to COM6)",
+   "USB Flash Drive",
+   "Configuring the Keyboard",
+   "Using a Mouse",
+   "On-Screen Keyboard"
+  ]
+ },
+ {
+  "chapter": "Program and Data Storage",
+  "sections": [
+   "Flash Slots",
+   "Flash Filesystem",
+   "SD Cards",
+   "Combined Chip Select",
+   "USB Flash Drive",
+   "MMBasic Support for Flash and SD Card Filesystems",
+   "XModem Transfer",
+   "Load and Save Image",
+   "Example of Sequential I/O",
+   "Random File I/O"
+  ]
+ },
+ {
+  "chapter": "Sound Output",
+  "sections": [
+   "Pulse Width Modulated (PWM) Signal",
+   "Filter Circuits",
+   "VS1053 support",
+   "MCP48n2 DAC",
+   "Bluetooth Speakers and Headphones",
+   "Playing WAV, FLAC, MP3 and MOD Files",
+   "Generating Sine Waves",
+   "Using PLAY",
+   "Utility Commands",
+   "Specialised Audio Output"
+  ]
+ },
+ {
+  "chapter": "Using the I/O pins",
+  "sections": [
+   "Digital Inputs",
+   "Analog Inputs",
+   "Counting Inputs",
+   "Digital Outputs",
+   "Pulse Width Modulation",
+   "Communications Interfaces (Serial, SPI and I2C)",
+   "Interrupts"
+  ]
+ },
+ {
+  "chapter": "Special Device Support",
+  "sections": [
+   "Infrared Remote Control Decoder",
+   "Infrared Remote Control Transmitter",
+   "Measuring Temperature",
+   "Measuring Humidity and Temperature",
+   "Real Time Clock Interface",
+   "Measuring Distance",
+   "LCD Display",
+   "Keypad Interface",
+   "WS2812 Support",
+   "OV7670 Camera module"
+  ]
+ },
+ {
+  "chapter": "Display Panels",
+  "sections": [
+   "SPI Based Display Panels",
+   "I2C Based LCD Panels",
+   "8-bit Parallel LCD Panels",
+   "Connecting an 8-bit parallel LCD Panel",
+   "Configuring an 8-bit parallel LCD Panel",
+   "8 and 9 inch Displays",
+   "16-bit Parallel LCD Panels",
+   "RP2350 Extended Display Support",
+   "VGA222 drivers",
+   "Backlight Control",
+   "Touch Support",
+   "Calibrating the Touch Screen",
+   "Touch Functions",
+   "Touch Interrupts",
+   "LCD Display as the Console Output",
+   "Example SPI LCD Panel Configuration"
+  ]
+ },
+ {
+  "chapter": "Graphics Functions",
+  "sections": [
+   "Supported Hardware",
+   "Colours",
+   "Screen Coordinates",
+   "Fonts",
+   "Embedded Fonts",
+   "Drawing Commands",
+   "Rotated Text",
+   "Transparent Text",
+   "Framebuffers and Layers",
+   "BLIT and Sprite Commands",
+   "Load Image",
+   "Advanced Graphics",
+   "LCD Graphics Example"
+  ]
+ },
+ {
+  "chapter": "GUI Integration",
+  "sections": []
+ },
+ {
+  "chapter": "WiFi and Internet Functions",
+  "sections": [
+   "Connecting to a WiFi Network",
+   "Remote Console Access",
+   "File Transfer",
+   "Getting the Time",
+   "Implementing a Web Server",
+   "Live Graphical Data in a WEB Page",
+   "A Complete General Purpose Server",
+   "A Typical WEB Page",
+   "Input Fields and Control",
+   "Implementing a TCP Client",
+   "Secure Connections (TLS)",
+   "Using UDP",
+   "Sending EMails",
+   "Base 64 Encoding",
+   "MQTT Client",
+   "Ping",
+   "Streaming audio"
+  ]
+ },
+ {
+  "chapter": "Long Strings",
+  "sections": [
+   "Long String Variables",
+   "Long String Commands",
+   "Long String Functions"
+  ]
+ },
+ {
+  "chapter": "Bluetooth Versions",
+  "sections": [
+   "PicoMiteBT – Console over Bluetooth",
+   "PicoMiteBTH – Bluetooth Keyboards and Mice",
+   "PicoMiteBTH – Bluetooth Speakers and Headphones",
+   "PicoMiteBTH – Bluetooth Serial Devices (COM7)"
+  ]
+ },
+ {
+  "chapter": "MMBasic Characteristics",
+  "sections": [
+   "Naming Conventions",
+   "Constants",
+   "Implementation Characteristics",
+   "Compatibility"
+  ]
+ },
+ {
+  "chapter": "Predefined Read Only Variables",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Options",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Commands",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Functions",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Obsolete Commands and Functions",
+  "sections": [
+   "Detailed Listing"
+  ]
+ },
+ {
+  "chapter": "Appendix A – Serial Communications",
+  "sections": [
+   "I/O Pins",
+   "Commands",
+   "The OPEN Command",
+   "Examples",
+   "Reading and Writing",
+   "Interrupts"
+  ]
+ },
+ {
+  "chapter": "Appendix B – I2C Communications",
+  "sections": [
+   "I/O Pins",
+   "I2C Master Commands",
+   "I2C Slave Commands",
+   "Errors",
+   "7-Bit Addressing",
+   "System I2C",
+   "Examples"
+  ]
+ },
+ {
+  "chapter": "Appendix C – 1-Wire Communications",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix D – SPI Communications",
+  "sections": [
+   "I/O Pins",
+   "SPI Open",
+   "Transmission Format",
+   "Standard Send/Receive",
+   "Bulk Send/Receive",
+   "SPI Close",
+   "Examples"
+  ]
+ },
+ {
+  "chapter": "Appendix E – Regex Syntax",
+  "sections": [
+   "Using Regular expressions with OPTION ESCAPE",
+   "Introduction to the PIO",
+   "Availability of PIOs",
+   "Overview of PIO",
+   "Programming PIO",
+   "Configuring PIO",
+   "FIFO's",
+   "DMA To and From the FIFOs"
+  ]
+ },
+ {
+  "chapter": "Appendix G – Sprites",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix H – Turtle Graphics",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix I –  Special Keyboard Keys",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix J –  Programming in BASIC - A Tutorial",
+  "sections": [
+   "Command Prompt",
+   "Structure of a BASIC Program",
+   "Comments",
+   "The PRINT Command",
+   "Variables",
+   "Expressions",
+   "The IF Statement",
+   "FOR Loops",
+   "Multiplication Table",
+   "DO Loops",
+   "Console Input",
+   "GOTO and Labels",
+   "Testing for Prime Numbers",
+   "Arrays",
+   "Integers",
+   "Strings",
+   "Manipulating Strings",
+   "Scientific Notation",
+   "DIM Command",
+   "Constants",
+   "Subroutines",
+   "Functions",
+   "Local Variables",
+   "Static Variables",
+   "Calculate Days"
+  ]
+ },
+ {
+  "chapter": "Appendix K – Firmware Version Applicability",
+  "sections": [
+   "The sixteen firmware images",
+   "Version labels",
+   "Conditions"
+  ]
+ },
+ {
+  "chapter": "Appendix L – Where Each Keyword Is Documented",
+  "sections": []
+ },
+ {
+  "chapter": "Appendix M – Companion Manuals",
+  "sections": []
+ }
+]

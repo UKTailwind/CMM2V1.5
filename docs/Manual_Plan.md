@@ -82,6 +82,39 @@ The class is confirmed against the handler, not taken from the manuals' agreemen
 
 **M-A4. The chapters,** `chapters.md`: each of the PicoMite manual's 41 chapters and the b14's 36, against the build. Each is kept, replaced by the CMM2's, merged, or dropped.
 
+**M1 as built (20 Oct).** The tools are in `tools/manual/`:
+- `inventory.py` finds:
+  - 161 commands, 94 functions and 21 operators, with 1,063 sub-keywords;
+  - the 19 MM. names the tokeniser folds, and its 12 folded functions;
+  - its 10 aliases: `?` is PRINT, COLOR is COLOUR, SPRITE is BLIT, WII is CONTROLLER, CAT is INC, PIXEL FAST is CLS, ELSE IF, END IF, EXIT DO, MM.INFO$;
+  - the loader's 6 directives (`#DEFINE`, `#INCLUDE`, `#COMMENT START/END`, `#MMDEBUG ON/OFF`).
+- `harvest_docx.py` harvests 739 rows of the PicoMite manual and 391 of the 2020 file.
+- `harvest_pdf.py` harvests 634 rows of the b14 PDF.
+- `crossref.py` writes `keywords.md`.
+
+What the cross-reference found, before the audit confirms it:
+- **Keywords:** 253 are in both the PicoMite manual and a CMM2 manual, 16 only in the PicoMite's, and 40 only in the CMM2's. The 40 are the operators, which the PicoMite manual has no table for, and the CMM2-only commands: PAGE, IMAGE, CAN, DAC, CONTROLLER, NUNCHUK(, CLASSIC(, BAUDRATE(.
+- **In neither manual:**
+  - WHILE;
+  - I2C3;
+  - CTRLVAL( and MSGBOX(;
+  - PRINT's `@(`;
+  - MM.END;
+  - the PIXEL FAST alias.
+- **b14 entries the build lacks:**
+  - CFUNCTION, LS and MM.ESC;
+  - OPTION F15, F16, F19 and F20;
+  - SETTICK FAST.
+
+  Its GUI entry spells CURSOR "CURSOUR".
+- **PicoMite entries the build lacks:** 113 name no keyword of the build. They are:
+  - WEB, PIO, CAMERA, BLUETOOTH, LCD, KEYPAD, ONESHOT, RAY, FRAME, STEPPER, MANDELBROT, STAR and ASTRO, TILE, RAM and RTC;
+  - nine MM. variables.
+
+  92 more name a sub-keyword the build lacks, mostly options for the PicoMite's hardware. Some of these are parity work still to come (RAY, FRAME, ONESHOT, KEYPAD, the RAM slots). Their entries come back when they do.
+
+`chapters.md` is the chapter table: the proposal below, chapter by chapter, with each one's source and action.
+
 ## The new manual's structure (proposed; M-A4 settles it)
 
 **Front matter:** the title page and the About section (M-D3), Introduction, Generation 1 and Generation 2, Hardware Features. These are the CMM2's, from b14.
