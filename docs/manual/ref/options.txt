@@ -1,668 +1,342 @@
 # Options: the reference entries (tools/manual/reftext.py)
 
 === OPTION ANGLE RADIANS | DEGREES
---- roomy
-This command switches trig functions between degrees and radians. Acts on SIN, COS, TAN, ATN, ATAN2, MATH ATAN3, ACOS, ASIN
+--- keep roomy
+This command switches trig functions between degrees and radians.  Acts on SIN, COS, TAN, ATN, ATAN2, ACOS and ASIN, and on MATH ATAN3, MATH V_ROTATE, MATH Q_EULER, MATH Q_CREATE, MATH(C_POLAR), MATH(C_PHASE) and MATH SENSORFUSION.
+This is a temporary option that is reset to the default (RADIANS) when a program is run, when it ends, after an error and after CTRL-C, so it should be set at the top of any program that uses angles in degrees.  MM.INFO(OPTION ANGLE) returns the current setting.
 
-=== OPTION AUDIO PWMnApin, PWMnBpin
-or
-OPTION AUDIO DISABLE
---- P roomy
-__NOT BLUETOOTH HOST VERSIONS __Configures one of the PWM channels as an audio output.
-‘PWMnApin’ is the left audio channel, ‘PWMnBpin’ is the right.  Both pins must belong to the same audio channel.
-Example,  OPTION AUDIO GP18, GP19 would use PWM1A and PWM1B on pins 24 and 25 respectively.
-This option prevents use of these pins in the BASIC program. 
-The audio output is generated using PWM so a low pass filter is necessary on the output.  The audio output from the Raspberry Pi Pico is very noisy.  Using OPTION POWER and/or supplying power via a separate 3.3V linear regulator can reduce this.
-This command must be run at the command prompt (not in a program).  
-
-=== OPTION AUDIO SPI CSpin, CLKpin, MOSIpin
-or
-OPTION AUDIO DISABLE
---- P roomy
-__NOT PICOMITEMIN OR BLUETOOTH HOST VERSIONS __Configures the audio output to be directed to a MCP48n2 DAC connected to the specified pins. The LDAC pin on the DAC should be connected to GND.
-
-=== OPTION AUDIO VS1053 CLKpin, MOSIpin, MISOpin, XCSpin, XDCSpin, DREQpin, XRSTpin
-or
-OPTION AUDIO DISABLE
---- P roomy
-__NOT PICOMITEMIN OR BLUETOOTH HOST VERSIONS __Configures the audio output to be directed to a VS1053 CODEC. This allows MP3 and MIDI playback in addition to the other formats supported and also supports real-time MIDI output. See the PLAY command for more details
-
-=== OPTION AUDIO I2S BCLKpin, DINpin
-or
-OPTION AUDIO DISABLE
---- P keep roomy
-Configures the audio output to be directed to an I2S DAC connected to the specified pins. The LRCK pin on the DAC should be connected to the next consecutive GPIO pin to BCLKpin.
-
-=== OPTION AUDIO BLUETOOTH [idle]
-or
-OPTION AUDIO DISABLE
---- P roomy
-__BLUETOOTH HOST VERSIONS ONLY __Directs the audio output to a Bluetooth speaker or headphones, which are connected with the BLUETOOTH CONNECT command.  No I/O pins are used.  See the chapter Bluetooth Versions for the details.
-‘idle’ is the time in seconds (0 to 250) after the last sound before the audio stream to the speaker is suspended.  The stream starts as soon as the speaker connects, and once suspended it is restarted automatically by the next sound, which is delayed slightly while it starts.  0 means that the stream is never suspended.  The default is 60 seconds.
-If Bluetooth is not already the audio output the PicoMite will restart after this command.  If it is, the command just changes ‘idle’.
-This command must be run at the command prompt (not in a program).
-
-=== OPTION AUTOREFRESH OFF | ON
---- roomy
-__NOT VGA OR HDMI VERSIONS __Black and white displays can only be updated a full screen at a time. By using OPTION AUTOREFRESH OFF/ON you can control whether a write command immediately updates the display or not. If AUTOREFRESH is OFF the REFRESH command can be used to trigger the write. This applies to the following displays: N5110, SSD1306I2C, SSD1306I2C32, SSD1306SPI and ST7920
-
-=== OPTION AUTORUN ON [,NORESET]
-or
-OPTION AUTORUN n [,NORESET]
+=== OPTION AUTORUN ON
 or
 OPTION AUTORUN OFF
 --- P keep roomy
-Instructs MMBasic to automatically run a program on power up or restart.  
-ON will cause the current program in program memory to be run.  
-Specifying ‘n’ will cause that location in flash memory to be run.  ‘n’ must be in the range 1 to 3.
-Specifying the optional parameter “NORESET” will maintain AUTORUN even if the program causes a system error (by default this will cause the firmware to cancel any OPTION AUTORUN setting).
-OFF will disable the autorun option and is the default for a new program.
+Instructs MMBasic to automatically run the program in program memory on power up or restart (for example, by the WATCHDOG timer).  OFF is the default.  The program is not run after the restart that an OPTION command causes.
+If the Colour Maximite 2 is set to run programs from RAM (OPTION RAM) MMBasic instead looks for the file AUTORUN.BAS on the SD card on power up or restart and runs it if it is found.
 Entering the break key (default CTRL-C) at the console will interrupt the running program and return to the command prompt.
+A firmware upgrade turns this option off.
 
-=== OPTION BASE 0  |  1
-{}
---- roomy
-Set the lowest value for array subscripts to either 0 or 1.  
-This must be used before any arrays are declared and is reset to the default of 0 on power up.
+=== OPTION BASE 0 | 1
+--- keep roomy
+Set the lowest value for array subscripts to either 0 or 1.
+This must be used before any arrays are declared (otherwise the error is "Must be before DIM or LOCAL") and is reset to the default of 0 when a program is run.
 
-=== {}
-OPTION BACKLIGHT KBD n
-OPTION BACKLIGHT LCD n
---- P roomy
-{t=l387}__PICOCALC ONLY__
-{t=l387}Sets the keyboard backlight level 0-100%
-{t=l387}
-{t=l387}Sets the display backlight level 0-100%
+=== OPTION BASELINE ON
+or
+OPTION BASELINE OFF
+--- P keep roomy
+OPTION BASELINE ON makes the Colour Maximite 2 run as a 400MHz Generation 1 machine.  This is intended to allow testing of code on the lowest common denominator.
+OPTION BASELINE and OPTION OVERCLOCK cannot both be on: turning one on turns the other off, and OPTION BASELINE OFF (or OPTION OVERCLOCK OFF) returns to the normal speed.
+This command will cause a reboot.
 
-=== OPTION BAUDRATE nn
---- roomy
-{t=l387}Set the baudrate of the serial console.  The default is 115200.  A Generation 2 runs well at 460800, but the USB to serial converter of a Generation 1 cannot run at that speed.
+=== OPTION BAUDRATE nbr
+--- P keep roomy
+Set the baud rate for the serial console to ‘nbr’ (at least 100).  The default is 115200.  A Generation 2 runs well at 460800, but the USB to serial converter of a Generation 1 cannot run at that speed.
+The new rate is saved and is used from the next restart (MMBasic replies "Restart to activate"): the terminal emulator must then be set to match.  A firmware upgrade returns it to 115200.
+Using this command it is possible to set the console to an unworkable baud rate.  It can then be changed using a USB keyboard and VGA monitor, or returned to the default by resetting MMBasic (see Resetting MMBasic in the chapter Using MMBasic).
+This command can only be run from the command line.
 
 === OPTION BREAK nn
---- roomy
-{t=l387}Set the value of the break key to the ASCII value 'nn'.  This key is used to interrupt a running program.  
-{t=l387}The value of the break key is set to CTRL-C key at power up and when a program is run but it can be changed to any keyboard key using this command in a program (for example, OPTION BREAK 4 will set the break key to the CTRL-D key).   Setting this option to zero will disable the break function entirely.
+--- keep roomy
+Set the value of the break key to the ASCII value ‘nn’.  This key is used to interrupt a running program.
+The break key is set to CTRL-C whenever MMBasic returns to the command prompt, but it can be changed to any keyboard key using this command in a program (for example, OPTION BREAK 4 will set the break key to the CTRL-D key).  Setting this option to zero will disable the break function entirely.  MM.INFO(OPTION BREAK) returns the current value.
 
 === OPTION CASE LOWER | UPPER | TITLE
---- P roomy
-{t=l387}Change the case used for listing command and function names when using the LIST command. The default is TITLE but the old standard of MMBasic can be restored using OPTION CASE UPPER.
-
-=== {}
-OPTION CDC POLL RATE n
---- P roomy
-{t=l387}Sets the polling interval of the USB serial (CDC) console in microseconds.  ‘n’ can be 50 to 2000 (the default is 1000).  A smaller value makes the console more responsive at the cost of increased CPU overhead.  This setting is not saved and reverts to the default on reset or power up.
+--- P keep roomy
+Change the case used for listing command and function names when using the LIST command.  The default is TITLE but the old standard of MMBasic can be restored using OPTION CASE UPPER.
 
 === OPTION COLOURCODE ON
 or
 OPTION COLOURCODE OFF
-{}
---- P roomy
-{t=l387}Turn on or off colour coding for the editor's output.  Keywords will be in cyan, comments in yellow, etc.  The default is OFF.  
-{t=l387}The keyword COLORCODE (USA spelling) can also be used.
-{t=l387}This will work on VGA/HDMI video and the serial console using a terminal emulator with VT100 emulation (eg, Tera Term).  This command must be run at the command prompt (not in a program).  
-
-=== OPTION COMPILE ON
 or
-OPTION COMPILE SHADOW
-or
-OPTION COMPILE OFF
-{}
---- P roomy
-__RP2350 VERSIONS ONLY __Controls the compiler.  With ON, RUN compiles the program (and its library, if there is one) into a stream of native operations and runs that.  Statements that the compiler cannot take run on the interpreter as before, interleaved with the compiled ones, so a program does not need to be changed and gives exactly the same results.
-{t=l387}SHADOW compiles in the same way but also works out every compiled value again with the interpreter, and stops at the first statement where the two disagree.  It is slower than ON and is meant for checking a program.  OFF (the default) interprets the program only.
-{t=l387}The setting takes effect at the next RUN and is saved with the other options.  A program is compiled again only when it, or its library, has changed since the last compile, so the first RUN after an edit takes a little longer.  MM.INFO$(COMPILE) reports what the last RUN compiled and how much of the program ran compiled, and OPTION PROFILING ON lists the statements that ran on the interpreter.
-{t=l387}With PSRAM the compiled program is kept in PSRAM reserved by the firmware; without PSRAM it is kept in flash after the program memory.
-
-=== OPTION CONSOLE output
---- roomy
-Specifies where print statements will output. Valid settings are BOTH (i.e. SCREEN and SERIAL), SERIAL, SCREEN, NONE. This is a temporary option that is reset when a program exits.
-
-=== OPTION CONTINUATION LINES ON/OFF
---- P roomy
-Enables or disables the use of continuation lines in the editor and with the LIST command. Line continuation is indicated by a space followed by an underscore character at the end of a line. When enabled the editor will automatically split lines as it reads them from file and add the continuation characters required. When exiting the editor, the continuation characters are removed before saving. While in the editor the user can create long lines by adding their own continuation characters. This makes using a small screen as a console much easier.
-
-=== {}
-OPTION CPUSPEED speed
+OPTION COLOURCODE REVERSE
 --- P keep roomy
-__NOT VGA OR HDMI VERSIONS__
-Change the CPU clock speed.
-‘speed’ is the CPU clock in KHz.  The permitted range depends on the version: 48000 to 420000 on the PicoMite versions, 126000 to 396000 on the WebMite versions, and 200000 to 396000 on the Bluetooth versions.  Speeds above 200MHz (150MHz on the RP2350) are regarded as overclocking as those are the chip manufacturer’s specified maximums.
-The default speed is 200000 on both the RP2040 and the RP2350.  
-This command must be run at the command prompt (not in a program).  
-See also the CPU SPEED command which changes the clock speed immediately, without saving it or restarting the firmware, and can be used in a program.
+Turn on or off colour coding for the editor's output.  Keywords will be in cyan, comments in yellow, etc.  The default is ON.  Only BASIC programs (.bas files) are colour coded.
+OPTION COLOURCODE REVERSE is the same as OPTION COLOURCODE OFF except that the editor and the file manager show black text on a white background.
+The keyword COLORCODE (USA spelling) can also be used.
+On the serial console colour coding requires a terminal emulator that can interpret the VT100 escape codes (for example, Tera Term).
 
-=== OPTION COUNT pin1, pin2, pin3, pin4
---- P roomy
-Specifies which pins are to be used as Count inputs.  By default these are GP6, GP7, GP8 and GP9.  The SETPIN command defines the Counter mode.
-This command must be run at the command prompt (not in a program).
-
-=== OPTION CYW43 PINS wl_on, wl_d, wl_cs, wl_clk
+=== OPTION CONSOLE BOTH [font [, fc [, bc]]]
 or
-OPTION CYW43 PINS DEFAULT
---- P roomy
-__RP2350 WIFI AND BLUETOOTH VERSIONS ONLY __Specifies the pins used to connect to the wireless chip, for modules that do not connect it in the same way as the Raspberry Pi Pico 2 W (GP23, GP24, GP25 and GP29).  ‘wl_on’ is the chip’s power-on pin, ‘wl_d’ its data pin, ‘wl_cs’ its chip select and ‘wl_clk’ its clock.  For example, the Waveshare RP2350B Pico WiFi board needs OPTION CYW43 PINS GP36, GP37, GP38, GP39.  DEFAULT returns to the standard pins.
-The pins must be unused.  ‘wl_d’ and ‘wl_clk’ must both be within GP0 to GP31 or both within GP16 to GP47.  If an I2S DAC is configured it shares a PIO with the wireless chip, so its pins must be within the same range.
-The configured pins are reserved and cannot be used by a program.  If the wireless chip does not respond on them the firmware reports this when it starts and runs without WiFi or Bluetooth.  OPTION RESET also returns to the standard pins.
-This command must be run at the command prompt (not in a program) and will cause a restart.
-
-=== OPTION DEFAULT FLOAT | INTEGER | STRING | NONE 
+OPTION CONSOLE SCREEN
+or
+OPTION CONSOLE SERIAL
+or
+OPTION CONSOLE NONE
 --- roomy
+OPTION CONSOLE SCREEN will disable the serial console for both input and output and direct all output to the VGA monitor.  This will allow the VGA output to update much faster.  With this option the serial port used for the console can be opened as COM3.
+OPTION CONSOLE SERIAL will disable the console output to the VGA screen and send all output to the serial console.  This is useful for debugging graphics applications as diagnostic PRINT statements will not corrupt the screen display.
+OPTION CONSOLE BOTH will enable both the serial console and the VGA screen for console input and output.  This is the default unless OPTION CONSOLE SAVE has saved another setting.  The optional ‘font’ (1 to 8), ‘fc’ and ‘bc’ set the font and the foreground and background colours of the console's text on the screen (by default white on black); OPTION CONSOLE SAVE keeps them.
+OPTION CONSOLE NONE (the PicoMite's) sends the output to neither.  The serial console, if it was running, still takes input, so CTRL-C still works.
+These settings are temporary: when a program ends or an error occurs the console returns to the saved setting.  OPTION CONSOLE BOTH and OPTION CONSOLE SERIAL give the error "Console port in use" while COM3 is open.  MM.INFO(OPTION CONSOLE) returns the current setting.
+
+=+= OPTION CONSOLE PORT n
+--- P keep roomy
+Selects the serial port used as the console: 1 (COM1), 2 (COM2) or 3 (the default: the serial over USB on the USB Type-B connector).  With 1 or 2 all console input and output goes through that port, which allows easier remote operation using a WiFi to UART module or a radio link (see ESP-01 Module in the chapter Colour Maximite 2 Generation 2), and COM3 is available on the USB Type-B connector.
+This command will cause a reboot.  This setting is kept through a firmware upgrade.
+
+=+= OPTION CONSOLE SAVE
+--- P keep roomy
+Saves the current console setting (OPTION CONSOLE BOTH, SCREEN, SERIAL or NONE) as the one used at power up and whenever a program ends.
+If you are using the Colour Maximite 2 as a stand alone computer it is recommended that you execute OPTION CONSOLE SCREEN, then OPTION CONSOLE SAVE, to permanently disable the serial console and thereby eliminate serial I/O overhead.
+This command will cause a reboot.
+
+=== OPTION CRLF CR | LF | CRLF
+--- keep roomy
+Defines what the USB keyboard will send when the Enter key is pressed: CR (a carriage return), LF (a line feed) or CRLF (both, the default).
+This command can only be used in a program.  The setting returns to CRLF when a program is loaded and when it ends.
+
+=== OPTION DEFAULT FLOAT | INTEGER | STRING | NONE
+--- keep roomy
 Used to set the default type for a variable which is not explicitly defined.
-If OPTION DEFAULT NONE is used then all variables must have their type explicitly defined or the error “Variable type not specified” will occur.
-When a program is run the default is set to FLOAT for compatibility with Microsoft BASIC and previous versions of MMBasic.
+If OPTION DEFAULT NONE is used then all variables must have their type explicitly defined or the error "Variable type not specified" will occur.
+When a program is run the default is set to FLOAT for compatibility with Microsoft BASIC and previous versions of MMBasic.  MM.INFO(OPTION DEFAULT) returns the current setting.
 
-=== OPTION DEFAULT COLOURS foreground [,background]
+=== OPTION DEFAULT MODE n
 --- P roomy
-Set the default foreground and background colours for both the monochrome and colour modes.  The colour must be one of the following: white, yellow, lilac, brown, fuchsia, rust, magenta, red, cyan, green, cerulean, midgreen, cobalt, myrtle, blue and black. A numeric value cannot be used.  The default is white, black.
-{b=0 a=0}If background is omitted it defaults to black.
+Specifies the video mode for the command prompt, the editor and the file manager, which is also the mode a program starts in.  The colour depth is 8 bits.  ‘n’ can be:
+1 = 800x600, 100 x 50 characters (the default)
+8 = 640x480, 80 x 40 characters
+9 = 1024x768, 102 x 48 characters
+10 = 848x480, 106 x 40 characters (widescreen)
+11 = 1280x720, 128 x 45 characters (widescreen)
+12 = 960x540, 120 x 45 characters (widescreen, lines duplicated)
+14 = 960x540, 120 x 45 characters (widescreen, lines not duplicated: preferred over 12 but not supported by all monitors)
+15 = 1280x1024, 160 x 85 characters
+16 = 1920x1080, 120 x 45 characters (widescreen, Generation 2 only)
+18 = 1024x600, 102 x 37 characters
+The characters are the columns and lines of the screen in the editor's font, which this option also sets: NORMAL (8x12 pixels) in modes 1, 8, 10, 12, 14 and 15, MEDIUM (10x16) in modes 9, 11 and 18 and VERY LARGE (16x24) in mode 16.  OPTION EDIT FONT can then change it.
+This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
-=== OPTION DEFAULT MODE n
---- P roomy
-__VGA AND HDMI VERSIONS ONLY __This sets the default display mode on boot. This command must be run at the command prompt (not in a program).  
+=== OPTION DS3231 ON
+or
+OPTION DS3231 OFF
+--- P keep roomy
+__GENERATION 2 ONLY__ Enables and disables the use of the optional DS3231 real time clock (see High Accuracy Real Time Clock in the chapter Colour Maximite 2 Generation 2) for providing the time and date.  If OPTION MILLISECONDS is ON the processor's internal clock is always used for the time.
+On a Generation 1 this command gives the error "DS3231 not available on this H/W".
+This command will cause a reboot.  This setting is kept through a firmware upgrade.
 
-=== OPTION DISK SAVE fname$\nOPTION DISK LOAD fname$
---- P roomy
-__NOT PICOMITEMIN __These commands let the user save and restore the complete set of options defined to and from a disk file. The file could then be transferred to a host computer using XMODEM allowing additional devices to be easily configured or options recovered after a firmware upgrade
+=== OPTION EDIT FONT SMALL | NORMAL | MEDIUM | LARGE | VERY LARGE
+--- P keep roomy
+Sets the font to be used in the editor and the file manager: SMALL (6x8 pixels), NORMAL (8x12, the default), MEDIUM (10x16), LARGE (12x20) or VERY LARGE (16x24).  OPTION DEFAULT MODE also sets it, to the font that suits the mode.
+This command can only be run from the command line.  This setting is kept through a firmware upgrade.
 
-=== OPTION DISPLAY lines [,chars]
---- P roomy
-{b=0 a=0}Set the characteristics of the display terminal used for the console. Both the LIST and EDIT commands need to know this information to correctly format the text for display.
-{b=0 a=0}'lines' is the number of lines on the display and 'chars' is the width of the display in characters. The default is 24 lines x 80 chars and when changed this option will be remembered even when the power is removed. Maximum values are 100 lines and 240chars. 
-{b=0 a=0}This will send an ESC sequence to set the VT100 terminal to the matching size. TerraTerm, Putty and MMCC respond to this sequence and set the terminal width (if the option is enabled in the terminal setup).
-{b=0 a=0}**This option is not available if an LCD display is being used as the console.**
+=== OPTION ERROR ABORT
+or
+OPTION ERROR CONTINUE
+--- keep roomy
+Sets what happens when an operation on a file on the SD card or the USB drive fails (for example, opening a file that does not exist).  With OPTION ERROR ABORT (the default) the program stops with an error message.  With OPTION ERROR CONTINUE it continues, and MM.ERRNO and MM.ERRMSG$ report the error.
+It is reset to ABORT when a program is run.  See also the ON ERROR command, which handles all errors.
 
-=== OPTION ESCAPE
---- roomy
-Enables the ability to insert escape sequences into string constants.  See the section *Special Characters in Strings*.
+=== OPTION ESCAPE [OFF]
+--- keep roomy
+Enables the ability to insert escape sequences into string constants.  See the section Special Characters in Strings in the chapter Variables and Expressions.
+OPTION ESCAPE OFF will disable it.  It is turned off when a program is run, so OPTION ESCAPE should be placed at the start of the program.
 
 === OPTION EXPLICIT
---- roomy
+--- keep roomy
 Placing this command at the start of a program will require that every variable be explicitly declared using the DIM, LOCAL or STATIC commands before it can be used in the program.
-This option is disabled by default when a program is run.  If it is used it must be specified before any variables are used.
+This option is disabled by default when a program is run.  If it is used it should be placed before any variables are used.  MM.INFO(OPTION EXPLICIT) returns the current setting.
 
-=== OPTION FAST AUDIO ON|OFF
---- roomy
-When using the PLAY SOUND command, changes to sounds, volumes, or frequencies can cause audible clicks in the output. The firmware attempts to mitigate this by ramping the volume down on the channel’s previous output before changing the output and ramping it back up again. This significantly improves the audio output but at the expense of a short delay in the PLAY SOUND command (worst case 3mSec). This delay can be avoided using OPTION FAST AUDIO ON in a program. The audible clicks may then re-appear but this is at the programmer’s discretion. 
-This is a temporary option that is reset to OFF whenever a program is run.
-
-=== OPTION FNKey string$
---- P roomy
-Define the string that will be generated when a function key is pressed at the command prompt.  ‘FNKey’ can be F1, and F5 thru to F9.  Setting string$ to "" erases the saved function and restores the original function of the key.
-Example:
-OPTION F8  “RUN “+chr$(34)+”myprog” +chr$(34)+chr$(13)+chr$(10). 
-This command must be run at the command prompt (not in a program).  
-
-=== OPTION GPS
---- P keep roomy
-Configures the PicoMite to interface with a GPS module. This integration allows the PicoMite to automatically parse NMEA data streams in the background, making location, time, and speed data available to the user program via the \`GPS()\` function.
-This is described in detail in the file *Option_GPS_User_Manual.pdf* included in the firmware download zip file.
-
-=== {}
-OPTION GUI CONTROLS n
---- P keep roomy
-__GUI CONTROLS VERSIONS ONLY__
-Sets the maximum number of advanced graphic controls (see Advanced Graphics Functions.pdf) that can be defined.  ‘n’ can be 0 to 200.  Setting ‘n’ to zero disables the graphic controls and recovers the memory used to manage them.  The option is saved and the firmware restarts.
-
-=== OPTION HEARTBEAT ON/OFF [HEARTBEATpin]
---- P keep roomy
-Enables or disables the output of the heartbeat LED.
-In the case of the Pico-W the heartbeat is on a pin controlled by the CWY43 chip.
-__NOT WEBMITE VERSION__
-By default, for RP2350A chips the heartbeat is enabled on GP25.
-If it is disabled the program can control the LED via GP25.
-For RP2350B chips the heartbeat is not enabled except for WebMiteRP2350 and HDMIWEB firmware.
-If the heartbeat is disabled then the command can be used both to enable it and optionally specify the pin to use (default GP25)
-
-=== {}
-OPTION HDMI PINS clockpositivepin, d0positivepin, d1positivepin, d2positivepin
---- P roomy
-{t=l656,l1911,l3157}__HDMI VERSIONS ONLY__
-{t=l656,l1911,l3157}Set the I/O pins used for the HDMI video output.  This is only required to suit nonstandard PCB layouts.
-{t=l656,l1911,l3157}The positive HDMI signal pins are set according to 'nbr' below.  Valid values are 0-7 and the pins must not overlap for each channel.  If 'nbr' is an even number the negative output is on physical pin+1, if 'nbr' is odd it will be on physical pin-1.
-{t=l1344,l2761,l4320 l=351}__nbr	HSTX Nbr	Physical Pin__
-{t=l1344,l3045,l4746 b=20 a=20 l=351}  0	  HSTX0	GP12
-{t=l1344,l3045,l4746 b=20 a=20 l=351}  1	  HSTX1	GP13
-{t=l1344,l3045,l4746 b=20 a=20 l=351}  2	  HSTX2	GP14
-{t=l1344,l3045,l4746 b=20 a=20 l=351}  3	  HSTX3	GP15
-{t=l1344,l3045,l4746 b=20 a=20 l=351}  4	  HSTX4	GP16
-{t=l1344,l3045,l4746 b=20 a=20 l=351}  5	  HSTX5	GP17
-{t=l1344,l3045,l4746 b=20 a=20 l=351}  6	  HSTX6	GP18
-{t=l1344,l3045,l4746 b=20 l=351}  7	  HSTX7	GP19
-{t=l656,l1911,l3157 a=0}The default is: OPTION HDMI PINS 2, 0, 6, 4
-{t=l656,l1911,l3157 b=0 a=0}Which means that:
-{t=l656,l1911,l3157 b=0 a=0 l=777}CK+ and CK- are allocated to GP14 and GP15
-{t=l656,l1911,l3157 b=0 a=0 l=777}D0+ and D0-  are allocated to GP12 and GP13
-{t=l656,l1911,l3157 b=0 a=0 l=777}D1+ and D1-  are allocated to GP18 and GP19
-{t=l656,l1911,l3157 b=0 a=0 l=777}D2+ and D2-  are allocated to GP16 and GP17
-
-=== OPTION KEYBOARD nn [,capslock] [,numlock] [,repeatstart] [,repeatrate]
+=== OPTION F11 string$
 or
-OPTION KEYBOARD DISABLE
---- P roomy
-__PS2 KEYBOARD VERSIONS ONLY__ Configure a PS2 keyboard.  This can be used for console input and any characters typed will be available via any commands that read from the console.  ‘nn’ is a two character code defining the keyboard layout: US for the standard layout used in the USA, Australia and New Zealand, UK for the United Kingdom, FR for France, GR for Germany, IT for Italy, ES for Spain, BE for Belgium and BR for Brazil.  The optional parameters ‘capslock’ and ‘numlock’ are true/false integers that set the initial state of the keyboard (default is 0 and 1).  The optional parameters ‘repeatstart’ and ‘repeatrate’ set the time before a held key first repeats and the rate of subsequent repeats: ‘repeatstart’ is 0 to 3 indicating 250mSec, 500mSec, 750mSec and 1000mSec (default is 1) and ‘repeatrate’ is 0 to 31 indicating 33mSec to 500mSec as per the PS2 keyboard specification (default is 12 or 100mSec).  This command must be entered at the command line and will cause a reboot.  The setting can be removed with OPTION KEYBOARD DISABLE.
-
-=== OPTION KEYBOARD nn [,capslock] [,numlock] [,repeatstart] [,repeatrate]
---- P roomy
-__USB AND BLUETOOTH KEYBOARD VERSIONS ONLY__ Set the layout and the initial state of a USB or Bluetooth keyboard.  ‘nn’ is a two character code: US, UK, FR, GR, IT or ES.  BE and BR are not available on these versions.  The optional parameters ‘capslock’ and ‘numlock’ are true/false integers that set the state of Caps Lock and Num Lock when a USB keyboard is connected (default is 0 and 1); a Bluetooth keyboard always starts with both off.  A keyboard with a numeric keypad built into its letter keys, such as the Raspberry Pi keyboard, needs ‘numlock’ set to 0 or keys such as U, I and O will type 4, 5 and 6.  The optional parameters ‘repeatstart’ and ‘repeatrate’ set the time before a held key first repeats (100 to 2000mSec, default 600mSec) and the time between subsequent repeats (25 to 2000mSec, default 150mSec); if they are omitted the current setting is kept.  These can also be set with OPTION KEYBOARD REPEAT.  OPTION KEYBOARD DISABLE is not available.  This command must be entered at the command line and will cause a reboot.
-
-=== OPTION KEYBOARD I2C
---- P roomy
-__PS2 KEYBOARD VERSIONS ONLY __Configures support for the Solderparty bbq20 mini I2C keyboard. \nNote: OPTION SYSTEM I2C must be set before executing this command
-
-=== OPTION KEYBOARD PINS clockpin, datapin
---- P roomy
-__NON-USB VERSIONS ONLY __Allows the user to select the pins to be used for connecting a PS2 keyboard.  The default is pin 11 (GP8) and pin 12 (GP9).
-The PS2 keyboard must be disabled (OPTION KEYBOARD DISABLE)
-
-=== OPTION PS2 PINS clockpin, datapin
---- P roomy
-__NON-USB VERSIONS ONLY __An alternative spelling of OPTION KEYBOARD PINS - the two are interchangeable.
-
-=== {}
-OPTION KEYBOARD REPEAT repeatstart , repeatrate
+OPTION F12 string$
+or
+OPTION F15 string$
+or
+OPTION F16 string$
+or
+OPTION F19 string$
+or
+OPTION F20 string$
 --- P keep roomy
-__USB AND BLUETOOTH KEYBOARD VERSIONS ONLY__
-Sets the time for the first repeat of a key that is held down (100-2000) and subsequent repeats (25-2000) in milliseconds.
+Define the string that will be generated when a function key is pressed at the command prompt: F11, F12, F15 (Shift-F3), F16 (Shift-F4), F19 (Shift-F7) or F20 (Shift-F8).  The maximum string length is 63 characters.  Setting the string to "" removes it.
+If the string ends with a carriage return and line feed the command is run at once.  Example:
+`OPTION F11 "RUN " + CHR$(34) + "myprog" + CHR$(34) + CHR$(13) + CHR$(10)`
+The other function keys are fixed (see Shortcut Keys in the chapter Using MMBasic).
 
-=== OPTION LCD SPI clkpin, mosipin, misopin
-or
-OPTION LCD SPI DISABLE
+=== OPTION FLASH [n]
 --- P keep roomy
-__RP2350 PICOMITE VERSIONS ONLY __The firmware supports separating out the SPI pins used to drive a LCD display from those used for touch and/or the SDcard. By keeping these separate, this allows the firmware to use the second processor to work with the display with no risk of impacting the other functions. Setting the LCD SPI pins is a pre-requisite for using buffered drivers with the RP2350 PicoMite. The pins specified must be valid SPI pins for the functions clk, mosi (tx), and miso (rx). Where SYSTEM SPI pins are also specified, these must be on a different SPI channel.
-OPTION LCD SPI DISABLE releases the pins.
+Specifies that programs are to be run from flash memory (the default), so that the program is preserved when the Colour Maximite 2 is powered off or reset.  It undoes OPTION RAM.
+The flash is not written every time a program is run: it is only written if it does not match the newly tokenised program, ie, a different or altered program is being loaded.
+The optional parameter ‘n’ (1 to 6, default 1) specifies where the program starts, in 128KB sectors of the flash: the maximum program size is 512KB for ‘n’ of 1 to 3, 384KB for 4, 256KB for 5 and 128KB for 6.  Moving the program can spread the wear on the flash, although this is unlikely ever to be needed.  A library saved in flash uses sector 6 (see the LIBRARY command), which a program then cannot use (the error is "Library is using flash slot 6").
+This command can only be run from the command line and will cause a reboot.
 
-=== OPTION LOCAL KEYBOARD ON or OPTION LOCAL KEYBOARD OFF
+=== OPTION HORIZONTAL OFFSET mode, offset
 --- P keep roomy
-__RP2350 PICOMITE VERSIONS ONLY__ Enables or disables the local matrix keyboard fitted to devices such as the PicoCalc.  The PS2 keyboard must be disabled (OPTION KEYBOARD DISABLE) before this option can be set.  This command must be run at the command prompt and will cause a reboot.
+Since different VGA monitors and HDMI converters interpret the analog sync signals slightly differently, the screen image may appear off-centre (eg, a black bar on one side or the edge of the text being cut off).  This command allows you to calibrate the Colour Maximite 2's signal to match your specific hardware without needing to use the monitor's adjustment buttons every time.
+For each ‘mode’ (1 to 18), ‘offset’ is an adjustment in pixels to the start of the horizontal lines on the VGA display.  The default is 0 and the allowed range is -128 to 127.
+This command will cause a reboot.
 
-=== {}
-OPTION LCDPANEL
-{}
-OPTION LCDPANEL VIRTUAL_C
-or
-OPTION LCDPANEL VIRTUAL_M
+=== OPTION KEYBOARD REPEAT firstchar, nextchar
 --- P keep roomy
-__NOT VGA OR HDMI VERSIONS__
-Configures an LCD panel on versions that accept a connected LCD.
-{}
-Configures a virtual LCD panel without a physically connected panel.
-{b=0 a=0}VIRTUAL _C = Colour, 4bit, 320 x 240
-{b=0 a=0}VIRTUAL _M = Monochrome, 640 x 480
-Using this feature a program can draw graphical images on this virtual panel and then save them as a BMP file.  Useful for creating a graphic image for export without an attached display   
-
-=+= OPTION LCDPANEL options
-or
-OPTION LCDPANEL DISABLE
---- roomy
-__NOT VGA OR HDMI VERSIONS __Configures the PicoMite firmware to work with an attached LCD panel.
-See the chapter *LCD Displays* for the details.
-This command must be run at the command prompt (not in a program).  
-
-=+= OPTION LCDPANEL CONSOLE [font [, fc [, bc [, blight]]] [,NOSCROLL]
-or
-OPTION LCDPANEL NOCONSOLE
---- roomy
-__NOT VGA OR HDMI VERSIONS __Configures the LCD display panel for use as the console output.  The LCD must support transparent text (i.e. the SSD1963_x, ILI9341 or ST7789_320 controllers).
-'font' is the default font, 'fc' is the default foreground colour, 'bc' is the default background colour.  These parameters are optional and default to font 1, white, black and 100%.  These settings are applied at power up.
-The optional NOSCROLL command changes the firmware such that when outputting to the last line of the display rather than the display scrolling it is cleared and output continues at the top of the display. This allows displays that don’t support reading to be used as a console device and:
-Note that for displays other than the SSD1963 scrolling for any console output is very slow so it is recommended to use the NOSCROLL option for these displays.  This setting is saved in flash and will be automatically applied on startup.  To disable it use the OPTION LCDPANEL NOCONSOLE command.  
-This command must be run at the command prompt.
-
-=+= OPTION LCDPANEL USER hres, vres
---- roomy
-__NOT VGA OR HDMI VERSIONS __Configures a user written display driver in MMBasic.  See the file “User Display Driver.txt” in the PicoMite firmware distribution for a description of how to write the driver.
-
-=== {}
-OPTION LCDPANEL CONSOLE [font [, fc [,bc]]
-{}
-or
-{}
-OPTION LCDPANEL NOCONSOLE
---- P roomy
-__VGA AND HDMI VERSIONS ONLY__
-Changes the default font used on the VGA or HDMI display.\n‘fc’ is the foreground colour and ‘bc’ is the background colour.
-Disables the console output to the VGA/HDMI display.  This option is permanent, both print output and console output will be disabled and only graphics commands will output to the VGA screen.  If output is required to be temporarily disabled in a program use the OPTION CONSOLE command
-For SSD1963 based displays in landscape and SPI displays in portrait the firmware uses H/W scrolling to improve display console performance.
-
-=== {}
-OPTION LCD320 ON/OFF
---- roomy
-__NOT VGA OR HDMI VERSIONS__
-This enables or disables 16-bit LCD displays in 320x240 mode allowing things like games on these larger LCD displays. In the case of 800x480 displays the 320x240 image is scaled by 2 and occupies the screen area 80,0 to 719,479
-In the case of 480x272 displays the 320x240 image is windowed and occupies the screen area 80,16 to 399,255
+Define the repeat characteristics of the USB keyboard when a key is held down.
+‘firstchar’ is the time in milliseconds before the key first repeats: the default is 500 mSec and the valid range is 100 to 2000 mSec.
+‘nextchar’ is the time in milliseconds between its subsequent repeats: the default is 75 mSec and the valid range is 25 to 2000 mSec.
 
 === OPTION LEGACY ON
 or
 OPTION LEGACY OFF
---- roomy
-This will turn on or off compatibility mode with the graphic commands used in the original Colour Maximite.  The commands COLOUR, LINE, CIRCLE and PIXEL use the legacy syntax and all drawing commands will accept colours in the range of 0 to 7.  Notes:
+--- keep roomy
+This will turn on or off compatibility mode with the graphic commands used in the original Colour Maximite.  The commands LINE, CIRCLE and PIXEL use the legacy syntax, all drawing commands (and COLOUR) will accept colours in the range of 0 to 7, and fonts 1 to 3 are those of the original Colour Maximite.  Notes:
 {n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Keywords such as RED, BLUE, etc are not implemented so they should be defined as constants if needed.
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}The video mode is not changed by this option so it should be set to MODE 4 to emulate the 480x432 resolution of the original Colour Maximite or MODE 5 for its 240x216 resolution.  The colour depth must be 8 bits (otherwise the error is "Display must be in 8-bit mode for legacy use").
 {n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Refer to the Colour Maximite MMBasic Language Manual for the syntax of the legacy commands.  This can be downloaded from <<https://geoffg.net/OriginalColourMaximite.html>> .
+This command can only be used in a program.  The option is not saved: it is turned off when the program ends.  MM.INFO(OPTION LEGACY) returns the current setting.
 
 === OPTION LIST
-{}
---- roomy
-This will list the settings of any options that have been changed from their default setting and are the permanent type. OPTION LIST also shows the version number and which firmware is loaded.  This command must be run at the command prompt (not in a program).
+--- keep roomy
+This will list the processor's speed and the firmware's version, the video mode in use (and the default mode, when OPTION DEFAULT MODE has set one other than mode 1), the size of the console in lines and characters, and then the settings of the permanent options that have been changed from their default setting and the current console setting.
 
 === OPTION LOCAL VARIABLES n
---- roomy
-This command sets the number of the total variables (MM.INFO(MAX VARS) to assign as local variables. In general, this should not be needed but, for example, if you want to assign a lot of global constants and don’t  need many local variables then it could be used to change the balance. It applies to the program that sets it: RUN, NEW and LOAD return to the default split, while CHAIN keeps it for the chained program.  It can not be called if any variables have already been defined.
+--- keep roomy
+This command is accepted, for programs written for the PicoMite, and ignored.  On the PicoMite it sets how many of the variables are kept for local variables; the Colour Maximite 2 already has room for more local variables than it can set.  ‘n’ must be 1 to 100000.
 
-=== {}
-OPTION LOGGING ON
-or
-OPTION LOGGING OFF
---- roomy
-When set to ON every error message is appended to the file log.txt on the A: drive (the file is created if necessary).  This can help when debugging an unattended system.
-The default is OFF.  Like OPTION EXPLICIT the setting is cleared when a program starts running, so a program that wants its errors logged should include OPTION LOGGING ON near its start.  The setting is not saved.
-
-=== OPTION MILLISECONDS ON|OFF
---- roomy
-This enables or disables a millisecond output in the TIME$ function.
-Ie, HH:MM:SS.mmm
-The milliseconds counter is set to zero whenever the time is updated using the TIME command, WEB NTP command or RTC GETTIME command.  Default is OFF.
-
-=== OPTION MODBUFF ENABLE/DISABLE [sizeinK]
---- P roomy
-Creates or removes an area of flash memory used for loading and playing .MOD files. If enabled then a mod buffer is created with a size of 128Kbytes. This can be overridden with “sizeinK”.
-Note that this option reserves part of the Flash Filesystem (ie, it shrinks the Flash Filesystem).  The default is disabled.
-Note: This option is not required on an RP2350 with PSRAM enabled. In this case the MOD file will be loaded to space in the PSRAM.
-Note: On an RP2350 with 16MB of flash the mod buffer is always present and fixed at 1Mbyte (it does not shrink the Flash Filesystem), and this option cannot be used.
-
-=== {}
-OPTION MOUSE CLKpin, DATApin
- 
-{z=36}
- 
-OPTION MOUSE DISABLE
+=== OPTION MAXCTRLS n
 --- P keep roomy
-__NON-USB VERSIONS ONLY__
-Set the pins to be used to connect a PS2 mouse. Using this command the mouse is automatically configured on boot and you can set up interrupts and read values with no additional commands.  This is different from the MOUSE OPEN which only connects to a mouse while the program is running.  The PS2 mouse MUST be is disabled.
-{}
-Disables the automatic connection to a PS2 mouse and frees up the pins for normal usage.
+Sets the number of GUI controls that a program can create (see the chapter GUI Controls).  ‘n’ can be 0 to 2000 and the controls are numbered 1 to ‘n’.  The default is 0, and then a program that creates a control stops with the error "No memory allocated for GUI controls".
+The controls also need a mouse set with OPTION MOUSE.
+This command will cause a reboot.  This setting is kept through a firmware upgrade.
 
-=== OPTION MOUSE SENSITIVITY f!
---- P roomy
-__USB VERSIONS ONLY__ 
-By default, the firmware operates a USB mouse in boot mode.  This means it returns 8-bit x and y positions and the state of the standard 3-buttons.  By setting OPTION MOUSE SENSITIVITY the firmware will command the mouse to operate with its full capabilities.  This means that it will try and interpret the full USB report received from the mouse including the wheel position, all buttons and the full resolution x/y position information.  To do this the firmware reads the mouse's HID report descriptor when it is plugged in and decodes whatever report layout the mouse declares - any number of buttons, any width of x and y movement, padding in any position and reports which use report IDs.  If the mouse does not declare usable x and y movement, or will not leave boot mode, the firmware automatically falls back to the standard boot report. 
-Setting ‘f$’ will enable the full mouse report and scale the x/y positions by ‘f!’
-The firmware cannot support all types of mouse, so if this causes problems with a specific mouse reset back to boot mode by using OPTION MOUSE SENSITIVITY 0.
-Enabling this option with a value of 1.0 using a standard Microsoft Basic Optical mouse has been fully tested and will enable the wheel to be used in a program
-
-=== OPTION NOCHECK ON/OFF
---- roomy
-This command, when set ON, disables the standard checking for interrupts and ctrl-C at the end of every command. Setting it to ON allows time critical processing to take place without risk of interruption. However, the command should be used carefully or the program may only be stopped with a H/W reset.
-
-=== {}
-OPTION PICO ON/OFF
---- P keep roomy
-__NOT WIFI VERSIONS__
-When set to OFF pins GP23, GP24 and GP29 are not set up for normal Pico use and are immediately available to use. Default ON for RP2350A and RP2040, OFF for RP2350B
-
-=== {}
-OPTION PICO PLUS 2 ON
+=== OPTION MILLISECONDS ON
 or
-OPTION PICO PLUS 2 OFF
---- roomy
-__RP2350B VERSIONS ONLY__
-Configures the firmware for the Pimoroni Pico Plus 2 or Pico Plus 2 W board with a single command.  ON sets the heartbeat to the board’s LED pin and enables the PSRAM fitted to the board (chip select GP47), then saves the options and restarts.  OFF disables the heartbeat and the PSRAM.
-On the Pico Plus 2 W (the WiFi and Bluetooth versions) the LED is on the wireless chip, so ON uses that as the heartbeat and OFF leaves the heartbeat on (OPTION HEARTBEAT OFF will turn it off).
-This command will generate an error on RP2350A based boards (eg, the Raspberry Pi Pico 2).
+OPTION MILLISECONDS OFF
+--- keep roomy
+Specifies that the TIME$ function will, or will not, include milliseconds as a decimal fraction of the seconds in its output (HH:MM:SS.mmm).  The default is OFF.
+The milliseconds come from the processor's internal clock, so while this option is ON the internal clock provides the time even if OPTION DS3231 is ON.
+The option is not saved: it returns to OFF when a program ends or an error occurs.
+
+=== OPTION MOUSE channel [, sensitivity]
+or
+OPTION MOUSE OFF
+--- P roomy
+Sets the mouse used by the editor and the GUI controls.  ‘channel’ is 0 for a PS2 mouse, or 1 to 3 for a Hobbytronic USB mouse interface on that I^^2^^C channel.  The optional ‘sensitivity’ can be 0 to 8 for a PS2 mouse and 0 to 10 for the Hobbytronic interface (see Mouse Support in the chapter Hardware Features).
+While this option is set, a USB mouse plugged into the USB connector is used by the editor in place of the mouse set here.  The GUI controls use the channel set here, which must be 2 for a USB mouse.
+If a Hobbytronic interface is set but not connected the error "Mouse not connected" is reported when the editor is started.
+OPTION MOUSE OFF (the default) disables it.  MM.INFO(OPTION MOUSE) returns the channel, or -1 when it is off.
+This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade (the sensitivity returns to 0).
+
+=== OPTION MOUSE SENSITIVITY n
+--- P keep roomy
+Sets the speed of a USB mouse: its movement is divided by ‘n’, so a number above 1 slows the mouse down and a number below 1 speeds it up.  ‘n’ can be 0 to 1000 and need not be a whole number; 0 or 1 (the default) leaves the mouse as it is.  The setting applies at once, in the editor and in programs.
+The firmware always reads the full report of a USB mouse (its wheel and all its buttons), so unlike the PicoMite this option does not change how the mouse is read.
+This command can only be run from the command line.
+
+=== OPTION OVERCLOCK ON
+or
+OPTION OVERCLOCK OFF
+--- P keep roomy
+OPTION OVERCLOCK ON runs the processor at 504MHz in place of 480MHz (or 400MHz on processors of revision Y).  This is the fastest speed at which most of both the original and the Generation 2 versions of the Colour Maximite 2 run reliably.
+OPTION OVERCLOCK and OPTION BASELINE cannot both be on: turning one on turns the other off, and OPTION OVERCLOCK OFF (or OPTION BASELINE OFF) returns to the normal speed.
+This command will cause a reboot.
 
 === OPTION PIN nbr
-{b=120} 
---- roomy
-Set 'nbr' as the PIN (Personal Identification Number) for access to the console prompt.  'nbr' can be any non zero number of up to eight digits.
-Whenever a running program tries to exit to the command prompt for whatever reason MMBasic will request this number before the prompt is presented.  This is a security feature as without access to the command prompt an intruder cannot list or change the program in memory or modify the operation of MMBasic in any way.  To disable this feature enter zero for the PIN number (i.e.  OPTION PIN 0).  
-A permanent lock can be applied by using 99999999 for the PIN number.  If a permanent lock is applied or the PIN number is lost the only way to recover is to reload the PicoMite firmware.
-This command must be run at the command prompt (not in a program).  
-
-=== OPTION PLATFORM name$
 --- P roomy
-Allows a user to identify a particular hardware configuration that can then be used in programs to control the program's operation.
-'name$' can be up to 31 characters long. This is a permanent option.
-MM.INFO$(PLATFORM) returns this string.
-For example, this can be used on a particular hardware configuration: \n`    OPTION PLATFORM "GameMite"`\nThen programs that might run on this or other platforms can use:  \n`    IF MM.INFO$(PLATFORM) = "GameMite" THEN …`
+Set ‘nbr’ as the PIN (Personal Identification Number) for access to the console prompt.  ‘nbr’ can be any non zero number of up to eight digits.
+Whenever a running program tries to exit to the command prompt for whatever reason MMBasic will request this number before the prompt is presented.  This is a security feature as without access to the command prompt an intruder cannot list or change the program in memory or modify the operation of MMBasic in any way.  To disable this feature enter zero for the PIN number (ie, OPTION PIN 0).
+A permanent lock can be applied by using 99999999 for the PIN number: the console then only offers a restart.
+If a permanent lock is applied or the PIN number is lost the only way to recover is to reset MMBasic to its original configuration, which erases the program (see Resetting MMBasic in the chapter Using MMBasic).
 
-=== OPTION POWER PFM | PWM
---- P roomy
-Changes operation of the 3.3V supply switch mode power supply. 
-By default this runs in PFM mode. PWM gives better noise performance but is less power-efficient. Note that under heavy load the system will run in PWM mode regardless of this setting.
-Not available on the WiFi and Bluetooth versions while GP23 is the wireless chip’s power-on pin, as it is on the Pico W and Pico 2 W (on the WebMiteRP2040 it always is).
-
-=== {}
-OPTION PROFILING ON
+=== OPTION PROFILING ON
 or
 OPTION PROFILING OFF
-or
-OPTION PROFILING ON, SAMPLE [, entries]
---- P roomy
-Enables or disables the execution profiler.  When enabled, counters record how often each statement executes and a [PERF] report listing the most executed commands and the busiest subroutines/functions is printed when the program ends.  Profiling has no overhead when disabled.
-If the report shows that most of the time goes in a few subroutines or functions, the mmb2csub tool can convert them into CSUBs, which run many times faster (typically 10 to 35 times for loops and arithmetic).  See the separate manual mmb2csub.pdf.
-The option must be in the program, as RUN turns profiling off, and the report is printed by END: not when a program runs off its last line or is stopped with CTRL-C.  The report also gives local_peak, the most local variables alive at once, of the number available.
-OPTION PROFILING ON, SAMPLE also samples where the processor is about 10,000 times a second, and the report adds the program lines that took the most samples, as [PCSLINE] line samples (a line of -1 is in the library).  ‘entries’ sets the size of the sample tables, from 256 to 65536 (default 4096).
-With OPTION COMPILE ON the statement count and the list of commands cover only the statements that ran on the interpreter, so the list shows exactly what was not compiled, busiest first.
-See the separate manual option-profiling-cache.pdf for the details.
+--- P keep roomy
+Turns the profiler on or off.  While it is on, each time a program is run MMBasic counts how many times each line of the program runs and the time spent in it.  After the program has run, LIST PROFILE lists the program with, in front of each line, the number of times it ran and the average time it took in microseconds, and LIST PROFILE CSV writes the same to a file named after the program with the extension .CSV.
+The counters take 8 bytes of the heap for each line of the program, and collecting them makes the program run a little slower.  MM.INFO(OPTION PROFILING) returns the current setting.
+This command will cause a reboot.
 
-=== OPTION PSRAM PIN n
-or
-OPTION PSRAM PIN DISABLE
---- P roomy
-__RP2350 VERSIONS ONLY __Enable/disable PSRAM support.
-‘n’ is the PSRAM chip select (CS) pin and can be GP0, GP8, GP19, or GP47.
-Typically GP47 is used for Pimoroni boards.  Default is disabled.
-After power up the contents of the PSRAM are indeterminate, use RAM ERASE to clear it before use.
-
-=== OPTION RADIO BOTH | WEB | BLUETOOTH | NONE
---- P roomy
-__PICOMITEPC3 ONLY __Selects which halves of the wireless chip the next boot brings up.
-BOTH (the default) starts the WiFi and the Bluetooth host.  WEB leaves the Bluetooth host out: no Bluetooth stack, no firmware download and no polling, so the BLUETOOTH commands and OPTION AUDIO BLUETOOTH refuse.  BLUETOOTH leaves the WiFi down: no network join and no TCP, TFTP or UDP servers, and the WEB commands refuse.  NONE leaves the chip unpowered and unused, its four pins are free for general use and the heartbeat LED is on GP25.
-The stored WiFi network and the Bluetooth pairings are kept, so a setting can be changed back at any time.  The Bluetooth host cannot be switched off while the audio is on Bluetooth (OPTION AUDIO).  The setting is saved and the firmware restarts.
-eg. OPTION RADIO WEB
+=== OPTION RAM
+--- P keep roomy
+Causes programs to be loaded into RAM to run rather than into flash memory.  This makes loading somewhat faster and avoids wearing the flash.  Program performance is similar to running from flash.
+The program is lost when the power is removed, on a reset and when an option that restarts MMBasic is changed.  On the Generation 1 the memory available for variables is reduced by 512KB; on the Generation 2 it is not.
+With OPTION AUTORUN ON, MMBasic runs the file AUTORUN.BAS from the SD card on power up.  OPTION FLASH returns to running programs from flash.
+This command can only be run from the command line and will cause a reboot.
 
 === OPTION RESET
---- P roomy
-Reset all saved options to their default values.
-This command must be run at the command prompt (not in a program).  
+--- P keep roomy
+Reset all saved options to their default values (those kept through a firmware upgrade too).  The program in program memory and the saved variables are not erased.
+This command can only be run from the command line and will cause a reboot.
 
-=== OPTION RESET cfg
+=== OPTION RTC CALIBRATE n
+--- P keep roomy
+Used to calibrate the battery backed real time clock that keeps time in the Colour Maximite 2.
+‘n’ is a number between -511 and +512.  A change of ±1 should equate to about 0.0824 seconds per day.  Negative numbers will slow the clock down, positive will speed it up (different from the Micromite).
+This setting is kept through a firmware upgrade.
+
+=== OPTION RTC DRIVE n
+--- P keep roomy
+Sets the drive strength of the oscillator for the real time clock's 32.768kHz crystal: 0 (low), 1 (medium low), 2 (medium high, the default) or 3 (high).  A higher drive can help a crystal that is slow to start; a lower one takes less current from the battery.
+This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
+
+=== OPTION SD TIMING NORMAL
 or
-OPTION RESET LIST
---- P roomy
-{t=l3014 b=120 a=0 l=3014 h=2977}Reset all options to default values for the configuration ‘cfg’.  
-{t=l3014 b=120 a=0 l=3014 h=2977}OPTION RESET LIST will list all available configurations.
-{t=l3014 b=120 a=0 l=3014 h=2977}This command must be run at the command prompt (not in a program).  
+OPTION SD TIMING FAST
+--- P keep roomy
+The fast option will speed up the timing for SD card access.  This results in read/write speeds being about 20% faster where cards can accommodate the higher speed access.  The default is NORMAL.
+This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
-=== {}
-OPTION RESOLUTION nn [,cpuspeedinKhz]
---- roomy
-__VGA AND HDMI VERSIONS ONLY__
-For firmware with HDMI video set the video resolution to ‘nn’.  
-Where ‘nn’ is:
-{l=720}640x480 or 640
-{l=720}720x400 or 720
-{l=720}800x600 or 800 (RP2350 only)
-{l=720}848x480 or 848 (RP2350 only)
-{l=720}1280x720 or 1280 (HDMI only)
-{l=720}1024x768 or 1024 (HDMI only)
-{l=720}1024x600 (HDMI only)
-{l=720}800x480 (HDMI only)
-{b=120 a=120}On the PicoMiteHDMIWEB version 1280x720 and 1024x768 are not available and the abbreviated form 1024 selects 1024x600, so write the resolution out in full if a program has to run on more than one HDMI version.  For 640x480 the display frequency can be set to 60Hz (252Mhz or 378MHz) or 75Hz (315MHz) by appending 'cpuspeedinKHz' to the command (ie, 252000, 378000 or 315000).
-{b=120 a=120}Each VGA and HDMI resolution can operate in a number of modes which are set using the MODE command.
-{b=120 a=120}Note that the 800x600, 848x480 and 800x480 resolutions reduce both the maximum program size and the variable space available to the Basic programs
-{b=120 a=120}See also the RESOLUTION command which changes the resolution immediately without saving it or restarting the firmware.
-{b=120 a=120}On the PicoMiteHDMIWEB version everything is 8-bit colour and the choices are 640x480 (or 640) [,cpuspeedinKHz], 720x400 (or 720), 800x600 (or 800), 848x480 (or 848), 800x480 and 1024x600 (or 1024).  640x480 takes the optional ‘cpuspeedinKHz’ (252000, 315000 or 378000); each of the other resolutions runs at a fixed clock speed.  The 800x600, 848x480 and 800x480 resolutions support only MODE 1 and MODE 2.  The default is 640x480 at 315000 (75Hz).
-
-=== OPTION RTC AUTO ENABLE | DISABLE
---- P roomy
-Enable auto-load time$ & date$ from RTC on boot & every hour. If enabled and the RTC does not respond then any running program will abort with an error. At the command prompt an information message will be output.
-This command must be run at the command prompt (not in a program).  
-
-=== OPTION SCREEN KEYBOARD nn [, M]
---- roomy
-__RP2350 VGA USB AND HDMI USB VERSIONS ONLY__
-Enable an on-screen keyboard operated using a USB touch screen.  ‘nn’ is the percentage of the screen’s vertical resolution (up to 50) that will be reserved for the keyboard at the bottom of the screen.  Set ‘nn’ to zero to disable the feature.  The console and the full screen editor automatically adjust to use the remaining screen area.
-The keyboard is displayed automatically at the command prompt and in the full screen editor.  While a program is running it is removed; the program can display it using the KEYBOARD ON command.
-Append ‘, M’ if the touch screen supports multi-touch.  The modifier keys (Sh, Ctl, Sym and Fn) will then act as on a physical keyboard (hold the modifier with one finger while typing with another).  Without it a tap on a modifier key latches it on for the next key press.
-This option is saved permanently.
-
-=== OPTION SDCARD CSpin [,CLKpin, MOSIpin, MISOpin]
+=== OPTION SEARCH PATH pathname$
 or
-OPTION SDCARD DISABLE
-{}
-{}
---- P roomy
-Specify or disable the I/O pins to use for the SD Card interface.  
-If the optional pins are not specified the SD Card will use the pins specified by OPTION SYSTEM SPI.
-Note: The pins specified by OPTION SYSTEM SPI must be a valid set of hardware SPI pins (SPI or SPI2), however, the pins specified by OPTION SDCARD can be any pins.  The pins specified by OPTION SYSTEM SPI and OPTION SDCARD cannot be the same.
-This command must be run at the command prompt (not in a program).  
+OPTION SEARCH PATH DISABLE
+--- P keep roomy
+Defines a directory which will be searched when a program is run from the command prompt with the RUN command or its short form (\*), or with EXECUTE, and the file does not exist in the current directory.  ‘pathname$’ must start and end with a forward slash (eg, "/programs/") and can be up to 127 characters long.
+OPTION SEARCH PATH DISABLE removes it.  MM.INFO(SEARCH PATH) returns it.
 
-=== OPTION SDCARD COMBINED CS
-{}
---- P roomy
-__NOT VGA OR HDMI VERSIONS __This specifies that the touch chip select pin is also used for the SDcard. In this case external circuitry is needed to implement the SD chip select.  See “SD Cards” in the chapter “Program and Data Storage”.
+=== OPTION SERIAL PULLUP ENABLE
+or
+OPTION SERIAL PULLUP DISABLE
+--- P keep roomy
+Enable or disable the pullup resistor (about 100K) that MMBasic places on the receive (Rx) line of a serial port (COM1, COM2 or COM3) when the port is opened.  The default is ENABLE.  See Appendix A for when it should be disabled.
+This command can only be run from the command line and will cause a reboot.
 
-=== OPTION SERIAL CONSOLE uartapin, uartbpin [,B]
-{}
-{z=20}
-{z=20}
-{}
-{}
-OPTION SERIAL CONSOLE DISABLE
---- P roomy
-Specify that the console be accessed via a hardware serial port (instead of virtual serial over USB).
-‘uartapin’ and ‘uartbpin’ can be any valid pair of rx and tx pins for either COM1 or COM2.  The order that they are specified is not important.  The speed defaults to 115200 baud but can be changed with OPTION BAUDRATE. Adding the "B" parameter means output will go to "B"oth the serial port and the USB.
-{z=8}
-Revert to the normal the USB console.
-{}
-These commands must be run at the command prompt (not in a program).  
-On the PicoMiteRP2350BT version the serial console is enabled by default on GP8 (Tx) and GP9 (Rx) as a backup to the Bluetooth console.  On this version “B” means both Bluetooth and the serial port; without it the console is on the serial port only and the Bluetooth console is not used.  OPTION SERIAL CONSOLE DISABLE leaves just the Bluetooth console.
+=== OPTION SLEEP n
+--- P keep roomy
+Turns the monitor off (the VGA sync signals are stopped, so that the monitor goes into its power saving mode) when no key has been pressed at the command prompt for ‘n’ minutes (1 to 255).  Any key press will wake the monitor.  Set ‘n’ to 0 (the default) to disable this.
+
+=== OPTION STATUS ON | OFF
+--- P keep roomy
+Enable or disable the status line at the bottom of the VGA screen at the command prompt.  The status line shows the current directory, the "current program filename" used by the commands RUN, LIST and EDIT when a file name is not specified, and the time and date.  The default is ON.
+This command can only be run from the command line.
 
 === OPTION SYMBOLS OFF
---- roomy
-Placing this command at the start of a program will cause it to run without the symbol tables that MMBasic normally builds when a program is run.  These tables speed up access to variables, subroutines and functions but they use some memory (typically 3KB to 5KB) and a large program written for an earlier version of MMBasic may need that memory.  If such a program runs out of memory the error message will suggest this option.
-It must be on a line by itself before any other command except for comment lines and a LIBRARY LOAD command (which can come before or after it).  It cannot be used at the command prompt.
-
-=== OPTION SYSTEM I2C sdapin, sclpin [,SLOW/FAST]
---- P roomy
-Specify the I^^2^^C port and pins for use by system devices (LCD panel, and RTC).  
-The PicoMite firmware uses a specific I^^2^^C port for system devices, leaving the other for the programmer.  This command specifies which pins are to be used, and hence which of the I^^2^^C ports is to be used. 
-The pins allocated to the SYSTEM I2C will not be available for other MMBasic SETPIN settings but can be used for additional I^^2^^C devices using the standard I2C command. Note: I2C(2) OPEN and I2C(2) CLOSE are not available in this case. 
-By default the I^^2^^C port is opened at a speed of 400KHz and with a 100mSec timeout. The I^^2^^C frequency can be set using the optional third parameter which can take the values FAST = 400KHz or SLOW = 100KHz.
-This command must be run at the command prompt (not in a program).  
-
-=== OPTION SYSTEM SPI CLKpin, MOSIpin, MISOpin
-or
-OPTION SYSTEM SPI DISABLE
-{}
---- P keep roomy
-__NOT VGA OR HDMI VERSIONS __Specify or disable the SPI port and pins for use by system devices (SD Card, LCD panel, etc).
-The PicoMite firmware uses a specific hardware SPI port for system devices, leaving the other for the user.  This command specifies which pins are to be used, and hence which of the SPI ports is to be used. The pins allocated to the SYSTEM SPI will not be available to other MMBasic commands.
-This command must be run at the command prompt (not in a program).  
-
-=== OPTION TAB 2 | 3 | 4 | 8 
---- P roomy
-Set the spacing for the tab key.  Default is 2. 
-
-=== {}
-OPTION TCP SERVER PORT n
---- P roomy
-__WIFI VERSIONS ONLY__
-Launches a TCP server on port 'n' during every restart of the WebMite.  Typically HTTP servers use port 80.
-USE "OPTION TCP SERVER PORT 0" to disable
-When the server is running it can respond to up to MM.INFO(MAX CONNECTIONS)
-
-=== {}
-OPTION TELNET CONSOLE OFF|ONLY|ON
---- P roomy
-__WIFI VERSIONS ONLY__
-Configures the handling the console over Telnet.
-{l=345}ON = Console output sent to USB and Telnet\nONLY= Console output sent to Telnet only\nOFF = Console output sent to USB only
-
-=== {}
-OPTION TFTP OFF|ON
---- P keep roomy
-__WIFI VERSIONS ONLY__
-Enables or disables the TFTP server.  Default is on.
-
-=== {}
-OPTION TOUCH T_CS pin, T_IRQ pin [, Beep]
-or
-OPTION TOUCH DISABLE
-{}
---- P roomy
-__NOT VGA OR HDMI VERSIONS__
-Configures MMBasic for the touch sensitive feature of an attached LCD panel.
-'T_CS pin' and 'T_IRQ pin' are the I/O pins to be used for chip select and touch interrupt respectively (any free pins can be used).  The remaining pins are connected to those specified using the OPTION SYSTEM SPI command. 
-‘Beep’ is an optional pin which can be connected to a small buzzer/beeper to generate a "click" or beep sound when an Advanced Graphics control is touched (ie, radio button, switch, etc).  This is  described in *Advanced Graphics Functions.pdf*.
-This command must be run at the command prompt (not in a program).  
-
-=== {}
-OPTION TOUCH FT6336 IRQpin, RESETpin [,BEEPpin] [,sensitivity]
-or
-OPTION TOUCH GT911 IRQpin, RESETpin [,BEEPpin] [,sensitivity]
---- P roomy
-__NOT VGA OR HDMI VERSIONS__
-Enables touch support for the FT6336 or GT911 capacitive touch controllers.  ‘sensitivity’ is a number between 0 and 255 - defaults to 50, lower is more sensitive (FT6336 only).
-SDA and SCK should be connected to valid I2C pins and set up with OPTION SYSTEM I2C.  The FT6336 supports up to two simultaneous touch points and the GT911 up to five.  See also the TOUCH function which includes multi-touch and gesture detection.
-
-=== OPTION VCC voltage 
 --- keep roomy
-Specifies the voltage (Vcc) supplied to the Raspberry Pi Pico.  
-When using the ADC pins to measure voltage the PicoMite firmware uses the voltage on the pin marked VREF as its reference.  This voltage can be accurately measured using a DMM and set using this command for more accurate measurement.
-The parameter is not saved and should be initialised in the program.  The default if not set is 3.3.
+This command is accepted, for programs written for the PicoMite, and changes nothing.  On the PicoMite it makes a program run without the symbol tables that MMBasic normally builds, to save the memory they use.
+As on the PicoMite, it must be the first command in the program (only blank lines and comments can come before it) and it cannot be used at the command prompt; elsewhere it gives an error.
 
-=== {}
-OPTION UDP SERVER PORT n
+=== OPTION TAB 2 | 3 | 4 | 8
 --- P keep roomy
-__WIFI VERSIONS ONLY__
-Sets up a listening socket on the port specified. Any UDP datagrams received on that port will be processed and the contents saved in MM.MESSAGE$. The IP address of the sender will be stored in MM.ADDRESS$. Note: If the UDP datagram is longer than 255 characters then any extra is discarded.
-USE "OPTION UDP SERVER PORT 0" to disable
+Set the spacing for the tab key in the editor.  The default is 2.
 
-=== {}
-OPTION VGA PINS HSYNCpin, BLUEpin
---- P roomy
-__VGA VERSIONS ONLY__
-Changes the pins used for VGA display output allowing more flexibility in PCB design or wiring. “HSYNCpin” defines the start of a pair of contiguous GP numbered pins that are connected to HSYNC and VSYNC
-“BLUEpin” defines the start of four contiguous GP numbered pins that are connected to BLUE, GREEN_LSB, GREEN_MSB, and RED.
+=== OPTION TRACECACHE ON n
+or
+OPTION CACHE SUB name [, name ...]
+or
+OPTION CACHE DEBUG
+--- keep roomy
+These commands are accepted and ignored, for programs written for PicoMite firmware before V6.04.00, which had a statement cache set up with them (the cache has since been removed from the PicoMite, where they are now errors).  Anything after the keywords is ignored.
 
-=== {}
-OPTION WEB MESSAGES ON/OFF
---- roomy
-__WIFI VERSIONS ONLY__
-Disable informational web messages when set to OFF. Default is ON
+=== OPTION USB POLLING n
+--- P keep roomy
+Sets how often, in milliseconds, MMBasic services the devices on the USB connector (the keyboard, the mouse, the gamepads, USB serial ports and the USB drive) and does its other routine checks.  ‘n’ can be 1 to 64; the default is 2.  A smaller value makes the devices more responsive and a larger one leaves a little more time for the program.
+This command can only be run from the command line.
 
-=== {}
-OPTION WIFI ssid$, passwd$ [,name$] [, country$]
-Or
-OPTION WIFI ssid$, passwd$ [, name$] [, ipaddress$, mask$, gateway$] [, country$]
-{}
---- P roomy
-__WIFI VERSIONS ONLY__
-Configures the firmware to automatically connect to a WiFi network on
-restart.
-'ssid$' is the name of the network and 'password$' is the access
-password. Both are strings and if string constants are used they should
-be quoted.
-Optionally a name for the device can be specified 'name$', otherwise a
-name is created from the unique device ID.
-Optionally, a static IP address, IP mask, and gateway address can be
-specified as 'ipaddress$', 'mask$', 'gateway$'.
-Optionally a 2-letter ISO country code 'country$' can be specified to
-set the WiFi regulatory domain. The default is "XX" (worldwide), which
-restricts the device to the most conservative subset of channels and
-transmit power. Setting the local country code is recommended and is
-often required to associate with EU routers (for example AVM Fritzbox)
-which may use channels 12 or 13. If 'country$' is omitted the
-previously stored value is preserved; "" or "WW" both select
-worldwide. The country code is a regulatory setting and must match
-the country in which the device is operated.
-Supported country codes:
-  AU AT BE BR CA CH CL CN CO CZ DE DK EE ES FI FR GB GR HK HU IL IN  IS IT JP KE KR LI LT LU LV MT MX MY NG NL NO NZ PE PH PL PT SE SG  SI SK TH TR TW US ZA XX or 
-WW (worldwide, default)
-{}
-eg. OPTION WIFI "mysid","mypassword","myPico","DE"
-{}
-eg. OPTION WIFI "mysid","mypassword","myPico",
-    "192.168.1.111","255.255.255.0","192.168.1.1","DE"
-{l=491 h=491}
+=== OPTION USBKEYBOARD nn [, noLED]
+or
+OPTION USBKEYBOARD DISABLE
+--- P keep roomy
+Set the layout of the USB keyboard.  ‘nn’ is a two character code: US for the standard keyboard layout in the USA, Australia and New Zealand, UK for the United Kingdom (the default), DE for Germany, FR for France, ES for Spain and BE for Belgium.  The layout is also asked for when MMBasic is first loaded.
+The optional ‘noLED’ parameter can be set to 1 to block sending the command to the keyboard that lights the LEDs relating to Caps Lock etc.  This may be needed on some keyboards which do not process this command properly and may lock up.  It defaults to 0 if not specified (ie, the LED commands are sent).
+OPTION USBKEYBOARD DISABLE is accepted, from earlier versions, but the keyboard still works, with the UK layout.  MM.INFO(OPTION USBKEYBOARD) returns the layout.
+This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
+
+=== OPTION VCC voltage
+--- keep roomy
+Specifies the voltage (Vcc) supplied to the ARM Cortex-M7 chip, from 1.8 to 3.6.  When using the analog inputs to measure voltage the chip uses its supply voltage (Vcc) as its reference.  This voltage can be accurately measured using a DMM and set using this command for more accurate measurement.
+The parameter is not saved and should be initialised either on the command line or in a program.  The default if not set is 3.3.
+
+=== OPTION VGA OUTPUT HIGH | MEDIUM | LOW
+--- P keep roomy
+Selects the colour look up table (CLUT) used to drive the VGA output: HIGH (the default) drives each colour up to its full level, MEDIUM up to about 7/8 of it and LOW up to 3/4.  MEDIUM and LOW make the picture darker, for a monitor that shows it too brightly.
+This command can only be run from the command line and will cause a reboot.
+
+=== OPTION Y_AXIS DOWN | UP
+--- keep roomy
+This command can only be used in a program and inverts the y axis for the drawing commands: with UP, 0,0 is at the bottom left as in a typical graphing application.  This is a temporary option that is reset to the default (DOWN) when programs end, after an error and after CTRL-C.  MM.INFO(OPTION Y_AXIS) returns the current setting.

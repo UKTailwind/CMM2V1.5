@@ -1,0 +1,563 @@
+# graphics_b.txt: the reference entries for BLIT and SPRITE, SPRITE(), BOX's pixel operations, PIXEL FILL and FAST,
+# LOAD BMP/FONT/GIF/JPG/PNG, SAVE IMAGE, DRAW3D and DRAW3D(), BEZIER, FILL and TRIANGLE, checked against the build
+# (Src/sprites.c, Draw.c, FileIO.c, Rgb121.c, ImageSlots.c, upng.c, BmpDecoder.c, MMBasic.c's tokeniser) and b14.
+#
+# ACTIONS
+# 1  REPLACE commands.txt "=== {b=0 a=0}BLIT" (its whole group: the rows BLIT READ, BLIT WRITE, BLIT LOAD[BMP], BLIT CLOSE,
+#    BLIT FRAMEBUFFER, BLIT MEMORY, BLIT FLASH and "=+= BLIT RESIZE src, dst, ...", the last of which also holds the
+#    BLIT x1, y1, x2, y2, w, h text) WITH the BLIT group of ACTION 1 below
+# 2  REPLACE commands.txt "=== SPRITE" (the PicoMite's pointer to Appendix G and its SPRITE_User_Manual) WITH the SPRITE
+#    group of ACTION 2 below
+# 3  REPLACE commands.txt "=== BOX  x,  y,  w,  h  [, lw]  [,c] [,fill]" WITH the BOX group of ACTION 3 below
+# 4  REPLACE commands.txt "=== PIXEL  x,  y  [,c]" WITH the PIXEL group of ACTION 4 below
+# 5  ADD to commands.txt before "=== LOAD CONTEXT [KEEP]" the LOAD BMP entry of ACTION 5 below
+# 6  REPLACE commands.txt "=== LOAD IMAGE/BMP fname$ [,x] [,y] [,mode] [,ximage] [,yimage]", "=== LOAD JPG file$ [, x] [, y]
+#    [,mode] [,ximage] [,yimage] [,scale]" and the "=== {}" entry whose syntax is "LOAD PNG fname$ [, x] [, y]
+#    [,transparent] [,alphacut] [,ximage] [,yimage]" (the three entries, up to "=== LOCAL variable [, variables]") WITH the
+#    LOAD FONT, LOAD GIF, LOAD JPG and LOAD PNG entries of ACTION 6 below
+# 7  REPLACE commands.txt "=== SAVE IMAGE file$ [,x, y, w, h]" (with its "SAVE COMPRESSED IMAGE" line: the build has no
+#    COMPRESSED form) WITH the SAVE IMAGE entry of ACTION 7 below
+# 8  REPLACE commands.txt the "=== {}" entry whose syntax line is "DRAW3D" (the PicoMite's, with NOT PICOMITEMIN OR
+#    WEBMITE and its 3D_Graphics_User_Manual) WITH the DRAW3D entry of ACTION 8 below
+# 9  REPLACE commands.txt "=== BEZIER x%(),y%() [,n] [,colour]" WITH the BEZIER entry of ACTION 9 below
+# 10 REPLACE commands.txt "=== FILL x, y, fillcolour [,bordercolour]" WITH the FILL entry of ACTION 10 below
+# 11 REPLACE commands.txt "=== TRIANGLE X1, Y1, X2, Y2, X3, Y3 [, C [, FILL]]" WITH the TRIANGLE entry of ACTION 11 below,
+#    and DELETE "=== TRIANGLE SAVE [#]n, x1,y1,x2,y2,x3,y3" (with its TRIANGLE RESTORE line): cmd_triangle reads no SAVE
+#    or RESTORE (the PicoMite's)
+# 12 REPLACE functions.txt "=+= {b=0}SPRITE()" (now joined to SPI( data ): it becomes a group of its own) WITH the SPRITE()
+#    group of ACTION 12 below
+# 13 REPLACE functions.txt the "=== {}" entry whose syntax line is "Draw3D(arg)" WITH the DRAW3D() entry of ACTION 13 below
+# 14 (not in the brief: drop it if graphics A has PIXEL( ) REPLACE functions.txt "=== PIXEL( x, y)" WITH the PIXEL()
+#    entry of ACTION 14 below
+# KEEP commands.txt "=== ARC x, y, r1, [r2], a1, a2 [, c]" (right for the CMM2: 0 degrees at 12 o'clock, clockwise) and
+# "=== POLYGON n, xarray%(), yarray%() [, bordercolour] [, fillcolour]" (as b14, and as polygon() in Draw.c).
+#
+# The PicoMite forms in commands.txt that are wrong for the CMM2 (all replaced by ACTION 1): BLIT WRITE's 'mode' (here
+# 'orientation', 0 to 7, default 4, so transparent pixels are not copied unless it is given); BLIT LOAD[BMP] (BLIT LOAD
+# is SPRITE LOAD, an original Colour Maximite sprite file; LOADBMP is not read, a syntax error); BLIT RESIZE (not in the
+# build); "32 buffers" (64 here: MAXBLITBUF 65); BLIT READ without 'page'; BLIT x1.. without 'page' and 'orientation';
+# BLIT FRAMEBUFFER's RP2350 and LCD notes (here the 4-bit colour depth only); BLIT FLASH's slots 1 to 3 (only 4 to 8
+# here); BLIT MEMORY's FRAMEBUFFER WRITE and word alignment (it draws on the write page; no alignment is needed).
+
+
+# ACTION 1: REPLACE commands.txt "=== {b=0 a=0}BLIT" (the whole group) WITH:
+# b14 calls 'orientation' "the bitwise AND of the following values": it is their sum (bitwise OR), as the code tests
+# the bits (sprites.c cmd_blit WRITE: rotation & 4, & 3; MoveBuffer*: flip & 1, & 2, & 4). A manual error in b14 and
+# the PicoMite's manual alike.
+=== BLIT READ [#]b, x, y, w, h [,page]
+or
+BLIT WRITE [#]b, x, y [,orientation]
+or
+BLIT CLOSE [#]b
+---
+Copy one section of the display screen to or from a memory buffer.
+BLIT READ will copy a portion of the display to the memory buffer ‘#b’.  The source coordinate is ‘x’ and ‘y’ and the width of the display area to copy is ‘w’ and the height is ‘h’.  When this command is used the memory buffer is automatically created and sufficient memory allocated.  If the buffer is already in use and the new area has the same width and height the new area overwrites the stored one (a different size is an error).  The optional ‘page’ specifies which page is to be read; the default is the current write page.  Set ‘page’ to FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
+BLIT WRITE will copy the memory buffer ‘#b’ to the current write page.  The destination coordinate is ‘x’ and ‘y’ using the width and height of the buffer.  The optional ‘orientation’ parameter (0 to 7) defaults to 4 and specifies how the stored image data is changed as it is written out.  It is the sum of the following values:
+{l=720}&B001 = mirrored left to right
+{l=720}&B010 = mirrored top to bottom
+{l=720}&B100 = don't copy transparent pixels
+BLIT CLOSE will close the memory buffer ‘#b’ to allow it to be used for another BLIT READ operation and recover the memory used.
+Notes:
+{n=39 v=0}Sixty four buffers are available ranging from #1 to #64.  They are the sprites: BLIT and SPRITE are the same command, so a buffer read with BLIT READ can be shown with SPRITE SHOW and every SPRITE command can also be written as BLIT (see SPRITE).
+{n=39 v=0}When specifying the buffer number the # symbol is optional.
+{n=39 v=0}All other arguments are in pixels.
+{n=39 v=0}A transparent pixel is one whose stored value is zero: black in the 4, 8 and 16-bit colour depths, and the colour 0 (black with a transparency of 0, which RGB(0,0,0) is not) in the 12 and 32-bit colour depths.
+
+=+= BLIT x1, y1, x2, y2, w, h [,page] [,orientation]
+---
+Copy one section of the display screen to another part of the display.
+The source coordinate is ‘x1’ and ‘y1’.  The destination coordinate is ‘x2’ and ‘y2’.  The width of the screen area to copy is ‘w’ and the height is ‘h’.
+‘page’ is the page number that the image data is read from; it is then written to the current write page as specified by the PAGE WRITE command.  If ‘page’ is omitted the data is read from the write page.  Set ‘page’ to FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
+All arguments are in pixels and the source and destination can overlap.  The area is clipped to the source and destination pages.
+The optional ‘orientation’ parameter (0 to 7, default 0) specifies how the section of the screen is changed as it is copied.  It is the sum of the following values:
+{l=720}&B001 = mirrored left to right
+{l=720}&B010 = mirrored top to bottom
+{l=720}&B100 = don't copy transparent pixels (see the notes above)
+
+# Rgb121.c Rgb121BlitFramebuffer: "Invalid for this screen mode" unless VideoColour is 4.
+=+= BLIT FRAMEBUFFER from, to, xin, yin, xout, yout, width, height [,colour]
+---
+__IN THE 4-BIT COLOUR DEPTH ONLY__ Copies an area of the framebuffer ‘from’ to the framebuffer ‘to’, as on the PicoMite.  ‘from’ and ‘to’ are each N, L, F, 2 or T (a framebuffer that has not been created is N, the display: see the FRAMEBUFFER command) and must be different.
+‘xin’ and ‘yin’ define the top left of the area of ‘width’ and ‘height’ on the source framebuffer to be copied, which must be within it.  ‘xout’ and ‘yout’ define the top left of the area on the target framebuffer to receive the copy; the copy is clipped to the target.
+The optional parameter ‘colour’ defines a pixel colour on the source which will not be copied.  If omitted (or -1) all pixels are copied.  The colour is specified as a number between 0 and 15 representing:\nBlack, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow and White
+
+# ImageSlots.c BlitFlash: 15 or 17 arguments; slots 1-3 give "Flash image slots are not provided: use slots 4 to 8";
+# 'to' is Rgb121Letter (in a non-4-bit depth N, L, F, 2, T are pages 0-4) or a page number 0 to MM.INFO(MAX PAGES);
+# "Frame buffer 2 not created" for 2 in a 4-bit mode without it; the source area must be within the image.
+=+= BLIT FLASH n, to, xin, yin, xout, yout, width, height [,colour]
+---
+Copies an area of the image held in image slot ‘n’ to a framebuffer or a page, as the PicoMite's BLIT FLASH does.  ‘n’ is 4 to 8: the image slots are loaded with FLASH LOAD IMAGE (see Image Slots in the chapter Video Modes and Pages).
+‘to’ is a framebuffer N, L, F, 2 or T, or a page number.  In a 4-bit mode a framebuffer that has not been created is N (but 2 is then an error); in the other colour depths N, L, F, 2 and T are the pages 0, 1, 2, 3 and 4.
+‘xin’ and ‘yin’ define the top left of the area of ‘width’ and ‘height’ on the image to be copied, which must be within the image.  ‘xout’ and ‘yout’ define the top left of the area on the target to receive the copy; the copy is clipped to the target.
+The image's pixels are the PicoMite's 16 colours, drawn in the colour depth of the target.  The optional parameter ‘colour’ defines a pixel colour in the image which will not be copied.  If omitted (or -1) all pixels are copied.  The colour is specified as a number between 0 and 15 representing:\nBlack, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow and White
+
+# sprites.c blitother MEMORY: at least 5 arguments; drawn through DrawBuffer (any colour depth) on the write page,
+# clipped to HRes and VRes; the nibbles stream on from row to row (no padding); the low nibble first.
+=+= BLIT MEMORY address, x, y [,colour]
+---
+Draws an image held in memory as a packed array of colour nibbles on the current write page, with its top left at ‘x’, ‘y’; the image is clipped to the screen.  Each nibble is one of the PicoMite's 16 colours, a number between 0 and 15 representing:\nBlack, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow and White
+The first word of the area of memory starting at ‘address’ must contain the width and height of the image as 16-bit integers with the width as the bottom 16 bits.  The pixels follow, two to a byte with the left pixel in the low nibble, each row following on from the one before.
+If the optional parameter ‘colour’ is specified then pixels of that colour are not drawn (-1 draws them all).
+If the top bit of either the width or height is set to 1 then the colour data is treated as compressed (the remaining 15 bits are used as the width and/or height).  The compression algorithm is simple: each byte contains a count in the bottom nibble (1-15) and a colour in the top nibble (0-15).  In the event that more than 15 pixels are the same colour additional bytes are used for that colour.
+
+
+# ACTION 2: REPLACE commands.txt "=== SPRITE" WITH:
+# The forms are those of sprites.c cmd_blit (SPRITE is tokenised as BLIT: MMBasic.c tokenise). b14's order, with READ
+# before RESTORE. Not in b14 and not added: none (b14's list is complete); the PicoMite's SPRITE forms (LOADBMP, SET
+# TRANSPARENT, MEMORY ...) are not in this build.
+=== SPRITE
+--- keep
+The SPRITE commands are used to manipulate small graphic images on the screen.  These are useful when writing games.  See Appendix F for how sprites, their layers and their collisions work, and the SPRITE() functions for interrogating them.
+SPRITE is another name for BLIT: every SPRITE command can also be written as BLIT and every BLIT command as SPRITE (a program lists them all as BLIT).  The sprites are the buffers #1 to #64 that BLIT READ also uses, and the # before a sprite number is optional.
+A sprite can be up to the size of the screen.  Its transparent pixels (see BLIT) are not drawn, so that the background shows through them.  A sprite is held in the pixel format of the colour depth set by MODE when it was loaded: after a MODE command that changes the colour depth close the sprites (SPRITE CLOSE ALL) and load them again.
+
+=+= SPRITE CLOSE [#]n
+--- keep
+Closes sprite ‘n’ and releases its memory resources allowing the sprite number to be re-used.  If the sprite is displayed it is first removed and the stored background replaced.  The command will give an error if other sprites are copied from this one unless they are closed first.
+
+=+= SPRITE CLOSE ALL
+--- keep
+Closes all sprites and releases all sprite memory.  The screen is not changed.
+
+# sprites.c COPY: the new numbers must be free ("Buffer already in use"), a copy cannot be copied ("Can't copy a copy").
+=+= SPRITE COPY [#]n, [#]m, nbr
+--- keep
+Makes a copy of sprite ‘n’ to ‘nbr’ of new sprites starting at number ‘m’.  Copied sprites share the same loaded image as the original to save memory.  The new sprite numbers must not be in use, and a copy cannot itself be copied.  While copies exist the original cannot be closed or read into.
+
+=+= SPRITE HIDE [#]n
+--- keep
+Removes sprite ‘n’ from the display and replaces the stored background.  To restore a screen to a previous state sprites should be hidden in the opposite order to which they were written ("LIFO").
+
+# b14 lists SHOW (SAFE), HIDE (SAFE, ALL), SWAP, MOVE, SCROLLR and SCROLL as unusable while the sprites are hidden. The
+# code (sprites.c, hideall) refuses SHOW, SHOW SAFE, HIDE ALL, HIDE SAFE, SWAP, MOVE, SCROLLR, SCROLL and also CLOSE with
+# "Sprites are hidden", but not plain HIDE, which then draws the stored background again: a missing check (code bug).
+# The entry lists HIDE with the others, as b14 does: fix the code (HIDE: if(hideall)error("Sprites are hidden")).
+=+= SPRITE HIDE ALL
+--- keep
+Hides all the sprites allowing the background to be manipulated.  SPRITE RESTORE shows them again.
+While the sprites are hidden SPRITE SHOW, SHOW SAFE, HIDE, HIDE SAFE, HIDE ALL, SWAP, MOVE, SCROLL, SCROLLR and CLOSE must not be used (they give the error "Sprites are hidden").
+
+=+= SPRITE HIDE SAFE [#]n
+--- keep
+Removes sprite ‘n’ from the display and replaces the stored background.  Automatically hides all more recent sprites as well as the requested one and then replaces them afterwards.  This ensures that sprites that are covered by other sprites can be removed without the user tracking the write order.  Of course this version is less performant than the simple version and should only be used if there is a risk of the sprite being partially covered.
+
+=+= SPRITE INTERRUPT sub
+--- keep
+Specifies the name of the subroutine that will be called when a sprite collision occurs.  See Appendix F for how to use the SPRITE() functions to interrogate details of what has collided.
+
+# The file format is from loadsprite (sprites.c): header "width, number [, height]" (sscanf "%d,%d, %d"; height
+# defaults to the width), 'height' lines a sprite, ' lines skipped, short lines padded with spaces, the characters as
+# below (0 is NOTBLACK). "Maximum of 64 sprites" if start + number > 65.
+# CODE BUG: the default extension is meant to be .SPR, but loadsprite does strcat(p, ".SPR") on the command line
+# pointer instead of fname, so a name without an extension is not found and ".SPR" is written past the end of the
+# statement in program memory. The entry describes the intent: fix the code (fname, a buffer of its own).
+# Also: the loop runs while bnbr <= number + startsprite (one sprite too many if the file has more lines), and a sprite
+# number already in use is refilled without checking its size; in the 32-bit depth '9' is convert_16bit(GRAY).
+=+= SPRITE LOAD fname$ [,start_sprite_number]
+---
+Loads the file ‘fname$’ which must be formatted as an original Colour Maximite sprite file.  If an extension is not specified “.SPR” will be added to the file name.
+The first line of the file holds the width of the sprites and their number, and optionally their height (the width if it is omitted), separated by commas: eg, `16, 8` or `16, 8, 24`.  Each sprite follows as ‘height’ lines of ‘width’ characters, a character for each pixel:
+{l=720}space = transparent
+{l=720}0 = black, 1 = blue, 2 = green, 3 = cyan, 4 = red, 5 = magenta, 6 = yellow, 7 = white
+{l=720}8 = light grey, 9 = grey, A = orange, B = pink, C = gold, D = salmon, E = beige, F = brown
+Any other character is also transparent, a short line is filled out with spaces, and lines starting with an apostrophe (') are comments.
+The sprites are loaded as the sprite numbers from ‘start_sprite_number’ (1 if it is omitted) on.  Multiple sprite files can be loaded by specifying a different ‘start_sprite_number’ for each file.  The programmer is responsible for making sure that the sprite numbers used by the files do not overlap.
+
+# sprites.c loadarray: parsenumberarray (integer or float), at least w x h elements ("Array Dimensions"), w 1 to
+# MM.HRES, h 1 to MM.VRES, "Buffer already in use" if n is loaded.
+# Suspected CODE BUG: in a 12-bit mode convert_12bit keeps only the RGB bits, so every pixel has a transparency of 0
+# (the LOAD and LOADPNG paths OR in 0xF000): the sprite may not show. Check on the board and fix in the code.
+=+= SPRITE LOADARRAY [#]n, w, h, array%()
+--- keep
+Creates the sprite ‘n’ with width ‘w’ and height ‘h’ by reading w × h RGB888 colour values from ‘array%()’ (an integer or floating point array).  The values must be stored in order of columns across and then rows down starting at the top left.  Black pixels are transparent.
+This allows the programmer to create simple sprites in a program without needing to load them from disk or read them from the display.  The firmware will generate an error if ‘array%()’ is not big enough to hold the number of values required, or if sprite ‘n’ is already in use.
+
+# b14: "If the file is in RGB888 format then an RGB level of 0,0,0 is used to determine transparency". The code (upng.c,
+# as the PicoMite's decoder was brought in) expands RGB, grey and indexed files to RGBA with an alpha of 255, so loadpng
+# sees format 3 (RGBA8) for every file and an RGB file loads with every pixel solid (black as NOTBLACK). The entry
+# follows the code. A regression from b14 that old programs may notice: restore it in the code if it matters.
+# Size: "Image too large" if width >= MM.HRES or height >= MM.VRES. 32-bit depth: the alpha is copied, no cut-off.
+=+= SPRITE LOADPNG [#]n, fname$ [,transparency_cut_off]
+---
+Loads the PNG image ‘fname$’ as sprite number ‘n’, which must not be in use.  If an extension is not specified “.PNG” will be added to the file name.  The image must be smaller than the screen (at most MM.HRES-1 by MM.VRES-1 pixels) and be an 8-bit RGB, RGBA, grey or grey with alpha PNG, or an indexed one; interlaced files are not supported.
+If the file has transparency (an alpha channel, or an indexed file with a transparency chunk) the ‘transparency_cut_off’ parameter is used to determine whether each pixel should be solid or missing/transparent.  Valid values are 1 to 15, default is 8.  MMBasic compares the 4 most significant bits of the pixel's transparency with the cut off value: a pixel below it is transparent and the others are solid.  This allows RGB(0,0,0) to be a valid solid colour.  In the 32-bit colour depth the transparency values are kept as they are in the file.
+A file without transparency (RGB or grey) is loaded with all its pixels solid.
+
+=+= SPRITE MOVE
+--- keep
+Actions a single atomic transaction that re-locates all sprites which have previously had a location change set up using the SPRITE NEXT command.  Collisions are detected once all sprites are moved and reported in the same way as from a scroll.
+
+=+= SPRITE NEXT [#]n, x, y
+--- keep
+Sets the X and Y coordinate of the sprite to be used when the screen is next scrolled or the SPRITE MOVE command is executed.  Using SPRITE NEXT rather than SPRITE SHOW allows multiple sprites to be moved as part of the same atomic transaction.
+
+=+= SPRITE NOINTERRUPT
+--- keep
+Disables collision interrupts.
+
+=+= SPRITE READ [#]n, x, y, w, h [,page]
+--- keep
+Reads the display area specified by coordinates ‘x’ and ‘y’, width ‘w’ and height ‘h’ into buffer number ‘n’.  If the buffer is already in use and the width and height of the new area are the same as the original then the new command will overwrite the stored area.
+The optional parameter ‘page’ specifies which page is to be read to create the sprite.  The default is the current write page.  Set ‘page’ to FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
+
+# b14: "any position changes previously requested using SPRITE NEXT will be actioned by the RESTORE". The code
+# (sprites.c RESTORE) applies them to the sprites on layers 1 to 10 only (the LIFO list; layer 0's zeroLIFO is shown
+# where it was), as SCROLL and SCROLLR do; SPRITE MOVE applies them to both. The entry follows the code.
+=+= SPRITE RESTORE
+--- keep
+Restores all the sprites hidden by SPRITE HIDE ALL.  Any position changes previously requested using SPRITE NEXT for sprites on layers other than 0 will be actioned by the RESTORE and collision detection will be run.
+
+# b14: 'x' from -MM.HRES-1 to MM.HRES-1 and 'y' from -MM.VRES-1 to MM.VRES-1. The code (sprites.c SCROLL):
+# getint(x, -maxW/2-1, maxW) and getint(y, -maxH/2-1, maxH). The entry follows the code (the asymmetry looks unintended).
+# CODE BUG: the colour is read with getColour(argv[2], 1), ie from 'y', not argv[4]: given any third argument, the
+# scrolled area is filled with the colour numbered 'y' (or left alone if y = -1). The entry describes the intent (b14):
+# fix the code (argv[4]).
+=+= SPRITE SCROLL x, y [,colour]
+---
+Scrolls the background and any sprites on layer 0 ‘x’ pixels to the right and ‘y’ pixels up.  ‘x’ can be any number between -MM.HRES/2-1 and MM.HRES, ‘y’ any number between -MM.VRES/2-1 and MM.VRES.
+Sprites on any layer other than zero will remain fixed in position on the screen (or move to the position set by SPRITE NEXT).  By default the scroll wraps the image round.  If ‘colour’ is specified the colour will replace the area behind the scrolled image.  If ‘colour’ is set to -1 the scrolled area will be left untouched.
+
+# b14 says "top-right coordinates": they are the top left (sprites.c SCROLLR: x1 = x, the region x1 to x1 + w - 1), a
+# b14 error. Code ranges: x 0 to MM.HRES-2, y 0 to MM.VRES-2, w 1 to MM.HRES-x, h 1 to MM.VRES-y, delta_x from 1-w to
+# w-1, delta_y from 1-h to h-1; 'colour' -1 wraps, as the default.
+=+= SPRITE SCROLLR x, y, w, h, delta_x, delta_y [,colour]
+---
+Scrolls the region of the screen defined by the top left coordinates ‘x’ and ‘y’ and width and height ‘w’ and ‘h’ by ‘delta_x’ pixels to the right and ‘delta_y’ pixels up (each less than the width or height of the region).
+By default the scroll wraps the background round.  If ‘colour’ is specified the colour will replace the area behind the scrolled image (-1 wraps it as the default does).  Sprites on any layer other than zero will remain fixed in position on the screen (or move to the position set by SPRITE NEXT).  Sprites in layer zero where the centre of the sprite (x + w/2, y + h/2) falls within the scrolled region will move with the scroll and wrap round if the centre moves outside one of the boundaries of the scrolled region.
+
+# sprites.c SHOW: 7 or 9 arguments; x from 1-width to MM.HRES-1, y from 1-height to MM.VRES-1, layer 0 to 10
+# (MAXLAYER), orientation 0 to 3.
+=+= SPRITE SHOW [#]n, x, y, layer [,orientation]
+---
+Displays sprite ‘n’ on the screen with the top left at coordinates ‘x’, ‘y’ (part of the sprite can be off the screen: ‘x’ can be from 1 - its width to MM.HRES-1 and ‘y’ from 1 - its height to MM.VRES-1).  ‘layer’ is a number from 0 to 10.  Sprites will only collide with other sprites on the same layer, layer zero, or with the screen edge.  If a sprite is already displayed on the screen then the SPRITE SHOW command acts to move the sprite to the new location (and layer).  The display background is stored as part of the command and will be replaced when the sprite is hidden or moved further.
+‘orientation’ is optional and can be:
+{l=720}0 - normal display (default if omitted)
+{l=720}1 - mirrored left to right
+{l=720}2 - mirrored top to bottom
+{l=720}3 - rotated 180 degrees (= 1+2)
+
+=+= SPRITE SHOW SAFE [#]n, x, y, layer [,orientation] [,ontop]
+---
+Shows a sprite and automatically compensates for any other sprites that overlap it.
+If the sprite is not already being displayed the command acts exactly the same as SPRITE SHOW.
+If the sprite is already shown it is moved and remains in its position relative to other sprites based on the original order of writing.  ie, if sprite 1 was written before sprite 2 and it is moved to overlap sprite 2 it will display under sprite 2.
+If the optional ‘ontop’ parameter is set to 1 then the sprite moved will become the newest sprite and will sit on top of any other sprite it overlaps.
+Refer to SPRITE SHOW for details of the orientation parameter.
+
+# CODE BUG: sprites.c SWAP skips a # before n2 with "if(*argv[2] == '#') argv[0]++" (argv[0] for argv[2]), so
+# SPRITE SWAP 1, #2 is an error. The entry has b14's [#]n2: fix the code (argv[2]++).
+=+= SPRITE SWAP [#]n1, [#]n2 [,orientation]
+--- keep
+Replaces the sprite ‘n1’ with the sprite ‘n2’.  The sprites must have the same width and height, ‘n1’ must be displayed and ‘n2’ must not be, or an error will be generated.  Refer to SPRITE SHOW for details of the orientation parameter.  The replacement sprite inherits the background from the original as well as its position in the list of order drawn.
+
+# sprites.c TRANSPARENCY: "Invalid for this display mode" unless VideoColour is 12.
+=+= SPRITE TRANSPARENCY [#]n, transparency
+--- keep
+__IN THE 12-BIT COLOUR DEPTH ONLY__ Changes all pixels with a non-zero transparency in the stored sprite ‘n’ to the new level ‘transparency’, which can be between 1 and 15 (15 is solid).
+
+# sprites.c WRITE: x from 1-width to MM.HRES, orientation 0 to 7, default 4. BlitShowBuffer with mode 4 also sets the
+# sprite's x, y and reads the background into its store, so a WRITE of a displayed sprite replaces the background that
+# SHOW stored (hence the last sentence).
+=+= SPRITE WRITE [#]n, x, y [,orientation]
+--- keep
+Overwrites the display with the contents of sprite buffer ‘n’ with the top left at coordinates ‘x’, ‘y’.
+The background that is overwritten is not stored so SPRITE WRITE is inherently higher performing than SPRITE SHOW but with greater functional limitations.  The optional ‘orientation’ parameter (0 to 7) defaults to 4 and specifies how the stored image data is changed as it is written out.  It is the sum of the following values:
+{l=720}&B001 = mirrored left to right
+{l=720}&B010 = mirrored top to bottom
+{l=720}&B100 = don't copy transparent pixels
+Use SPRITE WRITE on a sprite that is not displayed: on a displayed one it replaces the background that SPRITE SHOW stored.
+
+
+# ACTION 3: REPLACE commands.txt "=== BOX  x,  y,  w,  h  [, lw]  [,c] [,fill]" WITH:
+# b14: "'x', 'y', 'w', and 'h' must all be arrays or all be single variables". The code (Draw.c cmd_box) takes 'w' and
+# 'h' as one value for every box too, as the PicoMite's text says: the entry follows the code. lw is 0 to 100.
+=== BOX x, y, w, h [,lw] [,c] [,fill]
+--- keep
+Draws a box on the screen with the top left hand corner at ‘x’ and ‘y’ with a width of ‘w’ pixels and a height of ‘h’ pixels.
+‘lw’ is the width of the sides of the box and can be zero (0 to 100).  It defaults to 1.
+‘c’ is the colour and defaults to the default foreground colour if not specified.  ‘fill’ is the fill colour.  It can be omitted or set to -1 in which case the box will not be filled.
+All parameters can be expressed as arrays and the software will plot the number of boxes as determined by the dimensions of the smallest array.  ‘x’ and ‘y’ must both be arrays or both be single variables/constants otherwise an error will be generated.  ‘w’, ‘h’, ‘lw’, ‘c’ and ‘fill’ can be either arrays or single variables/constants (a single value is used for every box).
+See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
+
+# b14: "Executes the requested logical operation between the pixels in the area defined on the page specified (defaults
+# to the write page) with the colour specified". The code (cmd_box AND_PIXELS, OR_PIXELS, XOR_PIXELS) reads the area
+# from page 'page' (a number or FRAMEBUFFER), clipped to that page, and writes the result to the same area of the
+# current write page. The colour is converted to the depth's pixel format with its transparency (12-bit: bits 24-27).
+=+= BOX AND_PIXELS x, y, w, h, colour [,page]
+or
+BOX OR_PIXELS x, y, w, h, colour [,page]
+or
+BOX XOR_PIXELS x, y, w, h, colour [,page]
+--- keep
+Executes the requested logical operation (AND, OR or exclusive OR) between each pixel in the area with its top left at ‘x’, ‘y’, ‘w’ pixels wide and ‘h’ pixels high, and the colour ‘colour’ (in the pixel format of the colour depth), and writes the result to the same area of the current write page.  The pixels are read from page ‘page’ (the write page if it is omitted; FRAMEBUFFER for the framebuffer).  The area is clipped to the page.
+In the 12-bit colour depth the operation includes the pixels' transparency, which RGB() sets to 15 (solid): eg, XOR_PIXELS with RGB(255,255,255) also makes the solid pixels transparent, and with &HFFFFFF changes only their colour.
+
+
+# ACTION 4: REPLACE commands.txt "=== PIXEL  x,  y  [,c]" WITH:
+# PIXEL FAST is not in b14: the tokeniser (MMBasic.c) turns "PIXEL FAST" into the CLS token, and cmd_cls draws one
+# pixel (DrawPixel) when it has more than one argument. So PIXEL FAST lists as CLS, and PIXEL FAST c alone clears the
+# screen to c, as CLS c.
+# PIXEL FILL (Draw.c cmd_pixel): no argument count check, and x and y are taken from 0 to MM.HRES and MM.VRES (one past
+# the page): code slips, the entry says "on the screen".
+=== PIXEL x, y [,c]
+---
+Set a pixel on the screen to a colour.
+‘x’ is the horizontal coordinate and ‘y’ is the vertical coordinate of the pixel.  ‘c’ is a 24 bit number specifying the colour.  ‘c’ is optional and if omitted the current foreground colour will be used.
+All parameters can be expressed as arrays and the software will plot the number of pixels as determined by the dimensions of the smallest array.  ‘x’ and ‘y’ must both be arrays or both be single variables/constants otherwise an error will be generated.  ‘c’ can be either an array or a single variable or constant.
+With OPTION LEGACY ON the original Colour Maximite's form PIXEL(x, y) = c is used instead.
+See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
+
+=+= PIXEL FAST x, y [,c]
+--- keep
+A quicker PIXEL for a single point: ‘x’ and ‘y’ are single values (not arrays) and ‘c’ is the colour (the current foreground colour if it is omitted).  PIXEL FAST is another name for CLS with two or three arguments, which draws a pixel in the same way, and a program lists it as CLS.
+
+=+= PIXEL FILL x, y, c
+--- keep
+Implements a flood fill by reading the colour of the pixel at coordinates ‘x’, ‘y’ on the screen and replacing it and the entire area of connected pixels having the same colour with the new colour ‘c’.  See also FILL.
+
+
+# ACTION 5: ADD to commands.txt before "=== LOAD CONTEXT [KEEP]":
+# b14: "LOAD BMP file$ [, x, y]". The code (FileIO.c LoadImage, cmd_load) takes the PicoMite's arguments too, and LOAD
+# IMAGE as another name; 'mode' (-1 to 7) is checked and not used ("the CMM2 draws in the page's colour depth and does
+# not dither"), so the PicoMite's dither table in the old entry is wrong here. BmpDecoder.c: 1, 4, 8, 16 and 24 bits
+# (no 32), RLE4 and RLE8, up to 3840 x 2160; ximage 0-3839, yimage 0-2159.
+=== LOAD BMP file$ [,x] [,y] [,mode] [,ximage] [,yimage]
+or
+LOAD IMAGE file$ [,x] [,y] [,mode] [,ximage] [,yimage]
+---
+Loads a BMP image from ‘file$’ and draws it on the current write page with its top left corner at ‘x’, ‘y’ (0, 0 if they are not specified).  If an extension is not specified “.BMP” will be added to the file name.
+All the usual types of the BMP format are supported including black and white and true colour 24-bit images: 1, 4, 8, 16 and 24 bits a pixel, uncompressed or RLE encoded.  The image can be up to 3840 x 2160 pixels and positioned anywhere: pixels that end up off the screen are ignored.
+‘ximage’ and ‘yimage’ specify the pixel of the image that is drawn at ‘x’, ‘y’ (0, 0 if they are not specified), so that a part of a large image can be shown.
+‘mode’ (-1 to 7) is accepted so that the PicoMite's programs run: there it chooses a dither, here the image is drawn in the colour depth of the screen and ‘mode’ is not used.  LOAD IMAGE is the PicoMite's name for LOAD BMP.
+
+
+# ACTION 6: REPLACE commands.txt "=== LOAD IMAGE/BMP fname$ ...", "=== LOAD JPG file$ ..." and the "=== {}" LOAD PNG
+# entry WITH:
+# LOAD FONT (FileIO.c LoadFONT): as b14, and the code adds .FNT; the first line is compared with mem_equal(buff,
+# "DefineFont", 10), so it must be spelt so (DEFINEFONT is "Syntax"); a font number other than 8 is "Fonts load into #8".
+=== LOAD FONT file$
+--- keep
+Loads the font contained in ‘file$’ and installs it as font #8.  If an extension is not specified “.FNT” will be added to the file name.  A program can load many fonts this way during the course of its execution but each new font replaces the one loaded before.
+The file has the format of an embedded font (see DEFINEFONT) except that no comments or blank lines are allowed, the first line must be `DefineFont #8` (spelt so), the first word must be on a line on its own and the following lines (except the last) must have exactly eight words per line.  See Embedded Fonts in the chapter *Graphics Functions*.
+You can convert font files designed for the original Colour Maximite using FontTweak, included in the Colour Maximite 2 download.
+
+# LOAD GIF (FileIO.c LoadGIF): as b14; x alone is accepted (argc 3), y only with x. An animation repeats (gd_rewind).
+=== LOAD GIF [file$ [,x [,y]]]
+--- keep
+Loads a GIF image from ‘file$’ and draws it with its top left corner at ‘x’, ‘y’ (0, 0 if they are not specified).  If an extension is not specified “.GIF” will be added to the file name.
+GIFs can be a single image or animated.  If it is animated it will start playing in the background (ie, program execution will continue while it is playing) and repeat until it is stopped.  If an animated GIF is already running it will be replaced by the new one.  If LOAD GIF is used without any parameters it will stop the currently playing animated GIF.
+
+# b14: "JPG images cannot use progressive encoding and are limited to being completely within the screen resolution";
+# MODE 2,16 and the hardware decoder. The code (FileIO.c cmd_LoadJPGImage) is the PicoMite's software decoder: the image
+# is cropped, x 0 to HRes-1 and y 0 to VRes-1, ximage and yimage within the image, scale 1, 2, 4 or 8 (the old entry
+# said 2 or 4), dither -1, 0-2 and 4-6 (3 and 7: "RGB565 dithering not yet supported"), applied to the RGB data before
+# it is drawn in the page's depth.
+=== LOAD JPG file$ [,x] [,y] [,mode] [,ximage] [,yimage] [,scale]
+---
+Loads a JPG image from ‘file$’ and draws it on the current write page with its top left corner at ‘x’, ‘y’ (0, 0 if they are not specified), which must be on the screen; the image is cropped at the right and bottom edges of the screen.  If an extension is not specified “.JPG” will be added to the file name.  Progressive JPG images are not supported.
+‘ximage’ and ‘yimage’ specify the pixel of the image that is drawn at ‘x’, ‘y’ (0, 0 if they are not specified), so that a part of a large image can be shown.  They must be within the image.
+‘scale’ reduces the displayed size of the image by pixel averaging: use 2 for 50% (each output pixel is the average of a 2x2 block of source pixels), 4 for 25% (a 4x4 block) or 8 for 12.5%.  The default is 1 which displays the image at full size.
+The optional ‘mode’ parameter dithers the image to fewer colours, which can give a better picture in the 4 and 8-bit colour depths.  Bits 0 and 1 specify the colours and bit 2 the type of dithering:
+{l=720}-1 = no dithering (the default)
+{l=720}0 = Floyd-Steinberg to RGB121 (the colours of the 4-bit colour depth)
+{l=720}1 = Floyd-Steinberg to RGB222
+{l=720}2 = Floyd-Steinberg to RGB332 (the colours of the 8-bit colour depth)
+{l=720}4 = Atkinson to RGB121
+{l=720}5 = Atkinson to RGB222
+{l=720}6 = Atkinson to RGB332
+
+# b14: "LOAD PNG file$ [, x, y] [, transparency_cut_off]", RGB888 or ARGB8888 up to the screen size, RGB 0,0,0
+# transparent with a cut-off. The code (FileIO.c LoadPNG, upng.c): any size, decoded a row at a time and clipped; 8-bit
+# RGB, RGBA, grey, grey with alpha or indexed, not interlaced ("Invalid format, must be 8-bit RGB, RGBA, grey or indexed
+# PNG", "Interlaced PNG not supported"); 't' 0-15, 'cutoff' 1-254 (& 0xF0), ximage and yimage from 0 inside the image
+# ("Offset below 0", "Offset outside the image"). An RGB or grey file has an alpha of 255 everywhere: no pixel is cut
+# (b14 cut its black pixels): the entry follows the code.
+# CODE BUG: "if(transparent>1)force=transparent<<4" leaves the cut at 0 for t = 1, so 1 cuts nothing (b14: alpha below
+# 16 cut). The entry describes 1 to 15 as b14 does: fix the code (>= 1).
+# The old entry's __RP2350 VERSIONS ONLY__ and its 'transparent' (a colour code given to the transparent pixels) are the
+# PicoMite's.
+=== LOAD PNG file$ [,x] [,y] [,t] [,cutoff] [,ximage] [,yimage]
+---
+Loads a PNG image from ‘file$’ and draws it on the current write page with its top left corner at ‘x’, ‘y’ (0, 0 if they are not specified).  If an extension is not specified “.PNG” will be added to the file name.  The image can be of any size and positioned anywhere: pixels off the screen are ignored, and as the image is decoded a line at a time a large image needs little memory.
+The file can be an 8-bit RGB, RGBA (ARGB8888), grey or grey with alpha PNG, or an indexed (palette) one; interlaced files are not supported.
+‘ximage’ and ‘yimage’ specify the pixel of the image that is drawn at ‘x’, ‘y’ (0, 0 if they are not specified), so that a part of a large image can be shown.  They must be within the image.
+If ‘t’ is omitted or zero every pixel is drawn as a solid colour, as with any other image load.  If ‘t’ (1 to 15) is specified the transparency of the file decides which pixels are drawn: MMBasic compares the 4 most significant bits of each pixel's alpha value with ‘t’, a pixel below it is not drawn (so that what is under it shows through) and the others are drawn as solid colours.  This allows RGB(0,0,0) to be a valid solid colour.  ‘cutoff’ (1 to 254) sets the alpha value below which a pixel is not drawn directly, rounded down to a multiple of 16, in place of ‘t’.  A file without transparency (RGB or grey) is drawn with every pixel solid.
+‘t’ is the Colour Maximite 2's transparency cut off, not the PicoMite's (which gives the transparent pixels a colour).
+
+
+# ACTION 7: REPLACE commands.txt "=== SAVE IMAGE file$ [,x, y, w, h]" (with its SAVE COMPRESSED IMAGE line) WITH:
+# FileIO.c cmd_save IMAGE: 1 or 9 arguments, x 0 to MM.HRES-1, y 0 to MM.VRES-1, w 1 to MM.HRES-x, h 1 to MM.VRES-y,
+# read from ReadPage (the write page); no COMPRESSED form and no even-width rule (the PicoMite's).
+# CODE BUG (not in the entry): with OPTION Y AXIS INVERT the code also mirrors x (x = maxW-1-x).
+=== SAVE IMAGE file$ [,x, y, w, h]
+--- keep
+Save the current image on the screen (the page being written to) as a 24-bit BMP file.
+‘file$’ is the name of the file.  If an extension is not specified “.BMP” will be added to the file name.
+‘x’, ‘y’, ‘w’ and ‘h’ are optional and are the coordinates (‘x’ and ‘y’ are the top left coordinate) and dimensions (width and height) of the area to be saved.  If they are not specified the whole screen will be saved; if they are, all four must be given and the area must be within the screen.
+
+
+# ACTION 8: REPLACE commands.txt the "=== {}" entry with the syntax line "DRAW3D" WITH:
+# b14: "There are ten sub commands". Draw.c cmd_3D reads CREATE, CAMERA, LIGHT, ROTATE, SHOW, WRITE, HIDE, HIDE ALL,
+# RESTORE, RESET, SET FLAGS, DIAGNOSE, CLOSE and CLOSE ALL (14). SHOW and WRITE: 7 to 11 arguments, nocull (nonormals)
+# and usefurthest (depthmode) 0 or 1, as b14. MAX3D 128, MAXCAM 6. SHOW clears the object's last rectangle to colour 0
+# first (display3d clear = 1); WRITE does not.
+=== DRAW3D SHOW n, x, y, z [,nocull] [,usefurthest]
+or
+DRAW3D WRITE n, x, y, z [,nocull] [,usefurthest]
+---
+The 3D engine draws objects made of flat faces as a camera sees them, with the hidden faces removed.  It has the sub-commands CREATE, CAMERA, LIGHT, ROTATE, SHOW, WRITE, HIDE, HIDE ALL, RESTORE, RESET, SET FLAGS, DIAGNOSE, CLOSE and CLOSE ALL, which are described with the DRAW3D() function in the document *The 3D engine.pdf* in the Colour Maximite 2 firmware download (see Appendix O).  Up to 128 objects and 6 cameras can be used.
+!TODO check that The 3D engine.pdf describes LIGHT, SET FLAGS, DIAGNOSE and RESET; describe here any it does not
+DRAW3D SHOW draws the 3D object ‘n’ at the position ‘x’, ‘y’, ‘z’, first erasing (to colour 0) the area where it was last drawn; DRAW3D WRITE draws it without erasing anything.
+Rendering of the 3D object works by the painter's algorithm: the faces are sorted and those further away are drawn first.  In addition MMBasic supports back face culling: faces that point away from the camera are not drawn.  Set ‘nocull’ to 1 to draw them as well (0, the default, culls them).
+To sort the faces MMBasic uses the position of each face's centroid.  This works in many situations but in some 3D models it is better to use the furthest vertex of each face: set ‘usefurthest’ to 1 for that (0, the default, uses the centroid).
+
+
+# ACTION 9: REPLACE commands.txt "=== BEZIER x%(),y%() [,n] [,colour]" WITH:
+# b14 and the PicoMite's text: "an unlimited number of control points", colour "defaults to white". The code (Draw.c
+# cmd_bezier): "Too many points" above 16, the colour defaults to gui_fcolour, integer arrays of the same size ("Array
+# size mismatch"), n 2 to the array size. The entry follows the code.
+=== BEZIER x%(), y%() [,n] [,colour]
+--- keep
+Draws a Bezier curve with up to 16 control points.  ‘x%()’ and ‘y%()’ are single dimension integer arrays holding the coordinates of the control points; they must have the same number of elements.  The curve starts at the first control point and ends at the last one used.
+The optional parameter ‘n’ defines how many control points to use for the plot (the first ‘n’ elements of the arrays).  If omitted the size of the arrays determines the number.  ‘n’ must be from 2 to the array size, and no more than 16.
+The optional parameter ‘colour’ defines the colour to plot the curve (defaults to the current foreground colour).
+
+
+# ACTION 10: REPLACE commands.txt "=== FILL x, y, fillcolour [,bordercolour]" WITH:
+# The old entry's "slow on TFT displays using unbuffered drivers" is the PicoMite's. Draw.c cmd_fill: 3 or 4
+# arguments, x 0 to MM.HRES-1, y 0 to MM.VRES-1.
+=== FILL x, y, fillcolour [,bordercolour]
+--- keep
+Implements a flood fill on the current write page, starting at ‘x’, ‘y’ (which must be on the screen).
+When used without the optional ‘bordercolour’ the command will read the colour at position ‘x’, ‘y’ and then fill the area from that point where the current colour is the same with the new colour ‘fillcolour’.
+If the optional ‘bordercolour’ is specified, the ‘fillcolour’ will replace whatever colour is already there until it hits the ‘bordercolour’ specified.
+See also PIXEL FILL.
+
+
+# ACTION 11: REPLACE commands.txt "=== TRIANGLE X1, Y1, X2, Y2, X3, Y3 [, C [, FILL]]" WITH the entry below, and DELETE
+# "=== TRIANGLE SAVE [#]n, x1,y1,x2,y2,x3,y3" (the build has no TRIANGLE SAVE or RESTORE). Only the PicoMite's "attached
+# video output or LCD display panel" changes; the rest is right (Draw.c cmd_triangle, b14).
+=== TRIANGLE X1, Y1, X2, Y2, X3, Y3 [, C [, FILL]]
+---
+Draws a triangle on the screen with the corners at X1, Y1 and X2, Y2 and X3, Y3.  ‘C’ is the colour of the triangle and defaults to the current foreground colour.  ‘FILL’ is the fill colour and defaults to no fill (it can also be set to -1 for no fill).
+All parameters can be expressed as arrays and the software will plot the number of triangles as determined by the dimensions of the smallest array unless X1 = Y1 = X2 = Y2 = X3 = Y3 = -1 in which case processing will stop at that point.  ‘x1’, ‘y1’, ‘x2’, ‘y2’, ‘x3’ and ‘y3’ must all be arrays or all be single variables/constants otherwise an error will be generated.  ‘c’ and ‘fill’ can be either arrays or single variables/constants.
+
+
+# ACTION 12: REPLACE functions.txt "=+= {b=0}SPRITE()" WITH:
+# sprites.c fun_sprite: letters W H X Y L C V T E D A N S; for all but N and S a sprite number (0 to 64, # optional) is
+# required ("Syntax"); C, V and D take a third argument.
+# b14's SPRITE(C, n): "the number of currently active collisions". The code records only the contacts that begin with
+# the move (ProcessCollisions: !(lastcollisions & mask)), at most 7 a sprite (MAXCOLLISIONS 8, slot 0 the count) and 7
+# sprites for n = 0, and returns -1 when there are none. The entry follows the code. (Appendix F's "There is no
+# practical limit on the number of collisions" should say 7 too.)
+# SPRITE(A, n) is not in b14: the address of the image (blitbuffptr, 0 if none).
+# b14 has SPRITE(V, ...) twice and "SPRITE(E, [#]n" without its bracket: manual errors.
+=== SPRITE()
+--- keep
+The SPRITE functions return information regarding sprites, which are small graphic images on the screen.  These are useful when writing games.  See also the SPRITE commands and Appendix F.  In each of them the # before a sprite number is optional.
+
+=+= SPRITE(A, [#]n)
+--- keep
+Returns the address in memory of the image of sprite ‘n’, or 0 if the sprite is not loaded.  The pixels are held row after row in the pixel format of the colour depth (see Colour Depths in the chapter Video Modes and Pages), except that in the 4-bit colour depth each pixel takes a byte.
+
+=+= SPRITE(C, [#]n)
+--- keep
+Returns the number of new collisions (contacts that began) of sprite ‘n’ found when it was last moved, or -1 if there were none.  Up to seven are recorded.  If n = 0 it returns the number of sprites that had a new collision following the last SPRITE SCROLL, SCROLLR, MOVE or RESTORE command.
+A sprite that stays in contact with another is not counted again: SPRITE(T, n) returns all the sprites it is touching.
+
+=+= SPRITE(C, [#]n, m)
+--- keep
+Returns the number of the sprite which caused the ‘m’th collision of sprite ‘n’ (‘m’ from 1 to SPRITE(C, n)).  If n = 0 then returns the sprite number of the ‘m’th sprite that had a new collision following a SPRITE SCROLL, SCROLLR, MOVE or RESTORE command.
+If the collision was with the edge of the screen then the return value will be:
+{l=720}&HF1	collision with left of screen
+{l=720}&HF2	collision with top of screen
+{l=720}&HF4	collision with right of screen
+{l=720}&HF8	collision with bottom of screen
+
+=+= SPRITE(D, [#]s1, [#]s2)
+--- keep
+Returns the distance between the centres of sprites ‘s1’ and ‘s2’ (returns -1 if either sprite is not displayed).
+
+=+= SPRITE(E, [#]n)
+--- keep
+Returns a bitmap indicating any edges of the screen the sprite is in contact with: 1 = left of screen, 2 = top of screen, 4 = right of screen, 8 = bottom of screen.  Returns 0 if the sprite is not displayed.
+
+=+= SPRITE(H, [#]n)
+--- keep
+Returns the height of sprite ‘n’.  This function is active whether or not the sprite is currently displayed (active).  Returns -1 if the sprite is not loaded.
+
+=+= SPRITE(L, [#]n)
+--- keep
+Returns the layer number of sprite ‘n’ if it is displayed, -1 if it is not.
+
+=+= SPRITE(N)
+--- keep
+Returns the number of displayed (active) sprites.
+
+=+= SPRITE(N, n)
+--- keep
+Returns the number of displayed (active) sprites on layer ‘n’ (0 to 10).
+
+=+= SPRITE(S)
+--- keep
+Returns the number of the sprite which last caused a collision.  NB if the number returned is zero then the collision is the result of a SPRITE SCROLL, SCROLLR, MOVE or RESTORE command and the SPRITE(C…) function should be used to find how many and which sprites collided.  Returns -1 if the last command that checks for collisions found none.
+
+=+= SPRITE(T, [#]n)
+--- keep
+Returns a bitmap showing all the sprites currently touching the requested sprite.  Bits 0-63 in the returned integer represent a current collision with sprites 1 to 64 respectively.  Returns 0 if the sprite is not displayed.
+
+=+= SPRITE(V, [#]s1, [#]s2)
+--- keep
+Returns the vector from sprite ‘s1’ to ‘s2’ in radians.
+The angle is based on the clock so if ‘s2’ is above ‘s1’ on the screen then the answer will be zero (and it increases clockwise).  This can be used on any pair of sprites that are visible.  If either sprite is not visible the function will return -1.
+This is particularly useful after a collision if the programmer wants to make some differential decision based on where the collision occurred.  The angle is calculated between the centre of each of the sprites which may of course be different sizes.
+
+=+= SPRITE(W, [#]n)
+--- keep
+Returns the width of sprite ‘n’.  This function is active whether or not the sprite is currently displayed (active).  Returns -1 if the sprite is not loaded.
+
+=+= SPRITE(X, [#]n)
+--- keep
+Returns the X-coordinate of sprite ‘n’.  This function is only active when the sprite is currently displayed (active).  Returns 10000 otherwise.
+
+=+= SPRITE(Y, [#]n)
+--- keep
+Returns the Y-coordinate of sprite ‘n’.  This function is only active when the sprite is currently displayed (active).  Returns 10000 otherwise.
+
+
+# ACTION 13: REPLACE functions.txt the "=== {}" entry with the syntax line "Draw3D(arg)" WITH:
+# Draw.c fun_3D: checkstring(ep, "XMIN") then getargs(&p, 1, ","): the number follows the word with no comma, as the
+# PicoMite's elite tests write it (DRAW3D(XMIN 1)); DRAW3D(XMIN, 1) makes an empty first argument and a second, and
+# makeargs stops at the second with "Syntax". The same on the PicoMite. A code quirk: the code could skip a comma.
+# DISTANCE is the average distance of the faces from the camera (display3d). "Object does not exist" for an unknown n.
+=== DRAW3D(XMIN n)
+or
+DRAW3D(XMAX n)
+or
+DRAW3D(YMIN n)
+or
+DRAW3D(YMAX n)
+or
+DRAW3D(X n)
+or
+DRAW3D(Y n)
+or
+DRAW3D(Z n)
+or
+DRAW3D(DISTANCE n)
+--- keep
+Returns information about the 3D object ‘n’ (see the DRAW3D command).  There is no comma between the word and the object's number.
+XMIN, XMAX, YMIN and YMAX return the boundaries on the screen of the object as it was last drawn.  These can be used to define an area to be erased before re-drawing it.
+X, Y and Z return the position at which the object was last drawn, and DISTANCE the average distance of its faces from the camera.
+The document *The 3D engine.pdf* in the Colour Maximite 2 firmware download has the details (see Appendix O).
+
+
+# ACTION 14 (extra, not in the brief: drop it if graphics A has PIXEL( ): REPLACE functions.txt "=== PIXEL( x, y)" WITH:
+# Draw.c fun_pixel: 1 or 2 arguments after x, y; the page a number or FRAMEBUFFER; the colour as RGB888 (in the 12-bit
+# depth with its transparency, & 0xFFFFFFF); a 4-bit page returns the PicoMite's colours (ReadBuffer4: MAP not applied).
+# The old entry's LCD controllers are the PicoMite's.
+=== PIXEL( x, y [,page])
+--- keep
+Returns the colour of a pixel on the screen.  ‘x’ is the horizontal coordinate and ‘y’ is the vertical coordinate of the pixel.  The optional ‘page’ specifies which page is to be read; the default is the current write page.  Set ‘page’ to FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
+The colour is returned as a 24-bit RGB number: in the 12-bit colour depth with its transparency as well, and in the 4-bit colour depth as one of the PicoMite's 16 colours (which MAP does not change).
+See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.

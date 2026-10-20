@@ -1,0 +1,506 @@
+# Commands G to Z (not MATH) of the PicoMite manual checked against the CMM2 build 7.00.00b1 (wave 2).
+# Line numbers are those of docs/manual/ref/commands.txt as it was when this was made.
+# Entries in the range left alone, as already checked by other passes: HUMID, I2C, I2C2, I2C3, IMAGE, IR (and
+# IR SEND), LIBRARY, LIST, LOAD, LONGSTRING, MAP, MMDEBUG, MODE, ONEWIRE, OPEN, PAGE, PIXEL, PLAY, POLYGON,
+# PULSE, PWM, RUN, SAVE, SELECT CASE, SERVO, SETPIN, SETTICK, SPI, SPI2, SPRITE, TRIANGLE, TURTLE,
+# UPDATE FIRMWARE, WATCHDOG, WII, WS2812, XMODEM, ZMODEM.
+# Checked and right as they are (no action): GAMEPAD COLOUR, GOTO, IF (both), INPUT, INPUT #, INTERRUPT,
+# IRETURN, LET, LINE, LINE AA, LINE INPUT #, LMID, LOCAL, LOOP, NEW, NEXT, OPTION, PAUSE, PRINT #, READ,
+# READ SAVE, REDIM, REM, RESTORE, RETURN, RMDIR, SORT, STATIC, STRUCT, SUB, TILEMAP, TIMER, TYPE.
+
+# USBGamepad.c:643-648 reads three arguments, channel, left, right (the syntax lacked the comma), and accepts a PS4
+# controller or an XInput (Xbox 360/One/Series) one.
+# ACTION REPLACE commands.txt 821 "=== GAMEPAD HAPTIC channel left, right"
+=== GAMEPAD HAPTIC channel, left, right
+{}
+--- keep
+Causes the left and right vibration motors to operate on a PS4 controller or an Xbox 360, Xbox One or Xbox Series controller on USB channel ‘channel’.  ‘left’ and ‘right’ must be a number between 0 (off) and 255 (maximum).  Any other gamepad gives the error "PS4 or Xbox controller only".
+
+# cmd_gamepad (USBGamepad.c:625-628) has MONITOR SILENT and MONITOR only; nothing sets monitor false again (line 53),
+# and "MONITOR OFF" matches MONITOR (the OFF is not checked), so it turns the monitor on.  process_generic
+# (USBGamepad.c:213-224) returns before decoding while monitor is on.  Reported as a code bug: if MONITOR OFF is added,
+# restore the PicoMite's sentence.
+# ACTION REPLACE commands.txt 826 "=== GAMEPAD INTERRUPT ENABLE channel, int [,mask]"
+=== GAMEPAD INTERRUPT ENABLE channel, int [,mask]
+{z=18}
+{z=18}
+{}
+GAMEPAD INTERRUPT DISABLE channel
+{}
+GAMEPAD MONITOR or GAMEPAD MONITOR SILENT
+{}
+{}
+GAMEPAD CONFIGURE vid,pid,i0,c0,i1,c1,i2,c2,i3,c3,i4,c4,i5,c5,i6,c6,i7,c7,i8,c8,i9,c9,i10,c10,i11,c11,i12,c12,i13,c13,i14,c14,i15,c15
+---
+Enables interrupts on the button presses on a USB game controller. The optional parameter ‘mask’ defines which of the switches will trigger the interrupt (defaults to all). ‘mask’ is a bitmap corresponding to the output of the DEVICE(GAMEPAD channel,B) function.
+{}
+Disables interrupts from the gamepad on the channel specified
+{}
+{}
+{b=0}Use GAMEPAD MONITOR before plugging in a gamepad and when plugged in it will show the before and after report with each change of buttons.  GAMEPAD MONITOR SILENT turns the same monitoring on but suppresses the printed report.  While the monitoring is on a gamepad that MMBasic does not otherwise recognise is accepted as a generic gamepad, and every generic gamepad (one that MMBasic or GAMEPAD CONFIGURE describes, too) is only monitored, not decoded; the PS4, PS3, Xbox and Switch Pro controllers are not affected.  The monitoring stays on until the Colour Maximite 2 is restarted: the PicoMite's GAMEPAD MONITOR OFF is not available (it is taken as GAMEPAD MONITOR).
+{}
+Use to configure a gamepad that isn’t supported by the firmware. Run the command before plugging in the gamepad. All 34 parameters are mandatory. In each case the i/c parameters define the index into the report and the bit number at that index for the data that corresponds to the relevant bit. See DEVICE(GAMEPAD n,B) for more information on bit usage (0-15).  The code is a bit number 0-7 (the button is pressed when that bit is set), 128-135 (pressed when bit code-128 is clear), 64 (pressed when the byte is below 64) or 192 (pressed when it is above 192).  An index of 255 marks a button the gamepad does not have.  Any other code is an error
+{}
+
+# MAXGOSUB is 100 (Inc/Configuration.h:104), shared by GOSUB and SUB/FUNCTION calls (cmd_gosub, Commands.c:2592),
+# as the chapter MMBasic Characteristics says.
+# ACTION REPLACE commands.txt 847 "=== GOSUB target"
+=== GOSUB target
+--- keep
+Initiates a call to the subroutine at ‘target’, which can be a line number or a label.  The subroutine must be terminated with RETURN.  GOSUBs, subroutines and functions can be nested up to 100 deep in total.
+GOSUB is a legacy command; defined subroutines (SUB…END SUB) are recommended instead for new programs.
+
+# The build has the GUI controls (cmd_gui, GUI.c:466: BUTTON ... SETUP, and the CtrlVal( and MsgBox( functions) but the
+# reference had no entry for them; b14 had one (p93, "GUI").  mouseon (GUI.c:248) needs OPTION MOUSE and opens the
+# mouse and the cursor; GetCtrlParams (GUI.c:267) needs OPTION MAXCTRLS.  There is no GUI BEEP sub-keyword.
+# ACTION ADD commands.txt BEFORE 856 "=== GUI BITMAP  x,  y,  bits  [, width]  [, height]  [, scale]  [, c]  [, bc]"
+=== GUI
+--- keep
+The GUI commands create the GUI controls and manage them: GUI BUTTON, SWITCH, CHECKBOX, RADIO, LED, FRAME, NUMBERBOX, TEXTBOX, FORMATBOX, SPINBOX, DISPLAYBOX, CAPTION, GAUGE, BARGAUGE and AREA create a control and GUI PAGE, SETUP, DELETE, DISABLE, ENABLE, HIDE, SHOW, RESTORE, REDRAW, FCOLOUR, BCOLOUR and INTERRUPT manage them.  See the chapter *GUI Controls*; the commands are described in full in the document GUI Controls and Programming.pdf (see Appendix O).
+The controls need memory reserved for them with OPTION MAXCTRLS and a mouse set with OPTION MOUSE (otherwise the errors are "No memory allocated for GUI controls" and "Mouse not enabled").  The first control that is created opens that mouse and displays the cursor, which then follows the mouse.
+The controls are those of the Micromite Plus with the mouse in place of its touch screen: its TOUCH() function is CLICK() here, and GUI BEEP is not provided (use PLAY TONE in the interrupt routine if a click is wanted).
+
+# cmd_guiMX170 (MM_Misc.c:599-637): scale defaults to 1 (1-15), not to the FONT scale; bc -1..WHITE, and DrawBitmap
+# leaves the background alone for -1 (OtherDisplays.c:3281); "Not enough data" when h*w > the bits given.
+# ACTION REPLACE commands.txt 856 "=== GUI BITMAP  x,  y,  bits  [, width]  [, height]  [, scale]  [, c]  [, bc]"
+=== GUI BITMAP  x,  y,  bits  [, width]  [, height]  [, scale]  [, c]  [, bc]
+---
+Displays the bits in a bitmap on the screen starting at 'x' and 'y'.
+'height' and 'width' are the dimensions of the bitmap as displayed on the screen and default to 8x8.  
+{t=l2592}'scale' is optional and can be 1 to 15 (the default is 1).  
+{t=l2592}'c' is the drawing colour and 'bc' is the background colour.  They are optional and default to the current foreground and background colours.  'bc' can be -1 and then the background is not drawn (the pixels of the zero bits are left as they are).
+The bitmap can be an integer or a string variable or constant and is drawn using the first byte as the first bits of the top line (bit 7 first, then bit 6, etc) followed by the next byte, etc.  When the top line has been filled the next line of the displayed bitmap will start with the next bit in the integer or string.  An integer holds 64 bits (its least significant byte is the first) and a string up to 255 bytes: 'width' x 'height' must not be more bits than it holds ("Not enough data").
+See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
+
+# cmd_cursor (Draw.c:535): ON gives "Invalid for this screen mode" in the 4-bit depth, returns at once if the cursor
+# is on, and starts at x = y = 0 (not the centre); the cursor is drawn on page 0, or 1 in 12-bit (hidecursor and
+# showcursor).  OFF (closecursor) does not clear autocursor, so it does not unlink the mouse.  COLOUR is matched as
+# COLOUR only: the tokeniser turns COLOR into COLOUR only at the start of a statement (MMBasic.c:2009), so GUI CURSOR
+# COLOR is not accepted.  LOAD (loadcursor, Draw.c:330-343) gives "Cursor On" if the cursor is on, only loads (ON 2
+# selects), has no size limit and adds no extension (it means to add .CUR but appends it to the command line: a bug,
+# see the report).  LINK MOUSE: "Cursor Off", "Already linked", "Mouse in use for GUI", "Not open"
+# (MouseOpenChannel: a USB mouse or channels 0-3).  The PicoMite's LCD panel and Bluetooth sentences do not apply.
+# Appendix G is Turtle Graphics here; the sprite file format is in the SPRITE LOAD entry.
+# ACTION REPLACE commands.txt 865 "=== GUI CURSOR ON [n [,x, y [,colour]]]"
+=== GUI CURSOR ON [n [,x, y [,colour]]]
+--- keep tight
+Displays and manipulates a cursor (eg, a mouse pointer) on the screen.  The cursor sits above all other graphics and nothing can overwrite it.  It is drawn on page 0 (page 1 in the 12-bit colour depth) and it is not available in the 4-bit colour depth ("Invalid for this screen mode").
+GUI CURSOR ON enables and displays the cursor.  ‘n’ is the cursor number: 0 is a mouse type pointer (the default), 1 is a cross hair and 2 is a user defined cursor previously loaded with GUI CURSOR LOAD.  ‘x’ and ‘y’ specify the initial position of the cursor's active point (the top left corner of the screen if omitted) and ‘colour’ can be used to override the default white colour of cursors 0 and 1.  If the cursor is already on the command does nothing.
+
+=+= GUI CURSOR x, y
+--- keep tight
+GUI CURSOR x, y moves the cursor to ‘x’, ‘y’.  If the cursor is hidden it is not displayed, just its stored location is updated.
+
+=+= GUI CURSOR OFF
+--- keep tight
+GUI CURSOR OFF turns off the cursor.
+
+=+= GUI CURSOR HIDE
+{}
+GUI CURSOR SHOW
+--- keep tight
+GUI CURSOR HIDE hides the cursor but maintains its position and GUI CURSOR SHOW will show a hidden cursor again at its stored position.
+
+=+= GUI CURSOR COLOUR colour
+--- keep tight
+GUI CURSOR COLOUR changes the colour of cursor numbers 0 and 1.  It does not affect a loaded cursor which has its colours specified by the cursor designer.
+
+=+= GUI CURSOR LOAD fname$
+--- keep tight
+GUI CURSOR LOAD loads cursor number 2 from the file ‘fname$’, which must be given with its extension, and GUI CURSOR ON 2 then displays it.  The cursor must be off when it is loaded ("Cursor On").  The file uses the same layout and colour coding as a sprite file (see SPRITE LOAD) except that the header line is: width, height, xoffset, yoffset.  The two offsets define the position of the cursor’s active point within the image - the mouse pointer (cursor 0) has offsets 0,0 (the tip of the arrow) and the cross hair (cursor 1) has 7,7 (its centre).  The cursor is held in the pixel format of the colour depth in use when it is loaded, so it should be loaded after the MODE command.
+
+=+= GUI CURSOR LINK MOUSE
+GUI CURSOR UNLINK MOUSE
+--- keep tight
+GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "Not open").  The cursor cannot be linked while the GUI controls are using the mouse ("Mouse in use for GUI").
+
+# cmd_help (Commands.c:273): "Invalid in a program"; help.txt is used when f_stat("0:/help.txt") finds it on the SD
+# card, otherwise do_help (Commands.c:120), the built-in help that b14 described (p94, "HELP (Editor)").
+# ACTION REPLACE commands.txt 897 "=== HELP searchtext"
+=== HELP [searchtext]
+---
+Shows the syntax of a command or function.  It can only be used at the command prompt (in the editor F11 shows the help for the keyword at the cursor).  ‘searchtext’ need not be quoted.
+If the SD card has the file help.txt in its root directory (A:/help.txt) HELP looks up ‘searchtext’ in that file.  This can be a user written or community developed file and must be in a particular format.
+For each help entry the first line must be a search string prefixed with a ~ character. This is used for the help functionality to find an entry and is not displayed. The ‘searchtext’ can contain ? for single character substitution or \* for multiple character (or none) substitution.
+Following, the search string the next line would typically give the syntax of a particular command of function. Any subsequent lines would be further explanation.
+{kn=1}e.g.
+*~COLOR\nCOLOR fore [, back]\nSets the default color for commands (PRINT, etc)\nthat display on the screen.\n'fore' is the foreground colour, 'back' is the background colour.\nThe background is optional and if not specified will default to black.*
+The command will return all entries that match the ‘searchtext’ and these will be paged to match the console device. Various versions of help.txt are available on <<https://www.thebackshed.com/forum/ViewTopic.php?FID=16&TID=17865>>
+Without A:/help.txt the help built into MMBasic is used.  HELP then shows up to three lines of it that start with the text typed so far (‘searchtext’ and any characters typed after it, which can be deleted with backspace), and the up and down arrow keys move through the matches.  Esc or F12 ends the command.
+
+# cmd_inc (Commands.c:360) concatenates a string (the CAT alias, MMBasic.c:2030, is the same command).
+# ACTION REPLACE commands.txt 1006 "=== INC var [,increment]"
+=== INC var [,increment]
+--- keep
+Increments the variable “var” by either 1 or, if specified, the value in increment. “increment” can be negative which will decrement. 
+This is functionally the same as `var = var + increment `but is processed much faster
+If “var” is a string variable “increment” must be given and must be a string, which is appended to “var” (as CAT does).  The error is "String too long" if the result is longer than the variable can hold.
+
+# cmd_kill (FileIO.c:1294): wildcards give "Invalid in a program"; f_findfirst skips AM_SYS, AM_HID and AM_DIR;
+# f_unlink also deletes an empty directory (b14 p98).
+# ACTION REPLACE commands.txt 1055 "=== KILL file$ [,all]"
+=== KILL file$ [, ALL]
+--- keep
+Deletes the file (or empty directory) specified by ‘file$’ on the SD card or USB flash drive. Any extension must be specified.  
+Bulk erase is triggered if ‘file$’ contains a '\*' or a '?' character: every file that matches is deleted (directories, hidden and system files are left alone), and this can only be done at the command prompt.  If ALL is added you will be prompted for a single confirmation.  If ALL is not specified you will be prompted on each file.
+
+# LINE GRAPH is polygon("0," args, 0) (Draw.c:4278, 3753): the count is the size of x() ("Y Dimensions" if y() is
+# smaller) and the colour is optional (argc > 5).
+# ACTION REPLACE commands.txt 1107 "=== LINE GRAPH x(), y(), colour"
+=== LINE GRAPH x(), y() [, colour]
+--- keep
+This command generates a line graph of the coordinate pairs specified in “x()” and “y()”. The graph will have n-1 segments where there are n elements in the x array; the y array must have at least as many.  ‘colour’ defaults to the current foreground colour.
+
+# cmd_lineinput (Commands.c:3175) prints getstring(argv[0]), so any string expression, and takes ',' or ';' after it.
+# ACTION REPLACE commands.txt 1111 "=== LINE INPUT [prompt$,] string‑variable$"
+=== LINE INPUT [prompt$,] string‑variable$
+--- keep
+Reads an entire line from the console input into ‘string‑variable$’.  
+‘prompt$’ is a string expression and if specified it will be printed first.  It is followed by a comma or a semicolon (they act the same).  A question mark is not printed unless it is part of  ‘prompt$’.  Unlike INPUT, this command will read a whole line, not stopping for comma delimited data items.  
+
+# cmd_line PLOT (Draw.c:4245-4276): nc = the array size unless nbr (1..HRes-1) is given; the loop stops when the index
+# y + yinc reaches nc, so nbr bounds the elements used (with ystart 0 and yinc 1 it draws nbr-1 segments, not nbr);
+# y values are clamped to 0..VRes-1 and the loop stops at x >= HRes.  See the report: with ystart >= nbr nothing is drawn.
+# ACTION REPLACE commands.txt 1120 "=== LINE PLOT ydata() [,nbr] [,xstart] [,xinc] [,ystart] [,yinc] [,colour]"
+=== LINE PLOT ydata() [,nbr] [,xstart] [,xinc] [,ystart] [,yinc] [,colour]
+--- keep
+Plots a line graph from an array of y-axis data points.
+‘ydata()’ is an array of floats or integers to be plotted
+‘nbr’ (1 to MM.HRES-1) limits the plot to the first ‘nbr’ elements of the array (all of them if it is omitted): the points plotted are the elements from ‘ystart’ on, every ‘yinc’ elements, that lie within them, so with the other defaults ‘nbr’ points are joined by ‘nbr’-1 line segments.
+‘xstart’ is the x-coordinate to start plotting - defaults to 0
+‘xinc’ is the increment along the x-axis to plot each coordinate - defaults to 1
+‘ystart’ is the location in ydata to start the plot - defaults to the array start. NB: respects OPTION BASE
+The values in ‘ydata()’ are the y coordinates of the points; they are clipped to the screen and the plot stops at its right edge.
+‘yinc’ is the increment to the index into ydata to add for each point to be plotted - defaults to 1
+‘colour’ is the colour to draw the line - defaults to the current foreground colour
+
+# The example was the PicoMite's (its Saved Variables section and sizes).  cmd_memory (Memory.c:513-690) prints
+# Program: (with Embedded C Routines, Embedded Fonts and Saved Variables lines when there are any), Library: when one is
+# loaded, and Data:.  The example is a real CMM2 G2 report, tests/testfiles/CMM2_G2_480/SelectCaseTest.out lines 11-18.
+# ACTION REPLACE commands.txt 1659 "=== MEMORY"
+=== MEMORY
+---
+List the amount of memory currently in use.  For example:
+{t=n360 b=0 a=0 l=720}`Program:`
+{t=n360 b=0 a=0 l=720}`  12K ( 2%) Program (475 lines)`
+{t=n360 b=0 a=0 l=720}` 504K (98%) Free`
+{t=n360 b=0 a=0 l=720}
+{t=n360 b=0 a=0 l=720}`Data:`
+{t=n360 b=0 a=0 l=720}`   1K ( 1%) 4 Variables`
+{t=n360 b=0 a=0 l=720}`   2K ( 0%) General`
+{t=n360 b=0 a=0 l=720}`24285K (99%) Free`
+{kn=1 kl=1 t=n360 b=240}Notes:
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}Memory usage is rounded to the nearest 1K byte.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}‘Program’ is the program memory: the program last run (see the chapter Using MMBasic) and, when there are any, its embedded C routines and fonts and the saved variables (see VAR SAVE), each on a line of its own.  When there is a library (see LIBRARY) it is listed under Library.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}General memory (RAM)  is used by arrays, strings, serial I/O buffers, etc. 
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}The amount of RAM depends on the generation: the example is from a Generation 2 (see the memory map in the chapter MMBasic Characteristics).
+
+# cmd_memory SET (Memory.c:397-510): SHORT and WORD take no increment (argc != 5 is "Syntax"); INTEGER and FLOAT
+# take getint(argv[6], 0, 0xFFFF).
+# ACTION REPLACE commands.txt 1676 "=== MEMORY SET address, byte, numberofbytes"
+=== MEMORY SET address, byte, numberofbytes
+{}
+MEMORY SET BYTE address, byte, numberofbytes
+{}
+MEMORY SET SHORT address, short, numberofshorts
+{}
+MEMORY SET WORD address, word, numberofwords
+{}
+MEMORY SET INTEGER address, integervalue ,numberofintegers [,increment]
+{}
+MEMORY SET FLOAT address, floatingvalue ,numberofloats [,increment]
+--- keep
+This command will set a region of memory to a value.
+BYTE = One byte per memory address.
+SHORT = Two bytes per memory address.
+WORD = Four bytes per memory address.
+INTEGER and FLOAT = Eight bytes per memory address.
+‘increment’ (INTEGER and FLOAT only, 0 to 65535) is optional and controls the increment of the ‘address’ pointer as the operation is executed.  For example, if increment=3 then only every third element of the target is set.  The default is 1.
+
+# cmd_memory COPY (Memory.c:388-396): the byte form needs exactly 5 arguments ("Syntax" otherwise); the increments are
+# read by COPY INTEGER and COPY FLOAT only.
+# ACTION REPLACE commands.txt 1695 "=== MEMORY COPY sourceaddress, destinationaddress, numberofbytes [,sourceincrement][,destinationincrement]"
+=== MEMORY COPY sourceaddress, destinationaddress, numberofbytes
+{}
+MEMORY COPY INTEGER sourceaddress, destinationaddress, numberofintegers [,sourceincrement][,destinationincrement]
+{}
+MEMORY COPY FLOAT sourceaddress, destinationaddress, numberoffloats [,sourceincrement][,destinationincrement]
+---
+This command will copy one region of memory to another.
+COPY INTEGER and FLOAT will copy eight bytes per operation.
+‘sourceincrement’ (INTEGER and FLOAT only, 0 to 65535) is optional and controls the increment of the ‘sourceaddress’ pointer as the operation is executed.  For example, if sourceincrement=3 then only every third element of the source will be copied.  The default is 1.
+‘destinationincrement’ is similar and operates on the ‘destinationaddress’ pointer.
+
+# The # is optional (Memory.c:237, 261).  The syntax had lost its opening bracket.
+# ACTION REPLACE commands.txt 1706 "=== MEMORY PRINT #]fnbr , nbr, address%/array()"
+=== MEMORY PRINT [#]fnbr , nbr, address%/array()
+{}
+MEMORY INPUT [#]fnbr , nbr, address%/array()
+--- keep
+These commands save or read ‘nbr’ of data bytes from or to memory from or to an open disk file. 
+The memory to be saved can be specified as an integer array in which case the nbr of bytes to be saved or read is checked against the array size. Alternatively, a memory address can be used in which case no checking can take place and user errors could result in a crash of the firmware..
+
+# There is no flash file system on the CMM2: the drives are A: (B:) the SD card and C: a USB flash drive.
+# ACTION REPLACE commands.txt 1722 "=== MKDIR dir$"
+=== MKDIR dir$
+--- keep
+Make, or create, the directory ‘dir$’ on the SD card or USB flash drive (on the current drive unless ‘dir$’ names another).
+
+# cmd_mid (Commands.c:2679): num is optional (argc 3 or 5); the text already said so but the syntax had it required.
+# ACTION REPLACE commands.txt 1726 "=== MID$( str$, start, num) = str2$"
+=== MID$( str$, start [, num]) = str2$
+--- keep roomy
+The ‘num’ characters in 'str$', beginning at position 'start', are replaced by the characters in 'str2$'.  ‘num’ can be set be 0 i.e. insert the new string at the position specified. If num isn’t specified it defaults to the length of ‘str2$’.  The characters replaced must lie within 'str$' ("Selection exceeds length of string") and the result must fit in the variable ("String too long").
+
+# The PicoMite's text spoke of USB ports and PS2 firmware.  cmd_usbmouse (USBMouse.c:308): INTERRUPT ENABLE/DISABLE
+# check the channel 1..4 and ignore it (one MouseIntAny); MouseIntAny is signalled from MouseInput (USBMouse.c:218-244)
+# only, the USB mouse, on any change of the buttons and on a double click; SET needs channel 2, a mouse open
+# (MouseOpenChannel, else "No mouse"), x 0..HRes-1, y 0..VRes-1, wheel -1000000..1000000.
+# ACTION REPLACE commands.txt 1775 "=== MOUSE"
+=== MOUSE INTERRUPT ENABLE channel, int
+or
+MOUSE INTERRUPT DISABLE channel
+or
+MOUSE SET channel, x, y [, wheel]
+---
+These commands act on the mouse in use, which a program reads as channel 2 (see the chapter *Keyboard, Mouse and Gamepad* and the DEVICE(MOUSE ...) function).  ‘channel’ can be 1 to 4 for MOUSE INTERRUPT, where it is not used, and must be 2 for MOUSE SET.
+MOUSE INTERRUPT ENABLE sets ‘int’, a user defined subroutine that will be called whenever a button of a USB mouse is pressed or released, and when the left button is double clicked.  MOUSE INTERRUPT DISABLE disables it.  For a PS2 or I^^2^^C mouse see CONTROLLER MOUSE OPEN.
+MOUSE SET sets the position that the mouse will report: ‘x’ (0 to MM.HRES-1), ‘y’ (0 to MM.VRES-1) and optionally the wheel count (-1000000 to 1000000).  The error is "No mouse" if no mouse is connected or open.
+
+# cmd_on (Commands.c:3239-3266): SKIP nn is getint(p, 1, 10000); MM.ERRLINE is cleared with the others by every form
+# but ABORT; RESTART makes error() call SoftReset (MMBasic.c:4272).  As the MM.ERRNO entry in variables.txt says.
+# ACTION REPLACE commands.txt 1804 "=== ON ERROR ABORT"
+=== ON ERROR ABORT
+or
+ON ERROR IGNORE
+or
+ON ERROR SKIP [nn]
+or
+ON ERROR CLEAR
+or
+ON ERROR RESTART
+---
+This controls the action taken if an error occurs while running a program and applies to all errors discovered by MMBasic including syntax errors, wrong data, missing hardware, etc.
+ON ERROR ABORT will cause MMBasic to display an error message, abort the program and return to the command prompt.  This is the normal behaviour and is the default when a program starts running.
+ON ERROR RESTART will cause MMBasic to restart the Colour Maximite 2 when an error occurs and, of course, if you have OPTION AUTORUN set the program will then restart cleanly
+ON ERROR IGNORE will cause any error to be ignored.
+ON ERROR SKIP will ignore an error in a number of commands (specified by the number 'nn') executed following this command.  'nn' is optional (1 to 10000), the default if not specified is one.  After the number of commands has completed (with an error or not) the behaviour of MMBasic will revert to ON ERROR ABORT.
+If an error occurs and is ignored/skipped the read only variable MM.ERRNO will be set to non zero, MM.ERRMSG$ will be set to the error message that would normally be generated and MM.ERRLINE to the number of the line.  These are reset to zero and an empty string by ON ERROR CLEAR.  They are also cleared when the program is run and when ON ERROR IGNORE, SKIP and RESTART are used.
+ON ERROR IGNORE can make it very difficult to debug a program so it is strongly recommended that only ON ERROR SKIP be used.
+
+# The key interrupt (keyselect) is tested for the USB keyboard (KeyboardMap.c:1101) and for the serial console
+# (stm32h7xx_it.c:432, 524), as b14 said (p113); keyselect is getint(argv[0], 0, 255) (Commands.c:3226).
+# ACTION REPLACE commands.txt 1822 "=== ON KEY target "
+=== ON KEY target 
+or 
+ON KEY ASCIIcode, target
+---
+The first version of the command sets an interrupt which will call 'target' user defined subroutine whenever there is one or more characters waiting in the console input buffer (typed on the USB keyboard or received from the serial console). 
+Note that all characters waiting in the input buffer should be read in the interrupt subroutine otherwise another interrupt will be automatically generated as soon as the program returns from the interrupt.   
+The second version allows you to associate an interrupt routine with a specific key press (‘ASCIIcode’ is 1 to 255). This operates at a low level for both the USB keyboard and the serial console and if activated the key does not get put into the input buffer but merely triggers the interrupt. It uses a separate interrupt from the simple ON KEY command so can be used at the same time if required. 
+In both variants, to disable the interrupt use numeric zero for the target, i.e.:  
+ON KEY 0. or ON KEY ASCIIcode, 0
+
+# cmd_on (Commands.c:3270-3297) ends with the traditional ON nbr GOTO|GOSUB, which had no entry: r = getint(argv[0], 0,
+# 255); 0 or more than the targets falls through; GOSUB pushes the return as cmd_gosub does.
+# ACTION ADD commands.txt BEFORE 1832 "=== ONEWIRE RESET pin"
+=== ON nbr GOTO | GOSUB target [, target, target…]
+--- keep
+ON either branches (GOTO) or calls a subroutine (GOSUB) depending on the rounded value of 'nbr': if it is 1 the first target is used, if it is 2 the second target, and so on.  Each target can be a line number or a label.
+If 'nbr' is zero or greater than the number of targets the program carries on with the next command.  'nbr' must be between 0 and 255.
+ON ... GOSUB nests as GOSUB does and the subroutine must be terminated with RETURN.  This is a legacy command; SELECT CASE and defined subroutines are recommended for new programs.
+
+# ACTION REPLACE commands.txt 1951 "=== PIN( pin ) = value"
+=== PIN( pin ) = value
+--- keep
+For a ‘pin’ configured as digital output this will set the output to low (‘value’  is zero) or high (‘value’ non-zero).  You can set an output high or low before it is configured as an output and that setting will be the default output when the SETPIN command takes effect.
+See the function PIN() for reading from a pin and the command SETPIN for configuring it.  ‘pin’ is the number of the pin on the rear I/O connector (see External I/O Connector in the chapter *Hardware Features*).  Refer to the chapter *Using the I/O Pins* for a general description of the Colour Maximite 2's input/output capabilities.
+
+# The value is 'short%' in the syntax; the text named it 'word%'.
+# ACTION REPLACE commands.txt 2086 "=+= {b=0 a=0}POKE SHORT addr%, short% "
+=+= {b=0 a=0}POKE SHORT addr%, short% 
+{b=0 a=0}or
+--- tight
+{kl=1 a=0}POKE SHORT will set the short integer (i.e. 16 bits) at the memory location 
+{kl=1 a=0}'addr%' to 'short%'.  'addr%' and 'short%' should be integers.
+
+# cmd_port (External.c:946): every pin must be a valid output ("Invalid output pin"); on the CMM2 pin 17 is 3.3V and 25
+# ground, so the old example (15-18, 23-26; b14 p119 had it too) fails: 10-13 and 21-24 are all I/O pins
+# (05_hardware.md).  value is an int (32 bits).  There are no GPn names.
+# ACTION REPLACE commands.txt 2141 "=== PORT(start, nbr [,start, nbr]…) = value"
+=== PORT(start, nbr [,start, nbr]…) = value
+--- keep
+Set a number of I/O pins simultaneously (i.e. with one command).
+{kl=1}'start' is an I/O pin number and the lowest bit in 'value' (bit 0) will be used to set that pin.  Bit 1 will be used to set the pin 'start' plus 1, bit 2 will set pin 'start'+2 and so on for 'nbr' number of bits.  I/O pins used must be numbered consecutively and any I/O pin that is invalid or not configured as an output will cause an error.  The start/nbr pair can be repeated if an additional group of output pins needed to be added.  The pins are numbered on the rear I/O connector, where the power and ground pins (which are invalid) break the runs of consecutive I/O pins: see External I/O Connector in the chapter *Hardware Features*.
+{kl=1}For example; `PORT(10, 4, 21, 4) = &B10000011`\nWill set eight I/O pins.  Pins 10 and 11 will be set high while 12, 13, 21, 22 and 23 will be set to a low and finally 24 will be set high.
+{kl=1}This command can be used to conveniently communicate with parallel devices like LCD displays.  Up to 32 I/O pins (and therefore bits) can be set by one command, as 'value' is used as a 32-bit number. 
+{kl=1}See the PORT function to simultaneously read from a number of pins.
+
+# b14 p119: "the console (either the VGA screen or the serial or both)"; see The Console in the chapter Serial Console.
+# ACTION REPLACE commands.txt 2150 "=== PRINT expression \n[[,; ]expression] … etc"
+=== PRINT expression \n[[,; ]expression] … etc
+---
+Outputs text to the console (the screen and the serial console, as set by OPTION CONSOLE) followed by a carriage return/newline pair. Multiple expressions can be used and must be separated by either a:
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Comma (,) which will output the tab character
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Semicolon (;) which will not output anything (it is just used to separate expressions).
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Nothing or a space which will act the same as a semicolon.
+A semicolon (;) or a comma (,) at the end of the expression list will suppress the output of the carriage return/newline pair at the end of a print statement.
+When printed, a number is preceded with a space if positive or a minus (-) if negative but is not followed by a space.  Integers (whole numbers) are printed without a decimal point while fractions are printed with the decimal point and the significant decimal digits.  Large or small floating point numbers are automatically printed in scientific number format.
+The function TAB() can be used to space to a certain column and the STR$() function can be used to justify or otherwise format strings.
+
+# command_print #GPS (Commands.c:458-485): argc must be 3 and the argument a string ("Only a single string parameter
+# allowed"); b14 p120 had PRINT #GPS, string$.
+# ACTION REPLACE commands.txt 2164 "=== PRINT #GPS, expression \n[[,; ]expression] … etc"
+=== PRINT #GPS, string$
+--- keep
+Outputs a NMEA string to the GPS receiver, opened with OPEN ... AS GPS.  Only one string can be given.  The string must start with a $ character and end with a \* character. The checksum is automatically calculated and appended to the string together with the CR/LF characters.
+
+# fun_at (Draw.c:1015-1041) sends ESC[y;xf to the serial console; AutoLineWrap = false is commented out (Draw.c:1020)
+# so the final CR/LF is printed (Commands.c:551), and DisplayPutC (SPI-LCD.c:136) always wraps.  m = 5 sets fc = bc and
+# bc = -1 (GUIPrintChar, Draw.c:5871): the characters in the background colour, not inverted pixels.  See the report.
+# ACTION REPLACE commands.txt 2168 "=== PRINT @(x [, y]) expression"
+=== PRINT @(x [, y]) expression
+or
+PRINT @(x, [y], m) expression
+--- keep
+Same as the standard PRINT command except that the cursor is positioned at the coordinates x, y expressed in pixels. If y is omitted the cursor will be positioned at “x” on the current line.  A VT100 terminal emulator on the serial console is sent the escape sequence that moves its cursor to the same character position (the pixel coordinates divided by the size of the font's characters).
+Example:   PRINT @(150, 45) "Hello World"
+The @ function can be used anywhere in a print command.
+Example:   PRINT @(150, 45) "Hello"  @(150, 55)  "World"
+The @(x,y) function can be used to position the cursor anywhere on or off the screen.  For example,  PRINT @(-10, 0) "Hello" will only show "llo" as the first two characters could not be shown because they were off the screen.
+As with any PRINT, text that reaches the right edge of the screen continues on the next line, and the carriage return and line feed at the end are printed unless the list ends with a semicolon or a comma.
+{t=n360}If 'm' is specified the mode of the video operation will be as follows:\nm = 0	Normal text (white letters, black background)\nm = 1	The background will not be drawn (ie, transparent)\nm = 2	The video will be inverted (black letters, white background)\nm = 5	The text is drawn in the background colour and its background is not drawn
+
+# cmd_randomize (Commands.c:4234): RANDOMIZE [n], n >= 0 or the core timer, srand() only; RND is RndVal
+# (Functions.c:1035), the hardware RNG.  The RP2040/RP2350 text does not apply.
+# ACTION REPLACE commands.txt 2205 "=== RANDOMIZE nbr"
+=== RANDOMIZE [nbr]
+--- keep
+Seeds the C library's random number generator with ‘nbr’ (0 or more) or, if ‘nbr’ is omitted, from the microsecond timer.
+This does not affect the RND function: RND uses the hardware random number generator of the STM32H743, which needs no seeding and does not repeat a sequence (see Random Number Generator in the chapter *Porting Programs*).  RANDOMIZE is accepted so that programs written for other versions of MMBasic run.  For a repeatable sequence of random numbers use MATH RANDOMIZE and MATH(RAND).
+
+# cmd_rbox (Draw.c:4701): r is getint(argv[8], 0, 100), default 10.
+# ACTION REPLACE commands.txt 2211 "=== RBOX  x,  y,  w,  h  [, r]  [,c] [,fill]"
+=== RBOX  x,  y,  w,  h  [, r]  [,c] [,fill]
+{}
+---
+Draws a box with rounded corners on the screen starting at 'x' and 'y' which is 'w' pixels wide and 'h' pixels high.  
+'r' is the radius of the corners of the box (0 to 100).  It defaults to 10.
+'c' specifies the colour and defaults to the default foreground colour if not specified. 'fill' is the fill colour.  It can be omitted or set to -1 in which case the box will not be filled.
+All parameters can be expressed as arrays and the software will plot the number of boxes as determined by the dimensions of the smallest array. 'x', 'y', 'w', and 'h' must all be arrays or all be single variables /constants otherwise an error will be generated. 'r', 'c', and 'fill' can be either arrays or single variables/constants.
+See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
+
+# cmd_name (FileIO.c:1385).
+# ACTION REPLACE commands.txt 2244 "=== RENAME old$ AS new$"
+=== RENAME old$ AS new$
+--- keep
+Rename a file or a directory from ‘old$’ to ‘new$’.  Both are strings.
+A directory path can be used in both 'old$' and 'new$'.  If the paths differ the file specified in 'old$' will be moved to the path specified in 'new$' with the file name as specified.  Both must be on the same drive ("Cannot rename across drives").
+
+# ACTION REPLACE commands.txt 2287 "=== SEEK [#]fnbr, pos"
+=== SEEK [#]fnbr, pos
+--- keep
+Will position the read/write pointer in a file that has been opened on the SD card or USB flash drive for RANDOM access to the 'pos' byte.  
+The first byte in a file is numbered one so   SEEK #5,1 will position the read/write pointer to the start of the file opened as #5.
+
+# cmd_sync (External.c:1524): a time of 0 clears it ("SYNC not initialised" after).  The example's GP0 is a PicoMite
+# pin name; PULSE needs an output.
+# ACTION REPLACE commands.txt 2579 "=== SYNC time% [,period]"
+=== SYNC time% [,period]
+or
+SYNC
+---
+The SYNC command allows the user to implement very precisely timed repeated actions (1-2 microseconds accuracy). 
+To enable this the command is first called with the parameter time%. This sets up a repeating clock for time% microseconds. The optional parameter ‘period’ modifies the time and can be  “U” for microseconds, “M” for milliseconds or “S” for seconds. 
+Once the clock is set up the program is synchronised to it using the SYNC command without parameters. This waits for the clock period to expire. For periods below 2 ms this is non-interruptible. Above 2 ms the program will respond to Ctrl-C but not any MMBasic interrupts. 
+SYNC 0 stops the clock.
+Typical use is to set the clock outside of a loop and then at the top of the loop call the SYNC command without parameters. This means the contents of the loop will be executed exactly once for each clock period set.  For example, the following would drive a servo with the required precise 50Hz timing:  
+{kn=1 b=0 a=0 l=720}`SETPIN 7, DOUT`
+{kn=1 b=0 a=0 l=720}`SYNC 20, M`
+{kn=1 b=0 a=0 l=720}`DO`
+{kn=1 b=0 a=0 l=720}`  SYNC`
+{kn=1 b=0 a=0 l=720}`  PULSE 7, n`
+{kn=1 b=0 a=0 l=720}`LOOP` 
+
+# cmd_ds18b20 (Onewire.c:169): pin 1..NBRPINS, timeout getint(argv[4], 100, 2000); 05_hardware.md: the motherboard's
+# DS18B20 is on pin 42.
+# ACTION REPLACE commands.txt 2593 "=== TEMPR START pin [, precision] [,timeout]"
+=== TEMPR START pin [, precision] [,timeout]
+---
+This command can be used to start a conversion running on a DS18B20 temperature sensor connected to 'pin'.  Normally the TEMPR() function alone is sufficient to make a temperature measurement so usage of this command is optional.  For more detail see the section *Measuring Temperature*.
+This command will start the measurement on the temperature sensor.  The program can then attend to other duties while the measurement is running and later use the TEMPR() function to get the reading.  If the TEMPR() function is used before the conversion time has completed the function will wait for the remaining conversion time before returning the value.
+Any number of these conversions (on different pins) can be started and be running simultaneously.
+{kn=1 kl=1}'precision' is the resolution of the measurement and is optional.  It is a number between 0 and 3 meaning:
+{kn=1 kl=1 l=432}0   =   0.5ºC resolution, 100 ms conversion time.
+{l=432}1   =   0.25ºC resolution, 200 ms conversion time (this is the default).
+{l=432}2   =   0.125ºC resolution, 400 ms conversion time.
+{l=432}3   =   0.0625ºC resolution, 800 ms conversion time.
+The optional timeout parameter (100 to 2000 ms) overrides the conversion times above to allow for slow devices.
+'pin' can be any I/O pin, or pin 42 for a sensor fitted on the motherboard (see the chapter *Hardware Features*).
+
+# cmd_text (Draw.c:3147): bc = getColour(argv[14], 1), which allows -1.
+# ACTION REPLACE commands.txt 2605 "=== TEXT  x,  y,  string$  [,alignment$]  [, font]  [, scale]  [, c]  [, bc]"
+=== TEXT  x,  y,  string$  [,alignment$]  [, font]  [, scale]  [, c]  [, bc]
+--- keep
+{t=l2592}Displays a string on the screen starting at 'x' and 'y'. 
+{t=l2592}‘string$’ is the string to be displayed.  Numeric data should be converted to a string and formatted using the Str$() function.
+{t=l2592}' alignment$' is a string expression or string variable consisting of 0, 1 or 2 letters where the first letter is the horizontal alignment around 'x' and can be L, C or R for LEFT, CENTER, RIGHT and the second letter is the vertical alignment around 'y' and can be T, M or B for TOP, MIDDLE, BOTTOM.  The default alignment is left/top.
+{t=l2592}For example. “CM” will centre the text vertically and horizontally.  
+{t=l2592}The 'alignment$' string can be a constant (eg, “CM”) or it can be a string variable.  For backwards compatibility with earlier versions of MMBasic the string can also be unquoted (eg, CM).
+A third letter can be used in the alignment string to indicate the rotation of the text.  This can be 'N' for normal orientation, 'V' for vertical text with each character under the previous running from top to bottom, 'I' the text will be inverted (i.e. upside down), 'U' the text will be rotated counter clockwise by 90º and 'D' the text will be rotated clockwise by 90º
+{t=l2592}'font' and 'scale' are optional and default to that set by the FONT command.  
+{t=l2592}'c' is the drawing colour and 'bc' is the background colour.  They are optional and default to the current foreground and background colours.  'bc' can be -1, and then the background of the characters is not drawn (see Transparent Text in the chapter *Graphics Functions*).
+{t=l2592}See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
+
+# cmd_time (MM_Misc.c:2268): a number adjusts the time by that many seconds (b14 p131, TIME$ = ±sec); the DS3231 is
+# written when Option.RTCinstalled.  OPTION RTC AUTO ENABLE is the PicoMite's.
+# ACTION REPLACE commands.txt 2617 "=== TIME$ = "HH:MM:SS""
+=== TIME$ = "HH:MM:SS"
+or
+TIME$ = "HH:MM"
+or
+TIME$ = "HH"
+or
+TIME$ = sec
+--- keep
+Sets the time of the internal clock.  MM and SS are optional and will default to zero if not specified.  For example TIME$ = "14:30" will set the clock to 14:30 with zero seconds.
+TIME$ = sec, where ‘sec’ is a number rather than a string, adds ‘sec’ seconds to the current time (or subtracts them when it is negative), which makes it easy to fine tune the clock.
+The clock is the battery backed real time clock of the processor, or the DS3231 of a Generation 2 with OPTION DS3231 ON, so the time is kept while the power is off (see Backup Battery in the chapter *Hardware Features*).  The time is "00:00:00" when the clock is first powered.
+
+# cmd_trace (Commands.c:2030): nn optional, 0..TRACE_BUFF_SIZE-1 (127); the trace prints [name:line] for an #INCLUDE
+# or library line (MMBasic.c:408-418).
+# ACTION REPLACE commands.txt 2635 "=== TRACE ON"
+=== TRACE ON
+or
+TRACE OFF
+or
+TRACE LIST [nn]
+--- keep
+TRACE ON/OFF will turn on/off the trace facility. This facility will print the number of each line (counting from the beginning of the program) in square brackets as the program is executed (a line of an #INCLUDE file or of the library as [file:n]).  This is useful in debugging programs. 
+TRACE LIST will list the last 'nn' lines executed (0 to 127, or 127 if 'nn' is omitted) in the format described above.  MMBasic is always logging the lines executed so this facility is always available (ie, it does not have to be turned on).
+
+# cmd_var (flash.c:250): SAVED_VAR_RAM_SIZE 0x1000 at 0x38800000, battery backed RAM (23_characteristics.md, b14
+# p132: 4KB); "Invalid variable" for a constant, a pointer or a non-global (level != 0), "A structure cannot be saved",
+# "Not enough memory".  ClearSavedVars is called by NEW, by cleanup() (a program that fails to load) and ResetAllFlash
+# (firmware change, pin 40 reset), not by RUN.
+# ACTION REPLACE commands.txt 2664 "=== VAR SAVE var [, var]… "
+=== VAR SAVE var [, var]… 
+or
+VAR RESTORE 
+or
+VAR CLEAR
+---
+VAR SAVE will save one or more variables to non-volatile memory where they can be restored later (normally after a power interruption).  
+'var' can be any number of numeric or string variables and/or arrays.  Arrays are specified by using empty brackets.  For example: var()
+The VAR SAVE command can be used repeatedly.  Variables that had been previously saved will be updated with their new value and any new variables (not previously saved) will be added to the saved list for later restoration.
+VAR RESTORE will retrieve the previously saved variables and insert them (and their values) into the variable table.  
+VAR CLEAR will erase all saved variables.   
+This command is normally used to save calibration data, options, and other data which does not change often but needs to be retained across a power interruption.  Normally the VAR RESTORE command is placed at the start of the program so that previously saved variables are restored and immediately available to the program when it starts.  Notes:
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}The storage space available to this command is 4KB of RAM kept alive by the battery on the motherboard (see Saved Variables in the chapter *Using MMBasic*).  It can be written to an unlimited number of times.  The error is "Not enough memory" when it is full.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}Using VAR RESTORE without a previous save will have no effect and will not generate an error.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}If, when using RESTORE, a variable with the same name already exists its value will be overwritten.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}Saved arrays must be declared (using DIM) before they can be restored.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}Only global variables can be saved: not LOCAL or STATIC ones, constants or structures.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}Be aware that string arrays can rapidly use up all the memory allocated to this command.  The LENGTH qualifier can be used when a string array is declared to reduce the size of the array (see the DIM command).  This is not needed for ordinary string variables.
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}The saved variables will be automatically cleared by a firmware upgrade, by the NEW command and when MMBasic is reset to its original configuration.  Running or loading a program does not clear them.
+

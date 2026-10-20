@@ -50,7 +50,7 @@ The 4-bit depth is the PicoMite's 16 colour display: see The PicoMite's 16 Colou
 
 ## Pages
 
-In addition to the page that is displayed there are many extra video pages that are available to the programmer for building images. The display always shows the contents of page 0 (and pages 0 and 1 in the 12-bit depth) unless overridden with the PAGE DISPLAY command. PAGE WRITE sets the page that the graphics commands draw on, and PAGE COPY copies one page to another, which can be done during the video blanking period to update the display without flashing and tearing. PAGE SCROLL scrolls a page, and PAGE STITCH, PAGE MERGE and PAGE RESIZE combine and rescale pages.
+In addition to the page that is displayed there are many extra video pages that are available to the programmer for building images. The display always shows the contents of page 0 (and pages 0 and 1 in the 12-bit depth) unless overridden with the PAGE DISPLAY command. PAGE WRITE sets the page that the graphics commands draw on, and PAGE COPY copies one page to another, which can be done during the video blanking period to update the display without flashing and tearing. PAGE SCROLL scrolls a page, PAGE STITCH and PAGE MERGE combine pages, and PAGE RESIZE changes the size of a page.
 
 The pages available in each mode and colour depth are (Generation 1 / Generation 2):
 
@@ -86,7 +86,7 @@ MM.INFO(PAGE ADDRESS n) and MM.INFO(MAX PAGES) are useful if you wish to PEEK or
 - For the 12 or 16-bit colour depth you would use: add% = MM.INFO(PAGE ADDRESS n) + (y * MM.HRES + x) * 2
 - With the 4-bit colour depth two pixels share a byte, the left pixel in the low four bits: add% = MM.INFO(PAGE ADDRESS n) + y * ((MM.HRES + 1) \ 2) + x \ 2
 
-For modes 3, 5, 6, 7, 12 and 13 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4-bit pages hold each line once). For example, for an 8-bit colour depth:
+For modes 3, 5, 6, 7, 12, 13 and 17 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4-bit pages hold each line once). For example, for an 8-bit colour depth:
 
 ```
 add1% = MM.INFO(PAGE ADDRESS n) + (y * 2) * MM.HRES + x

@@ -1,0 +1,566 @@
+# Functions and Obsolete Commands and Functions: staged reference entries for docs/manual/ref/functions.txt and
+# docs/manual/ref/obsolete.txt (tools/manual/reftext.py), wave 2, checked against 7.00.00b1.
+# Every entry of functions.txt but the MATH ones (lines 525-678) and those checked before (SPRITE(, DRAW3D(, PIXEL(,
+# BAUDRATE(, CLASSIC(, GPS(, MOUSE(, NUNCHUK(, MAP(, PIN(, GETSCANLINE, SPI(, SPI2() was read against its handler
+# (docs/manual/audit/firmware.json) and b14 (docs/manual/sources/b14_text.txt); so was every entry of obsolete.txt.
+# Line numbers are those of the files as they are (functions.txt 1071 lines, obsolete.txt 41).
+#
+# Checked and left as they are (right for the CMM2): ABS, ASC, BASE$, BIN$, BIN2STR$, BYTE, CHR$, DATE$, DATETIME$,
+# DAY$, DEG, EPOCH, EVAL, EXP, FIX, FLAG, HEX$, INKEY$, INPUT$, INSTR, INT, LCASE$, LCOMPARE, LEFT$, LEN, LGETBYTE,
+# LGETSTR$, LLEN, LOG, MAX/MIN, MID$, OCT$, PI, RAD, RIGHT$, SGN, SPACE$, SQR, STR$, STRING$, STRUCT(, TAB, TRIM$,
+# UCASE$, VAL; in obsolete.txt BITBANG, DHT22, GOSUB, IF ... THEN linenbr, IRETURN and ON ... GOTO | GOSUB (each is
+# accepted: BITBANG is cmd_bitbang with WS2812, DHT22 and BITSTREAM, External.c:1549; DHT22 its own token for cmd_humid;
+# GOSUB, RETURN, IRETURN and ON their own; IF takes a number after THEN as a GOTO, Commands.c:1625; POS is fun_pos).
+# DATETIME$(n) and EPOCH( are right as written, but the code has faults (see the report: MM_Misc.c:501 and 746).
+
+
+# OPTION ANGLE DEGREES (options.txt) acts on ACOS, ASIN, ATN, ATAN2, COS, SIN and TAN: fun_acos, fun_asin, fun_atn,
+# fun_atan2 multiply the result by optionangle, fun_cos, fun_sin, fun_tan divide the argument (Functions.c:654-694,
+# 1191-1215, 1413-1442).  ACOS and ASIN give "Number out of bounds" outside -1 to 1.
+# ACTION REPLACE functions.txt 7 "=== ACOS( number )"
+=== ACOS( number )
+---
+Returns the inverse cosine of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).  'number' must be -1 to 1.
+
+# ACTION REPLACE functions.txt 15 "=== ASIN( number )"
+=== ASIN( number )
+---
+Returns the inverse sine value of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).  'number' must be -1 to 1.
+
+# ACTION REPLACE functions.txt 19 "=== ATN( number )"
+=== ATN( number )
+---
+Returns the arctangent of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
+
+# ATAN2: the same, and its sentences joined (they were broken into paragraphs in mid-sentence).
+# ACTION REPLACE functions.txt 23 "=== ATAN2( y, x )"
+=== ATAN2( y, x )
+---
+Returns the arc tangent of the two numbers x and y as an angle expressed in radians (or in degrees after OPTION ANGLE DEGREES).
+It is similar to calculating the arc tangent of y / x, except that the signs of both arguments are used to determine the quadrant of the result.
+
+# BIT: a stray quote began the description.
+# ACTION REPLACE functions.txt 65 "=== BIT(var%, bitno)"
+=== BIT(var%, bitno)
+---
+Returns the value of a specific bit (0-63) in an integer variable (0 or 1).
+See also the BIT command
+
+# BOUND: the closing bracket was missing from the syntax.  fun_bound (Functions.c:289): "Expected an array" and
+# "Dimensions" as the text says.
+# ACTION REPLACE functions.txt 70 "=== BOUND(array() [,dimension]"
+=== BOUND(array() [,dimension])
+---
+This returns the upper limit of the array for the dimension requested. 
+The dimension defaults to one if not specified. Specifying a dimension value of 0 will return the current value of OPTION BASE. 
+Requesting a dimension that the array does not have will generate an error, as will using BOUND() on a variable that is not an array.  Note that zero is a valid upper limit: an array declared with a single element under OPTION BASE 0 (for example DIM a(0)) has an upper limit of zero.
+For example:
+DIM myarray(44,45) 
+BOUND(myarray(),2) will return 45
+
+# CALL(: the syntax had a comma before the optional parameters ("userfunname$, [,") and was split over two
+# paragraphs.  fun_call (Functions.c:306): the name, then the parameters after the first comma.
+# ACTION REPLACE functions.txt 84 "=== CALL(userfunname$, "
+=== CALL(userfunname$ [,userfunparameters,..])
+---
+This is an efficient way of programmatically calling user defined functions. (See also the CALL command).  In many cases it can be used to eliminate complex SELECT and IF THEN ELSEIF ENDIF clauses and is processed in a much more efficient manner.  
+‘userfunname$’ can be any string or variable or function that resolves to the name of a normal user function (not an in-built command).  ‘userfunparameters’ are the same parameters that would be used to call the function directly.  
+A typical use for this command could be writing any sort of emulator where one of a large number of functions should be called depending on a some variable. It also provides a method of passing a function name to another subroutine or function as a variable.
+
+# CHOICE: the example prints "hello" and "bye" as they are written, not with capitals (fun_ternary copies the
+# string, Functions.c:1485).
+# ACTION REPLACE functions.txt 91 "=== CHOICE(condition, ExpressionIfTrue, ExpressionIfFalse)"
+=== CHOICE(condition, ExpressionIfTrue, ExpressionIfFalse)
+---
+This function allows you to do simple either/or selections more efficiently and faster than using IF THEN ELSE ENDIF clauses.
+The condition is anything that will resolve to nonzero (true) or zero (false).
+The expressions are anything that you could normally assign to a variable or use in a command and can be integers, floats or strings.
+Examples: \n	PRINT CHOICE(1, "hello","bye") will print "hello"\n	PRINT CHOICE (0, "hello","bye") will print "bye"\n	a=1 : b=1 : PRINT CHOICE (a=b, 4, 5) will print 4
+
+# CINT: moved to its place in the alphabet (CHR$, CINT, CLASSIC); the entry is unchanged.
+# ACTION ADD functions.txt BEFORE 102 "=== CLASSIC(funct [, channel])"
+=== CINT( number )
+---
+Round numbers with fractional portions up or down to the next whole number or integer.
+For example, 	45.47 will round to 45\n		45.57 will round to 46\n		-34.45 will round to -34\n		-34.55 will round to -35
+See also INT() and FIX().
+
+# ACTION REMOVE functions.txt 157 "=== CINT( number )"
+
+# CLICK: the CMM2 has no TOUCH() function and no touch screen, and the RP2040 note is the PicoMite's.  fun_touch
+# (GUI.c:220): DOWN and UP read TOUCH_DOWN, the left button of the mouse in use (PS2 mouse.c:344, Hobbytronic
+# MiscSTM32.c:403, USB USBMouse.c:228); X and Y read mousestruct[Option.Mouse] while it is down, else -1 (GetTouch,
+# GUI.c:213); REF, LASTREF, LASTX and LASTY are set by ProcessTouch (GUI.c:1980), which runs only once a GUI command,
+# CTRLVAL or MSGBOX has called mouseon (GUIactive) and only with OPTION MOUSE set and OPTION MAXCTRLS > 0 (Timers.c:335,
+# main.c:3170).
+# ACTION REPLACE functions.txt 134 "=== CLICK(DOWN)"
+=== CLICK(DOWN)
+or
+CLICK(UP)
+or
+CLICK(X)
+or
+CLICK(Y)
+or
+CLICK(REF)
+or
+CLICK(LASTREF)
+or
+CLICK(LASTX)
+or
+CLICK(LASTY)
+---
+Reports the clicks of the left mouse button, for the GUI controls (see the chapter GUI Controls).  The mouse must be set with OPTION MOUSE (a USB mouse is channel 2).
+CLICK(DOWN) returns 1 (true) if the left mouse button is currently down.  CLICK(UP) returns 1 (true) if it is not.
+CLICK(X) and CLICK(Y) return the coordinates of the mouse while the button is down, or -1 if it is not.
+CLICK(LASTX) and CLICK(LASTY) return the coordinates of the last location that was clicked on.
+CLICK(REF) returns the reference number of the GUI control that is currently being clicked on, or zero if none.  CLICK(LASTREF) returns the reference number of the last control that was clicked on.
+LASTX, LASTY, REF and LASTREF are kept by the GUI controls: they change only when OPTION MAXCTRLS is set and the program has used the GUI commands (for example, created a control or set GUI INTERRUPT).  The controls are described in the document GUI Controls and Programming.pdf (see Appendix O).
+
+# ACTION REPLACE functions.txt 163 "=== COS( number )"
+=== COS( number )
+---
+Returns the cosine of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
+
+# CTRLVAL( is in the build (fun_ctrlval, GUI.c:2304) but had no entry: added before CWD$, pointing to the GUI
+# document as STRUCT( points to its own.  It needs OPTION MAXCTRLS ("No memory allocated for GUI controls") and a
+# mouse (mouseon: "Mouse not enabled"); a number box and the other controls give a number, a text box, format box,
+# display box or caption a string ("Control #n does not exist" for an empty number).
+# CWD$: the CMM2 has no flash file system, and exFAT is not refused: fun_cwd (FileIO.c:1256) returns the drive and
+# directory (filepath, or f_getcwd's spelling, which this FatFs gives on exFAT too).  A: is the SD card (B: is read as
+# A:, PathDrive FileIO.c:1121), C: the USB drive.  MM.INFO(DIRECTORY) (MM_Misc.c:2986) adds the / (b14 said so).
+# ACTION REPLACE functions.txt 167 "=== CWD$"
+=== CTRLVAL( [#]ref )
+---
+Returns the value of the GUI control number ‘ref’: a number for most controls, and a string for a text box, a format box, a display box or a caption.
+The GUI controls need OPTION MAXCTRLS and OPTION MOUSE.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
+
+=== CWD$
+---
+Returns the current working directory, with its drive, as a string.  A: is the SD card and C: the USB flash drive.
+The format is:     `A:/dir1/dir2`.  See also MM.INFO(DIRECTORY), which always ends with a ‘/’.
+
+# DEVICE(GAMEPAD: USBGamepadDevice (USBGamepad.c:559) takes a channel 1 to HID_SLOTS (4); the gamepads are channels
+# 3 and 4 (chapter Keyboard, Mouse and Gamepad).  It also reads H (the d-pad, 0-7 clockwise from up, 255 centred:
+# USBGamepad.c:61, 329, 376, 520) and RAW (the last report as a string, :583), and the Xbox controllers
+# (USBXInput.c).  T is the type (USBGamepad.h:8-13; XInput reads as 131).  The sticks and the analog L and R are 0-255;
+# the gyro and accelerometer are the PS4's only (:336).  Unplugged, a pad reads 0 (:194).  "should" was a typo.
+# ACTION REPLACE functions.txt 191 "=== DEVICE(GAMEPAD channel, funct)"
+=== DEVICE(GAMEPAD channel, funct)
+---
+Returns data from a USB gamepad: a PS3 or PS4 controller, a Nintendo Switch Pro Controller, an Xbox 360, Xbox One or Xbox Series controller, or a generic gamepad that the firmware supports or GAMEPAD CONFIGURE describes (see USB Gamepads in the chapter Keyboard, Mouse and Gamepad).
+‘channel’ is 1 to 4: the first gamepad is normally channel 3 and the second channel 4.  The values are 0 when there is no gamepad on the channel.
+'funct' is a 1 to 3 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}LX 	the position of the analog left joystick x axis (0 to 255)
+{b=20 a=20 l=941 h=567}LY 	the position of the analog left joystick y axis (0 to 255)
+{b=20 a=20 l=941 h=567}RX 	the position of the analog right joystick x axis (0 to 255)
+{b=20 a=20 l=941 h=567}RY 	the position of the analog right joystick y axis (0 to 255)
+{b=20 a=20 l=941 h=567}GX 	the reading from the X axis gyro (a PS4 controller only)
+{b=20 a=20 l=941 h=567}GY 	the reading from the Y axis gyro (a PS4 controller only)
+{b=20 a=20 l=941 h=567}GZ 	the reading from the Z axis gyro (a PS4 controller only)
+{b=20 a=20 l=941 h=567}AX 	the reading from the X axis accelerometer (a PS4 controller only)
+{b=20 a=20 l=941 h=567}AY 	the reading from the Y axis accelerometer (a PS4 controller only)
+{b=20 a=20 l=941 h=567}AZ 	the reading from the Z axis accelerometer (a PS4 controller only)
+{b=20 a=20 l=941 h=567}L 	the position of the analog left button (0 to 255)
+{b=20 a=20 l=941 h=567}R 	the position of the analog right button (0 to 255)
+{b=20 a=20 l=941 h=567}B 	a bitmap of the state of all the buttons. A bit will be set to 1 if the button is pressed.
+{b=20 a=20 l=941 h=567}H 	the direction of the d-pad: 0 for up, then clockwise in steps of 45 degrees to 7 for up and left, or 255 when it is not pressed (where supported: other gamepads always give 255)
+{b=20 a=20 l=941 h=567}T 	the type of the controller: 128 for a PS4, 129 for a PS3, 130 for a generic gamepad, 131 for an Xbox controller and 133 for a Switch Pro Controller (0 if there is none)
+{b=20 a=20 l=941 h=567}RAW 	the last report that the gamepad sent, as a string of its bytes (for working out a GAMEPAD CONFIGURE with GAMEPAD MONITOR SILENT)
+The button bitmap is as follows:
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 0	 Button R/R1
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 1	 Button start/options
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 2	 Button home
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 3	 Button select/share
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 4	 Button L/L1
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 5	 Button down cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 6	 Button right cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 7	 Button up cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 8	 Button left cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 9	 Right shoulder button 2/R2
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 10	 Button x/triangle
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 11	 Button a/circle
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 12	 Button y/square
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 13	 Button b/cross
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 14	 Left shoulder button 2/L2
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 15	 Touchpad
+
+# DEVICE(MOUSE: fun_device_fn (USBMouse.c:340) takes a channel 1-4 but reads the mouse in use whatever it is
+# (MouseOpenChannel, USBMouse.c:38: a USB mouse, else a mouse opened with CONTROLLER MOUSE OPEN), and gives 0 when
+# there is none.  A PS2 mouse is channel 0 on the CMM2, not 2, and there is no MM.INFO(USB n).  W is the wheel's count
+# (m->az, never reset here: not a delta); B is the button bitmap of every mouse (PS2 mouse.c:347, Hobbytronic
+# MiscSTM32.c:411, USB the report's byte), and OPTION MOUSE SENSITIVITY changes only the speed (options.txt).  T is
+# classic[0]: the PS2 mouse's ID, 3 with a wheel (mouse.c:181); D is cleared when read.
+# ACTION REPLACE functions.txt 227 "=== DEVICE(MOUSE channel, funct)"
+=== DEVICE(MOUSE channel, funct)
+--- keep
+Returns data from the mouse in use: a USB mouse, or else a mouse opened with CONTROLLER MOUSE OPEN (a PS2 mouse or a Hobbytronic interface).  This is the PicoMite's function; the MOUSE() function reads the same mice.
+‘channel’ is 1 to 4 and is normally 2, the channel of a USB mouse, but the function reads the mouse in use whatever the channel.  It returns 0 if there is no mouse.
+'funct' is a 1 letter code indicating the information to return as follows:
+{l=374}X 	the X coordinate (0 to MM.HRES-1)
+{l=374}Y 	the Y coordinate (0 to MM.VRES-1)
+{l=374}L 	the state of the left mouse button
+{l=374}R 	the state of the right mouse button
+{l=374}M 	the state of the middle mouse button (wheel click)
+{l=374}D 	1 if there has been a double click of the left mouse button (cleared when it is read)
+{l=374}W 	the count of the scroll wheel (as MOUSE(S))
+{l=374}B 	the state of all buttons as a bitmap: bit 0 is the left button, bit 1 the right and bit 2 the middle; with a USB mouse the other bits are the mouse's further buttons in its own order
+{l=374}T 	3 if a PS2 mouse has a scroll wheel, otherwise 0
+{l=374}
+
+# DIR$: no flash file system; fun_dir (FileIO.c:819) searches the current drive, or the directory of a path given in
+# fspec (FileIO.c:845-857, fullpath), so "change to the directory first" is not needed.  The FatFs matcher
+# (ff.c:2851) needs the dot of *.*, so "\*" (b14's) is the pattern for all entries, in the text and the example.
+# ACTION REPLACE functions.txt 242 "=== DIR$( fspec, type )\nor\nDIR$( fspec )\nor\nDIR$(  )"
+=== DIR$( fspec, type )\nor\nDIR$( fspec )\nor\nDIR$(  )
+---
+Will search the current drive (the SD card or the USB flash drive) for files and return the names of entries found.
+'fspec' is a file specification using wildcards the same as used by the FILES command.  Eg, "\*" will return all entries, "\*.TXT" will return text files.  Note that the wildcard \*.\* does not find files or folders without an extension.  'fspec' can include a path (eg, "C:/data/\*.TXT") and then that directory is searched instead of the current one.
+'type' is the type of entry to return and can be one of:
+{t=l1396 l=432}ALL	Search for all files and directories\nDIR	Search for directories only\nFILE	Search for files only (the default if 'type' is not specified)
+The function will return the first entry found.  To retrieve subsequent entries use the function with no arguments.  i.e.  DIR$( ).  The return of an empty string indicates that there are no more entries to retrieve.
+{l=496 h=496}This example will print all the files in a directory:\n`f$ = DIR$("\*", FILE)\nDO WHILE f$ <> ""\n  PRINT f$\n  f$ = DIR$()\nLOOP`
+
+# DISTANCE: the Pico note.  The CMM2's 5V tolerant pins are marked in Hardware Features (05_hardware.md:116); b14 and
+# the chapter Special Device Support say the pins should be 5V capable.
+# ACTION REPLACE functions.txt 252 "=== DISTANCE( trigger, echo )"
+=== DISTANCE( trigger, echo )
+or
+DISTANCE( trig-echo )
+---
+Measure the distance to a target using the HC-SR04 ultrasonic distance sensor.
+Four pin sensors have separate trigger and echo connections.  'trigger' is the I/O pin connected to the "trig" input of the sensor and 'echo' is the pin connected to the "echo" output of the sensor. 
+Three pin sensors have a combined trigger and echo connection and in that case you only need to specify one I/O pin to interface to the sensor.
+Note that the HC-SR04 is a 5V device so the I/O pins used with it should be 5V tolerant (the pins marked 5V under I/O Pin Capabilities in the chapter Hardware Features).
+The I/O pins are automatically configured by this function and multiple sensors can be used on different I/O pins.
+The value returned is the distance in centimetres to the target or -1 if no target was detected or -2 if there was an error (i.e. sensor not connected).
+
+# EOF: no flash file system (A:/B: the SD card, C: the USB drive).  MMfeof (SerialFileIO.c:390) also answers for a
+# serial port (true when its receive buffer is empty) and #0 (the console), as b14 says.
+# ACTION REPLACE functions.txt 284 "=== EOF( [#]fnbr )"
+=== EOF( [#]fnbr )
+---
+Will return true if the file previously opened on the SD card or USB flash drive for INPUT with the file number ‘#fnbr’ is positioned at the end of the file.
+For a serial communications port opened as 'fnbr' this function will return true if there are no characters waiting in the receive buffer.  #0 can be used which refers to the console's input buffer.
+The # is optional.  Also see the OPEN, INPUT and LINE INPUT commands and the INPUT$ function.
+
+# FIELD$: fun_field (Functions.c:343) takes 3, 5 or 7 arguments: 'string2' may be left out and is then a comma.  The
+# field is copied with its quote characters (scan_for_delimiter skips the quoted text but the copy starts at the
+# opening quote: Functions.c:148, 360-363; the PicoMite's is the same), so the second example gives "'boo, zoo'".
+# ACTION REPLACE functions.txt 305 "=== FIELD$( string1, nbr, string2 [, string3] )"
+=== FIELD$( string1, nbr [, string2 [, string3]] )
+---
+Returns a particular field in a string with the fields separated by delimiters. Note that a space character cannot be used as a delimiter.
+'nbr' is the field to return (the first is nbr 1).  'string1' is the string to search and 'string2' is a string holding the delimiters (more than one can be used); if it is omitted the delimiter is a comma. The space character may not be used as a delimiter.
+'string3' is optional and if specified will include characters that are used to quote text in 'string1' (ie, quoted text will not be searched for a delimiter).  The quote characters are returned as part of the field.  Spaces at the start and end of the field are removed.
+For example:
+S$ = "foo, boo, zoo, doo"
+r$ = FIELD$(s$, 2, ",")
+will result in r$ = "boo".  While:
+s$ = "foo, 'boo, zoo', doo"
+r$ = FIELD$(s$, 2, ",", "'")
+will result in r$ = "'boo, zoo'".
+
+# FORMAT$: fun_format (MM_Misc.c:558) hands fmt$ to the C library's sprintf with the number as a double, so the
+# precision defaults to 6 (b14: format$(24.1,"%f") is 24.100000), not 4.  The type letters accepted are g, G, f, e, E
+# (and l): an F is "Illegal character in format specification", so the uppercase types are G and E.  Only one % is
+# allowed ("Only one format specifier (%) allowed").  The examples are b14's.
+# ACTION REPLACE functions.txt 330 "=== FORMAT$( nbr [, fmt$] )"
+=== FORMAT$( nbr [, fmt$] )
+---
+{kn=1}Will return a string representing ‘nbr’ formatted according to the specifications in the string ‘fmt$’.
+{kn=1}The format specification starts with a % character and ends with a letter.  Anything outside of this construct is copied to the output as is.
+{kn=1}The structure of a format specification is:\n                    % [flags] [width] [.precision] type
+{kn=1}Where ‘flags’ can be:
+{kn=1 t=l432,l1152 l=1152 h=1152}	-	Left justify the value within a given field width
+{kn=1 t=l432,l1152 l=1152 h=1152}	0	Use 0 for the pad character instead of space
+{kn=1 t=l432,l1152 l=1152 h=1152}	+	Forces the + sign to be shown for positive numbers
+{kn=1 t=l432,l1152 l=1152 h=1152}	space	Causes a positive value to display a space for the sign. Negative values still show the – sign
+‘width’ is the minimum number of characters to output, less than this the number will be padded, more than this the width will be expanded.
+‘precision’ specifies the number of fraction digits to generate with an e, or f type or the maximum number of significant digits to generate with a g type and defaults to 6.  If specified, the precision must be preceded by a dot (.).
+\n‘type’ can be one of:
+{t=l432,l1152 l=1152 h=1152}	g	Automatically format the number for the best presentation.
+{t=l432,l1152 l=1152 h=1152}	f	Format the number with the decimal point and following digits
+{t=l432,l1152 l=1152 h=1152}	e	Format the number in exponential format
+If uppercase G or E is used the exponential output will use an uppercase E.  If the format specification is not specified “%g” is assumed.  Only one format specification is allowed.
+Examples:	format$(45) will return 45\nformat$(45, “%g”) will return 45\nformat$(24.1, “%g”) will return 24.1\nformat$(24.1, “%f”) will return 24.100000\nformat$(24.1, “%e”) will return 2.410000e+01\nformat$(24.1, “%09.3f”) will return 00024.100\nformat$(24.1, “%+.3f”) will return +24.100
+
+# JSON$: the last example lacked its closing quote and bracket.
+# ACTION REPLACE functions.txt 435 "=== JSON$(array%(), string$)"
+=== JSON$(array%(), string$)
+---
+Returns a string representing a specific item out of the JSON input stored in the longstring array%().  Note that many JSON data sets are quite large and may be too big to parse with the memory available.
+{kn=1}Examples (taken from api.openweathermap.org):
+{l=720}JSON$(a%(), “name”)
+{l=720}JSON$(a%(), “coord.lat”)
+{l=720}JSON$(a%(), “weather[0].description”)
+{l=720}JSON$(a%(), “list[4].weather[0].description”)
+
+# KEYDOWN: the CMM2 has a USB keyboard only (no PS2 keyboard, no PicoCalc).  fun_keydown (MM_Misc.c:514) and
+# KeyboardMap.c:1216-1232: keys 1-6, 0 the count, 7 the modifiers, 8 the locks, as the rest of the entry says.
+# ACTION REPLACE functions.txt 444 "=== KEYDOWN(n)"
+=== KEYDOWN(n)
+---
+Return the decimal ASCII value of the USB keyboard key that is currently held down or zero if no key is down.
+The decimal values for the function and arrow keys are listed in Appendix I.
+This function will report multiple simultaneous key presses and the parameter 'n' is the number of the keypress to report.  KEYDOWN(0) will return the number of keys being pressed 
+For example, if "c", "g" and "p" are pressed simultaneously KEYDOWN(0) will return 3, KEYDOWN(1) will return 99, KEYDOWN(2) will return 103, etc.  The keys do not need to be pressed simultaneously and will report in the order pressed. Taking a finger off a key will promote the next key pressed to #1.
+The first key ('n' = 1) is entered in the keyboard buffer (accessible using INKEY$) while keys 2 to 6 can only be accessed via this function.  Using this function will clear the console input buffer.
+KEYDOWN(7) will give any modifier keys that are pressed. These keys do not add to the count in keydown(0)
+The return value is a bitmask as follows:
+lalt = 1, lctrl = 2, lgui = 4, lshift = 8, ralt = 16, rctrl = 32, rgui = 64, rshift = 128
+KEYDOWN(8) will give the current status of the lock keys. These keys do not add to the count in keydown(0)
+The return value is a bitmask as follows:
+caps_lock = 1, num_lock = 2, scroll_lock = 4
+Note that some keyboards will limit the number of active keys that they can report on.
+
+# LINPUT is moved before LINSTR (alphabetical), unchanged; LINSTR's syntax ended with "))".  fun_LInstr
+# (MM_Misc.c:1338): 3 to 7 arguments, 'start' may be empty, 'size' (a variable) makes it a regular expression.
+# ACTION REPLACE functions.txt 488 "=== LINSTR(array%(), search$ [,start] [,size]))"
+=== LINPUT(array%(),fnbr,nbr)
+---
+This reads ‘nbr’ bytes from a file open as ‘fnbr’ into the LONGSTRING ‘array%()’. \nThe function returns the number of bytes actually read so if you are near the \nend of the file the number may be less than the number requested. \nIt only works with file I/O and not serial or console I/O
+
+=== LINSTR(array%(), search$ [,start] [,size])
+---
+Returns the position of a search string in a long string. 
+The returned value is an integer and will be zero if the substring cannot be found.  ‘array%()’ is the string to be searched and must be a long string variable. ‘search$’ is the substring to look for and it must be a normal MMBasic string or expression (not a long string). The search is case sensitive.
+Normally the search will start at the first character in ' array%()' but the optional third parameter allows the start position of the search to be specified.
+If the optional parameter ‘size’ is specified the ‘search$’ is treated as a regular expression.   See *Appendix E* for the details.
+The position returned is always 1-based (the first character is position 1) and is not affected by OPTION BASE. It can be passed directly to LGETSTR$, but note that LGETBYTE indexes bytes according to OPTION BASE (see LGETBYTE).
+
+# ACTION REMOVE functions.txt 500 "=== LINPUT(array%(),fnbr,nbr)"
+
+# LOC and LOF: no flash file system (fun_loc, fun_lof, SerialFileIO.c:223, 247).
+# ACTION REPLACE functions.txt 504 "=== LOC( [#]fnbr )"
+=== LOC( [#]fnbr )
+---
+For a file on the SD card or USB flash drive opened as 'fnbr' this will return the current position of the read/write pointer in the file.  Note that the first byte in a file is numbered 1.
+For a serial communications port opened as 'fnbr' this function will return the number of bytes received and waiting in the receive buffer to be read.   #0 can be used which refers to the console's input buffer.
+The # is optional.
+
+# ACTION REPLACE functions.txt 510 "=== LOF( [#]fnbr )"
+=== LOF( [#]fnbr )
+---
+For a file on the SD card or USB flash drive opened as 'fnbr' this will return the current length of the file in bytes.
+For a serial communications port opened as 'fnbr' this function will return the space (in characters) remaining in the transmit buffer.  Note that when the buffer is full MMBasic will pause when adding a new character and wait for some space to become available so this function can be used to avoid this.
+The # is optional.
+
+# MSGBOX( is in the build (fun_msgbox, GUI.c:2219) but had no entry: added between MOUSE( and NUNCHUK(.  It takes
+# the message and one to four buttons (getargs 9), splits the message at ~, waits for a click on a button
+# (GetTouch) and returns its number, 1 to 4.  It needs OPTION MAXCTRLS and a mouse, as the controls do.
+# ACTION ADD functions.txt BEFORE 709 "=== NUNCHUK(funct [, channel])"
+=== MSGBOX( message$, button$ [, button$ [, button$ [, button$]]] )
+---
+Displays a message box in the centre of the screen with one to four buttons and waits for one of them to be clicked with the mouse.  It returns the number of the button that was clicked (1 for the first).  A ~ character in ‘message$’ starts a new line.
+The message box is one of the GUI controls, which need OPTION MAXCTRLS and OPTION MOUSE.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
+
+# PEEK: the first row's note was cut off and named the PicoMite's PEEK(SP, which this build does not have (no BP, SP or
+# WP: fun_peek, MM_Misc.c:3523).  SHORT, WORD, INTEGER and FLOAT round the address down (& ~1, ~3, ~7: :3571-3590), they
+# do not give an error; an address outside RAM, flash or the peripherals (PEEKRANGE, IOPorts.h:63-65) is "Address".
+# The rows after the first are unchanged (a REPLACE of the "=== {}" line replaces the group).
+# ACTION REPLACE functions.txt 740 "=== {}"
+=== {}
+--- tight
+{t=l2592}Will return a byte or a word within the processor’s virtual memory space.
+{t=l2592}NB: the address is rounded down to a multiple of the size of the data requested (2 for SHORT, 4 for WORD and 8 for INTEGER and FLOAT).  An address outside the processor's memory gives the error "Address".
+
+=+= {b=0 a=0}PEEK(BYTE addr%)
+{b=0 a=0}or 
+--- tight
+{t=l2592}BYTE will return the byte (8-bits) located at 'addr%'
+
+=+= {b=0 a=0}PEEK(SHORT addr%)
+{b=0 a=0}or
+--- tight
+{t=l2592}SHORT will return the short integer (16-bits) located at 'addr%' 
+{t=l2592}
+
+=+= {b=0 a=0}PEEK(WORD addr%)
+{b=0 a=0}or
+--- tight
+{t=l2592}WORD will return the word (32-bits) located at 'addr%'
+{t=l2592}
+
+=+= {b=0 a=0}PEEK(INTEGER addr%)
+{b=0 a=0}or
+--- tight
+{t=l2592}INTEGER will return the integer (64-bits) located at 'addr%'
+{t=l2592}
+
+=+= {b=0 a=0}PEEK(FLOAT addr%)
+{b=0 a=0}or
+--- tight
+{t=l2592}FLOAT will return the floating point number (64-bits) located at 'addr%'
+{t=l2592}
+
+=+= {b=0 a=0}PEEK(VARADDR var)
+{b=0 a=0}or
+--- tight
+{t=l2592}VARADDR will return the address (32-bits) of the variable 'var' in memory.  An array is specified as var().
+{t=l2592}
+
+=+= {b=0 a=0}PEEK(VARHEADER var)
+{b=0 a=0}or
+--- tight
+{t=l2592}VARHEADER will return the address (32-bits) of the variable 'var' header in memory.  An array is specified as var(). This will be the address of the first byte of the variable name.
+{t=l2592}
+
+=+= {b=0 a=0}PEEK(CFUNADDR cfun)
+{b=0 a=0}or
+--- tight
+{t=l2592}CFUNADDR will return the address (32-bits) of the CFunction 'cfun' in memory.  This address can be passed to another CFunction which can then call it to perform some common process.
+
+=+= {b=0 a=0}PEEK(VAR var, ±offset)
+{b=0 a=0}or
+--- tight
+{t=l2592}VAR, will return a byte in the memory allocated to 'var'.  An array is specified as var().
+
+=+= {b=0 a=0}PEEK( VARTBL, ±offset) 
+{b=0 a=0}or
+--- tight
+{t=l2592}VARTBL was removed in V7.00.00: the variables are no longer kept in one table.  Use PEEK(VARHEADER var) for the address of a variable's header and PEEK(VAR var, ±offset) to read its bytes.
+
+=+= {b=0 a=0}PEEK( PROGMEM, ±offset) 
+--- tight
+{t=l2592}PROGMEM, will return a byte in the memory allocated to the program.    Note that there is a comma after the keyword PROGMEM.
+{t=l2592}Note that 'addr%' should be an integer.
+{t=l2592}
+
+# PORT: fun_port (External.c:979) reads only pins set as DIN, INTH, INTL or INTB; any other ("output" too) is the
+# error "Invalid input pin" (:993), so the output-state sentence is wrong (b14 had it too; see the report).  No GPn
+# names on the CMM2.  The pairs are read last first, so the first pair gives the lowest bits; the "up to 25" is the
+# PicoMite's (getargs NBRPINS*4 here).
+# ACTION REPLACE functions.txt 832 "=== PORT(start, nbr [,start, nbr]…)"
+=== PORT(start, nbr [,start, nbr]…)
+---
+Returns the value of a number of I/O pins in one operation.
+{kl=1}'start' is an I/O pin number and its value will be returned as bit 0.  'start'+1 will be returned as bit 1, 'start'+2 will be returned as bit 2, and so on for 'nbr' number of bits. I/O pins used must be numbered consecutively and any I/O pin that is invalid or not configured as a digital input (DIN, INTH, INTL or INTB) will cause the error "Invalid input pin".  The start/nbr pair can be repeated if additional groups of input pins need to be added: the first pair gives the lowest bits.
+{t=l2592}This can be used to conveniently communicate with parallel devices like memory chips.
+{kl=1}See the PORT command to simultaneously output to a number of pins.
+
+# PULSIN: fun_pulsin (External.c:1158) counts whole microseconds (readusclock divides the timer by
+# ticks_per_microsecond, :440), takes timeouts of 5 to 10000000 us (10 s), and b14 gives the accuracy as +-1us.
+# ACTION REPLACE functions.txt 841 "=== PULSIN( pin, polarity )"
+=== PULSIN( pin, polarity )
+or
+PULSIN( pin, polarity, t1 )
+or
+PULSIN( pin, polarity, t1, t2 )
+---
+Measures the width of an input pulse from 1µs to 10 seconds with 1µs resolution.
+'pin' is the I/O pin to use for the measurement, it must be previously configured as a digital input.  'polarity' is the type of pulse to measure, if zero the function will return the width of the next negative pulse, if non zero it will measure the next positive pulse.
+'t1' is the timeout applied while waiting for the pulse to arrive, 't2' is the timeout used while measuring the pulse.  Both are in microseconds (µs), 5 to 10000000 (10 seconds), and are optional.  If 't2' is omitted the value of 't1' will be used for both timeouts.  If both 't1' and 't2' are omitted then the timeouts will be set at 100000 (i.e. 100ms).
+This function returns the width of the pulse in microseconds (µs) or -1 if a timeout has occurred.  The measurement is accurate to ±1µs.
+Note that this function will cause the running program to pause while the measurement is made and interrupts will be ignored during this period.
+
+# RGB: fun_rgb (Draw.c:4935) takes 'trans' in both forms (3 or 7 arguments), 0-15 in the 12-bit depth and 0-255 in
+# the 32-bit, and "Transparency not valid for this mode" in the others; the default is 15.  The names are those of
+# the code (white was listed twice; lilac to myrtle are the PicoMite's, chapter Graphics) and NOTBLACK (b14).
+# ACTION REPLACE functions.txt 857 "=== RGB(red, green, blue)"
+=== RGB(red, green, blue [, trans])
+or
+RGB(shortcut [, trans])
+---
+Generates an RGB true colour value.
+'red', 'blue' and 'green' represent the intensity of each colour.  A value of zero represents black and 255 represents full intensity.
+'shortcut' allows common colours to be specified by naming them.  The colours that can be named are white, black, blue, green, cyan, red, magenta, yellow, brown, grey (or gray), lightgrey (or lightgray), orange, pink, gold, salmon, beige, lilac, fuchsia, rust, cerulean, midgreen, cobalt and myrtle.  For example, RGB(red) or RGB(cyan).
+There is also one special colour, notblack: in any colour depth this is the darkest colour that is not treated as black (transparent) by the graphics commands that support transparency.
+'trans' is the level of transparency: 0 (transparent) to 15 (opaque, the default) in the 12-bit colour depth, and 0 to 255 in the 32-bit colour depth.  In the other colour depths it gives the error "Transparency not valid for this mode".
+
+# RND: no RP2040 or RP2350.  RndVal (Functions.c:1035) reads the STM32H743's hardware RNG; RANDOMIZE (Commands.c:4234)
+# only seeds the C library's srand, which RND does not use (b14: "RANDOMIZE ... not needed").  MATH(RAND) is the
+# Mersenne Twister that MATH RANDOMIZE seeds (MATHS.c:2695, 3854).
+# ACTION REPLACE functions.txt 869 "=== RND( number )"
+=== RND( number )
+or
+RND
+---
+Returns a random number in the range of 0 to 0.999999.  The 'number' value is ignored if supplied.
+The Colour Maximite 2 uses the hardware random number generator in its STM32H743 processor to deliver true random numbers, so they need no seeding and the RANDOMIZE command does not affect them.  For a sequence that can be repeated use MATH(RAND) with MATH RANDOMIZE.
+
+# ACTION REPLACE functions.txt 880 "=== SIN( number )"
+=== SIN( number )
+---
+Returns the sine of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
+
+# STR2BIN: DOUBLE is a double precision float (fun_str2bin, Functions.c:400: map.d); the error is "String length".
+# The sentences broken into paragraphs are joined and the types laid out as BIN2STR$'s are.
+# ACTION REPLACE functions.txt 997 "=== STR2BIN(type, string$ [,BIG])"
+=== STR2BIN(type, string$ [,BIG])
+---
+Returns a number equal to the binary representation in ‘string$’.
+‘type’ can be:
+{l=1404 h=1275}  INT64	converts an 8 byte string representing a signed 64-bit integer to an integer
+{l=1404 h=1275}  UINT64	converts an 8 byte string representing an unsigned 64-bit integer to an integer
+{l=1404 h=1275}  INT32	converts a 4 byte string representing a signed 32-bit integer to an integer
+{l=1404 h=1275}  UINT32	converts a 4 byte string representing an unsigned 32-bit integer to an integer
+{l=1404 h=1275}  INT16	converts a 2 byte string representing a signed 16-bit integer to an integer
+{l=1404 h=1275}  UINT16	converts a 2 byte string representing an unsigned 16-bit integer to an integer
+{l=1404 h=1275}  INT8	converts a 1 byte string representing a signed 8-bit integer to an integer
+{l=1404 h=1275}  UINT8	converts a 1 byte string representing an unsigned 8-bit integer to an integer
+{l=1404 h=1275}  SINGLE	converts a 4 byte string representing a single precision float to a float
+{l=1404 h=1275}  DOUBLE	converts an 8 byte string representing a double precision float to a float
+By default the string must contain the number in little-endian format (i.e. the least significant byte is the first one in the string).  Setting the third parameter to ‘BIG’ will interpret the string in big-endian format (i.e. the most significant byte is the first one in the string).
+This function makes it easy to read data from binary data files, interpret numbers from sensors or efficiently read binary data from flash memory chips.
+An error ("String length") will be generated if the string is the incorrect length for the conversion requested.
+See also the function BIN2STR$
+
+# ACTION REPLACE functions.txt 1036 "=== TAN( number )"
+=== TAN( number )
+---
+Returns the tangent of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
+
+# TEMPR: no Raspberry Pi Pico; the CMM2's chapter is Special Device Support (17_special_devices.md).  fun_ds18b20
+# (Onewire.c:184): timeout 100 to 2000 ms; the strong pull-up after the conversion starts (Init_ds18b20) allows
+# parasitic power, as b14 says.
+# ACTION REPLACE functions.txt 1040 "=== TEMPR( pin [,timeout])"
+=== TEMPR( pin [,timeout])
+---
+Return the temperature measured by a DS18B20 temperature sensor connected to 'pin' (which does not have to be configured). 
+The returned value is degrees C with a default resolution of 0.25ºC.  If there is an error during the measurement the returned value will be 1000.
+The time required for the overall measurement is 200ms and interrupts will be ignored during this period.  
+The optional parameter timeout (100 to 2000 milliseconds) can be used to override the default (200mSec) to allow for slow devices.
+Alternatively the TEMPR START command can be used to start the measurement and your program can do other things while the conversion is progressing.  When this function is called the value will then be returned instantly assuming the conversion period has expired.  If it has not, this function will wait out the remainder of the conversion time before returning the value.
+The DS18B20 can be powered separately by a 3V to 5V supply or it can operate on parasitic power from the I/O pin.
+See the chapter *Special Device Support* for more details.
+
+# TILEMAP( is in the build (fun_tilemap, TileMap.c:758: TILE, COLLISION, ATTR, VIEWX, VIEWY, COLS, ROWS and SPRITE X,
+# Y, TILE, HIT, W, H) but had no entry: added before TIME$, pointing to TILEMAP_User_Manual.pdf as the TILEMAP
+# command's entry does (Appendix O lists it for "the TILEMAP command and function").
+# TIME$: OPTION MILLISECONDS (options.txt) adds the milliseconds (fun_time, MM_Misc.c:2336, Option.fulltime), as b14
+# says; the PicoMite entry left it out.
+# ACTION REPLACE functions.txt 1050 "=== TIME$"
+=== TILEMAP( arg, … )
+--- keep
+Returns information about a tile map created with the TILEMAP command, or about its sprites: TILEMAP(TILE id, x, y) returns the tile at a position, TILEMAP(COLLISION id, x, y, w, h [, mask]) the first tile in an area, TILEMAP(ATTR id, tile) a tile's attributes, TILEMAP(VIEWX id) and TILEMAP(VIEWY id) the position of the view, TILEMAP(COLS id) and TILEMAP(ROWS id) the size of the map, and TILEMAP(SPRITE X id), SPRITE Y, SPRITE TILE, SPRITE W, SPRITE H and TILEMAP(SPRITE HIT id1, id2) its sprites.
+This is described in full in the file *TILEMAP_User_Manual.pdf* (see Appendix O).
+
+=== TIME$
+---
+Returns the current time based on MMBasic's internal clock as a string in the form "HH:MM:SS" in 24 hour notation.   For example, "14:30:00".
+If OPTION MILLISECONDS ON has been used this function will return the time including milliseconds as a decimal fraction of the seconds.  For example: "14:35:06.239".
+To set the current time use the command TIME$ = .
+
+# TIMER: TimerVal (MM_Misc.c:660) is GetuSec()/1000, a float with microsecond resolution (b14), from a 64-bit count
+# of microseconds: 2^64 us is about 585,000 years, not 200 million.  TIMER = n sets any value (TimerSet).
+# ACTION REPLACE functions.txt 1055 "=== TIMER"
+=== TIMER
+---
+Returns the elapsed time in milliseconds (eg, 1/1000 of a second) since reset.  This is a fractional floating point number with a resolution of 1µs.
+The timer is reset to zero on power up or a CPU restart and you can also reset it (or set it to any value) by using TIMER as a command.  If not specifically reset it will continue to count up forever (it counts microseconds in a 64-bit number and therefore will only roll over after more than 500,000 years).
+
+# obsolete.txt.  POS: fun_pos (Functions.c:1358) returns MMCharPos, 1 for the first column (main.c:3602); the entry
+# named nothing to use instead.  RETURN: likewise (GOSUB's entry names SUB...END SUB).  The other entries are right
+# and each says what replaces it.
+# ACTION REPLACE obsolete.txt 35 "=== POS"
+=== POS
+---
+For the console, returns the current cursor position in the line in characters (1 for the first column).
+New programs can use MM.HPOS, the horizontal position of the cursor on the screen in pixels.
+
+# ACTION REPLACE obsolete.txt 39 "=== RETURN"
+=== RETURN
+---
+RETURN concludes a subroutine called by GOSUB and returns to the statement after the GOSUB.
+New programs should use defined subroutines (i.e. SUB…END SUB), which return with END SUB or EXIT SUB.

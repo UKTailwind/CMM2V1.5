@@ -6,7 +6,7 @@ Returns the absolute value of the argument 'number' (i.e. any negative sign is r
 
 === ACOS( number )
 ---
-Returns the inverse cosine of the argument 'number' in radians.
+Returns the inverse cosine of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).  'number' must be -1 to 1.
 
 === ASC( string$ )
 ---
@@ -14,24 +14,28 @@ Returns the ASCII code (i.e. byte value) for the first letter in ‘string$’.
 
 === ASIN( number )
 ---
-Returns the inverse sine value of the argument 'number' in radians.
+Returns the inverse sine value of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).  'number' must be -1 to 1.
 
 === ATN( number )
 ---
-Returns the arctangent of the argument 'number' in radians.
+Returns the arctangent of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
 
 === ATAN2( y, x )
 ---
-Returns the arc tangent of the two numbers x and y as an angle expressed in 
-radians.  
-It is similar to calculating the arc tangent of y / x, except that the signs of 
-both arguments are used to determine the quadrant of the result.
+Returns the arc tangent of the two numbers x and y as an angle expressed in radians (or in degrees after OPTION ANGLE DEGREES).
+It is similar to calculating the arc tangent of y / x, except that the signs of both arguments are used to determine the quadrant of the result.
 
 === BASE$( base, number [, chars])
 ---
 Returns a string giving the value of 'number' in the number base 'base'.  'base' can be from 2 to 36 with the digits above nine represented by the letters A to Z.
 'chars' is optional and specifies the number of characters in the string with zero as the leading padding character(s).
 BIN$(), OCT$() and HEX$() are shortcuts for BASE$() with a base of 2, 8 and 16 respectively.  Use BASE$() for any other base, for example BASE$(12, 100) will return 84.
+
+=== BAUDRATE( comm [, timeout] )
+--- keep
+Returns the baud rate of any data received on the serial communications port ‘comm’, which is 1 for COM1: or 2 for COM2: (the ports on the rear I/O connector).  The port must not be open.
+This will sample the port over the period of ‘timeout’ seconds (1 to 10).  ‘timeout’ will default to one second if not specified.  The result is the nearest standard baud rate, from 110 to 460800.
+Returns zero if no activity on the port within the timeout period.
 
 === BIN$( number [, chars])
 ---
@@ -58,10 +62,10 @@ See also the function STR2BIN
 
 === BIT(var%, bitno)
 ---
-'returns the value of a specific bit (0-63) in an integer variable (0 or 1).
+Returns the value of a specific bit (0-63) in an integer variable (0 or 1).
 See also the BIT command
 
-=== BOUND(array() [,dimension]
+=== BOUND(array() [,dimension])
 ---
 This returns the upper limit of the array for the dimension requested. 
 The dimension defaults to one if not specified. Specifying a dimension value of 0 will return the current value of OPTION BASE. 
@@ -75,8 +79,7 @@ BOUND(myarray(),2) will return 45
 Returns the integer value of a specific byte in a string (0-255). This is the equivalent of ASC(MID$(var$,byteno,1)) but operates much faster.
 See also the BYTE command
 
-=== CALL(userfunname$, 
-[,userfunparameters,..])
+=== CALL(userfunname$ [,userfunparameters,..])
 ---
 This is an efficient way of programmatically calling user defined functions. (See also the CALL command).  In many cases it can be used to eliminate complex SELECT and IF THEN ELSEIF ENDIF clauses and is processed in a much more efficient manner.  
 ‘userfunname$’ can be any string or variable or function that resolves to the name of a normal user function (not an in-built command).  ‘userfunparameters’ are the same parameters that would be used to call the function directly.  
@@ -87,11 +90,49 @@ A typical use for this command could be writing any sort of emulator where one o
 This function allows you to do simple either/or selections more efficiently and faster than using IF THEN ELSE ENDIF clauses.
 The condition is anything that will resolve to nonzero (true) or zero (false).
 The expressions are anything that you could normally assign to a variable or use in a command and can be integers, floats or strings.
-Examples: \n	PRINT CHOICE(1, "hello","bye") will print "Hello"\n	PRINT CHOICE (0, "hello","bye") will print "Bye"\n	a=1 : b=1 : PRINT CHOICE (a=b, 4, 5) will print 4
+Examples: \n	PRINT CHOICE(1, "hello","bye") will print "hello"\n	PRINT CHOICE (0, "hello","bye") will print "bye"\n	a=1 : b=1 : PRINT CHOICE (a=b, 4, 5) will print 4
 
 === CHR$( number )
 ---
 Returns a one-character string consisting of the character corresponding to the ASCII code (i.e. byte value) indicated by argument 'number'.
+
+=== CINT( number )
+---
+Round numbers with fractional portions up or down to the next whole number or integer.
+For example, 	45.47 will round to 45\n		45.57 will round to 46\n		-34.45 will round to -34\n		-34.55 will round to -35
+See also INT() and FIX().
+
+=== CLASSIC(funct [, channel])
+---
+Returns data from a Wii Classic controller opened with CONTROLLER CLASSIC OPEN.
+‘channel’ is optional and is the I^^2^^C channel for the controller (1 to 3, defaults to 3, the front panel Wii connector).
+‘funct’ is a 1 or 2 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}LX	the position of the analog left joystick x axis
+{b=20 a=20 l=941 h=567}LY	the position of the analog left joystick y axis
+{b=20 a=20 l=941 h=567}RX	the position of the analog right joystick x axis
+{b=20 a=20 l=941 h=567}RY	the position of the analog right joystick y axis
+{b=20 a=20 l=941 h=567}L	the position of the analog left button
+{b=20 a=20 l=941 h=567}R	the position of the analog right button
+{b=20 a=20 l=941 h=567}B	a bitmap of the state of all the buttons.  A bit will be set to 1 if the button is pressed.
+{b=20 a=20 l=941 h=567}T	the ID code of the controller, &HA4200101
+The positions are from 0 to 255: the left joystick has 64 steps and the right joystick and the L and R buttons 32.
+The button bitmap is as follows:
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 0	Button R
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 1	Button start
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 2	Button home
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 3	Button select
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 4	Button L
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 5	Button down cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 6	Button right cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 7	Button up cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 8	Button left cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 9	Button ZR
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 10	Button x
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 11	Button a
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 12	Button y
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 13	Button b
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 14	Button ZL
+These bit positions are also used in the interrupt bitmask specified in the CONTROLLER CLASSIC OPEN command.
 
 === CLICK(DOWN)
 or
@@ -109,28 +150,26 @@ CLICK(LASTX)
 or
 CLICK(LASTY)
 ---
-__NOT RP2040 VGA, RP2040 WEBMITE OR PICOMITEMIN__
-Reports mouse click activity in the same way as the TOUCH() function reports touch (this function is compatible with the Colour Maximite 2).  A click of the left mouse button and a touch on a touch sensitive LCD panel are treated identically, so CLICK() effectively substitutes for the TOUCH() function and the same program can be driven by either a mouse or a touch screen.
-CLICK(DOWN) returns 1 (true) if the screen is currently being clicked on (the left mouse button is down) or touched.  CLICK(UP) returns 1 (true) if it is not.
-CLICK(X) and CLICK(Y) return the coordinates of the current click or -1 if the screen is not being clicked on.
+Reports the clicks of the left mouse button, for the GUI controls (see the chapter GUI Controls).  The mouse must be set with OPTION MOUSE (a USB mouse is channel 2).
+CLICK(DOWN) returns 1 (true) if the left mouse button is currently down.  CLICK(UP) returns 1 (true) if it is not.
+CLICK(X) and CLICK(Y) return the coordinates of the mouse while the button is down, or -1 if it is not.
 CLICK(LASTX) and CLICK(LASTY) return the coordinates of the last location that was clicked on.
-CLICK(REF) returns the reference number of the graphic control that is currently being clicked on, or zero if none.  CLICK(LASTREF) returns the reference number of the last control that was clicked on.  The graphic controls are described in Advanced Graphics Functions.pdf.
-On the RP2040 VGA version CLICK is only available when USB is supported and is limited to CLICK(DOWN), CLICK(UP), CLICK(X) and CLICK(Y).
-
-=== CINT( number )
----
-Round numbers with fractional portions up or down to the next whole number or integer.
-For example, 	45.47 will round to 45\n		45.57 will round to 46\n		-34.45 will round to -34\n		-34.55 will round to -35
-See also INT() and FIX().
+CLICK(REF) returns the reference number of the GUI control that is currently being clicked on, or zero if none.  CLICK(LASTREF) returns the reference number of the last control that was clicked on.
+LASTX, LASTY, REF and LASTREF are kept by the GUI controls: they change only when OPTION MAXCTRLS is set and the program has used the GUI commands (for example, created a control or set GUI INTERRUPT).  The controls are described in the document GUI Controls and Programming.pdf (see Appendix O).
 
 === COS( number )
 ---
-Returns the cosine of the argument 'number' in radians.
+Returns the cosine of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
+
+=== CTRLVAL( [#]ref )
+---
+Returns the value of the GUI control number ‘ref’: a number for most controls, and a string for a text box, a format box, a display box or a caption.
+The GUI controls need OPTION MAXCTRLS and OPTION MOUSE.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
 
 === CWD$
 ---
-Returns the current working directory on the Flash Filesystem or SD Card.  Invalid for exFAT format.
-The format is:     `A:/dir1/dir2`.
+Returns the current working directory, with its drive, as a string.  A: is the SD card and C: the USB flash drive.
+The format is:     `A:/dir1/dir2`.  See also MM.INFO(DIRECTORY), which always ends with a ‘/’.
 
 === DATE$
 --- keep
@@ -153,22 +192,25 @@ Converts 'radians' to degrees.
 
 === DEVICE(GAMEPAD channel, funct)
 ---
-Returns data from a USB gamepad: a PS3 or PS4 controller, a Nintendo Switch Pro Controller, or a gamepad that the firmware supports or GAMEPAD CONFIGURE describes.
-'funct' is a 1 or 2 letter code indicating the information to return as follows:
-{b=20 a=20 l=941 h=567}LX 	the position of the analog left joystick x axis
-{b=20 a=20 l=941 h=567}LY 	the position of the analog left joystick y axis
-{b=20 a=20 l=941 h=567}RX 	the position of the analog right joystick x axis
-{b=20 a=20 l=941 h=567}RY 	the position of the analog right joystick y axis
-{b=20 a=20 l=941 h=567}GX 	the reading from the X axis gyro (where supported)
-{b=20 a=20 l=941 h=567}GY 	the reading from the Y axis gyro (where supported)
-{b=20 a=20 l=941 h=567}GZ 	the reading from the Z axis gyro (where supported)
-{b=20 a=20 l=941 h=567}AX 	the reading from the X axis accelerometer (where supported)
-{b=20 a=20 l=941 h=567}AY 	the reading from the Y axis accelerometer (where supported)
-{b=20 a=20 l=941 h=567}AZ 	the reading from the Z axis accelerometer (where supported)
-{b=20 a=20 l=941 h=567}L 	the position of the analog left button
-{b=20 a=20 l=941 h=567}R 	the position of the analog right button
+Returns data from a USB gamepad: a PS3 or PS4 controller, a Nintendo Switch Pro Controller, an Xbox 360, Xbox One or Xbox Series controller, or a generic gamepad that the firmware supports or GAMEPAD CONFIGURE describes (see USB Gamepads in the chapter Keyboard, Mouse and Gamepad).
+‘channel’ is 1 to 4: the first gamepad is normally channel 3 and the second channel 4.  The values are 0 when there is no gamepad on the channel.
+'funct' is a 1 to 3 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}LX 	the position of the analog left joystick x axis (0 to 255)
+{b=20 a=20 l=941 h=567}LY 	the position of the analog left joystick y axis (0 to 255)
+{b=20 a=20 l=941 h=567}RX 	the position of the analog right joystick x axis (0 to 255)
+{b=20 a=20 l=941 h=567}RY 	the position of the analog right joystick y axis (0 to 255)
+{b=20 a=20 l=941 h=567}GX 	the reading from the X axis gyro (a PS4 controller only)
+{b=20 a=20 l=941 h=567}GY 	the reading from the Y axis gyro (a PS4 controller only)
+{b=20 a=20 l=941 h=567}GZ 	the reading from the Z axis gyro (a PS4 controller only)
+{b=20 a=20 l=941 h=567}AX 	the reading from the X axis accelerometer (a PS4 controller only)
+{b=20 a=20 l=941 h=567}AY 	the reading from the Y axis accelerometer (a PS4 controller only)
+{b=20 a=20 l=941 h=567}AZ 	the reading from the Z axis accelerometer (a PS4 controller only)
+{b=20 a=20 l=941 h=567}L 	the position of the analog left button (0 to 255)
+{b=20 a=20 l=941 h=567}R 	the position of the analog right button (0 to 255)
 {b=20 a=20 l=941 h=567}B 	a bitmap of the state of all the buttons. A bit will be set to 1 if the button is pressed.
-{b=20 a=20 l=941 h=567}T 	the ID code of the controller
+{b=20 a=20 l=941 h=567}H 	the direction of the d-pad: 0 for up, then clockwise in steps of 45 degrees to 7 for up and left, or 255 when it is not pressed (where supported: other gamepads always give 255)
+{b=20 a=20 l=941 h=567}T 	the type of the controller: 128 for a PS4, 129 for a PS3, 130 for a generic gamepad, 131 for an Xbox controller and 133 for a Switch Pro Controller (0 if there is none)
+{b=20 a=20 l=941 h=567}RAW 	the last report that the gamepad sent, as a string of its bytes (for working out a GAMEPAD CONFIGURE with GAMEPAD MONITOR SILENT)
 The button bitmap is as follows:
 {t=l1083 b=20 a=20 l=1225 h=851}BIT 0	 Button R/R1
 {t=l1083 b=20 a=20 l=1225 h=851}BIT 1	 Button start/options
@@ -184,75 +226,33 @@ The button bitmap is as follows:
 {t=l1083 b=20 a=20 l=1225 h=851}BIT 11	 Button a/circle
 {t=l1083 b=20 a=20 l=1225 h=851}BIT 12	 Button y/square
 {t=l1083 b=20 a=20 l=1225 h=851}BIT 13	 Button b/cross
-{t=l1083 b=20 a=20 l=1225 h=851}BIT 14	 Left should button 2/L2
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 14	 Left shoulder button 2/L2
 {t=l1083 b=20 a=20 l=1225 h=851}BIT 15	 Touchpad
 
 === DEVICE(MOUSE channel, funct)
 --- keep
-Returns data from a mouse connected via ‘channel’.
-A PS2 mouse is always allocated channel 2.  Normally a USB mouse is also allocated to channel 2 but this can vary.  See MM.INFO(USB n) for more information.
+Returns data from the mouse in use: a USB mouse, or else a mouse opened with CONTROLLER MOUSE OPEN (a PS2 mouse or a Hobbytronic interface).  This is the PicoMite's function; the MOUSE() function reads the same mice.
+‘channel’ is 1 to 4 and is normally 2, the channel of a USB mouse, but the function reads the mouse in use whatever the channel.  It returns 0 if there is no mouse.
 'funct' is a 1 letter code indicating the information to return as follows:
 {l=374}X 	the X coordinate (0 to MM.HRES-1)
 {l=374}Y 	the Y coordinate (0 to MM.VRES-1)
 {l=374}L 	the state of the left mouse button
 {l=374}R 	the state of the right mouse button
 {l=374}M 	the state of the middle mouse button (wheel click)
-{l=374}D 	1 if there has been a double click of the left mouse button 
-{l=374}W gives the delta of the wheel position since the last call (PS2 mouse or USB mouse with OPTION MOUSE SENSITIVITY set)
-{l=374}B   the state of all buttons as a bitmap (USB mouse only) Bit 0 is the left button, bit 1 the right and bit 2 the middle; the other bits are the mouse's further buttons in its own order, which need OPTION MOUSE SENSITIVITY to be set
+{l=374}D 	1 if there has been a double click of the left mouse button (cleared when it is read)
+{l=374}W 	the count of the scroll wheel (as MOUSE(S))
+{l=374}B 	the state of all buttons as a bitmap: bit 0 is the left button, bit 1 the right and bit 2 the middle; with a USB mouse the other bits are the mouse's further buttons in its own order
+{l=374}T 	3 if a PS2 mouse has a scroll wheel, otherwise 0
 {l=374}
-
-=== DEVICE(WII [CLASSIC] funct)
----
-Returns data from a Wii Classic controller.
-'funct' is a 1 or 2 letter code indicating the information to return as follows:
-{l=941 h=567}LX 	the position of the analog left joystick x axis
-{l=941 h=567}LY 	the position of the analog left joystick y axis
-{l=941 h=567}RX 	the position of the analog right joystick x axis
-{l=941 h=567}RY 	the position of the analog right joystick y axis
-{l=941 h=567}L 	the position of the analog left button
-{l=941 h=567}R 	the position of the analog right button
-{l=941 h=567}B 	a bitmap of the state of all the buttons. A bit will be set to 1 if the button is pressed.
-{l=941 h=567}T 	the ID code of the controller - should be hex &HA4200101
-The button bitmap is as follows:
-{t=l1225 l=374}BIT 0	 Button R
-{t=l1225 l=374}BIT 1	 Button start
-{t=l1225 l=374}BIT 2	 Button home
-{t=l1225 l=374}BIT 3	 Button select
-{t=l1225 l=374}BIT 4	 Button L
-{t=l1225 l=374}BIT 5	 Button down cursor
-{t=l1225 l=374}BIT 6	 Button right cursor
-{t=l1225 l=374}BIT 7	 Button up cursor
-{t=l1225 l=374}BIT 8	 Button left cursor
-{t=l1225 l=374}BIT 9	 Button ZR
-{t=l1225 l=374}BIT 10	 Button x
-{t=l1225 l=374}BIT 11	 Button a
-{t=l1225 l=374}BIT 12	 Button y
-{t=l1225 l=374}BIT 13	 Button b
-{t=l1225 l=374}BIT 14	 Button ZL
-
-=== DEVICE(NUNCHUCK funct)
----
-Returns data from a  Nunchuck controller.
-'funct' is a 1 or 2 letter code indicating the information to return as follows:
-{t=l912 l=378}AX 	the x axis acceleration
-{t=l912 l=378}AY 	the y axis acceleration
-{t=l912 l=378}AZ 	the z axis acceleration
-{t=l912 l=378}JX 	the position of the joystick x axis
-{t=l912 l=378}JY 	the position of joystick y axis
-{t=l912 l=378}C 	the state of the C button
-{t=l912 l=378}Z 	the state of the Z button
-{t=l912 l=378}T 	the ID code of the controller - should be hex &HA4200000
 
 === DIR$( fspec, type )\nor\nDIR$( fspec )\nor\nDIR$(  )
 ---
-Will search the default Flash Filesystem or SD Card for files and return the names of entries found.
-'fspec' is a file specification using wildcards the same as used by the FILES command.  Eg, "\*.\*" will return all entries, "\*.TXT" will return text files.  Note that the wildcard \*.\* does not find files or folders without an extension.
+Will search the current drive (the SD card or the USB flash drive) for files and return the names of entries found.
+'fspec' is a file specification using wildcards the same as used by the FILES command.  Eg, "\*" will return all entries, "\*.TXT" will return text files.  Note that the wildcard \*.\* does not find files or folders without an extension.  'fspec' can include a path (eg, "C:/data/\*.TXT") and then that directory is searched instead of the current one.
 'type' is the type of entry to return and can be one of:
 {t=l1396 l=432}ALL	Search for all files and directories\nDIR	Search for directories only\nFILE	Search for files only (the default if 'type' is not specified)
 The function will return the first entry found.  To retrieve subsequent entries use the function with no arguments.  i.e.  DIR$( ).  The return of an empty string indicates that there are no more entries to retrieve.
-{l=496 h=496}This example will print all the files in a directory:\n`f$ = DIR$("\*.\*", FILE)\nDO WHILE f$ <> ""\n  PRINT f$\n  f$ = DIR$()\nLOOP`
-You must change to the required directory before invoking this command.
+{l=496 h=496}This example will print all the files in a directory:\n`f$ = DIR$("\*", FILE)\nDO WHILE f$ <> ""\n  PRINT f$\n  f$ = DIR$()\nLOOP`
 
 === DISTANCE( trigger, echo )
 or
@@ -261,20 +261,35 @@ DISTANCE( trig-echo )
 Measure the distance to a target using the HC-SR04 ultrasonic distance sensor.
 Four pin sensors have separate trigger and echo connections.  'trigger' is the I/O pin connected to the "trig" input of the sensor and 'echo' is the pin connected to the "echo" output of the sensor. 
 Three pin sensors have a combined trigger and echo connection and in that case you only need to specify one I/O pin to interface to the sensor.
-Note that the HC-SR04 is a 5V device so level shifting will be required on Pico (RP2040) processors but not on Pico 2 (RP2350) processors.  
+Note that the HC-SR04 is a 5V device so the I/O pins used with it should be 5V tolerant (the pins marked 5V under I/O Pin Capabilities in the chapter Hardware Features).
 The I/O pins are automatically configured by this function and multiple sensors can be used on different I/O pins.
 The value returned is the distance in centimetres to the target or -1 if no target was detected or -2 if there was an error (i.e. sensor not connected).
 
-=== {}
-Draw3D(arg)
----
-__NOT PICOMITEMIN OR WEBMITE__
-The DRAW3D function can be used to determine the boundaries of a 3D object and could be used to define an area to be erased before re-drawing.
-See the document “*3D_Graphics_User_Manual.pdf*” in the PicoMite firmware download for a full description.
+=== DRAW3D(XMIN n)
+or
+DRAW3D(XMAX n)
+or
+DRAW3D(YMIN n)
+or
+DRAW3D(YMAX n)
+or
+DRAW3D(X n)
+or
+DRAW3D(Y n)
+or
+DRAW3D(Z n)
+or
+DRAW3D(DISTANCE n)
+--- keep
+Returns information about the 3D object ‘n’ (see the DRAW3D command).  There is no comma between the word and the object's number.
+XMIN, XMAX, YMIN and YMAX return the boundaries on the screen of the object as it was last drawn.  These can be used to define an area to be erased before re-drawing it.
+X, Y and Z return the position at which the object was last drawn, and DISTANCE the average distance of its faces from the camera.
+The document *The 3D engine.pdf* in the Colour Maximite 2 firmware download has the details (see Appendix O).
 
 === EOF( [#]fnbr )
 ---
-Will return true if the file previously opened on the Flash Filesystem or SD Card for INPUT with the file number ‘#fnbr’ is positioned at the end of the file.  
+Will return true if the file previously opened on the SD card or USB flash drive for INPUT with the file number ‘#fnbr’ is positioned at the end of the file.
+For a serial communications port opened as 'fnbr' this function will return true if there are no characters waiting in the receive buffer.  #0 can be used which refers to the console's input buffer.
 The # is optional.  Also see the OPEN, INPUT and LINE INPUT commands and the INPUT$ function.
 
 === EPOCH(DATETIME$)
@@ -293,18 +308,18 @@ Will display:  86.6025
 ---
 Returns the exponential value of 'number', i.e. e^x where x is 'number'.
 
-=== FIELD$( string1, nbr, string2 [, string3] )
+=== FIELD$( string1, nbr [, string2 [, string3]] )
 ---
 Returns a particular field in a string with the fields separated by delimiters. Note that a space character cannot be used as a delimiter.
-'nbr' is the field to return (the first is nbr 1).  'string1' is the string to search and 'string2' is a string holding the delimiters (more than one can be used). The space character may not be used as a delimiter.
-'string3' is optional and if specified will include characters that are used to quote text in 'string1' (ie, quoted text will not be searched for a delimiter).
+'nbr' is the field to return (the first is nbr 1).  'string1' is the string to search and 'string2' is a string holding the delimiters (more than one can be used); if it is omitted the delimiter is a comma. The space character may not be used as a delimiter.
+'string3' is optional and if specified will include characters that are used to quote text in 'string1' (ie, quoted text will not be searched for a delimiter).  The quote characters are returned as part of the field.  Spaces at the start and end of the field are removed.
 For example:
 S$ = "foo, boo, zoo, doo"
 r$ = FIELD$(s$, 2, ",")
 will result in r$ = "boo".  While:
 s$ = "foo, 'boo, zoo', doo"
 r$ = FIELD$(s$, 2, ",", "'")
-will result in r$ = "boo, zoo".
+will result in r$ = "'boo, zoo'".
 
 === FIX( number )
 ---
@@ -329,27 +344,71 @@ See also CINT() .
 {kn=1 t=l432,l1152 l=1152 h=1152}	+	Forces the + sign to be shown for positive numbers
 {kn=1 t=l432,l1152 l=1152 h=1152}	space	Causes a positive value to display a space for the sign. Negative values still show the – sign
 ‘width’ is the minimum number of characters to output, less than this the number will be padded, more than this the width will be expanded.
-‘precision’ specifies the number of fraction digits to generate with an e, or f type or the maximum number of significant digits to generate with a g type and defaults to 4 digits.  If specified, the precision must be preceded by a dot (.).
+‘precision’ specifies the number of fraction digits to generate with an e, or f type or the maximum number of significant digits to generate with a g type and defaults to 6.  If specified, the precision must be preceded by a dot (.).
 \n‘type’ can be one of:
 {t=l432,l1152 l=1152 h=1152}	g	Automatically format the number for the best presentation.
 {t=l432,l1152 l=1152 h=1152}	f	Format the number with the decimal point and following digits
 {t=l432,l1152 l=1152 h=1152}	e	Format the number in exponential format
-If uppercase G or F is used the exponential output will use an uppercase E.  If the format specification is not specified “%g” is assumed.
-Examples:	format$(45) will return 45\nformat$(45, “%g”) will return 45
+If uppercase G or E is used the exponential output will use an uppercase E.  If the format specification is not specified “%g” is assumed.  Only one format specification is allowed.
+Examples:	format$(45) will return 45\nformat$(45, “%g”) will return 45\nformat$(24.1, “%g”) will return 24.1\nformat$(24.1, “%f”) will return 24.100000\nformat$(24.1, “%e”) will return 2.410000e+01\nformat$(24.1, “%09.3f”) will return 00024.100\nformat$(24.1, “%+.3f”) will return +24.100
 
-=== {}
-GETSCANLINE
+=== GETSCANLINE
 ---
-{kn=1}__VGA AND HDMI VERSIONS ONLY__
-{kn=1}This will report on the line that is currently being drawn on the VGA/HDMI monitor in the range of 0 to 525.  This is irrespective of the current MODE.
-{kn=1}Using this to time updates to the screen can avoid timing effects caused by updates while the screen is being updated. 
-{kn=1}The first visible line will return a value of 0. Any line number above 479 is in the frame blanking period.
+Reports the line that is currently being drawn on the VGA monitor.  Using this to time updates to the screen can avoid timing effects caused by updates while the screen is being updated.
+The first visible line returns 0 and the last MM.VRES - 1; a larger value is in the frame blanking period.  In the modes whose lines are drawn twice (3, 5, 6, 7, 12, 13 and 17) the count is in the mode's own lines.
 
 === GPS()
----
-The GPS function will return data from a serial communications channel opened as GPS using OPEN GPS or the OPTION GPS commands.
-This function is described in detail in the file *Option_GPS_User_Manual.pdf* included in the firmware download zip file.
-The function GPS(VALID) should be checked before the data is accessed to ensure that the returned value is valid.
+--- keep
+The GPS functions return data from a GPS receiver on a serial port opened with OPEN comspec$ AS GPS (an error is given if there is none).  The values are updated in the background as the receiver sends them.
+The function GPS(VALID) should be checked before any of these functions are used to ensure that the returned value is valid.
+
+=+= GPS(ALTITUDE)
+--- keep
+Returns the current altitude in metres (if the receiver sends the GGA sentence).
+
+=+= GPS(DATE)
+--- keep
+Returns the normal date string corrected for local time, e.g. "12-01-2020".
+
+=+= GPS(DOP)
+--- keep
+Returns the DOP (horizontal dilution of precision) value (if the receiver sends the GGA sentence).
+
+=+= GPS(FIX)
+--- keep
+Returns the quality of the fix (if the receiver sends the GGA sentence): 0 for no fix, 1 for a GPS fix, 2 for a differential GPS fix, or another value as the receiver gives it.
+
+=+= GPS(GEOID)
+--- keep
+Returns the geoid-ellipsoid separation in metres (if the receiver sends the GGA sentence).
+
+=+= GPS(LATITUDE)
+--- keep
+Returns the latitude in degrees as a floating point number, values are negative for South of the equator.
+
+=+= GPS(LONGITUDE)
+--- keep
+Returns the longitude in degrees as a floating point number, values are negative for West of the meridian.
+
+=+= GPS(SATELLITES)
+--- keep
+Returns the number of satellites in use (if the receiver sends the GGA sentence).
+
+=+= GPS(SPEED)
+--- keep
+Returns the ground speed in knots as a floating point number.
+
+=+= GPS(TIME)
+--- keep
+Returns the normal time string corrected for local time, e.g. "12:09:33".
+
+=+= GPS(TRACK)
+--- keep
+Returns the track over the ground (degrees true) as a floating point number.
+
+=+= GPS(VALID)
+--- keep
+Returns 0 for invalid data and 1 for valid data.  It returns 0 when nothing has been received from the receiver for two seconds.
 
 === HEX$( number [, chars])
 ---
@@ -381,18 +440,16 @@ This behaviour is for Microsoft compatibility, the FIX() function provides a tru
 
 === JSON$(array%(), string$)
 ---
-__WIFI VERSIONS ONLY __Returns a string representing a specific item out of the JSON input stored in the longstring array%().  Note that many JSON data sets are quite large and may be too big to parse with the memory available.
+Returns a string representing a specific item out of the JSON input stored in the longstring array%().  Note that many JSON data sets are quite large and may be too big to parse with the memory available.
 {kn=1}Examples (taken from api.openweathermap.org):
 {l=720}JSON$(a%(), “name”)
 {l=720}JSON$(a%(), “coord.lat”)
 {l=720}JSON$(a%(), “weather[0].description”)
-{l=720}JSON$(a%(),”list[4].weather[0].description
+{l=720}JSON$(a%(), “list[4].weather[0].description”)
 
 === KEYDOWN(n)
 ---
-Return the decimal ASCII value of the keyboard key that is currently held down or zero if no key is down.  This function applies to USB keyboards, PS2 keyboards (in MMBasic 6.02.01 or later) and the PicoCalc’s built-in keyboard (in MMBasic 6.03.02 or later).  
-Note that PS2 keyboards do not support the modifier keys in the same way as USB keyboards.  PS2 keyboards do not distinguish between left and right ALT or CTRL keys and MMBasic cannot process the Windows and/or function select keys (if they exist).
-On the PicoCalc the built-in keyboard reports multiple simultaneous key presses in the same way.  The keyboard applies shift and caps lock itself, so KEYDOWN() returns the shifted character (65 rather than 97 for the ‘a’ key with shift held).  KEYDOWN(7) reports left shift, right shift, CTRL and ALT only as the PicoCalc has no GUI or right ALT keys, and note that SHIFT-ENTER also reports as ALT.  KEYDOWN(8) reports caps lock only as there is no NUM LOCK or SCROLL LOCK key.
+Return the decimal ASCII value of the USB keyboard key that is currently held down or zero if no key is down.
 The decimal values for the function and arrow keys are listed in Appendix I.
 This function will report multiple simultaneous key presses and the parameter 'n' is the number of the keypress to report.  KEYDOWN(0) will return the number of keys being pressed 
 For example, if "c", "g" and "p" are pressed simultaneously KEYDOWN(0) will return 3, KEYDOWN(1) will return 99, KEYDOWN(2) will return 103, etc.  The keys do not need to be pressed simultaneously and will report in the order pressed. Taking a finger off a key will promote the next key pressed to #1.
@@ -432,7 +489,11 @@ Note that LINSTR and LGETSTR$ always work with 1-based positions (the first char
 Returns part of a long string stored in ‘array%()’ as a normal MMBasic string. The parameters start and length define the part of the string to be returned.
 The 'start' position is always measured from 1 (the first character is position 1) regardless of the OPTION BASE setting, and so matches the position returned by LINSTR. Unlike LGETBYTE, LGETSTR$ does not honour OPTION BASE.
 
-=== LINSTR(array%(), search$ [,start] [,size]))
+=== LINPUT(array%(),fnbr,nbr)
+---
+This reads ‘nbr’ bytes from a file open as ‘fnbr’ into the LONGSTRING ‘array%()’. \nThe function returns the number of bytes actually read so if you are near the \nend of the file the number may be less than the number requested. \nIt only works with file I/O and not serial or console I/O
+
+=== LINSTR(array%(), search$ [,start] [,size])
 ---
 Returns the position of a search string in a long string. 
 The returned value is an integer and will be zero if the substring cannot be found.  ‘array%()’ is the string to be searched and must be a long string variable. ‘search$’ is the substring to look for and it must be a normal MMBasic string or expression (not a long string). The search is case sensitive.
@@ -444,19 +505,15 @@ The position returned is always 1-based (the first character is position 1) and 
 ---
 Returns the length of a long string stored in ‘array%()’.
 
-=== LINPUT(array%(),fnbr,nbr)
----
-This reads ‘nbr’ bytes from a file open as ‘fnbr’ into the LONGSTRING ‘array%()’. \nThe function returns the number of bytes actually read so if you are near the \nend of the file the number may be less than the number requested. \nIt only works with file I/O and not serial or console I/O
-
 === LOC( [#]fnbr )
 ---
-For a file on the Flash Filesystem or SD Card opened as 'fnbr' this will return the current position of the read/write pointer in the file.  Note that the first byte in a file is numbered 1.
+For a file on the SD card or USB flash drive opened as 'fnbr' this will return the current position of the read/write pointer in the file.  Note that the first byte in a file is numbered 1.
 For a serial communications port opened as 'fnbr' this function will return the number of bytes received and waiting in the receive buffer to be read.   #0 can be used which refers to the console's input buffer.
 The # is optional.
 
 === LOF( [#]fnbr )
 ---
-For a file on the Flash Filesystem or SD Card opened as 'fnbr' this will return the current length of the file in bytes.
+For a file on the SD card or USB flash drive opened as 'fnbr' this will return the current length of the file in bytes.
 For a serial communications port opened as 'fnbr' this function will return the space (in characters) remaining in the transmit buffer.  Note that when the buffer is full MMBasic will pause when adding a new character and wait for some space to become available so this function can be used to avoid this.
 The # is optional.
 
@@ -464,18 +521,10 @@ The # is optional.
 ---
 Returns the natural logarithm of the argument 'number'.
 
-=== {}
-MAP( n )
----
-__VGA, HDMI AND RP2350 PICOMITE VERSIONS ONLY__
-Returns the 24-bit RGB value for the index ‘n’ in the colour map table.
-See the MAP command. This allows the Basic programmer to use a colour specified by the MAP command
-e.g
-MAP(8) = RGB(100,100,100)
-MAP SET
-Pixel x,y,map(8)
-{}
-NB: for VGA all colours set by the map command will be converted to the nearest RGB121 colour as determined by the VGA resistor network. For HDMI displays colours will be converted to the nearest RGB555 colour (640x480 resolution) or RGB332 colour (1024x768 or 1280x720 resolution). For PIcoMite RP2350 buffered drivers displays colours will be converted to the nearest RGB332 colour.
+=== MAP( n )
+--- keep
+Returns the colour that is drawn with the palette value ‘n’ in the 8-bit or 4-bit colour depth: ‘n’ is 0 to 255 (RGB332) in the 8-bit depth and 0 to 15 (RGB121) in the 4-bit depth.  For example, in the 8-bit depth MAP(255) always returns &HE0E0C0, which the firmware will then convert to 255.
+This is a way of selecting the colour that will use the place in the colour map that you want.  It is not a window into the map: MAP( n ) = rgb% changes the colour shown, not the value returned.  See the MAP command.
 
 === MATH
 --- tight
@@ -487,9 +536,9 @@ The math function performs many simple mathematical calculations that can be pro
 --- tight
 {}
 
-=+= MATH(ATAN3 x,y)
+=+= MATH(ATAN3 y, x)
 --- tight
-Returns ATAN3 of x and y
+Returns the arc tangent of y / x, using the signs of both to find the quadrant as ATAN2(y, x) does, but as an angle from 0 to 2\*PI radians (0 to 360 degrees under OPTION ANGLE DEGREES) instead of -PI to PI.
 {}
 
 =+= MATH(COSH a)
@@ -515,15 +564,15 @@ Returns the hyperbolic tan of a
 =+= MATH(CRCn data [,length]
 [,polynome] [,startmask]
 [,endmask] [,reverseIn]
-[,reverseOut]
+[,reverseOut])
 --- tight
-Calculates the CRC to n bits (8, 12, 16, 32) of “data”. “data” can be an integer or floating point array or a string variable. “Length” is optional and if not specified the size of the array or string length is used. The defaults for startmask, endmask reverseIn, and reversOut are all zero. reverseIn, and reversOut are both Booleans and take the value 1 or 0. The defaults for polynomes are CRC8=&H07, CRC12=&H80D, CRC16=&H1021, crc32=&H04C11DB7
+Calculates the CRC to n bits (8, 12, 16, 32) of “data”. “data” can be an integer or floating point array or a string variable. “Length” is optional and if not specified the size of the array or string length is used. The defaults for startmask, endmask reverseIn, and reversOut are all zero. reverseIn, and reversOut are both Booleans and take the value 1 or 0. The defaults for polynomes are CRC8=&H07, CRC12=&H80D, CRC16=&H1021, crc32=&H04C11DB7.  polynome, startmask and endmask must fit in n bits.  An array must be one-dimensional and each element must be a byte value (0 to 255).  “Length” is 1 to 65535 and must not be more than the number of elements or characters in “data”.
 eg, for crc16_CCITT use  MATH(CRC16 array(), n,, &HFFFF)
 {}
 
 =+= MATH(RAND)
 --- tight
-{b=0 a=0}Returns a random number 0.0 <= n < 1.0 using the "Mersenne Twister algorithm. If not seeded with MATH RANDOMIZE the first usage seeds with the time in microseconds since boot. NB: the RP2350 includes a H/W random number generator.
+{b=0 a=0}Returns a random number 0.0 <= n < 1.0 using the Mersenne Twister algorithm. If not seeded with MATH RANDOMIZE the first use in a program seeds it from the hardware random number generator.
 {b=0 a=0 z=32}
 {z=40}
 
@@ -533,12 +582,12 @@ eg, for crc16_CCITT use  MATH(CRC16 array(), n,, &HFFFF)
 
 =+= MATH(CHI a())
 --- tight
-Returns the Pearson's chi-squared value of the two dimensional array a())
+Returns the Pearson's chi-squared value of the two dimensional array a().  The array must have at least 2 rows and 2 columns, and no more than 50 degrees of freedom ((rows - 1) \* (columns - 1)).
 {}
 
 =+= MATH(CHI_p a())
 --- tight
-Returns the associated probability in % of the Pearson's chi-squared value of the two dimensional array a())
+Returns the associated probability in % of the Pearson's chi-squared value of the two dimensional array a().  The array is as for MATH(CHI).
 {}
 
 =+= {b=0 a=0}MATH(CROSSING array() [,level] [,direction] [,confirm])
@@ -546,9 +595,9 @@ Returns the associated probability in % of the Pearson's chi-squared value of th
 {b=0 a=0}This returns the array index of the first sample at which the values in the array cross the "level" in the direction specified, where the crossing is sustained for "confirm" consecutive samples. level defaults to 0. direction defaults to 1 (valid values are -1 or 1). confirm defaults to 1; values greater than 1 reject brief noise spikes by requiring that many consecutive samples to remain past the level. Returns -1 if no qualifying crossing is found; a crossing within the final (confirm-1) samples cannot be confirmed and is not reported.
 {}
 
-=+= MATH(CORREL  a(), a())
+=+= MATH(CORREL a(), b())
 --- tight
-Returns the Pearson’s correlation coefficient between arrays a() and b()
+Returns the Pearson’s correlation coefficient between arrays a() and b(), which must have the same number of elements
 {}
 
 =+= {b=0 a=0}MATH(MAX a() [,index%])
@@ -564,7 +613,7 @@ Returns the Pearson’s correlation coefficient between arrays a() and b()
 --- tight
 {b=120}Returns the median of all values in the a() array, a() can have any number of dimensions
 
-=+= {b=0 a=0}MATH(MIN a(), [index%])
+=+= {b=0 a=0}MATH(MIN a() [,index%])
 --- tight
 {b=0}Returns the minimum of all values in the a() array, a() can have any number of dimensions. If the integer variable is specified then it will be updated with the index of the minimum value in the array. This is only available on one-dimensional arrays.
 {b=0 z=20}
@@ -611,16 +660,17 @@ Returns the determinant of the array. The array must be square.
 complex% = MATH(C_CPLX r!, i!)
 complex% = MATH(C_POLAR radius!, angle!)
 **Floating returns**
-real! = MATH(C_REAL complex%)\nimag! = MATH(C_IMAG complex%)\narg! = MATH(C_ARG complex%)
+real! = MATH(C_REAL complex%)\nimag! = MATH(C_IMAG complex%)\narg! = MATH(C_CARG complex%)
 mod! = MATH(C_MOD complex%)\nphase! = MATH(C_PHASE complex%)
 **Unary functions**
-complex1% = MATH(C_CONJ complex2%)\ncomplex1% = MATH(C_SIN complex2%)\ncomplex1% = MATH(C_COS complex2%)\ncomplex1% = MATH(C_TAN complex2%)\ncomplex1% = MATH(C_ASIN complex2%)\ncomplex1% = MATH(C_ACOS complex2%)\ncomplex1% = MATH(C_ATAN complex2%)\ncomplex1% = MATH(C_SINH complex2%)\ncomplex1% = MATH(C_COSH complex2%)\ncomplex1% = MATH(C_TANH complex2%)\ncomplex1% = MATH(C_ASINH complex2%)\ncomplex1% = MATH(C_ACOSH complex2%)\ncomplex1% = MATH(C_ATANH complex2%)\ncomplex1% = MATH(C_PROJ complex2%)
+complex1% = MATH(C_CONJ complex2%)\ncomplex1% = MATH(C_SIN complex2%)\ncomplex1% = MATH(C_COS complex2%)\ncomplex1% = MATH(C_TAN complex2%)\ncomplex1% = MATH(C_ASIN complex2%)\ncomplex1% = MATH(C_ACOS complex2%)\ncomplex1% = MATH(C_ATAN complex2%)\ncomplex1% = MATH(C_SINH complex2%)\ncomplex1% = MATH(C_COSH complex2%)\ncomplex1% = MATH(C_TANH complex2%)\ncomplex1% = MATH(C_ASINH complex2%)\ncomplex1% = MATH(C_ACOSH complex2%)\ncomplex1% = MATH(C_ATANH complex2%)\ncomplex1% = MATH(C_PROJ complex2%)\ncomplex1% = MATH(C_EXP complex2%)\ncomplex1% = MATH(C_LOG complex2%)\ncomplex1% = MATH(C_SQRT complex2%)\ncomplex1% = MATH(C_ABS complex2%)
 **Basic Arithmetic**
-complex1% = MATH(C_ADD complex2%,complex3%)\ncomplex1% = MATH(C_SUB complex2%,complex3%)\ncomplex1% = MATH(C_MUL complex2%,complex3%)\ncomplex1% = MATH(C_DIV complex2%,complex3%)\ncomplex1% = MATH(C_POW complex2%,complex3%)\ncomplex1% = MATH(C_AND complex2%,complex3%)\ncomplex1% = MATH(C_OR complex2%,complex3%)\ncomplex1% = MATH(C_XOR complex2%,complex3%)
+complex1% = MATH(C_ADD complex2%,complex3%)\ncomplex1% = MATH(C_SUB complex2%,complex3%)\ncomplex1% = MATH(C_MUL complex2%,complex3%)\ncomplex1% = MATH(C_DIV complex2%,complex3%)\ncomplex1% = MATH(C_POW complex2%,complex3%)
 --- wide
 MMBasic supports a full range of functions to allow the manipulation of complex numbers. In this implementation complex numbers have a 32-bit real and 32-bit imaginary part and to make this work in MMBasic, it uses integers (64-bit) to hold these.
+The angle given to C_POLAR and the phase returned by C_PHASE respect OPTION ANGLE; C_CARG returns the same angle in radians.  C_ABS returns the modulus as a complex number (with an imaginary part of zero), and C_MOD as a floating point number.
 
-=== MATH(PID channel, setpoint!, measurement))
+=== MATH(PID channel, setpoint!, measurement!)
 --- keep
 This function must be called in the PID callback subroutine for the ‘channel’ specified and returns the output of the controller function.
 The ‘setpoint’ value is the desired state that the controller is trying to achieve. The ‘measurement’ is the current value of the real world.  
@@ -629,7 +679,7 @@ For an example of setting up and running a PID controller
 
 === MATH(BASE64 ENCODE/DECODE in$/in(), out$/out())
 ---
-Returns the length of out$/out(). This base64 encodes or decodes the data in 'in' and puts the result in 'out'. Where arrays are used as the output they must be big enough relative to the input and the direction. Encryption increases length by 4/3 and decryption decreases it by 3/4.
+Returns the length of out$/out(). This base64 encodes or decodes the data in 'in' and puts the result in 'out'. Where arrays are used as the output they must be big enough relative to the input and the direction. Encoding increases the length by 4/3 and decoding decreases it by 3/4.  A string output is limited to 255 characters.
 
 === MAX( arg1 [, arg2 [, …]] )
 or
@@ -645,6 +695,53 @@ MID$( string$, start, nbr )
 Returns a substring of ‘string$’ beginning at ‘start’ and continuing for ‘nbr’ characters.  The first character in the string is number 1.
 If ‘nbr’ is omitted the returned string will extend to the end of ‘string$’
 
+=== MOUSE(funct [, channel])
+---
+Returns data from a mouse opened with CONTROLLER MOUSE OPEN, or from a USB mouse.
+‘channel’ is optional: 0 for a PS2 mouse, or 1 to 3 for a mouse on the Hobbytronic interface on that I^^2^^C channel.  It defaults to 2, which is also the channel of a USB mouse.  An error is given if no mouse is open on the channel.
+‘funct’ is a 1 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}X	the X coordinate (0 to MM.HRES-1)
+{b=20 a=20 l=941 h=567}Y	the Y coordinate (0 to MM.VRES-1)
+{b=20 a=20 l=941 h=567}L	the state of the left mouse button (1 if pressed)
+{b=20 a=20 l=941 h=567}R	the state of the right mouse button (1 if pressed)
+{b=20 a=20 l=941 h=567}W	the state of the scroll wheel mouse button (1 if pressed)
+{b=20 a=20 l=941 h=567}D	1 if there has been a double click of the left mouse button.  The two clicks must occur between 100 and 500 milliseconds apart (within 500 milliseconds with a USB mouse).  The report is then valid for 500mSec before it times out or until it is read.
+{b=20 a=20 l=941 h=567}S	the current count of the scroll wheel
+{b=20 a=20 l=941 h=567}Z	the count of the scroll wheel, which is then reset to 0
+{b=20 a=20 l=941 h=567}T	3 if a PS2 mouse has a scroll wheel, otherwise 0
+A USB mouse can also be read with the PicoMite's DEVICE(MOUSE 2, funct) function.
+
+=== MSGBOX( message$, button$ [, button$ [, button$ [, button$]]] )
+---
+Displays a message box in the centre of the screen with one to four buttons and waits for one of them to be clicked with the mouse.  It returns the number of the button that was clicked (1 for the first).  A ~ character in ‘message$’ starts a new line.
+The message box is one of the GUI controls, which need OPTION MAXCTRLS and OPTION MOUSE.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
+
+=== NUNCHUK(funct [, channel])
+---
+Returns data from a Wii Nunchuk opened with CONTROLLER NUNCHUK OPEN.
+‘channel’ is optional and is the I^^2^^C channel for the controller (1 to 3, defaults to 3, the front panel Wii connector).
+‘funct’ is a 1, 2 or 3 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}JX	the value of the joystick X-axis (0 to 255)
+{b=20 a=20 l=941 h=567}JY	the value of the joystick Y-axis (0 to 255)
+{b=20 a=20 l=941 h=567}AX	the value of the x acceleration (0 to 1023)
+{b=20 a=20 l=941 h=567}AY	the value of the y acceleration (0 to 1023)
+{b=20 a=20 l=941 h=567}AZ	the value of the z acceleration (0 to 1023)
+{b=20 a=20 l=941 h=567}Z	the state of the Z button (1 if pressed)
+{b=20 a=20 l=941 h=567}C	the state of the C button (1 if pressed)
+{b=20 a=20 l=941 h=567}T	the ID code of the Wii device: &HA4200000 for the original Nunchuk, &HA4200101 for a Classic and &HA4200402 for a Balance Board
+{b=20 a=20 l=941 h=567}JXL	the calibrated X value of the joystick in the far left position
+{b=20 a=20 l=941 h=567}JXC	the calibrated X value of the joystick in the centre position
+{b=20 a=20 l=941 h=567}JXR	the calibrated X value of the joystick in the far right position
+{b=20 a=20 l=941 h=567}JYT	the calibrated Y value of the joystick in the top position
+{b=20 a=20 l=941 h=567}JYC	the calibrated Y value of the joystick in the centre position
+{b=20 a=20 l=941 h=567}JYB	the calibrated Y value of the joystick in the bottom position
+{b=20 a=20 l=941 h=567}AX0	the calibrated zero gravity value of the x-axis accelerometer
+{b=20 a=20 l=941 h=567}AX1	the calibrated one gravity value of the x-axis accelerometer
+{b=20 a=20 l=941 h=567}AY0	the calibrated zero gravity value of the y-axis accelerometer
+{b=20 a=20 l=941 h=567}AY1	the calibrated one gravity value of the y-axis accelerometer
+{b=20 a=20 l=941 h=567}AZ0	the calibrated zero gravity value of the z-axis accelerometer
+{b=20 a=20 l=941 h=567}AZ1	the calibrated one gravity value of the z-axis accelerometer
+
 === OCT$( number [, chars])
 ---
 Returns a string giving the octal (base 8) representation of 'number'.
@@ -652,8 +749,8 @@ Returns a string giving the octal (base 8) representation of 'number'.
 
 === {}
 --- tight
-{t=l2592}NB: addresses are rounded down to match the datatype requested (e.g. PEEK(SHORT or give a error if not aligned e.g PEEK(SP
 {t=l2592}Will return a byte or a word within the processor’s virtual memory space.
+{t=l2592}NB: the address is rounded down to a multiple of the size of the data requested (2 for SHORT, 4 for WORD and 8 for INTEGER and FLOAT).  An address outside the processor's memory gives the error "Address".
 
 =+= {b=0 a=0}PEEK(BYTE addr%)
 {b=0 a=0}or 
@@ -717,18 +814,6 @@ Returns a string giving the octal (base 8) representation of 'number'.
 {t=l2592}Note that 'addr%' should be an integer.
 {t=l2592}
 
-=+= {b=0 a=0}PEEK(BP n%)
---- tight
-{t=l2592}PEEK(bp n%) ' returns the byte at address n% and increments n% to point to the next byte.
-
-=+= {b=0 a=0}PEEK(SP n%)
---- tight
-{t=l2592}PEEK(sp n%) ' returns the short at address n% and increments n% to point to the next short.
-
-=+= {b=0 a=0}PEEK(WP n%) 
---- tight
-{t=l2592}PEEK(wp n%) ' returns the word at address n% and increments n% to point to the next word.
-
 === PI
 ---
 Returns the value of pi.
@@ -739,84 +824,26 @@ Returns the value on the external I/O ‘pin’.  Zero means digital low, 1 mean
 {t=l2592}Frequency inputs will return the frequency in Hz.  A period input will return the period in milliseconds while a count input will return the count since reset (counting is done on the positive rising edge).  The count input can be reset to zero by resetting the pin to counting input (even if it is already so configured).
 {t=l2592}When a pin is configured as an output this function will return the value of the output setting (ie, high or low).  Also see the SETPIN and PIN() = commands.  Refer to the chapter *Using the I/O pins* for a general description of the PicoMite's input/output capabilities.
 
-=== PIN( BOOTSEL )
----
-Returns the state of the boot select switch allowing it to be used as a user input in a program.
-
-=== PIN( TEMP )
----
-Returns the temperature of the RP2040/RP2350 chip (see the data sheet for the details).
-
-=== PIO(DMA RX POINTER)
-PIO(DMA TX POINTER)
-{}
-PIO (SHIFTCTRL push_threshold [,pull_threshold] [,autopush] [,autopull] [,in_shiftdir] [,out_shiftdir] [,fjoin_tx] [,fjoin_rx])
----
-Returns the current data item being written or read by the PIO.
-{}
-{}
-helper function to calculate the value of shiftctrl for the INIT MACHINE command .
-
-=+= PIO (PINCTRL no_side_set_pins [,no_set_pins] [,no_out_pins] [,IN base]
- [,side_set_base] [,set_base][, out_base]) 
----
-helper function to calculate the value of pinctrl for the INIT MACHINE command.  Note: The pin parameters must be formatted as GPn.
-
-=+= PIO (EXECCTRL jmp_pin ,wrap_target, wrap [,side_pindir] [,side_en])
----
-helper function to calculate the value of execctrl for the INIT MACHINE command
-
-=+= PIO(READFIFO a, b, c)
-{}
----
-Read from a PIO FIFO
-‘a’ is the pio (0 or 1), ‘b’ id the state machine (0...3), ‘c’ is the FIFO register \*0…3)
-
-=+= PIO (FDEBUG pio)
----
-returns the value of the FSDEBUG register for the pio specified
-
-=+= PIO (FSTAT pio)
----
-returns the value of the FSTAT register for the pio specified
-
-=+= PIO (FLEVEL pio)
-{}
-{}
-PIO(FLEVEL pio ,sm, DIR)
-{}
-PIO(.WRAP)
-PIO(.WRAP TARGET)
-{}
-{}
-{}
-{}
-PIO(NEXT LINE)
----
-returns the value of the FLEVEL register for the pio specified
-PIO(FLEVEL pio)
-{}
-dir can be RX or TX. Returns the level of the specific fifo
-{}
-returns the location of the .wrap directive in PIO ASSEMBLE
-returns the location of the .wrap target directive in PIO ASSEMBLE.
-These can be used in the PIO(EXECCTRL function as follows:
-PIO (EXECCTRL jmp_pin PIO(.WRAP TARGET), PIO(.WRAP) [,side_pindir] [,side_en])
-{}
-Returns the next unused PIO instruction slot after a  block of PIO instructions terminated by END PROGRAM 
-
-=== PIXEL( x, y)
+=== PIN( function$ )
 --- keep
-Returns the colour of a pixel on the video output or LCD display.  'x' is the horizontal coordinate and 'y' is the vertical coordinate of the pixel.  
-If an LCD display is used it must use one of the SSD1963, ILI9341, ILI9488, or ST7789_320 controllers.
+Returns the value of a special function.  ‘function$’ is a string (a string variable or constant), for example PRINT PIN("BAT").  It can be one of:
+{l=720}"BAT": the voltage of the backup battery.
+{l=720}"TEMP": the temperature of the ARM Cortex-M7 processor's core, in °C.
+{l=720}"DAC1" and "DAC2": the output voltage of DAC1 or DAC2 (on the audio output).
+{l=720}"SREF": the stored calibrated value of the internal reference voltage, measured with a supply of exactly 3.3V.  This is programmed into the chip during production.
+{l=720}"IREF": the measured value of the internal reference voltage.  The actual value of VREF+ can be calculated as 3.3 \* PIN("SREF") / PIN("IREF"), and this can be used to set OPTION VCC.
+
+=== PIXEL( x, y [,page])
+--- keep
+Returns the colour of a pixel on the screen.  ‘x’ is the horizontal coordinate and ‘y’ is the vertical coordinate of the pixel.  The optional ‘page’ specifies which page is to be read; the default is the current write page.  Set ‘page’ to FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
+The colour is returned as a 24-bit RGB number: in the 12-bit colour depth with its transparency as well, and in the 4-bit colour depth as one of the PicoMite's 16 colours (which MAP does not change).
+See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
 
 === PORT(start, nbr [,start, nbr]…)
 ---
 Returns the value of a number of I/O pins in one operation.
-{kl=1}'start' is an I/O pin number and its value will be returned as bit 0.  'start'+1 will be returned as bit 1, 'start'+2 will be returned as bit 2, and so on for 'nbr' number of bits. I/O pins used must be numbered consecutively and any I/O pin that is invalid or not configured as an input will cause an error.  The start/nbr pair can be repeated up to 25 times if additional groups of input pins need to be added.
-{t=l2592}This function will also return the output state of a pin configured as an output.  
-{t=l2592}This can be used to conveniently communicate with parallel devices like memory chips.  Any number of I/O pins (and therefore bits) can be used from 1 to the number of I/O pins on the chip. 
-{t=l2592}NB: If the pins are defined using the GPn syntax then the firmware will ignore invalid pins so `PORT(GP0, 8) `Will read eight I/O pins GP0 ,GP1 ,GP2, GP3, GP4, GP5, GP6 and GP7 .
+{kl=1}'start' is an I/O pin number and its value will be returned as bit 0.  'start'+1 will be returned as bit 1, 'start'+2 will be returned as bit 2, and so on for 'nbr' number of bits. I/O pins used must be numbered consecutively and any I/O pin that is invalid or not configured as a digital input (DIN, INTH, INTL or INTB) will cause the error "Invalid input pin".  The start/nbr pair can be repeated if additional groups of input pins need to be added: the first pair gives the lowest bits.
+{t=l2592}This can be used to conveniently communicate with parallel devices like memory chips.
 {kl=1}See the PORT command to simultaneously output to a number of pins.
 
 === PULSIN( pin, polarity )
@@ -825,23 +852,25 @@ PULSIN( pin, polarity, t1 )
 or
 PULSIN( pin, polarity, t1, t2 )
 ---
-Measures the width of an input pulse from 1µs to 1 second with 0.1µs resolution.
+Measures the width of an input pulse from 1µs to 10 seconds with 1µs resolution.
 'pin' is the I/O pin to use for the measurement, it must be previously configured as a digital input.  'polarity' is the type of pulse to measure, if zero the function will return the width of the next negative pulse, if non zero it will measure the next positive pulse.
-'t1' is the timeout applied while waiting for the pulse to arrive, 't2' is the timeout used while measuring the pulse.  Both are in microseconds (µs) and are optional.  If 't2' is omitted the value of 't1' will be used for both timeouts.  If both 't1' and 't2' are omitted then the timeouts will be set at 100000 (i.e. 100ms).
-This function returns the width of the pulse in microseconds (µs) or -1 if a timeout has occurred.  The measurement is accurate to ±0.5% and ±0.5µs.
+'t1' is the timeout applied while waiting for the pulse to arrive, 't2' is the timeout used while measuring the pulse.  Both are in microseconds (µs), 5 to 10000000 (10 seconds), and are optional.  If 't2' is omitted the value of 't1' will be used for both timeouts.  If both 't1' and 't2' are omitted then the timeouts will be set at 100000 (i.e. 100ms).
+This function returns the width of the pulse in microseconds (µs) or -1 if a timeout has occurred.  The measurement is accurate to ±1µs.
 Note that this function will cause the running program to pause while the measurement is made and interrupts will be ignored during this period.
 
 === RAD( degrees )
 ---
 Converts 'degrees' to radians. 
 
-=== RGB(red, green, blue)
+=== RGB(red, green, blue [, trans])
 or
-RGB(shortcut)
+RGB(shortcut [, trans])
 ---
 Generates an RGB true colour value.
 'red', 'blue' and 'green' represent the intensity of each colour.  A value of zero represents black and 255 represents full intensity.
-'shortcut' allows common colours to be specified by naming them.  The colours that can be named are white, black, blue, green, cyan, red, magenta, yellow, brown, white, orange, pink, gold, salmon, beige, lightgrey and grey (or USA spelling gray/lightgray).  For example, RGB(red) or RGB(cyan).
+'shortcut' allows common colours to be specified by naming them.  The colours that can be named are white, black, blue, green, cyan, red, magenta, yellow, brown, grey (or gray), lightgrey (or lightgray), orange, pink, gold, salmon, beige, lilac, fuchsia, rust, cerulean, midgreen, cobalt and myrtle.  For example, RGB(red) or RGB(cyan).
+There is also one special colour, notblack: in any colour depth this is the darkest colour that is not treated as black (transparent) by the graphics commands that support transparency.
+'trans' is the level of transparency: 0 (transparent) to 15 (opaque, the default) in the 12-bit colour depth, and 0 to 255 in the 32-bit colour depth.  In the other colour depths it gives the error "Transparency not valid for this mode".
 
 === RIGHT$( string$, number-of-chars )
 ---
@@ -851,8 +880,8 @@ Returns a substring of ‘string$’ with ‘number-of-chars’ from the right (
 or
 RND
 ---
-Returns a random (RP2350) or pseudo-random (RP2040) number in the range of 0 to 0.999999.  The 'number' value is ignored if supplied.
-See also the RANDOMIZE command (RP2040 only).
+Returns a random number in the range of 0 to 0.999999.  The 'number' value is ignored if supplied.
+The Colour Maximite 2 uses the hardware random number generator in its STM32H743 processor to deliver true random numbers, so they need no seeding and the RANDOMIZE command does not affect them.  For a sequence that can be repeated use MATH(RAND) with MATH RANDOMIZE.
 
 === SGN( number )
 ---
@@ -860,7 +889,7 @@ Returns the sign of the argument 'number', +1 for positive numbers, 0 for 0, and
 
 === SIN( number )
 ---
-Returns the sine of the argument 'number' in radians.
+Returns the sine of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
 
 === SPACE$( number )
 ---
@@ -873,9 +902,77 @@ SPI2 ( data )
 Send and receive data using an SPI channel.  
 A single SPI transaction will send data while simultaneously receiving data from the slave.  ‘data’ is the data to send and the function will return the data received during the transaction.  ‘data’ can be an integer or a floating point variable or a constant.
 
-=+= {b=0}SPRITE()
---- roomy
-{b=0}See Appendix G and the separate SPRITE_User_Manual pdf 
+=== SPRITE()
+--- keep
+The SPRITE functions return information regarding sprites, which are small graphic images on the screen.  These are useful when writing games.  See also the SPRITE commands and Appendix F.  In each of them the # before a sprite number is optional.
+
+=+= SPRITE(A, [#]n)
+--- keep
+Returns the address in memory of the image of sprite ‘n’, or 0 if the sprite is not loaded.  The pixels are held row after row in the pixel format of the colour depth (see Colour Depths in the chapter Video Modes and Pages), except that in the 4-bit colour depth each pixel takes a byte.
+
+=+= SPRITE(C, [#]n)
+--- keep
+Returns the number of new collisions (contacts that began) of sprite ‘n’ found when it was last moved, or -1 if there were none.  Up to seven are recorded.  If n = 0 it returns the number of sprites that had a new collision following the last SPRITE SCROLL, SCROLLR, MOVE or RESTORE command.
+A sprite that stays in contact with another is not counted again: SPRITE(T, n) returns all the sprites it is touching.
+
+=+= SPRITE(C, [#]n, m)
+--- keep
+Returns the number of the sprite which caused the ‘m’th collision of sprite ‘n’ (‘m’ from 1 to SPRITE(C, n)).  If n = 0 then returns the sprite number of the ‘m’th sprite that had a new collision following a SPRITE SCROLL, SCROLLR, MOVE or RESTORE command.
+If the collision was with the edge of the screen then the return value will be:
+{l=720}&HF1	collision with left of screen
+{l=720}&HF2	collision with top of screen
+{l=720}&HF4	collision with right of screen
+{l=720}&HF8	collision with bottom of screen
+
+=+= SPRITE(D, [#]s1, [#]s2)
+--- keep
+Returns the distance between the centres of sprites ‘s1’ and ‘s2’ (returns -1 if either sprite is not displayed).
+
+=+= SPRITE(E, [#]n)
+--- keep
+Returns a bitmap indicating any edges of the screen the sprite is in contact with: 1 = left of screen, 2 = top of screen, 4 = right of screen, 8 = bottom of screen.  Returns 0 if the sprite is not displayed.
+
+=+= SPRITE(H, [#]n)
+--- keep
+Returns the height of sprite ‘n’.  This function is active whether or not the sprite is currently displayed (active).  Returns -1 if the sprite is not loaded.
+
+=+= SPRITE(L, [#]n)
+--- keep
+Returns the layer number of sprite ‘n’ if it is displayed, -1 if it is not.
+
+=+= SPRITE(N)
+--- keep
+Returns the number of displayed (active) sprites.
+
+=+= SPRITE(N, n)
+--- keep
+Returns the number of displayed (active) sprites on layer ‘n’ (0 to 10).
+
+=+= SPRITE(S)
+--- keep
+Returns the number of the sprite which last caused a collision.  NB if the number returned is zero then the collision is the result of a SPRITE SCROLL, SCROLLR, MOVE or RESTORE command and the SPRITE(C…) function should be used to find how many and which sprites collided.  Returns -1 if the last command that checks for collisions found none.
+
+=+= SPRITE(T, [#]n)
+--- keep
+Returns a bitmap showing all the sprites currently touching the requested sprite.  Bits 0-63 in the returned integer represent a current collision with sprites 1 to 64 respectively.  Returns 0 if the sprite is not displayed.
+
+=+= SPRITE(V, [#]s1, [#]s2)
+--- keep
+Returns the vector from sprite ‘s1’ to ‘s2’ in radians.
+The angle is based on the clock so if ‘s2’ is above ‘s1’ on the screen then the answer will be zero (and it increases clockwise).  This can be used on any pair of sprites that are visible.  If either sprite is not visible the function will return -1.
+This is particularly useful after a collision if the programmer wants to make some differential decision based on where the collision occurred.  The angle is calculated between the centre of each of the sprites which may of course be different sizes.
+
+=+= SPRITE(W, [#]n)
+--- keep
+Returns the width of sprite ‘n’.  This function is active whether or not the sprite is currently displayed (active).  Returns -1 if the sprite is not loaded.
+
+=+= SPRITE(X, [#]n)
+--- keep
+Returns the X-coordinate of sprite ‘n’.  This function is only active when the sprite is currently displayed (active).  Returns 10000 otherwise.
+
+=+= SPRITE(Y, [#]n)
+--- keep
+Returns the Y-coordinate of sprite ‘n’.  This function is only active when the sprite is currently displayed (active).  Returns 10000 otherwise.
 
 === SQR( number )
 ---
@@ -909,26 +1006,21 @@ If 'm' is negative, positive numbers will be prefixed with the plus symbol and n
 
 === STR2BIN(type, string$ [,BIG])
 ---
-Returns a number equal to the binary representation in ‘string$’.  
-‘type’ can be: 
-INT64  converts 8 byte string representing a signed 64-bit integer to an integer 
-UINT64  converts 8 byte string representing an unsigned 64-bit integer to an integer 
-INT32  converts 4 byte string representing a signed 32-bit integer to an integer 
-UINT32  converts 4 byte string representing an unsigned 32-bit integer to an integer 
-INT16  converts 2 byte string representing a signed 16-bit integer to an integer 
-UINT16  converts 2 byte string representing an unsigned 16-bit integer to an integer 
-INT8  converts 1 byte string representing a signed 8-bit integer to an integer 
-UINT8  converts 1 byte string representing an unsigned 8-bit integer to an integer 
-SINGLE  converts 4 byte string representing single precision float to a float 
-DOUBLE   converts 8 byte string representing single precision float to a float 
-By default the string must contain the number in little-endian format (i.e. the 
-least significant byte is the first one in the string).  Setting the third parameter to ‘BIG’ will interpret the string in big-endian format (i.e. the most 
-significant byte is the first one in the string). 
-This function makes it easy to read data from binary data files, interpret 
-numbers from sensors or efficiently read binary data from flash memory 
-chips.  
-An error will be generated if the string is the incorrect length for the 
-conversion requested 
+Returns a number equal to the binary representation in ‘string$’.
+‘type’ can be:
+{l=1404 h=1275}  INT64	converts an 8 byte string representing a signed 64-bit integer to an integer
+{l=1404 h=1275}  UINT64	converts an 8 byte string representing an unsigned 64-bit integer to an integer
+{l=1404 h=1275}  INT32	converts a 4 byte string representing a signed 32-bit integer to an integer
+{l=1404 h=1275}  UINT32	converts a 4 byte string representing an unsigned 32-bit integer to an integer
+{l=1404 h=1275}  INT16	converts a 2 byte string representing a signed 16-bit integer to an integer
+{l=1404 h=1275}  UINT16	converts a 2 byte string representing an unsigned 16-bit integer to an integer
+{l=1404 h=1275}  INT8	converts a 1 byte string representing a signed 8-bit integer to an integer
+{l=1404 h=1275}  UINT8	converts a 1 byte string representing an unsigned 8-bit integer to an integer
+{l=1404 h=1275}  SINGLE	converts a 4 byte string representing a single precision float to a float
+{l=1404 h=1275}  DOUBLE	converts an 8 byte string representing a double precision float to a float
+By default the string must contain the number in little-endian format (i.e. the least significant byte is the first one in the string).  Setting the third parameter to ‘BIG’ will interpret the string in big-endian format (i.e. the most significant byte is the first one in the string).
+This function makes it easy to read data from binary data files, interpret numbers from sensors or efficiently read binary data from flash memory chips.
+An error ("String length") will be generated if the string is the incorrect length for the conversion requested.
 See also the function BIN2STR$
 
 === STRING$( nbr,  ascii )
@@ -939,7 +1031,7 @@ Returns a string 'nbr' bytes long consisting of either the first character of st
 
 === STRUCT( arg, …)
 ---
-__NOT PICOMITEMIN __Returns data from a structure (also known as a User-Defined Type) which allows related variables of different types to be grouped under a single name. 
+Returns data from a structure (also known as a User-Defined Type) which allows related variables of different types to be grouped under a single name. 
 This is described in full in the file *MMBasic_Structures_Manual.pdf* included in the firmware download zip file.
 
 === TAB( number )
@@ -948,104 +1040,33 @@ Outputs spaces until the column indicated by 'number' has been reached on the co
 
 === TAN( number )
 ---
-Returns the tangent of the argument 'number' in radians.
+Returns the tangent of the argument 'number' in radians (or in degrees after OPTION ANGLE DEGREES).
 
 === TEMPR( pin [,timeout])
 ---
 Return the temperature measured by a DS18B20 temperature sensor connected to 'pin' (which does not have to be configured). 
 The returned value is degrees C with a default resolution of 0.25ºC.  If there is an error during the measurement the returned value will be 1000.
 The time required for the overall measurement is 200ms and interrupts will be ignored during this period.  
-The optional parameter timeout can be used to override the default (200mSec) to allow for slow devices.
+The optional parameter timeout (100 to 2000 milliseconds) can be used to override the default (200mSec) to allow for slow devices.
 Alternatively the TEMPR START command can be used to start the measurement and your program can do other things while the conversion is progressing.  When this function is called the value will then be returned instantly assuming the conversion period has expired.  If it has not, this function will wait out the remainder of the conversion time before returning the value.
-The DS18B20 can be powered separately by a 3V to 5V supply or it can operate on parasitic power from the Raspberry Pi Pico.  
-See the chapter *Special Hardware Devices* for more details.
+The DS18B20 can be powered separately by a 3V to 5V supply or it can operate on parasitic power from the I/O pin.
+See the chapter *Special Device Support* for more details.
+
+=== TILEMAP( arg, … )
+--- keep
+Returns information about a tile map created with the TILEMAP command, or about its sprites: TILEMAP(TILE id, x, y) returns the tile at a position, TILEMAP(COLLISION id, x, y, w, h [, mask]) the first tile in an area, TILEMAP(ATTR id, tile) a tile's attributes, TILEMAP(VIEWX id) and TILEMAP(VIEWY id) the position of the view, TILEMAP(COLS id) and TILEMAP(ROWS id) the size of the map, and TILEMAP(SPRITE X id), SPRITE Y, SPRITE TILE, SPRITE W, SPRITE H and TILEMAP(SPRITE HIT id1, id2) its sprites.
+This is described in full in the file *TILEMAP_User_Manual.pdf* (see Appendix O).
 
 === TIME$
 ---
 Returns the current time based on MMBasic's internal clock as a string in the form "HH:MM:SS" in 24 hour notation.   For example, "14:30:00".
+If OPTION MILLISECONDS ON has been used this function will return the time including milliseconds as a decimal fraction of the seconds.  For example: "14:35:06.239".
 To set the current time use the command TIME$ = .
 
 === TIMER
 ---
-Returns the elapsed time in milliseconds (eg, 1/1000 of a second) since reset.  
-The timer is reset to zero on power up or a CPU restart and you can also reset it by using TIMER as a command.  If not specifically reset it will continue to count up forever (it is a 64 bit number and therefore will only roll over to zero after 200 million years).
-
-=== TOUCH(X)
-or
-TOUCH(Y)
-or
-TOUCH(DOWN)
-or
-TOUCH(UP)
-or
-TOUCH(X2)
-or
-TOUCH(Y2)
-or
-TOUCH(XN n)
-or
-TOUCH(YN n)
----
-__NOT RP2040 VGA __Will return the X or Y coordinate of the location currently touched on an LCD panel.  If the screen is not being touched the function will return -1.
-TOUCH(DOWN) returns 1 (true) if the screen is currently being touched and TOUCH(UP) returns 1 (true) if it is not.
-On panels with a capacitive touch controller (FT6336 or GT911) and on USB touch screens TOUCH(X2) and TOUCH(Y2) return the position of a second touch location or -1 if no second location is touched.
-TOUCH(XN n) and TOUCH(YN n) return the X or Y coordinate of the ‘n’th touch location (n = 1 to 10) or -1 if that location is not being touched.  n = 1 is the same as TOUCH(X)/TOUCH(Y) and n = 2 is the same as TOUCH(X2)/TOUCH(Y2).  TOUCH(XN 0) returns the number of locations currently being touched.  The maximum number of simultaneous touches depends on the touch controller: one for resistive panels, two for the FT6336, five for the GT911 and up to ten for USB touch screens.
-
-=== {}
---- tight
-__WITH TOUCH SUPPORT ONLY__
-Detect gestures made on the touch panel.  The firmware continuously monitors the touch input and when it recognises a gesture it latches it until it is read.  Reading the function that matches the latched gesture returns 1 and clears it.  Reading a function that does not match returns 0 and leaves the gesture latched, so a program can test for a number of different gestures in turn without losing an event.  Gestures are not available on the RP2040 versions of the WebMite and VGA firmware.
-Single finger gestures (all touch panels):
-
-=+= {b=0 a=0}TOUCH(TAP)
---- tight
-TOUCH(TAP) - a quick tap (touch and release within a quarter of a second without moving).
-
-=+= {b=0 a=0}TOUCH(DTAP)
---- tight
-TOUCH(DTAP) - a double tap (two quick taps in the same place within half a second).
-
-=+= {b=0 a=0}TOUCH(HOLD)
---- tight
-TOUCH(HOLD) - a long press (the touch held still for at least half a second).  This is recognised while the touch is still down.
-
-=+= {b=0 a=0}TOUCH(SWL)
-{b=0 a=0}TOUCH(SWR)
-{b=0 a=0}TOUCH(SWU)
-{b=0 a=0}TOUCH(SWD)
---- tight
-TOUCH(SWL), TOUCH(SWR), TOUCH(SWU), TOUCH(SWD) - a swipe to the left, right, up or down (a quick movement of at least about 15% of the screen’s shorter dimension).
-
-=+= {b=0 a=0}TOUCH(SWIPE)
---- tight
-TOUCH(SWIPE) - returns the direction of a swipe as a number (0 = none, 1 = left, 2 = right, 3 = up, 4 = down) and clears it.  This is convenient for use with a SELECT CASE statement.
-
-=+= {}
---- tight
-Two finger gestures (touch controllers that can report two simultaneous touch points - see TOUCH(XN n) above):
-
-=+= {b=0 a=0}TOUCH(EXPAND)
-{b=0 a=0}TOUCH(CONTRACT)
---- tight
-TOUCH(EXPAND) and TOUCH(CONTRACT) - the distance between the two touch points increased or decreased by at least 30% (ie, zoom in or zoom out).
-
-=+= {b=0 a=0}TOUCH(PINCH)
---- tight
-TOUCH(PINCH) - returns 0 = none, 1 = expand, 2 = contract and clears it.
-
-=+= {b=0 a=0}TOUCH(CW)
-{b=0 a=0}TOUCH(CCW)
---- tight
-TOUCH(CW) and TOUCH(CCW) - the line between the two touch points rotated by at least 15 degrees clockwise or anticlockwise.
-
-=+= {b=0 a=0}TOUCH(ROTATE)
---- tight
-TOUCH(ROTATE) - returns 0 = none, 1 = clockwise, 2 = anticlockwise and clears it.
-
-=+= {b=0 a=0}TOUCH(TTAP)
---- tight
-TOUCH(TTAP) - a quick tap with two fingers.
-Apart from TOUCH(HOLD) a gesture is recognised when the finger (or fingers) is lifted from the screen.
+Returns the elapsed time in milliseconds (eg, 1/1000 of a second) since reset.  This is a fractional floating point number with a resolution of 1µs.
+The timer is reset to zero on power up or a CPU restart and you can also reset it (or set it to any value) by using TIMER as a command.  If not specifically reset it will continue to count up forever (it counts microseconds in a 64-bit number and therefore will only roll over after more than 500,000 years).
 
 === TRIM$(source$ [,mask$] [,where/where$])
 ---

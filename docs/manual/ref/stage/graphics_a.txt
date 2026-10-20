@@ -1,0 +1,250 @@
+# graphics_a.txt: the reference entries for FRAMEBUFFER, IMAGE, MODE and PAGE (firmware 7.00.00b1), staged for commands.txt
+# REPLACE commands.txt "=== MODE 1" (the PicoMite's VGA entry), "=== MODE n" (its HDMI entry) and "=== MODE 400" (its SSD1963 entry) WITH the MODE entry below
+# REPLACE commands.txt the two FRAMEBUFFER groups that begin "=== {b=0}" with "{b=0}FRAMEBUFFER" as their next line (between "=== FOR counter = start TO finish [STEP increment]" and "=== FUNCTION xxx (arg1 [,arg2, …]) ..."; the first labelled __NOT VGA OR HDMI VERSIONS__, the second __VGA AND HDMI VERSIONS ONLY__) WITH the two FRAMEBUFFER groups below
+# ADD to commands.txt the IMAGE group below, in alphabetical order after the entry "=== IF expression THEN \n   <statements>..." and before "=== INC var [,increment]"
+# ADD to commands.txt the PAGE group below, in alphabetical order after the entry "=== OPTION" and before "=== PAUSE delay"
+
+
+# ACTION REPLACE the two PicoMite FRAMEBUFFER groups (see above) WITH the two groups below: the Colour Maximite 2's own FRAMEBUFFER, then the PicoMite's in the 4-bit depth
+# Src/Draw.c:898 cmd_framebuffer: a 4-bit mode goes to Rgb121Framebuffer (Src/Rgb121.c:454); the other depths read WINDOW, WRITE, CLOSE, BACKUP, RESTORE and CREATE
+# b14 says FRAMEBUFFER CREATE needs both sizes, from MM.HRES x MM.VRES to 1600 x 1200; Src/Draw.c:997-999 makes both optional (the write page's size) and allows up to 4096 x 2048 on the Generation 2 (1600 x 1200 on the Generation 1)
+# b14 says JPG files cannot be loaded to the framebuffer; this build's LOAD JPG (Src/FileIO.c:1832, the PicoMite's decoder) has no such check, so the sentence is dropped
+# b14 says the framebuffer is deleted by Ctrl-C and by running a program; Src/main.c:847 frees it (and the backup) on every return to the prompt (END, the end of the program, an error, Ctrl-C) and Src/MMBasic.c:4833 at RUN
+# b14 does not say that CLOSE is refused while the framebuffer is the write page (Src/Draw.c:943) or that WINDOW without a framebuffer gives "World not created" (Src/Draw.c:909)
+# Src/Draw.c:931 FRAMEBUFFER WRITE reads nothing after WRITE: the PicoMite's FRAMEBUFFER WRITE N selects the framebuffer in these depths (said in the entry; a code issue)
+=== FRAMEBUFFER
+--- keep
+This command allows you to create, use and remove a variable size framebuffer which should make many applications which have a working area bigger than the screen easier to program.  The framebuffer is held in the variable memory.
+These are the Colour Maximite 2's own FRAMEBUFFER commands, for all colour depths except 4 bits.  In the 4-bit colour depth FRAMEBUFFER is the PicoMite's (see below) and these forms are not available.
+While a framebuffer exists, a MODE command that changes the colour depth gives the error "Colour mismatch with framebuffer": use FRAMEBUFFER CLOSE first.  The framebuffer and its backup are deleted when the program ends (for any reason, including Ctrl-C) and by running a program.
+FRAMEBUFFER can be given as the page number to PAGE WRITE (which is the same as FRAMEBUFFER WRITE) and to the commands that read from a page, such as BLIT, SPRITE READ and the IMAGE commands.
+
+=+= FRAMEBUFFER CREATE [width] [, height]
+--- keep
+Creates a framebuffer with the width and height specified in pixels.  Each must be at least the size of the write page (normally MM.HRES and MM.VRES, which are also the defaults) and can be at most 1600 by 1200 on the Generation 1 and 4096 by 2048 on the Generation 2.  There must be enough free variable memory for it ("Not enough memory for framebuffer").
+To change the size of an existing framebuffer close it first with FRAMEBUFFER CLOSE.
+
+=+= FRAMEBUFFER WRITE
+--- keep
+Sets all drawing commands to write to the framebuffer and inherit its width and height (MM.HRES and MM.VRES report them).  PAGE WRITE n returns the drawing to a page.
+Anything after WRITE is ignored, so the PicoMite's `FRAMEBUFFER WRITE N` also selects the framebuffer in these colour depths: use `PAGE WRITE 0` to draw on the display again.
+
+=+= FRAMEBUFFER BACKUP
+--- keep
+Creates a backup copy of the framebuffer.  If a backup already exists it is overwritten.  This allows the programmer to save the background before he/she starts writing non-static data to it.  The backup is also held in the variable memory, so it may not be possible to use this command if a very large framebuffer is specified in the 12, 16 or 32-bit colour depth.  An error is given in this case.
+
+=+= FRAMEBUFFER RESTORE [x, y, w, h]
+--- keep
+Restores all or part of the framebuffer from the backup.  This allows the programmer to "clean" all or part of the framebuffer before adding new non-static items.
+‘x’ and ‘y’ are the top left corner and ‘w’ and ‘h’ the width and height of the area to restore, which must lie within the framebuffer.  Give all four or none: without them the whole framebuffer is restored.
+
+=+= FRAMEBUFFER WINDOW x, y, page [, I or B]
+--- keep
+Copies an area of the framebuffer with its top left corner at ‘x’, ‘y’ to the page specified.  The area is the size of the page (normally MM.HRES by MM.VRES) and must lie within the framebuffer.  The optional parameter specifies if the copy is done immediately (I, the default) or during the next frame blanking (B).
+Without a framebuffer the error is "World not created".
+
+=+= FRAMEBUFFER CLOSE
+--- keep
+Releases the memory used by the framebuffer and its backup, allowing a new framebuffer to be created with a different size.  The framebuffer cannot be closed while it is the write page ("Framebuffer is set for write"): use PAGE WRITE first.
+
+# The PicoMite's forms, which this build has in the 4-bit colour depth only (Src/Rgb121.c:454 Rgb121Framebuffer), with the PicoMite's messages; FRAMEBUFFER BACKUP, RESTORE and WINDOW give "Syntax" there
+# Src/Rgb121.c:456-459: a size after CREATE is not read in a 4-bit mode (FRAMEBUFFER CREATE 1600, 1200 creates F)
+=== FRAMEBUFFER CREATE
+--- keep
+__IN THE 4-BIT COLOUR DEPTH ONLY__ In the 4-bit colour depth (MODE r, 4) the FRAMEBUFFER command is the PicoMite's, so that programs written for the PicoMite's VGA and HDMI versions work as they do there (see the chapter Video Modes and Pages).  Its framebuffers are pages 0 to 4: N (the display, page 0), L (the layer, page 1), F (the framebuffer, page 2), 2 (the second framebuffer, page 3) and T (the top layer, page 4).  They are held in the video memory, not in the variable memory, and MODE closes them.  Creating a buffer that exists already is an error.  BLIT FRAMEBUFFER, BLIT FLASH and TILEMAP use the same letters.
+A colour given as a number from 0 to 15 is one of the 16 colours: 0 black, 1 blue, 2 myrtle, 3 cobalt, 4 midgreen, 5 cerulean, 6 green, 7 cyan, 8 red, 9 magenta, 10 rust, 11 fuchsia, 12 brown, 13 lilac, 14 yellow and 15 white (unless changed by MAP).
+FRAMEBUFFER CREATE creates the framebuffer F, cleared to black, with the resolution of the current mode.
+
+=+= FRAMEBUFFER CREATE 2
+--- keep
+Creates the second framebuffer "2", cleared to black, with the resolution of the current mode.  It is intended for use with FRAMEBUFFER MERGE as the alternative to a live layer.
+
+=+= FRAMEBUFFER LAYER [colour]
+--- keep
+Creates the layer buffer L with the resolution of the current mode.  The layer is shown over the display N automatically: at the end of each frame the firmware puts the two onto the screen, the pixels of the layer that are of the transparent colour ‘colour’ (0 to 15, default 0) letting N show through.  The layer is cleared to that colour, as CLS without a colour does while the layer is the write target.
+
+=+= FRAMEBUFFER LAYER TOP [colour]
+--- keep
+Creates the top layer T with the resolution of the current mode.  It is shown over the layer L (where that has been created) and N in the same way, its pixels of the transparent colour ‘colour’ (0 to 15, default 0) letting what is under them show through.  It is cleared to that colour.
+
+=+= FRAMEBUFFER WRITE where
+or
+FRAMEBUFFER WRITE where$
+--- keep
+Specifies the target for subsequent graphics commands.  ‘where’ can be N, F, 2, T or L, where N is the display, or a string expression giving one of them.  The buffer must have been created ("Frame buffer not created", "Layer not created" and the like).  MM.HRES and MM.VRES report its size.
+PAGE WRITE selects any 4-bit page, including the pages after page 4.
+
+=+= FRAMEBUFFER CLOSE [which]
+--- keep
+Closes a framebuffer.  The optional parameter ‘which’ can be F, L, T or 2.  If it is omitted all four are closed and the drawing returns to N.  A buffer that was the write target when it was closed is replaced by N.
+
+=+= FRAMEBUFFER COPY from, to [, B]
+--- keep
+Does a highly optimised full screen copy of one framebuffer to another.  ‘from’ and ‘to’ can be N, F, 2, T or L.  A buffer that has not been created stands for N, as on the PicoMite; the two must differ ("Buffer not created").
+If the optional parameter B is specified the copy waits until the next frame blanking starts.
+
+=+= FRAMEBUFFER WAIT
+--- keep
+Pauses processing until the next frame blanking starts.
+
+=+= FRAMEBUFFER MERGE [colour] [, B]
+--- keep
+Copies framebuffer "2" over framebuffer F into the display N in a single pass.  Pixels in "2" that are of the transparent colour ‘colour’ (0 to 15, default 0) show the F pixel instead.  Both must have been created.  The layers L and T are not involved and continue to be applied over the result.
+If the optional parameter B is specified the merge waits until the next frame blanking starts before it begins, so that tearing is avoided.  This is the alternative to a live layer for programs that draw sprites over a background: the display only changes when MERGE is commanded.
+
+
+# ACTION ADD the IMAGE group below to commands.txt, after "=== IF expression THEN \n   <statements>..." and before "=== INC var [,increment]"
+# Src/Draw.c:1798 cmd_image: ROTATE_FAST, ROTATE, WARP_H, WARP_V, RESIZE_FAST, RESIZE; refused in a 4-bit mode (Src/Draw.c:1800)
+# b14 shows [,flag] for RESIZE_FAST and ROTATE_FAST only; Src/Draw.c:1939 and 2469 read it for ROTATE and RESIZE too (the 5.05.04 manual had it for all four)
+# b14 says IMAGE ROTATE "uses bi-linear interpolation to resize the image" (rotate) and, for WARP, "x1 and x1" (x1 and y1)
+# b14 says for both WARP commands that x2, y2 is the top right corner of the area written; for WARP_V Src/Draw.c:2123-2124 and 2144 make it the left end of the bottom edge (y2 below y1)
+# the ranges are Src/Draw.c's getint limits: the area read within the read page, new_x and new_y on the write page, RESIZE's new area within it
+=== IMAGE
+--- keep
+The IMAGE commands resize, rotate and warp a rectangular part of the image on a page.  The image is read from the write page, or from the page given by ‘page’, and written to the write page as specified by the PAGE WRITE command.  ‘page’ can also be FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
+The area read must lie within the page it is read from and the top left corner of the area written must lie on the write page.  If ‘flag’ is set to 1 then black pixels are not written.
+The IMAGE commands are not available in the 4-bit colour depth ("Invalid for this screen mode").
+
+=+= IMAGE RESIZE x, y, width, height, new_x, new_y, new_width, new_height [, page] [, flag]
+or
+IMAGE RESIZE_FAST x, y, width, height, new_x, new_y, new_width, new_height [, page] [, flag]
+--- keep
+Takes the part of the image with its top left corner at ‘x’, ‘y’ and of the specified ‘width’ and ‘height’ and resizes it, writing it to the area specified by ‘new_x’, ‘new_y’, ‘new_width’ and ‘new_height’, which must lie on the write page.  The command will both increase and decrease the size of the part of the image chosen.
+IMAGE RESIZE uses bi-linear interpolation to generate the new pixels.  IMAGE RESIZE_FAST uses a nearest neighbour technique and is much faster but the resulting image quality will not be as good.
+
+=+= IMAGE ROTATE x, y, width, height, new_x, new_y, angle! [, page] [, flag]
+or
+IMAGE ROTATE_FAST x, y, width, height, new_x, new_y, angle! [, page] [, flag]
+--- keep
+Takes the part of the image with its top left corner at ‘x’, ‘y’ and of the specified ‘width’ and ‘height’ and rotates it about its centre in a clockwise direction by ‘angle’ (in degrees).  Areas of the image that after rotation are outside of the area specified are cropped.  The image is then drawn with its top left corner at ‘new_x’, ‘new_y’.
+IMAGE ROTATE uses bi-linear interpolation to rotate the image.  IMAGE ROTATE_FAST uses a nearest neighbour technique and is much faster but the resulting image quality will not be as good.
+
+=+= IMAGE WARP_H x, y, w, h, x1, y1, h1, x2, y2, h2 [, page] [, flag]
+or
+IMAGE WARP_V x, y, w, h, x1, y1, w1, x2, y2, w2 [, page] [, flag]
+---
+These commands allow you to modify an image by translating and/or stretching or compressing one of the axes: the rectangle read is drawn as a trapezoid.
+‘x’, ‘y’, ‘w’ and ‘h’ define the top left corner and the width and height of the area to read.  In both cases ‘x1’ and ‘y1’ define the top left corner of the area to write.
+IMAGE WARP_H warps horizontally: the area written runs from ‘x1’ across to ‘x2’ (which must be to the right of ‘x1’), ‘h1’ and ‘h2’ are its heights at its left and right edges, and ‘x2’, ‘y2’ is the top of its right edge (its top right corner).
+IMAGE WARP_V warps vertically: the area written runs from ‘y1’ down to ‘y2’ (which must be below ‘y1’), ‘w1’ and ‘w2’ are its widths at its top and bottom edges, and ‘x2’, ‘y2’ is the left end of its bottom edge (its bottom left corner).
+
+
+# ACTION REPLACE "=== MODE 1", "=== MODE n" and "=== MODE 400" in commands.txt WITH the MODE entry below
+# Src/MiscSTM32.c:1295 cmd_mode; the resolutions are Src/ltdc.c:61-62
+# b14 shows 'bits' as required; Src/MiscSTM32.c:1301 makes it optional (8)
+# b14 lists the depths 8, 12, 16 and 32; this build adds 4, the PicoMite's RGB121 (Src/MiscSTM32.c:1307, Src/Rgb121.c), where Rgb121ModeFits (Src/Rgb121.c:93) allows modes 1 to 8, 10, 13, 14 and 17
+# b14 says mode 16 is G2 only; Src/MiscSTM32.c:1300 also refuses it on a Generation 2 with the Rev Y (400 MHz) processor (HAL_GetREVID() 0x1003): "G2 resolution only"
+# b14's depth table gives the 32-bit depth 4,294,967,296 colours; it has 16,777,216 (ARGB8888 with no transparency, as the chapter Video Modes and Pages says)
+# Src/MiscSTM32.c:1319 tests argv[4] (always set) rather than *argv[4]: an empty 'bg' before 'int' (MODE 1, 12, , int) gives "Syntax", so the entry says to give 0
+# Src/MiscSTM32.c:1314-1315: MODE 15,4 and 16,4 are refused with "12, 16, and 32-bit colour not available for mode 15" (the message leaves out 4)
+# the default fonts and the white on black are Src/ltdc.c:236-237 and 288-449; RUN sets the default mode (Src/Commands.c:1328) and so does every return to the prompt (Src/main.c:867)
+=== MODE r [, bits [, bg [, int]]]
+---
+Sets the resolution and the colour depth of the VGA video output.
+‘r’ is the screen resolution.  It is a number from 1 to 18 as follows:
+{b=0 a=0 l=720}1 = 800 x 600 pixels (the default)
+{b=0 a=0 l=720}2 = 640 x 400 pixels
+{b=0 a=0 l=720}3 = 320 x 200 pixels
+{b=0 a=0 l=720}4 = 480 x 432 pixels
+{b=0 a=0 l=720}5 = 240 x 216 pixels
+{b=0 a=0 l=720}6 = 256 x 240 pixels
+{b=0 a=0 l=720}7 = 320 x 240 pixels
+{b=0 a=0 l=720}8 = 640 x 480 pixels
+{b=0 a=0 l=720}9 = 1024 x 768 pixels
+{b=0 a=0 l=720}10 = 848 x 480 pixels (widescreen format)
+{b=0 a=0 l=720}11 = 1280 x 720 pixels (widescreen format)
+{b=0 a=0 l=720}12 = 960 x 540 pixels (widescreen format, lines duplicated)
+{b=0 a=0 l=720}13 = 400 x 300 pixels
+{b=0 a=0 l=720}14 = 960 x 540 pixels (widescreen format, lines not duplicated: not supported by all monitors)
+{b=0 a=0 l=720}15 = 1280 x 1024 pixels
+{b=0 a=0 l=720}16 = 1920 x 1080 pixels (widescreen format, Generation 2 with the Rev V processor only)
+{b=0 a=0 l=720}17 = 384 x 240 pixels
+{b=0 a=0 l=720}18 = 1024 x 600 pixels
+All resolutions except 10, 11, 12, 14 and 16 work perfectly with monitors that have an aspect ratio of 4:3 or widescreen monitors that can switch to that ratio (most widescreen monitors will do this automatically).
+‘bits’ is the colour depth.  It can be 4, 8, 12, 16 or 32 and is 8 if it is left out:
+{b=0 a=0 l=720}4 = RGB121, 16 colours, two pixels to a byte: the PicoMite's 16 colour display (see below)
+{b=0 a=0 l=720}8 = RGB332, 256 colours, each of which can be changed with the MAP command
+{b=0 a=0 l=720}12 = ARGB4444, 4096 colours with 16 levels of transparency, in two layers over a background colour
+{b=0 a=0 l=720}16 = RGB565, 65,536 colours
+{b=0 a=0 l=720}32 = ARGB8888, 16,777,216 colours (Generation 2 only)
+Not every combination is available: modes 9, 11 and 12 have no 12 or 32-bit depth, modes 15 and 16 have the 8-bit depth only, and the 4-bit depth is not available in modes 9, 11, 12, 15, 16 and 18.  With OPTION LEGACY ON only the 8-bit depth can be used.
+‘bg’ is the background colour and can be used in the 12-bit depth.  If the pixels in page 0 (the lower layer) are not set to solid (transparency = 15) then the background will show through as determined by the transparency value of the pixel.  This parameter is ignored in the other depths.
+‘int’ is a subroutine that will be called at the start of each frame blanking (useful for updating the screen without tearing).  A MODE command without it cancels the interrupt.  To give ‘int’ without a background colour use 0 for ‘bg’.
+MODE sets the colours to white on black and the default font for the resolution: font 7 in modes 3, 5, 6, 7, 13 and 17, font 4 in modes 9, 11, 15 and 18, font 3 in mode 16 and font 1 in the others.  When it changes the resolution or the colour depth it also clears the screen and makes page 0 the write page.
+A program is started (RUN) in the default mode, MODE 1 or the mode set by OPTION DEFAULT MODE with the 8-bit depth, and the display returns to it when the program ends.
+The display always shows the contents of page 0 (pages 0 and 1 in the 12-bit depth, page 1 being the upper layer) unless overridden with the PAGE DISPLAY command.  Use PAGE WRITE and PAGE COPY to avoid the artefacts of flashing and tearing.  The pages available in each mode and colour depth, and how to PEEK and POKE them, are listed in the chapter Video Modes and Pages.  MM.INFO(MAX PAGES) returns the highest page number in the current mode.
+The 4-bit depth gives the display of the PicoMite's VGA and HDMI versions in their 16 colour modes: MODE 7,4 (320 x 240) is the PicoMite's MODE 2 and MODE 8,4 (640 x 480) is its MODE 3.  Its 16 colours can be changed with MAP and its FRAMEBUFFER command is the PicoMite's (see FRAMEBUFFER).  PAGE DISPLAY and the IMAGE commands are not available in it.
+
+
+# ACTION ADD the PAGE group below to commands.txt, after "=== OPTION" and before "=== PAUSE delay"
+# Src/Draw.c:2592 cmd_page: DISPLAY, WRITE, RESIZE, MERGE, SCROLL, COPY, STITCH, AND_PIXELS, OR_PIXELS, XOR_PIXELS; a 4-bit mode allows WRITE, COPY and SCROLL only (Src/Draw.c:2598)
+=== PAGE
+--- keep
+The PAGE commands manage the video pages.  Building an image on a page that is not displayed and then copying it to the display page avoids flashing and tearing.  The pages available in each mode and colour depth are listed in the chapter Video Modes and Pages, and MM.INFO(MAX PAGES) returns the highest page number in the current mode.
+In the 4-bit colour depth only PAGE WRITE, PAGE COPY and PAGE SCROLL are available (the others give the error "Invalid for this screen mode").  There pages 0 to 4 are the PicoMite's framebuffers N, L, F, 2 and T (see the FRAMEBUFFER command).
+
+=+= PAGE WRITE n
+or
+PAGE WRITE FRAMEBUFFER
+--- keep
+Instructs MMBasic to make all graphics commands write to page ‘n’.  If not used page 0 is the default.  MM.HRES and MM.VRES report the size of the write page.
+Set the page to FRAMEBUFFER to write to the framebuffer: see the FRAMEBUFFER command.
+
+# b14 calls the second parameter of PAGE DISPLAY "page"; it is the layer (Src/Draw.c:2605: 0, or 0 to 1 in the 12-bit depth)
+# b14 limits the display pages in modes 3, 5, 6, 7, 12 and 13; Src/Draw.c:2628 checks the same list, but mode 17 duplicates its lines too (Src/ltdc.c:70 and 94), so its higher pages display wrongly: the entry lists 17 (a code bug that it is not checked)
+# not in b14: a page must end below &HD0300000 to be displayed (Src/Draw.c:2638-2640), which leaves out the higher pages of the Generation 2
+# PAGE DISPLAY -1 turns off the sync signals (PI9 and PI10, Src/Draw.c:2609-2615); the end of the program restores page 0 (Src/main.c:384) but not the signals, so the entry says how to turn the display back on (a code issue)
+=+= PAGE DISPLAY n [, layer]
+or
+PAGE DISPLAY -1
+---
+Selects the page that is displayed on the screen (this does not change the write page).  For example:
+{l=720}`PAGE DISPLAY 3`
+will display the current contents of page 3.  In the 12-bit depth ‘layer’ can be 1 to select the page that is to be displayed as the top layer, for example:
+{l=720}`PAGE DISPLAY 4, 1`
+‘layer’ 0, the default, is the lower layer.  The command executes in the next frame blanking period.  When a program ends for any reason page 0 is displayed again.
+In modes 3, 5, 6, 7, 12, 13 and 17 only pages 0 and 1 (pages 0, 1 and 2 in the 12-bit depth) can be displayed, as only they hold each line twice.  A page must also lie in the first 3 MB of the video memory (MM.INFO(PAGE ADDRESS n) plus the size of the page no higher than &HD0300000), so on the Generation 2 the higher pages cannot be displayed (the error "Display page address > &HD0300000 - use a lower page number").
+PAGE DISPLAY -1 turns off the display (the monitor no longer receives the synchronisation signals).  It is only valid in a program.  To turn the display back on select a valid display page (PAGE DISPLAY 0 can also be used at the command prompt).
+
+# b14 writes the transparency option as ",t"; Src/Draw.c:2818-2820 takes T or 1 (anything else: an ordinary copy)
+# Src/Draw.c:2810-2814 holds one deferred copy: a second D copy before the frame blanking replaces the first
+=+= PAGE COPY n TO m [, when] [, T]
+---
+Copies the contents of one video page to another.  ‘n’ is the source and ‘m’ is the destination (a comma can be used instead of TO).  The two pages must be the same size ("Page size mismatch - use BLIT").
+‘when’ can be one of the letters I, B or D.  If omitted it will default to I.
+{l=720}I means do the copy immediately.  It is the most efficient but risks causing screen artefacts.
+{l=720}B means wait until the next frame blanking and then do the copy.  It is the least efficient but is absolutely determinate in its effect and no screen artefacts will ever be seen.
+{l=720}D means carry on processing the next command and do the copy in the background when the next frame blanking occurs.  This is efficient but must be used with care as subsequent drawing commands may or may not be included in the copy depending on the timing of the next frame blanking.  Only one such copy is held: another D copy before the frame blanking replaces it.
+If T (or 1) is added then only the non-black pixels are copied, for example `PAGE COPY 1 TO 0, B, T`.
+
+# the ranges of x and y are Src/Draw.c:2749-2750, taken from the write page
+=+= PAGE SCROLL pageno, x, y [, fillcolour]
+--- keep
+Will scroll the image on the page specified by ‘pageno’ by the amount defined by ‘x’ pixels to the right and ‘y’ pixels up (negative values scroll it left and down).  ‘x’ can be from -MM.HRES/2-1 to MM.HRES/2 and ‘y’ from -MM.VRES/2-1 to MM.VRES/2.  By default the area scrolled off the page appears on the other side.
+If ‘fillcolour’ is specified it will replace the area left behind by the scroll with the colour specified.  If ‘fillcolour’ is set to -1 then the area left behind by the scroll is left untouched.  This is the most efficient version and is suitable if there is a black background.
+
+# not in b14: page 0 (pages 0 and 1 in the 12-bit depth) cannot be resized (Src/Draw.c:2671), and MODE restores the sizes (pagegen, Src/ltdc.c:79)
+=+= PAGE RESIZE pageno, w, h
+--- keep
+Changes the width and height of a given page in memory (its contents are not rescaled).  ‘w’ can be set between 1 and the normal width for the current display mode and ‘h’ between 1 and its normal height.  Page 0 (pages 0 and 1 in the 12-bit depth) cannot be resized.
+When PAGE WRITE is set to a resized page all graphics commands will respect the new values of width and height, including print output scrolling, and MM.HRES and MM.VRES will report the revised size.  The next MODE command, and the end of the program, restore the normal size.
+
+# not in b14: the source pages cannot be page 0 (pages 0 and 1 in the 12-bit depth) and the three pages must be the same size (Src/Draw.c:2847-2852); 'offset' is 0 to MM.HRES (Src/Draw.c:2861)
+=+= PAGE STITCH frompage1, frompage2, topage, offset
+--- keep
+Will take the last MM.HRES minus ‘offset’ columns from ‘frompage1’ and the first ‘offset’ columns from ‘frompage2’ and copies them, side by side, to ‘topage’.  Stepping ‘offset’ from 0 to MM.HRES moves the view smoothly from the first page to the second.
+The three pages must be the same size, and ‘frompage1’ and ‘frompage2’ cannot be page 0 (pages 0 and 1 in the 12-bit depth).
+
+# PAGE MERGE is not in b14 (nor in the 5.05.04 manual); Src/Draw.c:2678 and Merge (Src/OtherDisplays.c:365): topage = frompage1, then the pixels of frompage2 that are not 'colour'
+=+= PAGE MERGE frompage1, frompage2, topage [, colour]
+--- keep
+Copies ‘frompage1’ to ‘topage’ with the image on ‘frompage2’ over it: the pixels of ‘frompage2’ that are of the transparent colour ‘colour’ (default 0, black) let ‘frompage1’ show through.
+The three pages must be the same size, and ‘frompage1’ and ‘frompage2’ cannot be page 0 (pages 0 and 1 in the 12-bit depth).
+
+=+= PAGE AND_PIXELS sourcepage1, sourcepage2, destinationpage
+or
+PAGE OR_PIXELS sourcepage1, sourcepage2, destinationpage
+or
+PAGE XOR_PIXELS sourcepage1, sourcepage2, destinationpage
+--- keep
+These commands combine the pixels on ‘sourcepage1’ and ‘sourcepage2’ by ANDing, ORing or XORing them and write the result to ‘destinationpage’, which can be the same as either of the source pages if required.  The three pages must be the same size.

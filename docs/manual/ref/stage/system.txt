@@ -1,0 +1,532 @@
+# System commands: staged reference entries for docs/manual/ref/commands.txt (tools/manual/reftext.py), 7.00.00b1.
+# commands.txt is being edited by others: the entries to replace are named by their first syntax line, not their line.
+#
+# The actions, in the order of the groups below:
+# REPLACE commands.txt "=== AUTOSAVE" (its forms AUTOSAVE, AUTOSAVE CRUNCH, AUTOSAVE APPEND, AUTOSAVE N) WITH the AUTOSAVE entry
+# REPLACE commands.txt "=== CHAIN fname$ [cmdline$]" WITH the CHAIN entry
+# REPLACE commands.txt "=== CPU RESTART" WITH the CPU RESTART entry
+# REPLACE commands.txt "=== EDIT" (with EDIT fname$ and EDIT FILE fname$) WITH the EDIT entry
+# REPLACE commands.txt "=== {b=0 a=0}FLASH" (the PicoMite's FLASH LIST/ERASE/SAVE/LOAD/RUN/CHAIN/OVERWRITE/DISK LOAD/LOAD IMAGE row) WITH the two FLASH entries
+# REPLACE commands.txt "=== {b=0 a=0}FM" WITH the FM entry
+# REPLACE commands.txt the LIBRARY group: the "=== {}" row starting "The library is a special segment of program memory" and its five "=+= {b=0 a=0}LIBRARY ..." rows (SAVE, DELETE, LIST, DISK SAVE, LOAD) WITH the LIBRARY entries
+# REPLACE commands.txt "=== LIST [fname$]" and "=== LIST COMMANDS" (the two LIST entries) WITH the LIST entries
+# REPLACE commands.txt the LONGSTRING group ("=== LONGSTRING" and its "=+= LONGSTRING ..." rows, AES128 to UCASE) WITH the LONGSTRING entries
+# ADD to commands.txt the MMDEBUG entry, between "=== MID$( str$, start, num) = str2$" and "=== MODE 1" (alphabetical: MKDIR, MID$, MMDEBUG, MODE)
+# REPLACE commands.txt every PLAY entry: from "=== PLAY" (the row "This command will generate a variety of audio outputs") through the VS1053 row (its left cell lists PLAY MP3, PLAY HALT, PLAY CONTINUE, PLAY MIDIFILE, PLAY MIDI, PLAY NOTE and PLAY STREAM), that is the rows PLAY, PLAY TONE, PLAY FLAC/WAV/ARRAY, PLAY MP3, PLAY MODFILE, PLAY MODSAMPLE, PLAY LOAD SOUND, PLAY SOUND, PLAY PAUSE/RESUME/STOP, PLAY VOLUME/NEXT/PREVIOUS, PLAY SAMPLE/RELEASE, PLAY BBC SOUND, PLAY BBC ENVELOPE and VS1053, WITH the PLAY entries
+# REPLACE commands.txt "=== RUN" (with RUN [file$] [, cmdline$]) WITH the RUN entry
+# REPLACE commands.txt "=== SAVE file$", "=== SAVE CONTEXT [CLEAR]", "=== SAVE DATA fname$, address, nBytes" and "=== SAVE IMAGE file$ [,x, y, w, h]" (with SAVE COMPRESSED IMAGE) WITH the three SAVE entries
+# KEEP commands.txt "=== {b=0 a=0 ln=288 lr=auto}SELECT CASE value" as it is (checked: see the SELECT CASE group)
+# REPLACE commands.txt the "=== {}" row whose left cell is UPDATE FIRMWARE WITH the UPDATE FIRMWARE entry
+# REPLACE commands.txt "=== WATCHDOG timeout" (with WATCHDOG OFF, WATCHDOG HW timeout and WATCHDOG HW OFF) WITH the WATCHDOG entry
+# REPLACE commands.txt "=== XMODEM SEND" (its forms with XMODEM CRUNCH) WITH the XMODEM entry
+# REPLACE commands.txt "=== ZMODEM SEND" (its forms with ZMODEM CRUNCH) WITH the ZMODEM entry
+# Left alone, as other passes have them: PWM (and PWM SYNC), FRAMEBUFFER (and FRAMEBUFFER SYNC), LOAD.
+# Seen in passing, not mine to change: "=== LOAD file$ [,C] [,R]" is the PicoMite's: cmd_load (FileIO.c:750) reads
+# CONTEXT, BMP, IMAGE, JPG, GIF, PNG, FONT and DATA only, and LOAD "prog" is "Syntax" (programs are loaded by RUN).
+# The directives #INCLUDE, #DEFINE, #COMMENT and #MMDEBUG (FileLoadProgram, FileIO.c:586-603) have no entries.
+
+
+# ACTION REPLACE "=== AUTOSAVE" WITH:
+# cmd_autosave (MM_Misc.c:3652) reads N only and needs a file name (none is "Syntax"); the text goes to a file, which F1
+# and F2 then load (b14 p79). The PicoMite's AUTOSAVE CRUNCH and APPEND (and AUTOSAVE to program memory) are not provided.
+=== AUTOSAVE file$
+or
+AUTOSAVE N file$
+--- keep
+Enters automatic program entry mode: the lines of text sent to the console are saved to the file ‘file$’ on the SD card or USB flash drive (".BAS" is added if it has no extension).  This is one way of transferring a BASIC program from a computer: the program is pasted into a terminal emulator and this command captures the text.  It can also be used for typing a small program at the console.  The text is echoed back as it arrives, and a tab becomes a space.
+The mode is ended with a function key:
+{l=720}F1 saves the file and, if it is a .BAS file, loads it into program memory, where it becomes the current program (used by RUN, LIST and EDIT without a file name)
+{l=720}F2 does the same and then runs the program
+{l=720}F6 saves the file without loading it
+At any time Control-C abandons the command and nothing is saved.  The text is held in memory until it is saved, up to 512KB: a longer text stops the command with the error "Not enough memory".
+AUTOSAVE N does not echo the text.  After the first character, when there is a pause of more than 100 milliseconds between characters it shows the message "Enter F1 ,F2 or F6 to exit" and echoes what follows.
+The command can only be used at the command prompt.
+
+
+# ACTION REPLACE "=== CHAIN fname$ [cmdline$]" WITH:
+# b14 (p59, Porting: "The command CHAIN is not implemented", and nor were the LIBRARY commands): both are now, the
+# PicoMite's (cmd_chain, Commands.c:1352; Library.c). Both arguments are string expressions (getCstring), unlike RUN's.
+=== CHAIN file$ [, cmdline$]
+--- keep
+Runs another program, keeping the global variables (and constants) with their values.  The program in ‘file$’ is loaded and run as by RUN, but the global variables of the program that used CHAIN stay, so a program too large for program memory can be split into parts that pass their data on.  ‘file$’ and ‘cmdline$’ are string expressions; ".BAS" is added to ‘file$’ if it has no extension.  ‘cmdline$’ is passed to the new program as MM.CMDLINE$.
+Everything else is cleared as by RUN: the local variables (so use CHAIN at the top level of the program, not in a subroutine or function), files, interrupts, I/O pins, sprites, the sound and the video mode.  The library's code outside its subroutines and functions is not run again, and a RAM library (LIBRARY LOAD ..., RAM) does not survive the CHAIN.
+If the programs use structures both must define the same TYPEs in the same order, as a variable of a structure type kept across the CHAIN refers to its type by its number.
+
+
+# ACTION REPLACE "=== CPU RESTART" WITH:
+# cmd_cpu (MM_Misc.c:3369) reads RESTART only (anything else is "Syntax"): there is no other CPU form.
+=== CPU RESTART
+--- keep
+Forces a restart of the processor.  This clears all variables and resets everything (eg, timers, COM ports, I2C, etc) as at power up, but without the power up banner.  If OPTION AUTORUN is set the program is run again.  MM.INFO$(RESET) then returns "Software".
+
+
+# ACTION REPLACE "=== EDIT" WITH:
+# edit() (Editor.c:880, cmd_newedit 1022) takes an optional file name only: the PicoMite's EDIT FILE fname$ (and its saving
+# of the variables) is not provided, and EDIT is "Invalid in a program". As 08_editor.md.
+=== EDIT [file$]
+--- keep
+Invokes the full screen editor (see the chapter Full Screen Editor).  It can only be used at the command prompt.
+EDIT ‘file$’ edits the file ‘file$’ on the SD card or USB flash drive: a program or any other text file, up to 1MB long.  If ‘file$’ has no extension and no file of that name exists, ".BAS" is added.  A file that does not exist is created when the editor saves it.
+EDIT on its own edits the current program's file (see MM.INFO$(CURRENT)), with the cursor where it was when the editor last saved it or, if the program stopped with an error, at the line that caused the error.
+F1 saves the file and returns to the command prompt and F2 saves it and runs it; Esc leaves without saving.  A .BAS file that is saved is also loaded into program memory, so that it becomes the current program.  The file as it was before is kept with .bak added to its name.  Only BASIC programs (.BAS files) are colour coded (see OPTION COLOURCODE).
+
+
+# ACTION REPLACE "=== {b=0 a=0}FLASH" WITH:
+# cmd_flash (ImageSlots.c:84) reads LOAD IMAGE and DISK LOAD only, for the image slots 4 to 8 (heap blocks); anything
+# else is the error "Only FLASH LOAD IMAGE and FLASH DISK LOAD are provided on the CMM2". The PicoMite's program slots
+# (FLASH LIST, ERASE, SAVE, LOAD, RUN, CHAIN, OVERWRITE) are not: the CMM2 runs programs from files, and its library has
+# its own flash sector (Library.c: bank 2 sector 6, OPTION FLASH 6). Not in b14 (a 7.00 addition for PicoMite programs).
+=== FLASH LOAD IMAGE n, file$ [, O]
+or
+FLASH LOAD IMAGE n, file$ [, OVERWRITE]
+--- keep
+Loads the BMP file ‘file$’ (".BMP" is added if it has no extension) into image slot ‘n’ in the PicoMite's format, for the PicoMite's commands that use image slots (BLIT FLASH and TILEMAP).  The slot holds an 8 byte header, the image's width and height as two 32-bit words, followed by the pixels in the RGB121 format, two to a byte with the left pixel in the low four bits; MM.INFO(FLASH ADDRESS n) gives its address.
+‘n’ is 4 to 8.  These are the PicoMite's RAM slots: here they are blocks of the MMBasic heap, which RUN, NEW and loading a program free, so a program loads its images every time it starts.  Slots 1 to 3, the PicoMite's flash slots, are not provided.
+A slot that already holds an image gives the error "Already programmed" unless O (or OVERWRITE) is given.  At the command prompt the command reports the size of the image.
+
+=+= FLASH DISK LOAD n, file$ [, O]
+or
+FLASH DISK LOAD n, file$ [, OVERWRITE]
+--- keep
+Loads the bytes of the file ‘file$’, as they are, into image slot ‘n’ (4 to 8), for a program to read with PEEK or MEMORY COPY at MM.INFO(FLASH ADDRESS n) (eg, a PicoMite program's sprite data).  A slot that already holds something gives the error "Already programmed" unless O (or OVERWRITE) is given.
+The PicoMite's other FLASH commands, for its program slots (FLASH SAVE, LOAD, RUN, CHAIN, LIST, ERASE and OVERWRITE), are not provided: the Colour Maximite 2 runs its programs from files, and the library has its own area of the flash memory (see LIBRARY).
+
+
+# ACTION REPLACE "=== {b=0 a=0}FM" WITH:
+# cmd_fm (FileManager.c:3595): no arguments, "Invalid in a program", needs 8 rows. As 09_file_manager.md.
+=== FM
+--- keep
+Opens the full screen, two panel file manager for the files on the SD card (A:, also called B:) and a USB flash drive (C:).  Files can be browsed, sorted, filtered, copied, moved, renamed and deleted; files can be listed and edited and BASIC programs run and created; audio files can be played, singly or as a track list of marked files, and image files displayed.  Press Esc to exit and F1 for a summary of the keys.
+It can only be used at the command prompt, where the F1 key also starts it.  See the chapter File Manager for the details.
+
+
+# ACTION REPLACE the LIBRARY group (the "=== {}" row "The library is a special segment of program memory..." and its
+# "=+= LIBRARY" rows) WITH:
+# The PicoMite text put the library in "Flash Slot 3" and its RAM library in "RAM slot 5 (image slot 8) in PSRAM". Here
+# (Library.c) the flash library is bank 2 sector 6, the last program slot (OPTION FLASH 6), 128KB; a RAM library is a heap
+# block released by RUN, NEW and a program load (and CHAIN). SAVE, DELETE, LIST and DISK SAVE/LOAD are "Invalid in a
+# program"; LOAD adds ".bas" to a name without an extension. As 07_using_mmbasic.md (The Library).
+=== LIBRARY
+--- tight
+The library is a second program whose subroutines, functions, embedded C routines (CSUBs), fonts, labels and DATA statements are available to every program, as if they were part of MMBasic: they do not show when the program is listed or edited and are not deleted when a new program is loaded or by NEW.  Any code in the library that is not in a subroutine or function is run before each program, which can be used to set constants, options, etc.  See The Library in the chapter Using MMBasic.
+The library is kept in the last 128KB of the program flash memory (flash slot 6, see OPTION FLASH), which cannot then be used for a program, and it can be up to 128KB long.  A program can also load a library of its own into RAM (LIBRARY LOAD with RAM).
+
+=+= LIBRARY SAVE
+--- tight
+Adds the program in program memory (the program last run, or loaded from the editor or AUTOSAVE with F1) to the library, compressed: its comments, blank lines and unnecessary spaces are removed and the hex codes of its CSUBs and fonts are kept as binary.  Program memory is then cleared, as by NEW.  LIBRARY SAVE can be used again to add more routines to the library.  It can only be used at the command prompt.
+
+=+= LIBRARY DELETE
+--- tight
+Deletes the library and returns its flash memory for normal use (OPTION RESET also forgets the library).  It can only be used at the command prompt.
+
+=+= LIBRARY LIST
+or
+LIBRARY LIST ALL
+--- tight
+Lists the library (the RAM library while there is one), with a pause at every screen full.  ALL lists without pauses.  It can only be used at the command prompt.
+
+=+= LIBRARY DISK SAVE file$
+or
+LIBRARY DISK LOAD file$
+--- tight
+LIBRARY DISK SAVE saves the library (the RAM library while there is one) to the file ‘file$’ as a binary image, and LIBRARY DISK LOAD loads such a file into the library in the flash memory, replacing the library there.  ".LIB" is added to ‘file$’ if it has no extension.  Together these allow a library to be kept with the programs that use it, and to be distributed.  They can only be used at the command prompt.
+
+=+= LIBRARY LOAD file$ [, file$ ...] [, O] [, RAM]
+--- tight
+Reads one or more BASIC source files (up to eight, joined in the order given; ".BAS" is added to a name without an extension), compresses them and installs them as the library, replacing whatever was there.  Unlike LIBRARY SAVE it can be used in a program, so that a program can bring its own library rather than requiring the user to install it first.  It must then be the first statement in the program: once the library is installed the program is restarted, so that the library's own initialisation code runs before the program proper.  A hash of the source files is remembered, so if the library already holds those exact files the command does nothing and no flash is written: a program can therefore use it on every run at no cost.
+If a different library is already in the flash memory MMBasic asks for confirmation before replacing it; the option O (or OVERWRITE) suppresses the question.  A bare O, OVERWRITE or RAM in the list is the option of that name rather than a file name: a file name is always a string expression, so a quoted "O" is a file name.  Nothing is written until every file has been read, so a mistyped name leaves the existing library untouched.
+With RAM the library goes into RAM instead of the flash memory, which is left exactly as it was: the RAM library takes the place of the flash library until the next RUN, NEW, CHAIN or program load, so a program loads it every time it starts.  No question is asked and O is not needed.
+
+
+# ACTION REPLACE "=== LIST [fname$]" and "=== LIST COMMANDS" WITH:
+# cmd_list (Commands.c:969) reads ALL, FLASH ALL, PROFILE CSV, PROFILE, FILES, PAGES, TYPE, FLASH, COMMANDS (V) and
+# FUNCTIONS (V); no PINS, VARIABLES or SYSTEM I2C. LIST and LIST ALL list the source file (ListProgram/ListFile), LIST
+# FLASH the image in program memory. b14 (p99-100) has ALL, FILES, COMMANDS, FUNCTIONS, PAGES and PROFILE [CSV].
+# CODE BUG: LIST "prog" and LIST ALL "prog" do not add .BAS. cmd_list (Commands.c:983 and 1198) makes the full name qq from
+# buff with getfullfilepath and then appends ".BAS" to buff, not qq, so A:/prog is listed: "File not found". So in the
+# 6.00.00b7 baseline too. The entry says .BAS is added (as 07_using_mmbasic.md does): fix the code (strcat(qq, ".BAS")).
+=== LIST [file$]
+or
+LIST ALL [file$]
+--- keep
+Lists a program or other text file on the console.
+LIST on its own lists the current program: the file that the program in program memory was loaded from (see MM.INFO$(CURRENT)), as it is on the SD card or USB flash drive, with its comments.  With ‘file$’ that file is listed (".BAS" is added if it has no extension).
+LIST pauses at every screen full (press any key to go on).  LIST ALL lists without pauses, which is useful to capture the listing with a terminal emulator that can save what it receives to a file.
+
+=+= LIST FLASH
+or
+LIST FLASH ALL
+--- keep
+Lists the program in program memory as MMBasic prepared it when it was loaded: without its comments, blank lines and unnecessary spaces, with the #INCLUDE files inserted and the #DEFINE substitutions made.  ALL lists without pauses.
+
+=+= LIST FILES [fspec$] [, sort]
+--- keep
+The same as FILES.
+
+=+= LIST PAGES
+--- keep
+Lists the video pages of the current mode (see MODE and PAGE): for each its number, address, width, height and size in bytes (in hexadecimal), and whether its lines are each shown twice on the screen (2) or once (1).  In the 4-bit colour depth it also gives the address of the display that MMBasic builds from the pages.
+
+=+= LIST PROFILE
+or
+LIST PROFILE CSV
+---
+Lists the profile of the program last run with OPTION PROFILING ON: how many times each of its lines ran and how long it took.  Each line of the program, as it is held in program memory (see LIST FLASH), is listed with five fields separated by commas:
+{l=720}the number of times the line ran
+{l=720}the average time it took, in microseconds
+{l=720}the line, in quotes (making it easy to load into a spreadsheet)
+{l=720}the name of the #INCLUDE file that the line comes from, or nothing for the program's own file
+{l=720}the number of the line in that file.
+LIST PROFILE lists on the console and can only be used at the command prompt.  LIST PROFILE CSV writes the same to a file in the program's directory, named as the program's file with .CSV in place of .BAS.  It can be used in a program, eg to save the profile of each part of a run in its own file (rename the file before the next).
+The errors "Profiling not enabled" and "Nothing profiled: RUN the program first" say why there is nothing to list.
+
+=+= LIST TYPE [name]
+--- keep
+Lists the structure types (see TYPE) that the program has defined, or only the type ‘name’: each member with its type and its offset, and the size of the structure in bytes.
+
+=+= LIST COMMANDS [V]
+or
+LIST FUNCTIONS [V]
+--- keep
+Lists all the commands, or all the functions and operators, that MMBasic recognises, in columns, and how many there are.  With V it also gives the number of tokens they use.
+
+
+# ACTION REPLACE the LONGSTRING group WITH:
+# cmd_longString (MM_Misc.c:828) reads SETBYTE, APPEND, TRIM, REPLACE, LOAD, LEFT, RIGHT, MID, CLEAR, RESIZE, UCASE, PRINT,
+# LCASE, COPY, CONCAT, AES128 (ENCRYPT and DECRYPT, CBC, ECB and CTR: parselongAES 1237) and BASE64 (ENCODE, DECODE).
+# b14 (p101) and the PicoMite text: "the long string routines do not check for overflow ... the outcome will be undefined".
+# The code checks the destination's size in APPEND, LOAD, LEFT, RIGHT, MID, COPY, CONCAT, AES128 and BASE64, and the
+# ranges in SETBYTE, TRIM, REPLACE and RESIZE: the entry follows the code.
+=== LONGSTRING
+---
+The LONGSTRING commands allow for the manipulation of strings longer than the normal MMBasic limit of 255 characters (see the chapter Long Strings).
+Variables for holding long strings must be defined as single dimensioned integer arrays with the number of elements set to the number of characters required for the maximum string length divided by eight.  The reason for dividing by eight is that each integer in an MMBasic array occupies eight bytes.  The first element holds the length of the string.  The commands give an error ("Destination array too small", "Integer array too small" or a number out of bounds) rather than make a string longer than its array can hold.
+
+# AES128: the input's length must be a multiple of 16 for every mode ("input must be multiple of 16 elements long",
+# MM_Misc.c:1290); DECRYPT and ECB take no IV (argc 5 only).
+=+= LONGSTRING AES128 ENCRYPT CBC/ECB/CTR key$/key(), in%(), out%() [, iv$/iv()]
+or
+LONGSTRING AES128 DECRYPT CBC/ECB/CTR key$/key(), in%(), out%()
+---
+Encrypts or decrypts the long string in ‘in%()’ with the AES-128 cipher, putting the result in ‘out%()’.  The length of ‘in%()’ must be a multiple of 16 bytes.  ‘key$’ is the key as a string of 16 characters, or ‘key()’ as an integer or floating point array of 16 elements holding values from 0 to 255.
+For CBC and CTR modes the encryption will generate a random initialisation vector (IV) and prepend ‘out%()’ with the IV, so the result is 16 bytes longer.  If an explicit IV is specified (16 characters or elements, as for the key) this will be used instead of the random vector and this will be prepended to ‘out%()’.  ECB mode does not use an IV.
+For CBC and CTR decryption the firmware assumes that the first 16 bytes of ‘in%()’ are the initialisation vector (an IV is not a parameter of DECRYPT).
+In the case where you want to transmit a message without IV you can use LONGSTRING RIGHT to remove the IV before sending the message.  In this case the recipient must know the IV as well as the key and create a complete long string before using DECRYPT.  This can be done by using LONGSTRING CONCAT to add the incoming message to a long string containing the IV.
+
+=+= LONGSTRING APPEND array%(), string$
+--- keep
+Append a normal MMBasic string to a long string variable.  ‘array%()’ is a long string variable while ‘string$’ is a normal MMBasic string expression.
+
+=+= LONGSTRING BASE64 ENCODE in%(), out%()
+or
+LONGSTRING BASE64 DECODE in%(), out%()
+--- keep
+Encodes or decodes the long string in ‘in%()’ with BASE64, placing the result in ‘out%()’.  The array used for the output must be big enough for the result: encoding increases the length by 4/3 and decoding decreases it by 3/4.
+
+=+= LONGSTRING CLEAR array%()
+--- keep
+Will clear the long string variable ‘array%()’, ie, it will be set to an empty string.
+
+=+= LONGSTRING COPY dest%(), src%()
+--- keep
+Copy one long string to another.  ‘dest%()’ is the destination variable and ‘src%()’ is the source variable.  Whatever was in ‘dest%()’ will be overwritten.
+
+=+= LONGSTRING CONCAT dest%(), src%()
+--- keep
+Concatenate one long string to another.  ‘dest%()’ is the destination variable and ‘src%()’ is the source variable.  ‘src%()’ will be added to the end of ‘dest%()’ (the destination will **not** be overwritten).
+
+=+= LONGSTRING LCASE array%()
+--- keep
+Will convert any uppercase characters in ‘array%()’ to lowercase.  ‘array%()’ must be a long string variable.
+
+=+= LONGSTRING LEFT dest%(), src%(), nbr
+--- keep
+Will copy the left hand ‘nbr’ characters from ‘src%()’ to ‘dest%()’ overwriting whatever was in ‘dest%()’, ie, copy from the beginning of ‘src%()’ (all of it if it is shorter).  ‘src%()’ and ‘dest%()’ must be long string variables.
+
+# CODE BUG: LONGSTRING LOAD copies the 'nbr' given, not the 'nbr' cut to the string's length (MM_Misc.c:898-917: i = nbr
+# is taken before nbr is cut, and the size check uses the cut nbr), so a 'nbr' larger than string$ reads past the string
+# and can write past the end of the array; a negative 'nbr' runs away. LEFT, RIGHT and MID do not check for a negative
+# 'nbr' either. The entry gives the intended behaviour: set i after the cut, and check nbr >= 0.
+=+= LONGSTRING LOAD array%(), nbr, string$
+--- keep
+Will copy the first ‘nbr’ characters of ‘string$’ (all of them if it is shorter) to the long string variable ‘array%()’, overwriting whatever was in ‘array%()’.
+
+# b14 and the code: 'nbr' is optional (MM_Misc.c:959: argc 5 or 7); the old syntax line did not show it.
+=+= LONGSTRING MID dest%(), src%(), start [, nbr]
+--- keep
+Will copy ‘nbr’ characters from ‘src%()’ to ‘dest%()’ starting at character position ‘start’, overwriting whatever was in ‘dest%()’, ie, copy from the middle of ‘src%()’.  ‘nbr’ is optional and if omitted the characters from ‘start’ to the end of the string will be copied.  ‘src%()’ and ‘dest%()’ must be long string variables.
+
+=+= LONGSTRING PRINT [#n,] src%() [;]
+--- keep
+Prints the long string stored in ‘src%()’ to the file or COM port opened as ‘#n’.  If ‘#n’ is not specified the output will be sent to the console.  A semicolon (;) at the end suppresses the carriage return and line feed that are otherwise printed after it.
+
+=+= LONGSTRING REPLACE array%(), string$, start
+--- keep
+Will substitute the characters of the normal MMBasic string ‘string$’ into an existing long string ‘array%()’, starting at position ‘start’ in the long string.  The replaced characters must lie within the long string (its length is not changed).
+
+=+= LONGSTRING RESIZE array%(), nbr
+--- keep
+Sets the length of the long string to ‘nbr’ (0 to the number of characters its array can hold).  This overrides the length set by the other long string commands so should be used with caution.  Typical use would be in using a long string as a byte array.
+
+=+= LONGSTRING RIGHT dest%(), src%(), nbr
+--- keep
+Will copy the right hand ‘nbr’ characters from ‘src%()’ to ‘dest%()’ overwriting whatever was in ‘dest%()’, ie, copy from the end of ‘src%()’ (all of it if it is shorter).  ‘src%()’ and ‘dest%()’ must be long string variables.
+
+=+= LONGSTRING SETBYTE array%(), nbr, data
+--- keep
+Sets byte ‘nbr’ of the long string to the value ‘data’ (0 to 255).  ‘nbr’ respects OPTION BASE: the first byte is 0, or 1 under OPTION BASE 1.  The length of the string is not changed.
+
+=+= LONGSTRING TRIM array%(), nbr
+--- keep
+Will trim ‘nbr’ characters (1 to its length) from the left of a long string.  ‘array%()’ must be a long string variable.
+
+=+= LONGSTRING UCASE array%()
+--- keep
+Will convert any lowercase characters in ‘array%()’ to uppercase.  ‘array%()’ must be a long string variable.
+
+
+# ACTION ADD between "=== MID$( str$, start, num) = str2$" and "=== MODE 1":
+# The CMM2's own (b14 p109-110; cmd_debug, Commands.c:421). The program loader drops a line whose first word is MMDEBUG
+# (FileLoadProgram, FileIO.c:562, and importfile, 395) unless #MMDEBUG ON came before it (600-601, 455-456); an #INCLUDE
+# file starts with the setting at its #INCLUDE (passed by value). MMDEBUG BREAK: DEBUG> lines run by execute() until a
+# line starting CONTINUE.
+=== MMDEBUG [expression [[,; ]expression] …]
+or
+MMDEBUG BREAK
+--- keep
+A command for debugging a program that costs nothing when it is not wanted.  When a program is loaded (by RUN, or by F1 or F2 in the editor or AUTOSAVE), a line that starts with MMDEBUG is dropped, as a comment is, unless the directive #MMDEBUG ON has come before it in the program; #MMDEBUG OFF drops the lines that follow it again.  So MMDEBUG commands can be left throughout a program while it is developed and turned on or off with one line.  An #INCLUDE file starts with the setting in force at its #INCLUDE.
+MMDEBUG on its own or with a list of expressions acts exactly like PRINT.
+MMDEBUG BREAK stops the program and shows the prompt DEBUG>.  Any command can then be entered as at the command prompt, to print or change variables, call subroutines and so on: commands that make sense at the command prompt (not GOTO, for example).  The command CONTINUE leaves this mode and the program carries on after the MMDEBUG BREAK.
+
+
+# ACTION REPLACE every PLAY entry (from "=== PLAY" through the VS1053 row) WITH:
+# cmd_play (Audio.c:1522) reads STOP, NEXT, PREVIOUS, PAUSE, RESUME, CLOSE, VOLUME, TONE, BBC SOUND, BBC ENVELOPE, LOAD
+# SOUND, ARRAY, SAMPLE, RELEASE, SOUND, WAV, TTS (and PHONETIC, cmd_tts 1221), MODSAMPLE, EFFECT, FLAC, MODFILE and MP3.
+# Removed: the PicoMite's PWM output and OPTION AUDIO, and its VS1053 commands HALT, CONTINUE, MIDIFILE, MIDI, NOTE and
+# STREAM, which cmd_play does not read. The RP2350 labels went: all of these are on the CMM2.
+=== PLAY
+--- keep
+The PLAY commands generate sound on the audio output: the stereo audio socket on the front panel, driven by the processor's DAC (see the chapter Sound Output).  The sound plays in the background, so the program continues while it plays.
+Only one kind of sound can play at a time.  A command that would start another kind while a sound is playing (or paused) gives the error "Sound output in use", so use PLAY STOP first.  A PLAY TONE, PLAY SOUND, PLAY ARRAY, PLAY SAMPLE or PLAY BBC SOUND while a sound of its own kind plays changes that sound, and PLAY EFFECT and PLAY MODSAMPLE play over a MOD file.  The sound is stopped when a program ends, and RUN sets the volume to the maximum.
+
+# b14 (p116-117): "The frequency can be from 1Hz to 20KHz". The code (Audio.c:1612) takes 0 to 20000 ("Valid is 0Hz to
+# 20KHz"); 0 is silence. The entry follows the code.
+=+= PLAY TONE left, right [, dur] [, interrupt]
+---
+Generates two separate sine waves on the left and right channels of the audio output.  ‘left’ and ‘right’ are the frequencies in Hz, from 0 (silence) to 20000.  The frequencies are very accurate (they are based on a crystal oscillator).
+‘dur’ specifies the number of milliseconds that the tone will sound for.  MMBasic rounds the time to the next complete cycle of the left frequency (when it is 10Hz or more) so that the tone always finishes with the output at its middle level, without a click.  If ‘dur’ is not specified the tone will continue until explicitly stopped or the program terminates.  ‘interrupt’ is an optional subroutine which will be called when the tone has finished.
+The frequencies can be changed at any time by issuing a new PLAY TONE command.  A paused tone takes the new frequencies and stays paused.
+
+# Audio.c:1363-1500: WAV and FLAC up to 96kHz, mono or stereo ("Max 96KHz sample rate", "Only mono or stereo"); a
+# directory plays up to MAXALBUM (20) files of its type.
+=+= PLAY WAV file$ [, interrupt]
+or
+PLAY FLAC file$ [, interrupt]
+or
+PLAY MP3 file$ [, interrupt]
+---
+Plays an audio file on the audio output.  ‘file$’ is the file to play, on the SD card or USB flash drive; the appropriate extension (.WAV, .FLAC or .MP3) is added if it has none.  ‘interrupt’ is optional and is the name of a subroutine which will be called when the file has finished playing.
+For WAV and FLAC files MMBasic adjusts to the file's sample rate, number of bits and number of channels: they can be mono or stereo, with sample rates up to 96kHz (eg, 44.1kHz 16-bit CD quality or 96kHz 24-bit).  MP3 files can have the MP3 format's sample rates (up to 48kHz).
+If ‘file$’ is a directory MMBasic finds the files of the type in it and plays them one after another (up to 20 of them); an empty string ("") is the current directory.  The files found are listed when the command is used at the command prompt but not in a program.  The file names are kept with their full path, so CHDIR can be used while they play.  The interrupt is called when the last file has played.  PLAY NEXT and PLAY PREVIOUS skip between the files and MM.INFO$(TRACK) returns the name of the file that is playing.
+
+# b14 (p117): PLAY MODFILE file$ [,samplerate], "will run continuously until PLAY STOP". The code (Audio.c:2143) also takes
+# an interrupt, after the rate or in its place (the PicoMite's form, when the argument names a SUB): the MOD file then
+# plays once and fires it (modnoloop). "No program running" for an interrupt at the prompt. The entry follows the code.
+=+= PLAY MODFILE file$ [, samplerate] [, interrupt]
+---
+Plays a MOD file (music made with a tracker) on the audio output.  ‘file$’ is the MOD file (.MOD is added if it has no extension); it is read into memory and played in the background.  The MOD player supports up to 32 channels and 32 samples, with 16-bit resolution.
+Without ‘interrupt’ the MOD file plays continuously, in a loop, until PLAY STOP.  With ‘interrupt’ it plays once through the sequence and then the subroutine is called (in a program only).  PLAY MODFILE file$, interrupt (with no sample rate) is accepted, as on the PicoMite.
+‘samplerate’ is the number of samples a second that the MOD player generates: 8000, 16000, 22050, 44100 (the default) or 48000.  A lower rate reduces the processor's work.  A WAV file played with PLAY EFFECT while the MOD file plays must have the same sample rate.
+
+=+= PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate]
+---
+Plays one of the samples of the MOD file that is playing, at the same time as the MOD file, so that the MOD file's samples can be used as sound effects.  ‘sampleno’ is the sample's number, 1 to 32.  Up to four samples can play at once on independent channels: ‘channel’ is 1 to 4, and a sample started on a channel that is playing replaces the sample there (MM.INFO(SAMPLE PLAYING n) says whether channel n is playing).
+‘volume’ is 0 to 64 (the default).  ‘samplerate’ is the rate at which the sample is played, 150 to 500000 (default 16000): changing it changes the pitch and the duration, and it should be the sample's own rate to play it as it was recorded.
+A MOD file must be playing (otherwise the error is "Samples play over MOD file").
+
+=+= PLAY EFFECT file$ [, interrupt]
+---
+Plays the WAV file ‘file$’ (.WAV is added if it has no extension) at the same time as the MOD file that is playing, for sound effects over the music.  If a previous effect is still playing it is stopped and the new one starts.  The file can be mono or stereo but must have the same sample rate as the MOD file's output (see PLAY MODFILE): 44100Hz unless another rate was given.  ‘interrupt’ is optional and is the name of a subroutine which will be called when the file has finished playing.
+A MOD file must be playing (otherwise the error is "Effects play over MOD file").
+
+# cmd_tts (Audio.c:1221): speed, pitch, mouth and throat 1 to 255, defaults 72, 64, 128 and 128; PLAY PAUSE does not
+# pause TTS ("Nothing playing").
+=+= PLAY TTS text$ [, speed] [, pitch] [, mouth] [, throat] [, interrupt]
+or
+PLAY TTS PHONETIC text$ [, speed] [, pitch] [, mouth] [, throat] [, interrupt]
+---
+Speaks the English text ‘text$’ on the audio output with the voice of SAM (the Software Automatic Mouth).  With PHONETIC ‘text$’ is SAM's phonemes instead of English: see <<http://www.retrobits.net/atari/sam.shtml>> for them and for the voice's parameters.
+‘speed’, ‘pitch’, ‘mouth’ and ‘throat’ set the voice: each is 1 to 255 and they default to 72, 64, 128 and 128.  The speech plays in the background and ‘interrupt’ is optional: a subroutine which will be called when it has finished.  The speech cannot be paused.
+
+# b14 (p118): for type N "the number of periods of 1/70000 seconds", and volume "between 1 and 25". The code (Audio.c:1863)
+# plays PLAY SOUND at 44100 samples a second (PWM_FREQ), so N's frequency counts periods of 1/44100 second, and takes a
+# volume of 0 to 25. A string "L", "R", "B" (or "M") and a one letter string type are accepted too (the PicoMite's).
+# The entry follows the code.
+=+= PLAY SOUND soundno, channelno, type [, frequency] [, volume]
+---
+Plays up to four sounds at once on each channel of the audio output, made from simple waveforms.
+‘soundno’ is the sound's number, 1 to 4.  ‘channelno’ is the output channel: L (left speaker), R (right speaker) or B (both speakers).
+‘type’ is the waveform: S (sine wave), Q (square wave), T (triangle wave), W (sawtooth), P (periodic noise), N (white noise), U (the wave loaded by PLAY LOAD SOUND) or O (off).  ‘channelno’ and ‘type’ can also be string expressions (eg, "L"; "M" is the same as "B").
+‘frequency’ is from 1 to 20000 (Hz) and can have decimals; it must be specified except when ‘type’ is O.  For type N it is the number of periods of 1/44100 second that the output stays at each random value.  For type U the 4096 values of the wave are played ‘frequency’ times a second.
+‘volume’ is optional and must be between 0 and 25.  It defaults to 25.
+Calling PLAY SOUND on a sound that is playing will immediately replace it; individual sounds are turned off using type O.  Output can be stopped temporarily using PLAY PAUSE and PLAY RESUME, and PLAY STOP stops all the sounds.
+
+# Audio.c:1712 and CloseAudio (1309): the wave is forgotten by PLAY STOP (and at a program's end); "Already loaded".
+=+= PLAY LOAD SOUND array%()
+---
+Loads the wave that PLAY SOUND plays for type U.  ‘array%()’ is an integer array of 1024 elements holding 4096 16-bit values between 0 and 4095, four to an element: MEMORY PACK can make it from a normal 4096 element integer array.  The array must be global (or STATIC), not LOCAL, as it is read while sounds play.
+The wave is forgotten by PLAY STOP and when the program ends.  While it is loaded another cannot be loaded (the error is "Already loaded").
+
+=+= PLAY ARRAY left%(), right%(), freq [, start] [, end] [, interrupt]
+---
+Plays sound held in two integer arrays.  ‘left%()’ and ‘right%()’ (which can be the same array) hold the samples for the left and right channels as 16-bit values (-32768 to 32767), four to an element (see MEMORY PACK); they must have the same number of elements.  ‘freq’ is the rate at which the samples are played: 10 to 48000 a second.
+If ‘start’ is specified the arrays are played from that sample (0 is the first) and if ‘end’ is specified until that sample is reached.  ‘interrupt’ (in a program only) is the name of a subroutine which will be called once the last sample has been played.
+It is important to understand the ‘freq’ parameter: it is the rate at which each sample is output.  So, for example, if the arrays held 10 cycles of a sine wave in 18000 samples then a ‘freq’ of 1800 would output a 1Hz sine wave for 10 seconds, and a ‘freq’ of 18000 a 10Hz sine wave for 1 second.
+The arrays must be global (or STATIC), not LOCAL, as they are read while the sound plays.
+
+=+= PLAY SAMPLE left%(), right%(), freq, attack, decay, sustain, release [, freqR, attackR, decayR, sustainR, releaseR] [, interrupt]
+or
+PLAY RELEASE
+---
+Plays a looped single cycle waveform under an ADSR envelope, as a synthesiser plays a note.  ‘left%()’ and ‘right%()’ hold one cycle of the wave for the left and right channels, one 16-bit value (-32768 to 32767) in each element; they must have the same number of elements.  The cycle is repeated ‘freq’ times a second (10 to 48000).
+‘attack’, ‘decay’ and ‘release’ are times in milliseconds (0 to 30000) and ‘sustain’ is a level, 0 to 100 percent of the full volume.  The sound rises to the full volume over the attack time, falls to the sustain level over the decay time and stays there until PLAY RELEASE, after which it falls to silence over the release time and ends.
+The optional second set of parameters gives the right channel its own frequency and envelope (otherwise both use the first).  ‘interrupt’ (in a program only) is the name of a subroutine which will be called when the sound has ended.
+PLAY RELEASE starts the release of the envelopes.
+The arrays must be global (or STATIC), not LOCAL, as they are read while the sound plays.
+
+# PLAY BBC SOUND and PLAY BBC ENVELOPE: unchanged (checked against Audio.c:1642-1711 and AudioBBC.c: BBC_QLEN 16).
+=== PLAY BBC SOUND channel, amplitude, pitch, duration
+--- keep
+The BBC Micro's SOUND statement.  Queues a note on one of four channels: channels 1 to 3 are square-wave tones and channel 0 is a noise source.  The notes queued on a channel play in order, each for its duration, so a tune can be written as a run of PLAY BBC SOUND commands and the program carries on while it plays.
+'channel' is the BBC channel word &HSFC.  C (bits 0 and 1) is the channel, 0 to 3.  Adding &H10 flushes the channel's queue and stops its current note so that the new note is heard at once.  Adding &H100, &H200 or &H300 holds the note until that many other channels are waiting with the same value at the head of their queues, and then they all start together, so a three note chord uses &H2xx on all three channels.
+'amplitude' is -15 (loudest) to 0 (silent, a rest), or 1 to 16 to use an envelope defined with PLAY BBC ENVELOPE.  'pitch' is 0 to 255 in quarter semitones, 89 being A4 (440Hz) and 53 middle C; on channel 0 only its low three bits are used and they select one of eight noises: 0 to 2 are periodic (a buzzy, pitched tone) at high, medium and low rates, 4 to 6 are white noise at the same three rates, and 3 and 7 are periodic and white clocked by channel 1's tone rather than at a fixed rate, so a note on channel 1 tunes the noise and a pitch envelope on channel 1 bends it (channel 1 need not be audible; an amplitude of 0 still sets its pitch).  'duration' is 0 to 255 in twentieths of a second and 255 means until the channel is flushed or PLAY STOP is used.
+Each channel queues up to 16 notes.  MM.INFO(BBC BUFFER) returns the number of free slots, so a program can keep ahead of the music without ever waiting.  When a channel's queue is full the command waits for a slot, as the BBC did, so a loop of PLAY BBC SOUND commands paces itself to the music (Ctrl-C works while it waits but MMBasic interrupts are held off until it returns).  The audio output is released automatically when every channel is silent and every queue is empty, as it is when a PLAY TONE ends, and the next PLAY BBC SOUND starts it again.  The output is mono and PLAY VOLUME applies.  The engine's state (608 bytes) is taken from the MMBasic heap by the first PLAY BBC command and freed when the program's variables are cleared.  See the Sound Output chapter for the pitch table and examples.
+
+=== PLAY BBC ENVELOPE n, T, PI1, PI2, PI3, PN1, PN2, PN3, AA, AD, AS, AR, ALA, ALD
+--- keep
+The BBC Micro's ENVELOPE statement.  Defines envelope 'n' (1 to 16) for use as the amplitude of a PLAY BBC SOUND.  It shapes the volume of the note (attack, decay, sustain and release) and can bend its pitch while it plays.  Definitions survive PLAY STOP and are cleared with the program's variables by RUN, NEW and loading a program, so a program defines its envelopes at the start.
+'T' is the length of each step in hundredths of a second (bits 0 to 6, 0 is treated as 1); add 128 to stop the pitch envelope repeating.  'PI1', 'PI2' and 'PI3' (-128 to 127) are the pitch change per step, in quarter semitones, in each of three pitch sections and 'PN1', 'PN2' and 'PN3' (0 to 255) are the number of steps in each section.  When the three sections are done the pitch returns to the note's own and the sections repeat, unless 128 was added to T.
+'AA', 'AD', 'AS' and 'AR' (-127 to 127) are the volume change per step during the attack, decay, sustain and release phases and 'ALA' and 'ALD' (0 to 126) are the levels the attack rises to and the decay falls to (126 is as loud as amplitude -15).  The attack runs from 0 to ALA, the decay from there to ALD, the sustain lasts until the note's duration ends and the release then runs until the level reaches 0, at which point the note ends.  A release of 0 never ends the note, so it will sound until the channel is flushed.
+
+# PLAY CLOSE (Audio.c:1584) is the PicoMite's name for STOP; PAUSE pauses every kind but TTS, and does nothing when the
+# sound is already paused ("Nothing playing" / "Nothing to resume" otherwise).
+=== PLAY PAUSE
+PLAY RESUME
+PLAY STOP
+PLAY CLOSE
+--- keep
+PLAY PAUSE will temporarily halt the sound that is playing (a file, a tone or any of the others but TTS speech) and PLAY RESUME will resume it.  PLAY STOP will terminate the sound; PLAY CLOSE (the PicoMite's name) does the same.  When the program terminates for whatever reason the sound output will also be automatically stopped.  Pausing, resuming and stopping are smoothed over a few milliseconds so that they do not click.
+
+# b14 (p118): PLAY VOLUME left, right, "a linear relationship between the specified level and the output". The code
+# (Audio.c:1589) lets either be omitted, and scales the output by the table mapping[] (Audio.c:273), a curve, not a line:
+# the entry follows the code and drops the claim.
+=+= PLAY VOLUME left [, right]
+--- keep
+Will adjust the volume of the audio output.  ‘left’ and ‘right’ are the levels to use for the left and right channels and can be between 0 and 100, with 100 being the maximum volume.  Either can be omitted to leave that channel as it is: PLAY VOLUME ,50 changes the right channel only, and PLAY VOLUME 50 the left only.  A change is smoothed over a few milliseconds so that it does not click.  The volume is set to the maximum when a program is run.
+
+=+= PLAY NEXT
+PLAY PREVIOUS
+--- keep
+When a directory of files is playing (PLAY WAV, FLAC or MP3 with a directory) these stop the file that is playing and start the next one or the previous one.  At the command prompt a message says when the last (or the first) file is already playing.
+
+
+# ACTION REPLACE "=== RUN" WITH:
+# cmd_run (Commands.c:1290): a file name only when cmdline starts with a quote; else the current program (ProgName()).
+# At the prompt (main.c:1023-1060) the text after RUN is not tokenised, ".BAS" is added and a name not found in the
+# current directory gets OPTION SEARCH PATH in front. RunStart (1322): the default mode, the library's top level.
+# The PicoMite's "Both 'file$' and 'cmdline$' may be supplied as string expressions" and FLASH RUN do not apply.
+=== RUN [file$] [, cmdline]
+--- keep
+Runs a program.  ‘file$’ is the name of the program's file on the SD card or USB flash drive: ".BAS" is added if it has no extension.  It must be a string constant, in quotes (eg, RUN "MYPROG"), not a variable or expression.  At the command prompt a program that is not in the current directory is looked for in the directory set by OPTION SEARCH PATH.
+If ‘file$’ is omitted the current program is run: the file that the program in program memory was loaded from (see MM.INFO$(CURRENT)).
+The program is loaded from its file every time it is run: MMBasic inserts any #INCLUDE files, makes the #DEFINE substitutions, removes the comments, blank lines and unnecessary spaces and keeps the result in program memory, from where it runs (see the chapter Using MMBasic).  Then all variables are cleared, files are closed, any sound is stopped, the video mode is set to the default (see OPTION DEFAULT MODE), and the code in the library outside its subroutines and functions runs before the program's first line.
+‘cmdline’ is passed to the program, which reads it as MM.CMDLINE$.  It is not processed by MMBasic, so it can contain numbers, commas, quoted strings, etc: it is for the program to decode.  Without a ‘file$’ it follows RUN or a comma (eg, RUN -f or RUN , -f).
+See also the \* shortcut, which runs a program without the quotes.
+
+
+# ACTION REPLACE "=== SAVE file$", "=== SAVE CONTEXT [CLEAR]", "=== SAVE DATA fname$, address, nBytes" and
+# "=== SAVE IMAGE file$ [,x, y, w, h]" WITH:
+# cmd_save (FileIO.c:200) reads CONTEXT (CLEAR), IMAGE and DATA: there is no SAVE file$ (programs are files on the SD
+# card: 07_using_mmbasic.md) and no SAVE COMPRESSED IMAGE. SAVE CONTEXT writes the globals to A:/.vars (SaveContext,
+# MMBasic.c:4967), not to the PicoMite's PSRAM or A: flash drive.
+=== SAVE CONTEXT [CLEAR]
+--- keep
+Saves the program's global variables (and constants), with their values and the arrays' dimensions, to the file A:/.vars on the SD card, from where LOAD CONTEXT restores them.  With CLEAR the global variables are then deleted.  Local variables are not saved, so the command should be used at the top level of the program, not in a subroutine or function.  A variable of a structure type refers to its type by its number, so LOAD CONTEXT needs the same TYPEs, defined in the same order.
+See also LOAD CONTEXT.
+
+=+= SAVE DATA file$, address, nbytes
+--- keep
+Writes ‘nbytes’ bytes of memory, starting at ‘address’, to the file ‘file$’ (".DAT" is added if it has no extension), for LOAD DATA to read back.  ‘address’ is rounded down to a multiple of 4, and the whole range must be memory that PEEK can read (otherwise the error is "Address").
+
+# SAVE IMAGE saves ReadPage, which PAGE WRITE and FRAMEBUFFER WRITE set with WritePage (Draw.c:2656-2659).
+# CODE BUG: with OPTION Y_AXIS UP, SAVE IMAGE file$, x, y, w, h mirrors x too (FileIO.c:230, x = maxW-1-x, so w can only be
+# 1 at x = 0) and saves the area below y rather than above it. Not documented: fix the code (no x flip; y = maxH-y-h).
+=+= SAVE IMAGE file$ [, x, y, w, h]
+--- keep
+Saves the image on the screen, or a part of it, as a 24-bit true colour BMP file: the page being written to, which is the display unless PAGE WRITE or FRAMEBUFFER WRITE has selected another.  ‘file$’ is the name of the file; ".BMP" is added if it has no extension.
+‘x’, ‘y’, ‘w’ and ‘h’ are optional and are the coordinates (‘x’ and ‘y’ are the top left coordinate) and dimensions (width and height) of the area to be saved.  If they are not specified the whole screen is saved.
+The Print Screen key saves the screen in the same way at the command prompt, in the editor and in the file manager, as A:/SCREENnnn.BMP.
+
+
+# KEEP "=== {b=0 a=0 ln=288 lr=auto}SELECT CASE value" as it is: cmd_select (Commands.c:1808) and cmd_case (1938) do what it
+# says, as b14 (p123): CASE values, ranges with TO and comparisons with IS (optional: a bare operator works), CASE ELSE
+# (taken where the search meets it, hence "the last before the END SELECT") and END SELECT, nested to any depth; no
+# matching END SELECT is the error "No matching END SELECT". No change.
+
+
+# ACTION REPLACE the "=== {}" row whose left cell is UPDATE FIRMWARE WITH:
+# cmd_JumpToBootloader (MM_Misc.c:2686): RESTART_BOOT0 and a soft reset into the STM32's system bootloader. It has no
+# "Invalid in a program" check (the PicoMite text said "only at the command prompt"). As b14 (p132) and Appendix K.
+=== UPDATE FIRMWARE
+--- keep
+Restarts the ARM Cortex-M7 processor in its firmware update mode, as setting the BOOT CONFIG switch on the Waveshare CPU board to SYSTEM or moving the jumper to PGM does, so that new firmware can be loaded without opening the case (see Appendix K).
+Cycle the power after the update to return the processor to normal operation.  Cycling the power also cancels the update mode if the command was used by mistake.
+
+
+# ACTION REPLACE "=== WATCHDOG timeout" WITH:
+# cmd_watchdog (MM_Misc.c:3351) reads OFF only: the PicoMite's WATCHDOG HW is not provided. The timer is counted in the
+# 1 ms interrupt (Timers.c:305) and restarts by a soft reset; it is cleared by Ctrl-C (main.c:3158), not by END or an
+# error. On MM.WATCHDOG after the restart see the CODE BUG note in variables.txt.
+=== WATCHDOG timeout
+or
+WATCHDOG OFF
+---
+Starts the watchdog timer, which restarts the Colour Maximite 2 when it times out.  This can be used to recover from some event that stopped the running program (such as an endless loop, or an error that returned to the command prompt), which can be important in an unattended control situation.
+‘timeout’ is the time in milliseconds (1 or more) before a restart is forced.  This command should be placed in strategic locations in the running BASIC program to constantly reset the watchdog timer (to ‘timeout’) and therefore prevent it from counting down to zero.
+If the timer count does reach zero (perhaps because the BASIC program has stopped running) the Colour Maximite 2 will be restarted, "Watchdog timeout" will be displayed and the automatic variable MM.WATCHDOG will be set to true (ie, 1) indicating that an error occurred.  This happens even when MMBasic is at the command prompt.  OPTION AUTORUN must be set for the program to run again.  On a normal startup MM.WATCHDOG will be set to false (ie, 0).
+WATCHDOG OFF disables the watchdog timer (this is the default on a reset or power up).  The timer is also turned off when the break key (normally Ctrl-C) is used on the console to interrupt a running program.
+
+
+# ACTION REPLACE "=== XMODEM SEND" WITH:
+# cmd_xmodem (XModem.c:71): S... or R..., a file name (required: none is "Syntax"), an optional port 1 to 3 that must be
+# open; without it the serial console must be on ("Serial Console Disabled"). 128 byte blocks with a checksum; the
+# received file keeps the block padding; 32 tries of 2 s before "Remote did not respond"; BreakKey 0 meanwhile. No CRUNCH
+# (the PicoMite's, for program memory), no YModem (nothing reads it). b14 (p133) gives the port as 1 or 2: the code takes 3.
+=== XMODEM SEND file$ [, port]
+or
+XMODEM RECEIVE file$ [, port]
+---
+Transfers a file to or from a remote computer using the XModem protocol.  XMODEM SEND sends the file ‘file$’ on the SD card or USB flash drive to the remote computer and XMODEM RECEIVE accepts a file sent by the remote computer and saves it as ‘file$’, overwriting a file of that name.  Any file can be transferred, not only programs (a program received is run with RUN).  SEND and RECEIVE can be abbreviated to S and R.
+The transfer is made over the serial console, which must be enabled (see OPTION CONSOLE), unless ‘port’ is given: 1, 2 or 3 for the serial port COM1, COM2 or COM3, which must have been opened (see OPEN) with a suitable baud rate.
+The XModem protocol requires a cooperating software program running on the remote computer.  It has been tested on Tera Term running on Windows and it is recommended that this be used.  After running the XMODEM command in MMBasic select:\n       File -> Transfer -> XMODEM -> Receive/Send\nfrom the Tera Term menu to start the transfer.  Download Tera Term from <<http://ttssh2.sourceforge.jp/>>
+If the remote computer does not respond within about 60 seconds the command returns to the MMBasic prompt with the error "Remote did not respond".  The break key is disabled while the transfer runs.  XModem sends the data in blocks of 128 bytes, so a file received is padded at its end to a multiple of 128 bytes (with the character &H1A).
+The ZMODEM command does the same job faster, keeps a file's exact length and recovers from transmission errors.  The YModem protocol is not available.
+
+
+# ACTION REPLACE "=== ZMODEM SEND" WITH:
+# ZMODEM (ZModem.c, 449c54c: ported from the PicoMite's misc/ZModem.c) is not in b14 and not the CMM2's own. tokenise()
+# rewrites ZMODEM as XMODEM Z (cmd_xmodem hands it to cmd_zmodem, 1249). The CMM2 has no program memory to send or
+# receive: SEND with no name sends the current program's file, RECEIVE with no name is a batch ("*") into the current
+# directory, both at the prompt only; CRUNCH is "Not available: programs are loaded from the SD card". Over the serial
+# console only (no port argument). ZT_INIT 3 s x 20 tries. The PicoMite's RP2040/RP2350 speeds are dropped.
+=== ZMODEM SEND [file$]
+or
+ZMODEM RECEIVE [file$]
+---
+Transfers files to or from a remote computer over the serial console using the ZModem protocol.  It does the job of XMODEM but is much faster, and it recovers from transmission errors: every block of data is checked and if any is lost or damaged the receiver asks for it again from that point, so a poor connection slows a transfer down rather than stopping it.  SEND and RECEIVE can be abbreviated to S and R.  The serial console must be enabled (see OPTION CONSOLE).
+ZMODEM SEND ‘file$’ sends the file ‘file$’ from the SD card or USB flash drive; the remote computer is given its name without the drive or directory.  ZMODEM SEND with no file name sends the file of the current program (see MM.INFO$(CURRENT)).
+ZMODEM RECEIVE ‘file$’ saves the file sent by the remote computer as ‘file$’, overwriting any file of that name; the name sent by the remote computer is ignored.  If the remote computer sends several files only the first is received, unless ‘file$’ is "\*".
+ZMODEM RECEIVE "\*", or ZMODEM RECEIVE with no file name, will accept any number of files and save each one in the current directory under the name given by the remote computer (without any directory), overwriting any file of that name.  A directory can be put in front of the \*, for example ZMODEM RECEIVE "C:/downloads/\*".  In Tera Term select all the files to be sent in the ZMODEM Send dialog; with lrzsz list them all, for example sz \*.bas.  When the transfer is complete the number of files and bytes received is reported.  If an error stops the transfer part way through, the files received before it are complete and the error message says how many there were.
+ZMODEM SEND and RECEIVE with no file name can only be used at the command prompt; with a file name they can also be used in a program.  Programs are transferred as files: a program received is run with RUN.  The PicoMite's ZMODEM CRUNCH is not available.
+The ZModem protocol requires a cooperating program on the remote computer.  On Windows Tera Term is recommended: after running the ZMODEM command select File -> Transfer -> ZMODEM -> Send or Receive from the Tera Term menu.  On Linux and macOS use sz (to send) and rz (to receive) from the lrzsz package, run with the serial port as their input and output, for example from a terminal program such as minicom.
+If the remote computer does not start the transfer within 60 seconds the command returns to the MMBasic prompt with the error "Sender did not respond" (or "Receiver did not respond").  If the remote computer cancels the transfer the error is "Cancelled by remote" (or "Receiver cancelled").  The break key is disabled while the transfer runs.  The speed of the transfer is set by the console's baud rate (see OPTION BAUDRATE).

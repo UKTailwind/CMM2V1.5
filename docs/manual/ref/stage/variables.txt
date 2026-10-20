@@ -1,0 +1,303 @@
+# Predefined Read Only Variables: the reference entries (tools/manual/reftext.py)
+
+# A complete replacement for docs/manual/ref/variables.txt (7.00.00b1). The MM. variables are the build's
+# (overlaid_functions[], Src/Functions.c:57, handled by fun_tilde); the MM.INFO keys are exactly the ones that fun_info
+# (Src/MM_Misc.c:2797) reads, grouped by subject in rows, as the PicoMite table groups them.
+# MM.END is in firmware.json's mm_variables but it is not a variable: it is the last entry of overlaid_functions[] (the
+# enum's count, MMEND, never replaced by the tokeniser) and the name of the SUB that END runs, described under MM.END in
+# 07_using_mmbasic.md. b14's MM.ESC (p66) is not in this build: nothing reads it (no fun_ or overlaid entry).
+# Removed, as fun_info does not read them: the PicoMite's MM.INFO keys ADC, ADC DMA, AUTORUN (top level: only
+# OPTION AUTORUN is read), BATTERY, BIOS, BLUETOOTH, BOOT, BOOT COUNT, CHARGING, CALLTABLE, LCDPANEL, LCD320, COMPILE,
+# FLASH, FLASHTOP, IP ADDRESS, MAX GP, MAX VARS, MODBUFF ADDRESS, HEAPEND, STACKPEAK, CHEAPMAX, CHEAPTOTAL, TLSHEAP,
+# TLSHEAPMAX, TLSHEAPERR, PINNO, PIO RX/TX DMA, PS2, PWM COUNT/DUTY/SLICE, SPI SPEED, SYSTEM HEAP, SYSTICK, TILE HEIGHT,
+# TOUCH, USB n, USB VID/PID, LINE, VALID CPUSPEED, SCROLL, SCREENBUFF, TCP PORT, UDP PORT, MAX CONNECTIONS, TCP REQUEST,
+# TCPIP STATUS, WIFI STATUS and TELNET.
+
+=== MM.CMDLINE$
+--- keep
+A string holding the command line arguments passed to the program: the text after the file name and its comma in the RUN command (eg, RUN "myprog", -f 3), the text after the file name in the \* shortcut (eg, \*myprog -f 3) or the ‘cmdline$’ of CHAIN.  The text given to RUN is not processed by MMBasic, so it can contain numbers, commas, quoted strings, etc: it is for the program to decode.
+It is an empty string when the program was run without arguments, from the editor (F2) or by OPTION AUTORUN.
+
+=== MM.DEVICE$
+--- keep
+A string identifying the computer that MMBasic is running on: "Colour Maximite 2" on a Generation 1 and "Colour Maximite 2 G2" on a Generation 2.  Other versions of MMBasic return their own name (eg, a PicoMite's), so a program can use it to tell which computer it is running on.
+
+# CODE BUG: RUN does not reset MM.ERRNO. ClearRuntimeAll (Src/MMBasic.c:4820) clears MMerrline and MMErrMsg but not
+# MMerrno, which only ON ERROR (Commands.c:3246) and an interrupt's save and restore change: after an error at the
+# prompt or in the previous run MM.ERRNO is still non zero in the next program, with MM.ERRMSG$ empty. The PicoMite
+# clears all three (core/MMBasic.c:7868), as b14 says; the entry says so too. Fix: MMerrno = 0 in ClearRuntimeAll.
+# The library's line: error() (MMBasic.c:4203) sets MM.ERRLINE for a library line too (the old text said zero there).
+=== MM.ERRNO
+MM.ERRMSG$
+MM.ERRLINE
+---
+If a statement caused an error which was ignored (see ON ERROR) these variables will be set accordingly.  MM.ERRNO is a number where non zero means that there was an error and MM.ERRMSG$ is a string holding the error message that would normally have been displayed on the console (without the "Error in line n:" in front of it).
+MM.ERRLINE is the number of the line that caused the error, as the error message gives it: a line of the program's file or, when the message names one, of an #INCLUDE file or of the library's file.  It is zero if the error did not occur in a program line (eg, at the command prompt).
+They are reset to zero and an empty string by RUN and by ON ERROR IGNORE, SKIP, CLEAR and RESTART.
+
+=== MM.FLAGS
+--- keep
+The value of the system flag register, which the FLAG and FLAGS commands set (see also the FLAG() function).
+
+=== MM.FONTHEIGHT
+MM.FONTWIDTH
+--- keep
+Integers holding the height and the width, in pixels, of the characters of the current font, including its scaling (see FONT).
+
+=== MM.HEIGHT
+MM.WIDTH
+--- keep
+MM.HEIGHT is the number of lines of characters down the display and MM.WIDTH the number of characters across it, with the current font.  When PAGE WRITE has selected another page they are for that page.
+
+=== MM.HPOS
+MM.VPOS
+--- keep
+The current horizontal and vertical position (in pixels) following the last graphics or PRINT command.
+
+# b14 (p66): "the resolution of the VGA display". The code (Functions.c:233) returns the size of the page being written
+# (PageTable[WritePage]): the display's unless PAGE WRITE or FRAMEBUFFER WRITE chose another. The entry follows the code.
+=== MM.HRES
+MM.VRES
+--- keep
+Integers holding the horizontal and vertical resolution, in pixels, of the display in the current video mode (see MODE), or of the page or framebuffer being written to when PAGE WRITE or FRAMEBUFFER WRITE has selected another.
+
+=== MM.I2C
+--- keep
+Following an I^^2^^C write or read command this integer variable will be set to indicate the result of the operation as follows:
+{l=720}0 = The command completed without error.
+{l=720}1 = Received a NACK response
+{l=720}2 = Command timed out
+After I2C CHECK it is 0 if a device responded and non zero if none did.  See Appendix B.
+
+=== MM.INFO()
+MM.INFO$()
+--- keep
+MM.INFO returns information about the system: the keyword (or keywords) in the brackets says which, as listed in the rows below.  The two versions can be used interchangeably (MM.INFO$ is turned into MM.INFO when the line is entered) but good programming practice would require that you use the one corresponding to the returned datatype: MM.INFO$ where the value is a string.
+
+=+= MM.INFO$(DEVICE)
+MM.INFO(VERSION)
+MM.INFO(ERRNO)
+MM.INFO$(ERRMSG)
+MM.INFO(I2C)
+MM.INFO(ONEWIRE)
+MM.INFO(FONTHEIGHT)
+MM.INFO(FONTWIDTH)
+MM.INFO(HPOS)
+MM.INFO(VPOS)
+--- keep
+The same as MM.DEVICE$, MM.VER, MM.ERRNO, MM.ERRMSG$, MM.I2C, MM.ONEWIRE, MM.FONTHEIGHT, MM.FONTWIDTH, MM.HPOS and MM.VPOS.
+
+=+= MM.INFO(BBC BUFFER [n])
+--- keep
+The number of free slots in the PLAY BBC SOUND queue of channel ‘n’ (0 to 3), or in the emptiest of the four channels if ‘n’ is omitted.  Each channel queues up to 16 notes.
+
+=+= MM.INFO(BCOLOUR)
+MM.INFO(FCOLOUR)
+--- keep
+The current background and foreground colours (see COLOUR).  BCOLOR and FCOLOR are accepted too.
+
+=+= MM.INFO(CODE SIZE)
+--- keep
+The size, in bytes, of the program in program memory, as MMBasic prepared it when it was loaded (see LIST FLASH).
+
+# b14 (p67): MM.INFO$(CPUSPEED) "Returns the CPU speed as a string". The code returns an integer (MM_Misc.c:3093, and
+# so in the 6.00.00b7 baseline), so a$ = MM.INFO$(CPUSPEED) is a type error: b14's manual error. (The PicoMite returns
+# a string: a PicoMite program that assigns it to a string needs STR$.) The entry follows the code.
+=+= MM.INFO(CPUSPEED)
+--- keep
+The speed of the processor's clock in Hz, as a number: 400000000 for the Rev Y version of the STM32H743 and 480000000 for the Rev V (see the chapter Hardware Features), or 504000000 with OPTION OVERCLOCK ON.
+
+=+= MM.INFO$(CURRENT)
+MM.INFO$(PATH)
+MM.INFO$(DIRECTORY)
+--- keep
+MM.INFO$(CURRENT) is the full name of the file that the program in program memory was loaded from, with its drive and directory (eg, "A:/GAMES/PACMAN.BAS"), or "NONE" if there is no program (eg, after NEW).  This is the current program, which RUN, EDIT and LIST use when they are given no file name.
+MM.INFO$(PATH) is the drive and directory of that file, ending with a "/" (eg, "A:/GAMES/"), or "NONE".  A program can use it to find the files it needs relative to itself.
+MM.INFO$(DIRECTORY) is the current directory, with its drive and ending with a "/" (eg, "A:/GAMES/").  See also CWD$.
+
+=+= MM.INFO(DISK SIZE)
+MM.INFO(FREE SPACE)
+MM.INFO$(DRIVE)
+--- keep
+The size and the free space, in bytes, of the active drive (the SD card, or the USB flash drive when C: is the active drive), and the active drive itself: "A:" or "C:" (B:, the SD card's other name, is reported as "A:").  See DRIVE.
+
+# The PicoMite's EXISTS FILE returns -1 for a directory; here it is 0 (MM_Misc.c:2981).
+=+= MM.INFO(EXISTS FILE file$)
+MM.INFO(EXISTS DIR dir$)
+--- keep
+1 if the file ‘file$’ exists and 0 if it does not (or if ‘file$’ is a directory), and 1 if the directory ‘dir$’ exists and 0 if it does not.  The names can include a drive and a path.  A directory on C: is reported as not existing when no USB flash drive is plugged in.
+
+=+= MM.INFO(FILESIZE file$)
+MM.INFO$(MODIFIED file$)
+--- keep
+The size of the file ‘file$’ in bytes: -1 if it is not found and -2 if it is a directory.
+The date and time that ‘file$’ was last modified, as a string in the form "YYYY-MM-DD HH:MM:SS".  ‘file$’ can also be a directory.  It is an empty string if the file or directory is not found.
+
+=+= MM.INFO(FLASH ADDRESS n)
+--- keep
+The address of image slot ‘n’ (1 to 8), as FLASH LOAD IMAGE and FLASH DISK LOAD fill it: an image's first two 32-bit words are its width and height.  Slots 4 to 8 are the ones the Colour Maximite 2 provides.  Slots 1 to 3 (the PicoMite's flash slots), and a slot with nothing loaded, read as an empty slot whose width and height are zero.
+
+# b14 (p67) and the PicoMite manual: FONT ADDRESS is "the address of the memory location containing the address of FONT
+# n" and FONT POINTER "a POINTER to the start of FONT n". The code is the other way round, here (MM_Misc.c:2831-2841) and
+# on the PicoMite (core/MM_Misc.c:8634-8642): ADDRESS returns FontTable[n-1] (the font's data) and POINTER
+# &FontTable[n-1] (the table entry). A manual error in both manuals; the entry follows the code.
+=+= MM.INFO(FONT)
+MM.INFO(FONT ADDRESS n)
+MM.INFO(FONT POINTER n)
+--- keep
+The number of the current font (see FONT).
+The address in memory of the data of font ‘n’ (1 to 16, 0 if there is no such font), and (POINTER) the address of the entry of MMBasic's font table that holds that address.
+
+=+= MM.INFO(FRAMEBUFFER)
+MM.INFO(FRAMEH)
+MM.INFO(FRAMEV)
+--- keep
+The address in memory of the framebuffer made by FRAMEBUFFER CREATE (0 if there is none), and its width and height in pixels.  The address is useful if you need to PEEK or POKE its contents.  In the 4-bit colour depth FRAMEBUFFER makes the PicoMite's framebuffers, which are pages: use MM.INFO(WRITEBUFF) or MM.INFO(PAGE ADDRESS n) for them (see FRAMEBUFFER).
+
+=+= MM.INFO(HARDWARE)
+--- keep
+1 on a Generation 1 Colour Maximite 2 and 0 on a Generation 2.
+
+=+= MM.INFO(HEAP)
+MM.INFO(IHEAP)
+MM.INFO(SHEAP)
+MM.INFO(MINHEAP)
+--- keep
+The free space, in bytes, of the MMBasic heap, which holds strings, arrays, framebuffers and other buffers.  MM.INFO(HEAP) is the total of the heap in the processor's RAM, MM.INFO(IHEAP), and the heap in the SDRAM, MM.INFO(SHEAP) (which does not count the top 512KB of the SDRAM, kept for the code of a RAM library's CSUBs).  HEAPI and HEAPS are accepted as other names for IHEAP and SHEAP.  See the memory map in the chapter MMBasic Characteristics.
+MM.INFO(MINHEAP) is the lowest address that the heap in the SDRAM, which is used from the top down, has reached since it was last cleared (by RUN, NEW or loading a program).
+
+=+= MM.INFO$(ID)
+MM.INFO(ID48)
+--- keep
+The unique 12 byte ID of the processor as a string of 24 hexadecimal digits, and a 48-bit hash of it as an integer.  The hash is not guaranteed to be unique world wide but most likely is: it is suitable as a serial number for the device and fits in a CAN message.
+
+# b14 (p68): "CONNECTED" and "NOT CONNECTED". The code returns "Connected" and "Not Connected" (MM_Misc.c:3312), and
+# string comparisons respect case: b14's manual error. The entry follows the code.
+=+= MM.INFO$(KEYBOARD)
+--- keep
+"Connected" if a USB keyboard is connected and working, otherwise "Not Connected".
+
+=+= MM.INFO(LINES)
+--- keep
+The number of lines of source code in the program in program memory: the lines read from its file and its #INCLUDE files when it was loaded.
+
+=+= MM.INFO(MAX PAGES)
+MM.INFO(PAGE ADDRESS n)
+MM.INFO(WRITE PAGE)
+MM.INFO(WRITEBUFF)
+--- keep
+The highest page number that can be selected in the current video mode (see MODE and PAGE), and the address in memory of page ‘n’ (0 to MM.INFO(MAX PAGES)), which is useful to PEEK or POKE the contents of a page (see Video Memory in the chapter Video Modes and Pages).
+MM.INFO(WRITE PAGE) and MM.INFO(WRITEBUFF) (the PicoMite's name) are the address of the page that the drawing commands write to (see PAGE WRITE and FRAMEBUFFER WRITE).
+
+=+= MM.INFO(MODE)
+--- keep
+The current video mode and colour depth as a number: the mode, then the depth as its decimals (eg, 1.8 for MODE 1,8, 8.16 for MODE 8,16, 1.12 for MODE 1,12 and 7.4 for MODE 7,4).
+
+# CODE BUG: MM.INFO$(OPTION CONSOLE PORT) cannot be reached. fun_info (MM_Misc.c:3051) tests "CONSOLE" before
+# "CONSOLE PORT" (3080), and checkstring matches CONSOLE when a space follows it, so the key returns "Serial", "Screen" or
+# "Both". So in the 6.00.00b7 baseline too. The entry gives what b14 (p68) lists and the code intends: test CONSOLE PORT
+# first. Also MM.INFO$(OPTION CONSOLE) returns "Serial" after OPTION CONSOLE NONE (OptionConsole 0 falls to the else).
+=+= MM.INFO$(OPTION option)
+---
+The current setting of one of the options that affect how a program runs.  ‘option’ is one of:
+{l=720}ANGLE: "RADIANS" or "DEGREES" (see OPTION ANGLE)
+{l=720}AUTORUN: "On" or "Off"
+{l=720}BASE: 0 or 1 (a number)
+{l=720}BREAK: the character code of the break key (a number: 3 for Ctrl-C, 0 when it is disabled)
+{l=720}CONSOLE: "Serial", "Screen" or "Both"
+{l=720}CONSOLE PORT: the serial port the console uses, 1 to 3 (a number: see OPTION CONSOLE PORT)
+{l=720}DEFAULT: "Integer", "Float", "String" or "None"
+{l=720}EXPLICIT: "On" or "Off"
+{l=720}LEGACY: "On" or "Off"
+{l=720}MOUSE: the channel set by OPTION MOUSE (a number), or -1 when none is set
+{l=720}PROFILING: "On" or "Off"
+{l=720}USBKEYBOARD: the layout of the USB keyboard: "UK", "US", "DE", "FR", "ES", "BE" or "IT"
+{l=720}Y_AXIS: "UP" or "DOWN"
+
+=+= MM.INFO(OVERRUN)
+--- keep
+The number of samples that the last ADC START could not take because the next one was due before the conversion of the one before had finished: zero unless the sampling frequency was too high (see ADC).
+
+# b14 (p68): "INVALID, RESERVED, IN USE, and UNUSED". The code returns them in mixed case (MM_Misc.c:2802-2812), and
+# string comparisons respect case: b14's manual error. The entry follows the code.
+=+= MM.INFO$(PIN pinno)
+--- keep
+The status of I/O pin ‘pinno’ of the rear connector: "Unused", "In Use", "Reserved" (used by the Colour Maximite 2 itself) or "Invalid" (not an I/O pin).
+
+=+= MM.INFO$(PLATFORM)
+MM.INFO$(SYSTEM I2C)
+--- keep
+These are the PicoMite's.  On the Colour Maximite 2 both return an empty string, as a PicoMite with no OPTION PLATFORM and no OPTION SYSTEM I2C does, so that PicoMite programs that check them run.
+
+=+= MM.INFO(PROGRAM)
+MM.INFO(STACK)
+--- keep
+The address in memory of the start of program memory (in the flash memory, or in the SDRAM with OPTION RAM), and the current value of the processor's stack pointer.
+
+=+= MM.INFO(PSRAM SIZE)
+--- keep
+The size of the SDRAM in bytes: 8388608 (8MB) on a Generation 1 and 33554432 (32MB) on a Generation 2.  This is the PicoMite's key for its PSRAM, which PicoMite programs read to see whether they can use the image slots 4 to 8: on the Colour Maximite 2 they can (see FLASH LOAD IMAGE).
+
+# b14 (p68) also lists "Watchdog" (the processor's hardware watchdog). The code never returns it: main.c:773-775 reads
+# the pin, power-on and software reset flags only, and a WATCHDOG timeout is a software reset. b14's manual error.
+# CODE BUG: the string ends with a carriage return and line feed (main.c:773-775 copy "Switch\r\n", "Power-On\r\n" and
+# "Software\r\n" to bootcause), so MM.INFO$(RESET) = "Power-On" is false. The entry gives the words alone, as b14 does:
+# drop the "\r\n" in main.c. (So in the 6.00.00b7 baseline too.)
+=+= MM.INFO$(RESET)
+--- keep
+The cause of the last restart: "Power-On" (the power was applied), "Switch" (the reset switch was pressed) or "Software" (a restart by MMBasic: CPU RESTART, a WATCHDOG timeout, or an OPTION command that restarts the Colour Maximite 2).  It can be read once: afterwards it is an empty string.
+
+=+= MM.INFO(RTC)
+--- keep
+1 if an external DS3231 real time clock is in use (OPTION DS3231 ON), otherwise 0.
+
+=+= MM.INFO(SAMPLE PLAYING n)
+--- keep
+1 if channel ‘n’ (1 to 4) of PLAY MODSAMPLE is playing a sample, otherwise 0.
+
+# b14 (p68): "DISABLED, NOT PRESENT, READY, and UNUSED". The code (MM_Misc.c:3330) returns "Ready", "Not present" and
+# "Unused", never DISABLED, and string comparisons respect case: b14's manual error. The entry follows the code.
+=+= MM.INFO$(SDCARD)
+--- keep
+The status of the SD card: "Ready", "Not present" or "Unused" (a card is in the slot but has not been used yet).
+
+=+= MM.INFO$(SEARCH PATH)
+--- keep
+The directory set by OPTION SEARCH PATH, in which RUN at the command prompt looks for a program that is not in the current directory.
+
+# b14 (p68): SOUND returns OFF, PAUSED, TONE, WAV, MP3, MODFILE, TTS, FLAC, DAC or SOUND, and TRACK the track of a
+# directory. The code (MM_Misc.c:3282-3310) returns the PicoMite's strings (Peter, 16 Oct): MOD for MODFILE, PAUSED
+# followed by what is paused, and also ARRAY, SAMPLE and BBC; TRACK names a MOD file too. 15_sound.md agrees with the code.
+=+= MM.INFO$(SOUND)
+MM.INFO$(TRACK)
+--- keep
+What the audio output is doing: "OFF", "TONE", "WAV", "FLAC", "MP3", "MOD", "SOUND", "TTS", "ARRAY", "SAMPLE", "BBC" or "DAC" (the DAC command), or "PAUSED" followed by a space and what is paused (eg, "PAUSED WAV").
+The name of the WAV, FLAC, MP3 or MOD file that is playing (or paused), or "OFF".
+
+=+= MM.INFO(UPTIME)
+--- keep
+The time since the Colour Maximite 2 was restarted, in seconds, as a floating point number.
+
+=+= MM.INFO(VARCNT)
+--- keep
+The number of variables in use: the global variables and the local variables of the subroutines and functions that are running.  ERASE, CLEAR and the end of a subroutine or function lower it.
+
+# b14 lists 0 and 1; the PicoMite text had "2=Device timeout", which the CMM2's ONEWIRE never sets (Onewire.c:457).
+=== MM.ONEWIRE
+--- keep
+Following a 1-Wire reset (ONEWIRE RESET, or ONEWIRE READ or WRITE with a reset) this integer variable is set to 1 if a device responded and to 0 if none did.  See Appendix C.
+
+# b14 (p67): "aa.bbcc", eg 5.03.01 is 5.0301. The code (fun_version, Functions.c:183) adds a beta's number as two more
+# decimals and a release candidate's plus 50 (the PicoMite's): 7.00.00b1 is 7.000001. The entry follows the code.
+=== MM.VER
+--- keep
+The version number of the firmware as a floating point number in the form aa.bbccdd, where aa is the major version number, bb the minor version number, cc the revision number and dd the beta number (none for a release).  For example version 6.03.01 returns 6.0301 and version 7.00.00b1 returns 7.000001.  A release candidate's dd is its number plus 50 (6.04.00RC1 returns 6.040051), so it is above every beta of the same version.
+
+# CODE BUG: a program run by OPTION AUTORUN after a watchdog timeout reads MM.WATCHDOG as 0. main.c:818 sets
+# WatchdogSet at the restart, but the autorun is the command RUN (main.c:899) and RunStart (Commands.c:1324) clears
+# WatchdogSet at every RUN: only MM.STARTUP and the command prompt see 1. So in the 6.00.00b7 baseline too. The
+# PicoMite clears it at END instead (core/Commands.c:4102). The entry (and 07_using_mmbasic.md, Watchdog Timer) give the
+# intended behaviour, as b14 does: fix the code (clear it in NEW and END, not in RunStart).
+=== MM.WATCHDOG
+--- keep
+An integer which is true (1) if MMBasic was restarted as the result of a watchdog timeout (see the WATCHDOG command), otherwise false (0).

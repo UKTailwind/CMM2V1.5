@@ -2382,7 +2382,7 @@
    "handler": "cmd_pin",
    "line": 456,
    "subkeywords": [],
-   "where": "External.c:487"
+   "where": "External.c:488"
   },
   {
    "table": "command",
@@ -2398,109 +2398,109 @@
      "kw": "OFF",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1011,
+     "line": 1012,
      "via": []
     },
     {
      "kw": "0",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1011,
+     "line": 1012,
      "via": []
     },
     {
      "kw": "AIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1013,
+     "line": 1014,
      "via": []
     },
     {
      "kw": "DIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1015,
+     "line": 1016,
      "via": []
     },
     {
      "kw": "FIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1017,
+     "line": 1018,
      "via": []
     },
     {
      "kw": "PIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1019,
+     "line": 1020,
      "via": []
     },
     {
      "kw": "CIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1021,
+     "line": 1022,
      "via": []
     },
     {
      "kw": "INTH",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1023,
+     "line": 1024,
      "via": []
     },
     {
      "kw": "INTL",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1025,
+     "line": 1026,
      "via": []
     },
     {
      "kw": "DOUT",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1027,
+     "line": 1028,
      "via": []
     },
     {
      "kw": "OOUT",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1029,
+     "line": 1030,
      "via": []
     },
     {
      "kw": "INTB",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1031,
+     "line": 1032,
      "via": []
     },
     {
      "kw": "PULLUP",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1046,
+     "line": 1047,
      "via": []
     },
     {
      "kw": "PULLDOWN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1047,
+     "line": 1048,
      "via": []
     },
     {
      "kw": "OC",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1078,
+     "line": 1079,
      "via": []
     }
    ],
-   "where": "External.c:1006"
+   "where": "External.c:1007"
   },
   {
    "table": "command",
@@ -2512,7 +2512,7 @@
    "handler": "cmd_pulse",
    "line": 458,
    "subkeywords": [],
-   "where": "External.c:1112"
+   "where": "External.c:1113"
   },
   {
    "table": "command",
@@ -2525,7 +2525,7 @@
    "handler": "cmd_port",
    "line": 459,
    "subkeywords": [],
-   "where": "External.c:945"
+   "where": "External.c:946"
   },
   {
    "table": "command",
@@ -2541,18 +2541,18 @@
      "kw": "CLOSE",
      "func": "cmd_ir",
      "file": "External.c",
-     "line": 1198,
+     "line": 1199,
      "via": []
     },
     {
      "kw": "SEND",
      "func": "cmd_ir",
      "file": "External.c",
-     "line": 1202,
+     "line": 1203,
      "via": []
     }
    ],
-   "where": "External.c:1195"
+   "where": "External.c:1196"
   },
   {
    "table": "command",
@@ -2568,25 +2568,25 @@
      "kw": "U",
      "func": "cmd_sync",
      "file": "External.c",
-     "line": 1537,
+     "line": 1538,
      "via": []
     },
     {
      "kw": "M",
      "func": "cmd_sync",
      "file": "External.c",
-     "line": 1538,
+     "line": 1539,
      "via": []
     },
     {
      "kw": "S",
      "func": "cmd_sync",
      "file": "External.c",
-     "line": 1539,
+     "line": 1540,
      "via": []
     }
    ],
-   "where": "External.c:1523"
+   "where": "External.c:1524"
   },
   {
    "table": "command",
@@ -2602,25 +2602,25 @@
      "kw": "WS2812",
      "func": "cmd_bitbang",
      "file": "External.c",
-     "line": 1550,
+     "line": 1551,
      "via": []
     },
     {
      "kw": "DHT22",
      "func": "cmd_bitbang",
      "file": "External.c",
-     "line": 1555,
+     "line": 1556,
      "via": []
     },
     {
      "kw": "BITSTREAM",
      "func": "cmd_bitbang",
      "file": "External.c",
-     "line": 1560,
+     "line": 1561,
      "via": []
     }
    ],
-   "where": "External.c:1548"
+   "where": "External.c:1549"
   },
   {
    "table": "command",
@@ -2632,7 +2632,7 @@
    "handler": "cmd_humid",
    "line": 463,
    "subkeywords": [],
-   "where": "External.c:1568"
+   "where": "External.c:1569"
   },
   {
    "table": "command",
@@ -2644,7 +2644,7 @@
    "handler": "cmd_humid",
    "line": 464,
    "subkeywords": [],
-   "where": "External.c:1568"
+   "where": "External.c:1569"
   },
   {
    "table": "command",
@@ -2656,7 +2656,7 @@
    "handler": "cmd_ws2812",
    "line": 465,
    "subkeywords": [],
-   "where": "External.c:1569"
+   "where": "External.c:1570"
   },
   {
    "table": "command",
@@ -2668,7 +2668,7 @@
    "handler": "cmd_bitstream",
    "line": 466,
    "subkeywords": [],
-   "where": "External.c:1570"
+   "where": "External.c:1571"
   },
   {
    "table": "command",
@@ -2798,7 +2798,7 @@
      "kw": "OPEN",
      "func": "cmd_i2c1",
      "file": "I2C.c",
-     "line": 117,
+     "line": 110,
      "via": [
       "cmd_i2c"
      ]
@@ -2807,7 +2807,7 @@
      "kw": "CLOSE",
      "func": "cmd_i2c1",
      "file": "I2C.c",
-     "line": 119,
+     "line": 112,
      "via": [
       "cmd_i2c"
      ]
@@ -2816,7 +2816,7 @@
      "kw": "WRITE",
      "func": "cmd_i2c1",
      "file": "I2C.c",
-     "line": 121,
+     "line": 114,
      "via": [
       "cmd_i2c"
      ]
@@ -2825,7 +2825,7 @@
      "kw": "READ",
      "func": "cmd_i2c1",
      "file": "I2C.c",
-     "line": 123,
+     "line": 116,
      "via": [
       "cmd_i2c"
      ]
@@ -2834,13 +2834,13 @@
      "kw": "CHECK",
      "func": "cmd_i2c1",
      "file": "I2C.c",
-     "line": 125,
+     "line": 118,
      "via": [
       "cmd_i2c"
      ]
     }
    ],
-   "where": "I2C.c:111"
+   "where": "I2C.c:104"
   },
   {
    "table": "command",
@@ -2856,7 +2856,7 @@
      "kw": "OPEN",
      "func": "cmd_i2c2",
      "file": "I2C.c",
-     "line": 133,
+     "line": 126,
      "via": [
       "cmd_i2c_2"
      ]
@@ -2865,7 +2865,7 @@
      "kw": "CLOSE",
      "func": "cmd_i2c2",
      "file": "I2C.c",
-     "line": 135,
+     "line": 128,
      "via": [
       "cmd_i2c_2"
      ]
@@ -2874,7 +2874,7 @@
      "kw": "WRITE",
      "func": "cmd_i2c2",
      "file": "I2C.c",
-     "line": 137,
+     "line": 130,
      "via": [
       "cmd_i2c_2"
      ]
@@ -2883,7 +2883,7 @@
      "kw": "READ",
      "func": "cmd_i2c2",
      "file": "I2C.c",
-     "line": 139,
+     "line": 132,
      "via": [
       "cmd_i2c_2"
      ]
@@ -2892,13 +2892,13 @@
      "kw": "CHECK",
      "func": "cmd_i2c2",
      "file": "I2C.c",
-     "line": 141,
+     "line": 134,
      "via": [
       "cmd_i2c_2"
      ]
     }
    ],
-   "where": "I2C.c:112"
+   "where": "I2C.c:105"
   },
   {
    "table": "command",
@@ -2914,7 +2914,7 @@
      "kw": "OPEN",
      "func": "cmd_i2c3",
      "file": "I2C.c",
-     "line": 150,
+     "line": 143,
      "via": [
       "cmd_i2c_3"
      ]
@@ -2923,7 +2923,7 @@
      "kw": "CLOSE",
      "func": "cmd_i2c3",
      "file": "I2C.c",
-     "line": 152,
+     "line": 145,
      "via": [
       "cmd_i2c_3"
      ]
@@ -2932,7 +2932,7 @@
      "kw": "WRITE",
      "func": "cmd_i2c3",
      "file": "I2C.c",
-     "line": 154,
+     "line": 147,
      "via": [
       "cmd_i2c_3"
      ]
@@ -2941,7 +2941,7 @@
      "kw": "READ",
      "func": "cmd_i2c3",
      "file": "I2C.c",
-     "line": 156,
+     "line": 149,
      "via": [
       "cmd_i2c_3"
      ]
@@ -2950,13 +2950,13 @@
      "kw": "CHECK",
      "func": "cmd_i2c3",
      "file": "I2C.c",
-     "line": 158,
+     "line": 151,
      "via": [
       "cmd_i2c_3"
      ]
     }
    ],
-   "where": "I2C.c:113"
+   "where": "I2C.c:106"
   },
   {
    "table": "command",
@@ -3638,18 +3638,18 @@
      "kw": "STOP",
      "func": "cmd_DAC",
      "file": "MM_Custom.c",
-     "line": 560,
+     "line": 566,
      "via": []
     },
     {
      "kw": "START",
      "func": "cmd_DAC",
      "file": "MM_Custom.c",
-     "line": 565,
+     "line": 571,
      "via": []
     }
    ],
-   "where": "MM_Custom.c:551"
+   "where": "MM_Custom.c:557"
   },
   {
    "table": "command",
@@ -3665,39 +3665,39 @@
      "kw": "OPEN",
      "func": "cmd_ADC",
      "file": "MM_Custom.c",
-     "line": 312,
+     "line": 318,
      "via": []
     },
     {
      "kw": "START",
      "func": "cmd_ADC",
      "file": "MM_Custom.c",
-     "line": 422,
+     "line": 428,
      "via": []
     },
     {
      "kw": "CLOSE",
      "func": "cmd_ADC",
      "file": "MM_Custom.c",
-     "line": 487,
+     "line": 493,
      "via": []
     },
     {
      "kw": "TRIGGER",
      "func": "cmd_ADC",
      "file": "MM_Custom.c",
-     "line": 493,
+     "line": 499,
      "via": []
     },
     {
      "kw": "FREQUENCY",
      "func": "cmd_ADC",
      "file": "MM_Custom.c",
-     "line": 510,
+     "line": 516,
      "via": []
     }
    ],
-   "where": "MM_Custom.c:306"
+   "where": "MM_Custom.c:312"
   },
   {
    "table": "command",
@@ -3836,7 +3836,21 @@
      "via": []
     },
     {
+     "kw": "PEN COLOR",
+     "func": "cmd_turtle",
+     "file": "turtle.c",
+     "line": 794,
+     "via": []
+    },
+    {
      "kw": "PENCOLOR",
+     "func": "cmd_turtle",
+     "file": "turtle.c",
+     "line": 794,
+     "via": []
+    },
+    {
+     "kw": "PENCOLOUR",
      "func": "cmd_turtle",
      "file": "turtle.c",
      "line": 794,
@@ -4081,7 +4095,21 @@
      "via": []
     },
     {
+     "kw": "FILL COLOR",
+     "func": "cmd_turtle",
+     "file": "turtle.c",
+     "line": 925,
+     "via": []
+    },
+    {
      "kw": "FILLCOLOR",
+     "func": "cmd_turtle",
+     "file": "turtle.c",
+     "line": 925,
+     "via": []
+    },
+    {
+     "kw": "FILLCOLOUR",
      "func": "cmd_turtle",
      "file": "turtle.c",
      "line": 925,
@@ -4256,7 +4284,21 @@
      "via": []
     },
     {
+     "kw": "CURSOR COLOR",
+     "func": "cmd_turtle",
+     "file": "turtle.c",
+     "line": 996,
+     "via": []
+    },
+    {
      "kw": "CURSORCOLOR",
+     "func": "cmd_turtle",
+     "file": "turtle.c",
+     "line": 996,
+     "via": []
+    },
+    {
+     "kw": "CURSORCOLOUR",
      "func": "cmd_turtle",
      "file": "turtle.c",
      "line": 996,
@@ -4383,7 +4425,7 @@
      "kw": "N",
      "func": "cmd_autosave",
      "file": "MM_Misc.c",
-     "line": 3661,
+     "line": 3666,
      "via": []
     },
     {
@@ -4557,7 +4599,7 @@
      ]
     }
    ],
-   "where": "MM_Misc.c:3647"
+   "where": "MM_Misc.c:3652"
   },
   {
    "table": "command",
@@ -4573,364 +4615,364 @@
      "kw": "LOCAL VARIABLES",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2424,
+     "line": 2429,
      "via": []
     },
     {
      "kw": "TRACECACHE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2429,
+     "line": 2434,
      "via": []
     },
     {
      "kw": "CACHE SUB",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2429,
+     "line": 2434,
      "via": []
     },
     {
      "kw": "CACHE DEBUG",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2429,
+     "line": 2434,
      "via": []
     },
     {
      "kw": "SYMBOLS",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2433,
+     "line": 2438,
      "via": []
     },
     {
      "kw": "ON",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2439,
+     "line": 2444,
      "via": []
     },
     {
      "kw": "OFF",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2440,
+     "line": 2445,
      "via": []
     },
     {
      "kw": "BASE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2450,
+     "line": 2455,
      "via": []
     },
     {
      "kw": "ESCAPE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2457,
+     "line": 2462,
      "via": []
     },
     {
      "kw": "EXPLICIT",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2464,
+     "line": 2469,
      "via": []
     },
     {
      "kw": "DEFAULT",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2471,
+     "line": 2476,
      "via": []
     },
     {
      "kw": "INTEGER",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2473,
+     "line": 2478,
      "via": []
     },
     {
      "kw": "FLOAT",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2474,
+     "line": 2479,
      "via": []
     },
     {
      "kw": "STRING",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2475,
+     "line": 2480,
      "via": []
     },
     {
      "kw": "NONE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2476,
+     "line": 2481,
      "via": []
     },
     {
      "kw": "F11",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2479,
+     "line": 2484,
      "via": []
     },
     {
      "kw": "F12",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2489,
+     "line": 2494,
      "via": []
     },
     {
      "kw": "F15",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2503,
+     "line": 2508,
      "via": []
     },
     {
      "kw": "F16",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2503,
+     "line": 2508,
      "via": []
     },
     {
      "kw": "F19",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2503,
+     "line": 2508,
      "via": []
     },
     {
      "kw": "F20",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2503,
+     "line": 2508,
      "via": []
     },
     {
      "kw": "SEARCH PATH",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2514,
+     "line": 2519,
      "via": []
     },
     {
      "kw": "DISABLE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2517,
+     "line": 2522,
      "via": []
     },
     {
      "kw": "CRLF",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2531,
+     "line": 2536,
      "via": []
     },
     {
      "kw": "CR",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2535,
+     "line": 2540,
      "via": []
     },
     {
      "kw": "LF",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2536,
+     "line": 2541,
      "via": []
     },
     {
      "kw": "BREAK",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2539,
+     "line": 2544,
      "via": []
     },
     {
      "kw": "MILLISECONDS",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2544,
+     "line": 2549,
      "via": []
     },
     {
      "kw": "LEGACY",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2550,
+     "line": 2555,
      "via": []
     },
     {
      "kw": "AUTORUN",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2578,
+     "line": 2583,
      "via": []
     },
     {
      "kw": "STATUS",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2583,
+     "line": 2588,
      "via": []
     },
     {
      "kw": "CASE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2612,
+     "line": 2617,
      "via": []
     },
     {
      "kw": "LOWER",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2614,
+     "line": 2619,
      "via": []
     },
     {
      "kw": "UPPER",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2615,
+     "line": 2620,
      "via": []
     },
     {
      "kw": "TITLE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2616,
+     "line": 2621,
      "via": []
     },
     {
      "kw": "ANGLE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2618,
+     "line": 2623,
      "via": []
     },
     {
      "kw": "DEGREES",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2620,
+     "line": 2625,
      "via": []
     },
     {
      "kw": "RADIANS",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2621,
+     "line": 2626,
      "via": []
     },
     {
      "kw": "Y_AXIS",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2623,
+     "line": 2628,
      "via": []
     },
     {
      "kw": "UP",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2626,
+     "line": 2631,
      "via": []
     },
     {
      "kw": "DOWN",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2627,
+     "line": 2632,
      "via": []
     },
     {
      "kw": "TAB",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2631,
+     "line": 2636,
      "via": []
     },
     {
      "kw": "2",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2633,
+     "line": 2638,
      "via": []
     },
     {
      "kw": "3",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2634,
+     "line": 2639,
      "via": []
     },
     {
      "kw": "4",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2635,
+     "line": 2640,
      "via": []
     },
     {
      "kw": "8",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2636,
+     "line": 2641,
      "via": []
     },
     {
      "kw": "BAUDRATE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2638,
+     "line": 2643,
      "via": []
     },
     {
      "kw": "VCC",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2651,
+     "line": 2656,
      "via": []
     },
     {
      "kw": "PIN",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2661,
+     "line": 2666,
      "via": []
     },
     {
      "kw": "COLOURCODE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2671,
+     "line": 2676,
      "via": []
     },
     {
      "kw": "COLORCODE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2672,
+     "line": 2677,
      "via": []
     },
     {
      "kw": "REVERSE",
      "func": "cmd_option",
      "file": "MM_Misc.c",
-     "line": 2676,
+     "line": 2681,
      "via": []
     },
     {
@@ -5366,7 +5408,7 @@
      "kw": "9",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1581,
+     "line": 1578,
      "via": [
       "cmd_option"
      ]
@@ -5375,7 +5417,7 @@
      "kw": "10",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1584,
+     "line": 1581,
      "via": [
       "cmd_option"
      ]
@@ -5384,7 +5426,7 @@
      "kw": "11",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1587,
+     "line": 1584,
      "via": [
       "cmd_option"
      ]
@@ -5393,7 +5435,7 @@
      "kw": "12",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1590,
+     "line": 1587,
      "via": [
       "cmd_option"
      ]
@@ -5402,7 +5444,7 @@
      "kw": "14",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1593,
+     "line": 1590,
      "via": [
       "cmd_option"
      ]
@@ -5411,7 +5453,7 @@
      "kw": "15",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1596,
+     "line": 1593,
      "via": [
       "cmd_option"
      ]
@@ -5420,7 +5462,7 @@
      "kw": "16",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1599,
+     "line": 1596,
      "via": [
       "cmd_option"
      ]
@@ -5429,7 +5471,7 @@
      "kw": "18",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1602,
+     "line": 1599,
      "via": [
       "cmd_option"
      ]
@@ -5438,7 +5480,7 @@
      "kw": "CONSOLE",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1608,
+     "line": 1605,
      "via": [
       "cmd_option"
      ]
@@ -5447,7 +5489,7 @@
      "kw": "BOTH",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1612,
+     "line": 1609,
      "via": [
       "cmd_option"
      ]
@@ -5456,7 +5498,7 @@
      "kw": "SCREEN",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1637,
+     "line": 1634,
      "via": [
       "cmd_option"
      ]
@@ -5465,7 +5507,7 @@
      "kw": "PORT",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1640,
+     "line": 1637,
      "via": [
       "cmd_option"
      ]
@@ -5474,7 +5516,7 @@
      "kw": "SERIAL",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1644,
+     "line": 1641,
      "via": [
       "cmd_option"
      ]
@@ -5483,7 +5525,7 @@
      "kw": "SAVE",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1651,
+     "line": 1648,
      "via": [
       "cmd_option"
      ]
@@ -5492,13 +5534,13 @@
      "kw": "LIST",
      "func": "OtherOptions",
      "file": "MiscSTM32.c",
-     "line": 1657,
+     "line": 1654,
      "via": [
       "cmd_option"
      ]
     }
    ],
-   "where": "MM_Misc.c:2420"
+   "where": "MM_Misc.c:2425"
   },
   {
    "table": "command",
@@ -5564,53 +5606,53 @@
      "kw": "BYTE",
      "func": "cmd_poke",
      "file": "MM_Misc.c",
-     "line": 3422,
+     "line": 3427,
      "via": []
     },
     {
      "kw": "SHORT",
      "func": "cmd_poke",
      "file": "MM_Misc.c",
-     "line": 3432,
+     "line": 3437,
      "via": []
     },
     {
      "kw": "WORD",
      "func": "cmd_poke",
      "file": "MM_Misc.c",
-     "line": 3443,
+     "line": 3448,
      "via": []
     },
     {
      "kw": "INTEGER",
      "func": "cmd_poke",
      "file": "MM_Misc.c",
-     "line": 3454,
+     "line": 3459,
      "via": []
     },
     {
      "kw": "FLOAT",
      "func": "cmd_poke",
      "file": "MM_Misc.c",
-     "line": 3464,
+     "line": 3469,
      "via": []
     },
     {
      "kw": "VARTBL",
      "func": "cmd_poke",
      "file": "MM_Misc.c",
-     "line": 3478,
+     "line": 3483,
      "via": []
     },
     {
      "kw": "VAR",
      "func": "cmd_poke",
      "file": "MM_Misc.c",
-     "line": 3479,
+     "line": 3484,
      "via": []
     }
    ],
-   "where": "MM_Misc.c:3417"
+   "where": "MM_Misc.c:3422"
   },
   {
    "table": "command",
@@ -5623,17 +5665,24 @@
    "line": 493,
    "subkeywords": [
     {
+     "kw": "FAST",
+     "func": "cmd_settick",
+     "file": "MM_Misc.c",
+     "line": 2394,
+     "via": []
+    },
+    {
      "kw": "PAUSE",
      "func": "cmd_settick",
      "file": "MM_Misc.c",
-     "line": 2398,
+     "line": 2403,
      "via": []
     },
     {
      "kw": "RESUME",
      "func": "cmd_settick",
      "file": "MM_Misc.c",
-     "line": 2401,
+     "line": 2406,
      "via": []
     }
    ],
@@ -5653,11 +5702,11 @@
      "kw": "OFF",
      "func": "cmd_watchdog",
      "file": "MM_Misc.c",
-     "line": 3349,
+     "line": 3354,
      "via": []
     }
    ],
-   "where": "MM_Misc.c:3346"
+   "where": "MM_Misc.c:3351"
   },
   {
    "table": "command",
@@ -5673,11 +5722,11 @@
      "kw": "RESTART",
      "func": "cmd_cpu",
      "file": "MM_Misc.c",
-     "line": 3369,
+     "line": 3374,
      "via": []
     }
    ],
-   "where": "MM_Misc.c:3364"
+   "where": "MM_Misc.c:3369"
   },
   {
    "table": "command",
@@ -5701,7 +5750,7 @@
    "handler": "cmd_cfunction",
    "line": 497,
    "subkeywords": [],
-   "where": "MM_Misc.c:3379"
+   "where": "MM_Misc.c:3384"
   },
   {
    "table": "command",
@@ -6002,7 +6051,7 @@
    "handler": "cmd_JumpToBootloader",
    "line": 504,
    "subkeywords": [],
-   "where": "MM_Misc.c:2681"
+   "where": "MM_Misc.c:2686"
   },
   {
    "table": "command",
@@ -6014,7 +6063,7 @@
    "handler": "cmd_cfunction",
    "line": 505,
    "subkeywords": [],
-   "where": "MM_Misc.c:3379"
+   "where": "MM_Misc.c:3384"
   },
   {
    "table": "command",
@@ -6590,7 +6639,7 @@
      "kw": "CLOSE",
      "func": "cmd_spi1",
      "file": "SPI.c",
-     "line": 74,
+     "line": 73,
      "via": [
       "cmd_spi"
      ]
@@ -6599,7 +6648,7 @@
      "kw": "WRITE",
      "func": "cmd_spi1",
      "file": "SPI.c",
-     "line": 79,
+     "line": 78,
      "via": [
       "cmd_spi"
      ]
@@ -6608,7 +6657,7 @@
      "kw": "READ",
      "func": "cmd_spi1",
      "file": "SPI.c",
-     "line": 94,
+     "line": 93,
      "via": [
       "cmd_spi"
      ]
@@ -6617,13 +6666,13 @@
      "kw": "OPEN",
      "func": "cmd_spi1",
      "file": "SPI.c",
-     "line": 110,
+     "line": 112,
      "via": [
       "cmd_spi"
      ]
     }
    ],
-   "where": "SPI.c:372"
+   "where": "SPI.c:322"
   },
   {
    "table": "command",
@@ -6639,7 +6688,7 @@
      "kw": "CLOSE",
      "func": "cmd_spi2",
      "file": "SPI.c",
-     "line": 193,
+     "line": 194,
      "via": [
       "cmd_spi_2"
      ]
@@ -6648,7 +6697,7 @@
      "kw": "WRITE",
      "func": "cmd_spi2",
      "file": "SPI.c",
-     "line": 198,
+     "line": 199,
      "via": [
       "cmd_spi_2"
      ]
@@ -6657,7 +6706,7 @@
      "kw": "READ",
      "func": "cmd_spi2",
      "file": "SPI.c",
-     "line": 213,
+     "line": 214,
      "via": [
       "cmd_spi_2"
      ]
@@ -6666,13 +6715,13 @@
      "kw": "OPEN",
      "func": "cmd_spi2",
      "file": "SPI.c",
-     "line": 229,
+     "line": 233,
      "via": [
       "cmd_spi_2"
      ]
     }
    ],
-   "where": "SPI.c:373"
+   "where": "SPI.c:323"
   },
   {
    "table": "command",
@@ -8424,7 +8473,7 @@
    "handler": "fun_pin",
    "line": 592,
    "subkeywords": [],
-   "where": "External.c:525"
+   "where": "External.c:526"
   },
   {
    "table": "token",
@@ -8437,7 +8486,7 @@
    "handler": "fun_port",
    "line": 593,
    "subkeywords": [],
-   "where": "External.c:978"
+   "where": "External.c:979"
   },
   {
    "table": "token",
@@ -8450,7 +8499,7 @@
    "handler": "fun_distance",
    "line": 594,
    "subkeywords": [],
-   "where": "External.c:1833"
+   "where": "External.c:1836"
   },
   {
    "table": "token",
@@ -8463,7 +8512,7 @@
    "handler": "fun_pulsin",
    "line": 595,
    "subkeywords": [],
-   "where": "External.c:1157"
+   "where": "External.c:1158"
   },
   {
    "table": "token",
@@ -10080,7 +10129,7 @@
    "handler": "fun_json",
    "line": 645,
    "subkeywords": [],
-   "where": "MM_Misc.c:4236"
+   "where": "MM_Misc.c:4241"
   },
   {
    "table": "token",
@@ -10293,88 +10342,88 @@
      "kw": "BYTE",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3522,
+     "line": 3527,
      "via": []
     },
     {
      "kw": "INT8",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3522,
+     "line": 3527,
      "via": []
     },
     {
      "kw": "VARADDR",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3529,
+     "line": 3534,
      "via": []
     },
     {
      "kw": "VARHEADER",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3537,
+     "line": 3542,
      "via": []
     },
     {
      "kw": "CFUNADDR",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3545,
+     "line": 3550,
      "via": []
     },
     {
      "kw": "WORD",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3564,
+     "line": 3569,
      "via": []
     },
     {
      "kw": "SHORT",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3570,
+     "line": 3575,
      "via": []
     },
     {
      "kw": "INTEGER",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3576,
+     "line": 3581,
      "via": []
     },
     {
      "kw": "FLOAT",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3583,
+     "line": 3588,
      "via": []
     },
     {
      "kw": "VARTBL",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3593,
+     "line": 3598,
      "via": []
     },
     {
      "kw": "PROGMEM",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3594,
+     "line": 3599,
      "via": []
     },
     {
      "kw": "VAR",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3601,
+     "line": 3606,
      "via": []
     }
    ],
-   "where": "MM_Misc.c:3518"
+   "where": "MM_Misc.c:3523"
   },
   {
    "table": "token",
@@ -10448,564 +10497,564 @@
      "kw": "PIN",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2797,
+     "line": 2802,
      "via": []
     },
     {
      "kw": "FLASH ADDRESS",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2809,
+     "line": 2814,
      "via": []
     },
     {
      "kw": "WRITEBUFF",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2815,
+     "line": 2820,
      "via": []
     },
     {
      "kw": "PAGE ADDRESS",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2820,
+     "line": 2825,
      "via": []
     },
     {
      "kw": "FONT ADDRESS",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2826,
+     "line": 2831,
      "via": []
     },
     {
      "kw": "FONT POINTER",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2832,
+     "line": 2837,
      "via": []
     },
     {
      "kw": "FRAMEBUFFER",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2838,
+     "line": 2843,
      "via": []
     },
     {
      "kw": "SAMPLE PLAYING",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2844,
+     "line": 2849,
      "via": []
     },
     {
      "kw": "UPTIME",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2850,
+     "line": 2855,
      "via": []
     },
     {
      "kw": "FILESIZE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2856,
+     "line": 2861,
      "via": []
     },
     {
      "kw": "EXISTS DIR",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2895,
+     "line": 2900,
      "via": []
     },
     {
      "kw": "EXISTS FILE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2942,
+     "line": 2947,
      "via": []
     },
     {
      "kw": "DIRECTORY",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2981,
+     "line": 2986,
      "via": []
     },
     {
      "kw": "MODIFIED",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 2990,
+     "line": 2995,
      "via": []
     },
     {
      "kw": "OPTION",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3035,
+     "line": 3040,
      "via": []
     },
     {
      "kw": "ANGLE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3037,
+     "line": 3042,
      "via": []
     },
     {
      "kw": "Y_AXIS",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3040,
+     "line": 3045,
      "via": []
     },
     {
      "kw": "AUTORUN",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3043,
+     "line": 3048,
      "via": []
     },
     {
      "kw": "CONSOLE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3046,
+     "line": 3051,
      "via": []
     },
     {
      "kw": "EXPLICIT",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3050,
+     "line": 3055,
      "via": []
     },
     {
      "kw": "LEGACY",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3053,
+     "line": 3058,
      "via": []
     },
     {
      "kw": "PROFILING",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3056,
+     "line": 3061,
      "via": []
     },
     {
      "kw": "USBKEYBOARD",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3059,
+     "line": 3064,
      "via": []
     },
     {
      "kw": "DEFAULT",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3061,
+     "line": 3066,
      "via": []
     },
     {
      "kw": "BASE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3066,
+     "line": 3071,
      "via": []
     },
     {
      "kw": "MOUSE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3071,
+     "line": 3076,
      "via": []
     },
     {
      "kw": "CONSOLE PORT",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3075,
+     "line": 3080,
      "via": []
     },
     {
      "kw": "BREAK",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3079,
+     "line": 3084,
      "via": []
     },
     {
      "kw": "CPUSPEED",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3088,
+     "line": 3093,
      "via": []
     },
     {
      "kw": "MODE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3091,
+     "line": 3096,
      "via": []
     },
     {
      "kw": "DEVICE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3094,
+     "line": 3099,
      "via": []
     },
     {
      "kw": "SEARCH PATH",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3100,
+     "line": 3105,
      "via": []
     },
     {
      "kw": "PLATFORM",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3102,
+     "line": 3107,
      "via": []
     },
     {
      "kw": "SYSTEM I2C",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3102,
+     "line": 3107,
      "via": []
     },
     {
      "kw": "VERSION",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3104,
+     "line": 3109,
      "via": []
     },
     {
      "kw": "DISK SIZE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3111,
+     "line": 3116,
      "via": []
     },
     {
      "kw": "FREE SPACE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3120,
+     "line": 3125,
      "via": []
     },
     {
      "kw": "FONTWIDTH",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3129,
+     "line": 3134,
      "via": []
     },
     {
      "kw": "FONTHEIGHT",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3132,
+     "line": 3137,
      "via": []
     },
     {
      "kw": "HPOS",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3135,
+     "line": 3140,
      "via": []
     },
     {
      "kw": "VPOS",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3138,
+     "line": 3143,
      "via": []
     },
     {
      "kw": "OVERRUN",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3141,
+     "line": 3146,
      "via": []
     },
     {
      "kw": "FRAMEH",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3144,
+     "line": 3149,
      "via": []
     },
     {
      "kw": "ONEWIRE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3147,
+     "line": 3152,
      "via": []
     },
     {
      "kw": "I2C",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3150,
+     "line": 3155,
      "via": []
     },
     {
      "kw": "FCOLOUR",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3153,
+     "line": 3158,
      "via": []
     },
     {
      "kw": "FCOLOR",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3153,
+     "line": 3158,
      "via": []
     },
     {
      "kw": "BCOLOUR",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3156,
+     "line": 3161,
      "via": []
     },
     {
      "kw": "BCOLOR",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3156,
+     "line": 3161,
      "via": []
     },
     {
      "kw": "FONT",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3159,
+     "line": 3164,
      "via": []
     },
     {
      "kw": "RTC",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3162,
+     "line": 3167,
      "via": []
     },
     {
      "kw": "LINES",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3165,
+     "line": 3170,
      "via": []
     },
     {
      "kw": "HARDWARE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3183,
+     "line": 3188,
      "via": []
     },
     {
      "kw": "ERRNO",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3186,
+     "line": 3191,
      "via": []
     },
     {
      "kw": "ERRMSG",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3189,
+     "line": 3194,
      "via": []
     },
     {
      "kw": "FRAMEV",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3192,
+     "line": 3197,
      "via": []
     },
     {
      "kw": "STACK",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3195,
+     "line": 3200,
      "via": []
     },
     {
      "kw": "WRITE PAGE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3198,
+     "line": 3203,
      "via": []
     },
     {
      "kw": "PROGRAM",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3201,
+     "line": 3206,
      "via": []
     },
     {
      "kw": "MAX PAGES",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3204,
+     "line": 3209,
      "via": []
     },
     {
      "kw": "DRIVE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3207,
+     "line": 3212,
      "via": []
     },
     {
      "kw": "CURRENT",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3209,
+     "line": 3214,
      "via": []
     },
     {
      "kw": "PATH",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3214,
+     "line": 3219,
      "via": []
     },
     {
      "kw": "CODE SIZE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3222,
+     "line": 3227,
      "via": []
     },
     {
      "kw": "VARCNT",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3235,
+     "line": 3240,
      "via": []
     },
     {
      "kw": "MINHEAP",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3238,
+     "line": 3243,
      "via": []
     },
     {
      "kw": "PSRAM SIZE",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3241,
+     "line": 3246,
      "via": []
     },
     {
      "kw": "HEAP",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3244,
+     "line": 3249,
      "via": []
     },
     {
      "kw": "IHEAP",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3255,
+     "line": 3260,
      "via": []
     },
     {
      "kw": "HEAPI",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3255,
+     "line": 3260,
      "via": []
     },
     {
      "kw": "SHEAP",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3263,
+     "line": 3268,
      "via": []
     },
     {
      "kw": "HEAPS",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3263,
+     "line": 3268,
      "via": []
     },
     {
      "kw": "RESET",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3271,
+     "line": 3276,
      "via": []
     },
     {
      "kw": "BBC BUFFER",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3274,
+     "line": 3279,
      "via": []
     },
     {
      "kw": "TRACK",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3277,
+     "line": 3282,
      "via": []
     },
     {
      "kw": "SOUND",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3281,
+     "line": 3286,
      "via": []
     },
     {
      "kw": "KEYBOARD",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3306,
+     "line": 3311,
      "via": []
     },
     {
      "kw": "ID",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3309,
+     "line": 3314,
      "via": []
     },
     {
      "kw": "ID48",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3320,
+     "line": 3325,
      "via": []
     },
     {
      "kw": "SDCARD",
      "func": "fun_info",
      "file": "MM_Misc.c",
-     "line": 3325,
+     "line": 3330,
      "via": []
     }
    ],
-   "where": "MM_Misc.c:2793"
+   "where": "MM_Misc.c:2798"
   },
   {
    "table": "token",
@@ -11148,7 +11197,7 @@
    "handler": "fun_spi",
    "line": 672,
    "subkeywords": [],
-   "where": "SPI.c:158"
+   "where": "SPI.c:160"
   },
   {
    "table": "token",
@@ -11161,7 +11210,7 @@
    "handler": "fun_spi2",
    "line": 673,
    "subkeywords": [],
-   "where": "SPI.c:278"
+   "where": "SPI.c:282"
   },
   {
    "table": "token",

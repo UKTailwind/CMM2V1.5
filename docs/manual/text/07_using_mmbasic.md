@@ -214,7 +214,7 @@ Some points to note:
 - You can see what is in the library by using the LIBRARY LIST command which will list the contents of the library space.
 - The library can be saved to a file using LIBRARY DISK SAVE fname$ and restored using LIBRARY DISK LOAD fname$.
 
-To delete the routines in the library space you use the LIBRARY DELETE command. This will clear the space and return the flash used by the library back to being available for normal programs. The only other way to delete a library is to use OPTION RESET.
+To delete the routines in the library space you use the LIBRARY DELETE command. This will clear the space and return the flash used by the library back to being available for normal programs. OPTION RESET does not delete the library.
 
 A program can install its own library with LIBRARY LOAD fname$, which reads one or more BASIC source files (up to eight) and makes them the library. This is intended for programs that are distributed with a library of their own: the library becomes part of the program rather than something that must be installed first. The command must be the first statement in the program and the program is restarted once the library has been installed, so that the library's initialisation code runs before the program proper. Because the command remembers a hash of the source files it will do nothing at all when the library already matches, so it is safe to leave at the top of a program permanently.
 
@@ -267,6 +267,6 @@ Note that while constants can be defined, they will not be visible because a con
 
 ## MM.END
 
-If a subroutine named MM.END exists in the program it will be executed whenever the program ends with an actual or implied END command. It is not executed if the program ends with a Ctrl-C.
+If a subroutine named MM.END exists in the program it will be executed whenever the program ends with an END command. It is not executed if the program simply runs off its last line, or ends with an error or a Ctrl-C.
 
 The optional parameter 'noend' to the END command can be used to block execution of the MM.END subroutine if needed (see the END command for more information).

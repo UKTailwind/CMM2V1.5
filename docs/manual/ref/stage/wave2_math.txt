@@ -1,0 +1,322 @@
+# MATH: staged reference entries for docs/manual/ref/commands.txt (MATH, lines 1348-1658) and functions.txt
+# (MATH(, lines 525-678), checked against Src/MATHS.c (7.00.00b1) and the b14 manual (pages 103-108, 143-146).
+# Every sub-keyword firmware.json lists for cmd_math and fun_math has an entry; the manual had three functions the
+# code lacks (MATH(C_AND, C_OR, C_XOR): only commands on arrays), named C_CARG as C_ARG, and lacked C_EXP, C_LOG,
+# C_SQRT and C_ABS.  Rows not named below were checked and are right as they are.
+
+# MATHS.c:2695-2710: with no n the seed is get_rand_32() & 0x7FFFFFFF, the HAL RNG (MATHS.c:50-54), not the time;
+# a negative n is "Number out of bounds" (2704); n goes into an int (2701).  n = 0 is accepted, but the seeding
+# (m_seedRand, MATHS.c:145-153) then fills the state with zeros and MATH(RAND) returns 0 for ever (reported), so the
+# usable range is given.  The RP2350 note goes.  MATH(RAND) repeats its sequence after RANDOMIZE n (MATH_Update_Plan).
+# ACTION REPLACE commands.txt 1353 "=+= {b=0 a=0}MATH RANDOMIZE [n]"
+=+= {b=0 a=0}MATH RANDOMIZE [n]
+--- tight
+{b=0 a=0}Seeds the Mersenne Twister algorithm used by MATH(RAND). \nIf n is not specified the seed is a number from the hardware random number generator.  Otherwise ‘n’ is 1 to 2147483647, and the same ‘n’ always gives the same sequence of numbers.\nThe Mersenne Twister algorithm gives a much better random number than the C-library inbuilt function.
+{b=0 a=0}
+{b=0 a=0}
+
+# MATHS.c:1549 and 1572-1594: the copy without multiplying is taken when the scale is 1; the entry has no "b".
+# ACTION REPLACE commands.txt 1368 "=+= {b=0 a=0}MATH SCALE in(), scale ,out()"
+=+= {b=0 a=0}MATH SCALE in(), scale ,out()
+--- tight
+{b=0}This scales the matrix in() by the scalar scale and puts the answer in out(). Works for arrays of any dimensionality of both integer and float and can convert between. Setting ‘scale’ to 1 is optimised and is the fastest way of copying an entire array.
+{b=0}
+
+# MATHS.c:2152-2166: all three are floating point arrays (parsefloatarray) and out() may not be an input
+# ("Destination array same as source"); the stray "c" after out() goes.
+# ACTION REPLACE commands.txt 1450 "=+= {b=0 a=0}MATH M_MULT in1(), in2(), out()"
+=+= {b=0 a=0}MATH M_MULT in1(), in2(), out()
+--- tight
+{b=0 a=0}Multiply the arrays in1() and in2() and put the answer in out(). All arrays must be 2D floating point arrays but need not be square, and out() must be a different array from in1() and in2(). If not square then the arrays must be dimensioned  in1(m,n) in2(p,m) ,out(p,n)
+{b=0 a=0}
+{b=0 a=0 z=20}
+{b=0 a=0 z=20}
+
+# MATHS.c:2002-2045: HEX is a keyword (anything else is "Invalid syntax"), for an integer array only ("Trying to
+# print a float in HEX"); the array must be one-dimensional (parsenumberarray with dimensions 1).
+# ACTION REPLACE commands.txt 1461 "=+= {b=0 a=0}MATH V_PRINT array() [,hex]"
+=+= {b=0 a=0}MATH V_PRINT array() [,HEX]
+--- tight
+{b=0 a=0}Quick mechanism to print a small one-dimensional array on a single line.  HEX prints the values in hexadecimal (integer arrays only).
+{b=0 a=0}
+{b=0 a=0}
+
+# MATHS.c:2349: theta is divided by optionangle, so it respects OPTION ANGLE (the b14 manual said so too, p105).
+# ACTION REPLACE commands.txt 1504 "=+= {b=0 a=0}MATH Q_CREATE theta, x, y, z, outRQ()"
+=+= {b=0 a=0}MATH Q_CREATE theta, x, y, z, outRQ()
+--- tight
+{b=0 a=0}Generates a normalised rotation quaternion outRQ() to rotate quaternion vectors around axis x,y,z by an angle of theta. Theta is specified in radians but respects the setting of OPTION ANGLE.
+{b=0 a=0 z=32}
+
+# MATHS.c:2391-2392: three arguments; the comma before RQ() would make it four ("Argument count").
+# ACTION REPLACE commands.txt 1521 "=+= {b=0 a=0}MATH Q_ROTATE , RQ(), inVQ(), outVQ()"
+=+= {b=0 a=0}MATH Q_ROTATE RQ(), inVQ(), outVQ()
+--- tight
+{b=0 a=0}Rotates the source quaternion vector inVQ() by the rotate quaternion RQ() and puts the answer in outVQ()
+
+# MATHS.c:1723-1728: C_MULT is taken as well as C_MUL.  1855-1859: an integer C_DIV is "Divide by zero" for a zero
+# divisor and truncates (C division).  1759, 1781, 1803: C_AND/C_OR/C_XOR of float arrays cast each value to an
+# integer (int64_t) and back.  1057-1058: "Arrays must be all integer or all floating point".
+# ACTION REPLACE commands.txt 1525 "=== MATH C_ADD array1(), array2(), array3()"
+=== MATH C_ADD array1(), array2(), array3()
+MATH C_SUB array1(), array2(), array3()
+MATH C_MUL array1(), array2(), array3()
+MATH C_DIV array1(), array2(), array3()
+MATH C_AND array1(), array2(), array3()
+MATH C_OR array1(), array2(), array3()
+MATH C_XOR array1(), array2(), array3()
+--- keep wide
+These commands do cell by cell operations on arrays.
+array1 and array2 are the parameters and array3 is the output. All arrays must be the same size and the same type (float or integer).
+There are no restrictions on the number of dimensions and no restrictions on using the same array twice or even three times in the parameters. 
+eg,	MATH C_MUL a%(),a%(),a%()\n	will square all the values in the array a%()
+C_MULT is another name for C_MUL.  C_DIV of integer arrays gives whole numbers (the remainder is dropped) and an error if a divisor is zero.  C_AND, C_OR and C_XOR of floating point arrays work on the whole number part of each value.
+
+# MATHS.c:4083-4089: the size is a power of 2 from 2 to 32768 (the loop stops below 65536; anything else is
+# "array size must be a power of 2, at least 2").  4078-4079: the FFT array is 2 x n.
+# ACTION REPLACE commands.txt 1538 "=== MATH FFT signalarray!(), FFTarray!()"
+=== MATH FFT signalarray!(), FFTarray!()
+{}
+--- keep
+Performs a fast fourier transform of the data in “signalarray!”. "signalarray" must be floating point and the size must be a power of 2 from 2 to 32768 (eg, s(1023) assuming OPTION BASE is zero)
+"FFTarray" must be floating point and have dimension 2\*N where N is the same as the signal array (eg, f(1,1023) assuming OPTION BASE is zero)
+The command will return the FFT as complex numbers with the real part in f(0,n) and the imaginary part in f(1,n)
+
+# MATHS.c:4056-4062: N is a power of 2 from 2 to 32768.
+# ACTION REPLACE commands.txt 1545 "=== MATH FFT INVERSE FFTarray!(), signalarray!()"
+=== MATH FFT INVERSE FFTarray!(), signalarray!()
+--- keep
+Performs an inverse fast fourier transform of the data in “FFTarray!”. "FFTarray" must be floating point and have dimension 2\*N where N must be a power of 2 from 2 to 32768 (eg, f(1,1023) assuming OPTION BASE is zero) with the real part in f(0,n) and the imaginary part in f(1,n). 
+"signalarray" must be floating point and the single dimension must be the same as the FFT array.
+The command will return the real part of the inverse transform in "signalarray".
+
+# MATHS.c:3996-4002: the size is a power of 2 from 2 to 32768.
+# ACTION REPLACE commands.txt 1551 "=== MATH FFT MAGNITUDE signalarray!(),magnitudearray!()"
+=== MATH FFT MAGNITUDE signalarray!(),magnitudearray!()
+{}
+---
+Generates magnitudes for frequencies for the data in “signalarray!” 
+"signalarray" must be floating point and the size must be a power of 2 from 2 to 32768 (eg, s(1023) assuming OPTION BASE is zero).  "magnitudearray" must be floating point and the size must be the same as the signal array
+The command will return the magnitude of the signal at various frequencies according to the formula:
+frequency at array position N = N \* sample_frequency / number_of_samples
+
+# MATHS.c:4024-4030: the size is a power of 2 from 2 to 32768; 4041: the phase is carg(), in radians whatever
+# OPTION ANGLE.
+# ACTION REPLACE commands.txt 1559 "=== MATH FFT PHASE signalarray!(), phasearray!()"
+=== MATH FFT PHASE signalarray!(), phasearray!()
+{}
+--- keep
+Generates phases for frequencies for the data in “signalarray!”. 
+"signalarray" must be floating point and the size must be a power of 2 from 2 to 32768 (eg, s(1023) assuming OPTION BASE is zero).  "phasearray" must be floating point and the size must be the same as the signal array
+The command will return the phase angle (in radians) of the signal at various frequencies according to the formula above.
+
+# MATHS.c:4103-4105 and 4160-4162: at least 23 arguments, so mx, my and mz may be empty but their commas stay;
+# 4125-4135 and 4182-4192: the 6-axis update is used when mx is empty.  4121-4123 and 4178-4180: the gyro rates are
+# divided by optionangle; 4363-4374 and 4477-4488: the angles are multiplied by it (OPTION ANGLE, as the PicoMite now
+# does: MATH_Update_Plan 1c.2).  4148-4154: the time is AHRSTimer, the 1 ms tick (Timers.c:156), capped at 1 s.
+# "fusion will may slow drift" mended.
+# ACTION REPLACE commands.txt 1566 "=== MATH SENSORFUSION type ax, ay, az, gx, gy, gz, [mx, my, mz, ] pitch, roll, yaw [,p1] [,p2]"
+=== MATH SENSORFUSION type ax, ay, az, gx, gy, gz, [mx], [my], [mz], pitch, roll, yaw [,p1] [,p2]
+---
+Type can be MAHONY or MADGWICK
+Ax, ay, and az are the accelerations in the three directions and should be specified in units of standard gravitational acceleration.  
+Gx, gy, and gz are the instantaneous values of  rotational speed which should be specified in radians per second, or in degrees per second under OPTION ANGLE DEGREES.
+Mx, my, and mz are the magnetic fields in the three directions and should be specified in nano-Tesla (nT). They can be omitted, keeping their commas (eg, gz, , , , pitch), in which case the fusion uses only the accelerometer and gyroscope and the yaw may slowly drift, but this allows sensors like the MPU-6050 to be used.  The magnetometer is used when mx is given.
+Care must be taken to ensure that the x, y and z components are consistent between the three inputs. So , for example, using the MPU-9250 the correct input will be ax, ay,az, gx, gy, gz, my, mx, -mz based on the reading from the sensor.
+Pitch, roll and yaw should be floating point variables and will contain the outputs from the sensor fusion, in radians, or in degrees under OPTION ANGLE DEGREES.
+The SENSORFUSION routine will automatically measure the time between consecutive calls (in milliseconds, and at most one second) and will use this in its internal calculations.
+The Madgwick algorithm takes an optional parameter p1. This is used as beta in the calculation. It defaults to 0.5 if not specified
+The Mahony algorithm takes two optional parameters p1, and p2. These are used as Kp and Ki in the calculation. If not specified these default to 10.0 and 0.0 respectively.
+A fully worked example of using the code is given on the BackShed forum at: <<https://www.thebackshed.com/forum/ViewTopic.php?TID=13459&PID=166962%23166962|https://www.thebackshed.com/forum/ViewTopic.php?TID=13459&PID=166962#166962>>
+
+# MATHS.c:1482-1520: 7 or 8 arguments; n 1-10000 (1486), m 1-20000 (1495), window 3-101 (1490, 1496), freq
+# "Frequency must be >0 and <=0.5" (1500-1501); the arrays are 1D float with at least n (inputs) or m (outputs)
+# elements ("Array size").  MATHS.c:986-1004: interpolation needs n > 1 (with n = 1 nothing is done, silently:
+# reported), assumes evenly spaced x, and fills x_out() with evenly spaced x values.
+# ACTION REPLACE commands.txt 1579 "=== MATH SINC x_in(), y_in(), n , m, window, freq, x_out(), y_out()"
+=== MATH SINC x_in(), y_in(), n , m, window, freq, x_out(), y_out()
+{}
+MATH SINC x_in(), y_in(), n, window, freq, x_out(), y_out()
+---
+Apply a windowed sinc filter to smooth or interpolate coordinate data.
+A sinc filter is an ideal low-pass filter that removes high-frequency noise while preserving the signal shape. It is particularly good for resampling (interpolation).
+{a=0}Parameters:
+{t=l1909 b=20 l=1911 h=1701}x_in(), y_in()	Input coordinate arrays (float, one-dimensional, with at least n elements)
+{t=l1909 l=1909 h=1701}n	Number of input points, 1 to 10000
+{t=l1909 l=1909 h=1701}m	Number of output points (optional), 1 to 20000.  If omitted or m=n: Smoothing mode (output size n).  If m!=n: Interpolation/Resampling mode (output size m); n must then be at least 2, the input points are taken to be evenly spaced in x, and x_out() is set to m evenly spaced values from the first x_in() to the last.
+{t=l1909 l=1909 h=1701}window	Filter kernel size, 3 to 101 (must be odd; even values are incremented).  Typical values: 15 to 101. Larger values give a sharper cutoff but are slower.
+{t=l1909 l=1909 h=1701}freq	Normalized cutoff frequency (0.0 < freq <= 0.5).  0.5 is the Nyquist frequency (no filtering).  Typical values: 0.1 (heavy smoothing) to 0.4 (light smoothing).
+{t=l1909 l=1909 h=1701} x_out(), y_out()	Output coordinate arrays (float, one-dimensional, with at least as many elements as the output)
+
+# Inc/MATHS.h:50: MAXPID is 16 on the CMM2 (the PicoMite's configuration.h:674 has 8), and START, STOP, INIT and
+# MATH(PID take getint(.., 1, MAXPID) (MATHS.c:2496, 2505, 2517, 2822).  2518-2521: "Argument 2 must be a 14 element
+# floating point array"; 2523-2524: T < 0.001 is "Invalid update rate"; 2519: RequireGlobal ("Must be a global
+# variable").  The left cell is copied as it is.
+# ACTION REPLACE commands.txt 1593 "=== MATH PID INIT channel, pid_params!(), callback"
+=== MATH PID INIT channel, pid_params!(), callback
+{}
+ 
+{}
+ 
+{}
+ 
+{}
+ 
+{}
+ 
+{}
+{z=18} 
+{z=18}
+{z=18} 
+{z=18}
+{}
+{}
+{z=24} 
+{z=24}
+{z=18} 
+{z=18}
+{z=18}
+{}
+MATH PID START channel
+ 
+MATH PID STOP channel
+---
+This command sets up a PID controller that can work automatically in the background. Up to 16 PID controllers can run simultaneously (channels 1 to 16).
+‘callback’ is a MMbasic subroutine which is called at the rate defined by the sample time. See the MATH(PID …) function for details of what should be included in the subroutine.
+The pid_params!() array must be dimensioned for all the listed elements, including the controller memory parameters (14 elements, eg, DIM pid_params!(13) with OPTION BASE 0) and be initialised with the required settings.  The sample time T must be at least 0.001 seconds.
+‘pid_params!()’ must be global (or STATIC), not LOCAL, as it is used and updated in the background.
+{l=342}PID configuration
+{l=684}Element 0 =  Kp
+{l=684}Element 1 =  Ki
+{l=684}Element 2 =  Kd
+{l=684}Element 3 =  tau ' Derivative low-pass filter time constant
+{l=684}Element 4 =  limMin 'Output limits
+{l=684}Element 5 =  limMax
+{l=684}Element 6 =  limMinInt 'Integrator limits
+{l=684}Element 7 =  limMaxInt
+{l=684}Element 8 =  T 'Sample time (in seconds)
+{l=342}Controller "memory"
+{l=684}Element 9 =  integrator
+{l=684}Element 10 =  prevError
+{l=684}Element 11 =  differentiator
+{l=684}Element 12 =  prevMeasurement
+{l=684}Element 13 =  out
+{z=16}
+Starts a previously initialised PID controller on the channel specified
+{}
+Stops a previously initialised PID controller on the channel specified and deletes the internal data structures
+See <<https://www.thebackshed.com/forum/ViewTopic.php?FID=16&TID=17263>>
+{b=0}For an example of setting up and running a PID controller
+
+# MATHS.c:2442-2466 and 1369-1380: the mode is ECB ("EBR" was a typo); a string output is under 256 bytes, so 240
+# bytes of ECB, and 224 with the 16 byte IV of CBC and CTR.
+# ACTION REPLACE commands.txt 1648 "=== MATH AES128 ENCRYPT/DECRYPT CBC/ECB/CTR key$/key(), in$/in(), out$/out() [,iv$/iv()]"
+=== MATH AES128 ENCRYPT/DECRYPT CBC/ECB/CTR key$/key(), in$/in(), out$/out() [,iv$/iv()]
+---
+This command encrypts or decrypts the data in 'in' and puts the answer in 'out' using the AES128 encryption method specified
+The parameters can each be either a string, integer array, or float array with any mix possible
+The key must be 16 elements long (16\*8=128bits), in and out must be a multiple of 16 elements long.  In the case of out being specified as a string (e.g. out$), the string variable must exist and should be set to empty (DIM out$="")
+The maximum number of elements in 'in' and 'out' is limited by memory when defined as arrays. Strings for encrypting are limited to 240bytes (ECB) and 224bytes (CTR and CBC).
+For CBC and CTR encryption you can optionally specify an initialisation vector 'iv'. 'iv' must be 16 elements long (16\*8=128bits). If an initialisation vector is not specified encryption will generate a random initialisation vector.
+In both cases the output is prepended with the IV.
+For CBC and CTR, decryption requires that the first 16 elements of the input are the initialisation vector.
+In the case where you want to transmit a message without IV you should remove the IV before sending the message using standard MMBasic manipulations. In this case the recipient must know the IV as well as the key and create a complete message before using DECRYPT by prepending the IV to the incoming message.
+
+# MATHS.c:2836-2852: the first argument is y and the second x: atan2(y, x), with 2*PI added when negative, times
+# optionangle.  So it is ATAN2 in the range 0 to 2*PI, and follows OPTION ANGLE (options.txt lists MATH ATAN3).
+# ACTION REPLACE functions.txt 535 "=+= MATH(ATAN3 x,y)"
+=+= MATH(ATAN3 y, x)
+--- tight
+Returns the arc tangent of y / x, using the signs of both to find the quadrant as ATAN2(y, x) does, but as an angle from 0 to 2\*PI radians (0 to 360 degrees under OPTION ANGLE DEGREES) instead of -PI to PI.
+{}
+
+# MATHS.c:3034-3249: length is 1-65535 (getint, 3052); polynome, startmask and endmask are getint 0-255, 0-4095,
+# 0-65535 and 0-&HFFFFFFFF; reverseIn/reverseOut 0-1; an element over 255 is "Variable > 255" (3069-3080).
+# parseany (MATHS.c:1061-1109): an array must be 1D ("Invalid variable"), a length beyond it is "Array size", beyond
+# a string "String size".  The closing bracket of the syntax was missing.
+# ACTION REPLACE functions.txt 560 "=+= MATH(CRCn data [,length]"
+=+= MATH(CRCn data [,length]
+[,polynome] [,startmask]
+[,endmask] [,reverseIn]
+[,reverseOut])
+--- tight
+Calculates the CRC to n bits (8, 12, 16, 32) of “data”. “data” can be an integer or floating point array or a string variable. “Length” is optional and if not specified the size of the array or string length is used. The defaults for startmask, endmask reverseIn, and reversOut are all zero. reverseIn, and reversOut are both Booleans and take the value 1 or 0. The defaults for polynomes are CRC8=&H07, CRC12=&H80D, CRC16=&H1021, crc32=&H04C11DB7.  polynome, startmask and endmask must fit in n bits.  An array must be one-dimensional and each element must be a byte value (0 to 255).  “Length” is 1 to 65535 and must not be more than the number of elements or characters in “data”.
+eg, for crc16_CCITT use  MATH(CRC16 array(), n,, &HFFFF)
+{}
+
+# MATHS.c:3854-3865: an unseeded generator is seeded from get_rand_32(), the HAL RNG (MATHS.c:50-54), not the time.
+# The RP2350 note goes, and the stray quote before Mersenne.
+# ACTION REPLACE functions.txt 569 "=+= MATH(RAND)"
+=+= MATH(RAND)
+--- tight
+{b=0 a=0}Returns a random number 0.0 <= n < 1.0 using the Mersenne Twister algorithm. If not seeded with MATH RANDOMIZE the first use in a program seeds it from the hardware random number generator.
+{b=0 a=0 z=32}
+{z=40}
+
+# MATHS.c:3392-3405: a numeric 2D array; "Needs at least 2 rows and 2 columns" and "Too many degrees of freedom
+# (max 50)" (chitable, MATHS.c:75, holds df 1 to 50).  The stray bracket after a() goes.
+# ACTION REPLACE functions.txt 579 "=+= MATH(CHI a())"
+=+= MATH(CHI a())
+--- tight
+Returns the Pearson's chi-squared value of the two dimensional array a().  The array must have at least 2 rows and 2 columns, and no more than 50 degrees of freedom ((rows - 1) \* (columns - 1)).
+{}
+
+# MATHS.c:3377-3471: CHI_P is CHI with the probability from the table; the same limits.
+# ACTION REPLACE functions.txt 584 "=+= MATH(CHI_p a())"
+=+= MATH(CHI_p a())
+--- tight
+Returns the associated probability in % of the Pearson's chi-squared value of the two dimensional array a().  The array is as for MATH(CHI).
+{}
+
+# MATHS.c:3329-3335: two numeric arrays with the same number of elements ("Array size mismatch"); the syntax named
+# a() twice where the text says a() and b().
+# ACTION REPLACE functions.txt 594 "=+= MATH(CORREL  a(), a())"
+=+= MATH(CORREL a(), b())
+--- tight
+Returns the Pearson’s correlation coefficient between arrays a() and b(), which must have the same number of elements
+{}
+
+# MATHS.c:3621-3637: the index variable follows the array after a comma, as for MAX.
+# ACTION REPLACE functions.txt 612 "=+= {b=0 a=0}MATH(MIN a(), [index%])"
+=+= {b=0 a=0}MATH(MIN a() [,index%])
+--- tight
+{b=0}Returns the minimum of all values in the a() array, a() can have any number of dimensions. If the integer variable is specified then it will be updated with the index of the minimum value in the array. This is only available on one-dimensional arrays.
+{b=0 z=20}
+
+# fun_math, MATHS.c:2855-3032: the C_ functions are REAL, IMAG, MOD, PHASE, CARG, ADD, MUL, SUB, DIV, POW, CONJ,
+# ASINH, ACOSH, ATANH, ACOS, ASIN, ATAN, SIN, COS, TAN, SINH, COSH, TANH, EXP, LOG, ABS, SQRT, PROJ, CPLX, POLAR.
+# So the argument is C_CARG (2888; MATH(C_ARG ..) is "Invalid syntax"; the PicoMite reads CARG too, its MATHS.c:2923);
+# C_EXP, C_LOG, C_SQRT and C_ABS were missing; C_AND, C_OR and C_XOR are not functions (they are the MATH commands
+# on arrays, MATHS.c:1749-1814).  3019-3027: C_POLAR divides the angle by optionangle; 2879-2886: C_PHASE multiplies
+# by it; 2888-2891: C_CARG does not.  2998-3002: C_ABS returns cabsf() as a complex.  On the board the PicoMite's
+# ComplexTest passes C_CARG, C_ABS, C_SQRT, C_EXP and C_LOG (tests/testfiles/CMM2_G2_480/ComplexTest.out).
+# ACTION REPLACE functions.txt 655 "=== **Creation**"
+=== **Creation**
+complex% = MATH(C_CPLX r!, i!)
+complex% = MATH(C_POLAR radius!, angle!)
+**Floating returns**
+real! = MATH(C_REAL complex%)\nimag! = MATH(C_IMAG complex%)\narg! = MATH(C_CARG complex%)
+mod! = MATH(C_MOD complex%)\nphase! = MATH(C_PHASE complex%)
+**Unary functions**
+complex1% = MATH(C_CONJ complex2%)\ncomplex1% = MATH(C_SIN complex2%)\ncomplex1% = MATH(C_COS complex2%)\ncomplex1% = MATH(C_TAN complex2%)\ncomplex1% = MATH(C_ASIN complex2%)\ncomplex1% = MATH(C_ACOS complex2%)\ncomplex1% = MATH(C_ATAN complex2%)\ncomplex1% = MATH(C_SINH complex2%)\ncomplex1% = MATH(C_COSH complex2%)\ncomplex1% = MATH(C_TANH complex2%)\ncomplex1% = MATH(C_ASINH complex2%)\ncomplex1% = MATH(C_ACOSH complex2%)\ncomplex1% = MATH(C_ATANH complex2%)\ncomplex1% = MATH(C_PROJ complex2%)\ncomplex1% = MATH(C_EXP complex2%)\ncomplex1% = MATH(C_LOG complex2%)\ncomplex1% = MATH(C_SQRT complex2%)\ncomplex1% = MATH(C_ABS complex2%)
+**Basic Arithmetic**
+complex1% = MATH(C_ADD complex2%,complex3%)\ncomplex1% = MATH(C_SUB complex2%,complex3%)\ncomplex1% = MATH(C_MUL complex2%,complex3%)\ncomplex1% = MATH(C_DIV complex2%,complex3%)\ncomplex1% = MATH(C_POW complex2%,complex3%)
+--- wide
+MMBasic supports a full range of functions to allow the manipulation of complex numbers. In this implementation complex numbers have a 32-bit real and 32-bit imaginary part and to make this work in MMBasic, it uses integers (64-bit) to hold these.
+The angle given to C_POLAR and the phase returned by C_PHASE respect OPTION ANGLE; C_CARG returns the same angle in radians.  C_ABS returns the modulus as a complex number (with an imaginary part of zero), and C_MOD as a floating point number.
+
+# MATHS.c:2818-2824: three arguments; the syntax had a doubled closing bracket.
+# ACTION REPLACE functions.txt 668 "=== MATH(PID channel, setpoint!, measurement))"
+=== MATH(PID channel, setpoint!, measurement!)
+--- keep
+This function must be called in the PID callback subroutine for the ‘channel’ specified and returns the output of the controller function.
+The ‘setpoint’ value is the desired state that the controller is trying to achieve. The ‘measurement’ is the current value of the real world.  
+<<https://www.thebackshed.com/forum/ViewTopic.php?FID=16&TID=17263>>
+For an example of setting up and running a PID controller
+
+# MATHS.c:3869-3904: base64 encodes and decodes (it does not encrypt); a string output over 255 characters is
+# "Output exceeds string size" (3882-3883, 3896-3897), an array too small "Output array too small".
+# ACTION REPLACE functions.txt 675 "=== MATH(BASE64 ENCODE/DECODE in$/in(), out$/out())"
+=== MATH(BASE64 ENCODE/DECODE in$/in(), out$/out())
+---
+Returns the length of out$/out(). This base64 encodes or decodes the data in 'in' and puts the result in 'out'. Where arrays are used as the output they must be big enough relative to the input and the direction. Encoding increases the length by 4/3 and decoding decreases it by 3/4.  A string output is limited to 255 characters.

@@ -1,0 +1,553 @@
+# devices.txt: the reference entries for the devices and I/O (firmware 7.00.00b1): ADC, BITBANG, BITSTREAM, CAN, CONTROLLER (and WII), DAC, HUMID (and DHT22), IR, OPEN COMn and OPEN ... AS GPS, PULSE, PWM, SERVO, SETPIN, and the functions BAUDRATE(, CLASSIC(, GPS(, MOUSE( and NUNCHUK(, staged for commands.txt, functions.txt and obsolete.txt
+# REPLACE commands.txt "=== {b=40 a=40}ADC" (its whole group: with the rows "=+= {b=0 a=0}ADC FREQUENCY freq", "=+= {b=0 a=0}ADC CLOSE" and "=+= {b=0 a=0}ADC START array1!() [,array2!()] [,array3!()] [,array4!()] ...") WITH the ADC group below
+# REPLACE commands.txt "=== BITBANG" WITH the BITBANG entry below
+# REPLACE commands.txt "=== {b=0 a=0}BITSTREAM" WITH the BITSTREAM entry below
+# ADD to commands.txt the CAN group below, in alphabetical order after "=== CALL usersubname$ [,usersubparameters,..]" and before "=== CAT S$, N$"
+# ADD to commands.txt the CONTROLLER group below, in alphabetical order after "=== CONTINUE DO " and before "=== COPY fname1$ TO fname2$"
+# ADD to commands.txt the DAC group below, in alphabetical order after "=== CSUB name [type  [, type]  …]" and before "=== DATA constant[,constant].."
+# REPLACE commands.txt "=== HUMID pin, tvar, hvar [,DHT11]" WITH the HUMID entry below
+# REPLACE commands.txt "=== IR dev, key , int" (with its "or" and "IR CLOSE" lines) WITH the IR entry below
+# KEEP commands.txt "=== IR SEND pin, dev, key" as it is (checked against Src/External.c:1203: dev 0-31, key 0-127, the pin made an output, about 38KHz)
+# REPLACE commands.txt "=== OPEN comspec$ AS [#]fnbr" WITH the first OPEN entry below
+# REPLACE commands.txt "=== OPEN comspec$ AS GPS " (with its trailing space, and its second syntax line "[,timezone_offset]  [,monitor]") WITH the second OPEN entry below
+# KEEP commands.txt "=== PULSE pin, width" as it is (checked against Src/External.c:1113: an output pin, under 3 ms done at once, 3 ms or more in the background, five slots, 0 stops one)
+# REPLACE commands.txt "=== PWM channel, frequency, [dutyA] [,dutyB][,phase][,defer]" WITH the PWM entry below
+# REPLACE commands.txt "=== SERVO channel [positionA] [,positionB]" WITH the SERVO entry below
+# REPLACE commands.txt "=== SETPIN pin, cfg [, option]", "=== SETPIN pin, cfg, target [, option]" and "=== SETPIN p1[, p2 [, p3]], device" (with its rows "=+= SETPIN rx, tx, COM1" to "=+= SETPIN pin, PIOn") WITH the three SETPIN entries below
+# REPLACE commands.txt "=== WII [CLASSIC] OPEN [,interrupt]" and "=== WII NUNCHUCK OPEN [,interrupt]" WITH the WII entry below
+# KEEP commands.txt "=== WS2812 type, pin, nbr, colours%()" as it is (BITBANG and the special devices chapter refer to it)
+# ADD to functions.txt the BAUDRATE( entry below, in alphabetical order after "=== BASE$( base, number [, chars])" and before "=== BIN$( number [, chars])"
+# ADD to functions.txt the CLASSIC( entry below, after "=== CHR$( number )" and before "=== CLICK(DOWN)" (CLICK and CINT are already out of order there: CINT comes before CLASSIC and CLICK)
+# REPLACE functions.txt "=== GPS()" WITH the GPS( group below
+# ADD to functions.txt the MOUSE( and NUNCHUK( entries below, in alphabetical order after "=== MID$( string$, start )" and before "=== OCT$( number [, chars])"
+# REPLACE obsolete.txt "=== BITBANG" WITH the BITBANG and DHT22 entries below
+
+
+# ACTION REPLACE the PicoMite's ADC group in commands.txt (see above) WITH the ADC group below
+# Src/MM_Custom.c:312 cmd_ADC reads OPEN (frequency, up to three pins, then the interrupt as the fifth argument: argc == 9), START (three arrays, then the bottom and top of each channel's scale), CLOSE, TRIGGER and FREQUENCY.  The PicoMite's ADC OPEN freq, n_channels and its four channels on GP26-GP29 are not the CMM2's
+# The pins (Src/MM_Custom.c:355-363 and the ADC column of Inc/IOPorts.h): the first channel an ADC1 pin (7, 10, 16, 22, 24, 37), the second an ADC2 pin (8, 12, 26, 29), the third an ADC3 pin (13, 15; also 44, the Wii connector's clock line, not on the rear connector): as b14.  The resolution from the frequency (Src/MM_Custom.c:336-340) is b14's table
+# CODE ISSUE: b14 limits a 400MHz processor to 480KHz; Src/MM_Custom.c:335 and :524 test SystemCoreClock==400000 (it is 400000000), so the limit is never applied.  The entry keeps b14's limit (meant)
+# b14 says ADC FREQUENCY adjusts the frequency "after the ADC START command": Src/MM_Custom.c:516 only works out the timer's values, which the next ADC START uses (:485 MX_TIM7_Init); a capture already running is not changed.  The entry says so
+# ADC TRIGGER: when the timeout runs out the capture starts anyway (Src/stm32h7xx_it.c:796; b14 "abandoning the wait"); only ADCclose clears the trigger, so it applies to every ADC START until ADC CLOSE (not in b14)
+# ADC START without an interrupt waits for the end (Src/MM_Custom.c:487); with one the arrays must be global (RequireGlobal, :441-452); a second or third array needs its channel open (:444, :450); the scaling is only applied when both values of a pair are given (:458-460)
+# CODE ISSUE: with a trigger set, Src/stm32h7xx_it.c:781 and :791 write the second and third channels' readings without checking that their arrays were given (a2float/a3float NULL when ADC START names fewer arrays than channels were opened)
+=== ADC OPEN freq, pin1 [, pin2] [, pin3] [, interrupt]
+---
+The ADC commands capture up to three channels of analog data in the background into arrays, at up to 500KHz per channel (480KHz on a 400MHz processor), with an optional trigger.  See also the chapter *Using the I/O Pins*.
+{}
+ADC OPEN opens the channels.  ‘freq’ is the sampling frequency in Hz.  The number of bits in each conversion follows from it and is applied automatically:
+{n=39 v=0}Above 160KHz the conversion is 8 bits per channel
+{n=39 v=0}From 40KHz to 160KHz it is 10 bits
+{n=39 v=0}From 20KHz to 40KHz it is 12 bits
+{n=39 v=0}From 10KHz to 20KHz it is 14 bits
+{n=39 v=0}Below 10KHz it is 16 bits
+Each channel has its own converter.  ‘pin1’, the first channel, can be one of the pins 7, 10, 16, 22, 24 or 37, ‘pin2’ (the second) one of 8, 12, 26 or 29 and ‘pin3’ (the third) 13 or 15.  The pins are reserved for the ADC until ADC CLOSE.
+‘interrupt’ is a normal MMBasic subroutine that will be called when the conversion completes.  It is always the fifth argument, so the arguments of unused channels are left empty, for example:  `ADC OPEN 100000, 7, , , Done`
+
+=+= ADC FREQUENCY freq
+--- keep
+Changes the sampling frequency without closing and opening the ADC.  The new frequency is used by the next ADC START (it does not change a capture already running).
+This command is only valid if the number of bits given by the table above does not change; otherwise use ADC CLOSE and ADC OPEN.
+
+=+= ADC TRIGGER channel, level [, timeout]
+---
+Sets up triggering of the ADC.  This is given after ADC OPEN and before the ADC START command.
+The ‘channel’ can be a number between one and three depending on the number of pins specified in the ADC OPEN command.
+The ‘level’ can be between -VCC and VCC (VCC is OPTION VCC, normally 3.3).  A positive number indicates that the trigger will be on a positive going transition through the specified voltage.  A negative number indicates a negative going transition through the specified voltage (without its sign).
+‘timeout’ is the number of ADC samples to take before abandoning the wait for the trigger condition and starting the capture anyway.  Setting a value equal to the frequency of the sampling would give a timeout of 1 second.  If it is 0 or omitted the ADC waits for ever.
+The trigger applies to every ADC START until the ADC is closed.
+
+=+= ADC START array1!() [, array2!()] [, array3!()] [, C1min, C1max] [, C2min, C2max] [, C3min, C3max]
+---
+This starts conversion into the specified arrays, one for each channel opened (in the order of their pins in ADC OPEN).  The arrays must be floating point and the same size.  The size of the arrays defines the number of conversions.  Start can be called repeatedly once the ADC is OPEN.
+‘C`x`min’ and ‘C`x`max’ will scale the readings of channel `x`.  For example, C1min=200 and C1max=100 will create values ranging from 200 to 100 for equivalent voltages of 0 - 3.3.  If the scaling is not used the results are returned as a voltage between 0 and OPTION VCC (defaults to 3.3V).  The scaling values are always the fourth to the ninth arguments, so the arguments of the arrays not used are left empty, for example:  `ADC START a!(), , , 0, 100`
+If ADC OPEN did not specify an interrupt the command waits until the arrays are filled.  If it did, the command returns at once and the interrupt is called when they are full: the arrays must then be global (or STATIC), not LOCAL, as they are filled after the command has returned.
+
+=+= ADC CLOSE
+--- keep
+Closes the ADC and returns the pins to normal use.
+
+
+# ACTION REPLACE commands.txt "=== BITBANG" (the PicoMite's: "Replaced by the command DEVICE") WITH the BITBANG entry below
+# Src/External.c:1549 cmd_bitbang reads WS2812, DHT22 and BITSTREAM and calls the same code as the commands WS2812, HUMID (and DHT22) and BITSTREAM (:1569-1571).  The firmware has no DEVICE command (firmware.json: only the DEVICE( function)
+=== BITBANG WS2812 type, pin, nbr, colours%()
+or
+BITBANG DHT22 pin, tvar, hvar [,DHT11]
+or
+BITBANG BITSTREAM pin, n, array()
+--- keep
+The older names of the commands WS2812, HUMID and BITSTREAM, still accepted for compatibility with earlier versions of MMBasic for the Colour Maximite 2.  See those commands.
+The PicoMite's command DEVICE, which replaced BITBANG there, is not available.
+
+
+# ACTION REPLACE commands.txt "=== {b=0 a=0}BITSTREAM" (the PicoMite's, with two pins, modes and logic) WITH the BITSTREAM entry below
+# Src/External.c:1466 Bitstream: exactly three arguments (pin, count 1-250000, array); the pin must be DOUT or OC (:1479); the array integer or float, of at least 'n' elements, each value 0-65535 (FloatToUint16, :1502-1505); TIM17 counts microseconds; the pin is toggled before each wait; interrupts are off throughout (:1509)
+=== BITSTREAM pin, n, array()
+---
+This command is used to generate an extremely accurate bit sequence on the pin specified.  The pin must have previously been set up as an output (SETPIN pin, DOUT, with or without OC) and set to the required starting level.
+‘n’ is the number of transitions (1 to 250000) and ‘array()’ is a numeric array (integer or floating point) with at least ‘n’ elements.
+Notes:
+{n=39 v=0}The array contains the length of each level in the bitstream in microseconds (0 to 65535, so the maximum period is 65.5 ms).
+{n=39 v=0}The first transition will occur immediately on executing the command.
+{n=39 v=0}The last period in the array is ignored other than defining the time before control returns to the program or command line.
+{n=39 v=0}The pin is left in the starting state if the number of transitions is even and the opposite state if the number of transitions is odd.
+{n=39 v=0}Interrupts are disabled while the sequence is generated, so everything else (sound, the USB devices, the timers) waits until it is finished.
+The PicoMite's second pin, output modes and logic functions are not available.  BITBANG BITSTREAM, the older name, is still accepted.
+
+
+# ACTION ADD the CAN group below to commands.txt, after "=== CALL usersubname$ [,usersubparameters,..]" and before "=== CAT S$, N$"
+# Src/CAN.c:163 cmd_can reads CLOSE, START, STOP, SEND (6 arguments), READ (8), FILTER [GLOBAL] (6 or 4) and OPEN (3, 7 or 13 arguments); the pins are Inc/IOPorts.h:192-195 (1: Rx 5, Tx 3; 2: Rx 19, Tx 40)
+# b14 writes "CAN FILTER GLOBAL, id, eid, idr, eidr" with a comma after GLOBAL: Src/CAN.c:456 reads the arguments straight after GLOBAL, so the comma makes an empty first argument (an error).  Appendix J has it right.  b14's entry also says "See Appendix I": it is Appendix J here
+# HAL_FDCAN_ConfigGlobalFilter only works while the FDCAN is stopped (Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_fdcan.c:1966, state READY), HAL_FDCAN_ConfigFilter also while it runs (:1849): the entries say so
+# CODE ISSUE (the entries say what is meant): Src/CAN.c:674 tests speed==10000000 (a 0 too many), so CAN OPEN at 1000000 sets no bit timing
+# CODE ISSUE: Src/CAN.c:572 sets fdcan=1 for the long CAN FD form and nothing sets it back to 0, so a later Classical CAN OPEN (after CAN CLOSE) still runs as CAN FD
+# CODE ISSUE: Src/CAN.c:613 has brs the wrong way round (brs=1 gives FDCAN_FRAME_FD_NO_BRS, brs=0 FDCAN_FRAME_FD_BRS without the data timing)
+# CODE ISSUE, serious: since the HAL 1.11.6 update (2072b14) TxHeader.DataLength and RxHeader.DataLength are the DLC code (FDCAN_DLC_BYTES_8 is 8, the HAL shifts it: stm32h7xx_hal_fdcan.c:3084 and :6233), but Src/CAN.c:274 still sets dlc<<16 for 0-8 bytes (the DLC sent is 0 and the HAL's DLCtoBytes[] is read far out of bounds) and :367/:397 read DLCtoBytes[DataLength>>16] (always 0 bytes, so CAN READ returns dlc 0 and msg 0).  Classical CAN data does not get through in this build; tests/cmm2/commsdata.bas only tests CAN OPEN's speeds.  The entries describe what is meant
+# CODE ISSUE: Src/CAN.c:366/:396 return RxHeader.RxFrameType as rtr, which is FDCAN_REMOTE_FRAME = &H20000000 for a remote frame, not 1
+# CODE ISSUE: Src/CAN.c:472 limits the FILTER index to 0-20 although 32 standard and 32 extended filters are configured and cleared (:770) and Appendix J says 0-31: the entry follows the code (0 to 20)
+# CODE ISSUE: CAN SEND in CAN FD (Src/CAN.c:301-305) takes the dlc bytes from the bottom of msg() while CAN READ puts a 12 or 20 byte message (:368, adj=4), and in FD mode any message of up to 8 bytes, at the top of its 8-byte elements: the two disagree.  The entries give the Classical CAN byte order (SEND :299 and READ :377/:407 agree) and no FD order
+# CODE ISSUE: ClearExternalIO (Src/External.c:1977) does not close the CAN, so after a program that did not CAN CLOSE, CAN OPEN gives "Already open" (the entries do not mention it)
+# Appendix J says filter type 3 accepts "either STDID or EXTID": it is FDCAN_FILTER_RANGE_NO_EIDM, a range without the extended ID mask (the entry says that)
+=== CAN OPEN index, speed, mode
+or
+CAN OPEN index, 0, mode, prescaler, seg1, seg2, sjw
+or
+CAN OPEN index, 0, mode, prescaler, seg1, seg2, sjw, brs, dsize, dprescaler, dseg1, dseg2, dsjw
+---
+More detail is in Appendix J (CAN Support).  A CAN transceiver is needed between the pins and the CAN bus (see the chapter *Special Device Support*).
+{}
+Opens the CAN interface ‘index’ and allocates its pins: interface 1 uses pin 5 (CAN Rx) and pin 3 (CAN Tx), shared with the first I^^2^^C channel, and interface 2 uses pin 19 (CAN Rx) and pin 40 (CAN Tx), shared with SPI MOSI and SPI2 CLOCK.  Only one interface can be open at a time.
+‘speed’ is the bit rate: 125000, 250000, 500000 or 1000000 bits per second, with the sample point at 80% and the Classical CAN frame type.
+With a ‘speed’ of 0 the bit timing is given instead, from the 40MHz clock of the CAN controller: ‘prescaler’, ‘seg1’, ‘seg2’ and ‘sjw’ (the synchronisation jump width) alone for the Classical CAN frame type, or with the further six values for the CAN FD frame type: ‘brs’ is 1 for bit rate switching or 0 for none, ‘dsize’ the size of the data field (8, 12, 16, 20, 24, 32, 48 or 64 bytes) and ‘dprescaler’, ‘dseg1’, ‘dseg2’ and ‘dsjw’ the timing of the data phase.  Appendix J gives the values for the common speeds.
+‘mode’ is 0 for normal operation, 1 for the internal loop back (nothing is sent to or received from the bus and the transceiver is not needed), 2 for the external loop back (as 1, but the messages are also sent to the bus) or 3 for monitoring the bus (messages are received but nothing is sent).
+CAN OPEN sets the global filter to accept every message into FIFO 1 (as CAN FILTER GLOBAL 1, 1, 1, 1).  Other filters are set after CAN OPEN, then CAN START starts the interface.
+
+=+= CAN FILTER index, eid, type, config, id1, id2
+---
+Sets the filter ‘index’ (0 to 20) for 11-bit identifiers (‘eid’ 0) or for 29-bit identifiers (‘eid’ 1).  The filters are tested in order of ‘index’; a message that matches none is dealt with by the global filter (below).
+‘type’ is 0 for a range (the identifiers from ‘id1’ to ‘id2’), 1 for two identifiers (‘id1’ or ‘id2’), 2 for a classic filter (‘id1’ is the identifier and ‘id2’ the mask) or 3 for a range without the extended ID mask.
+‘config’ is 0 to disable the filter, 1 to put a matching message in FIFO 0, 2 to put it in FIFO 1 or 3 to reject it.
+‘id1’ and ‘id2’ are 0 to &H7FF for 11-bit identifiers and 0 to &H1FFFFFFF for 29-bit identifiers.
+A filter can be set or changed while the interface is running.
+
+=+= CAN FILTER GLOBAL id, eid, idr, eidr
+---
+Sets what happens to the messages that match no filter.  ‘id’ is for those with 11-bit identifiers and ‘eid’ for those with 29-bit identifiers: 0 accepts them into FIFO 0, 1 into FIFO 1 and 2 rejects them.  ‘idr’ and ‘eidr’ are the same for remote frames: 0 passes them to the filters, 1 rejects them.
+The global filter can only be set while the interface is stopped: after CAN OPEN and before CAN START, or after CAN STOP.  CAN OPEN sets it to 1, 1, 1, 1.
+
+=+= CAN START
+or
+CAN STOP
+--- keep
+CAN START starts the interface receiving messages and sending the messages queued by CAN SEND.  It must be given after CAN OPEN (and any filters).
+CAN STOP stops it, for example to pause the reception of messages or to change the global filter.  CAN START starts it again.
+
+=+= CAN SEND id, eid, rtr, dlc, msg, ret
+or
+CAN SEND id, eid, rtr, dlc, msg(), ret
+---
+Places a message in the next free transmit buffer and it is sent in order (there are 32 buffers).
+‘id’ is the message’s identifier: 0 to &H7FF when ‘eid’ is 0 or 0 to &H1FFFFFFF (a 29-bit identifier) when ‘eid’ is 1.  ‘rtr’ is 1 for a remote frame (no data), otherwise 0.  ‘dlc’ is the number of data bytes: 0 to 8, or with CAN FD also 12, 16, 20, 24, 32, 48 or 64, and no more than the ‘dsize’ of CAN OPEN.
+‘msg’ holds the data.  For Classical CAN it is an integer variable, sent from its most significant byte (with ‘dlc’ 2, &HAABB000000000000 sends &HAA then &HBB).  For CAN FD it is an integer array large enough for ‘dlc’ bytes (eg, `INTEGER msg(7)` for 64 bytes).
+‘ret’ is an integer variable which is set to 0 if the message was queued or 1 if no transmit buffer was free.
+
+=+= CAN READ fifo, id, eid, rtr, dlc, msg, fmi, ret
+or
+CAN READ fifo, id, eid, rtr, dlc, msg(), fmi, ret
+---
+Reads the next message from FIFO 0 or FIFO 1 (‘fifo’ is 0 or 1; each holds up to 32 messages).
+The other arguments are integer variables (‘msg()’ an integer array with CAN FD) which are set from the message: ‘id’ its identifier, ‘eid’ 1 for a 29-bit identifier (otherwise 0), ‘rtr’ 1 for a remote frame, ‘dlc’ the number of data bytes, ‘msg’ the data (in the same order as CAN SEND, with the bytes beyond ‘dlc’ set to zero) and ‘fmi’ the number of the filter that accepted it, or 99 if it matched no filter and was accepted by the global filter.
+‘ret’ is set to 0 if there was no message (the other variables are then not changed), otherwise to the number of messages that were waiting, including the one read.
+Only one message is read each time and nothing interrupts the program when one arrives: the program reads them by calling CAN READ regularly (eg, in its main loop).
+
+=+= CAN CLOSE
+--- keep
+Closes the CAN interface and releases the pins used for CAN Rx and CAN Tx.
+
+
+# ACTION ADD the CONTROLLER group below to commands.txt, after "=== CONTINUE DO " and before "=== COPY fname1$ TO fname2$"
+# Src/MiscSTM32.c:1190 cmd_Controller reads NUNCHUK, MOUSE and CLASSIC; WII is the same command (Src/MMBasic.c:2015 tokenises WII as CONTROLLER)
+# NUNCHUK OPEN [n] [,Zint [,Cint]] (Src/MiscSTM32.c:449: argv[2] Z, argv[4] C, n 1-3, default 3); CLASSIC OPEN [n] [,int [,bitmask]] (:684, the bitmask 0-&H7FFF, default all); MOUSE OPEN [n] [,LB] [,RB] [,sensitivity] [,LBup] (:877, n 0-3, default 2; sensitivity 0-8 for 0, 0-10 for 1-3); CLOSE [n] for each
+# b14 says the controllers are polled every 16 ms: Src/Timers.c:170-300 poll each one when nunTimer (milliseconds) % 20 comes round, every 20 ms
+# b14's Classic interrupt "triggers once on the button press and will not re-interrupt until it is released": Src/MiscSTM32.c:378 classicproc triggers whenever the masked bitmap rises, ie when a button in the mask is pressed (also while another is held); the entry says "when a button is pressed"
+# The mouse: one at a time (Src/MiscSTM32.c:894, "The mouse on channel % is open"); while a USB mouse is attached only OPEN 2 is accepted and only sets its interrupts (:886); the PS2 mouse is refused while pin 15 is a counting input (:898) and SETPIN 15 FIN/PIN/CIN is refused while it is open (Src/External.c:2134); its pins are Inc/main.h:213-214 (33 and 32 on the Generation 1); the Hobbytronic interface is sent the write page's size at OPEN (:927-955)
+# A Nunchuk and a Classic on one channel: "I2C already OPEN" (:458, :693).  I2C OPEN on a channel in use by a controller: "I2C already OPEN" (Src/I2C.c:204, :232)
+=== CONTROLLER CLASSIC OPEN [channel] [, interrupt [, bitmask]]
+or
+CONTROLLER CLASSIC CLOSE [channel]
+---
+Opens a Wii Classic controller for communications.  These commands can also be written with WII in place of CONTROLLER (eg, `WII CLASSIC OPEN`).
+‘channel’ is the I^^2^^C channel that the Classic is connected to: 1 or 2 on the rear I/O connector, or 3 (the default if it is not specified) for the Wii connector on the front panel.
+‘interrupt’ is an optional MMBasic interrupt routine that will be triggered when a button is pressed.  ‘bitmask’ specifies which of the 15 buttons on the Wii Classic will trigger an interrupt.  The default is that they all will.  See the CLASSIC() function for which bits in the bitmask control which buttons.
+The firmware checks for the existence of a controller on open and will throw an error if not found.  Once open the Classic is polled continuously in the background every 20 ms.  The I^^2^^C transfers are under interrupt control and non-blocking for the rest of the firmware.  The I^^2^^C channel is opened at 100KHz: other I^^2^^C devices can share the channel with the Classic, in which case I2C OPEN should not be used (I2C WRITE, READ and CHECK work on the channel without it).  A Nunchuk and a Classic cannot be open on the same channel.
+CONTROLLER CLASSIC CLOSE will close the Classic on ‘channel’ (3 if it is omitted).
+Also see the CLASSIC() function for accessing the state of the device.
+
+=+= CONTROLLER MOUSE OPEN [channel] [, LBinterrupt] [, RBinterrupt] [, sensitivity] [, LBUpinterrupt]
+or
+CONTROLLER MOUSE CLOSE [channel]
+---
+Opens a mouse connected through the Hobbytronic USB mouse interface (see the chapter *Special Device Support*) for communications.
+‘channel’ is the I^^2^^C channel that the interface is connected to: 1, 2 (the default: pins 27 and 28 on the rear I/O connector) or 3.
+‘LBinterrupt’ and ‘RBinterrupt’ are optional MMBasic interrupt routines that will be triggered when the left or the right mouse button is pressed.  The interrupts trigger once on the button press and will not re-interrupt until it is released.  ‘LBUpinterrupt’ is an optional interrupt routine which is called when the left button is released.
+The sensitivity of the Hobbytronic interface can be set by specifying a number between 0 and 10 for ‘sensitivity’.  0 (the default) sets it from the width of the screen; other values explicitly set the sensitivity as per the Hobbytronic documentation.
+The interface is told the size of the screen (the current write page) when it is opened, so the mouse should be opened after the MODE command.  The firmware checks for the existence of the interface on open and will throw an error if not found.  This error can be trapped with the ON ERROR command.
+Once open the interface is polled continuously in the background every 20 ms.  The I^^2^^C transfers are under interrupt control and non-blocking for the rest of the firmware.  The I^^2^^C channel is opened at 100KHz: other I^^2^^C devices (such as a Wii controller) can share it with the mouse, in which case I2C OPEN should not be used.
+Only one mouse can be open at a time.  While a USB mouse is plugged in it is the mouse, on channel 2: CONTROLLER MOUSE OPEN 2 then only sets the interrupts, which work for the USB mouse too, and the other channels give an error.
+CONTROLLER MOUSE CLOSE will close the mouse on ‘channel’ (2 if it is omitted).  Also see the MOUSE() function for accessing the state of the device.
+
+=+= CONTROLLER MOUSE OPEN 0 [, LBinterrupt] [, RBinterrupt] [, sensitivity] [, LBUpinterrupt]
+or
+CONTROLLER MOUSE CLOSE 0
+---
+Opens a PS2 mouse for communications.
+On the Generation 1 Colour Maximite 2 the mouse clock line is connected to pin 33 and the mouse data to pin 32 of the rear I/O connector.  Both lines MUST be pulled up to 5V with 4.7K resistors.  On the Generation 2 additional pins are allocated to the PS2 mouse and it is connected to the lower USB port: the pullup resistors are already fitted.
+‘LBinterrupt’, ‘RBinterrupt’ and ‘LBUpinterrupt’ are optional interrupt routines as for the mouse above.
+The PS2 mouse sensitivity can be set between 0 and 8.  Values of 1-4 set the resolution of the mouse to 1, 2, 4 or 8 counts/mm.  Values 5-8 do the same but in addition enable mouse scaling which gives a non-linear relationship between speed and count.  See <<https://isdaman.com/alsos/hardware/mouse/ps2interface.htm>> for more details.  NB: not all PS2 mice seem to implement these commands.
+The firmware checks for the existence of a mouse on open and will throw an error if not found.  This error can be trapped with the ON ERROR command.  Once open the mouse operates under interrupt control so it has no performance impact unless the mouse is moving.
+The PS2 mouse shares a hardware interrupt with pin 15, so it cannot be opened while pin 15 is a frequency, period or counting input, and pin 15 cannot be made one while the mouse is open.
+CONTROLLER MOUSE CLOSE 0 will close the PS2 mouse.  Also see the MOUSE() function for accessing the state of the device.
+
+=+= CONTROLLER NUNCHUK OPEN [channel] [, Zinterrupt [, Cinterrupt]]
+or
+CONTROLLER NUNCHUK CLOSE [channel]
+---
+Opens a Wii Nunchuk for communications.
+‘channel’ is the I^^2^^C channel that the Nunchuk is connected to: 1 or 2 on the rear I/O connector, or 3 (the default if it is not specified) for the Wii connector on the front panel.
+‘Zinterrupt’ and ‘Cinterrupt’ are optional MMBasic interrupt routines that will be triggered when the Z or the C button is pressed.  The interrupts trigger once on the button press and will not re-interrupt until it is released.
+The firmware checks for the existence of a controller on open and will throw an error if not found.  This error can be trapped with the ON ERROR command.  If a Classic controller is plugged in instead, an error will not be thrown: you can check the ID code with NUNCHUK(T, channel).
+Once open the Nunchuk is polled continuously in the background every 20 ms.  The I^^2^^C transfers are under interrupt control and non-blocking for the rest of the firmware.  The I^^2^^C channel is opened at 100KHz: other I^^2^^C devices can share the channel with the Nunchuk, in which case I2C OPEN should not be used (I2C WRITE, READ and CHECK work on the channel without it).
+CONTROLLER NUNCHUK CLOSE will close the Nunchuk on ‘channel’ (3 if it is omitted).
+Also see the NUNCHUK() function for accessing the state of the device.
+
+
+# ACTION ADD the DAC group below to commands.txt, after "=== CSUB name [type  [, type]  …]" and before "=== DATA constant[,constant].."
+# Src/MM_Custom.c:557 cmd_DAC: STOP, START (3, 5 or 7 arguments: frequency, array 1, array 2 (may be empty), interrupt), else n (1 or 2, :634) and a voltage from 0 to below VCC (:636)
+# DAC 1 and 2 are the audio output's left and right channels (the sound code drives DAC_CHANNEL_1 as left, Src/stm32h7xx_it.c:945-946); PIN("DAC1") and PIN("DAC2") read them back (Src/External.c:537)
+# b14 gives DAC START a maximum of 700KHz: Src/MM_Custom.c:578 refuses more than 500KHz.  The entry follows the code
+# b14: "DAC n, voltage ... cannot be used if the DACs are in use for audio output": Src/MM_Custom.c:631-649 does not check (the sound or DAC START output then overwrites the value at its next sample); the entry says not to
+# With an interrupt only the first array is played once (Src/stm32h7xx_it.c:698-722: the second array wraps on its own and the end of the first ends both); the arrays must be global (RequireGlobal, :584, :588) with or without an interrupt; DAC START is refused while sound is playing ("DAC in use", :574) and replaces a DAC START output; DAC STOP (dacclose, :546) sets both DACs to 2000, the sound output's resting level, and marks the sound output free
+=== DAC n, voltage
+--- keep
+Sets the DAC channel ‘n’ (1 or 2) to ‘voltage’, from 0 to just below OPTION VCC (normally 3.3V).  The DACs drive the audio output: DAC 1 is the left channel and DAC 2 the right.
+Do not use this command while sound is playing or DAC START is running: they would overwrite the value.  The function PIN("DAC1") or PIN("DAC2") returns the voltage on a DAC.
+
+=+= DAC START freq, array1%() [, array2%()] [, interrupt]
+---
+Sets up the DACs to create an arbitrary waveform.  ‘array1%()’ (for DAC 1) and the optional ‘array2%()’ (for DAC 2) are integer arrays which should contain numbers in the range 0-4095 to suit the 12-bit DACs.  They must be global (or STATIC), not LOCAL.  The output occurs in the background and control returns to MMBasic immediately.
+‘freq’ is the rate at which the DACs change value, up to 500KHz.  The software automatically and separately uses the number of items in each of the arrays to drive the DACs.  As an example if there are 180 items in the array c%() which are output at a frequency of 100,000 Hz this will give a waveform frequency of 100,000/180 = 555Hz.  If there are 90 items in the array d%() at the same frequency of 100,000 Hz this will at the same time produce a waveform frequency of 100,000/90 = 1111Hz.
+The output runs continuously unless the optional interrupt is specified.  In this case the contents of ‘array1%()’ is output once (the second array repeats or is cut short with it) and the interrupt is triggered on completion.  If there is no second array the interrupt is the third argument:  `DAC START 100000, c%(), , Done`
+DAC START cannot be used while sound is playing ("DAC in use").  A new DAC START replaces the output of the last.
+
+=+= DAC STOP
+--- keep
+Stops the DAC output and returns the DACs to normal use (and to the resting level of the audio output).
+
+
+# ACTION REPLACE commands.txt "=== HUMID pin, tvar, hvar [,DHT11]" WITH the HUMID entry below
+# Src/External.c:1398 DHT22 (HUMID, DHT22 and BITBANG DHT22): 3 or 4 arguments; both variables floating point ("Invalid variable"); the pin must not be configured (:1416, "Pin is in use"), is driven open collector with the internal pullup while reading and is left not configured; DHT11 0 or 1 (integer readings); 1000.0 on an error
+# The PicoMite's entry speaks of the Raspberry Pi Pico's 3.6V inputs; b14's "AM2303" is the AM2302 (as the chapter Special Device Support has it)
+=== HUMID pin, tvar, hvar [,DHT11]
+or
+DHT22 pin, tvar, hvar [,DHT11]
+---
+Returns the temperature and humidity using the DHT22 sensor.  Alternative versions of the DHT22 are the AM2302 or the RHT03 (all are compatible).
+‘pin’ is the I/O pin connected to the sensor.  Any I/O pin may be used but it must not be configured: the command sets it up and returns it to the not configured state afterwards.
+‘tvar’ is the variable that will hold the measured temperature and ‘hvar’ is the same for humidity.  Both must be present and both must be floating point variables.
+For example:     `HUMID 3, TEMP!, HUMIDITY!`
+Temperature is measured in ºC and the humidity is percent relative humidity.  Both will be measured with a resolution of 0.1.  If an error occurs (sensor not connected or corrupt signal) both values will be 1000.0.
+Normally the signal pin of the DHT22 should be pulled up by a 1K to 10K resistor (4.7K recommended) to the supply voltage.  If the sensor is powered from 5V the pin must be 5V tolerant (see the pin table in the chapter *Hardware Features*).
+The optional DHT11 parameter modifies the timings to work with the DHT11.  Set to 1 for DHT11 and 0 or omit for DHT22.  The DHT11 readings have a resolution of 1 degree and 1%.
+DHT22 and BITBANG DHT22 are the older names of this command and are still accepted.  See the chapter *Special Device Support*.
+
+
+# ACTION REPLACE commands.txt "=== IR dev, key , int" (with its "or" and "IR CLOSE" lines) WITH the IR entry below
+# Src/External.c:1196 cmd_ir: the receiver is always pin 41 (IRPIN, Inc/IOPorts.h:157), set up by IrInit (:1240) with its internal pullup; there is no SETPIN n, IR (the PicoMite's); the variables must be global (RequireGlobal, :1225) and numeric; the interrupt is required
+# b14 says IR CLOSE returns the pin to a not configured state: Src/External.c:1199-1202 only stops the decoder (the pin is left as it was); the entry does not say
+=== IR dev, key, int
+or
+IR CLOSE
+---
+Decodes NEC or Sony infrared remote control signals.
+An IR Receiver Module is required to sense the IR light and demodulate the signal.  It is soldered to the pads for it on the motherboard (see IR Receiver in the chapter *Hardware Features*), which are connected to pin 41, and this command sets that pin up.
+The IR signal decode is done in the background and the program will continue after this command without interruption.  ‘dev’ and ‘key’ should be numeric variables and their values will be updated whenever a new signal is received (‘dev’ is the device code transmitted by the remote and ‘key’ is the key pressed).  They must be global (or STATIC), not LOCAL, as they are set in the background.
+‘int’ is a user defined subroutine that will be called when a new key press is received or when the existing key is held down for auto repeat.  In the interrupt subroutine the program can examine the variables ‘dev’ and ‘key’ and take appropriate action.
+The IR CLOSE command will terminate the IR decoder.
+Note that for the NEC protocol the bits in ‘dev’ and ‘key’ are reversed.  For example, in ‘key’ bit 0 should be bit 7, bit 1 should be bit 6, etc.  This does not affect normal use but if you are looking for a specific numerical code provided by a manufacturer you should reverse the bits.  This describes how to do it: <<http://www.thebackshed.com/forum/forum_posts.asp?TID=8367>>
+See the chapter *Special Device Support* for more details.
+
+
+# ACTION REPLACE commands.txt "=== OPEN comspec$ AS [#]fnbr" WITH the first OPEN entry below, and "=== OPEN comspec$ AS GPS " (and its second syntax line) WITH the second
+# Src/SerialFileIO.c:76 cmd_open: COM1-COM7 (MAXCOMPORTS 7, Inc/SerialFileIO.h:77); Src/Serial.c:414 SerialOpen: COM1 on USART2 (pins 8 Tx, 10 Rx, DE pin 37), COM2 on UART4 (16 Tx, 11 Rx), COM3 on USART1, the console's port, refused while the serial console uses it (:592), COM4-COM7 the USB serial devices (:632, no OC, DEP, DEN or INV)
+# b14 and Appendix A give a default receive buffer of 256 bytes: Inc/Serial.h:65 COM_DEFAULT_BUF_SIZE is 1024.  The entry follows the code (Appendix A needs the same change)
+# b14 and Appendix A give 1000000 as the highest baud rate: Src/Serial.c:448 only checks the minimum (1200); the entry gives the minimum only
+# Src/Serial.c:473 reads an eleventh argument, a transmit interrupt, which Appendix A and b14 do not document; only the USB ports (Serial.c:229) ever signal it, so COM1-COM3's never fires.  Not documented here
+# CODE ISSUE: Src/Serial.c:606 opening COM3 sets com2Tx_tail (not com3Tx_tail) to 0, which disturbs COM2's transmit buffer if it is open
+# OPEN ... AS GPS: Src/SerialFileIO.c:94-114: the time offset -12 to 14 hours (a number: fractions allowed), monitor 0 or 1, a free file number taken; Src/GPS.c:437 GPS_parse reads GPGGA, GNGGA, GPRMC and GNRMC with a correct checksum and prints every sentence when monitoring.  b14 wrote GPCGA and GNCGA.  There is no OPTION GPS on the CMM2 (firmware.json)
+=== OPEN comspec$ AS [#]fnbr
+--- keep
+{t=l2592}Will open a serial communications port for reading and writing.  COM1: and COM2: are on the rear I/O connector.  COM3: is the port of the serial console (on the USB connector used for power) and can be opened when the serial console is disabled with OPTION CONSOLE SCREEN.  COM4: to COM7: are USB serial devices plugged into the USB connector (see the chapter *Keyboard, Mouse and Gamepad*).
+‘comspec$’ is the communication specification, a string of the form "COMn: baud, buf, int, int-trigger" followed by any of the options DEP or DEN, 7BIT, ODD or EVEN, INV, OC and S2.  The default is 9600 baud (the minimum is 1200), a receive buffer of 1024 bytes, 8 data bits, no parity and one stop bit.  DEP and DEN (RS485 mode, using the COM1 DE pin, pin 37) are available on COM1: only, and INV, OC, DEP and DEN do not apply to COM4: to COM7:.  For a full description with examples see *Appendix A*.
+‘fnbr’ is the file number (1 to 10).  Using ‘fnbr’ the port can be written to and read from using any command or function that uses a file number, and it is closed with CLOSE.
+
+=== OPEN comspec$ AS GPS [, timezone_offset] [, monitor]
+---
+{t=l2592}Will open a serial communications port (COM1: to COM7:) for reading from a GPS receiver.  ‘comspec$’ is as for the OPEN command above.  The data can then be retrieved using the GPS() function.  The sentences interpreted are GPRMC, GNRMC, GPGGA and GNGGA (those with a correct checksum).
+The ‘timezone_offset’ parameter is used to convert UTC as received from the GPS to the local timezone.  If omitted the timezone will default to UTC.  The ‘timezone_offset’ is in hours and can be any number between -12 and 14 allowing the time to be set correctly even for the Chatham Islands in New Zealand (UTC +12:45, an offset of 12.75).
+If the ‘monitor’ parameter is set to 1 then all GPS input is also directed to the console.  This can be stopped by closing the GPS channel.
+The port takes the first free file number.  It is closed with CLOSE GPS, and PRINT #GPS sends a sentence to the receiver.
+
+
+# ACTION REPLACE commands.txt "=== PWM channel, frequency, [dutyA] [,dutyB][,phase][,defer]" (the PicoMite's: 8 channels, PWM SYNC, PWM channel, OFF) WITH the PWM entry below
+# Src/PWM.c:77 cmd_pwm (also SERVO): controller 1 or 2 (TIM3 on pins 12, 22, 29; TIM8 on pins 36, 31: Inc/IOPorts.h:186-190); "channel, STOP" (:91); frequency 1-20000000 (:97, getint); the duties -100 to 100, negative inverting the output (:106-118); a sixth argument 0 or 1, centre aligned (:96, TIM_COUNTERMODE_CENTERALIGNED3 at twice the frequency)
+# b14 (PWM 1, [-]freq, ...): a negative frequency made the pins open collector and the maximum was 24MHz; Src/PWM.c:97 refuses a negative frequency and more than 20MHz.  The entry follows the code.  b14 marks the centre argument "Center ????": the entry describes it as the code does it
+# The timers count at SystemCoreClock/2 (Src/PWM.c:100): 240MHz, or 200MHz on a 400MHz processor (b14: "any value of 240,000,000/n")
+# CODE ISSUE: changing the duty cycle of a running 1B, 1C or 2B output at the same frequency writes CCR1 (Src/PWM.c:274, :305, :370), the A output's register, instead of CCR2/CCR3: the A output takes the new duty and the B or C output keeps its old one
+# CODE ISSUE: Src/PWM.c:182 "else if(f!=f2)" re-initialises TIM8 (controller 2) whenever a PWM or SERVO command for controller 1 keeps its frequency, with controller 1's frequency: a running controller 2 output changes frequency.  It should be "else if(channel==1 && f!=f2)"
+# A third duty cycle given to controller 2 is accepted and ignored (dcy[1][2] is never used)
+=== PWM 1, freq, 1A [, 1B] [, 1C] [, centre]
+or
+PWM 2, freq, 2A [, 2B] [, , centre]
+or
+PWM channel, STOP
+---
+Generate a pulse width modulated (PWM) output for driving analog circuits, sound output, etc.
+There are a total of five outputs designated as PWM in the table of the external I/O connector in the chapter *Hardware Features* (they are also used for the SERVO command).  Controller 1 can have one, two or three outputs (1A on pin 12, 1B on pin 22 and 1C on pin 29) while controller 2 can have one or two outputs (2A on pin 36 and 2B on pin 31).  Both controllers are independent and can be turned on and off and have different frequencies.
+‘1’ or ‘2’ is the controller number and ‘freq’ is the output frequency in Hz (1 to 20000000).  1A, 1B and 1C are the duty cycles for each of the controller 1 outputs while 2A and 2B are the duty cycles for the controller 2 outputs.  1B and 1C can be left out or left empty.  The specified I/O pins will be automatically configured as outputs while any others will be unaffected and can be used for other duties.
+The duty cycle for each output is independent of the others and is specified as a percentage.  If it is close to zero the output will be a narrow positive pulse, if 50 a square wave will be generated and if close to 100 it will be a very wide positive pulse.  A negative duty cycle (down to -100) inverts the output, giving negative going pulses.
+‘centre’ is 1 for centre aligned outputs: the pulses of the outputs are centred in the period, so that a shorter pulse starts and ends equal times from a longer one.  0 (or omitted) starts all the pulses at the beginning of the period.
+The frequency is derived from a 240MHz clock (200MHz on a 400MHz processor), so it can be any value of 240,000,000/n and the duty cycle and frequency accuracy will depend on the frequency (eg, at 1MHz the duty cycle has 240 steps).  The output will run continuously in the background while the program is running and can be stopped using the STOP command.  The frequency and duty cycle can be changed at any time (without stopping the output) by issuing a new PWM command.
+The PWM function will take control of any specified outputs and when stopped the pins will be returned to a high impedance "not configured" state.
+
+
+# ACTION REPLACE commands.txt "=== SERVO channel [positionA] [,positionB]" (the PicoMite's) WITH the SERVO entry below
+# Src/PWM.c:122-150: a first value after the controller of 20 or more (as an integer) is the frequency, up to 1000 (default 50); each pulse width 0.01 to 18.9 ms and under 99.9% of the period; "SERVO channel, STOP" as PWM.  As b14
+=== SERVO 1 [, freq], 1A [, 1B [, 1C]]
+or
+SERVO 2 [, freq], 2A [, 2B]
+or
+SERVO channel, STOP
+---
+Generate a constant stream of positive going pulses for driving a servo.
+The Colour Maximite 2 has two servo controllers with the first being able to control up to three servos and the second two servos.  Both controllers are independent and can be turned on and off and have different frequencies.  This command uses the I/O pins that are designated as PWM in the table of the external I/O connector (the two commands are very similar): 1A is pin 12, 1B pin 22, 1C pin 29, 2A pin 36 and 2B pin 31.
+‘1’ or ‘2’ is the controller number.  ‘freq’ is the output frequency (between 20Hz and 1000Hz) and is optional.  If not specified it will default to 50Hz.  (A first value of 20 or more is taken as the frequency.)
+1A, 1B and 1C are the pulse widths for each of the controller 1 outputs while 2A and 2B are the pulse widths for the controller 2 outputs.  The specified I/O pins will be automatically configured as outputs while any others will be unaffected and can be used for other duties.
+The pulse width for each output is independent of the others and is specified in milliseconds, which can be a fractional number (i.e. 1.536).  For accurate positioning the output resolution is about 0.005 ms.  The minimum value is 0.01ms while the maximum is 18.9ms (and less than the period).  Most servos will accept a range of 0.8ms to 2.2ms.  The output will run continuously in the background while the program is running and can be stopped using the STOP command.  The pulse widths of the outputs can be changed at any time (without stopping the output) by issuing a new SERVO command.
+The SERVO function will take control of any specified outputs and when stopped the pins will be returned to a high impedance "not configured" state.
+
+
+# ACTION REPLACE the PicoMite's three SETPIN entries in commands.txt (see above; the device forms COM1, COM2, SPI, SPI2, I2C, I2C2, PWM, IR and PIO do not exist on the CMM2) WITH the three SETPIN entries below
+# Src/External.c:1007 cmd_setpin: the keywords OFF (or 0), AIN, DIN, FIN, PIN, CIN, INTH, INTL, DOUT, OOUT, INTB, or a number 1-9 (:1035; the EXT_ values of Inc/External.h:135); the options: AIN 8-16 bits, even (:1040); DIN PULLUP/PULLDOWN; FIN 10-100000 ms (default 1000); PIN 1-10000 (default 1); CIN 1-5 on pins 7, 13, 15, 24 and an interrupt on pin 18 (:1068); DOUT OC; the interrupts' fifth argument PULLUP/PULLDOWN
+# Src/External.c:2090 ExtCfg: AIN only on the ANALOG_IN pins; FIN, PIN and CIN only on 7, 13, 15, 24 (INT1PIN-INT4PIN) and 18 (COUNT5: no PIN, :2132); CIN's option (:2135-2138) as b14 (1 rising + pulldown, 2 falling + pullup, 3 both, 4 both + pulldown, 5 both + pullup; none: rising + pulldown); configuring a counting pin zeroes its count; the CSub hooks CFuncInt1-4 replace the count (FIN and CIN) on pins 7, 13, 15, 24
+# Pin 18's CIN interrupt (CountInterrupt) is signalled when the 32-bit hardware counter wraps (Src/stm32h7xx_it.c:366-368, the TIM2 update; Src/MM_Misc.c:3995): b14 only says "when the event happens".  The entry says when
+# b14 and the PicoMite give the pullups as "a constant current of about 50µA" (the PIC32's): the STM32's are resistors (GPIO_PULLUP); the entry does not give a value
+# !TODO below: b14's conversion times for AIN (0.2 ms at 8 bits to 0.9 ms at 16) cannot be checked from the code
+=== SETPIN pin, cfg [, option]
+---
+{t=l2592}Will configure an external I/O pin.  Refer to the chapter *Using the I/O Pins* for a general description of the Colour Maximite 2's input/output capabilities, and to the table of the external I/O connector in the chapter *Hardware Features* for the capabilities of each pin.
+{t=l2592}‘pin’ is the I/O pin to configure (its number in that table), ‘cfg’ is the mode that the pin is to be set to and ‘option’ is an optional parameter.  ‘cfg’ is a keyword and can be any one of the following:
+{t=l1260 b=0 l=1258 h=1009}OFF	Not configured or inactive (0 can also be used).
+{t=l1260 b=0 l=1258 h=1009}AIN	Analog input (i.e. measure the voltage on the input).  Only the pins marked Analog Input can be used.\n‘option’ can be used to specify the number of bits in the conversion.  Valid values are 8, 10, 12, 14 and 16.  The default (if not specified) is 16 bits.  The more bits the longer the conversion will take.
+!TODO check b14's conversion times on the board: "A single conversion takes between 0.2mSec (8-bit) to 0.9mSec (16-bit)"
+{t=l1260 b=0 l=1258 h=1009}DIN	Digital input.\nIf ‘option’ is omitted the input will be high impedance.\nIf ‘option’ is the keyword PULLUP or PULLDOWN an internal resistor will pull the input up to 3.3V or down to zero volts.
+{t=l1260 b=0 l=1258 h=1009}FIN	Frequency input, on one of the counting pins 7, 13, 15 and 24 or the fast counting pin 18 (see below).\n‘option’ can be used to specify the gate time (the length of time used to count the input cycles).  It can be any number between 10 ms and 100000 ms.  The PIN() function will always return the frequency correctly scaled in Hz regardless of the gate time used.  If ‘option’ is omitted the gate time will be 1 second.
+{t=l1260 b=0 l=1258 h=1009}PIN	Period input, on one of the counting pins 7, 13, 15 and 24.\n‘option’ can be used to specify the number of input cycles to average the period measurement over.  It can be any number between 1 and 10000.  The PIN() function will always return the average period of one cycle correctly scaled in ms regardless of the number of cycles used for the average.  If ‘option’ is omitted the period of just one cycle will be used.
+{t=l1260 b=0 l=1258 h=1009}CIN	Counting input, on one of the counting pins 7, 13, 15 and 24 (for pin 18 see below).\n‘option’ can be used to specify which edge triggers the count and if any pullup or pulldown is enabled: 1 specifies a rising edge with pulldown, 2 a falling edge with pullup, 3 both edges with no pullup or pulldown, 4 both edges with pulldown and 5 both edges with pullup.  If ‘option’ is omitted a rising edge will trigger the count and a pulldown is enabled.\nThe count is reset to zero whenever the pin is configured as a counting input (even if it is already one).
+{t=l1260 b=0 l=1258 h=1009}DOUT	Digital output.\n‘option’ can be OC in which case the output will be open collector (or more correctly open drain).
+{t=l2592}Previous versions of MMBasic used numbers for ‘cfg’ (1 AIN, 2 DIN, 3 FIN, 4 PIN, 5 CIN, 6 INTH, 7 INTL, 8 DOUT and 9 OOUT) and the mode OOUT (an open collector output).  For backwards compatibility they will still be recognised.
+{t=l2592}Pin 15 shares its hardware interrupt with the PS2 mouse: it cannot be a frequency, period or counting input while the PS2 mouse is open (CONTROLLER MOUSE OPEN 0).  On the counting pins 7, 13, 15 and 24 a CSub can have its own routine called on each edge in place of the count (CFuncInt1 to CFuncInt4).
+{t=l2592}The functions PIN() and PORT() can also be used to return the value on one or more output pins.  See the function PIN() for reading inputs and the statement PIN()= for setting an output.  See the command below if an interrupt is configured.
+
+=== SETPIN pin, cfg, target [, option]
+---
+{t=l2592}Will configure ‘pin’ to generate an interrupt according to ‘cfg’.  Any I/O pin capable of digital input can be configured to generate an interrupt with a maximum of ten interrupts configured at any one time.
+{t=l2592}‘cfg’ is a keyword and can be any one of the following:
+{t=l1260 b=0 l=1258 h=1009}INTH	Interrupt on low to high input
+{t=l1260 b=0 l=1258 h=1009}INTL	Interrupt on high to low input
+{t=l1260 b=0 l=1258 h=1009}INTB	Interrupt on both (i.e. any change to the input)
+{t=l2592}‘target’ is a user defined subroutine which will be called when the event happens.  Return from the interrupt is via the END SUB or EXIT SUB commands.
+{t=l2592}‘option’ can be the keyword PULLUP or PULLDOWN as specified for a normal input pin (SETPIN pin, DIN).  If ‘option’ is omitted the input will be high impedance.
+{t=l2592}This mode also configures the pin as a digital input so the value of the pin can always be retrieved using the function PIN().  Configuring the pin again (eg, SETPIN pin, OFF) removes the interrupt.
+{t=l2592}Refer to the chapter *Using the I/O Pins* for a general description.
+
+=== SETPIN 18, FIN [, option]
+or
+SETPIN 18, CIN [, target]
+--- keep
+{t=l2592}Pin 18 is the fast counting pin: it is counted by a hardware counter and has been tested up to 40MHz.  It cannot be used for period measurement (PIN).  It can also be used as an ordinary digital input or output.
+{t=l2592}With FIN ‘option’ is the gate time, as above (10 ms to 100000 ms, 1 second if it is omitted), and PIN(18) returns the frequency in Hz.
+{t=l2592}With CIN every rising edge is counted and PIN(18) returns the count.  ‘target’ is an optional user defined subroutine which will be called each time the count passes a multiple of 4294967296 (2^^32^^, when the 32-bit hardware counter wraps round).  Return from the interrupt is via the END SUB or EXIT SUB commands.  The count is reset to zero whenever the pin is configured as a counting input.
+
+
+# ACTION REPLACE commands.txt "=== WII [CLASSIC] OPEN [,interrupt]" and "=== WII NUNCHUCK OPEN [,interrupt]" (the PicoMite's, read with its DEVICE function) WITH the WII entry below
+# Src/MMBasic.c:2015 tokenises WII as CONTROLLER, so WII CLASSIC OPEN, WII NUNCHUK OPEN and WII MOUSE OPEN work; cmd_Controller (Src/MiscSTM32.c:1190) knows only NUNCHUK, MOUSE and CLASSIC, so the PicoMite's WII OPEN and WII NUNCHUCK OPEN give "Syntax", and its DEVICE(WII ...), DEVICE(CLASSIC ...) and DEVICE(NUNCHUCK ...) do not exist (Src/USBMouse.c fun_device_fn: MOUSE and GAMEPAD only): a parity gap
+=== WII
+--- keep
+WII is another name for CONTROLLER: for example WII NUNCHUK OPEN is the same as CONTROLLER NUNCHUK OPEN.  See CONTROLLER.
+The PicoMite's spellings WII OPEN (for a Classic) and WII NUNCHUCK OPEN are not accepted: use WII CLASSIC OPEN and WII NUNCHUK OPEN, and the CLASSIC() and NUNCHUK() functions in place of the PicoMite's DEVICE(WII ...) and DEVICE(NUNCHUCK ...).
+
+
+# ACTION ADD the BAUDRATE( entry below to functions.txt, after "=== BASE$( base, number [, chars])" and before "=== BIN$( number [, chars])"
+# Src/Serial.c:348 fun_baudrate: comm 1-3, timeout 1-10 seconds (default 1); get_baudrate (:305): "Already open" if the port is open; samples the Rx pin (COM1 pin 10, COM2 pin 11), up to 256 transitions, and returns the nearest of 110 ... 460800 (0 with fewer than two transitions)
+# CODE ISSUE: 3 is accepted but get_baudrate's switch has no case 3 (pin 0, so BAUDRATE(3) always returns 0): the entry gives 1 or 2
+=== BAUDRATE( comm [, timeout] )
+--- keep
+Returns the baud rate of any data received on the serial communications port ‘comm’, which is 1 for COM1: or 2 for COM2: (the ports on the rear I/O connector).  The port must not be open.
+This will sample the port over the period of ‘timeout’ seconds (1 to 10).  ‘timeout’ will default to one second if not specified.  The result is the nearest standard baud rate, from 110 to 460800.
+Returns zero if no activity on the port within the timeout period.
+
+
+# ACTION ADD the CLASSIC( entry below to functions.txt, after "=== CHR$( number )" and before "=== CLICK(DOWN)"
+# Src/MiscSTM32.c:1209 fun_classic: CLASSIC(funct [, channel]), channel 1-3 (default 3), "Not open"; LX LY 6-bit, RX RY L R 5-bit, scaled up to 0-255 (classicproc, :385-393); B the bitmap of :394, whose bits (Wii Classic bytes 4 and 5) are b14's table; T the ID read from the controller's register &HFC; any other code returns 0
+# b14 gives the Classic's ID as &H4200101: the ID read (4 bytes from &HFC: A4 20 01 01) is &HA4200101, as b14's NUNCHUK(T) entry has it.  b14 also says "WII CLASSIC OPEN": the command is CONTROLLER CLASSIC OPEN (WII is its other name)
+=== CLASSIC(funct [, channel])
+---
+Returns data from a Wii Classic controller opened with CONTROLLER CLASSIC OPEN.
+‘channel’ is optional and is the I^^2^^C channel for the controller (1 to 3, defaults to 3, the front panel Wii connector).
+‘funct’ is a 1 or 2 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}LX	the position of the analog left joystick x axis
+{b=20 a=20 l=941 h=567}LY	the position of the analog left joystick y axis
+{b=20 a=20 l=941 h=567}RX	the position of the analog right joystick x axis
+{b=20 a=20 l=941 h=567}RY	the position of the analog right joystick y axis
+{b=20 a=20 l=941 h=567}L	the position of the analog left button
+{b=20 a=20 l=941 h=567}R	the position of the analog right button
+{b=20 a=20 l=941 h=567}B	a bitmap of the state of all the buttons.  A bit will be set to 1 if the button is pressed.
+{b=20 a=20 l=941 h=567}T	the ID code of the controller, &HA4200101
+The positions are from 0 to 255: the left joystick has 64 steps and the right joystick and the L and R buttons 32.
+The button bitmap is as follows:
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 0	Button R
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 1	Button start
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 2	Button home
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 3	Button select
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 4	Button L
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 5	Button down cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 6	Button right cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 7	Button up cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 8	Button left cursor
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 9	Button ZR
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 10	Button x
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 11	Button a
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 12	Button y
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 13	Button b
+{t=l1083 b=20 a=20 l=1225 h=851}BIT 14	Button ZL
+These bit positions are also used in the interrupt bitmask specified in the CONTROLLER CLASSIC OPEN command.
+
+
+# ACTION REPLACE functions.txt "=== GPS()" (the PicoMite's, which points to its Option_GPS_User_Manual.pdf and OPTION GPS) WITH the GPS( group below
+# Src/GPS.c:344 fun_GPS: LATITUDE, LONGITUDE, SPEED, TRACK, ALTITUDE, DOP and GEOID floats; VALID, SATELLITES and FIX integers; TIME and DATE strings; "GPS not activated" if no port is open AS GPS
+# Src/GPS.c:437 GPS_parse: GGA gives latitude, longitude, the fix quality, the satellites, the HDOP, the altitude (metres) and the geoid separation; RMC the time, the status (VALID), latitude, longitude, the speed (knots), the track and, with its date, the local time and date and VALID; processgps (:403) sets VALID to 0 when no sentence has come for 2 s (GPSTimer counts milliseconds, Src/Timers.c:154)
+# b14 says GPS(FIX) "Returns DOP (dilution of precision)": a copy of the DOP entry; it is GGA's fix quality.  b14 writes "GPS LONGITUDE)" for GPS(LONGITUDE)
+=== GPS()
+--- keep
+The GPS functions return data from a GPS receiver on a serial port opened with OPEN comspec$ AS GPS (an error is given if there is none).  The values are updated in the background as the receiver sends them.
+The function GPS(VALID) should be checked before any of these functions are used to ensure that the returned value is valid.
+
+=+= GPS(ALTITUDE)
+--- keep
+Returns the current altitude in metres (if the receiver sends the GGA sentence).
+
+=+= GPS(DATE)
+--- keep
+Returns the normal date string corrected for local time, e.g. "12-01-2020".
+
+=+= GPS(DOP)
+--- keep
+Returns the DOP (horizontal dilution of precision) value (if the receiver sends the GGA sentence).
+
+=+= GPS(FIX)
+--- keep
+Returns the quality of the fix (if the receiver sends the GGA sentence): 0 for no fix, 1 for a GPS fix, 2 for a differential GPS fix, or another value as the receiver gives it.
+
+=+= GPS(GEOID)
+--- keep
+Returns the geoid-ellipsoid separation in metres (if the receiver sends the GGA sentence).
+
+=+= GPS(LATITUDE)
+--- keep
+Returns the latitude in degrees as a floating point number, values are negative for South of the equator.
+
+=+= GPS(LONGITUDE)
+--- keep
+Returns the longitude in degrees as a floating point number, values are negative for West of the meridian.
+
+=+= GPS(SATELLITES)
+--- keep
+Returns the number of satellites in use (if the receiver sends the GGA sentence).
+
+=+= GPS(SPEED)
+--- keep
+Returns the ground speed in knots as a floating point number.
+
+=+= GPS(TIME)
+--- keep
+Returns the normal time string corrected for local time, e.g. "12:09:33".
+
+=+= GPS(TRACK)
+--- keep
+Returns the track over the ground (degrees true) as a floating point number.
+
+=+= GPS(VALID)
+--- keep
+Returns 0 for invalid data and 1 for valid data.  It returns 0 when nothing has been received from the receiver for two seconds.
+
+
+# ACTION ADD the MOUSE( and NUNCHUK( entries below to functions.txt, after "=== MID$( string$, start )" and before "=== OCT$( number [, chars])"
+# Src/MM_Misc.c:531 fun_mouse: MOUSE(funct [, channel]), channel 0-3 (default 2; 2 also when a USB mouse is attached), "Not open"; X Y L R W (the middle button) S (the wheel count) T D (read once) Z (the wheel count, then zeroed); any other letter "Syntax"
+# The double click: the PS2 and I2C mice want the second click 100-500 ms after the first (Src/mouse.c:353, Src/MiscSTM32.c:421-425, the I2C one also within 10 pixels), the USB mouse a press, release and press within 500 ms (Src/USBMouse.c:212-223); b14's T: the PS2 mouse's ID (3 with a wheel, Src/mouse.c:181), otherwise 0
+# Src/MiscSTM32.c:1233 fun_nunchuck: NUNCHUK(funct [, channel]), channel 1-3 (default 3), "Not open".  b14's syntax line says NUNCHUK(channel, funct), but its own text (NUNCHUK(T, channel)) and the code put 'funct' first.  JX JY 8-bit, AX AY AZ 10-bit (nunproc, :334-342); the calibration bytes as b14 (calib[8]-[13]); an unknown letter after J gives no error (iret is left as it was: a code issue)
+=== MOUSE(funct [, channel])
+---
+Returns data from a mouse opened with CONTROLLER MOUSE OPEN, or from a USB mouse.
+‘channel’ is optional: 0 for a PS2 mouse, or 1 to 3 for a mouse on the Hobbytronic interface on that I^^2^^C channel.  It defaults to 2, which is also the channel of a USB mouse.  An error is given if no mouse is open on the channel.
+‘funct’ is a 1 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}X	the X coordinate (0 to MM.HRES-1)
+{b=20 a=20 l=941 h=567}Y	the Y coordinate (0 to MM.VRES-1)
+{b=20 a=20 l=941 h=567}L	the state of the left mouse button (1 if pressed)
+{b=20 a=20 l=941 h=567}R	the state of the right mouse button (1 if pressed)
+{b=20 a=20 l=941 h=567}W	the state of the scroll wheel mouse button (1 if pressed)
+{b=20 a=20 l=941 h=567}D	1 if there has been a double click of the left mouse button.  The two clicks must occur between 100 and 500 milliseconds apart (within 500 milliseconds with a USB mouse).  The report is then valid for 500mSec before it times out or until it is read.
+{b=20 a=20 l=941 h=567}S	the current count of the scroll wheel
+{b=20 a=20 l=941 h=567}Z	the count of the scroll wheel, which is then reset to 0
+{b=20 a=20 l=941 h=567}T	3 if a PS2 mouse has a scroll wheel, otherwise 0
+A USB mouse can also be read with the PicoMite's DEVICE(MOUSE 2, funct) function.
+
+=== NUNCHUK(funct [, channel])
+---
+Returns data from a Wii Nunchuk opened with CONTROLLER NUNCHUK OPEN.
+‘channel’ is optional and is the I^^2^^C channel for the controller (1 to 3, defaults to 3, the front panel Wii connector).
+‘funct’ is a 1, 2 or 3 letter code indicating the information to return as follows:
+{b=20 a=20 l=941 h=567}JX	the value of the joystick X-axis (0 to 255)
+{b=20 a=20 l=941 h=567}JY	the value of the joystick Y-axis (0 to 255)
+{b=20 a=20 l=941 h=567}AX	the value of the x acceleration (0 to 1023)
+{b=20 a=20 l=941 h=567}AY	the value of the y acceleration (0 to 1023)
+{b=20 a=20 l=941 h=567}AZ	the value of the z acceleration (0 to 1023)
+{b=20 a=20 l=941 h=567}Z	the state of the Z button (1 if pressed)
+{b=20 a=20 l=941 h=567}C	the state of the C button (1 if pressed)
+{b=20 a=20 l=941 h=567}T	the ID code of the Wii device: &HA4200000 for the original Nunchuk, &HA4200101 for a Classic and &HA4200402 for a Balance Board
+{b=20 a=20 l=941 h=567}JXL	the calibrated X value of the joystick in the far left position
+{b=20 a=20 l=941 h=567}JXC	the calibrated X value of the joystick in the centre position
+{b=20 a=20 l=941 h=567}JXR	the calibrated X value of the joystick in the far right position
+{b=20 a=20 l=941 h=567}JYT	the calibrated Y value of the joystick in the top position
+{b=20 a=20 l=941 h=567}JYC	the calibrated Y value of the joystick in the centre position
+{b=20 a=20 l=941 h=567}JYB	the calibrated Y value of the joystick in the bottom position
+{b=20 a=20 l=941 h=567}AX0	the calibrated zero gravity value of the x-axis accelerometer
+{b=20 a=20 l=941 h=567}AX1	the calibrated one gravity value of the x-axis accelerometer
+{b=20 a=20 l=941 h=567}AY0	the calibrated zero gravity value of the y-axis accelerometer
+{b=20 a=20 l=941 h=567}AY1	the calibrated one gravity value of the y-axis accelerometer
+{b=20 a=20 l=941 h=567}AZ0	the calibrated zero gravity value of the z-axis accelerometer
+{b=20 a=20 l=941 h=567}AZ1	the calibrated one gravity value of the z-axis accelerometer
+
+
+# ACTION REPLACE obsolete.txt "=== BITBANG" (the PicoMite's) WITH the BITBANG entry below, and ADD the DHT22 entry below after it (before "=== GOSUB target ")
+# b14's obsolete list has "DHT22: Use HUMID"; Src/External.c:1549 cmd_bitbang reads WS2812, DHT22 and BITSTREAM
+=== BITBANG WS2812 type, pin, nbr, colours%()
+or
+BITBANG DHT22 pin, tvar, hvar [,DHT11]
+or
+BITBANG BITSTREAM pin, n, array()
+---
+{kl=1 t=l1980}The older names of the commands WS2812, HUMID and BITSTREAM, still accepted.  New programs should use WS2812, HUMID and BITSTREAM.
+
+=== DHT22 pin, tvar, hvar [,DHT11]
+---
+The older name of the command HUMID, still accepted.  New programs should use HUMID.

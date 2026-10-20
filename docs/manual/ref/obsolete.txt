@@ -1,40 +1,16 @@
 # Obsolete Commands and Functions: the reference entries (tools/manual/reftext.py)
 
-=== BITBANG
+=== BITBANG WS2812 type, pin, nbr, colours%()
+or
+BITBANG DHT22 pin, tvar, hvar [,DHT11]
+or
+BITBANG BITSTREAM pin, n, array()
 ---
-{kl=1 t=l1980}Replaced by the command DEVICE. For compatibility BITBANG can still be used in programs and will be automatically converted to DEVICE
+{kl=1 t=l1980}The older names of the commands WS2812, HUMID and BITSTREAM, still accepted.  New programs should use WS2812, HUMID and BITSTREAM.
 
-=== DEVICE CAMERA
+=== DHT22 pin, tvar, hvar [,DHT11]
 ---
-{kl=1 t=l1980}Changed to the CAMERA command
-
-=== DEVICE GAMEPAD
----
-{kl=1 t=l1980}Changed to the GAMEPAD command
-
-=== DEVICE HUMID 
----
-{kl=1 t=l1980}Changed to the HUMID command
-
-=== DEVICE KEYPAD
----
-{kl=1 t=l1980}Changed to the KEYPAD command
-
-=== DEVICE MOUSE
----
-{kl=1 t=l1980}Changed to the MOUSE command
-
-=== DEVICE LCD
----
-{kl=1 t=l1980}Changed to the LCD command
-
-=== DEVICE WII
----
-{kl=1 t=l1980}Changed to the WII command
-
-=== DEVICE WS2812
----
-{kl=1 t=l1980}Changed to the WS2812 command
+The older name of the command HUMID, still accepted.  New programs should use HUMID.
 
 === GOSUB target 
 ---
@@ -58,8 +34,10 @@ New programs should use SELECT CASE.
 
 === POS
 ---
-For the console, returns the current cursor position in the line in characters.
+For the console, returns the current cursor position in the line in characters (1 for the first column).
+New programs can use MM.HPOS, the horizontal position of the cursor on the screen in pixels.
 
 === RETURN
 ---
 RETURN concludes a subroutine called by GOSUB and returns to the statement after the GOSUB.
+New programs should use defined subroutines (i.e. SUB…END SUB), which return with END SUB or EXIT SUB.

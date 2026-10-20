@@ -1,0 +1,381 @@
+# Commands A to F (and the symbols): staged reference entries for docs/manual/ref/commands.txt, lines 1-816, checked
+# against the firmware 7.00.00b1 (Src/, docs/manual/audit/firmware.json) and the b14 manual (pages 77-92).
+# Not touched (checked elsewhere): ADC, ARC, AUTOSAVE, BEZIER, BITBANG, BITSTREAM, BLIT, BOX, CAN, CHAIN, CONTROLLER,
+# CPU, DAC, DRAW3D, EDIT, FILL, FLASH, FM, FRAMEBUFFER.
+# Checked and right as they are: ', ?, A: B: C:, ARRAY SET, BIT(, BYTE(, CALL, CAT (another name for INC), CLEAR,
+# COLOUR MAP, CONST, CONTINUE, CONTINUE DO/FOR, DATA, the DO forms, ELSE, ELSEIF, END CSUB, END FUNCTION, ENDIF,
+# END SUB, END TYPE, ERASE, ERROR, EXIT, FLAG(, FLUSH, FOR.
+
+# main.c:1003-1023 turns *name rest into RUN "name",rest: the name ends at the first space and the rest is not quoted
+# or evaluated (MM.CMDLINE$ is the text after the comma, Functions.c:162-176, as the RUN entry says).  So the
+# PicoMite's RUN "foo", "--wombat" and CHR$(34) forms are wrong here (RUN's cmdline is not evaluated on the CMM2),
+# and *"foo bar" does not work: the conversion splits at the space inside the quotes (the PicoMite has its
+# transform_star_command; the CMM2 has the older code - reported).  "* -f" is RUN -f (the RUN entry's form).
+# ACTION REPLACE commands.txt 7 "=== \*file"
+=== \*[file] [cmdline]
+--- keep
+{t=l2005}The star/asterisk command is a shortcut for RUN that may only be used at the MMBasic prompt. eg,
+{t=l1863} \*	RUN 
+{t=l1863} \* -f	RUN -f
+{t=l1863} \*foo	RUN "foo" 
+{t=l1863} \*foo --wombat	RUN "foo", --wombat
+{t=l1863} \*foo "wom"	RUN "foo", "wom"
+The file name ends at the first space, so it cannot contain a space and cannot be in quotes (use RUN for such a name).  Anything after the space is passed to the program as its command line (MM.CMDLINE$) exactly as it was typed: it is not evaluated.  See the RUN command.
+
+
+# On the CMM2 /* and */ are not commands: the program loader drops the lines (FileIO.c:551-555 for the program,
+# 384-388 for an #INCLUDE file; "No matching */" at 660-664 and 496).  Nothing needs a space after them, and they
+# work inside a SUB or FUNCTION, as the lines never reach the interpreter.
+# ACTION REPLACE commands.txt 22 "=== /\*"
+=== /\*
+{b=0 a=0}\*/
+--- keep
+{b=0 a=0}Start and end of multi-line comments.  /\* and \*/ must be the first non-space characters on a line.  When the program is loaded (by RUN, or by F1 or F2 in the editor or AUTOSAVE) the lines from the one starting with /\* to the one starting with \*/ are dropped, so they take no memory and can be used anywhere in a program or an #INCLUDE file, inside subroutines and functions too (but not at the command prompt).  Any characters after /\* or \*/ on these lines are also treated as a comment, and a line that starts with /\* and also contains \*/ is a comment on its own.  A /\* without a matching \*/ gives the error "No matching \*/".  See also #COMMENT.
+
+
+# The loader's directives (firmware.json "directives"; b14 p77) have no entries, and no chapter describes them.
+# FileLoadProgram (FileIO.c:586-603) and importfile (437-460): #DEFINE takes two strings (getargs, getFstring),
+# up to MAXDEFINES = 256 (Configuration.h:119, "Too many #DEFINE statements"); massage (FileIO.c:308-322) applies
+# them last first, through STR_REPLACE (MMBasic.c:1761), which never changes a string or a comment, and with
+# ignoresurround 0 only whole words (str_replace, MMBasic.c:1660-1663); an overflow is "Line % is too long".
+# #INCLUDE: importfile (FileIO.c:342-365): a quoted name, .INC added and required ("must be a .inc file"), relative to
+# the program's directory unless it starts with a drive, / or \; "Can't import from an import" (459).  The
+# directives are matched by cmpstr (FileIO.c:288), which ignores case (b14 said #COMMENT must be in capitals).
+# #MMDEBUG: convertdebug (FileIO.c:520, 562, 600-601); an #INCLUDE file gets the setting passed in (603) and its
+# own changes stay in it.  The MMDEBUG entry says the same.
+# ACTION ADD commands.txt BEFORE 27 "=== A: , B: or C:"
+=== #COMMENT START
+or
+#COMMENT END
+--- keep
+Directives for multi-line comments.  When the program is loaded (by RUN, or by F1 or F2 in the editor or AUTOSAVE) the lines between #COMMENT START and #COMMENT END are dropped: they are not loaded into program memory.  The directives must be the first non-space characters on their lines.  They can also be used in an #INCLUDE file.  See also /\* and \*/.
+
+=== #DEFINE "before", "after"
+--- keep
+This directive causes the text "before" to be replaced by the text "after" in the lines of the program that follow it, when the program is loaded (by RUN, or by F1 or F2 in the editor or AUTOSAVE).  Both parameters must be quoted strings.  Only whole words are replaced (#DEFINE "N", "M" does not change the N in PRINT), case is ignored, and quoted strings and comments in the program are not changed.  The replacements are also made in the #INCLUDE files that follow.
+The #DEFINEs are applied in the reverse order of their creation, so a symbol can be redefined and from that point on in the program the new definition will be active.
+The program can have up to 256 #DEFINE directives ("Too many #DEFINE statements").  A line that the replacements make longer than 255 characters gives the error "Line n is too long".
+
+=== #INCLUDE file$
+--- keep
+This directive inserts the file ‘file$’ into the program at that point when the program is loaded (by RUN, or by F1 or F2 in the editor or AUTOSAVE).  ‘file$’ is a quoted string; ".INC" is added if it has no extension, and the file must have the extension .INC.  Unless ‘file$’ starts with a drive or a / it is looked for relative to the directory holding the program, not the current directory, so CHDIR in the program does not affect it.  It can be on the SD card or the USB flash drive.
+This acts exactly as if the included file was inserted into the code with an editor, but it is more convenient for libraries and other code that several programs share (see also LIBRARY).  An included file cannot have an #INCLUDE of its own ("Can't import from an import"); #DEFINE, #COMMENT, #MMDEBUG and /\* \*/ work in it.
+The program is loaded from its file each time it is run, so a change to an included file takes effect at the next RUN.  Errors in an included file are reported with the file's name and the line number in it.
+
+=== #MMDEBUG ON
+or
+#MMDEBUG OFF
+--- keep
+Directives for the program loader, which can appear anywhere in the program.  While #MMDEBUG is OFF (the default at the start of the program) the lines that start with the command MMDEBUG are dropped when the program is loaded, as comments are, so they cost nothing in the program's size or speed.  After #MMDEBUG ON they are kept.  An #INCLUDE file starts with the setting in force at its #INCLUDE.  See the MMDEBUG command.
+
+
+# The command has no ‘num’: it is ‘value’ (Commands.c:3913-4003, which copies when value is 0).
+# ACTION REPLACE commands.txt 67 "=== {b=0 a=0}ARRAY ADD in(), value ,out()"
+=== {b=0 a=0}ARRAY ADD in(), value ,out()
+{}
+--- keep
+{a=0}This adds (or appends for strings) the value 'value' to every element of the matrix in() and puts the answer in out(). Works for arrays of any dimensionality of strings and both integer and float (can convert between integer and float). Setting ‘value’ to 0 or “” is optimised and is a fast way of copying an entire array. in() and out() can be the same array.
+{b=0}
+
+
+# The arrays are targetarray and sourcearray (there is no destinationarray here); array_insert (Commands.c:4019-4110)
+# gives "String arrays differ in string length" when their LENGTHs differ.
+# ACTION REPLACE commands.txt 73 "=== {b=0 a=0}ARRAY INSERT targetarray(), [d1] [,d2] [,d3] [,d4] [,d5] , sourcearray()"
+=== {b=0 a=0}ARRAY INSERT targetarray(), [d1] [,d2] [,d3] [,d4] [,d5] , sourcearray()
+{b=0 a=0}
+{}
+--- keep
+{b=0 a=0}This is the opposite of ARRAY SLICE, has a very similar syntax, and allows you, for example,  to substitute a single vector into an array of vectors with a single instruction or a one dimensional array of strings into a two dimensional array of strings.  The arrays can be numerical or strings and ‘sourcearray’ and ‘targetarray’ must be the same (NB: can convert between integers and floats for numerical arrays).  String arrays must have the same LENGTH.
+{b=0 a=0}
+{b=0 a=0}eg,
+{b=0 a=0}`  OPTION BASE 1\n  DIM targetarray(3,4,5)\n  DIM sourcearray(4)=(1,2,3,4)\n  ARRAY INSERT targetarray(), 2, , 3, sourcearray()`
+{b=0 a=0}Will set elements 2,1,3 = 1 and 2,2,3 = 2 and 2,3,3 = 3 and 2,4,3 = 4
+
+
+# array_slice (Commands.c:4127-4220) splits its arguments at commas (getargs): destinationarray() needs one before
+# it, as the example has; "String arrays differ in string length" when the LENGTHs differ.
+# ACTION REPLACE commands.txt 88 "=== {b=0 a=0}ARRAY SLICE sourcearray(), [d1] [,d2] [,d3] [,d4] [,d5] destinationarray()"
+=== {b=0 a=0}ARRAY SLICE sourcearray(), [d1] [,d2] [,d3] [,d4] [,d5] , destinationarray()
+{}
+--- keep
+{b=0 a=0}This command copies a specified set of values from a multi-dimensional array into a single dimensional array. It is much faster than using a FOR loop. The slice is specified by giving a value for all but one of the source array indices and there should be as many indices in the command, including the blank one, as there are dimensions in the source array. The arrays can be numerical or strings and ‘sourcearray’ and ‘destinationarray’ must be the same (NB: can convert between integers and floats for numerical arrays).  String arrays must have the same LENGTH.
+{b=0 a=0}eg,
+{b=0 a=0}`  OPTION BASE 1`
+{b=0 a=0}`  DIM a(3,4,5)\n  DIM b(4)\n  ARRAY SLICE a(), 2, , 3, b()`
+{b=0}Will copy the elements 2,1,3 and 2,2,3 and 2,3,3 and 2,4,3 into array b()
+
+
+# cmd_chdir (FileIO.c:1210-1253) takes A:, B: (A:) or C: (PathDrive, 1121) and sets filepath, the current drive and
+# directory, to it; the old drive keeps its directory (DrivePaths).  "USB drive not present" without a drive in C:.
+# ACTION REPLACE commands.txt 297 "=== CHDIR dir$"
+=== CHDIR dir$
+--- keep
+Change the current working directory to ‘dir$’.  ‘dir$’ can start with a drive (eg, "C:/games"): the directory is then on that drive, which becomes the current drive (see the DRIVE command).
+The special entry “..” represents the parent of the current directory and “.” represents the current directory.  "/" is the root directory.
+
+
+# The chapter is Graphics Functions (docs/manual/text/18_graphics.md); a circle, not a box; one paragraph was split.
+# ACTION REPLACE commands.txt 302 "=== CIRCLE  x,  y,  r  [,lw]  [, a]  [, c]  [, fill]"
+=== CIRCLE  x,  y,  r  [,lw]  [, a]  [, c]  [, fill]
+--- keep
+Draw a circle centred at 'x' and 'y' with a radius of 'r' on the display output. ‘lw’ is optional and is the line width (defaults to 1). 
+ 'c' is the optional colour and defaults to the current foreground colour if not specified.  The optional 'a' is a floating point number which will define the aspect ratio.  If the aspect is not specified the default is 1.0 which gives a standard circle.  'fill' is the fill colour and can be omitted or set to -1 in which case the circle will not be filled.  
+All parameters can be expressed as arrays and the software will plot the number of circles as determined by the dimensions of the smallest array. 'x', 'y' and 'r' must all be arrays or all be single variables/constants otherwise an error will be generated.  'lw', 'a', 'c', and fill can be either arrays or single variables/constants.
+See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
+
+
+# cmd_close (SerialFileIO.c:130-171): a COM port waits for its output (164) and is closed; GPS closes the GPS port
+# (135-156).  The OPEN entry says both are closed with CLOSE.
+# ACTION REPLACE commands.txt 315 "=== CLOSE [#]fnbr [,[#]fnbr] …"
+=== CLOSE [#]fnbr [,[#]fnbr] …
+or
+CLOSE GPS
+--- keep
+Close the file(s) or serial communications port(s) previously opened with the file number ‘#fnbr’.  The # is optional.  Before a serial port is closed the data waiting in its output buffer is sent.
+CLOSE GPS closes the serial port opened for a GPS receiver (OPEN ... AS GPS); GPS can also be one of a list of file numbers.  Also see the OPEN command.
+
+
+# cmd_cls (Draw.c:4918-4931): there is no LCD panel; the write page is cleared, CurrentX/Y set to 0, and on page 0
+# the VT100 clear is sent to the serial console; Rgb121Cls (Rgb121.c:413-421) for the 4-bit layers.
+# ACTION REPLACE commands.txt 319 "=== CLS [colour]"
+=== CLS [colour]
+--- keep
+Clears the screen (the page being written to: see PAGE WRITE) and moves the text position for PRINT to the top left.  Optionally 'colour' can be specified which will be used for the background colour when clearing the screen; otherwise the background colour set by COLOUR is used.  When the write page is page 0 the screen of the terminal emulator on the serial console is cleared too.
+In the 4-bit colour depth CLS without a colour clears a layer made by FRAMEBUFFER LAYER or FRAMEBUFFER LAYER TOP, while it is the write target, to its transparent colour.
+
+
+# The display is the VGA screen (no LCD panel); cmd_colour, Draw.c:5079-5093.
+# ACTION REPLACE commands.txt 323 "=== COLOUR fore [, back]\nor\nCOLOR fore [, back]"
+=== COLOUR fore [, back]\nor\nCOLOR fore [, back]
+--- keep
+Sets the default colour for commands (PRINT, etc) that display on the screen.  'fore' is the foreground colour, 'back' is the background colour.  The background is optional and if not specified will default to any previously set background colour or black if not previously changed.
+
+
+# cmd_copy (FileIO.c:963-1025): TO only; wildcards at the prompt only ("Invalid in a program"), the target a
+# directory ("$ not a directory"), system, hidden and directory entries skipped, "Copying name" printed; a target
+# ending in / takes the file's own name; both FA_CREATE_ALWAYS.  The empty paragraphs of the left cell go.
+# ACTION REPLACE commands.txt 396 "=== COPY fname1$ TO fname2$"
+=== COPY fname1$ TO fname2$
+or
+COPY fname$ TO dirname$
+--- keep
+Copy a file from ‘fname1$’ to ‘fname2$’.  Both are strings.  A file ‘fname2$’ that exists already is overwritten.
+{b=0 a=0}A directory path can be used in both ‘fname1$’ and ‘fname2$’, and either can include a drive (A: or B: for the SD card, C: for the USB flash drive), so a file can be copied from one drive to the other (see the DRIVE command).  If ‘fname2$’ ends in a / it is a directory and the file is copied into it with its own name.
+Wildcard copy.  The bulk copy is triggered if ‘fname$’ contains a '\*' or a '?' character: all the files that match it (not directories, or hidden or system files) are copied into the directory ‘dirname$’, each with its own name, and each name is shown as it is copied.  The wildcards can only be in the file name, not in its path.  A wildcard copy can only be used at the command prompt.
+The firmware will block copying a file to itself, and a wildcard copy into the directory the files are in ("Source and destination are the same").
+
+
+# There is no COPY A2A, A2B, B2A or B2B: cmd_copy (FileIO.c:963) reads no sub-keyword (firmware.json lists none) and
+# without TO it is "Syntax".  On the CMM2 B: is A: anyway.
+# ACTION REMOVE commands.txt 408 "=== COPY A2A fname1$, fname2$ COPY A2B fname1$, fname2$ COPY B2A fname1$, fname2$ COPY B2B fname1$, fname2$"
+
+
+# CallCFunction (CFunctions.c:245-345) takes CFUNC_ARGS = 16 arguments (46) and calls (p + ii) with p an unsigned
+# int pointer just past the offset word (338-341): the offset is in words (main.c:3855 says so too; the PicoMite
+# is the same, its manual's "bytes" is wrong).  The code is put in flash when RUN loads the program
+# (SaveProgramToFlash, main.c:3851-4010).  PicoMite CSUBs: chapter 22, docs/manual/text/22_porting.md:14.
+# ACTION REPLACE commands.txt 416 "=== CSUB name [type  [, type]  …]"
+=== CSUB name [type  [, type]  …]
+  hex [[ hex[…] 
+  hex [[ hex[…] 
+END CSUB
+---
+Defines the binary code for an embedded machine code program module written in C or ARM assembler. The module will appear in MMBasic as the command 'name' and can be used in the same manner as a built-in command.
+Multiple embedded routines can be used in a program with each defining a different module with a different 'name'.  
+The first 'hex' word is a 32 bit word which is the offset in 32-bit words from the word after it (the start of the compiled code) to the entry point of the embedded routine (usually the function main()).  The following hex words are the compiled binary code for the module. These are automatically programmed into MMBasic when the program is loaded (by RUN). Each 'hex' must be exactly eight hex digits representing the bits in a 32-bit word and be separated by one or more spaces or new lines. The command must be terminated by a matching END CSUB.   Any errors in the data format will be reported when the program is run.  During execution MMBasic will skip over any CSUB commands so they can be placed anywhere in the program. 
+The type of each parameter can be specified in the definition. For example:
+{l=720}`CSUB MySub integer, integer, string` 
+This specifies that there will be three parameters, the first two being integers and the third a string.  
+Note:
+{kl=1 n=3 v=0 t=l1980 b=0 a=45}Up to sixteen arguments can be specified ('arg1', 'arg2', etc).
+{kl=1 n=3 v=0 t=l1980 b=0 a=45}If a variable or array is specified as an argument the C routine will receive a pointer to the memory allocated to the variable or array and the C routine can change this memory to return a value to the caller. In the case of arrays, they should be passed with empty brackets eg, arg().  In the CSUB the argument will be supplied as a pointer to the first element of the array. 
+{kl=1 n=3 v=0 t=l1980 b=0 a=45}Constants and expressions will be passed to the embedded C routine as pointers to a temporary memory space holding the value. 
+A CSUB built for the PicoMite can also be used if it uses only MMBasic's call table and none of the PicoMite's hardware (see the chapter *Porting Programs*).
+
+
+# cmd_date (MM_Misc.c:2126-2193) splits at - or / into day, month, year: "YYYY-MM-DD" reads 2024 as the day ("Day
+# is invalid").  update_clock (2099-2120) stores year - 2000 in the STM32 RTC (and the DS3231, 2187-2194); at power
+# up MX_RTC_Init (main.c:1755-1787) resets a year before 2018 to 01-01-2000 00:00:00 and firstinit asks for the
+# time and date (main.c:932, 4838; Appendix K).  b14 p87.  There is no OPTION RTC AUTO ENABLE.
+# ACTION REPLACE commands.txt 454 "=== {b=40 a=40}DATE$ = "DD-MM-YY[YY]""
+=== {b=40 a=40}DATE$ = "DD-MM-YY[YY]"
+{b=40 a=40}or
+{b=40 a=40}DATE$ = "DD/MM/YY[YY]"
+--- keep
+Set the date of the internal clock/calendar.
+DD, MM and YY are numbers, for example:   DATE$ = "28-7-2024".  The year can be abbreviated to two digits (ie, 24), and the real time clock holds the years 2000 to 2099.
+The date is kept by the battery backed real time clock while the power is off (see Backup Battery in the chapter Hardware Features), and with OPTION DS3231 ON it is set in the DS3231 real time clock too.  If the clock holds a date before 2018 when the power is applied MMBasic takes it to have stopped: it sets the date and time to 01-01-2000 and 00:00:00 and asks for them (see Appendix K).  So the time (set with TIME$ =) is lost when the power is cycled unless a correct date has also been set.
+
+
+# SaveProgramToFlash (main.c:3881-3893, 3979-3990; also 4208, 4308): the font number is 1 to FONT_TABLE_SIZE = 16 and 1, 6 and 7
+# give "Cannot redefine fonts 1, 6 or 7" (as chapter 18 says: 2 to 5 and 8 to 16); the errors come when RUN loads
+# the program.  No LCD panel; the fonts are in the Colour Maximite 2 download (18_graphics.md:82).
+# ACTION REPLACE commands.txt 466 "=== DEFINEFONT #Nbr"
+=== DEFINEFONT #Nbr
+    hex [[ hex[…]
+    hex [[ hex[…]
+END DEFINEFONT
+---
+This will define an embedded font which can be used alongside or to replace the built in fonts.  These work exactly same as the built in fonts (i.e. selected using the FONT command or specified in the TEXT command).  See Embedded Fonts in the chapter *Graphics Functions*, and the *Embedded Fonts* folder in the Colour Maximite 2 firmware download for a selection of embedded fonts.
+{b=120 a=120}'#Nbr' is the font's reference number: 2 to 5 or 8 to 16.  It can be the same as a built in font and in that case it will replace the built in font (fonts 1, 6 and 7 cannot be replaced).  Each 'hex' must be exactly eight hex digits and be separated by spaces or new lines from the next.
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Multiple lines of 'hex' words can be used with the command terminated by a matching END DEFINEFONT.
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Multiple embedded fonts can be used in a program with each defining a different font with a different font number.
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}During execution MMBasic will skip over any DEFINEFONT commands so they can be placed anywhere in the program.
+{n=1 v=0 t=x1152,n432 b=0 l=430 h=181}Any errors in the data format will be reported when the program is loaded (by RUN).
+
+
+# findvar (MMBasic.c:3860-3880, 3983-3987): LENGTH n (1-255) is the string's size for a simple string too, and a
+# simple string of size + 1 <= 16 bytes is put in its record (dimtbl[1..4]); otherwise it takes a 256 byte page
+# (GetStringMemoryBottom, Memory.c:1362).  cmd_const (Commands.c:3519-3524) does the same for a constant under 16
+# characters.  The chapter is Variables and Expressions (10_variables.md).
+# ACTION REPLACE commands.txt 478 "=== DIM [type] decl [,decl].. "
+=== DIM [type] decl [,decl].. 
+where 'decl' is:
+var [length] [type] [init]
+'var' is a variable name with optional dimensions
+'length' is used to set the maximum size of the string to 'n' as in LENGTH n
+'type' is one of  FLOAT or \nINTEGER or STRING (the type can be prefixed by the keyword AS - as in AS FLOAT)
+'init' is the value to initialise the variable and consists of:\n= <expression>
+For a simple variable one expression is used, for an array a list of comma separated expressions surrounded by brackets is used.
+{}
+{}
+Examples:
+DIM nbr(50)
+DIM INTEGER nbr(50)
+DIM name AS STRING
+DIM a, b$, nbr(100), strn$(20)
+DIM a(5,5,5), b(1000)
+DIM strn$(200) LENGTH 20
+DIM STRING strn(200) LENGTH 20
+DIM a = 1234, b = 345
+DIM STRING strn = "text"
+DIM x%(3) = (11, 22, 33, 44)
+{}
+---
+Declares one or more variables (i.e. makes the variable name and its characteristics known to the interpreter).  
+When OPTION EXPLICIT is used (as recommended) the DIM, LOCAL or STATIC commands are the only way that a variable can be created.  If this option is not used then using the DIM command is optional and if not used the variable will be created automatically when first referenced.
+The type of the variable (i.e. string, float or integer) can be specified in one of three ways:
+By using a type suffix (i.e. !, % or $ for float, integer or string).   For example:
+{kn=1 b=0 a=0 l=720}`DIM nbr%, amount!, name$`
+By using one of the keywords FLOAT, INTEGER or STRING immediately after the command DIM and before the variable(s) are listed.  The specified type then applies to all variables listed (i.e. it does not have to be repeated).  For example:
+{kn=1 b=0 a=0 l=720}`DIM STRING first_name, last_name, city`
+By using the Microsoft convention of using the keyword "AS" and the type keyword (i.e. FLOAT, INTEGER or STRING) after each variable.  If you use this method the type must be specified for each variable and can be changed from variable to variable.  
+For example:
+{kn=1 b=0 a=0 l=720}`DIM amount AS FLOAT, name AS STRING`
+Floating point or integer variables will be set to zero when created and strings will be set to an empty string (i.e. "").  You can initialise the value of the variable by using an equals symbol (=) and an expression following the variable definition.  For example:\n`     DIM STRING city = "Perth", house = "Brick"`
+The initialising value can be an expression (including other variables) and will be evaluated when the DIM command is executed.  See the chapter *Variables and Expressions* for more examples of the syntax.
+As well as declaring simple variables the DIM command will also declare arrayed variables (i.e. an indexed variable with a number of dimensions).  Following the variable's name the dimensions are specified by a list of numbers separated by commas and enclosed in brackets.  For example:
+{kn=1 b=0 a=0 l=720}`DIM array(10, 20)`
+Each number specifies the index range in each dimension.  Normally the indexing of each dimension starts at 0 but the OPTION BASE command can be used to change this to 1.
+The above example specifies a two dimensional array with 11 elements (0 to 10) in the first dimension and 21 (0 to 20) in the second dimension.  The total number of elements is 231 and because each floating point number requires 8 bytes a total of 1848 bytes of memory will be allocated.
+A dimension can hold a single element.  With the default OPTION BASE 0 this is written as DIM a(0) and with OPTION BASE 1 as DIM a(1).  This matters when the size of an array is calculated while the program is running and the calculation can produce one element, and it allows the MATH matrix commands to produce a single row, a single column, or a 1x1 result.
+Strings will default to allocating 255 bytes (i.e. characters) of memory for each element and this can quickly use up memory when defining arrays of strings.  In that case the LENGTH keyword can be used to specify the amount of memory to be allocated to each element and therefore the maximum length of the string that can be stored.  This allocation ('n') can be from 1 to 255 characters.
+For example:  `DIM STRING s(5, 10)`  will declare a string array with 66 elements consuming 16,896 bytes of memory while:
+{kn=1 b=0 a=0 l=720}`DIM STRING s(5, 10) LENGTH 20`
+Will only consume 1,386 bytes of memory.  Note that the amount of memory allocated for each element is n + 1 as the extra byte is used to track the actual length of the string stored in each element.
+If a string longer than 'n' is assigned to an element of the array an error will be produced.  Other than this, string arrays created with the LENGTH keyword act exactly the same as other string arrays.  This keyword can also be used with non-array string variables (see below).
+In the above example you can also use the Microsoft syntax of specifying the type __after__ the length qualifier.  For example:
+{kn=1 b=0 a=0 l=720}`DIM s(5, 10) LENGTH 20 AS STRING`
+{kn=1 b=0 a=0}With a simple (non arrayed) string the LENGTH keyword also sets the maximum length of the string, and if the length is 15 or less the string is held in the variable's own record, saving the 256 bytes of memory that a string variable otherwise takes.  This is useful for short strings.  A string constant (CONST) of up to 15 characters is held in the same way.
+Arrays can also be initialised when they are declared by adding an equals symbol (=) followed by a bracketed list of values at the end of the declaration.  For example:
+{kn=1 b=0 a=0 l=720}`DIM INTEGER nbr(4) = (22, 44, 55, 66, 88)`
+{b=0}or          `DIM s$(3) = ("foo", "boo", "doo", "zoo")`
+Note that the number of initialising values must match the number of elements in the array including the base value set by OPTION BASE.  If a multi dimensioned array is initialised then the first dimension will be initialised first followed by the second, etc.
+Also note that the initialising values must be after the LENGTH qualifier (if used) and after the type declaration (if used).
+
+
+# cmd_drive and SetDrive (FileIO.c:1140-1166): A: or B: is the SD card, C: the USB drive; DrivePaths keeps each
+# drive's directory; FErrorMsg[20] and [21] (FileIO.c:185-186).  No flash drive and no RP2350.
+# ACTION REPLACE commands.txt 562 "=== DRIVE drive$"
+=== DRIVE drive$
+--- keep
+Sets the active disk drive as ‘drive$’.  ‘drive$’ can be “A:” or “B:”, the SD card (B: is another name for A:), or “C:”, a USB flash drive - see the heading USB Flash Drive in the chapter Keyboard, Mouse and Gamepad.
+Each drive keeps its own current directory, so DRIVE returns to the directory that was current on the drive when it was last used.  A drive that is not there gives the error "SD card not present" or "USB drive not present".  Typing A:, B: or C: at the command prompt does the same as this command.
+
+
+# MM.END is run only by cmd_end (Commands.c:1792-1804).  A program that runs off its end returns to main.c:1087-1088,
+# which calls cleanend (main.c:363), not MM.END (tests/cmm2/endhook.bas uses an explicit END).  The PicoMite is the
+# same (do_end(false) after the run).  Chapter 07_using_mmbasic.md:270 also says "actual or implied" - reported.
+# ACTION REPLACE commands.txt 586 "=== END [noend]"
+=== END [noend]
+or
+END cmd$
+--- keep
+End the running program and return to the command prompt. If a subroutine named MM.END exists in the program it will be executed when the program ends with an END command. It is not executed if the program ends by running past its last line, with an error or with the break character (ie, Ctrl-C). 
+The optional parameter ‘noend’ can be used to block execution of the MM.END subroutine eg, “END noend”
+if 'cmd$' is specified then it will be executed as though at the command prompt after the program finishes. Note: if "END cmd$" is used but a subroutine MM.END exists it will be executed and cmd$ ignored.
+
+
+# execute (Commands.c:290-322): ScrewUpTimer = 1000, counted down by the 1 ms tick (Timers.c:299-303), which then
+# calls SoftReset with SCREWUP_TIMEOUT; main.c:821-823 prints "Command timeout" after the restart.
+# ACTION REPLACE commands.txt 630 "=== EXECUTE command$"
+=== EXECUTE command$
+---
+This executes the Basic command "command$". Use should be limited to basic commands that execute sequentially for example the GOTO statement will not work properly
+Things that are tested and work OK include GOSUB, Subroutine calls, other simple statements (like PRINT and simple assignments)
+Multiple statements separated by : are not allowed and will error
+The command sets an internal watchdog of one second before executing the requested command.  If control does not return to EXECUTE within that time, as with a GOTO or a command that takes longer (eg, PAUSE 2000), the processor restarts with the message "Command timeout". 
+You cannot call EXECUTE from within code that has been EXECUTE’d.
+RUN is a special case and will cancel the timer allowing you to use the command to chain programs if required.
+
+
+# do_listfiles (Commands.c:748-933): "Invalid in a program" (788); the path part may have a drive (fullpath); AM_SYS
+# and AM_HID skipped (810); directories sort first (the D prefix); "PRESS ANY KEY ..." each screen (919-923); up
+# to MAXFILES = 2048 (fileIO.h:113, "Too many files to list").  There is no flash file system.
+# ACTION REPLACE commands.txt 650 "=== FILES [fspec$] [,sort]"
+=== FILES [fspec$] [,sort]
+---
+Lists the files and directories in the current directory of the current drive (see DRIVE), or in the directory given in 'fspec$'.  FILES can only be used at the command prompt.\n'fspec$' (if specified) can contain a path and search wildcards in the filename.  Question marks (?) will match any character and an asterisk (\*) will match any number of characters.  If omitted, all files will be listed.  \nFor example:\n\* Find all entries\n\*.TXT Find all entries with an extension of TXT\nE\*.\* Find all entries starting with E\nX?X.\* Find all three letter file names starting and ending with X\nmydir/\* Find all entries in directory mydir\nC:/\*.BAS Find all entries with an extension of BAS in the root directory of the USB flash drive\nNB: putting wildcards in the pathname will result in an error\n'sort' specifies the sort order as follows:\nsize by ascending size \ntime by descending time/date\nname by file name (default if not specified)\ntype by file extension
+Directories are listed before files, which are shown with their date, time and size, followed by the number of each; hidden and system files are not listed.  The listing pauses each time the screen is full, and up to 2048 entries can be listed.  LIST FILES does the same, and FM is a full screen alternative (see the chapter *File Manager*).
+
+
+# There is no FLAGS function (firmware.json: FLAGS is a command only; MM.FLAGS reads the register).
+# ACTION REPLACE commands.txt 666 "=== {b=0 a=0}FLAGS=value%"
+=== {b=0 a=0}FLAGS=value%
+--- keep
+Sets all bits in the system flag register to the value specified.
+See also the FLAG command, the FLAG() function and MM.FLAGS
+
+
+# cmd_font (Draw.c:5024-5046): the scale is optional (default 1, 1-15); SetFont (6111-6124) gives "Invalid font
+# number #n" for an empty slot.  No LCD panel; the chapter is Graphics Functions.
+# ACTION REPLACE commands.txt 695 "=== FONT [#]font-number, scaling"
+=== FONT [#]font-number [, scaling]
+--- keep
+This will set the default font for displaying text on the screen.
+Fonts are specified as a number.  For example, #2 (the # is optional).  See the chapter *Graphics Functions* for details of the available fonts.  A number that is not a built in font or one loaded by DEFINEFONT or LOAD FONT gives the error "Invalid font number".
+'scaling' can range from 1 to 15 (the default is 1) and will multiply the size of the pixels making the displayed character correspondingly wider and higher.  Eg, a scale of 2 will double the height and width.
+
+
+# A typo in the syntax: [AS <type>} for [AS <type>].
+# ACTION REPLACE commands.txt 786 "=== FUNCTION xxx (arg1 [,arg2, …]) [AS <type>}\n   <statements>\n   <statements>\n   xxx = <return value>\nEND FUNCTION"
+=== FUNCTION xxx (arg1 [,arg2, …]) [AS <type>]\n   <statements>\n   <statements>\n   xxx = <return value>\nEND FUNCTION
+---
+Defines a callable function.  This is the same as adding a new function to MMBasic while it is running your program.
+'xxx' is the function name and it must meet the specifications for naming a variable.    The type of the function can be specified by using a type suffix (i.e. xxx$) or by specifying the type using AS <type> at the end of the functions definition.  For example:
+{kn=1 b=0 a=0 l=720}`FUNCTION xxx (arg1, arg2) AS STRING`
+'arg1', 'arg2', etc are the arguments or parameters to the function (the brackets are always required, even if there are no arguments).  An array is specified by using empty brackets.  i.e.  arg3().    The type of the argument can be specified by using a type suffix (i.e. arg1$) or by specifying the type using `AS <type> (i.e. arg1 AS STRING).`
+The argument can also be another defined function or the same function if recursion is to be used (the recursion stack is limited).
+To set the return value of the function you assign the value to the function's name.  For example:
+{kn=1 b=0 a=0 l=720}`FUNCTION SQUARE(a)`
+{b=0 a=0 l=720}`  SQUARE = a \* a`
+{b=0 a=0 l=720}`END FUNCTION`
+Every definition must have one END FUNCTION statement.  When this is reached the function will return its value to the expression from which it was called.  The command EXIT FUNCTION can be used for an early exit.
+You use the function by using its name and arguments in a program just as you would a normal MMBasic function.  For example:
+{b=0 a=0 l=720}`PRINT SQUARE(56.8)`
+When the function is called each argument in the caller is matched to the argument in the function definition.  These arguments are available only inside the function.  
+Functions can be called with a variable number of arguments.  Any omitted arguments in the function's list will be set to zero or a null string.  
+Arguments in the caller's list that are a variable and have the correct type will be passed by reference to the function.  This means that any changes to the corresponding argument in the function will also be copied to the caller's variable and therefore may be accessed after the function has ended.  The argument can be prefixed with BYVAL which will prevent this mechanism and cause only the value to be used.  Alternatively, the prefix BYREF instructs MMBasic that a reference is required and an error will be generated if that cannot be done.
+Arrays are passed by specifying the array name with empty brackets (eg, arg()) and are always passed by reference and must be the correct type.
+You must not jump into or out of a function using commands like GOTO.  Doing so will have undefined side effects including ruining your day.
+A function can also return a whole array by declaring the array dimensions with the type at the end of the definition (INTEGER and FLOAT arrays only).  For example:
+{kn=1 b=0 a=0 l=720}`FUNCTION fred (arg1, arg2) AS INTEGER(6)`
+Inside the function the result is set by assigning to elements of the function's name (eg, fred(i) = 44).  Note that reading an element of the function's name inside the function will call the function recursively - if intermediate values must be read back, build the result in a LOCAL array and copy it with fred() = tmp%().
+Such a function can only be used as the source of a whole-array assignment and the destination array must have the same type and total number of elements.  For example:
+{kn=1 b=0 a=0 l=720}`DIM b%(6) : b%() = fred(1, 2)`
+It cannot be used anywhere else in an expression, so something like PRINT fred(1, 2) will generate an error.
+The dimensions can be expressions and are evaluated each time the function is called, after its arguments have been set up, so they can depend on the arguments.  The result array can also be filled by passing it to any command that takes an array (eg, the MATH commands) rather than by assigning to its elements.  For example, this returns the inverse of whatever size matrix it is given:
+{kn=1 b=0 a=0 l=720}`FUNCTION Invr(N()) AS FLOAT(BOUND(N(),1), BOUND(N(),2))`
+{kn=1 b=0 a=0 l=720}`  MATH M_INVERSE N(), Invr()`
+{kn=1 b=0 a=0 l=720}`END FUNCTION`
+{kn=1 b=0 a=0 l=720}`DIM a(3,3), b(3,3) : b() = Invr(a())`

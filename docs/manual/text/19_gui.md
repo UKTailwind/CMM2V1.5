@@ -10,7 +10,7 @@ Before the controls can be used, memory must be reserved for them with the comma
 
 ## Using a Mouse
 
-The controls respond to a click of the left mouse button. To use a mouse, display a cursor and link it to the mouse with GUI CURSOR ON followed by GUI CURSOR LINK MOUSE. The cursor then tracks the mouse and the left mouse button acts on the control under the cursor. GUI CURSOR OFF removes the cursor, and GUI CURSOR COLOUR and GUI CURSOR LOAD set its colour and its shape.
+The controls respond to a click of the left mouse button. The mouse must first be set up with OPTION MOUSE (a USB mouse is channel 2): without it, creating a control gives the error "Mouse not enabled". The first control a program creates opens the mouse and shows the cursor, which then tracks the mouse, and the left mouse button acts on the control under the cursor. GUI CURSOR COLOUR and GUI CURSOR LOAD set the cursor's colour and its shape.
 
 The current state of the mouse button can be read at any time with the CLICK() function: CLICK(X) and CLICK(Y) return where it was clicked, CLICK(DOWN) and CLICK(UP) whether the button has been pressed or released, CLICK(REF) the control under the cursor, and CLICK(LASTX), CLICK(LASTY) and CLICK(LASTREF) where and on what the last click was.
 

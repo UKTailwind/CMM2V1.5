@@ -91,7 +91,7 @@ Filters are used to let the CAN hardware do the work to discard messages you are
 
 - index is the filter number 0-31, these are applied in order.
 - eid is 0 for STDID filters and 1 for EXTID filters.
-- type is the filter type: 0 is a range filter matching ids in the range id1 to id2; 1 is a filter containing two IDs (id1, id2) to be matched; 2 is a classic filter where id1 is the filter and id2 is the mask; 3 is a range filter but the eid bit is ignored and either STDID or EXTID are accepted.
+- type is the filter type: 0 is a range filter matching ids in the range id1 to id2; 1 is a filter containing two IDs (id1, id2) to be matched; 2 is a classic filter where id1 is the filter and id2 is the mask; 3 is a range filter for EXTIDs (eid 1) in which the extended ID mask is not applied.
 - config values: 0 will disable the filter, i.e. it is ignored; 1 will accept a matched message into Rx FIFO0; 2 will accept a matched message into Rx FIFO1; 3 will reject the message.
 
 The following filter will accept STDID messages with ids 235-300 into FIFO0:

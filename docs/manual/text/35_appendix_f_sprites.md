@@ -12,7 +12,7 @@ The concept of the sprite implementation is as follows:
 - Layer 0 is a special case and sprites on all other layers will collide with it.
 - The SCROLL commands leave sprites on all layers except layer 0 unmoved.
 - Layer 0 sprites scroll with the background and this can cause collisions.
-- There is no practical limit on the number of collisions caused by SHOW or SCROLL commands.
+- Up to seven collisions are recorded for each sprite by a SHOW or SCROLL command.
 - The SPRITE() function allows the user to fully interrogate the details of a collision.
 - A SHOW command will overwrite the details of any previous collisions for that sprite.
 - A SCROLL command will overwrite details of previous collisions for ALL sprites.

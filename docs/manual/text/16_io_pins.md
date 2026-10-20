@@ -22,8 +22,8 @@ The SETPIN command also recognises a couple of options that will connect an inte
 Pins marked as Analog Input can be configured to measure the voltage on the pin. The input range is from zero to 3.3V and the PIN() function will return the voltage. For example:
 
 ```
-> SETPIN 23, AIN
-> PRINT PIN(23)
+> SETPIN 7, AIN
+> PRINT PIN(7)
  2.345
 >
 ```
