@@ -15,7 +15,10 @@ the file's text, in the PicoMite manual's own formats, so running it again after
     !TODO text          a highlighted [MANUAL TODO] note: something still to check
     !NOTE text          a note in italics (a paragraph of its own)
 
-The paragraph after a code block, a table or a picture gets the template's 120 before it."""
+The paragraph after a code block, a table or a picture gets the template's 120 before it.
+
+A file whose third line is "!KEEP" leaves its chapter's text as the manual has it (it was checked and needs no
+change) and only takes out the chapter's [MANUAL TODO] notes; the rest of such a file is a record of the check."""
 import io, os, re, sys
 import docx
 import fitz
@@ -255,6 +258,23 @@ def parse(path, w):
     return title
 
 
+def keep(d, body, is_h1, title, path):
+    """a chapter whose text stays as the manual has it ("!KEEP" on the file's third line): its [MANUAL TODO] notes
+    are taken out, nothing else"""
+    els = list(body.iterchildren())
+    heads = [i for i, el in enumerate(els) if is_h1(el) and ptext(el) == title]
+    if len(heads) != 1:
+        sys.exit('%s: %d headings "%s" in the manual' % (path, len(heads), title))
+    n = 0
+    for el in els[heads[0] + 1:]:
+        if is_h1(el) or el.tag == qn('w:sectPr'):
+            break
+        if el.tag == qn('w:p') and ptext(el).startswith(TODO.strip()):
+            body.remove(el)
+            n += 1
+    print('%s: "%s" kept, %d notes taken out' % (os.path.basename(path), title, n))
+
+
 def main():
     d = docx.Document(MANUAL)
     sid = {s.style_id: s.name for s in d.styles}
@@ -268,6 +288,10 @@ def main():
         return st is not None and sid.get(st.get(qn('w:val'))) == 'Heading 1'
 
     for path in sys.argv[1:]:
+        lines = open(path, encoding='utf-8').read().split('\n')
+        if len(lines) > 2 and lines[2].strip() == '!KEEP':
+            keep(d, body, is_h1, lines[0][2:].strip(), path)    # (a chapter kept as it is: its notes go)
+            continue
         w = Writer(d)
         title = parse(path, w)
         els = list(body.iterchildren())

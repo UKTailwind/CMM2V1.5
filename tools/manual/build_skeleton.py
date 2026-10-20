@@ -147,8 +147,9 @@ def main():
         return sid.get(st) == 'Heading 1'
 
     starts = [i for i, el in enumerate(els[:-1]) if is_h1(el)]
-    pio = next(i for i, el in enumerate(els) if ptext(el).startswith('Appendix F ' + DASH))  # (F's heading is unstyled;
-    starts = sorted(starts + [pio])                                                          # the first of two lines)
+    pio = next(i for i, el in enumerate(els) if i > starts[0] and ptext(el).startswith('Appendix F ' + DASH))
+    starts = sorted(starts + [pio])         # (F's heading is unstyled; its first line after the contents, whose own
+                                            # "Appendix F" line must stay: it holds part of the contents field)
     front = els[:starts[0]]
     chapters = {}
     for n, i in enumerate(starts):
