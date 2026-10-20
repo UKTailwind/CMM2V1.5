@@ -103,8 +103,9 @@ What the cross-reference found, before the audit confirms it:
   - the PIXEL FAST alias.
 - **b14 entries the build lacks:**
   - CFUNCTION, LS and MM.ESC;
-  - OPTION F15, F16, F19 and F20;
   - SETTICK FAST.
+
+  OPTION F15, F16, F19 and F20 were listed here at first. They are in the build: their keywords come from an array, which the inventory now follows.
 
   Its GUI entry spells CURSOR "CURSOUR".
 - **PicoMite entries the build lacks:** 113 name no keyword of the build. They are:
@@ -130,12 +131,26 @@ Under each chapter heading, and under About, is a highlighted note: `[MANUAL TOD
 - the pictures come from the b14 PDF, its embedded images or (for its vector drawings) an area of a page;
 - running it again after an edit replaces what it wrote before.
 
-Done: 1-5 (Introduction to Hardware Features), 17 (Special Device Support), 20 (Game Playing Features), 25 (Operators), and appendices B, C, D and F to K. Each is b14's text, checked against the source and, where it could be, on the board:
-- MEMORY, DATE$, the operators, and the CRC demonstration's check values were run;
-- the keyboard codes were read from the key map;
-- the first-boot questions and what an upgrade keeps were read from `main.c`.
+Done 20 Oct: every chapter but the reference sections (24, 26-29) and Appendix N, which is made from them in M4.
+- **Replaced by b14's text, checked against the build:** 1-5, 17, 20, 25, and appendices B to D and F to K.
+- **Merged** (the PicoMite's or b14's text as the base, the other's added, both corrected): 6-16, 18, 19, 22 and 23, and appendix A.
+- **New:** 12 (Video Modes and Pages) and appendix M (applicability).
+- **Kept** after the check: 10, 11 and 21 (corrected where they differ), and appendices E, L and O.
+- **The front matter:** `tools/manual/front.py` (About, Support, the acknowledgments, the licence, This Manual).
 
-The merge chapters (6-16, 18-19, 21-23) and appendices A and E come next.
+Each fact was checked in the source and, where it could be, on the board:
+- the pages of every mode and depth;
+- MEMORY, DATE$ and TIMER;
+- the operators;
+- the CRC check values;
+- the longest name;
+- the recursion depth.
+
+The text chapters are spliced into the skeleton by `chapter.py`. A chapter kept as it is has a `!KEEP` file, which takes out only its notes.
+
+The other tools:
+- `extract.py` turns a chapter back into text.
+- `photo.py` takes the editor and FM pictures on the board.
 
 What the chapters found:
 - **b14's text, wrong for this build or wrong outright:**
@@ -149,14 +164,16 @@ What the chapters found:
   - a USB hub "not supported";
   - the console at 115200;
   - options "in the battery RAM" (they are in flash);
-  - "seven fonts" (eight);
   - the first boot asking the screen type (it asks the keyboard, the time and the date);
-  - TTS as a command (it is PLAY TTS).
+  - TTS as a command (it is PLAY TTS);
+  - TIMER "in microseconds" (it counts milliseconds);
+  - SETTICK FAST (not in the build: `cmd_fasttick` is unreachable, as P1 step 7 found);
+  - names "up to 31 characters" (32), and a 50-level recursion limit (100).
 - **In the code**, to fix or decide (not manual work):
   - OPTION DEFAULT MODE tests "8" twice (`MiscSTM32.c:1573` and `:1579`), so its branch for mode 9 is dead.
   - WS2812 with one LED takes a value of at most &HFFFFFF, even for type W (RGBW).
   - CAN OPEN's error lists the speed "5000000" for 500000.
-  - The first boot's keyboard question offers six layouts; OPTION USBKEYBOARD has seven (IT).
+  - `KBrdList` names IT, but nothing can select it: OPTION USBKEYBOARD and the first boot take six layouts.
   - I2C WRITE/READ option 1 (keep the bus) is stored and never read, so every transfer ends with a stop. The manual says so.
   - TURTLE lacks the PicoMite's later spellings (PEN COLOR, PENCOLOUR and the others).
   - A program's OPTION EXPLICIT stays in force at the prompt after it ends: "FOR a = 1 TO 20" then fails with "A is not declared" until NEW. Is this as the PicoMite does?
