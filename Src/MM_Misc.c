@@ -2833,8 +2833,8 @@ void fun_info(void){
 		targ=T_INT;
 		return;
 	}
-	if(checkstring(ep, "FLASH")){                                   // the flash slot whose program is running, 0 for none (the
-		iret = FlashLoad;                                           // PicoMite's: ImageSlots.c)
+	if(checkstring(ep, "FLASH")){                                   // the slot whose program is running, 0 for none: a RAM
+		iret = FlashLoad > MAXFLASHSLOTS ? FlashLoad - MAXFLASHSLOTS : FlashLoad;   // slot's own number, as the PicoMite's (ImageSlots.c)
 		targ=T_INT;
 		return;
 	}

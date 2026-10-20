@@ -108,7 +108,7 @@ In the other colour depths FRAMEBUFFER is the Colour Maximite 2's own: a working
 
 ## Image Slots
 
-FLASH LOAD IMAGE n, file$ loads an image into image slot n (1 to 8), as the PicoMite's games do. Slots 4 to 8, the PicoMite's RAM slots, are held in RAM and are freed by RUN, NEW and loading a program, so a program loads its images every time it starts. Slots 1 to 3, the PicoMite's flash slots, are kept on the SD card and read into RAM when they are first used (see FLASH SAVE). MM.INFO(FLASH ADDRESS n) returns a slot's address and BLIT FLASH draws from it. The image is held in the PicoMite's format (an 8 byte width and height, then two pixels a byte), so programs that PEEK it work as they do on the PicoMite.
+FLASH LOAD IMAGE n, file$ loads an image into image slot n (1 to 8), as the PicoMite's games do. Slots 4 to 8, the PicoMite's RAM slots, are held in RAM until RAM ERASE, an overwrite or a restart, as the PicoMite's are, so a program that loads its images every time it starts uses FLASH LOAD IMAGE's O (OVERWRITE). Slots 1 to 3, the PicoMite's flash slots, are kept on the SD card and read into RAM when they are first used (see FLASH SAVE). MM.INFO(FLASH ADDRESS n) returns a slot's address and BLIT FLASH draws from it. The image is held in the PicoMite's format (an 8 byte width and height, then two pixels a byte), so programs that PEEK it work as they do on the PicoMite.
 
 ## Running PicoMite Programs
 

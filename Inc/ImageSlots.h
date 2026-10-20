@@ -11,6 +11,7 @@ void SlotProgramCheck(int slot);
 char *SlotProgram(int slot);
 void SlotProgramLeave(void);
 void FlashRunSlot(int slot, int chain);
+int RamSlotBlocks(void **blk, int *size);
 int TileMapUses(const uint8_t *img);
 uint8_t *ImageSlotAddress(int slot);
 uint8_t *ImageSlotPixels(int slot, int *w, int *h);

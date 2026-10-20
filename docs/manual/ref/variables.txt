@@ -111,7 +111,7 @@ The date and time that ‘file$’ was last modified, as a string in the form "Y
 
 =+= MM.INFO(FLASH)
 --- keep
-The flash slot whose program is running (see FLASH RUN and FLASH CHAIN), or 0 for the program in program memory.
+The slot whose program is running: a flash slot, 1 to 3 (see FLASH RUN and FLASH CHAIN), or a RAM slot, 1 to 5 (see RAM RUN and RAM CHAIN), or 0 for the program in program memory.
 
 =+= MM.INFO(FLASH ADDRESS n)
 --- keep
@@ -204,7 +204,7 @@ The address in memory of the start of program memory (in the flash memory, or in
 
 =+= MM.INFO(PSRAM SIZE)
 --- keep
-The size of the SDRAM in bytes: 8388608 (8MB) on a Generation 1 and 33554432 (32MB) on a Generation 2.  This is the PicoMite's key for its PSRAM, which PicoMite programs read to see whether they can use the image slots 4 to 8: on the Colour Maximite 2 they can (see FLASH LOAD IMAGE).
+The size of the SDRAM in bytes: 8388608 (8MB) on a Generation 1 and 33554432 (32MB) on a Generation 2.  This is the PicoMite's key for its PSRAM, which PicoMite programs read to see whether they can use the image slots 4 to 8 and the RAM commands: on the Colour Maximite 2 they can (see FLASH LOAD IMAGE and RAM SAVE).
 
 =+= MM.INFO$(RESET)
 --- keep

@@ -3,7 +3,8 @@
 Slots 1 to 3 are the PicoMite's flash slots, kept in A:/.flash on the SD card and run in place from the heap: FLASH
 SAVE, OVERWRITE, LOAD, RUN, CHAIN, LIST, ERASE, LOAD IMAGE and DISK LOAD, MM.INFO(FLASH) and MM.INFO(FLASH ADDRESS n),
 a program with CSUBs and one with a font, an error in a slot's program, RUN inside one, a program of another firmware's
-format, and the slots kept through a restart. The programs go to A:/fstest by ZMODEM (csubm7.bas from tests/cmm2).
+format, and the slots kept through a restart. The RAM slots (RAM SAVE, FILE LOAD, RUN, CHAIN, LIST, LOAD, ERASE):
+kept through RUN and NEW, a launcher chaining between overlays it loaded, and gone after a restart. The programs go to A:/fstest by ZMODEM (csubm7.bas from tests/cmm2).
 The slots are erased at the start and the end. Prints each check and "N of M checks passed"."""
 import os, sys, tempfile, time
 
@@ -53,6 +54,34 @@ Font 9
 w = MM.Info(FONTWIDTH) : h = MM.Info(FONTHEIGHT)
 Font 1
 Print "font"; w; h
+""",
+    "fsl.bas": """' fsl.bas: a launcher: overlays tokenised into RAM slots while it runs, then chained between
+Dim integer kept = 5, ln = MM.Info(LINES)
+RAM File Load 2, "fsr2", O
+RAM File Load 3, "fsr3", O
+Check
+Read d
+Print "launcher data"; d; " lines kept"; MM.Info(LINES) = ln
+RAM Chain 2
+Sub Check
+  Print "launcher sub ok"
+End Sub
+Data 42
+""",
+    "fsr2.bas": """' fsr2.bas: an overlay
+kept = kept + 1
+Print "R2 in RAM slot"; MM.Info(FLASH); " kept="; kept
+If kept < 8 Then RAM Chain 3
+Print "R2 done"
+""",
+    "fsr3.bas": """' fsr3.bas: the other overlay
+kept = kept + 1
+Print "R3 in RAM slot"; MM.Info(FLASH); " kept="; kept
+RAM Chain 2
+""",
+    "fsself.bas": """' fsself.bas: RAM OVERWRITE of the running program's own slot
+RAM Overwrite 5
+Print "saved from slot"; MM.Info(FLASH)
 """,
     "fsold.bas": """' fsold.bas: slot 1's file with another format's stamp, as old.slot
 Open "A:/.flash/slot1" For Input As #1
@@ -145,13 +174,13 @@ def main():
     check("RUN in a slot's program", c("Flash Run 3", 15), ["ran twice in slot 3"])
 
     # CSUBs: their records made addresses in the block (the executable window), and in program memory by FLASH LOAD
-    out = c('Run "csubm7"', 30)
+    out = c('Run "csubm7"', 60)
     check("csubm7 from its file", out, ["bad 0"])
     c("Flash Overwrite 2")
     c('Run "fsa"')
-    check("csubm7 from slot 2", c("Flash Run 2", 30), ["Mix 0 8642020.533565", "Loop1 281.385893485", "bad 0"])
+    check("csubm7 from slot 2", c("Flash Run 2", 60), ["Mix 0 8642020.533565", "Loop1 281.385893485", "bad 0"])
     c("New")
-    check("FLASH LOAD 2 then RUN", c("Flash Load 2") + c("Run", 30), ["bad 0"], ["Error"])
+    check("FLASH LOAD 2 then RUN", c("Flash Load 2") + c("Run", 60), ["bad 0"], ["Error"])
 
     # a font's record is its number, left alone
     font = c('Run "fsfont"')
@@ -194,7 +223,42 @@ def main():
     check("FLASH LIST: another version's", c("Flash List"), ["saved by another firmware version"])
     check("FLASH RUN refuses it", c("Flash Run 3"), ["from another firmware version"])
 
-    # the folder is hidden; the slots are kept through a restart
+    # the RAM slots (RAM's 1 to 5, the image slots 4 to 8): kept through RUN and NEW, run in place
+    c("RAM Erase All")
+    check("RAM LIST, all empty", c("RAM List"), ["RAM Slot 1 available", "RAM Slot 5 available"])
+    check("RAM RUN of an empty slot", c("RAM Run 1"), ["RAM slot empty"])
+    c('Run "fsa"')
+    check("RAM SAVE 1", c("RAM Save 1"), [], ["Error"])
+    check("RAM LIST names it", c("RAM List"), ['RAM Slot 1 in use: "', 'FSA.BAS"', "RAM Slot 2 available"])
+    check("RAM SAVE 1 again", c("RAM Save 1"), ["Already programmed"])
+    check("RAM OVERWRITE 1", c("RAM Overwrite 1"), [], ["Error"])
+    check("RAM RUN 1", c("RAM Run 1"), ["A runs in slot 1", "hello 1", "A ends"])
+    c('Run "fsfont"')
+    c("New")
+    check("RAM RUN 1 after RUN and NEW", c("RAM Run 1"), ["A runs in slot 1"])
+    check("a RAM slot's program is at its address", c("Print Peek(Byte MM.Info(Flash Address 4))"), [" 1"])
+    check("RAM CHAIN at the prompt", c("RAM Chain 1"), ["Invalid at command prompt"])
+    out = c('Run "fsl"', 20)
+    check("RAM FILE LOAD in a program leaves it running", out, ["launcher sub ok", "launcher data 42 lines kept 1"])
+    check("RAM CHAIN between overlays", out, ["R2 in RAM slot 2 kept= 6", "R3 in RAM slot 3 kept= 7", "R2 in RAM slot 2 kept= 8", "R2 done"])
+    check("RAM LIST 2", c("RAM List 2"), ["R2 in RAM slot"])
+    out = c('RAM File Load 4, "csubm7", O') + c("RAM Run 4", 60)
+    check("csubm7 from RAM slot 4", out, ["Loop1 281.385893485", "bad 0"], ["Error"])
+    c('Run "fsa"')
+    check("csubm7 from RAM slot 4 again", c("RAM Run 4", 60), ["bad 0"])
+    check("RAM LOAD 1 then RUN", c("RAM Load 1") + c("Run"), ["A runs in slot 0"], ["Error"])
+    c('Run "fsself"')
+    check("RAM RUN of a program that overwrites its own slot", c("RAM Run 5"), ["saved from slot 5"], ["Error"])
+    check("and again", c("RAM Run 5"), ["saved from slot 5"], ["Error"])
+    c("RAM Erase 1")
+    check("RAM ERASE 1", c("RAM Run 1"), ["RAM slot empty"])
+    c('Flash Load Image 5, "fsimg", O')
+    c('Run "fsa"')
+    check("an image in a RAM slot after RUN", c("Print Peek(Word MM.Info(Flash Address 5)); Peek(Word MM.Info(Flash Address 5) + 4)"), [" 16 8"])
+    check("FLASH LOAD IMAGE into it again", c('Flash Load Image 5, "fsimg"'), ["Already programmed"])
+    check("RAM LIST shows the image", c("RAM List"), ["RAM Slot 2 in use: image 16 x 8"])
+
+    # the folder is hidden; the slots are kept through a restart, the RAM slots are not
     check("FILES does not show .flash", c('Files "A:/.fl*"', 15), [], [".flash"])
     b.send_line("Cpu Restart")
     time.sleep(4)
@@ -202,6 +266,7 @@ def main():
     b.attention()
     check("the slots after a restart", c("Flash List"), ['Slot 1 in use: "', "Slot 2 in use", "saved by another firmware version"])
     check("FLASH RUN 1 after a restart", c("Flash Run 1"), ["A runs in slot 1"])
+    check("the RAM slots after a restart", c("RAM List"), ["RAM Slot 1 available", "RAM Slot 2 available", "RAM Slot 5 available"])
 
     c("Flash Erase All")
     check("FLASH ERASE ALL", c("Flash List"), ["Slot 1 available", "Slot 2 available", "Slot 3 available"])

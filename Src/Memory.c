@@ -1050,8 +1050,9 @@ void ProgramCachesForget(void) {
 // both heaps' maps cleared, but for the n blocks keep[i] of size[i] bytes (MemSize's, read before), and everything
 // that lived in the heap forgotten. The list may itself be in the heap: it is read before anything is allocated.
 static void HeapWipe(void **keep, int *size, int n) {
-    int i;
-    BBCSoundRelease();                                              // PLAY BBC's state block is in this heap: freed while the map is valid
+    void *slot[MAXIMAGESLOTS];
+    int i, slotsize[MAXIMAGESLOTS], nslots = RamSlotBlocks(slot, slotsize);   // the RAM slots stay (ImageSlots.c): their sizes
+    BBCSoundRelease();                                              // read now. PLAY BBC's state block is in this heap: freed while the map is valid
     memset(SDmap,0x00,0x8000);
     memset(mmap,0x00,sizeof(mmap));
     for(i = 0; i < MAXTEMPSTRINGS; i++) StrTmp[i] = NULL;
@@ -1062,6 +1063,7 @@ static void HeapWipe(void **keep, int *size, int n) {
     minMMheap=(void *)SDRAMEND;
     RamLowFree = NULL;                                              // (every page free: the searches start at RAMBASE)
     for(i = 0; i < n; i++) HeapMark(keep[i], size[i]);
+    for(i = 0; i < nslots; i++) HeapMark(slot[i], slotsize[i]);
     ProgramCachesForget();                                          // the tables made for the program were in the heap
     JsonArenaForget();                                              // and so was JSON$'s parse arena
     g_myrand = NULL;                                                // and MATH(RAND)'s generator

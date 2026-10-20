@@ -89,10 +89,12 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 - SETPIN CIN can count either edge or both, with a pull-up or a pull-down; TEMPR takes a conversion time.
 - OPEN COMn: takes a transmit interrupt, called when everything queued has been sent.
 
-### Flash slots
+### Flash and RAM slots
 
 - The PicoMite's flash slots 1 to 3, with FLASH SAVE, OVERWRITE, LOAD, RUN, CHAIN, LIST and ERASE, and LOAD IMAGE and DISK LOAD into them.
-- The slots are kept on the SD card (in the hidden directory A:/.flash), and a slot's program runs from RAM, so no flash memory is written.
+- The flash slots are kept on the SD card (in the hidden directory A:/.flash), and a slot's program runs from RAM, so no flash memory is written.
+- The PicoMite's RAM slots 1 to 5 (the image slots 4 to 8), with RAM SAVE, OVERWRITE, LOAD, RUN, CHAIN, LIST and ERASE, and RAM FILE LOAD, which loads a program into a RAM slot while another runs.
+- The RAM slots are kept through RUN, CHAIN and NEW until RAM ERASE or a restart, as the PicoMite's are.
 - MM.INFO(FLASH) gives the slot whose program is running.
 
 ### Libraries

@@ -721,7 +721,7 @@ or
 FLASH LOAD IMAGE n, file$ [, OVERWRITE]
 --- keep
 Loads the BMP file ‘file$’ (".BMP" is added if it has no extension) into slot ‘n’ in the PicoMite's format, for the PicoMite's commands that use image slots (BLIT FLASH and TILEMAP).  The slot holds an 8 byte header, the image's width and height as two 32-bit words, followed by the pixels in the RGB121 format, two to a byte with the left pixel in the low four bits; MM.INFO(FLASH ADDRESS n) gives its address.
-‘n’ is 1 to 8.  Slots 1 to 3 are the flash slots, kept on the SD card (see FLASH SAVE).  Slots 4 to 8 are the PicoMite's RAM slots: here they are blocks of the MMBasic heap, which RUN, NEW and loading a program free, so a program loads its images every time it starts.
+‘n’ is 1 to 8.  Slots 1 to 3 are the flash slots, kept on the SD card (see FLASH SAVE).  Slots 4 to 8 are the PicoMite's RAM slots 1 to 5, held in RAM until RAM ERASE, an overwrite or a restart (see RAM SAVE), so a program that loads its images every time it starts gives O.
 A slot that already holds something gives the error "Already programmed" unless O (or OVERWRITE) is given.  At the command prompt the command reports the size of the image.
 
 =+= FLASH DISK LOAD n, file$ [, O]
@@ -2254,6 +2254,38 @@ The duty cycle for each output is independent of the others and is specified as 
 The frequency is derived from a 240MHz clock (200MHz on a 400MHz processor), so it can be any value of 240,000,000/n and the duty cycle and frequency accuracy will depend on the frequency (eg, at 1MHz the duty cycle has 240 steps).  The output will run continuously in the background while the program is running and can be stopped using the STOP command.  The frequency and duty cycle can be changed at any time (without stopping the output) by issuing a new PWM command.
 The PWM function will take control of any specified outputs and when stopped the pins will be returned to a high impedance "not configured" state.
 
+=== RAM SAVE n
+or
+RAM OVERWRITE n
+--- keep
+Saves the program in program memory (in a program, the program that is running) into RAM slot ‘n’ (1 to 5), as the PicoMite does, for RAM RUN, RAM CHAIN and RAM LOAD.  RAM SAVE gives the error "Already programmed" if the slot holds anything; RAM OVERWRITE replaces what it holds.
+The RAM slots are the image slots 4 to 8 (RAM slot 1 is image slot 4), held in RAM.  They are kept through RUN, CHAIN, NEW and loading a program, and go only with RAM ERASE, an overwrite or a restart, as the PicoMite's slots in its PSRAM do.  A program in a RAM slot is held as it was tokenised, and runs where it is.
+
+=+= RAM FILE LOAD n, file$ [, O]
+or
+RAM FILE LOAD n, file$ [, OVERWRITE]
+--- keep
+Loads the program in the file ‘file$’ (".BAS" is added if it has no extension) into RAM slot ‘n’, as RUN loads a program (with its #INCLUDE files and #DEFINE substitutions), but without disturbing the program that is running.  So a program can load the parts that it will run with RAM CHAIN.  A slot that already holds something gives the error "Already programmed" unless O (or OVERWRITE) is given.
+
+=+= RAM RUN n
+RAM CHAIN n
+--- keep
+Runs the program in RAM slot ‘n’, as FLASH RUN and FLASH CHAIN run the program in a flash slot: RAM CHAIN keeps the global variables, and can only be used in a program.  A slot of 0 runs the program in program memory.  MM.INFO(FLASH) returns the number of the RAM slot whose program is running.
+
+=+= RAM LOAD n
+--- keep
+Loads the program in RAM slot ‘n’ into program memory, as FLASH LOAD does.  It can only be used at the command prompt.
+
+=+= RAM LIST [n [, ALL]]
+--- keep
+RAM LIST reports what each RAM slot holds: "available", the file name of a program, or the size of an image.  RAM LIST n lists the program in slot ‘n’ as it is held, pausing at each screenful unless ALL is given.
+
+=+= RAM ERASE n
+or
+RAM ERASE ALL
+--- keep
+Empties RAM slot ‘n’, or all five.
+
 === RANDOMIZE [nbr]
 --- keep
 Seeds the C library's random number generator with ‘nbr’ (0 or more) or, if ‘nbr’ is omitted, from the microsecond timer.
@@ -2315,7 +2347,7 @@ Remove, or delete, the directory ‘dir$’ on the default selected drive.
 === RUN [file$] [, cmdline]
 --- keep
 Runs a program.  ‘file$’ is the name of the program's file on the SD card or USB flash drive: ".BAS" is added if it has no extension.  It must be a string constant, in quotes (eg, RUN "MYPROG"), not a variable or expression.  At the command prompt a program that is not in the current directory is looked for in the directory set by OPTION SEARCH PATH.
-If ‘file$’ is omitted the current program is run: the file that the program in program memory was loaded from (see MM.INFO$(CURRENT)).
+If ‘file$’ is omitted the current program is run: the file that the program in program memory was loaded from (see MM.INFO$(CURRENT)).  After FLASH LOAD or RAM LOAD it is the program that was loaded, as it is; in a program running from a flash or RAM slot it is that program again.
 The program is loaded from its file every time it is run: MMBasic inserts any #INCLUDE files, makes the #DEFINE substitutions, removes the comments, blank lines and unnecessary spaces and keeps the result in program memory, from where it runs (see the chapter Using MMBasic).  Then all variables are cleared, files are closed, any sound is stopped, the video mode is set to the default (see OPTION DEFAULT MODE), and the code in the library outside its subroutines and functions runs before the program's first line.
 ‘cmdline’ is passed to the program, which reads it as MM.CMDLINE$.  It is not processed by MMBasic, so it can contain numbers, commas, quoted strings, etc: it is for the program to decode.  Without a ‘file$’ it follows RUN or a comma (eg, RUN -f or RUN , -f).
 See also the \* shortcut, which runs a program without the quotes.

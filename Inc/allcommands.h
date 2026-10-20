@@ -112,6 +112,7 @@ void fun_device_fn(void);
 void cmd_tilemap(void);
 void fun_tilemap(void);
 void cmd_flash(void);
+void cmd_ram(void);
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -541,6 +542,7 @@ void op_inv(void);
 	{ "Randomize",	    T_CMD,				0, cmd_randomize	},  // RANDOMIZE [n]: seeds C's rand(), not RND (the PicoMite's)
 	{ "Flush",		    T_CMD,				0, cmd_flush	},      // FLUSH [#]n: a file to the card, a COM port's output sent (the PicoMite's)
 	{ "FM",			    T_CMD,				0, cmd_fm		},      // FM: the two-panel file manager (FileManager.c, the PicoMite's)
+	{ "Ram",		    T_CMD,				0, cmd_ram		},      // RAM SAVE/LOAD/RUN/CHAIN/LIST/ERASE/FILE LOAD: the RAM slots (ImageSlots.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

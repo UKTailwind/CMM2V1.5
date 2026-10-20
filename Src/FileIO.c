@@ -497,9 +497,13 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
     return ;
 }
 // load a file into program memory
-int FileLoadProgram(char *fname, int mode) {
-    int fnbr, size=0;
-    char *p,*op, *ip, *buf, *sbuff, name[FF_MAX_LFN]={0},buff[STRINGSIZE];
+// the program in the file fname (".BAS" added already), read with its #INCLUDE files and made ready to tokenise:
+// comments, #DEFINE, #COMMENT and MMDEBUG dealt with, each line marked with its line number ('|n). A heap block of
+// EDIT_BUFFER_SIZE, and dlist (the #DEFINEs) for the caller to free with it; the file's full name in name. NULL if the
+// file would not open (under ON ERROR SKIP). Nothing is cleared: RUN clears first, RAM FILE LOAD not at all.
+static char *ProgramText(char *fname, char *name) {
+    int fnbr;
+    char *p,*op, *ip, *buf, *sbuff, buff[STRINGSIZE];
     char pp[FF_MAX_LFN] = {0};
     char num[10];
     int c;
@@ -509,26 +513,9 @@ int FileLoadProgram(char *fname, int mode) {
     nDefines=0;
     LineCount=0;
     int i,importlines=0, data;
-	if(mode & 1){                                                   // (1: fname is an expression, 2: CHAIN, the globals kept)
-		strcpy(buff,getFstring(fname));
-	} else strcpy(buff,fname);
-	if(strchr(&buff[strlen(buff)-4], '.') == NULL) strcat(buff, ".BAS");
-	if(ProgMemory != ProgFlash) {                                   // a flash slot's program runs from the heap, which goes next:
-		int f = FindFreeFileNbr();                                  // the file is found first, or that program runs on
-		if(!InitSDCard() || !BasicFileOpen(buff, f, FA_READ)) return false;
-		FileClose(f);
-	}
-	SlotProgramLeave();                                             // program memory is where a program loads (ImageSlots.c)
-	ProgFromSlot = 0;
-	if(mode & 2) {                                                  // as ClearProgram, but the globals stay
-		ClearRuntimeKeepGlobals();
-		TraceOn = false;
-		sendCRLF = 3;
-	} else
-    ClearProgram();												    // clear any leftovers from the previous program
-    if(!InitSDCard()) return false;
+    if(!InitSDCard()) return NULL;
     fnbr = FindFreeFileNbr();
-	if(!BasicFileOpen(buff, fnbr, FA_READ)) return false;
+	if(!BasicFileOpen(fname, fnbr, FA_READ)) return NULL;
 	strcpy(name,fullfilepathname);
     i=strlen(name)-1;
     while(i>0 && !(name[i] == 92 || name[i]==47))i--;
@@ -669,6 +656,30 @@ int FileLoadProgram(char *fname, int mode) {
         FreeMemorySafe((void *)&dlist);
         error("No matching */");
     }
+    return buf;
+}
+
+int FileLoadProgram(char *fname, int mode) {
+    int size=0, i;
+    char *op, *ip, *buf, name[FF_MAX_LFN]={0}, buff[STRINGSIZE];
+	if(mode & 1){                                                   // (1: fname is an expression, 2: CHAIN, the globals kept)
+		strcpy(buff,getFstring(fname));
+	} else strcpy(buff,fname);
+	if(strchr(&buff[strlen(buff)-4], '.') == NULL) strcat(buff, ".BAS");
+	if(ProgMemory != ProgFlash) {                                   // a flash slot's program runs from the heap, which goes next:
+		int f = FindFreeFileNbr();                                  // the file is found first, or that program runs on
+		if(!InitSDCard() || !BasicFileOpen(buff, f, FA_READ)) return false;
+		FileClose(f);
+	}
+	SlotProgramLeave();                                             // program memory is where a program loads (ImageSlots.c)
+	ProgFromSlot = 0;
+	if(mode & 2) {                                                  // as ClearProgram, but the globals stay
+		ClearRuntimeKeepGlobals();
+		TraceOn = false;
+		sendCRLF = 3;
+	} else
+    ClearProgram();												    // clear any leftovers from the previous program
+    if((buf = ProgramText(buff, name)) == NULL) return false;
 	int load=0;
     if(Option.ProgramStartCode>=0){
 		size=SaveProgramToMemory(buf, false, name);
@@ -694,6 +705,32 @@ int FileLoadProgram(char *fname, int mode) {
     FreeMemorySafe((void *)&buf);
     FreeMemorySafe((void *)&dlist);
     return true;
+}
+
+// RAM FILE LOAD (ImageSlots.c): the program in the file fname tokenised into a heap block, as RUN loads it but with
+// nothing cleared, so that a running program goes on; its length in *len. Its CSUB records hold addresses in the block.
+// NULL if the file would not open (under ON ERROR SKIP). The tokeniser's line state is put back after, as LIBRARY
+// LOAD's is, and so is MM.INFO(LINES), the running program's.
+char *ProgramFileImage(char *fname, int *len) {
+    extern int tknfile, tknline;
+    extern char *tknfilename;
+    int savefile = tknfile, saveline = tknline, savelines = LineCount;
+    char *savename = tknfilename, buff[STRINGSIZE], name[FF_MAX_LFN] = {0}, *buf, *img;
+    strcpy(buff, fname);
+    if(strchr(&buff[strlen(buff) > 4 ? strlen(buff) - 4 : 0], '.') == NULL) strcat(buff, ".BAS");
+    if((buf = ProgramText(buff, name)) == NULL) return NULL;
+    SaveProgramToMemory(buf, false, name);
+    tknfile = savefile; tknline = saveline; tknfilename = savename;
+    LineCount = savelines;
+    img = SDMemory;
+    SDMemory = NULL;
+    FreeMemorySafe((void *)&buf);
+    FreeMemorySafe((void *)&dlist);
+    if((*len = ImageLayout((unsigned char *)img, 512 * 1024, NULL)) == 0) {
+        FreeMemorySafe((void *)&img);
+        error("Invalid program");
+    }
+    return img;
 }
 #define skipzero(x)    while(*x == 0) x++
 void LoadFONT(char *p){

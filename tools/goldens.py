@@ -111,16 +111,14 @@ class Board:
         """Collect output until the console shows its '> ' prompt and goes quiet."""
         buf, t0 = "", time.time()
         while time.time() - t0 < timeout:
-            t = self._read()
-            if t:
-                buf += t
-                clean = ANSI.sub("", buf)
-                if clean.endswith("\n> ") or clean.endswith("\n>") or clean in ("> ", ">"):
-                    time.sleep(0.05)
-                    tail = self._read()
-                    if not tail:
-                        return ANSI.sub("", buf)
-                    buf += tail
+            buf += self._read()
+            clean = ANSI.sub("", buf)                   # (checked on every pass: the prompt's last character can come
+            if clean.endswith("\n> ") or clean.endswith("\n>") or clean in ("> ", ">"):   # as the tail below, at 115200)
+                time.sleep(0.05)
+                tail = self._read()
+                if not tail:
+                    return clean
+                buf += tail
         raise TimeoutError("no prompt after %.0fs; last output:\n%s" % (timeout, ANSI.sub("", buf)[-800:]))
 
     def send_line(self, line):
