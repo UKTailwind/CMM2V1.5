@@ -29,7 +29,7 @@ The processor's USB controller cannot work with a low-speed USB device through a
 
 When a keyboard is connected the SD card activity LED will be illuminated. On the first access of the SD card the LED will revert to its normal action (illuminated during SD card access).
 
-The firmware can accommodate a number of different keyboard layouts: UK, US, German (DE), French (FR), Spanish (ES), Belgian (BE) and Italian (IT). The layout is set with the OPTION USBKEYBOARD command.
+The firmware can accommodate a number of different keyboard layouts: UK, US, German (DE), French (FR), Spanish (ES) and Belgian (BE). The layout is asked for when MMBasic is first loaded and can be changed with the OPTION USBKEYBOARD command.
 
 ## Power & Serial Console Connector
 
