@@ -11,6 +11,7 @@ the file's text, in the PicoMite manual's own formats, so running it again after
     | a | b |           a table: the first row is the header (shaded); "{widths: 10,40}" on the line before sets the
                         columns in parts of the text width
     ![](pdf:P:N){width=12}   a picture: image xref N of page P of the b14 PDF (or a path), width in cm, centred
+    >> a<TAB>b          an indented line with tab-separated columns (a list such as the shortcut keys)
     !TODO text          a highlighted [MANUAL TODO] note: something still to check
     !NOTE text          a note in italics (a paragraph of its own)
 
@@ -93,6 +94,20 @@ class Writer:
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(6)
         self.runs(p, text)
+
+    def tabline(self, text):
+        """an indented line whose columns are separated by tabs (a list such as the shortcut keys)"""
+        p = self.para()
+        p.paragraph_format.left_indent = Cm(4.5)                   # (a hanging indent: the first column at 1.27 cm,
+        p.paragraph_format.first_line_indent = Cm(720 / 567 - 4.5) # the rest at 4.5 cm, a long description wrapping
+        p.paragraph_format.space_before = Pt(2)                    # under itself)
+        p.paragraph_format.space_after = Pt(2)
+        for stop in (4.5, 8.0, 11.5):
+            p.paragraph_format.tab_stops.add_tab_stop(Cm(stop))
+        for n, col in enumerate(text.split('\t')):
+            if n:
+                p.add_run('\t')
+            self.runs(p, col)
 
     def code(self, lines):
         for n, line in enumerate(lines):
@@ -222,6 +237,9 @@ def parse(path, w):
             flush()
             m = re.match(r'!\[[^\]]*\]\(([^)]+)\)(?:\{width=([\d.]+)\})?', s)
             w.picture(m.group(1), float(m.group(2) or 15))
+        elif line.startswith('>> '):
+            flush()
+            w.tabline(line[3:].rstrip())
         elif s.startswith('!TODO '):
             flush()
             w.note(s[6:])

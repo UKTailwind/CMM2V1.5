@@ -35,37 +35,7 @@ The firmware can accommodate a number of different keyboard layouts: UK, US, Ger
 
 This USB B connector is for power and the serial console over USB. The power requirement is 5V at 160mA to 250mA (typical). This is within the capabilities of most USB chargers however some PCs (especially older laptops) may have trouble supplying this. If your Colour Maximite 2 is suffering from intermittent issues such as reboots, errors reading the SD card, etc then it would be worth changing the power supply to one with a much higher capacity (for example, 2 amps or more).
 
-The serial console is available if the Colour Maximite 2 is connected via this port to a personal computer. The console is used to write and debug BASIC programs and configure the computer. Normally the VGA screen and USB keyboard are used as the console but the serial console works just as well including using the File Manager and Full Screen Editor. The only thing that the serial console does not support is graphics.
-
-When connected to your desktop computer via USB the Colour Maximite 2 will be setup as a virtual serial port over USB and appear to your computer as a normal serial port.
-
-Windows 10 and later include the required USB device driver. For other operating systems (ie, Linux, Mac, Windows 8 and earlier) go to the Microchip website https://www.microchip.com/wwwproducts/en/MCP2221A for instructions (select the Documents tab). The second generation design uses a CH340 USB/UART chip and support for this is included in most operating systems.
-
-In Windows the Colour Maximite 2 will appear in Device Manager as "USB Serial Port" as illustrated below (the COM number will probably be different).
-
-![Device Manager](pdf:15:458){width=8}
-
-You also need a terminal emulator program on your desktop computer. This program acts like an old fashioned computer terminal where it will display text received from a remote computer and any key presses will be sent to the remote computer over the serial link.
-
-The terminal emulator that you use should support VT100 emulation as that is what the editor built into MMBasic expects. For Windows users it is recommended that you use Tera Term as this has a good VT100 emulator and is known to work with the XModem and ZModem protocols which you can use to transfer programs to and from the Colour Maximite 2 (Tera Term can be downloaded from: http://tera-term.en.lo4d.com/).
-
-The terminal emulator and the serial port that it is using should be set to the Colour Maximite 2 standard of 460800 baud, 8 data bits and one stop bit. The speed can be changed with the OPTION BAUDRATE command.
-
-The Apple Macintosh (OS X) is somewhat easier as it has the device driver and terminal emulator built in. First start the application 'Terminal' and at the prompt list the connected serial devices by typing in: ls /dev/tty.*
-
-The USB to serial converter will be listed as something like /dev/tty.usbmodem12345. While still at the Terminal prompt you can run the terminal emulator at 460800 baud by using the command:
-
-```
-screen /dev/tty.usbmodem12345 460800
-```
-
-Instructions for Linux are here: http://www.thebackshed.com/forum/ViewTopic.php?FID=16&TID=12171
-
-When you have the serial port and terminal emulator setup you can reset the Colour Maximite 2 and you should see the MMBasic banner and prompt on the terminal emulator as illustrated below.
-
-![Tera Term](pdf:15:46){width=8}
-
-The USB to Serial converter chip used in the original Colour Maximite 2 can be a Microchip MCP2221A. By default this chip tells the host that it only needs 100mA on the 5V pin and in some rare cases this can cause trouble (ie, failure to power up, random restarts, etc). The fix is to go to https://www.microchip.com/wwwproducts/en/MCP2221A and download the "MCP2221 Utility" (it is under the Documents tab) and use that to change the MCP2221A to request 500mA by default.
+The serial console is available if the Colour Maximite 2 is connected via this port to a personal computer: it appears there as a normal serial port, at 460800 baud. The console is used to write and debug BASIC programs and configure the computer. How to connect to it and set up a terminal emulator is described in the chapter Serial Console.
 
 ## Mouse Support
 

@@ -4689,6 +4689,34 @@
      "via": []
     },
     {
+     "kw": "F15",
+     "func": "cmd_option",
+     "file": "MM_Misc.c",
+     "line": 2503,
+     "via": []
+    },
+    {
+     "kw": "F16",
+     "func": "cmd_option",
+     "file": "MM_Misc.c",
+     "line": 2503,
+     "via": []
+    },
+    {
+     "kw": "F19",
+     "func": "cmd_option",
+     "file": "MM_Misc.c",
+     "line": 2503,
+     "via": []
+    },
+    {
+     "kw": "F20",
+     "func": "cmd_option",
+     "file": "MM_Misc.c",
+     "line": 2503,
+     "via": []
+    },
+    {
      "kw": "SEARCH PATH",
      "func": "cmd_option",
      "file": "MM_Misc.c",

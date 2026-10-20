@@ -554,6 +554,10 @@ Keywords by where they are documented (a suggestion, to be confirmed): C 40, P 1
 | &nbsp;&nbsp;NONE | sub-keyword | MM_Misc.c:2476 | yes | yes | yes | P+C |  |
 | &nbsp;&nbsp;F11 | sub-keyword | MM_Misc.c:2479 | - | yes | yes | C |  |
 | &nbsp;&nbsp;F12 | sub-keyword | MM_Misc.c:2489 | - | yes | yes | C |  |
+| &nbsp;&nbsp;F15 | sub-keyword | MM_Misc.c:2503 | - | yes | - | C |  |
+| &nbsp;&nbsp;F16 | sub-keyword | MM_Misc.c:2503 | - | yes | - | C |  |
+| &nbsp;&nbsp;F19 | sub-keyword | MM_Misc.c:2503 | - | yes | - | C |  |
+| &nbsp;&nbsp;F20 | sub-keyword | MM_Misc.c:2503 | - | yes | - | C |  |
 | &nbsp;&nbsp;SEARCH PATH | sub-keyword | MM_Misc.c:2514 | - | yes | yes | C |  |
 | &nbsp;&nbsp;DISABLE | sub-keyword | MM_Misc.c:2517 | yes | yes | yes | P+C |  |
 | &nbsp;&nbsp;CRLF | sub-keyword | MM_Misc.c:2531 | - | yes | yes | C |  |
@@ -1409,7 +1413,7 @@ ADC RUN (t17), BLIT COMPRESSED (t17), BLIT MEMORY332 (t17), BLIT MERGE (t17), BL
 
 #COMMENT (p77), #MMDEBUG (p77), CFUNCTION (p85), LS (p102), MM.ESC (p66)
 
-**CMM2 b14**: 6 entries name a sub-keyword the build's handler does not read:
+**CMM2 b14**: 2 entries name a sub-keyword the build's handler does not read:
 
-GUI CURSOUR UNLINK (p93), OPTION F15 (p73), OPTION F16 (p74), OPTION F19 (p74), OPTION F20 (p74), SETTICK FAST (p126)
+GUI CURSOUR UNLINK (p93), SETTICK FAST (p126)
 

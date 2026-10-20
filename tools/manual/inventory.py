@@ -103,6 +103,7 @@ def functions():
 
 
 CHECK = re.compile(r'checkstring\s*\(\s*[^,]+,\s*(?:\(\s*(?:unsigned\s+)?char\s*\*\s*\)\s*)?"((?:[^"\\]|\\.)*)"')
+CHECK_ARRAY = re.compile(r'checkstring\s*\(\s*[^,]+,\s*(?:\(\s*(?:const\s+)?(?:unsigned\s+)?char\s*\*\s*\)\s*)?(\w+)\s*\[')
 CALL = re.compile(r'\b([A-Za-z_]\w*)\s*\(')
 
 
@@ -115,9 +116,14 @@ def subkeywords(handler, defs, depth=2):
             return
         seen.add(fname)
         fn, start, body = defs[fname]
+        text = '\n'.join(body)
         for off, line in enumerate(body):
             for kw in CHECK.findall(line):
                 found.append({'kw': kw, 'func': fname, 'file': fn, 'line': start + off, 'via': via})
+            for arr in CHECK_ARRAY.findall(line):      # checkstring(p, fkn[k]): the array's literals (OPTION F15)
+                m = re.search(r'\b%s\s*\[\s*\]\s*=\s*\{([^}]*)\}' % re.escape(arr), text)
+                for kw in re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1)) if m else []:
+                    found.append({'kw': kw, 'func': fname, 'file': fn, 'line': start + off, 'via': via})
         if level < depth:
             for off, line in enumerate(body):
                 code = re.sub(r'"(?:[^"\\]|\\.)*"|//.*', '', line)

@@ -181,7 +181,8 @@ def run(name, outdir):
     t.close()
 
 
-outdir = sys.argv[1]
-os.makedirs(outdir, exist_ok=True)
-for name in (sys.argv[2:] or CONFIGS):
-    run(name, outdir)
+if __name__ == '__main__':                              # (tools/manual/photo.py uses put, fetch and clean)
+    outdir = sys.argv[1]
+    os.makedirs(outdir, exist_ok=True)
+    for name in (sys.argv[2:] or CONFIGS):
+        run(name, outdir)
