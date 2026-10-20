@@ -1,4 +1,4 @@
-# The Colour Maximite 2 user manual for the alpha release: plan
+# The Colour Maximite 2 user manual for the first release (7.00.00b0): plan
 
 *20 Oct 2026 (Peter: "a user manual up to date ... as I would like to release an alpha version to the users ... then we can keep it updated as we move forward").*
 
@@ -38,12 +38,12 @@ What this means:
 **M-D2. The b14 manual's Word source.** If Gerry (or Geoff) had it, the CMM2-only entries would come across with their formatting, instead of being re-entered from the PDF. **Decided 20 Oct (Peter): use the PDF.** The text extracts cleanly; tables and formatting are rebuilt in the PicoMite manual's styles.
 
 **M-D3. The title page and credits.** The manuals were written by Geoff Graham. The new one combines his CMM2 and PicoMite manuals with Gerry's b14 changes and this work. **Decided 20 Oct (Peter):**
-- Geoff Graham stays on the title page, with a line "updated for MMBasic 7.00 by Peter Mather".
+- Geoff Graham stays on the title page. (At first with a line "updated for MMBasic 7.00 by Peter Mather"; Peter had it taken off on 20 Oct.)
 - About credits Gerry's b14 work.
-- The version line reads like "MMBasic Ver 7.00.00 alpha 1".
+- The version line reads "MMBasic Ver 7.00.00", and the firmware line "Matches firmware 7.00.00b0". The first release to users is b0, not an alpha (Peter, 20 Oct).
 
-**M-D4. The alpha's scope.**
-- **For the alpha:** the reference sections complete and checked against the build, every chapter present, and the new parts written.
+**M-D4. The first release's scope.**
+- **For the first release (b0):** the reference sections complete and checked against the build, every chapter present, and the new parts written.
 - **Afterwards:** any chapter not yet revised line by line says so in a note at its head, and is revised in the releases that follow.
 
 **Decided 20 Oct (Peter): as above.**
@@ -123,7 +123,7 @@ What the cross-reference found, before the audit confirms it:
 
 The chapters to keep or merge keep the PicoMite text. Those to replace or write are their heading only.
 
-Under each chapter heading, and under About, is a highlighted note: `[MANUAL TODO] To be written / merged / checked / audited: ...`. It says what M3 or M4 does there, and the alpha has none left.
+Under each chapter heading, and under About, is a highlighted note: `[MANUAL TODO] To be written / merged / checked / audited: ...`. It says what M3 or M4 does there, and the first release has none left.
 
 `tools/manual/word.ps1` has Word update the table of contents and fields, save, and export the PDF: 263 pages for now. The script was run once. From here the manual is edited in place.
 
@@ -223,11 +223,11 @@ What the chapters found:
 | M4 | The reference sections, entry by entry from `keywords.md`. The most-used keywords come first: PRINT, the file commands, graphics, MODE and PAGE. | 2-3 weeks |
 | M5 | The new parts: the editor, FM, USB devices, LIBRARY, structures, TILEMAP, MODE n,4, image slots, ZMODEM, the drives. | 1 week |
 | M6 | The checks (`tools/manual/check.py`), a PDF made by Word, and Peter's review. | 3-4 days |
-| M7 | The alpha: the docx and PDF, with `help.txt` for the CMM2 generated from the new manual (editor E8, P4's HELP item). | 1-2 days |
+| M7 | The first release, 7.00.00b0: the docx and PDF, with `help.txt` for the CMM2 generated from the new manual (editor E8, P4's HELP item). | 1-2 days |
 
 That is five to seven weeks of focused work. M4 is most of it.
 
-**Keeping it current.** After the alpha:
+**Keeping it current.** After the first release:
 - A commit that adds or changes a keyword changes the manual in the same commit, as the PicoMite's practice is.
 - `check.py` runs with the tests. It fails on:
   - a firmware keyword with no entry;
