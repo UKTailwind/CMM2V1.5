@@ -1575,9 +1575,6 @@ void MIPS16 OtherOptions(void) {
         } else if(checkstring(tp, "1")) {
             Option.mode=1;
             Option.editfont=1;
-        } else if(checkstring(tp, "8")) {
-            Option.mode=9;
-            Option.editfont=1;
         } else if(checkstring(tp, "9")) {
             Option.mode=9;
             Option.editfont=4;

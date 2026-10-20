@@ -473,6 +473,25 @@ void StandardErrorParam2(int n, int m, int l);
 void StandardErrorParam3(int n, int m, int l, int h);
 void StandardErrorParamS(int n, char *m);
 
+// the data of the I2C, SPI and ONEWIRE READ and WRITE commands, as the PicoMite takes it (MMBasic.c)
+#define COMMS_RXD_FLOAT 0
+#define COMMS_RXD_INT 1
+#define COMMS_RXD_STRING 2
+#define COMMS_RXD_LIST 3
+typedef struct s_CommsRxItem {
+    void *ptr;                                  // one variable or array element
+    int isint;                                  // 1 an integer, 0 a float
+} CommsRxItem;
+typedef struct s_CommsRxDest {
+    int kind;                                   // one of COMMS_RXD_*
+    void *ptr;                                  // FLOAT, INT and STRING: where the first goes (a string's past its length)
+    CommsRxItem *list;                          // LIST: the variables, 'len' of them
+    int len;                                    // the number of items
+} CommsRxDest;
+void GetCommsTxData(char *argv[], int argc, int dataidx, int len, unsigned int *buf);
+void GetCommsRxDest(char *argv[], int argc, int dataidx, int len, CommsRxDest *dest);
+void PutCommsRxData(CommsRxDest *dest, unsigned int *buf);
+
 
 void MIPS16 InitBasic(void);
 int FloatToInt32(MMFLOAT);

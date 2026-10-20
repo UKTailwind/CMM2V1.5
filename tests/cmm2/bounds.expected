@@ -7,7 +7,7 @@ ok  BLIT LOADARRAY takes its array whole (from f!(5) it read past the end)
 ok  so does WS2812
 ok  and it keeps its size check
 ok  I2C WRITE of a string shorter than the count (it sent what followed it)
-ok  SPI WRITE counts from the element given (w%(6) of eight read past the end)
+ok  SPI WRITE: an element is one item, as on the PicoMite (w%(6) of eight read past the end)
 ok  SPI READ of no bytes
 ok  DAC START with a LOCAL array (the DAC interrupt read it after the SUB)
 ok  IR with LOCAL variables (the timer interrupt wrote through them)

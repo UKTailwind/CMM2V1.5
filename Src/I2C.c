@@ -45,7 +45,7 @@ void i2cSend(char *p);
 void i2cReceive(char *p);
 void i2c_disable(void);
 void i2c_enable(int bps);
-void i2c_masterCommand(int timer);
+void i2c_masterCommand(int timer, unsigned char *rbuf);
 void i2cCheck(char *p);
 //
 void i2c2Enable(char *p);
@@ -54,7 +54,7 @@ void i2c2Send(char *p);
 void i2c2Receive(char *p);
 void i2c2_disable(void);
 void i2c2_enable(int bps);
-void i2c2_masterCommand(int timer);
+void i2c2_masterCommand(int timer, unsigned char *rbuf);
 void i2c2Check(char *p);
 //
 void i2c3Enable(char *p);
@@ -63,12 +63,9 @@ void i2c3Send(char *p);
 void i2c3Receive(char *p);
 void i2c3_disable(void);
 void i2c3_enable(int bps);
-void i2c3_masterCommand(int timer);
+void i2c3_masterCommand(int timer, unsigned char *rbuf);
 void i2c3Check(char *p);
 //
-static MMFLOAT *I2C_Rcvbuf_Float;										// pointer to the master receive buffer for a MMFLOAT
-static long long int *I2C_Rcvbuf_Int;								// pointer to the master receive buffer for an integer
-static char *I2C_Rcvbuf_String;										// pointer to the master receive buffer for a string
 static unsigned int I2C_Addr;										// I2C device address
 static volatile unsigned int I2C_Sendlen;							// length of the master send buffer
 static volatile unsigned int I2C_Rcvlen;							// length of the master receive buffer
@@ -78,9 +75,6 @@ unsigned int I2C_Timeout;									// master timeout value
 static unsigned int I2C_Status;										// status flags
 int mmI2Cvalue;
 	// value of MM.I2C
-	static MMFLOAT *I2C2_Rcvbuf_Float;										// pointer to the master receive buffer for a MMFLOAT
-	static long long int *I2C2_Rcvbuf_Int;								// pointer to the master receive buffer for an integer
-	static char *I2C2_Rcvbuf_String;										// pointer to the master receive buffer for a string
 	static unsigned int I2C2_Addr;										// I2C device address
 	static volatile unsigned int I2C2_Sendlen;							// length of the master send buffer
 	static volatile unsigned int I2C2_Rcvlen;							// length of the master receive buffer
@@ -88,15 +82,14 @@ int mmI2Cvalue;
 	unsigned int I2C2_Timeout;									// master timeout value
 	static unsigned int I2C2_Status;										// status flags
 	// value of MM.I2C
-	static MMFLOAT *I2C3_Rcvbuf_Float;										// pointer to the master receive buffer for a MMFLOAT
-	static long long int *I2C3_Rcvbuf_Int;								// pointer to the master receive buffer for an integer
-	static char *I2C3_Rcvbuf_String;										// pointer to the master receive buffer for a string
 	static unsigned int I2C3_Addr;										// I2C device address
 	static volatile unsigned int I2C3_Sendlen;							// length of the master send buffer
 	static volatile unsigned int I2C3_Rcvlen;							// length of the master receive buffer
 	unsigned int I2C3_enabled;									// I2C enable marker
 	unsigned int I2C3_Timeout;									// master timeout value
 	static unsigned int I2C3_Status;										// status flags
+static int I2C_Held, I2C2_Held, I2C3_Held;                         // a bus kept by option 1 (i2c_transfer)
+static void i2c_release(I2C_HandleTypeDef *h, int *held);
 extern RTC_HandleTypeDef hrtc;
 void cmd_i2c1(char *i2c);
 void cmd_i2c2(char *i2c);
@@ -265,171 +258,66 @@ void i2c3Disable(char *p) {
 }
 // send data to an I2C slave - master mode
 void i2cSend(char *p) {
-	int addr, i2c_options, sendlen, i;
-	void *ptr = NULL;
-	unsigned char *cptr = NULL;
+	int addr, options, sendlen, i;
+	unsigned int buf[256];
 
 	getargs(&p, 99, ",");
 	if(!(argc & 0x01) || (argc < 7)) error("Invalid syntax");
 	if(!(I2C1_enabled || nun1 || classic1 || mouse1))error("I2C not open");
 	addr = getinteger(argv[0]);
-	i2c_options = getint(argv[2],0,1);
+	options = getint(argv[2],0,3);                                  // (as the PicoMite's: bit 1 is taken, not used)
 	I2C_Status = 0;
-	if(i2c_options & 0x01) I2C_Status = I2C_Status_BusHold;
+	if(options & 0x01) I2C_Status = I2C_Status_BusHold;
 	I2C_Addr = addr;
-	sendlen = getinteger(argv[4]);
-	if(sendlen < 1 || sendlen > 255) error("Number out of bounds");
-
-	if(sendlen == 1 || argc > 7) {		// numeric expressions for data
-		if(sendlen != ((argc - 5) >> 1)) error("Incorrect argument count");
-		for (i = 0; i < sendlen; i++) {
-			I2C_Send_Buffer[i] = getinteger(argv[i + i + 6]);
-		}
-	} else {		// an array of MMFLOAT, integer or a string
-		ptr = findvar(argv[6], V_NOFIND_NULL | V_EMPTY_OK);
-		CHECK_STRUCT_MEMBER_ARRAY();
-		if(ptr == NULL) error("Invalid variable");
-		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
-			if(*(unsigned char *)ptr < sendlen) error("Insufficient data");	// (it sent what followed the string)
-			cptr = (unsigned char *)ptr;
-			cptr++;																	// skip the length byte in a MMBasic string
-			for (i = 0; i < sendlen; i++) {
-				I2C_Send_Buffer[i] = (int)(*(cptr + i));
-			}
-		} else if((VREC(VarIndex)->type & T_NBR) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// numeric array
-			if( (((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + sendlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) ) {
-				error("Insufficient data");
-			} else {
-				for (i = 0; i < sendlen; i++) {
-					I2C_Send_Buffer[i] = (int)(*((MMFLOAT *)ptr + i));
-				}
-			}
-		} else if((VREC(VarIndex)->type & T_INT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// integer array
-			if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + sendlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) ) {
-				error("Insufficient data");
-			} else {
-				for (i = 0; i < sendlen; i++) {
-					I2C_Send_Buffer[i] = (int)(*((long long int *)ptr + i));
-				}
-			}
-		} else error("Invalid variable");
-	}
+	sendlen = getint(argv[4], 1, 256);
+	GetCommsTxData(argv, argc, 6, sendlen, buf);                    // a list, a whole array or a string (MMBasic.c)
+	for(i = 0; i < sendlen; i++) I2C_Send_Buffer[i] = buf[i];
 	I2C_Sendlen = sendlen;
 	I2C_Rcvlen = 0;
 
-	i2c_masterCommand(1);
+	i2c_masterCommand(1, NULL);
 }
 // send data to an I2C slave - master mode
 void i2c2Send(char *p) {
-	int addr, i2c2_options, sendlen, i;
-	void *ptr = NULL;
-	unsigned char *cptr = NULL;
+	int addr, options, sendlen, i;
+	unsigned int buf[256];
 
 	getargs(&p, 99, ",");
 	if(!(argc & 0x01) || (argc < 7)) error("Invalid syntax");
 	if(!(I2C2_enabled || nun2 || classic2 || mouse2))error("I2C not open");
 	addr = getinteger(argv[0]);
-	i2c2_options = getint(argv[2],0,1);
+	options = getint(argv[2],0,3);                                  // (as the PicoMite's: bit 1 is taken, not used)
 	I2C2_Status = 0;
-	if(i2c2_options & 0x01) I2C2_Status = I2C_Status_BusHold;
+	if(options & 0x01) I2C2_Status = I2C_Status_BusHold;
 	I2C2_Addr = addr;
-	sendlen = getinteger(argv[4]);
-	if(sendlen < 1 || sendlen > 255) error("Number out of bounds");
-
-	if(sendlen == 1 || argc > 7) {		// numeric expressions for data
-		if(sendlen != ((argc - 5) >> 1)) error("Incorrect argument count");
-		for (i = 0; i < sendlen; i++) {
-			I2C_Send_Buffer[i] = getinteger(argv[i + i + 6]);
-		}
-	} else {		// an array of MMFLOAT, integer or a string
-		ptr = findvar(argv[6], V_NOFIND_NULL | V_EMPTY_OK);
-		CHECK_STRUCT_MEMBER_ARRAY();
-		if(ptr == NULL) error("Invalid variable");
-		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
-			if(*(unsigned char *)ptr < sendlen) error("Insufficient data");	// (it sent what followed the string)
-			cptr = (unsigned char *)ptr;
-			cptr++;																	// skip the length byte in a MMBasic string
-			for (i = 0; i < sendlen; i++) {
-				I2C_Send_Buffer[i] = (int)(*(cptr + i));
-			}
-		} else if((VREC(VarIndex)->type & T_NBR) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// numeric array
-			if( (((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + sendlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) ) {
-				error("Insufficient data");
-			} else {
-				for (i = 0; i < sendlen; i++) {
-					I2C_Send_Buffer[i] = (int)(*((MMFLOAT *)ptr + i));
-				}
-			}
-		} else if((VREC(VarIndex)->type & T_INT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// integer array
-			if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + sendlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) ) {
-				error("Insufficient data");
-			} else {
-				for (i = 0; i < sendlen; i++) {
-					I2C_Send_Buffer[i] = (int)(*((long long int *)ptr + i));
-				}
-			}
-		} else error("Invalid variable");
-	}
+	sendlen = getint(argv[4], 1, 256);
+	GetCommsTxData(argv, argc, 6, sendlen, buf);                    // a list, a whole array or a string (MMBasic.c)
+	for(i = 0; i < sendlen; i++) I2C_Send_Buffer[i] = buf[i];
 	I2C2_Sendlen = sendlen;
 	I2C2_Rcvlen = 0;
 
-	i2c2_masterCommand(1);
+	i2c2_masterCommand(1, NULL);
 }
 // send data to an I2C slave - master mode
 void i2c3Send(char *p) {
-	int addr, i2c3_options, sendlen, i;
-	void *ptr = NULL;
-	unsigned char *cptr = NULL;
+	int addr, options, sendlen, i;
+	unsigned int buf[256];
 
 	getargs(&p, 99, ",");
 	if(!(argc & 0x01) || (argc < 7)) error("Invalid syntax");
 	if(!(I2C3_enabled || nun3 || classic3 || mouse3))error("I2C not open");
 	addr = getinteger(argv[0]);
-	i2c3_options = getint(argv[2],0,1);
+	options = getint(argv[2],0,3);                                  // (as the PicoMite's: bit 1 is taken, not used)
 	I2C3_Status = 0;
-	if(i2c3_options & 0x01) I2C3_Status = I2C_Status_BusHold;
+	if(options & 0x01) I2C3_Status = I2C_Status_BusHold;
 	I2C3_Addr = addr;
-	sendlen = getinteger(argv[4]);
-	if(sendlen < 1 || sendlen > 255) error("Number out of bounds");
-
-	if(sendlen == 1 || argc > 7) {		// numeric expressions for data
-		if(sendlen != ((argc - 5) >> 1)) error("Incorrect argument count");
-		for (i = 0; i < sendlen; i++) {
-			I2C_Send_Buffer[i] = getinteger(argv[i + i + 6]);
-		}
-	} else {		// an array of MMFLOAT, integer or a string
-		ptr = findvar(argv[6], V_NOFIND_NULL | V_EMPTY_OK);
-		CHECK_STRUCT_MEMBER_ARRAY();
-		if(ptr == NULL) error("Invalid variable");
-		if((VREC(VarIndex)->type & T_STR) && DimIsScalar(VREC(VarIndex)->dimtbl[0])) {		// string
-			if(*(unsigned char *)ptr < sendlen) error("Insufficient data");	// (it sent what followed the string)
-			cptr = (unsigned char *)ptr;
-			cptr++;																	// skip the length byte in a MMBasic string
-			for (i = 0; i < sendlen; i++) {
-				I2C_Send_Buffer[i] = (int)(*(cptr + i));
-			}
-		} else if((VREC(VarIndex)->type & T_NBR) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// numeric array
-			if( (((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + sendlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) ) {
-				error("Insufficient data");
-			} else {
-				for (i = 0; i < sendlen; i++) {
-					I2C_Send_Buffer[i] = (int)(*((MMFLOAT *)ptr + i));
-				}
-			}
-		} else if((VREC(VarIndex)->type & T_INT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// integer array
-			if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + sendlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) ) {
-				error("Insufficient data");
-			} else {
-				for (i = 0; i < sendlen; i++) {
-					I2C_Send_Buffer[i] = (int)(*((long long int *)ptr + i));
-				}
-			}
-		} else error("Invalid variable");
-	}
+	sendlen = getint(argv[4], 1, 256);
+	GetCommsTxData(argv, argc, 6, sendlen, buf);                    // a list, a whole array or a string (MMBasic.c)
+	for(i = 0; i < sendlen; i++) I2C_Send_Buffer[i] = buf[i];
 	I2C3_Sendlen = sendlen;
 	I2C3_Rcvlen = 0;
 
-	i2c3_masterCommand(1);
+	i2c3_masterCommand(1, NULL);
 }
 
 static void i2c_wait_idle(I2C_HandleTypeDef *h);
@@ -441,6 +329,7 @@ void i2cCheck(char *p) {
     if(addr<1 || addr>0x7F)error("Invalid I2C address");
     addr<<=1;
 	mT4IntEnable(0);                                                // as WRITE and READ: no controller transfer starts during it,
+	i2c_release(&hi2c1, &I2C_Held);                                // (a kept bus let go first)
 	i2c_wait_idle(&hi2c1);                                         // and one under way is waited for
 	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)addr, 2, 10);
 	mT4IntEnable(1);
@@ -453,6 +342,7 @@ void i2c2Check(char *p) {
     if(addr<1 || addr>0x7F)error("Invalid I2C address");
     addr<<=1;
 	mT4IntEnable(0);                                                // as WRITE and READ: no controller transfer starts during it,
+	i2c_release(&hi2c4, &I2C2_Held);                                // (a kept bus let go first)
 	i2c_wait_idle(&hi2c4);                                         // and one under way is waited for
 	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c4, (uint16_t)addr, 2, 10);
 	mT4IntEnable(1);
@@ -465,162 +355,88 @@ void i2c3Check(char *p) {
     if(addr<1 || addr>0x7F)error("Invalid I2C address");
     addr<<=1;
 	mT4IntEnable(0);                                                // as WRITE and READ: no controller transfer starts during it,
+	i2c_release(&hi2c2, &I2C3_Held);                                // (a kept bus let go first)
 	i2c_wait_idle(&hi2c2);                                         // and one under way is waited for
 	mmI2Cvalue = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)addr, 2, 10);
 	mT4IntEnable(1);
 }
 // receive data from an I2C slave - master mode
 void i2cReceive(char *p) {
-	int addr, i2c_options, rcvlen;
-	void *ptr = NULL;
-	getargs(&p, 7, ",");
-	if(argc != 7) error("Invalid syntax");
+	int addr, options, rcvlen, i;
+	unsigned char *raw;
+	unsigned int *buf;
+	CommsRxDest dest;
+	getargs(&p, 99, ",");
+	if(!(argc & 0x01) || (argc < 7)) error("Invalid syntax");
 	if(!(I2C1_enabled || nun1 || classic1 || mouse1))error("I2C not open");
 	addr = getinteger(argv[0]);
-	i2c_options = getint(argv[2],0,1);
+	options = getint(argv[2],0,1);
 	I2C_Status = 0;
-	if(i2c_options & 0x01) I2C_Status = I2C_Status_BusHold;
+	if(options & 0x01) I2C_Status = I2C_Status_BusHold;
 	I2C_Addr = addr;
 	rcvlen = getinteger(argv[4]);
-	if(rcvlen < 1 || rcvlen > 255) error("Number out of bounds");
-
-	ptr = findvar(argv[6], V_FIND | V_EMPTY_OK);
-	CHECK_STRUCT_MEMBER_ARRAY();
-    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-	if(ptr == NULL) error("Invalid variable");
-	if(VREC(VarIndex)->type & T_NBR) {
-        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-            if(rcvlen != 1) error("Invalid variable");
-        } else {		// An array
-            if( (((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + rcvlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
-                error("Insufficient space in array");
-        }
-        I2C_Rcvbuf_Float = (MMFLOAT*)ptr;
-    } else if(VREC(VarIndex)->type & T_INT) {
-        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-            if(rcvlen != 1) error("Invalid variable");
-        } else {		// An array
-            if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + rcvlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
-                error("Insufficient space in array");
-        }
-        I2C_Rcvbuf_Int = (long long int *)ptr;
-        I2C_Rcvbuf_Float = NULL;
-    } else if(VREC(VarIndex)->type & T_STR) {
-        if(DimIsAllocated(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
-        *(char *)ptr = rcvlen;
-        I2C_Rcvbuf_String = (char *)ptr + 1;
-        I2C_Rcvbuf_Float = NULL;
-        I2C_Rcvbuf_Int = NULL;
-    } else error("Invalid variable");
+	if(rcvlen < 1) error("Number out of bounds");
+	GetCommsRxDest(argv, argc, 6, rcvlen, &dest);                   // a list, a whole array or a string (MMBasic.c)
+	raw = GetTempMemory(rcvlen);
+	buf = GetTempMemory(rcvlen * sizeof(unsigned int));
 	I2C_Rcvlen = rcvlen;
-
 	I2C_Sendlen = 0;
 
-	i2c_masterCommand(1);
+	i2c_masterCommand(1, raw);
+	for(i = 0; i < rcvlen; i++) buf[i] = raw[i];
+	PutCommsRxData(&dest, buf);
 }
 // receive data from an I2C slave - master mode
 void i2c2Receive(char *p) {
-	int addr, i2c2_options, rcvlen;
-	void *ptr = NULL;
-	getargs(&p, 7, ",");
-	if(argc != 7) error("Invalid syntax");
+	int addr, options, rcvlen, i;
+	unsigned char *raw;
+	unsigned int *buf;
+	CommsRxDest dest;
+	getargs(&p, 99, ",");
+	if(!(argc & 0x01) || (argc < 7)) error("Invalid syntax");
 	if(!(I2C2_enabled || nun2 || classic2 || mouse2))error("I2C not open");
 	addr = getinteger(argv[0]);
-	i2c2_options = getint(argv[2],0,1);
+	options = getint(argv[2],0,1);
 	I2C2_Status = 0;
-	if(i2c2_options & 0x01) I2C2_Status = I2C_Status_BusHold;
+	if(options & 0x01) I2C2_Status = I2C_Status_BusHold;
 	I2C2_Addr = addr;
 	rcvlen = getinteger(argv[4]);
-	if(rcvlen < 1 || rcvlen > 255) error("Number out of bounds");
-
-	ptr = findvar(argv[6], V_FIND | V_EMPTY_OK);
-	CHECK_STRUCT_MEMBER_ARRAY();
-    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-	if(ptr == NULL) error("Invalid variable");
-	if(VREC(VarIndex)->type & T_NBR) {
-        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-            if(rcvlen != 1) error("Invalid variable");
-        } else {		// An array
-            if( (((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + rcvlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
-                error("Insufficient space in array");
-        }
-        I2C2_Rcvbuf_Float = (MMFLOAT*)ptr;
-    } else if(VREC(VarIndex)->type & T_INT) {
-        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-            if(rcvlen != 1) error("Invalid variable");
-        } else {		// An array
-            if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + rcvlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
-                error("Insufficient space in array");
-        }
-        I2C2_Rcvbuf_Int = (long long int *)ptr;
-        I2C2_Rcvbuf_Float = NULL;
-    } else if(VREC(VarIndex)->type & T_STR) {
-        if(DimIsAllocated(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
-        *(char *)ptr = rcvlen;
-        I2C2_Rcvbuf_String = (char *)ptr + 1;
-        I2C2_Rcvbuf_Float = NULL;
-        I2C2_Rcvbuf_Int = NULL;
-    } else error("Invalid variable");
+	if(rcvlen < 1) error("Number out of bounds");
+	GetCommsRxDest(argv, argc, 6, rcvlen, &dest);                   // a list, a whole array or a string (MMBasic.c)
+	raw = GetTempMemory(rcvlen);
+	buf = GetTempMemory(rcvlen * sizeof(unsigned int));
 	I2C2_Rcvlen = rcvlen;
-
 	I2C2_Sendlen = 0;
 
-	i2c2_masterCommand(1);
+	i2c2_masterCommand(1, raw);
+	for(i = 0; i < rcvlen; i++) buf[i] = raw[i];
+	PutCommsRxData(&dest, buf);
 }
 // receive data from an I2C slave - master mode
 void i2c3Receive(char *p) {
-	int addr, i2c3_options, rcvlen;
-	void *ptr = NULL;
-	getargs(&p, 7, ",");
-	if(argc != 7) error("Invalid syntax");
+	int addr, options, rcvlen, i;
+	unsigned char *raw;
+	unsigned int *buf;
+	CommsRxDest dest;
+	getargs(&p, 99, ",");
+	if(!(argc & 0x01) || (argc < 7)) error("Invalid syntax");
 	if(!(I2C3_enabled || nun3 || classic3 || mouse3))error("I2C not open");
 	addr = getinteger(argv[0]);
-	i2c3_options = getint(argv[2],0,1);
+	options = getint(argv[2],0,1);
 	I2C3_Status = 0;
-	if(i2c3_options & 0x01) I2C3_Status = I2C_Status_BusHold;
+	if(options & 0x01) I2C3_Status = I2C_Status_BusHold;
 	I2C3_Addr = addr;
 	rcvlen = getinteger(argv[4]);
-	if(rcvlen < 1 || rcvlen > 255) error("Number out of bounds");
-
-	ptr = findvar(argv[6], V_FIND | V_EMPTY_OK);
-	CHECK_STRUCT_MEMBER_ARRAY();
-    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-	if(ptr == NULL) error("Invalid variable");
-	if(VREC(VarIndex)->type & T_NBR) {
-        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-            if(rcvlen != 1) error("Invalid variable");
-        } else {		// An array
-            if( (((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + rcvlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
-                error("Insufficient space in array");
-        }
-        I2C3_Rcvbuf_Float = (MMFLOAT*)ptr;
-    } else if(VREC(VarIndex)->type & T_INT) {
-        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-        if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-            if(rcvlen != 1) error("Invalid variable");
-        } else {		// An array
-            if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + rcvlen) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
-                error("Insufficient space in array");
-        }
-        I2C3_Rcvbuf_Int = (long long int *)ptr;
-        I2C3_Rcvbuf_Float = NULL;
-    } else if(VREC(VarIndex)->type & T_STR) {
-        if(DimIsAllocated(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
-        *(char *)ptr = rcvlen;
-        I2C3_Rcvbuf_String = (char *)ptr + 1;
-        I2C3_Rcvbuf_Float = NULL;
-        I2C3_Rcvbuf_Int = NULL;
-    } else error("Invalid variable");
+	if(rcvlen < 1) error("Number out of bounds");
+	GetCommsRxDest(argv, argc, 6, rcvlen, &dest);                   // a list, a whole array or a string (MMBasic.c)
+	raw = GetTempMemory(rcvlen);
+	buf = GetTempMemory(rcvlen * sizeof(unsigned int));
 	I2C3_Rcvlen = rcvlen;
-
 	I2C3_Sendlen = 0;
 
-	i2c3_masterCommand(1);
+	i2c3_masterCommand(1, raw);
+	for(i = 0; i < rcvlen; i++) buf[i] = raw[i];
+	PutCommsRxData(&dest, buf);
 }
 
 /**************************************************************************************************
@@ -671,7 +487,7 @@ void i2c2_enable(int bps) {
         PinSetBit(P_I2C2_SCL, TRISSET);
     }
     ExtCfg(P_I2C2_SDA, EXT_COM_RESERVED, 0);
-    ExtCfg(P_I2C2_SDA, EXT_COM_RESERVED, 0);
+    ExtCfg(P_I2C2_SCL, EXT_COM_RESERVED, 0);
     if(bps==100) hi2c4.Init.Timing = 0x10707DBC;
     if(bps==400) hi2c4.Init.Timing = 0x00602173;
     if(bps==1000)hi2c4.Init.Timing = 0x00300B29;
@@ -697,7 +513,7 @@ void i2c3_enable(int bps) {
         PinSetBit(P_I2C3_SCL, TRISSET);
     }
     ExtCfg(P_I2C3_SDA, EXT_COM_RESERVED, 0);
-    ExtCfg(P_I2C3_SDA, EXT_COM_RESERVED, 0);
+    ExtCfg(P_I2C3_SCL, EXT_COM_RESERVED, 0);
     if(bps==100) hi2c2.Init.Timing = 0x10707DBC;
     if(bps==400) hi2c2.Init.Timing = 0x00602173;
     if(bps==1000)hi2c2.Init.Timing = 0x00300B29;
@@ -710,13 +526,11 @@ Disable the I2C1 module - master mode
 ***************************************************************************************************/
 void i2c_disable(void) {
     I2C_Status = I2C_Status_Disable;
-	I2C_Rcvbuf_String = NULL;                                       // pointer to the master receive buffer
-    I2C_Rcvbuf_Float = NULL;
-    I2C_Rcvbuf_Int = NULL;
 	I2C_Sendlen = 0;												// length of the master send buffer
 	I2C_Rcvlen = 0;													// length of the master receive buffer
 	I2C_Addr = 0;													// I2C device address
 	I2C_Timeout = 0;												// master timeout value
+	i2c_release(&hi2c1, &I2C_Held);
 	HAL_I2C_DeInit(&hi2c1);
 	I2C1_enabled = 0;
     ExtCfg(P_I2C_SDA, EXT_NOT_CONFIG, 0);
@@ -724,13 +538,11 @@ void i2c_disable(void) {
 }
 void i2c2_disable(void) {
     I2C2_Status = I2C_Status_Disable;
-	I2C2_Rcvbuf_String = NULL;                                       // pointer to the master receive buffer
-    I2C2_Rcvbuf_Float = NULL;
-    I2C2_Rcvbuf_Int = NULL;
 	I2C2_Sendlen = 0;												// length of the master send buffer
 	I2C2_Rcvlen = 0;													// length of the master receive buffer
 	I2C2_Addr = 0;													// I2C device address
 	I2C2_Timeout = 0;												// master timeout value
+	i2c_release(&hi2c4, &I2C2_Held);
 	HAL_I2C_DeInit(&hi2c4);
 	I2C2_enabled = 0;
     ExtCfg(P_I2C2_SDA, EXT_NOT_CONFIG, 0);
@@ -738,13 +550,11 @@ void i2c2_disable(void) {
 }
 void i2c3_disable(void) {
     I2C3_Status = I2C_Status_Disable;
-	I2C3_Rcvbuf_String = NULL;                                       // pointer to the master receive buffer
-    I2C3_Rcvbuf_Float = NULL;
-    I2C3_Rcvbuf_Int = NULL;
 	I2C3_Sendlen = 0;												// length of the master send buffer
 	I2C3_Rcvlen = 0;													// length of the master receive buffer
 	I2C3_Addr = 0;													// I2C device address
 	I2C3_Timeout = 0;												// master timeout value
+	i2c_release(&hi2c2, &I2C3_Held);
 	HAL_I2C_DeInit(&hi2c2);
 	I2C3_enabled = 0;
     ExtCfg(P_I2C3_SDA, EXT_NOT_CONFIG, 0);
@@ -757,89 +567,124 @@ static void i2c_wait_idle(I2C_HandleTypeDef *h) {
 	uint32_t t = HAL_GetTick();
 	while(HAL_I2C_GetState(h) != HAL_I2C_STATE_READY && HAL_GetTick() - t < 5) {}
 }
+// A program's transfer as the bus master, by the registers. The HAL's blocking transfers always end with a stop and
+// first wait for the bus to be free, so I2C WRITE and READ's option 1 (keep the bus: no stop, and the next transfer
+// begins with a repeated start) could not be done with them. 'n' bytes are written from or read into 'buf' (over 255
+// by reloads); 'timeout' is in ms, 0 for none (I2C OPEN). It returns MM.I2C: 0 done, 1 a NACK, 2 timed out (the HAL
+// gave 1 for both). '*held' is true while the bus is kept.
+static int i2c_fail(I2C_TypeDef *r, int *held, int result) {
+	uint32_t t = HAL_GetTick();
+	if(result == 1) {                                               // a NACK: a stop follows it, sent here when the
+		while(!(r->ISR & I2C_ISR_STOPF) && HAL_GetTick() - t < 2) {}    // peripheral does not (a transfer keeping the bus)
+		if(!(r->ISR & I2C_ISR_STOPF) && (r->ISR & I2C_ISR_BUSY)) {
+			r->CR2 |= I2C_CR2_STOP;
+			t = HAL_GetTick();
+			while(!(r->ISR & I2C_ISR_STOPF) && HAL_GetTick() - t < 2) {}
+		}
+	}
+	if(!(r->ISR & I2C_ISR_STOPF)) {                                 // no stop (timed out): resetting the peripheral
+		r->CR1 &= ~I2C_CR1_PE;                                      // lets the lines go (PE low for 3 APB clocks)
+		(void)r->CR1; (void)r->CR1; (void)r->CR1;
+		r->CR1 |= I2C_CR1_PE;
+	}
+	r->ICR = I2C_ICR_NACKCF | I2C_ICR_STOPCF | I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF;
+	if(r->ISR & I2C_ISR_TXIS) r->TXDR = 0;                          // (the HAL's flush of the transmit register)
+	if(!(r->ISR & I2C_ISR_TXE)) r->ISR |= I2C_ISR_TXE;
+	r->CR2 &= ~(I2C_CR2_SADD | I2C_CR2_HEAD10R | I2C_CR2_NBYTES | I2C_CR2_RELOAD | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND);
+	*held = 0;
+	return result;
+}
+
+static int i2c_transfer(I2C_HandleTypeDef *h, int *held, uint16_t addr8, uint8_t *buf, int n, int rd, int hold, uint32_t timeout) {
+	I2C_TypeDef *r = h->Instance;
+	uint32_t t0 = HAL_GetTick();
+	int i, chunk = n > 255 ? 255 : n;
+#define I2C_LATE (timeout && HAL_GetTick() - t0 > timeout)
+	if(!*held) {                                                    // (a kept bus is ours: busy, and the start repeated)
+		while(r->ISR & I2C_ISR_BUSY) if(I2C_LATE) return i2c_fail(r, held, 2);
+	}
+	r->ICR = I2C_ICR_NACKCF | I2C_ICR_STOPCF;
+	MODIFY_REG(r->CR2, I2C_CR2_SADD | I2C_CR2_NBYTES | I2C_CR2_RELOAD | I2C_CR2_AUTOEND | I2C_CR2_RD_WRN | I2C_CR2_ADD10
+	           | I2C_CR2_HEAD10R | I2C_CR2_START | I2C_CR2_STOP,
+	           (addr8 & I2C_CR2_SADD) | ((uint32_t)chunk << I2C_CR2_NBYTES_Pos) | (rd ? I2C_CR2_RD_WRN : 0)
+	           | (n > 255 ? I2C_CR2_RELOAD : hold ? 0 : I2C_CR2_AUTOEND) | I2C_CR2_START);
+	for(i = 0; i < n; i++) {
+		if(i && i % 255 == 0) {                                     // the next 255 of a long transfer
+			while(!(r->ISR & I2C_ISR_TCR)) {
+				if(r->ISR & I2C_ISR_NACKF) return i2c_fail(r, held, 1);
+				if(I2C_LATE) return i2c_fail(r, held, 2);
+			}
+			chunk = n - i > 255 ? 255 : n - i;
+			MODIFY_REG(r->CR2, I2C_CR2_NBYTES | I2C_CR2_RELOAD | I2C_CR2_AUTOEND,
+			           ((uint32_t)chunk << I2C_CR2_NBYTES_Pos) | (n - i > 255 ? I2C_CR2_RELOAD : hold ? 0 : I2C_CR2_AUTOEND));
+		}
+		while(!(r->ISR & (rd ? I2C_ISR_RXNE : I2C_ISR_TXIS))) {
+			if(r->ISR & I2C_ISR_NACKF) return i2c_fail(r, held, 1);
+			if(I2C_LATE) return i2c_fail(r, held, 2);
+		}
+		if(rd) buf[i] = r->RXDR; else r->TXDR = buf[i];
+	}
+	while(!(r->ISR & (hold ? I2C_ISR_TC : I2C_ISR_STOPF))) {        // the end: the bus kept (TC), or the stop sent
+		if(r->ISR & I2C_ISR_NACKF) return i2c_fail(r, held, 1);
+		if(I2C_LATE) return i2c_fail(r, held, 2);
+	}
+#undef I2C_LATE
+	r->ICR = I2C_ICR_STOPCF;
+	if(!hold) r->CR2 &= ~(I2C_CR2_SADD | I2C_CR2_HEAD10R | I2C_CR2_NBYTES | I2C_CR2_RELOAD | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND);
+	*held = hold;
+	return 0;
+}
+
+// a bus kept by option 1 let go: the stop it was waiting for (before CHECK and CLOSE, and at the end of a program)
+static void i2c_release(I2C_HandleTypeDef *h, int *held) {
+	I2C_TypeDef *r = h->Instance;
+	uint32_t t = HAL_GetTick();
+	if(!*held) return;
+	r->CR2 |= I2C_CR2_STOP;
+	while(!(r->ISR & I2C_ISR_STOPF) && HAL_GetTick() - t < 2) {}
+	r->ICR = I2C_ICR_STOPCF;
+	r->CR2 &= ~(I2C_CR2_SADD | I2C_CR2_HEAD10R | I2C_CR2_NBYTES | I2C_CR2_RELOAD | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND);
+	*held = 0;
+}
+
 /**************************************************************************************************
 Send and/or Receive data - master mode
 ***************************************************************************************************/
-void i2c_masterCommand(int timer) {
-//	unsigned char start_type,
-	unsigned char i,i2caddr=I2C_Addr<<1,I2C_Rcv_Buffer[I2C_Rcvlen+2];
+void i2c_masterCommand(int timer, unsigned char *rbuf) {
+	uint16_t addr8 = I2C_Addr << 1;
+	int hold = (I2C_Status & I2C_Status_BusHold) != 0;
 	mT4IntEnable(0);
 	i2c_wait_idle(&hi2c1);                                         // (a controller's transfer under way)
-	if(I2C_Sendlen){
-		mmI2Cvalue=HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)i2caddr, I2C_Send_Buffer, I2C_Sendlen, I2C_Timeout);
-	}
-	if(I2C_Rcvlen){
-		mmI2Cvalue=HAL_I2C_Master_Receive(&hi2c1, (uint16_t)i2caddr, (uint8_t *)I2C_Rcv_Buffer, I2C_Rcvlen, I2C_Timeout);
-		for(i=0;i<I2C_Rcvlen;i++){
-			if(I2C_Rcvbuf_String!=NULL){
-				*I2C_Rcvbuf_String=I2C_Rcv_Buffer[i];
-				I2C_Rcvbuf_String++;
-			}
-			if(I2C_Rcvbuf_Float!=NULL){
-				*I2C_Rcvbuf_Float=I2C_Rcv_Buffer[i];
-				I2C_Rcvbuf_Float++;
-			}
-			if(I2C_Rcvbuf_Int!=NULL){
-				*I2C_Rcvbuf_Int=I2C_Rcv_Buffer[i];
-				I2C_Rcvbuf_Int++;
-			}
-		}
-	}
+	mmI2Cvalue = 0;
+	if(I2C_Sendlen)                                              // (a read after it: a repeated start between)
+		mmI2Cvalue = i2c_transfer(&hi2c1, &I2C_Held, addr8, I2C_Send_Buffer, I2C_Sendlen, 0, hold || I2C_Rcvlen, I2C_Timeout);
+	if(I2C_Rcvlen && !mmI2Cvalue)
+		mmI2Cvalue = i2c_transfer(&hi2c1, &I2C_Held, addr8, rbuf, I2C_Rcvlen, 1, hold, I2C_Timeout);
 	mT4IntEnable(1);
 }
 
-void i2c2_masterCommand(int timer) {
-//	unsigned char start_type,
-	unsigned char i,i2c2addr=I2C2_Addr<<1,I2C2_Rcv_Buffer[I2C2_Rcvlen+2];
+void i2c2_masterCommand(int timer, unsigned char *rbuf) {
+	uint16_t addr8 = I2C2_Addr << 1;
+	int hold = (I2C2_Status & I2C_Status_BusHold) != 0;
 	mT4IntEnable(0);
 	i2c_wait_idle(&hi2c4);                                         // (a controller's transfer under way)
-	if(I2C2_Sendlen){
-		mmI2Cvalue=HAL_I2C_Master_Transmit(&hi2c4, (uint16_t)i2c2addr, I2C_Send_Buffer, I2C2_Sendlen, I2C2_Timeout);
-	}
-	if(I2C2_Rcvlen){
-		mmI2Cvalue=HAL_I2C_Master_Receive(&hi2c4, (uint16_t)i2c2addr, (uint8_t *)I2C2_Rcv_Buffer, I2C2_Rcvlen, I2C2_Timeout);
-		for(i=0;i<I2C2_Rcvlen;i++){
-			if(I2C2_Rcvbuf_String!=NULL){
-				*I2C2_Rcvbuf_String=I2C2_Rcv_Buffer[i];
-				I2C2_Rcvbuf_String++;
-			}
-			if(I2C2_Rcvbuf_Float!=NULL){
-				*I2C2_Rcvbuf_Float=I2C2_Rcv_Buffer[i];
-				I2C2_Rcvbuf_Float++;
-			}
-			if(I2C2_Rcvbuf_Int!=NULL){
-				*I2C2_Rcvbuf_Int=I2C2_Rcv_Buffer[i];
-				I2C2_Rcvbuf_Int++;
-			}
-		}
-	}
+	mmI2Cvalue = 0;
+	if(I2C2_Sendlen)                                              // (a read after it: a repeated start between)
+		mmI2Cvalue = i2c_transfer(&hi2c4, &I2C2_Held, addr8, I2C_Send_Buffer, I2C2_Sendlen, 0, hold || I2C2_Rcvlen, I2C2_Timeout);
+	if(I2C2_Rcvlen && !mmI2Cvalue)
+		mmI2Cvalue = i2c_transfer(&hi2c4, &I2C2_Held, addr8, rbuf, I2C2_Rcvlen, 1, hold, I2C2_Timeout);
 	mT4IntEnable(1);
 }
-void i2c3_masterCommand(int timer) {
-//	unsigned char start_type,
-	unsigned char i,i2c3addr=I2C3_Addr<<1,I2C3_Rcv_Buffer[I2C3_Rcvlen+2];
+void i2c3_masterCommand(int timer, unsigned char *rbuf) {
+	uint16_t addr8 = I2C3_Addr << 1;
+	int hold = (I2C3_Status & I2C_Status_BusHold) != 0;
 	mT4IntEnable(0);
 	i2c_wait_idle(&hi2c2);                                         // (a controller's transfer under way)
-	if(I2C3_Sendlen){
-		mmI2Cvalue=HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)i2c3addr, I2C_Send_Buffer, I2C3_Sendlen, I2C3_Timeout);
-	}
-	if(I2C3_Rcvlen){
-		mmI2Cvalue=HAL_I2C_Master_Receive(&hi2c2, (uint16_t)i2c3addr, (uint8_t *)I2C3_Rcv_Buffer, I2C3_Rcvlen, I2C3_Timeout);
-		for(i=0;i<I2C3_Rcvlen;i++){
-			if(I2C3_Rcvbuf_String!=NULL){
-				*I2C3_Rcvbuf_String=I2C3_Rcv_Buffer[i];
-				I2C3_Rcvbuf_String++;
-			}
-			if(I2C3_Rcvbuf_Float!=NULL){
-				*I2C3_Rcvbuf_Float=I2C3_Rcv_Buffer[i];
-				I2C3_Rcvbuf_Float++;
-			}
-			if(I2C3_Rcvbuf_Int!=NULL){
-				*I2C3_Rcvbuf_Int=I2C3_Rcv_Buffer[i];
-				I2C3_Rcvbuf_Int++;
-			}
-			}
-	}
+	mmI2Cvalue = 0;
+	if(I2C3_Sendlen)                                              // (a read after it: a repeated start between)
+		mmI2Cvalue = i2c_transfer(&hi2c2, &I2C3_Held, addr8, I2C_Send_Buffer, I2C3_Sendlen, 0, hold || I2C3_Rcvlen, I2C3_Timeout);
+	if(I2C3_Rcvlen && !mmI2Cvalue)
+		mmI2Cvalue = i2c_transfer(&hi2c2, &I2C3_Held, addr8, rbuf, I2C3_Rcvlen, 1, hold, I2C3_Timeout);
 	mT4IntEnable(1);
 }
 

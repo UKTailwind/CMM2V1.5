@@ -243,8 +243,8 @@ void owReset(char *p) {
 
 // send one wire data
 void owWrite(char *p) {
-	int pin, flag, len, i, buf[255];
-	char *cp;
+	int pin, flag, len, i;
+	unsigned int buf[255];
 
 	getargs(&p, MAX_ARG_COUNT*2,",");
 	if (!(argc & 0x01) || (argc < 7)) error("Argument count");
@@ -254,14 +254,7 @@ void owWrite(char *p) {
 	flag = getint(argv[2], 0, 15);
 	len = getint(argv[4], 1, 255);
 
-	// check the first char for a legal variable name
-	cp = argv[6];
-	skipspace(cp);
-	//if (argc > 7 || (len == 1 && type == 0)) {                    // numeric expressions for data
-		if (len != ((argc - 5) >> 1)) error("Argument count");
-		for (i = 0; i < len; i++) {
-			buf[i] = getinteger(argv[i + i + 6]);
-		}
+	GetCommsTxData(argv, argc, 6, len, buf);                        // a list, a whole array or a string (MMBasic.c)
 
 // set up initial pin status (open drain, output, high)
 	ExtCfg(pin, EXT_NOT_CONFIG, 0);									// set pin to unconfigured
@@ -287,8 +280,9 @@ void owWrite(char *p) {
 
 // read one wire data
 void owRead(char *p) {
-	int pin, flag, len, i, buf[255];
-	void *ptr = NULL;
+	int pin, flag, len, i;
+	unsigned int buf[255];
+	CommsRxDest dest;
 
 	getargs(&p, MAX_ARG_COUNT*2,",");
 	if (!(argc & 0x01) || (argc < 7)) error("Argument count");
@@ -298,13 +292,7 @@ void owRead(char *p) {
 	flag = getint(argv[2], 0, 15);
 	len = getint(argv[4], 1, 255);
 
-    // check the validity of the argument list
-    if (len != ((argc - 5) >> 1)) error("Argument count");
-    for (i = 0; i < len; i++) {
-        ptr = findvar(argv[i + i + 6], V_FIND);
-        if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-        if (!(FoundType() & (T_NBR | T_INT)) || (!g_StructMemberType && DimIsAllocated(VREC(VarIndex)->dimtbl[0]))) error("Invalid variable");
-    }
+	GetCommsRxDest(argv, argc, 6, len, &dest);                      // a list, a whole array or a string (MMBasic.c)
 
 // set up initial pin status (open drain, output, high)
 	ExtCfg(pin, EXT_NOT_CONFIG, 0);									// set pin to unconfigured
@@ -325,14 +313,7 @@ void owRead(char *p) {
 		PinSetBit(pin, ODCCLR);										// set strong pullup
 	}
 
-	for (i = 0; i < len; i++) {
-			ptr = findvar(argv[i + i + 6], V_FIND);
-            if(FoundType() & T_NBR)
-                *((MMFLOAT *)ptr) = buf[i];
-            else
-                *((long long int *)ptr) = buf[i];
-	}
-
+	PutCommsRxData(&dest, buf);
 	return;
 }
 

@@ -2391,6 +2391,11 @@ void cmd_settick(void){
     int period;
     int irq=0;;
     char s[STRINGSIZE];
+    char *tp = checkstring(cmdline, "FAST");                         // SETTICK FAST frequency, target: TIM13 (MM_Custom.c;
+    if(tp && *tp != ',') {                                          // no command reached it before), not a variable FAST
+        cmd_fasttick(tp);
+        return;
+    }
     getargs(&cmdline, 5, ",");
     strcpy(s,argv[0]);
     if(!(argc == 3 || argc == 5)) error("Argument count");

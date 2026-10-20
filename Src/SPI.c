@@ -61,7 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Hardware_Includes.h"
 
 unsigned int *GetSendDataList(char *p, unsigned int *nbr);
-long long int *GetReceiveDataBuffer(char *p, unsigned int *nbr);
+unsigned int *GetReceiveDataBuffer(char *p, unsigned int *nbr, CommsRxDest *dest);
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
 
@@ -69,7 +69,6 @@ void cmd_spi1(char *spi) {
 	    int speed;
     char *p;
     unsigned int nbr, *d;
-    long long int *dd;
 
     if(checkstring(spi, "CLOSE")) {
         SPIClose();
@@ -97,13 +96,16 @@ void cmd_spi1(char *spi) {
     		uint32_t aRxBuffer;
     		uint8_t cRxBuffer[4];
     	}mybuff;
+        CommsRxDest dest;
+        unsigned int *rbuf, i;
         if(ExtCurrentConfig[SPI_OUT_PIN] != EXT_COM_RESERVED) error("Not open");
-        dd = GetReceiveDataBuffer(p, &nbr);
-        while(nbr--) {
+        rbuf = GetReceiveDataBuffer(p, &nbr, &dest);
+        for(i = 0; i < nbr; i++) {
         	mybuff.aRxBuffer=0;
         	HAL_SPI_TransmitReceive(&hspi1, mybuff.cRxBuffer, mybuff.cRxBuffer, 1, 5000);   // 0 out (HAL 1.11: Receive no longer sends)
-        	*dd++ = mybuff.aRxBuffer;
+        	rbuf[i] = mybuff.aRxBuffer;
         }
+        PutCommsRxData(&dest, rbuf);
         return;
     }
 
@@ -188,7 +190,6 @@ void cmd_spi2(char *spi) {
 	    int speed;
     char *p;
     unsigned int nbr, *d;
-    long long int *dd;
 
     if(checkstring(spi, "CLOSE")) {
         SPI2Close();
@@ -216,13 +217,16 @@ void cmd_spi2(char *spi) {
     		uint32_t aRxBuffer;
     		uint8_t cRxBuffer[4];
     	}mybuff;
+        CommsRxDest dest;
+        unsigned int *rbuf, i;
         if(ExtCurrentConfig[SPI2_OUT_PIN] != EXT_COM_RESERVED) error("Not open");
-        dd = GetReceiveDataBuffer(p, &nbr);
-        while(nbr--) {
+        rbuf = GetReceiveDataBuffer(p, &nbr, &dest);
+        for(i = 0; i < nbr; i++) {
         	mybuff.aRxBuffer=0;
         	HAL_SPI_TransmitReceive(&hspi2, mybuff.cRxBuffer, mybuff.cRxBuffer, 1, 5000);   // 0 out (HAL 1.11: Receive no longer sends)
-        	*dd++ = mybuff.aRxBuffer;
+        	rbuf[i] = mybuff.aRxBuffer;
         }
+        PutCommsRxData(&dest, rbuf);
         return;
     }
 
@@ -306,89 +310,25 @@ void SPI2Close(void){
 }
 unsigned int *GetSendDataList(char *p, unsigned int *nbr) {
     unsigned int *buf;
-    int i;
-    void *ptr;
 
     getargs(&p, MAX_ARG_COUNT, ",");
     if(!(argc & 1)) error("Invalid syntax");
     *nbr = getint(argv[0], 0, 9999999);
     if(!*nbr) return NULL;
     buf = GetTempMemory(*nbr * sizeof(unsigned int));
-
-    // first check if this is the situation with just two arguments where the second argument could be a string or a simple variable or an array
-    // check the correct arg count AND that the second argument looks like a variable AND it is not a function
-    if(argc == 3 && isnamestart(*argv[2]) && *skipvar(argv[2], false) == 0 && !(FindSubFun(argv[2], 1) >= 0 && strchr(argv[2], '(') != NULL)) {
-    	ptr = findvar(argv[2], V_NOFIND_NULL | V_EMPTY_OK);
-    	CHECK_STRUCT_MEMBER_ARRAY();
-		if(ptr == NULL) error("Invalid variable");
-
-        // now check if it is a non array string
-		if(VREC(VarIndex)->type & T_STR) {
-            if(DimIsAllocated(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
-            if(*((char *)ptr) < *nbr) error("Insufficient data");
-            ptr += sizeof(char);                                    // skip the length byte in a MMBasic string
-            for (i = 0; i < *nbr; i++) {
-                buf[i] = *(char *)ptr;
-                ptr += sizeof(char);
-            }
-            return buf;
-		}
-
-        // if it is a MMFLOAT or integer do some sanity checks
-        if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-        if(*nbr > 1) {
-            if(DimIsScalar(VREC(VarIndex)->dimtbl[0])) error("Invalid variable");
-            // from the element given (a%(6) of eight read past the end): both array types are 8 bytes an element
-            if(((char *)ptr - VREC(VarIndex)->val.s) / 8 + *nbr > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase)) error("Insufficient data");
-        }
-
-        // now check if it is a MMFLOAT
-        if(VREC(VarIndex)->type & T_NBR) {
-            for (i = 0; i < *nbr; i++) {
-                buf[i] = FloatToInt32(*(MMFLOAT *)ptr);
-                ptr += sizeof(MMFLOAT);
-            }
-            return buf;
-        }
-
-        // try for an integer
-        if(VREC(VarIndex)->type & T_INT)  {
-            for (i = 0; i < *nbr; i++) {
-                buf[i] = *(unsigned int *)ptr;
-                ptr += sizeof(long long int);
-            }
-            return buf;
-        }
-
-    }
-
-    // if we got to here we must have a simple list of expressions to send (phew!)
-    if(*nbr != ((argc - 1) >> 1)) error("Incorrect argument count");
-    for (i = 0; i < *nbr; i++) {
-        buf[i] = getinteger(argv[i + i + 2]);
-    }
+    GetCommsTxData(argv, argc, 2, *nbr, buf);                      // a list, a whole array or a string (MMBasic.c)
     return buf;
 }
 void cmd_spi(void){ cmd_spi1(cmdline); }                        // SPI and SPI2 are commands of their own (they were SPI 1 and 2)
 void cmd_spi_2(void){ cmd_spi2(cmdline); }
 
 
-long long int *GetReceiveDataBuffer(char *p, unsigned int *nbr) {
-    void *ptr;
-
-    getargs(&p, 3, ",");
-    if(argc != 3) error("Invalid syntax");
+unsigned int *GetReceiveDataBuffer(char *p, unsigned int *nbr, CommsRxDest *dest) {
+    getargs(&p, MAX_ARG_COUNT, ",");
+    if(argc < 3 || !(argc & 1)) error("Invalid syntax");
     int n = getinteger(argv[0]);
     if(n < 1) error("Number out of bounds");                      // (a negative count became a huge unsigned one)
     *nbr = n;
-    ptr = findvar(argv[2], V_NOFIND_NULL | V_EMPTY_OK);
-    CHECK_STRUCT_MEMBER_ARRAY();
-    if(ptr == NULL) error("Invalid variable");
-    if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
-	if((VREC(VarIndex)->type & T_INT) && DimIsRealArray(VREC(VarIndex)->dimtbl[0]) && DimIsEnd(VREC(VarIndex)->dimtbl[1])) {		// integer array
-        if( (((long long int *)ptr - VREC(VarIndex)->val.ia) + *nbr) > (DimUpper(VREC(VarIndex)->dimtbl[0]) + 1 - OptionBase) )
-            error("Insufficient array size");
-	}
-        else error("Invalid variable");
-    return ptr;
+    GetCommsRxDest(argv, argc, 2, n, dest);                        // a list, a whole array or a string (MMBasic.c)
+    return GetTempMemory(n * sizeof(unsigned int));
 }

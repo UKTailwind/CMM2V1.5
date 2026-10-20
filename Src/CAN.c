@@ -560,7 +560,7 @@ void cmd_can(void) {
         //canopen=getinteger(argv[0]);
         //speed=getint(argv[2],125000,1000000);
         speed = getinteger(argv[2]);
-        if (!(speed==125000||speed==250000||speed==500000||speed==1000000||speed==0))error("Valid speeds are 0,125000,250000,5000000,1000000");
+        if (!(speed==125000||speed==250000||speed==500000||speed==1000000||speed==0))error("Valid speeds are 0,125000,250000,500000,1000000");
         if (speed==0 && argc < 13)error("Incorrect argument count for speed 0");
            if (speed==0){
                 prescaler = getinteger(argv[6]);

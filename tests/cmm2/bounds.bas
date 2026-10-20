@@ -43,7 +43,7 @@ I2C Close
 SPI Open 1000000, 0, 8
 On Error Skip 1
 SPI Write 4, w%(6)
-CheckS "SPI WRITE counts from the element given (w%(6) of eight read past the end)", ErrText$(), "Insufficient data"
+CheckS "SPI WRITE: an element is one item, as on the PicoMite (w%(6) of eight read past the end)", ErrText$(), "Argument count"
 On Error Skip 1
 SPI Read 0, w%()
 CheckS "SPI READ of no bytes", ErrText$(), "Number out of bounds"

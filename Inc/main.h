@@ -120,6 +120,7 @@ void MX_USART2_UART_Init2(void);
 void MX_UART4_Init4(void);
 void MMErrorString(char *msg);
 extern void cleanend(void);
+extern void FastTickStop(void);                 // SETTICK FAST's timer stopped (MM_Custom.c)
 extern int WWDGdelay;
 extern int WWDGdelayCalc;
 extern void uSec(unsigned int us);

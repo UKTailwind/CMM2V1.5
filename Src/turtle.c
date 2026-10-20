@@ -792,7 +792,7 @@ void cmd_turtle(void)
     {
         turtle.pen_down = 1;
     }
-    else if ((tp = checkstring(cmdline, "PEN COLOUR")) || (tp = checkstring(cmdline, "PENCOLOR")) || (tp = checkstring(cmdline, "PC")))
+    else if ((tp = checkstring(cmdline, "PEN COLOUR")) || (tp = checkstring(cmdline, "PEN COLOR")) || (tp = checkstring(cmdline, "PENCOLOR")) || (tp = checkstring(cmdline, "PENCOLOUR")) || (tp = checkstring(cmdline, "PC")))
     {
         turtle.pen_color = getint(tp, 0, 0xFFFFFFF);      // CMM2 has transparency so FFFFFFF in lieu or FFFFFF
     }
@@ -923,7 +923,7 @@ void cmd_turtle(void)
             SyntaxError();
         turtle_wedge(&turtle, getnumber(argv[0]), getnumber(argv[2]), getnumber(argv[4]));
     }
-    else if ((tp = checkstring(cmdline, "FILL COLOUR")) || (tp = checkstring(cmdline, "FILLCOLOR")) || (tp = checkstring(cmdline, "FC")))
+    else if ((tp = checkstring(cmdline, "FILL COLOUR")) || (tp = checkstring(cmdline, "FILL COLOR")) || (tp = checkstring(cmdline, "FILLCOLOR")) || (tp = checkstring(cmdline, "FILLCOLOUR")) || (tp = checkstring(cmdline, "FC")))
     {
         turtle.fill_color = getint(tp, 0, 0xFFFFFFF); // CMM2 has transparency so FFFFFFF in lieu or FFFFFF
         turtle.fill_enabled = 1;
@@ -994,7 +994,7 @@ void cmd_turtle(void)
             draw_turtle_cursor(&turtle);
         }
     }
-    else if ((tp = checkstring(cmdline, "CURSOR COLOUR")) || (tp = checkstring(cmdline,"CURSORCOLOR")) || (tp = checkstring(cmdline, "CC")))
+    else if ((tp = checkstring(cmdline, "CURSOR COLOUR")) || (tp = checkstring(cmdline, "CURSOR COLOR")) || (tp = checkstring(cmdline,"CURSORCOLOR")) || (tp = checkstring(cmdline, "CURSORCOLOUR")) || (tp = checkstring(cmdline, "CC")))
     {
         turtle.cursor_color = getint(tp, 0, 0xFFFFFFF);  // CMM2 has transparency so FFFFFFF in lieu or FFFFFF
         if (turtle.visible)

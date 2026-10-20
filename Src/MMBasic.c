@@ -4391,6 +4391,115 @@ void StandardErrorParam3(int n, int m, int l, int h)
     error((char *)errorstring[n], m, l, h);
 }
 
+/***************************************************************************************************
+ The data of the I2C, SPI and ONEWIRE READ and WRITE commands, as the PicoMite takes it. The caller has run getargs()
+ and checked its own arguments before the data; 'dataidx' is the argv index of the first data argument and 'len' the
+ number of items. The data is one of:
+   1. a list, one an item: expressions to WRITE, variables or array elements to READ into;
+   2. a whole numeric or integer array, with empty brackets (a()), from its first element;
+   3. a string variable, with enough bytes to WRITE or room for those READ.
+****************************************************************************************************/
+// the 'len' values to send, into buf[0..len-1]
+void GetCommsTxData(char *argv[], int argc, int dataidx, int len, unsigned int *buf)
+{
+    void *ptr = NULL;
+    int i, t = 0;
+    char *a = argc > dataidx ? argv[dataidx] : NULL;
+    // one data argument may be a string variable or a whole array (a variable: not a function, nor an expression);
+    // anything else, a single expression or array element too, is a list
+    if(argc == dataidx + 1 && isnamestart(*a) && *skipvar(a, false) == 0 && !(FindSubFun(a, 1) >= 0 && strchr(a, '(') != NULL)) {
+        ptr = findvar(a, V_NOFIND_NULL | V_EMPTY_OK);
+        if(ptr != NULL) {
+            t = FoundType();
+            if(!((t & T_STR) && !emptyarray) &&
+               !(emptyarray && !g_StructMemberType && (t & (T_NBR | T_INT)) && DimIsEnd(VREC(VarIndex)->dimtbl[1])))
+                ptr = NULL;
+        }
+    }
+    if(ptr == NULL) {                                               // a list of expressions
+        if(len != ((argc - dataidx + 1) >> 1)) StandardError(2);
+        for(i = 0; i < len; i++) buf[i] = getinteger(argv[dataidx + i + i]);
+        return;
+    }
+    CHECK_STRUCT_MEMBER_ARRAY();
+    if(t & T_STR) {                                                 // a string: its bytes
+        unsigned char *cp = (unsigned char *)ptr;
+        if(*cp < len) StandardError(28);
+        for(i = 0; i < len; i++) buf[i] = cp[i + 1];
+    } else if(t & T_NBR) {                                          // a whole array
+        if(((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + len > DimElements(VREC(VarIndex)->dimtbl[0])) StandardError(28);
+        for(i = 0; i < len; i++) buf[i] = FloatToInt32(((MMFLOAT *)ptr)[i]);
+    } else {
+        if(((long long int *)ptr - VREC(VarIndex)->val.ia) + len > DimElements(VREC(VarIndex)->dimtbl[0])) StandardError(28);
+        for(i = 0; i < len; i++) buf[i] = (unsigned int)((long long int *)ptr)[i];
+    }
+}
+
+// where 'len' received values go, checked and recorded in 'dest'
+void GetCommsRxDest(char *argv[], int argc, int dataidx, int len, CommsRxDest *dest)
+{
+    void *ptr;
+    int i, t;
+    dest->len = len;
+    if(argc > dataidx + 1) {                                        // a list of variables or array elements, one an item
+        if(len != ((argc - dataidx + 1) >> 1)) StandardError(2);
+        dest->list = GetTempMemory(len * sizeof(CommsRxItem));      // (found now: argv may be gone when they are set)
+        for(i = 0; i < len; i++) {
+            dest->list[i].ptr = findvar(argv[dataidx + i + i], V_FIND | V_EMPTY_OK);
+            t = FoundType();
+            if(VREC(VarIndex)->type & T_CONST) StandardError(22);
+            if(emptyarray || !(t & (T_NBR | T_INT))) StandardError(6);   // (a whole array is not one item)
+            dest->list[i].isint = (t & T_INT) ? 1 : 0;
+        }
+        dest->kind = COMMS_RXD_LIST;
+        return;
+    }
+    ptr = findvar(argv[dataidx], V_FIND | V_EMPTY_OK);             // one: a string, a whole array, or one variable
+    t = FoundType();
+    if(VREC(VarIndex)->type & T_CONST) StandardError(22);
+    if(ptr == NULL) StandardError(6);
+    CHECK_STRUCT_MEMBER_ARRAY();
+    if(t & T_STR) {
+        if(emptyarray) StandardError(6);
+        if(len < 1 || len > FoundSize()) StandardError(21);         // (its size: a LENGTH can make it shorter than 255)
+        *(char *)ptr = len;
+        dest->kind = COMMS_RXD_STRING;
+        dest->ptr = (char *)ptr + 1;                                // past the length byte
+    } else if(t & (T_NBR | T_INT)) {
+        if(emptyarray) {                                            // a whole array
+            if(g_StructMemberType || !DimIsEnd(VREC(VarIndex)->dimtbl[1])) StandardError(6);
+            if((t & T_NBR) ? ((MMFLOAT *)ptr - VREC(VarIndex)->val.fa) + len > DimElements(VREC(VarIndex)->dimtbl[0])
+                           : ((long long int *)ptr - VREC(VarIndex)->val.ia) + len > DimElements(VREC(VarIndex)->dimtbl[0]))
+                StandardError(32);
+        } else if(len != 1) StandardError(6);                       // one variable or element
+        dest->kind = (t & T_INT) ? COMMS_RXD_INT : COMMS_RXD_FLOAT;
+        dest->ptr = ptr;
+    } else StandardError(6);
+}
+
+// the 'len' values received, from buf[], to where 'dest' says
+void PutCommsRxData(CommsRxDest *dest, unsigned int *buf)
+{
+    int i;
+    switch(dest->kind) {
+    case COMMS_RXD_FLOAT:
+        for(i = 0; i < dest->len; i++) ((MMFLOAT *)dest->ptr)[i] = (MMFLOAT)buf[i];
+        break;
+    case COMMS_RXD_INT:
+        for(i = 0; i < dest->len; i++) ((long long int *)dest->ptr)[i] = (long long int)buf[i];
+        break;
+    case COMMS_RXD_STRING:
+        for(i = 0; i < dest->len; i++) ((char *)dest->ptr)[i] = (char)buf[i];
+        break;
+    case COMMS_RXD_LIST:
+        for(i = 0; i < dest->len; i++) {
+            if(dest->list[i].isint) *((long long int *)dest->list[i].ptr) = (long long int)buf[i];
+            else *((MMFLOAT *)dest->list[i].ptr) = (MMFLOAT)buf[i];
+        }
+        break;
+    }
+}
+
 
 
 

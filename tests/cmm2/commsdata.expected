@@ -1,0 +1,41 @@
+ok  SPI WRITE: a list, an integer array, a float array
+ok  SPI WRITE: a string
+ok  SPI WRITE: an element is one item (as the PicoMite)
+ok  SPI READ: a list of variables
+ok  SPI READ: a string, its length set
+ok  SPI READ: a whole array of either type
+ok  SPI READ: array elements in a list, and one variable
+ok  SPI READ with nothing to read into
+ok  SPI READ of three into one variable
+ok  SPI READ of more than a string holds
+ok  SPI READ past a string's LENGTH
+ok  SPI READ past an array's end
+ok  SPI READ into a constant
+ok  I2C WRITE to no device: MM.I2C 1 (a NACK)
+ok  and with option 1 (keep the bus): the NACK frees it
+ok  I2C CHECK after it finds no device
+ok  I2C READ into a string: MM.I2C 1
+ok  the string's length set
+ok  I2C READ into a list, option 1
+ok  I2C WRITE takes option 2 (the PicoMite's bit 1)
+ok  eight NACKs take no time (no timeouts)
+ok  I2C WRITE option 4
+ok  I2C WRITE of two with one item
+ok  I2C WRITE of more than a string has
+ok  I2C READ of three into one variable
+ok  I2C READ past a string's LENGTH
+ok  I2C READ: a whole array is not a list item
+ok  ONEWIRE WRITE: a list, both arrays, a string (it took a list only)
+ok  ONEWIRE READ: a list of bits
+ok  ONEWIRE READ: a string
+ok  ONEWIRE READ: an array, and elements in a list (it refused elements)
+ok  ONEWIRE WRITE of more than a string has
+ok  WS2812 type W, one LED: all 32 bits (it took 24)
+ok  WS2812 type O, one LED: 24 bits
+ok  WS2812, 400 LEDs (3 and 4 bytes an LED: it allocated one)
+ok  SETTICK FAST 10000 for 0.5 s: about 5000 ticks (it was unreachable)
+ok  SETTICK FAST 0, 0 stops it
+ok  SETTICK with a variable called FAST is the period
+ok  TURTLE PEN COLOR, PENCOLOUR, FILL COLOR, FILLCOLOUR, CURSOR COLOR, CURSORCOLOUR
+ok  CAN OPEN's speeds
+commsdata: 40 of 40 passed

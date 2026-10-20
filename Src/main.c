@@ -419,9 +419,12 @@ void cleanend(void){
     for(i = 0; i < NBRINTERRUPTS; i++) {                            // scan through the interrupt table
     	inttbl[i].intp=NULL;							// set the next stmt to the interrupt location
     }
-    for(i = 0; i < NBRSETTICKS; i++) {
+    for(i = 0; i <= NBRSETTICKS; i++) {                             // (and SETTICK FAST's)
     	TickInt[i]=NULL;
     }
+    FastTickStop();
+    IntReady.any = 0;                                               // nothing is armed now: signals left from the program sent
+                                                                    // every statement at the prompt through check_interrupt
 	keyselect=0;
 	ScrollLCD(adjust,1);
 	CurrentY-=adjust;
@@ -845,6 +848,7 @@ if(setjmp(mark) != 0) {
 	  FreeMemorySafe((void *)&PageTable[BPN].address);
 	  if(CurrentlyPlaying != P_NOTHING)CloseAudio(1);
 	  FrameInterrupt=NULL;
+	  FastTickStop();                                               // SETTICK FAST's TIM13 (END, an error, Ctrl-C: up to 50 kHz on at the prompt)
 	  if(gif!=NULL){
 		GifTimer=5000;
 		FileClose(giffnbr);

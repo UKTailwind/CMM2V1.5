@@ -96,6 +96,7 @@ extern char *FrameInterrupt;
 extern TIM_HandleTypeDef htim17;
 extern void MNInterrupt(void);
 void WS2812(char *q);
+void FastTickStop(void);                                            // (MM_Custom.c)
 extern void CallCFuncInt1(void);                                    // this is implemented in CFunction.c
 extern unsigned int CFuncInt1;                                      // we should call the CFunction Int2 function if this is non zero
 extern void CallCFuncInt2(void);                                    // this is implemented in CFunction.c
@@ -1571,11 +1572,12 @@ void cmd_bitstream(void){ Bitstream(cmdline); }
 /* Added type W for  support for SK6812 RGBW Leds */
 void WS2812(char *q){
         int64_t *dest=NULL;
-        uint32_t pin, red , green, blue,white, colour;
+        uint32_t pin, red , green, blue,white;
         short T0H=0,T0L=0,T1H=0,T1L=0;
         char *p;
         short now;
         int i, j, bit, nbr=0,colours=3;
+        int64_t colour1;
     	getargs(&q, 7, ",");
         if(argc!=7)error("Argument count");
     	p=argv[0];
@@ -1607,8 +1609,10 @@ void WS2812(char *q){
                 // the array whole (a%(k) read nbr values from element k, past the end), with its size checked
                 if(parseintegerarray(argv[6], &dest, 4, 1, NULL, false, NULL) < nbr) error("Array size");
             } else {
-                colour=getint(argv[6],0,0xFFFFFF);
-                dest = (long long int *)&colour;
+                // one LED: its colour, with the white byte above the red for type W (RGBW), so up to &HFFFFFFFF; as a
+                // 64-bit value, since the loop below reads dest[] as 64-bit (it read past a 32-bit one)
+                colour1=getint(argv[6],0,colours==4 ? 0xFFFFFFFFLL : 0xFFFFFF);
+                dest = &colour1;
             }
 
         pin=getinteger(argv[2]);
@@ -1617,9 +1621,8 @@ void WS2812(char *q){
     	if(!(ExtCurrentConfig[pin] == EXT_NOT_CONFIG || ExtCurrentConfig[pin] == EXT_DIG_OUT))  error("Pin | is in use",pin);
     	ExtCfg(pin, EXT_DIG_OUT, 0);
 		PinDef[pin].sfr->BSRR = PinDef[pin].bitnbr<<16;
-	    //p=GetTempMemory((nbr+1)*3);
 		//uSec(60);
-		p=GetTempMemory(nbr+1);
+		p=GetTempMemory((nbr+1)*colours);                              // (colours bytes an LED: nbr+1 was overrun)
 		uSec(80);
     	for(i=0;i<nbr;i++){
     		green=(dest[i]>>8) & 0xFF;
@@ -2032,6 +2035,7 @@ void ClearExternalIO(void) {
 
     for(i = 0; i <= NBRSETTICKS; i++) TickInt[i] = NULL;
     for(i = 0; i < NBRSETTICKS; i++) TickActive[i] = 1;
+    FastTickStop();                                                 // (SETTICK FAST's TIM13)
 
 
 	for(i = 0; i < NBR_PULSE_SLOTS; i++) PulseCnt[i] = 0;           // disable any pending pulse commands

@@ -245,13 +245,19 @@ MMFLOAT headingrange(MMFLOAT n){
 	while(n>=360.0)n-=360.0;
 	return n;
 }
+// SETTICK FAST's timer stopped, its interrupt too (it ran on after the program before: up to 50 kHz at the prompt)
+void FastTickStop(void){
+	TickInt[NBRSETTICKS] = NULL;
+	if(htim13.Instance) HAL_TIM_Base_Stop_IT(&htim13);
+	TickTimer[NBRSETTICKS] = 0;
+}
 void cmd_fasttick(char *in){
 	getargs(&in, 3, ",");
 	if(!(argc == 3)) error("Argument count");
     MMFLOAT freq=getnumber(argv[0])*2.0L;
+	if(freq < 0) error("Number out of bounds");
 	if(freq == 0) {
-		TickInt[NBRSETTICKS] = NULL;										// turn off the interrupt
-		HAL_TIM_Base_Stop(&htim13);
+		FastTickStop();													// turn off the interrupt
 	} else {
 		int prescale=1;
 		int period=(int)(MMFLOAT)SystemCoreClock/2.0/freq/(MMFLOAT)(prescale+1);
