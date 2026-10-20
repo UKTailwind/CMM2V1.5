@@ -22,7 +22,7 @@ You also need a terminal emulator running on your desktop or laptop computer. Th
 
 For Windows users it is recommended that you use Tera Term as this has a good VT100 emulator and is known to work with the XModem and ZModem protocols which you can use to transfer programs to and from the Colour Maximite 2. Tera Term can be downloaded from: http://tera-term.en.lo4d.com.
 
-The terminal emulator and the serial port that it is using should be set to the Colour Maximite 2 standard of 460800 baud, 8 data bits, no parity and one stop bit. The speed can be changed with the OPTION BAUDRATE command (the terminal emulator must then be set to match).
+The terminal emulator and the serial port that it is using should be set to the Colour Maximite 2 standard of 115200 baud, 8 data bits, no parity and one stop bit. The speed can be changed with the OPTION BAUDRATE command (the terminal emulator must then be set to match). A Generation 2 runs well at 460800 baud, which makes the editor and file transfers much faster; the USB to serial converter of a Generation 1 cannot run at that speed.
 
 If you are using Tera Term do not set a delay between characters and if you are using Putty set the backspace key to generate the backspace character.
 
@@ -44,10 +44,10 @@ The Apple Macintosh (OS X) is somewhat easier as it has the device driver and te
 ls /dev/tty.*
 ```
 
-The USB to serial converter will be listed as something like /dev/tty.usbmodem12345. While still at the Terminal prompt you can run the terminal emulator at 460800 baud by using the command:
+The USB to serial converter will be listed as something like /dev/tty.usbmodem12345. While still at the Terminal prompt you can run the terminal emulator at 115200 baud by using the command:
 
 ```
-screen /dev/tty.usbmodem12345 460800
+screen /dev/tty.usbmodem12345 115200
 ```
 
 By default the function keys will not be correctly defined for use in the built in program editor so you will have to use the control sequences as defined in the chapter Full Screen Editor of this manual. To avoid this you can configure the terminal emulator to generate these codes when the appropriate function keys are pressed.

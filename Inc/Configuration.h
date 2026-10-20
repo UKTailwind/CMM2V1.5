@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <math.h>
 // The main clock frequency for the chip at bootup, it can be changed by the CPU command
 #define	CLOCKFREQ		(400000000L)			    // This is set in in Configuration Bits.h
-#define CONSOLE_BAUDRATE    460800
+#define CONSOLE_BAUDRATE    115200                  // the G1's USB bridge (a PIC16F1454) cannot run at 460800: OPTION BAUDRATE 460800 on a G2
 #define MMFLOAT double
 #define TFLOAT float
 #define FLOAT3D float

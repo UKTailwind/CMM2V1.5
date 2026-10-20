@@ -76,7 +76,7 @@ OPTION BACKLIGHT LCD n
 
 === OPTION BAUDRATE nn
 --- roomy
-{t=l387}Set the baudrate of the serial console (if it is configured).
+{t=l387}Set the baudrate of the serial console.  The default is 115200.  A Generation 2 runs well at 460800, but the USB to serial converter of a Generation 1 cannot run at that speed.
 
 === OPTION BREAK nn
 --- roomy

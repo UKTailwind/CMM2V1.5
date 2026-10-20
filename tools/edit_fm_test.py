@@ -1,4 +1,4 @@
-"""edit_fm_test.py: FM driving EDIT (Editor_Port_Plan.md, E1's FM gate), on the board on COM4: E then Esc, E then F2
+"""edit_fm_test.py [PORT [BAUD]]: FM driving EDIT (Editor_Port_Plan.md, E1's FM gate), on the board (COM4 at 460800): E then Esc, E then F2
 (the program runs, FM comes back), N (a new file, typed and saved with F1), and E after a program stopped with an
 error (the editor opens at its line). Prints each check; its files go in A:/e and are deleted after."""
 import os, sys, tempfile, time
@@ -12,7 +12,7 @@ for n, lines in FILES.items():
     open(os.path.join(d, n), 'wb').write(''.join(l + '\r\n' for l in lines).encode())
 edit_test.HERE = d
 
-t = vt100drive.Term()
+t = vt100drive.Term(sys.argv[1] if len(sys.argv) > 1 else 'COM4', int(sys.argv[2]) if len(sys.argv) > 2 else 460800)
 r = edit_test.Run(t, False)
 results = []
 

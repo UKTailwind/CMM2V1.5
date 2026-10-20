@@ -1,4 +1,4 @@
-"""edit_test.py [--port COM4] [--only 01,05] [--show]: the editor's test scripts (tests/editor/NN_*.txt) on the board.
+"""edit_test.py [--port COM4] [--baud 460800] [--only 01,05] [--show]: the editor's test scripts (tests/editor/NN_*.txt) on the board.
 
 Each script drives EDIT on the serial console (tools/vt100drive.py) and checks the screen, the console's output and
 the files the editor leaves on the card. The scripts were written against kilo (Editor_Port_Plan.md, E0), and the
@@ -253,6 +253,7 @@ class Run:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--port', default='COM4')
+    ap.add_argument('--baud', type=int, default=460800, help='115200 for a G1, whose USB bridge cannot run faster')
     ap.add_argument('--only', default='')
     ap.add_argument('--show', action='store_true', help='print the screen when a script fails')
     a = ap.parse_args()
@@ -260,7 +261,7 @@ def main():
     scripts = sorted(glob.glob(os.path.join(HERE, '[0-9][0-9]*.txt')))     # (the scripts: their number first)
     if only:
         scripts = [s for s in scripts if any(os.path.basename(s).startswith(o) for o in only)]
-    term = vt100drive.Term(a.port, 460800)
+    term = vt100drive.Term(a.port, a.baud)
     run = Run(term, a.show)
     run.recover()
     run.at_prompt('if not mm.info(exists dir "%s") then mkdir "%s"' % (CARDDIR, CARDDIR))

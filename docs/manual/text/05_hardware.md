@@ -35,7 +35,7 @@ The firmware can accommodate a number of different keyboard layouts: UK, US, Ger
 
 This USB B connector is for power and the serial console over USB. The power requirement is 5V at 160mA to 250mA (typical). This is within the capabilities of most USB chargers however some PCs (especially older laptops) may have trouble supplying this. If your Colour Maximite 2 is suffering from intermittent issues such as reboots, errors reading the SD card, etc then it would be worth changing the power supply to one with a much higher capacity (for example, 2 amps or more).
 
-The serial console is available if the Colour Maximite 2 is connected via this port to a personal computer: it appears there as a normal serial port, at 460800 baud. The console is used to write and debug BASIC programs and configure the computer. How to connect to it and set up a terminal emulator is described in the chapter Serial Console.
+The serial console is available if the Colour Maximite 2 is connected via this port to a personal computer: it appears there as a normal serial port, at 115200 baud. The console is used to write and debug BASIC programs and configure the computer. How to connect to it and set up a terminal emulator is described in the chapter Serial Console.
 
 ## Mouse Support
 
