@@ -50,6 +50,12 @@ PATCHES = [
     # same file again, for ever.  (Reported upstream?  Not yet.)
     ("src/splib/system.inc", 'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*"\n',
      'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*|"\n'),
+    # add_mmbasic_error: Mid$(Mm.ErrMsg$, InStr(Mm.ErrMsg$, "Error")) needs the CMM2 6.00 message, "Error in line
+    # N: ...".  Since 19 Oct (cd87a88) MM.ERRMSG$ is the bare message, as on the PicoMite, so InStr gives 0, the MID$
+    # fails under the runner's ON ERROR ABORT and the rest of the file is lost (70 tests in tst_map, tst_set,
+    # tst_list and tst_history).  The whole message is reported when it holds no "Error".
+    ("src/sptest/unittest.inc", '  ut.add_failure("MMBasic " + Mid$(Mm.ErrMsg$, InStr(Mm.ErrMsg$, "Error")))\n',
+     '  ut.add_failure("MMBasic " + Mid$(Mm.ErrMsg$, Max(1, InStr(Mm.ErrMsg$, "Error"))))\n'),
 ]
 
 
