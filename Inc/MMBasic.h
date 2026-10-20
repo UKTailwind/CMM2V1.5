@@ -397,10 +397,27 @@ int ImageLayout(const unsigned char *lib, int limit, const unsigned int **record
 #include "USBMouse.h"                                  // (UsbMouse, MouseOpenChannel: USBMouse.c)
 #include "USBGamepad.h"                                // (GamepadInterrupt, GamepadInterruptsOff: USBGamepad.c)
 #include "ImageSlots.h"                                // (image slots, TILEMAP: ImageSlots.c, TileMap.c)
+#include "Stream.h"                                    // (the compiler, Route B: Stream.c)
 #include "Rgb121.h"                                   // (MODE n,4, the PicoMite's RGB121 display: Rgb121.c)
 int ImageIsCurrent(void);                       // does program memory hold an image of this format?
 int ImageIsCurrentAt(const char *image);        // does the image at image? (a flash slot's)
 int InProgMemory(const char *p);                // is p in program memory's image (or a running slot's)?
+char *CheckByKeyword(char *p, int kind);        // BYVAL ('V') or BYREF ('R') at a parameter's start: its name, or NULL
+void TestStackOverflow(void);                   // the evaluator's stack test ("Expression is too complex")
+// the pure numeric functions on a value (Functions.c): their fun_ handlers and the compiler (Stream.c) share them
+MMFLOAT FnSin(MMFLOAT t);
+MMFLOAT FnCos(MMFLOAT t);
+MMFLOAT FnTan(MMFLOAT t);
+MMFLOAT FnAtn(MMFLOAT x);
+MMFLOAT FnSqr(MMFLOAT f);
+MMFLOAT FnExp(MMFLOAT x);
+MMFLOAT FnLog(MMFLOAT f);
+MMFLOAT FnDeg(MMFLOAT x);
+MMFLOAT FnRad(MMFLOAT x);
+long long int FnInt(MMFLOAT x);
+long long int FnFix(MMFLOAT x);
+long long int FnAbsI(long long int i64);
+long long int FnSgnF(MMFLOAT f);
 void ProgramFlashErase(int size);               // program memory erased for an image of size bytes (main.c)
 void ProgramImageToFlash(const char *img, int len);   // and made that image (FLASH LOAD)
 void SubLayoutForget(void);                     // the SUBs' parameter layouts are gone with the heap (P6 F1)

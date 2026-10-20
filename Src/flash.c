@@ -528,6 +528,7 @@ void LoadOptions(void) {
 // used on initial firmware run
 void ResetAllOptions(void) {
     Option.PIN = 0;
+    Option.Compile = RB_OFF;                                        // (OPTION COMPILE: Stream.c)
     Option.Baudrate = CONSOLE_BAUDRATE;
     Option.Autorun = false;
     Option.Listcase = CONFIG_TITLE;

@@ -2491,6 +2491,7 @@ void cmd_option(void) {
 
     tp = checkstring(cmdline, "DEFAULT");
 	if(tp) {
+		SymBindGlobalsChanged();                                    // what an unsuffixed name may bind to (Symbols.h)
 		if(checkstring(tp, "INTEGER"))	{ DefaultType = T_INT; 	return; }
 		if(checkstring(tp, "FLOAT"))	{ DefaultType = T_NBR; 	return; }
 		if(checkstring(tp, "STRING"))	{ DefaultType = T_STR; 	return; }
@@ -3233,6 +3234,8 @@ void fun_info(void){
 		rettype='I';
 	} else if(checkstring(ep, "DRIVE")){
 		sret[0] = filepath[0]; sret[1] = ':'; sret[2] = 0;          // A: or C:
+	} else if(checkstring(ep, "COMPILE")){                          // what OPTION COMPILE did at the last RUN (Stream.c)
+		RBStatus(sret);
 	} else if(checkstring(ep, "CURRENT")){
 		if((tp = ProgName()) != NULL){
 			if(tp[1] == ':') strcpy(sret, tp);                      // (with the drive it was loaded from)

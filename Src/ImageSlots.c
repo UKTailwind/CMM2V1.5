@@ -91,7 +91,10 @@ void ImageSlotsForget(void) {
 static void SlotDrop(int slot) {
     if(ImageSlot[slot] == NULL) return;
     if(ImageSlot[slot] == (uint8_t *)ProgMemory || TileMapUses(ImageSlot[slot])) ImageSlot[slot] = NULL;
-    else FreeMemorySafe((void *)&ImageSlot[slot]);
+    else {
+        memset(ImageSlot[slot], 0, 8);                              // (an address kept from MM.INFO(FLASH ADDRESS n) reads
+        FreeMemorySafe((void *)&ImageSlot[slot]);                   // no image now, as the PicoMite's erased RAM slot does)
+    }
 }
 
 /* The flash slots' files. Each is the slot's bytes; none, or none in it, is an empty slot. The SD card is made ready
@@ -325,13 +328,14 @@ uint8_t *ImageSlotAddress(int slot) {
     return ImageSlot[slot];
 }
 
-// the image in slot n: its pixels (past the header), width and height; an error if there is none
-uint8_t *ImageSlotPixels(int slot, int *w, int *h) {
+// the image in slot n: its pixels (past the header), width and height; the error 'none' if there is none (the
+// PicoMite's: BLIT FLASH's "Invalid Image", TILEMAP's "No image in slot %")
+uint8_t *ImageSlotPixels(int slot, int *w, int *h, const char *none) {
     uint32_t *hdr;
     hdr = (uint32_t *)ImageSlotAddress(slot);
     *w = (int)hdr[0];
     *h = (int)hdr[1];
-    if(*w < 1 || *w > 3840 || *h < 1 || *h > 2160) error("No image in slot %", slot);
+    if(*w < 1 || *w > 3840 || *h < 1 || *h > 2160) error((char *)none, slot);
     return (uint8_t *)hdr + 8;
 }
 
@@ -747,7 +751,7 @@ void BlitFlash(char *p) {
     uint8_t *s;
     getargs(&p, 17, ",");
     if(!(argc == 15 || argc == 17)) error("Syntax");
-    s = ImageSlotPixels(getint(argv[0], 1, MAXIMAGESLOTS), &sw, &sh);
+    s = ImageSlotPixels(getint(argv[0], 1, MAXIMAGESLOTS), &sw, &sh, "Invalid Image");
     if(VideoColour == 4 && checkstring(argv[2], "2") && !(Rgb121Buffers & (1 << RGB121_2))) error("Frame buffer 2 not created");
     if((page = Rgb121Letter(argv[2])) < 0) page = getint(argv[2], 0, LastPage);
     x1 = getinteger(argv[4]);

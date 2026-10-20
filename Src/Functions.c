@@ -538,10 +538,12 @@ void fun_abs(void) {
     if(targ & T_STR) error("Expected a number");
     if(targ & T_NBR)
         fret = fabs(f);
-    else {
-        iret = i64;
-        if(iret < 0) iret = -iret;
-    }
+    else
+        iret = FnAbsI(i64);
+}
+
+long long int FnAbsI(long long int i64) {
+    return i64 < 0 ? -i64 : i64;
 }
 
 // Helper function to check if a character is in the mask
@@ -652,8 +654,13 @@ void fun_asc(void) {
 
 
 // return the arctangent of a number in radians
+// the pure numeric functions on a value: their fun_ handlers and the compiler's code (Stream.c) call them alike
+MMFLOAT FnAtn(MMFLOAT x) {
+    return atan(x) * optionangle;
+}
+
 void fun_atn(void) {
-	fret = atan(getnumber(ep))*optionangle;
+	fret = FnAtn(getnumber(ep));
     targ = T_NBR;
 }
 
@@ -689,23 +696,35 @@ void fun_cint(void) {
 
 
 // return the cosine of a number in radians
+MMFLOAT FnCos(MMFLOAT t) {
+    return cos(t / optionangle);
+}
+
 void fun_cos(void) {
-	fret = cos(getnumber(ep)/optionangle);
+	fret = FnCos(getnumber(ep));
     targ = T_NBR;
 }
 
 
 // convert radians to degrees.  Thanks to Alan Williams for the contribution
+MMFLOAT FnDeg(MMFLOAT x) {
+    return (MMFLOAT)(x * RADCONV);
+}
+
 void fun_deg(void) {
-	fret = (MMFLOAT)((MMFLOAT)getnumber(ep)*RADCONV);
+	fret = FnDeg(getnumber(ep));
     targ = T_NBR;
 }
 
 
 
 // Returns the exponential value of a number.
+MMFLOAT FnExp(MMFLOAT x) {
+    return exp(x);
+}
+
 void fun_exp(void) {
-	fret = exp(getnumber(ep));
+	fret = FnExp(getnumber(ep));
     targ = T_NBR;
 }
 
@@ -900,16 +919,24 @@ void fun_instr(void) {
 
 
 // Truncate an expression to the next whole number less than or equal to the argument.
+long long int FnInt(MMFLOAT x) {
+    return FloatToInt64(floor(x));                                  // range-checked: a plain cast turned NaN, INF and 1e30 into 9223372036854775807
+}
+
 void fun_int(void) {
-	iret = FloatToInt64(floor(getnumber(ep)));                     // range-checked: a plain cast turned NaN, INF and 1e30 into 9223372036854775807
+	iret = FnInt(getnumber(ep));
     targ = T_INT;
 }
 
 
 // Truncate a number to a whole number by eliminating the decimal point and all characters
 // to the right of the decimal point.
+long long int FnFix(MMFLOAT x) {
+    return FloatToInt64(trunc(x));                                  // range-checked, as INT
+}
+
 void fun_fix(void) {
-	iret = FloatToInt64(trunc(getnumber(ep)));                     // range-checked, as INT
+	iret = FnFix(getnumber(ep));
     targ = T_INT;
 }
 
@@ -1110,12 +1137,14 @@ void fun_len(void) {
 
 // Return the natural logarithm of the argument 'number'.
 // n = LOG( number )
-void fun_log(void) {
-    MMFLOAT f;
-	f = getnumber(ep);
+MMFLOAT FnLog(MMFLOAT f) {
     if(f == 0) error("Divide by zero");
 	if(f < 0) error("Negative argument");
-	fret = log(f);
+	return log(f);
+}
+
+void fun_log(void) {
+	fret = FnLog(getnumber(ep));
     targ = T_NBR;
 }
 
@@ -1156,8 +1185,12 @@ void fun_pi(void) {
 
 // convert degrees to radians.  Thanks to Alan Williams for the contribution
 // r = RAD( degrees )
+MMFLOAT FnRad(MMFLOAT x) {
+    return (MMFLOAT)(x / RADCONV);
+}
+
 void fun_rad(void) {
-	fret = (MMFLOAT)((MMFLOAT)getnumber(ep)/RADCONV);
+	fret = FnRad(getnumber(ep));
     targ = T_NBR;
 }
 
@@ -1173,15 +1206,15 @@ void fun_rnd(void) {
 
 // Return the sign of the argument
 // n = SGN( number )
+// SGN of a float (the CMM2's SGN reads its argument as a float: there is no integer form, as the PicoMite has)
+long long int FnSgnF(MMFLOAT f) {
+	if(f > 0) return +1;
+	if(f < 0) return -1;
+	return 0;
+}
+
 void fun_sgn(void) {
-	MMFLOAT f;
-	f = getnumber(ep);
-	if(f > 0)
-		iret = +1;
-	else if(f < 0)
-		iret = -1;
-	else
-		iret = 0;
+	iret = FnSgnF(getnumber(ep));
     targ = T_INT;
 }
 
@@ -1189,8 +1222,12 @@ void fun_sgn(void) {
 
 // Return the sine of the argument 'number' in radians.
 // n = SIN( number )
+MMFLOAT FnSin(MMFLOAT t) {
+    return sin(t / optionangle);
+}
+
 void fun_sin(void) {
-	fret = sin(getnumber(ep)/optionangle);
+	fret = FnSin(getnumber(ep));
     targ = T_NBR;
 }
 
@@ -1198,11 +1235,13 @@ void fun_sin(void) {
 
 // Return the square root of the argument 'number'.
 // n = SQR( number )
-void fun_sqr(void) {
-	MMFLOAT f;
-	f = getnumber(ep);
+MMFLOAT FnSqr(MMFLOAT f) {
 	if(f < 0) error("Negative argument");
-	fret = sqrt(f);
+	return sqrt(f);
+}
+
+void fun_sqr(void) {
+	fret = FnSqr(getnumber(ep));
     targ = T_NBR;
 }
 
@@ -1210,8 +1249,12 @@ void fun_sqr(void) {
 
 // Return the tangent of the argument 'number' in radians.
 // n = TAN( number )
+MMFLOAT FnTan(MMFLOAT t) {
+    return tan(t / optionangle);
+}
+
 void fun_tan(void) {
-	fret = tan(getnumber(ep)/optionangle);
+	fret = FnTan(getnumber(ep));
     targ = T_NBR;
 }
 

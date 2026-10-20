@@ -1,2 +1,16 @@
-Error in line 23: Flash image slots are not provided: use slots 4 to 8
+ok:   loaded cols =20
+ok:   loaded rows =30
+ok:   cells differing from CREATE =0
+ok:   default .map extension, cols =20
+ok:   reload into used slot, rows =30
+ok:   reload keeps a cell =0
+ok:   size missing ->Tilemap file must start with width and height (1-10000)
+ok:   zero width ->Tilemap file must start with width and height (1-10000)
+ok:   too few values ->Not enough data in tilemap file (need 600, found 10)
+ok:   invalid character ->Invalid character in tilemap file
+ok:   value out of range ->Value out of range in tilemap file
+ok:   empty file ->Tilemap file must start with width and height (1-10000)
+ok:   missing file ->Could not find the file
+ok:   slot 2 survives failed loads =20
+Error in line 89: Could not find the file
 

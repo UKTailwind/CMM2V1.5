@@ -38,6 +38,13 @@ You can go back to an earlier firmware the same way, should you need to.
 
 Programs run faster: the solar eclipse benchmark takes 6.0 s against 7.4 s before. SUB and FUNCTION calls, IF, DO and FOR loops, and programs with interrupts armed gain the most.
 
+### The compiler
+
+- OPTION COMPILE ON runs programs from a compiled form, as the PicoMite does: the solar eclipse benchmark takes 1.7 s, and tight loops run up to ten times faster.
+- The program is compiled when it is run, if it has changed; any statement the compiler does not handle runs as before, and LIST, EDIT, errors, TRACE and interrupts behave as without it.
+- OPTION COMPILE SHADOW checks every compiled calculation against the interpreter. MM.INFO$(COMPILE) reports what the last RUN did.
+- The compiled program has 1 MB of RAM of its own. On the Generation 2 half of it is taken from the variable memory (512 KB less than before). On the Generation 1 all of it is, but only while the option is on: the first OPTION COMPILE ON after a restart restarts the CMM2 to make the area.
+
 ### CSUBs
 
 CSUBs built for the PicoMite run unaltered when they use only its call table. The PicoMite's `mmb2csub` tool can build CSUBs for the Colour Maximite 2 (`--target cmm2`), which use its floating point hardware and run many times faster than the same code interpreted.
@@ -273,7 +280,6 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 ## Not there yet
 
 - The PicoMite compatibility switch (OPTION PICOMITE), which will let PicoMite programs with conflicting keywords run unchanged.
-- The compiler (OPTION COMPILE).
 - The PicoMite's SPRITE engine, RAY, FRAME, and the PicoMite's GUI list box and slider.
 - YMODEM, OPTION DISK SAVE/LOAD, and a mouse in the file manager.
 

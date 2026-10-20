@@ -80,7 +80,7 @@
   "name": "circrnd",
   "class": "NO-EXPECTED",
   "deterministic": false,
-  "secs": 2.7,
+  "secs": 2.8,
   "note": ""
  },
  {
@@ -143,15 +143,15 @@
   "name": "fbwrite",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 1.4,
-  "note": "Error in line 7: Framebuffer not created"
+  "secs": 1.5,
+  "note": "Error in line 11: Framebuffer not created"
  },
  {
   "name": "flash",
-  "class": "ERROR",
+  "class": "DIFF",
   "deterministic": true,
-  "secs": 1.9,
-  "note": "Error in line 17: Flash slots are not provided: use slots 4 to 8"
+  "secs": 2.7,
+  "note": ""
  },
  {
   "name": "fnbyref",
@@ -220,14 +220,14 @@
   "name": "imgloop",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 5.4,
+  "secs": 5.5,
   "note": "Error in line 21: Unknown command"
  },
  {
   "name": "imgm1",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 14.7,
+  "secs": 14.9,
   "note": "Error in line 13: Unknown command"
  },
  {
@@ -276,7 +276,7 @@
   "name": "justarg",
   "class": "MATCH",
   "deterministic": true,
-  "secs": 1.4,
+  "secs": 1.5,
   "note": ""
  },
  {
@@ -360,7 +360,7 @@
   "name": "mminfo",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 1.6,
+  "secs": 1.5,
   "note": "Error in line 26: GP0 is not declared"
  },
  {
@@ -389,7 +389,7 @@
   "class": "ERROR",
   "deterministic": true,
   "secs": 1.5,
-  "note": "Error in line 22: Argument count"
+  "note": "Error in line 28: Argument count"
  },
  {
   "name": "onkey",
@@ -507,7 +507,7 @@
   "name": "posflush",
   "class": "MATCH",
   "deterministic": true,
-  "secs": 2.0,
+  "secs": 1.9,
   "note": ""
  },
  {
@@ -542,7 +542,7 @@
   "name": "ripple",
   "class": "NO-EXPECTED",
   "deterministic": false,
-  "secs": 2.9,
+  "secs": 3.0,
   "note": ""
  },
  {
@@ -577,7 +577,7 @@
   "name": "solar_eclipse",
   "class": "MATCH",
   "deterministic": true,
-  "secs": 10.5,
+  "secs": 10.6,
   "note": ""
  },
  {
@@ -598,7 +598,7 @@
   "name": "sprite",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 1.8,
+  "secs": 1.7,
   "note": "Error in line 33: Syntax"
  },
  {
@@ -619,7 +619,7 @@
   "name": "structtest",
   "class": "DIFF",
   "deterministic": true,
-  "secs": 4.8,
+  "secs": 5.1,
   "note": ""
  },
  {
@@ -633,7 +633,7 @@
   "name": "t2",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 1.5,
+  "secs": 1.6,
   "note": "Error in line 8: Argument count"
  },
  {
@@ -661,7 +661,7 @@
   "name": "t6",
   "class": "MATCH",
   "deterministic": true,
-  "secs": 2.8,
+  "secs": 2.7,
   "note": ""
  },
  {
@@ -675,7 +675,7 @@
   "name": "t8",
   "class": "DIFF",
   "deterministic": true,
-  "secs": 1.9,
+  "secs": 1.8,
   "note": ""
  },
  {
@@ -694,10 +694,10 @@
  },
  {
   "name": "tilemap",
-  "class": "ERROR",
+  "class": "DIFF",
   "deterministic": true,
-  "secs": 1.9,
-  "note": "Error in line 19: Only FLASH LOAD IMAGE and FLASH DISK LOAD are provided on the CMM2"
+  "secs": 2.2,
+  "note": ""
  },
  {
   "name": "tri",

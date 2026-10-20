@@ -209,7 +209,21 @@ extern int16_t *SymLShadow;                             // per local slot: the l
 extern uint16_t *SymLCanon;                             // per local slot: canonical entry + 1, SYM_LTEXT, or 0 = not tracked
 extern unsigned int SymLSlots;                          // slots the two arrays above cover
 extern int SymTextLocals;                               // live locals made from text
+// What a name binds to at a level changes only with an event that can change a global's binding - new bindings
+// (SymBindInit), every variable gone (SymBindReset), the globals gone (SymBindResetGlobals), one gone (ERASE),
+// DefaultType changed (OPTION DEFAULT, RUN) - or with a local made or freed at that level: a deeper level's locals (a
+// call's, an interrupt's, a GOSUB's) are gone before the level runs again. Every event takes the next value of
+// SymBindEvent: SymBindGenG holds the last global event's, SymLevelGen[l] the last local event's at level l (the
+// PicoMite's P6 F4). The compiler's records (Stream.c) reuse what their binds found at level l while SymBindGenG +
+// SymLevelGen[l] is unchanged (a sum, which still changes after the count wraps); at a level from SYM_LEVELS on they
+// bind every time.
+#define SYM_LEVELS 112                                  // more than MAXGOSUB (100) levels of SUBs and GOSUBs, with interrupts
+extern uint32_t SymBindEvent;
+extern uint32_t SymBindGenG;
+extern uint32_t SymLevelGen[SYM_LEVELS];
+#define SymBindGlobalsChanged() (SymBindGenG = ++SymBindEvent)
 int SymCanonNew(const char *p);
+int SymCanonById(unsigned int id);
 void SymBindInit(void);
 void SymBindFree(void);
 void SymBindForget(void);
@@ -230,6 +244,13 @@ static inline __attribute__((always_inline)) int SymCanonAt(const char *p) {
     c = SymCanonOf[id];
     if(c) return c - 1;
     return SymCanonNew(p);                              // the first use of this spelling
+}
+
+// The program symbol id of the symbol at p (a program symbol)
+static inline __attribute__((always_inline)) unsigned int SymIdAt(const char *p) {
+    unsigned int id = symdigit[p[1] & 0x7f];
+    if(!(p[0] & 1)) id = SYM_NSHORT + id * SYM_NSHORT + symdigit[p[2] & 0x7f];
+    return id;
 }
 
 #endif

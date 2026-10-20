@@ -305,6 +305,7 @@ void printoptions(void){
     if(Option.editfont == 2) PO2Str("EDIT FONT","LARGE",1);
     if(Option.ProgramStartCode<0)PO2Str("RAM","ON",1);
     else if(Option.ProgramStartCode>PROGRAMSTARTCODE)PO2Int("FLASH",Option.ProgramStartCode);
+    if(Option.Compile == RB_ON || Option.Compile == RB_SHADOW) PO2Str("COMPILE", Option.Compile == RB_ON ? "ON" : "SHADOW", 1);
     if(Option.SDspeed==1)PO2Str("SD TIMING","FAST",1);
     if(Option.RTC_Calibrate){
     	char buff[30]={0};
@@ -1416,6 +1417,25 @@ void MIPS16 OtherOptions(void) {
             Option.SDspeed = 1;
         else error("Invalid Command");
         goto saveandreset;
+	}
+    tp = checkstring(cmdline, "COMPILE");                          // run programs from a compiled statement stream (Stream.c); saved,
+	if(tp) {                                                        // and written only when it changes (a program may set it on every run)
+        int m = RB_OFF;
+        if(checkstring(tp, "ON")) m = RB_ON;
+        else if(checkstring(tp, "OFF")) m = RB_OFF;
+        else if(checkstring(tp, "SHADOW")) m = RB_SHADOW;
+        else error("Syntax");
+        if(G1Hardware && m != RB_OFF && RBStreamSize == 0) {       // a G1 takes the area from its heap, whose start moves
+            if(CurrentLinePtr) error("Invalid in a program");      // with it: a restart makes it (Memory.h). OFF keeps it
+            Option.Compile = m;                                     // until the next restart, so turning the option off and
+            goto saveandreset;                                      // on again costs nothing more
+        }
+        RBMode = m;
+        if(Option.Compile != RBMode) {
+            Option.Compile = RBMode;
+            SaveOptions(1);
+        }
+        return;
 	}
     tp = checkstring(cmdline, "RAM");
 	if(tp) {

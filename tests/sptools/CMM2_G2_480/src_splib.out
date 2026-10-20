@@ -16,7 +16,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_array.bas --catch-errors --verbose
   test_qsort_ints_gvn_1_element:                     PASS (2/2)
   test_qsort_ints_gvn_2_elements:                    PASS (2/2)
   test_qsort_ints_gvn_comparator:                    PASS (2/2)
-  Execution time: 0.433173 s
+  Execution time: 0.76289 s
   PASS (16/16)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_array.bas --catch-errors --verbose --base=1
   test_capacity:                                     PASS (1/1)
@@ -35,7 +35,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_array.bas --catch-errors --verbose --base=1
   test_qsort_ints_gvn_1_element:                     PASS (2/2)
   test_qsort_ints_gvn_2_elements:                    PASS (2/2)
   test_qsort_ints_gvn_comparator:                    PASS (2/2)
-  Execution time: 0.435295 s
+  Execution time: 0.763203 s
   PASS (16/16)
 
 > 
@@ -43,65 +43,69 @@ RUN "tst_bits.bas", --catch-errors --verbose
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_bits.bas --catch-errors --verbose
   test_set:                                          PASS (1/1)
   test_set_given_out_of_bnds:                        FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 15: Negative shift"
-    3: MMBasic Error in ../bits.inc line 14: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_clear:                                        PASS (1/1)
   test_clear_given_out_of_bnds:                      FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 21: Negative shift"
-    3: MMBasic Error in ../bits.inc line 20: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_get:                                          PASS (192/192)
   test_get_given_out_of_bnds:                        FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 27: Negative shift"
-    3: MMBasic Error in ../bits.inc line 26: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_fill:                                         PASS (2/2)
-  test_fill_given_invalid:                           PASS (2/2)
+  test_fill_given_invalid:                           FAIL (1/2)
+    2: MMBasic Invalid bit value
   test_big_set:                                      PASS (1/1)
   test_big_set_given_out_of_bnds:                    FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 41: Negative shift"
-    3: MMBasic Error in ../bits.inc line 41: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_big_clear:                                    PASS (1/1)
   test_big_clear_given_out_of_bnds:                  FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 47: Negative shift"
-    3: MMBasic Error in ../bits.inc line 47: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_big_get:                                      PASS (256/256)
   test_big_get_given_out_of_bnds:                    FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 53: Negative shift"
-    3: MMBasic Error in ../bits.inc line 53: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_big_fill:                                     PASS (2/2)
-  test_big_fill_given_invalid:                       PASS (2/2)
-  Execution time: 0.4196 s
-  FAIL (6/16)
+  test_big_fill_given_invalid:                       FAIL (1/2)
+    2: MMBasic Invalid bit value
+  Execution time: 0.750261 s
+  FAIL (8/16)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_bits.bas --catch-errors --verbose --base=1
   test_set:                                          PASS (1/1)
   test_set_given_out_of_bnds:                        FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 15: Negative shift"
-    3: MMBasic Error in ../bits.inc line 14: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_clear:                                        PASS (1/1)
   test_clear_given_out_of_bnds:                      FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 21: Negative shift"
-    3: MMBasic Error in ../bits.inc line 20: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_get:                                          PASS (192/192)
   test_get_given_out_of_bnds:                        FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 27: Negative shift"
-    3: MMBasic Error in ../bits.inc line 26: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_fill:                                         PASS (2/2)
-  test_fill_given_invalid:                           PASS (2/2)
+  test_fill_given_invalid:                           FAIL (1/2)
+    2: MMBasic Invalid bit value
   test_big_set:                                      PASS (1/1)
   test_big_set_given_out_of_bnds:                    FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 41: Negative shift"
-    3: MMBasic Error in ../bits.inc line 41: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_big_clear:                                    PASS (1/1)
   test_big_clear_given_out_of_bnds:                  FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 47: Negative shift"
-    3: MMBasic Error in ../bits.inc line 47: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_big_get:                                      PASS (256/256)
   test_big_get_given_out_of_bnds:                    FAIL (2/3)
-    1: Expected Error "Index out of bounds", but actually "Error in ../bits.inc line 53: Negative shift"
-    3: MMBasic Error in ../bits.inc line 53: Index out of bounds
+    1: Expected Error "Index out of bounds", but actually "Negative shift"
+    3: MMBasic Index out of bounds
   test_big_fill:                                     PASS (2/2)
-  test_big_fill_given_invalid:                       PASS (2/2)
-  Execution time: 0.420079 s
-  FAIL (6/16)
+  test_big_fill_given_invalid:                       FAIL (1/2)
+    2: MMBasic Invalid bit value
+  Execution time: 0.751029 s
+  FAIL (8/16)
 
 > 
 RUN "tst_crypt.bas", --catch-errors --verbose
@@ -115,7 +119,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_crypt.bas --catch-errors --verbose
   test_xxtea_file:                                   PASS (58/58)
   test_xxtea_file_iv_dependent:                      PASS (22/22)
   test_xxtea_file_key_dependent:                     PASS (6/6)
-  Execution time: 17.50814 s
+  Execution time: 17.281915 s
   PASS (9/9)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_crypt.bas --catch-errors --verbose --base=1
   test_md5_fmt:                                      PASS (1/1)
@@ -127,7 +131,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_crypt.bas --catch-errors --verbose --base=1
   test_xxtea_file:                                   PASS (58/58)
   test_xxtea_file_iv_dependent:                      PASS (22/22)
   test_xxtea_file_key_dependent:                     PASS (6/6)
-  Execution time: 17.487199 s
+  Execution time: 17.574288 s
   PASS (9/9)
 
 > 
@@ -135,12 +139,12 @@ RUN "tst_ctrl.bas", --catch-errors --verbose
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_ctrl.bas --catch-errors --verbose
   test_add_driver:                                   PASS (2/2)
   test_remove_driver:                                PASS (5/5)
-  Execution time: 0.04618 s
+  Execution time: 0.087356 s
   PASS (2/2)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_ctrl.bas --catch-errors --verbose --base=1
   test_add_driver:                                   PASS (2/2)
   test_remove_driver:                                PASS (5/5)
-  Execution time: 0.047103 s
+  Execution time: 0.08813 s
   PASS (2/2)
 
 > 
@@ -151,10 +155,86 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_file.bas --catch-errors --verbose
   test_is_absolute:                                  PASS (28/28)
   test_is_symlink:                                   PASS (2/2)
   test_get_canonical:                                PASS (33/33)
-  test_exists:                                       
-
-
-Error in ../system.inc line 275: SYS.OVERRIDE_PLATFORM is not declared
+  test_exists:                                       PASS (18/18)
+  test_is_directory:                                 PASS (17/17)
+  test_fnmatch:                                      PASS (19/19)
+  test_find_all:                                     PASS (17/17)
+  test_find_files:                                   PASS (12/12)
+  test_find_dirs:                                    PASS (6/6)
+  test_find_all_matching:                            PASS (11/11)
+  test_find_files_matching:                          PASS (7/7)
+  test_find_dirs_matching:                           PASS (3/3)
+  test_find_does_not_follow_symlinks:                NO ASSERTIONS
+  test_count_files:                                  PASS (18/18)
+  test_count_files_not_found:                        PASS (2/2)
+  test_count_files_given_not_dir:                    PASS (2/2)
+  test_count_files_given_invalid:                    PASS (2/2)
+  test_get_extension:                                PASS (21/21)
+  test_get_files:                                    PASS (24/24)
+  test_get_files_given_not_found:                    PASS (2/2)
+  test_get_files_given_not_dir:                      PASS (2/2)
+  test_get_files_given_invalid:                      PASS (2/2)
+  test_get_files_given_too_many:                     PASS (4/4)
+  test_trim_extension:                               PASS (21/21)
+  test_mkdir_abs_path:                               PASS (25/25)
+  test_mkdir_rel_path:                               PASS (16/16)
+  test_mkdir_skips_path_len:                         PASS (6/6)
+  test_depth_first_given_file:                       PASS (2/2)
+  test_depth_first_given_dir:                        PASS (10/10)
+  test_depth_first_given_symlink:                    NO ASSERTIONS
+  test_depth_first_given_not_found:                  PASS (2/2)
+  test_delete_root:                                  PASS (16/16)
+  test_delete_given_not_found:                       PASS (2/2)
+  test_delete_given_file:                            PASS (3/3)
+  test_delete_given_dir:                             PASS (4/4)
+  test_delete_given_symlink:                         NO ASSERTIONS
+  test_delete_given_too_many:                        PASS (4/4)
+  test_delete_given_unlimited:                       PASS (4/4)
+  Execution time: 38.257303 s
+  PASS (40/40)
+A:/SPTOOLS/SRC/SPLIB/TESTS/tst_file.bas --catch-errors --verbose --base=1
+  test_get_parent:                                   PASS (16/16)
+  test_get_name:                                     PASS (7/7)
+  test_is_absolute:                                  PASS (28/28)
+  test_is_symlink:                                   PASS (2/2)
+  test_get_canonical:                                PASS (33/33)
+  test_exists:                                       PASS (18/18)
+  test_is_directory:                                 PASS (17/17)
+  test_fnmatch:                                      PASS (19/19)
+  test_find_all:                                     PASS (17/17)
+  test_find_files:                                   PASS (12/12)
+  test_find_dirs:                                    PASS (6/6)
+  test_find_all_matching:                            PASS (11/11)
+  test_find_files_matching:                          PASS (7/7)
+  test_find_dirs_matching:                           PASS (3/3)
+  test_find_does_not_follow_symlinks:                NO ASSERTIONS
+  test_count_files:                                  PASS (18/18)
+  test_count_files_not_found:                        PASS (2/2)
+  test_count_files_given_not_dir:                    PASS (2/2)
+  test_count_files_given_invalid:                    PASS (2/2)
+  test_get_extension:                                PASS (21/21)
+  test_get_files:                                    PASS (24/24)
+  test_get_files_given_not_found:                    PASS (2/2)
+  test_get_files_given_not_dir:                      PASS (2/2)
+  test_get_files_given_invalid:                      PASS (2/2)
+  test_get_files_given_too_many:                     PASS (4/4)
+  test_trim_extension:                               PASS (21/21)
+  test_mkdir_abs_path:                               PASS (25/25)
+  test_mkdir_rel_path:                               PASS (16/16)
+  test_mkdir_skips_path_len:                         PASS (6/6)
+  test_depth_first_given_file:                       PASS (2/2)
+  test_depth_first_given_dir:                        PASS (10/10)
+  test_depth_first_given_symlink:                    NO ASSERTIONS
+  test_depth_first_given_not_found:                  PASS (2/2)
+  test_delete_root:                                  PASS (16/16)
+  test_delete_given_not_found:                       PASS (2/2)
+  test_delete_given_file:                            PASS (3/3)
+  test_delete_given_dir:                             PASS (4/4)
+  test_delete_given_symlink:                         NO ASSERTIONS
+  test_delete_given_too_many:                        PASS (4/4)
+  test_delete_given_unlimited:                       PASS (4/4)
+  Execution time: 38.101418 s
+  PASS (40/40)
 
 > 
 RUN "tst_inifile.bas", --catch-errors --verbose
@@ -165,7 +245,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_inifile.bas --catch-errors --verbose
   test_read_given_missing_value:                     PASS (3/3)
   test_read_given_empty_value:                       PASS (10/10)
   test_write:                                        PASS (8/8)
-  Execution time: 2.565271 s
+  Execution time: 2.863748 s
   PASS (6/6)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_inifile.bas --catch-errors --verbose --base=1
   test_read:                                         PASS (10/10)
@@ -174,7 +254,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_inifile.bas --catch-errors --verbose --base=1
   test_read_given_missing_value:                     PASS (3/3)
   test_read_given_empty_value:                       PASS (10/10)
   test_write:                                        PASS (8/8)
-  Execution time: 2.669595 s
+  Execution time: 2.807748 s
   PASS (6/6)
 
 > 
@@ -184,7 +264,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_list.bas --catch-errors --verbose
   test_add:                                          PASS (4/4)
   test_clear:                                        PASS (22/22)
   test_get:                                          FAIL (1/7)
-    7: MMBasic Error in ../list.inc line 75: index out of bounds: 3
+    7: MMBasic index out of bounds: 3
   test_insert:                                       PASS (16/16)
   test_is_full:                                      PASS (3/3)
   test_peek:                                         PASS (2/2)
@@ -192,16 +272,16 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_list.bas --catch-errors --verbose
   test_push:                                         PASS (4/4)
   test_remove:                                       PASS (15/15)
   test_set:                                          FAIL (1/7)
-    7: MMBasic Error in ../list.inc line 151: index out of bounds: 3
+    7: MMBasic index out of bounds: 3
   test_sort:                                         PASS (6/6)
-  Execution time: 0.295145 s
+  Execution time: 0.537056 s
   FAIL (2/12)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_list.bas --catch-errors --verbose --base=1
   test_init:                                         PASS (22/22)
   test_add:                                          PASS (4/4)
   test_clear:                                        PASS (22/22)
   test_get:                                          FAIL (1/7)
-    7: MMBasic Error in ../list.inc line 75: index out of bounds: 4
+    7: MMBasic index out of bounds: 4
   test_insert:                                       PASS (16/16)
   test_is_full:                                      PASS (3/3)
   test_peek:                                         PASS (2/2)
@@ -209,9 +289,9 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_list.bas --catch-errors --verbose --base=1
   test_push:                                         PASS (4/4)
   test_remove:                                       PASS (15/15)
   test_set:                                          FAIL (1/7)
-    7: MMBasic Error in ../list.inc line 151: index out of bounds: 4
+    7: MMBasic index out of bounds: 4
   test_sort:                                         PASS (6/6)
-  Execution time: 0.296358 s
+  Execution time: 0.537642 s
   FAIL (2/12)
 
 > 
@@ -227,13 +307,13 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_map.bas --catch-errors --verbose
   test_put_given_absent:                             PASS (7/7)
   test_put_given_present:                            PASS (7/7)
   test_put_given_full:                               FAIL (1/5)
-    5: MMBasic Error in ../map.inc line 103: map full
+    5: MMBasic map full
   test_put_given_full_and_present:                   PASS (3/3)
   test_remove:                                       PASS (15/15)
   test_remove_given_absent:                          PASS (7/7)
   test_remove_given_empty:                           PASS (42/42)
   test_remove_given_full:                            PASS (22/22)
-  Execution time: 0.446351 s
+  Execution time: 0.735624 s
   FAIL (1/15)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_map.bas --catch-errors --verbose --base=1
   test_init:                                         PASS (43/43)
@@ -246,13 +326,13 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_map.bas --catch-errors --verbose --base=1
   test_put_given_absent:                             PASS (7/7)
   test_put_given_present:                            PASS (7/7)
   test_put_given_full:                               FAIL (1/5)
-    5: MMBasic Error in ../map.inc line 103: map full
+    5: MMBasic map full
   test_put_given_full_and_present:                   PASS (3/3)
   test_remove:                                       PASS (15/15)
   test_remove_given_absent:                          PASS (7/7)
   test_remove_given_empty:                           PASS (42/42)
   test_remove_given_full:                            PASS (22/22)
-  Execution time: 0.449937 s
+  Execution time: 0.737822 s
   FAIL (1/15)
 
 > 
@@ -261,14 +341,14 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_map2.bas --catch-errors --verbose
   test_new:                                          PASS (1/1)
   test_init:                                         PASS (11/11)
   test_init_given_invalid_key_len:                   FAIL (1/4)
-    4: MMBasic Error in ../map2.inc line 29: Invalid key length, must be > 0
+    4: MMBasic Invalid key length, must be > 0
   test_put_given_absent:                             PASS (4/4)
   test_put_given_present:                            PASS (2/2)
   test_put_given_full:                               FAIL (1/14)
-    14: MMBasic Error in ../map2.inc line 75: Map full
+    14: MMBasic Map full
   test_put_given_full_and_present:                   PASS (13/13)
   test_put_given_key_too_long:                       FAIL (1/4)
-    4: MMBasic Error in ../map2.inc line 72: Key too long
+    4: MMBasic Key too long
   test_put_sorts_entries:                            PASS (5/5)
   test_put_if_absent_given_absent:                   PASS (6/6)
   test_get_given_present:                            PASS (2/2)
@@ -279,20 +359,20 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_map2.bas --catch-errors --verbose
   test_is_full:                                      PASS (4/4)
   test_clear:                                        PASS (13/13)
   test_capacity:                                     PASS (1/1)
-  Execution time: 0.46524 s
+  Execution time: 0.827971 s
   FAIL (3/18)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_map2.bas --catch-errors --verbose --base=1
   test_new:                                          PASS (1/1)
   test_init:                                         PASS (11/11)
   test_init_given_invalid_key_len:                   FAIL (1/4)
-    4: MMBasic Error in ../map2.inc line 29: Invalid key length, must be > 0
+    4: MMBasic Invalid key length, must be > 0
   test_put_given_absent:                             PASS (4/4)
   test_put_given_present:                            PASS (2/2)
   test_put_given_full:                               FAIL (1/14)
-    14: MMBasic Error in ../map2.inc line 75: Map full
+    14: MMBasic Map full
   test_put_given_full_and_present:                   PASS (13/13)
   test_put_given_key_too_long:                       FAIL (1/4)
-    4: MMBasic Error in ../map2.inc line 72: Key too long
+    4: MMBasic Key too long
   test_put_sorts_entries:                            PASS (5/5)
   test_put_if_absent_given_absent:                   PASS (6/6)
   test_get_given_present:                            PASS (2/2)
@@ -303,18 +383,18 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_map2.bas --catch-errors --verbose --base=1
   test_is_full:                                      PASS (4/4)
   test_clear:                                        PASS (13/13)
   test_capacity:                                     PASS (1/1)
-  Execution time: 0.466893 s
+  Execution time: 0.828843 s
   FAIL (3/18)
 
 > 
 RUN "tst_math.bas", --catch-errors --verbose
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_math.bas --catch-errors --verbose
   test_pseudo_rnd:                                   PASS (21/21)
-  Execution time: 0.10373 s
+  Execution time: 0.121102 s
   PASS (1/1)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_math.bas --catch-errors --verbose --base=1
   test_pseudo_rnd:                                   PASS (20/20)
-  Execution time: 0.104569 s
+  Execution time: 0.121963 s
   PASS (1/1)
 
 > 
@@ -330,10 +410,10 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_set.bas --catch-errors --verbose
   test_put_given_absent:                             PASS (3/3)
   test_put_given_present:                            PASS (3/3)
   test_put_given_full:                               FAIL (1/3)
-    3: MMBasic Error in ../set.inc line 75: set full
+    3: MMBasic set full
   test_put_given_full_and_present:                   PASS (4/4)
   test_remove:                                       PASS (6/6)
-  Execution time: 0.315575 s
+  Execution time: 0.555536 s
   FAIL (1/12)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_set.bas --catch-errors --verbose --base=1
   test_init:                                         PASS (20/20)
@@ -346,10 +426,10 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_set.bas --catch-errors --verbose --base=1
   test_put_given_absent:                             PASS (3/3)
   test_put_given_present:                            PASS (3/3)
   test_put_given_full:                               FAIL (1/3)
-    3: MMBasic Error in ../set.inc line 75: set full
+    3: MMBasic set full
   test_put_given_full_and_present:                   PASS (4/4)
   test_remove:                                       PASS (6/6)
-  Execution time: 0.316327 s
+  Execution time: 0.556274 s
   FAIL (1/12)
 
 > 
@@ -392,7 +472,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_string.bas --catch-errors --verbose
   test_wwrap_given_lf_at_end:                        PASS (2/2)
   test_wwrap_given_crlf_at_end:                      PASS (2/2)
   test_wwrap_given_broken_spaces:                    PASS (2/2)
-  Execution time: 0.96874 s
+  Execution time: 1.71637 s
   PASS (37/37)
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_string.bas --catch-errors --verbose --base=1
   test_centre:                                       PASS (3/3)
@@ -432,7 +512,7 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_string.bas --catch-errors --verbose --base=1
   test_wwrap_given_lf_at_end:                        PASS (2/2)
   test_wwrap_given_crlf_at_end:                      PASS (2/2)
   test_wwrap_given_broken_spaces:                    PASS (2/2)
-  Execution time: 0.972075 s
+  Execution time: 1.716893 s
   PASS (37/37)
 
 > 
@@ -445,18 +525,36 @@ A:/SPTOOLS/SRC/SPLIB/TESTS/tst_system.bas --catch-errors --verbose
   test_get_config:                                   PASS (8/8)
   test_format_version:                               PASS (7/7)
   test_format_firmware_version:                      PASS (5/5)
-  test_is_platform:                                  
-
-
-Error in line 203: Cannot find SYS.OVERRIDE_PLATFORM
+  test_is_platform:                                  PASS (35/35)
+  Execution time: 0.859934 s
+  PASS (8/8)
+A:/SPTOOLS/SRC/SPLIB/TESTS/tst_system.bas --catch-errors --verbose --base=1
+  test_provides:                                     PASS (31/31)
+  test_provides_given_duplicates:                    PASS (2/2)
+  test_provides_given_too_many:                      PASS (2/2)
+  test_requires:                                     PASS (5/5)
+  test_get_config:                                   PASS (8/8)
+  test_format_version:                               PASS (7/7)
+  test_format_firmware_version:                      PASS (5/5)
+  test_is_platform:                                  PASS (35/35)
+  Execution time: 0.910777 s
+  PASS (8/8)
 
 > 
 RUN "tst_vt100.bas", --catch-errors --verbose
 A:/SPTOOLS/SRC/SPLIB/TESTS/tst_vt100.bas --catch-errors --verbose
   test_colour:                                       PASS (10/10)
   test_colour_case_insensitive:                      PASS (10/10)
-  test_colour_given_unknown:                         
-
-Unknown VT100 colour: wombat
+  test_colour_given_unknown:                         FAIL (1/2)
+    2: MMBasic Unknown VT100 colour: wombat
+  Execution time: 0.134354 s
+  FAIL (1/3)
+A:/SPTOOLS/SRC/SPLIB/TESTS/tst_vt100.bas --catch-errors --verbose --base=1
+  test_colour:                                       PASS (10/10)
+  test_colour_case_insensitive:                      PASS (10/10)
+  test_colour_given_unknown:                         FAIL (1/2)
+    2: MMBasic Unknown VT100 colour: wombat
+  Execution time: 0.134939 s
+  FAIL (1/3)
 
 > 

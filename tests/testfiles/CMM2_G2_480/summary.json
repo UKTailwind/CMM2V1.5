@@ -10,7 +10,7 @@
   "name": "ArrayCopyTest",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 1.6,
+  "secs": 1.5,
   "note": ""
  },
  {
@@ -24,7 +24,7 @@
   "name": "ArrayFuncTest",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 1.5,
+  "secs": 1.6,
   "note": ""
  },
  {
@@ -43,10 +43,10 @@
  },
  {
   "name": "Breakout",
-  "class": "ERROR",
+  "class": "TIMEOUT",
   "deterministic": true,
-  "secs": 2.2,
-  "note": "Error in line 88: Flash image slots are not provided: use slots 4 to 8"
+  "secs": 61.4,
+  "note": ">"
  },
  {
   "name": "ComplexTest",
@@ -64,16 +64,16 @@
  },
  {
   "name": "ExilePhysicsBench",
-  "class": "ERROR",
-  "deterministic": true,
-  "secs": 2.6,
-  "note": "Error in line 47: Flash image slots are not provided: use slots 4 to 8"
+  "class": "NO-EXPECTED",
+  "deterministic": false,
+  "secs": 26.6,
+  "note": ""
  },
  {
   "name": "ExileTeleportSound",
   "class": "TIMEOUT",
   "deterministic": true,
-  "secs": 61.5,
+  "secs": 61.4,
   "note": ">"
  },
  {
@@ -99,10 +99,10 @@
  },
  {
   "name": "IR_Carrier_Test",
-  "class": "TIMEOUT",
+  "class": "ERROR",
   "deterministic": true,
-  "secs": 61.4,
-  "note": ">"
+  "secs": 1.7,
+  "note": "Error in line 63: Unknown command"
  },
  {
   "name": "InverseTrigTest",
@@ -113,10 +113,10 @@
  },
  {
   "name": "LinePlotTest",
-  "class": "TIMEOUT",
+  "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 61.4,
-  "note": ">"
+  "secs": 3.3,
+  "note": ""
  },
  {
   "name": "LoadCrunchTest",
@@ -150,7 +150,7 @@
   "name": "MathStructTest",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 1.9,
+  "secs": 1.8,
   "note": ""
  },
  {
@@ -169,7 +169,7 @@
   "name": "NEC_IR_Test",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 1.5,
+  "secs": 1.6,
   "note": "Error in line 128: Syntax"
  },
  {
@@ -195,17 +195,17 @@
  },
  {
   "name": "Platform",
-  "class": "ERROR",
+  "class": "TIMEOUT",
   "deterministic": true,
-  "secs": 2.3,
-  "note": "Error in line 208: Flash image slots are not provided: use slots 4 to 8"
+  "secs": 61.4,
+  "note": ">"
  },
  {
   "name": "RamImageSlotTest",
-  "class": "ERROR",
+  "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 2.2,
-  "note": "Error in line 39: Unknown command"
+  "secs": 4.9,
+  "note": ""
  },
  {
   "name": "RamLibraryTest",
@@ -223,7 +223,7 @@
   "name": "SeekBulkReadTest",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 1.6,
+  "secs": 1.5,
   "note": ""
  },
  {
@@ -235,17 +235,17 @@
  },
  {
   "name": "ShareClient",
-  "class": "TIMEOUT",
-  "deterministic": false,
-  "secs": 61.4,
-  "note": ">"
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 2.1,
+  "note": ""
  },
  {
   "name": "ShareHost",
-  "class": "TIMEOUT",
-  "deterministic": false,
-  "secs": 61.4,
-  "note": ">"
+  "class": "NO-EXPECTED",
+  "deterministic": true,
+  "secs": 2.0,
+  "note": ""
  },
  {
   "name": "SimpleStructArrayTest",
@@ -258,7 +258,7 @@
   "name": "StackRecursionTest",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 1.5,
+  "secs": 1.6,
   "note": "Error in line 90: Too many nested SUB/FUN"
  },
  {
@@ -307,7 +307,7 @@
   "name": "StructTest",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 5.5,
+  "secs": 5.7,
   "note": ""
  },
  {
@@ -321,15 +321,15 @@
   "name": "TilemapLoadTest",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 2.3,
-  "note": "Error in line 23: Flash image slots are not provided: use slots 4 to 8"
+  "secs": 4.6,
+  "note": "Error in line 89: Could not find the file"
  },
  {
   "name": "TilemapTest",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 2.3,
-  "note": "Error in line 60: Flash image slots are not provided: use slots 4 to 8"
+  "secs": 3.4,
+  "note": "Error in line 67: Syntax"
  },
  {
   "name": "UntypedParamTest",
@@ -377,7 +377,7 @@
   "name": "doloop_test",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 2.2,
+  "secs": 2.3,
   "note": ""
  },
  {
@@ -448,7 +448,7 @@
   "name": "turtletest",
   "class": "NO-EXPECTED",
   "deterministic": false,
-  "secs": 31.6,
+  "secs": 31.5,
   "note": ""
  }
 ]

@@ -96,7 +96,12 @@ class Board:
 
     def _read(self):
         b = self.s.read(4096)
-        return b.decode("latin-1") if b else ""
+        t = b.decode("latin-1") if b else ""
+        for m in re.findall(r"USB [\w ]+ (?:Disconnected|Connected)", t):   # (a device lost in a run changes later
+            print("[%s %s: %s]" % (time.strftime("%H:%M:%S"), Board.current, m), flush=True)   # programs' outputs)
+        return t
+
+    current = ""                                        # the program running, for those notes
 
     def drain(self, quiet=0.2):
         out, last = "", time.time()
@@ -310,6 +315,17 @@ def run_program(b, run, inputs):
 
 
 STLINK = r"C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
+PROBES = {"COM4": "0667FF575255878281071917",           # each test board's ST-Link, by its console port: the G2 on the
+          "COM34": "37FF71064E5734367D2B1643"}          # Nucleo's, the G1 on the ST-Link V2
+
+
+def fresh_slots(b, flash):
+    """Empty the RAM slots, and the flash slots when the program uses them, before a run: a RAM slot is kept through
+    every heap wipe (MEMORY counts it) and a flash slot is a file on the SD card, so either can be left by an earlier
+    program, where a fresh PicoMite has none."""
+    b.cmd("RAM ERASE ALL", 10)
+    if flash:
+        b.cmd("FLASH ERASE ALL", 20)
 
 
 def alive(b):
@@ -323,7 +339,8 @@ def alive(b):
         pass
     print("board not answering: resetting it through the ST-Link", flush=True)
     import subprocess
-    subprocess.run([STLINK, "-c", "port=SWD", "mode=UR", "freq=1000", "-rst"], capture_output=True, timeout=120)
+    probe = ["sn=" + PROBES[b.s.port.upper()]] if b.s.port.upper() in PROBES else []   # (the board's own, of two)
+    subprocess.run([STLINK, "-c", "port=SWD"] + probe + ["mode=UR", "freq=1000", "-rst"], capture_output=True, timeout=120)
     time.sleep(10)
     b.drain(0.5)
     b.attention()                                       # still nothing: stop the run here
@@ -411,6 +428,7 @@ def main():
     print("sent %d of %d files to %s" % (len(todo), len(files), gdir), flush=True)
     for n in names:
         inputs = read_inputs(corpus, n)
+        Board.current = n
         b.attention()
         b.cmd('CHDIR "%s"' % gdir, 10)
         if pre:
@@ -422,6 +440,8 @@ def main():
             keep(rows[-1])
             continue
         run = 'RUN "%s"' % prog
+        slots = re.search(r"\bFLASH\b", open(os.path.join(corpus, prog), encoding="latin-1").read(), re.I)
+        fresh_slots(b, slots)
         s1, o1, t1 = run_program(b, run, inputs)
         open(os.path.join(outdir, n + ".out"), "w", encoding="utf-8").write(o1)
         if not alive(b):
@@ -430,6 +450,7 @@ def main():
             continue
         if listflash:                                   # the image as LIST FLASH spells it out (text against symbols)
             open(os.path.join(outdir, n + ".list"), "w", encoding="utf-8").write(b.cmd("LIST FLASH ALL", 60))
+        fresh_slots(b, slots)
         s2, o2, t2 = run_program(b, run, inputs)
         open(os.path.join(outdir, n + ".out2"), "w", encoding="utf-8").write(o2)
         if not alive(b):

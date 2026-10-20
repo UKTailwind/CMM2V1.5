@@ -10,7 +10,7 @@ A:/SPTOOLS/SRC/BAS2JS/TESTS/tst_bas2js_trans.bas --catch-errors --verbose
   test_loop:                                         PASS (8/8)
   test_next:                                         PASS (8/8)
   test_subs:                                         PASS (36/36)
-  Execution time: 0.311839 s
+  Execution time: 0.46593 s
   PASS (10/10)
 
 > 

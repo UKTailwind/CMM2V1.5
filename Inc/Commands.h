@@ -108,6 +108,10 @@ struct s_dostack {
 #define DOFAST_ON 1
 #define DOFAST_OFF 2
 extern char *DoFindLoop(char *p, CommandToken dotoken, char *errmsg);
+extern char *ForFindNext(char *p, char *vname, int vlen, char *errmsg);  // FOR's NEXT (cmd_for and the compiler, Stream.c)
+extern void StaticVarName(char *VarName, char *arg);                    // STATIC's hidden global's name (VarName: STRINGSIZE)
+extern void StaticLink(char *arg, int typeSave, int VIndexSave);        // and its local pointed at it
+extern char *IfFindToken(char *p, int tok);                             // THEN or ELSE outside quotes (cmd_if, Stream.c)
 // the IF/ELSEIF/ELSE/ENDIF jump table (Commands.c, the PicoMite's): for each multi-line IF, ELSEIF and ELSE token, the
 // next arm (ELSEIF, ELSE or ENDIF) and the ENDIF
 struct iftab_entry {

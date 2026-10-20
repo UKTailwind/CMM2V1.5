@@ -247,6 +247,7 @@ struct option_s {
 	unsigned char libflash;                   // LIBRARY: 'L' when the flash library is there
 	unsigned char libhash[4];
 	unsigned char mousespeed[4];
+	unsigned char Compile;
 	unsigned char end;
 // 128
 };

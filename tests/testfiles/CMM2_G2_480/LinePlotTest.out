@@ -3,5 +3,34 @@
 Test 1: LINE PLOT
 Red = standard array, Green = struct array
 Press any key...
+Test 2: PIXEL command
+Red dots = standard arrays, Green dots = struct arrays
+Press any key...
+Test 3: LINE command (array mode)
+Red lines = standard arrays, Green lines = struct arrays
+Press any key...
+Test 4: CIRCLE command
+Red circles = standard arrays, Green circles = struct arrays
+Press any key...
+Test 5: BOX command
+Red boxes = standard arrays, Green boxes = struct arrays
+Press any key...
+Test 6: RBOX command
+Red rboxes = standard arrays, Green rboxes = struct arrays
+Press any key...
+Test 7: TRIANGLE command
+Red triangles = standard arrays, Green triangles = struct arrays
+Press any key...
+Test 8: POLYGON command
+Red = standard arrays, Green = struct arrays
+Left: Pentagon, Right: Hexagon
+Press any key...
+Test 9: POLYGON with fill
+Top row = standard arrays, Bottom row = struct arrays
+Red outline/Yellow fill
+Press any key...
+Test 10: All shapes using struct member arrays
 
-> 
+All tests complete!
+If shapes appear correctly, stride support is working.
+

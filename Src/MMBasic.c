@@ -391,6 +391,10 @@ void ITCM_CODE ExecuteProgram(char *p) {
     skipspace(p);
     // just in case, skip any white space
     while(1) {
+        if(RBLive && RBInImage(p)) {                                // OPTION COMPILE: on in the compiled stream, back here where it
+            p = RunStream(p);                                       // cannot (Stream.c)
+            if((p[0] == 0 && p[1] == 0) || (p[0] == 0xff && p[1] == 0xff)) break;
+        }
         if(*p == 0) p++;                                            // step over the zero byte marking the beginning of a new element
         if(*p == T_NEWLINE) {
             CurrentLinePtr = p;                                     // and pointer to the line for error reporting
@@ -674,6 +678,7 @@ static int ScanTypes;                                               // PreparePr
 void MIPS16 PrepareProgram(int ErrAbort) {
     int MIPS16 PrepareProgramExt(char *, int, unsigned char **, int);
     int i, NbrFuncts;
+    RBLive = 0;                                                     // a compiled stream is trusted only after RUN checks its stamp (Stream.h)
     for(i = FONT_BUILTIN_NBR; i < FONT_TABLE_SIZE; i++)
         FontTable[i] = NULL;                                        // clear the font table
 
@@ -691,7 +696,8 @@ void MIPS16 PrepareProgram(int ErrAbort) {
     SymBindInit();                                                  // the symbols' bindings, empty (Symbols.c)
     IfTableBuild();                                                 // the IF/ELSEIF/ELSE/ENDIF jump table (Commands.c)
     copy_clock();
-}
+    if(ErrAbort) RBPrepare();                                       // OPTION COMPILE: the stream's stamp checked, and the program compiled
+}                                                                   // if it changed (Stream.c: RUN, CHAIN, FLASH/RAM RUN, the library)
 
 
 // This scans one area (main program or the library area) for user defined subroutines and functions.
@@ -848,6 +854,17 @@ static struct s_sublayout *SubLayoutPlace(int size) {
 
 // The parameter list at p of subfun[index], read as DefinedSubFun read it, errors and all (in the argument
 // buffers it passes), and kept.
+static struct s_sublayout *SubLayoutBuild(int index, char *p, char *argbuf2, char **argv2);
+
+// BYVAL (kind 'V') or BYREF (kind 'R') at the start of a parameter in a SUB/FUNCTION definition, written as one word or
+// as BY VAL (through checkstring, as a symbol has no letters to test). The start of the parameter's name, or NULL if
+// the keyword is not there. SubLayoutBuild, and the compiler's survey (Stream.c): the PicoMite's.
+char *CheckByKeyword(char *p, int kind) {
+    char *q;
+    if((q = checkstring(p, kind == 'V' ? "BYVAL" : "BYREF")) != NULL) return q;
+    return checkstring(p, kind == 'V' ? "BY VAL" : "BY REF");
+}
+
 static struct s_sublayout *SubLayoutBuild(int index, char *p, char *argbuf2, char **argv2) {
     struct s_sublayout *L = NULL;
     char *q, *tp, *names = NULL;
@@ -861,10 +878,10 @@ static struct s_sublayout *SubLayoutBuild(int index, char *p, char *argbuf2, cha
             q = argv2[i];
             skipspace(q);
             by = 0;
-            {                                                       // BYVAL or BYREF (BY VAL, BY REF): through checkstring, as a
-                char *bq;                                           // symbol has no letters to test
-                if((bq = checkstring(q, "BYVAL")) != NULL || (bq = checkstring(q, "BY VAL")) != NULL) by = SL_BYVAL;
-                else if((bq = checkstring(q, "BYREF")) != NULL || (bq = checkstring(q, "BY REF")) != NULL) by = SL_BYREF;
+            {                                                       // BYVAL or BYREF (BY VAL, BY REF)
+                char *bq;
+                if((bq = CheckByKeyword(q, 'V')) != NULL) by = SL_BYVAL;
+                else if((bq = CheckByKeyword(q, 'R')) != NULL) by = SL_BYREF;
                 if(by) q = bq;                                      // the variable's start
             }
             type = T_NOTYPE;
@@ -2782,6 +2799,8 @@ getvalue_varend:;
             CtoM(s);                                                    // convert to a MMBasic string
 			t = T_STR;
 		}
+		else if(*p == T_VALUE)
+			p = RBSpliceValue(p, &f, &i64, &s, &t);                    // a value the compiler's code spliced in (Stream.h)
 		else
 			error("Syntax");
     }
@@ -4173,6 +4192,11 @@ int InProgMemory(const char *p) {
     return p >= (const char *)ProgMemory && p < (const char *)ProgMemory + PROG_FLASH_SIZE;
 }
 
+// the evaluator's stack test, for a recursion through the compiler's calls, which never reaches the evaluator (Stream.c)
+void TestStackOverflow(void) {
+    if(__get_MSP() < (uint32_t)&stackcheck-0x5000) error("Expression is too complex at depth %",LocalIndex);
+}
+
 void error(char *msg, ...) {
     va_list ap;
     int fmline = 0;                                                 // the program's line, for FM (FmNoteError)
@@ -4266,18 +4290,19 @@ void error(char *msg, ...) {
         errmsg[n] = 0;
         MMErrMsg = errmsg;
     }
-    // Clean up after and error in DefindedSubFun
+    // Clean up after and error in DefindedSubFun, or in a call the compiler made (DefinedSubFunMem 2: no argument
+    // block, Stream.c)
     if(DefinedSubFunMem){
        	if(LocalIndex != DefinedSubFunLocalIndex) ClearVars(LocalIndex);
     	gosubindex--;
-    	{   // free the string arguments copied so far (GetMemory(STRINGSIZE) each), or every error skipped
+    	if(DefinedSubFunMem != 2) {   // free the string arguments copied so far (GetMemory(STRINGSIZE) each), or every error skipped
     		// by ON ERROR SKIP/IGNORE leaks them.  argtype[] follows argval[] in the block, as in DefinedSubFun().
     		union u_argval *av = (union u_argval *)DefinedSubFunMem;
     		int *at = (int *)((char *)av + MAX_ARG_COUNT * sizeof(union u_argval));
     		for(int i = 0; i < MAX_ARG_COUNT; i++)
     			if((at[i] & T_STR) && !(at[i] & T_PTR)) FreeMemorySafe((void *)&av[i].s);
+    		FreeMemory((void*)DefinedSubFunMem);
     	}
-    	FreeMemory((void*)DefinedSubFunMem);
     	DefinedSubFunMem=0;
     }
     if(OptionErrorSkip > 100000) {                                  // ON ERROR RESTART: what was printed goes out first
@@ -4822,6 +4847,7 @@ static void MIPS16 ClearRuntimeAll(int keep) {
     OptionExplicit = false;
     OptionEscape = false;
     DefaultType = T_NBR;
+    SymBindGlobalsChanged();                                        // what an unsuffixed name may bind to (Symbols.h)
     ds18b20Timers = NULL;                                           // InitHeap() will recover the memory allocated to this array
     findlabel(NULL);                                                // clear the label cache
     ClearExternalIO();                                              // this MUST come before InitHeap()

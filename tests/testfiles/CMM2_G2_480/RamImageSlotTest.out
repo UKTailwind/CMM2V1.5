@@ -1,3 +1,54 @@
 no free flash slot: flash-vs-RAM comparisons skipped
-Error in line 39: Unknown command
+FAIL: RAM slot address is in PSRAM got0 want1
+ok:   header width =128
+ok:   header height =8
+ok:   packed red tile byte =136
+ok:   packed black tile byte =0
+ok:   second load refused ->Already programmed
+ok:   reload with O keeps the header =128
+ok:   RAM SAVE onto an image slot refused ->Already programmed
+FAIL: tile 0 colour from RAM got0 want251658240
+FAIL: tile 1 colour from RAM got16711680 want268369920
+FAIL: tile 2 colour from RAM got65280 want251723520
+FAIL: tile 3 colour from RAM got16776960 want268435200
+FAIL: tile 4 colour from RAM got255 want251658495
+FAIL: tile 5 colour from RAM got16711935 want268370175
+FAIL: tile 6 colour from RAM got65535 want251723775
+FAIL: tile 7 colour from RAM got16777215 want268435455
+FAIL: transparent black keeps the background got255 want251658495
+FAIL: opaque pixel still drawn got16711680 want268369920
+FAIL: tile 8 (white) from the RAM tilemap, row 0 got16777215 want268435455
+FAIL: tile 8 (white) from the RAM tilemap, row 1 got16777215 want268435455
+FAIL: tile 2 (red) from the RAM tilemap, row 1 got16711680 want268369920
+ok:   BLIT FLASH from an empty RAM slot ->Invalid Image
+ok:   TILEMAP on an empty RAM slot ->No image in slot 5
+ok:   slot 9 refused ->9 is invalid (valid is 1 to 8)
+ok:   BLIT FLASH after RAM ERASE ->Invalid Image
+FAIL: erased header got128 want0
+320x240 load into RAM took999 ms
+ok:   big image column 0 =0
+ok:   big image column 1 =255
+ok:   big image column 2 =16384
+ok:   big image column 3 =16639
+ok:   big image column 4 =32768
+ok:   big image column 5 =33023
+ok:   big image column 6 =65280
+ok:   big image column 7 =65535
+ok:   big image column 8 =16711680
+ok:   big image column 9 =16711935
+ok:   big image column 10 =16728064
+ok:   big image column 11 =16728319
+ok:   big image column 12 =16744448
+ok:   big image column 13 =16744703
+ok:   big image column 14 =16776960
+ok:   big image column 15 =16777215
+ok:   big image bottom right =16777215
+RAM LIST says:
+ RAM Slot 1 in use: image 320 x 240
+ RAM Slot 2 available
+ RAM Slot 3 available
+ RAM Slot 4 available
+ RAM Slot 5 available
+RAM IMAGE SLOTS:28 of43 checks passed
+FAIL
 

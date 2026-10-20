@@ -391,8 +391,39 @@ void SymBindInit(void) {
         }
 }
 
+uint32_t SymBindEvent = 1;                                          // the bind generations (Symbols.h)
+uint32_t SymBindGenG = 1;
+uint32_t SymLevelGen[SYM_LEVELS];
+_Static_assert(SYM_LEVELS > MAXGOSUB + 8, "SYM_LEVELS must exceed the SUB and GOSUB levels");
+// a local made or freed in slot, at its level
+#define SymLocalEvent(slot) do { unsigned int l_ = VREC(slot)->level; if(l_ < SYM_LEVELS) SymLevelGen[l_] = ++SymBindEvent; } while(0)
+
+// The canonical entry of symbol id (as in SymCanonOf: a library id when it is SymCanonLibBase or more), made if this is
+// the first use of its spelling: SymCanonAt for a caller that has the id but not the symbol's bytes (the compiler's
+// binds, Stream.c). -1 if there are no bindings.
+int SymCanonById(unsigned int id) {
+    char b[3];
+    int lib = 0;
+    if(SymCanonOf == NULL || id >= SymCanonCount) return -1;
+    if(SymCanonOf[id]) return SymCanonOf[id] - 1;
+    if(id >= SymCanonLibBase) {
+        id -= SymCanonLibBase;
+        lib = SYM_LIB_LONG - SYM_PROG_LONG;
+    }
+    if(id < SYM_NSHORT) {
+        b[0] = SYM_PROG_SHORT + lib;
+        b[1] = symchars[id];
+    } else {
+        b[0] = SYM_PROG_LONG + lib;
+        b[1] = symchars[(id - SYM_NSHORT) / SYM_NSHORT];
+        b[2] = symchars[(id - SYM_NSHORT) % SYM_NSHORT];
+    }
+    return SymCanonNew(b);
+}
+
 // InitHeap has wiped the heap the bindings lived in
 void SymBindForget(void) {
+    SymBindGlobalsChanged();
     SymHotBlock = SymColdBlock = NULL;
     SymCanonOf = SymCanonHead = SymLCanon = NULL;
     SymG = SymL = SymS = SymLShadow = NULL;
@@ -410,11 +441,13 @@ void SymBindFree(void) {
 
 // LOAD CONTEXT, SAVE CONTEXT CLEAR: every global has gone, the locals stay
 void SymBindResetGlobals(void) {
+    SymBindGlobalsChanged();
     for(unsigned int i = 0; i < SymNCanon; i++) SymG[i] = -1;
 }
 
 // ClearVars(0): every variable has gone
 void SymBindReset(void) {
+    SymBindGlobalsChanged();
     for(unsigned int i = 0; i < SymNCanon; i++) SymG[i] = SymL[i] = -1;
     if(SymLCanon != NULL) memset(SymLCanon, 0, SymLSlots * sizeof(uint16_t));
     SymTextLocals = 0;
@@ -422,6 +455,7 @@ void SymBindReset(void) {
 
 // findvar made a local in slot, for canonical entry k (-1: its name was text)
 void SymLocalMade(int slot, int k) {
+    SymLocalEvent(slot);
     if(SymLCanon == NULL) return;
     if((unsigned)slot >= SymLSlots)
         SymTextLocals++;
@@ -438,6 +472,7 @@ void SymLocalMade(int slot, int k) {
 // ClearVars is freeing the local in slot (newest first)
 void SymLocalFreed(int slot) {
     unsigned int c;
+    SymLocalEvent(slot);                                            // (its level is still set: ClearVars clears the entry after)
     if(SymLCanon == NULL) return;
     if((unsigned)slot >= SymLSlots) {
         SymTextLocals--;
@@ -453,6 +488,7 @@ void SymLocalFreed(int slot) {
 
 // ERASE: the global in this slot has gone
 void SymBindForgetSlot(int slot) {
+    SymBindGlobalsChanged();
     for(unsigned int i = 0; i < SymNCanon; i++)
         if(SymG[i] == slot) SymG[i] = -1;
 }

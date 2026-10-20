@@ -1606,6 +1606,19 @@ struct iftab_entry *IfTableLookup(char *tok) {
     return NULL;
 }
 
+// the first token tok (THEN, ELSE) from p outside quotes, or the zero that ends the element: as getargs splits the IF.
+// A byte of a string literal can have a token's value (a CP437 character), and a plain search found THEN there:
+// IF a$ = "<that byte>" THEN ... ran the rest of the condition as the THEN part. cmd_if, and the compiler's single-line
+// IF parts (Stream.c's RBEmitIfParts), which must find the same places.
+char *IfFindToken(char *p, int tok) {
+    int q = 0;
+    for(; *p; p++) {
+        if(*p == '"') q = !q;
+        else if(!q && *p == (char)tok) break;
+    }
+    return p;
+}
+
 void cmd_if(void) {
 	int r, i, testgoto, testelseif;
 	char ss[3];														// this will be used to split up the argument line
@@ -1667,7 +1680,7 @@ retest_an_if:
 						execute_one_command(argv[2]);
 					} else {
 						// easy - there is no ELSE clause so just point the next statement pointer to the byte after the THEN token
-						for(p = cmdline; *p && *p != ss[0]; p++);	// search for the token
+						p = IfFindToken(cmdline, ss[0]);			// search for the token
 						nextstmt = p + 1;							// and point to the byte after
 					}
 				}
@@ -1706,7 +1719,7 @@ retest_an_if:
 						// found a nested IF command, we now need to determine if it is a single or multiline IF
 						// search for a THEN, then check if only white space follows.  If so, it is multiline.
 						tp = p + sizeof(CommandToken);
-						while(*tp && *tp != ss[0]) tp++;
+						tp = IfFindToken(tp, ss[0]);
 						if(*tp) tp++;								// step over the THEN
 						skipspace(tp);
 						if(*tp == 0 || *tp == '\'')					// yes, only whitespace follows
@@ -1762,11 +1775,11 @@ retest_an_if:
 						// Find THEN, step over the command token the THEN clause starts with, then look for ELSE:
 						// scanning from the start stopped at a command whose token has the ELSE token's value
 						// (ERROR), so IF 0 THEN ERROR "x" ELSE ... ran "x" ELSE ... as a statement.
-						for(p = cmdline; *p && *p != ss[0]; p++);	// find the THEN
+						p = IfFindToken(cmdline, ss[0]);			// find the THEN
 						if(*p) p++;									// step over it
 						skipspace(p);
 						if(commandtbl_at(p) != CMD_NOTOKEN) p += sizeof(CommandToken);	// and over the command token
-						for(; *p && *p != ss[1]; p++);				// then search for the ELSE
+						p = IfFindToken(p, ss[1]);					// then search for the ELSE
 						nextstmt = p + 1;							// and point to the byte after
 					}
                 } else {
@@ -2101,11 +2114,33 @@ void cmd_trace(void) {
 
 
 
+// The NEXT that closes the FOR loop on the variable named at vname, searching from p (the FOR's nextstmt): our variable
+// as a whole name in the NEXT statement, symbol or text (NEXT JI is not NEXT I; a symbol's payload is not letters, so its
+// bytes are not compared ignoring case). The name's extent is read at vname (SymFindName), so vlen, the PicoMite's, is
+// not needed. With errmsg NULL it returns NULL where cmd_for raises its error, so that the compiler can ask too
+// (Stream.c, the PicoMite's ForFindNext).
+char *ForFindNext(char *p, char *vname, int vlen, char *errmsg) {
+    int t = 1;
+    char *tp;
+    (void)vlen;
+    while(1) {
+        p = GetNextCommand(p, &tp, errmsg);
+        if(*p == 0) return NULL;                                    // the end of the program (only when errmsg is NULL)
+        CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdFOR) t++;                                      // count the FOR
+        if(tkn == cmdNEXT) {                                        // is it NEXT
+            if(SymFindName(p + sizeof(CommandToken), vname)) t = 0; // found the matching NEXT
+            else t--;                                               // no luck, just decrement our stack counter
+        }
+        if(t == 0) return p;
+    }
+}
+
 // FOR command
 void cmd_for(void) {
-    int i, t, test;
+    int i, test;
     char ss[4];                                                     // this will be used to split up the argument line
-    char *p, *tp;
+    char *p;
     void *vptr;
     char *vname, vtype;
 //    static char fortoken, nexttoken;
@@ -2179,24 +2214,7 @@ void cmd_for(void) {
         forstack[forindex].forptr = nextstmt + 1;                   // return to here when looping
 
         // now find the matching NEXT command
-        t = 1; p = nextstmt;
-        while(1) {
-              p = GetNextCommand(p, &tp, "No matching NEXT");
-            CommandToken tkn = commandtbl_at(p);
-            if(tkn == cmdFOR) t++;                                  // count the FOR
-            if(tkn == cmdNEXT) {                                    // is it NEXT
-                // our variable as a whole name in the NEXT statement, symbol or text (NEXT JI is not NEXT I; a symbol's
-                // payload is not letters, so its bytes are not compared ignoring case)
-                if(SymFindName(p + sizeof(CommandToken), vname))     // found
-                    t = 0;                                          // yes, found the matching NEXT
-                else
-                    t--;                                            // no luck, just decrement our stack counter
-            }
-            if(t == 0) {                                            // found the matching NEXT
-                forstack[forindex].nextptr = p;                     // pointer to the start of the NEXT command
-                break;
-            }
-        }
+        p = forstack[forindex].nextptr = ForFindNext(nextstmt, vname, 0, "No matching NEXT");   // the start of the NEXT command
 
           // test the loop value at the start
           if(forstack[forindex].vartype & T_INT)
@@ -2419,7 +2437,7 @@ static inline int __attribute__((always_inline)) DoFastTest(struct s_dostack *ds
         long long int v = *(long long int *)ds->fast_var, l = ds->fast_limit.i;
         if(ds->fast_op == DOFAST_EQ) return v == l;
         if(ds->fast_op == DOFAST_NE) return v != l;
-        r = (ds->fast_flags & DOFAST_LITFIRST) ? l - v : v - l;
+        r = (ds->fast_flags & DOFAST_LITFIRST) ? (l > v) - (l < v) : (v > l) - (v < l);   // (as compare(): no overflow)
     } else {
         MMFLOAT v = (ds->fast_flags & DOFAST_VARINT) ? (MMFLOAT) * (long long int *)ds->fast_var : *(MMFLOAT *)ds->fast_var;
         MMFLOAT d = (ds->fast_flags & DOFAST_LITFIRST) ? ds->fast_limit.f - v : v - ds->fast_limit.f;
@@ -3420,8 +3438,8 @@ char *SetValue(char *p, int t, void *v, int size) {
 // holds (tokenise makes control characters spaces): without it STATIC C in SUB AB and STATIC BC in SUB A shared
 // the global ABC.  VarName holds STRINGSIZE bytes, so the bounds and LENGTH of a long declaration fit (the
 // PicoMite's holds 65, and the CMM2's copy into 65 was unchecked); findvar limits the name.  The PicoMite's
-// StaticVarName (74ed383, b0f448e).
-static void StaticVarName(char *VarName, char *arg) {
+// StaticVarName (74ed383, b0f448e); the compiler's STATIC uses it too (Stream.c).
+void StaticVarName(char *VarName, char *arg) {
     char *def = NULL;
     int k, n;
     for(k = gosubindex - 1; k >= 0 && def == NULL; k--) def = substack[k];
@@ -3435,11 +3453,29 @@ static void StaticVarName(char *VarName, char *arg) {
     VarName[k + n] = 0;
 }
 
+// STATIC's local variable: arg's name made a local (findvar raises "$ Local variable already declared" if it is taken)
+// and pointed at the data of the global variable VIndexSave, its hidden global. cmd_dim, and the compiler's STATIC
+// (Stream.c): the PicoMite's StaticLink. A structure's local is made of the global's type.
+void StaticLink(char *arg, int typeSave, int VIndexSave) {
+    void *tv;
+    int j;
+    g_StructArg = (VREC(VIndexSave)->type & T_STRUCT) ? VREC(VIndexSave)->size : -1;
+    tv = findvar(arg, typeSave | V_LOCAL | V_FIND | V_DIM_VAR);
+    if(DimIsRealArray(VREC(VIndexSave)->dimtbl[0]) || (VREC(VIndexSave)->type & (T_STR | T_STRUCT))) {
+        if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemory(tv);                           // we don't need the memory allocated to the local
+        VREC(VarIndex)->val.s = VREC(VIndexSave)->val.s;                            // point to the memory of the global variable
+    } else
+        VREC(VarIndex)->val.ia = &(VREC(VIndexSave)->val.i);                        // point to the data of the variable
+    VREC(VarIndex)->type = VREC(VIndexSave)->type | T_PTR;                          // set the type to a pointer
+    VREC(VarIndex)->size = VREC(VIndexSave)->size;                                  // just in case it is a string copy the size
+    for(j = 0; j < MAXDIM; j++) VREC(VarIndex)->dimtbl[j] = VREC(VIndexSave)->dimtbl[j];// just in case it is an array copy the dimensions
+}
+
 void MIPS16 cmd_dim(void) {
     int i, j, k, type, typeSave, ImpliedType = 0, VIndexSave, StaticVar = false, ImpliedStruct, StructArg;
     char *p, chSave, *chPosit, *vn;
     char VarName[STRINGSIZE];                                       // STATIC's hidden name
-    void *v, *tv;
+    void *v;
 
     if(*cmdline == tokenAS) cmdline++;                              // this means that we can use DIM AS INTEGER a, b, etc
     p = CheckIfTypeSpecified(cmdline, &type, true);                 // check for DIM FLOAT A, B, ...
@@ -3450,6 +3486,9 @@ void MIPS16 cmd_dim(void) {
         if((argc & 0x01) == 0) error("Syntax");
 
         for(i = 0; i < argc; i += 2) {
+            type = ImpliedType;                                     // each name has the type before the names, or its own AS type (set
+                                                                    // back only after making a variable, a STATIC whose global existed
+                                                                    // passed its AS type on to the names after it: the PicoMite's 74ed383)
             p = skipvar(argv[i], false);                            // point to after the variable
             while(!(*p == 0 || *p == tokenAS || *p == '\'' || *p == tokenEQUAL))
                 p++;                                                // skip over a LENGTH keyword if there and see if we can find "AS"
@@ -3528,19 +3567,7 @@ void MIPS16 cmd_dim(void) {
                 *chPosit = 0;                                       // the declaration without "= value", which was put back to set the
                                                                     // global ("Incompatible types": the value read as part of LENGTH;
                                                                     // the PicoMite's 74ed383)
-                g_StructArg = StructArg;
-                tv = findvar(argv[i], typeSave | V_LOCAL | V_NOFIND_NULL);                        // check if the local variable exists
-                if(tv != NULL) error("$ already declared", argv[i]);
-                g_StructArg = StructArg;
-                tv = findvar(argv[i], typeSave | V_LOCAL | V_FIND | V_DIM_VAR);                   // create the variable
-                if(DimIsRealArray(VREC(VIndexSave)->dimtbl[0]) || (VREC(VIndexSave)->type & (T_STR | T_STRUCT))) {
-                    if(!VAR_INLINE_STR(VREC(VarIndex))) FreeMemory(tv);                           // we don't need the memory allocated to the local
-                    VREC(VarIndex)->val.s = VREC(VIndexSave)->val.s;                            // point to the memory of the global variable
-                } else
-                    VREC(VarIndex)->val.ia = &(VREC(VIndexSave)->val.i);                        // point to the data of the variable
-                VREC(VarIndex)->type = VREC(VIndexSave)->type | T_PTR;                          // set the type to a pointer
-                VREC(VarIndex)->size = VREC(VIndexSave)->size;                                  // just in case it is a string copy the size
-                for(j = 0; j < MAXDIM; j++) VREC(VarIndex)->dimtbl[j] = VREC(VIndexSave)->dimtbl[j];// just in case it is an array copy the dimensions
+                StaticLink(argv[i], typeSave, VIndexSave);
             }
         }
     }

@@ -1,3 +1,22 @@
 Exile physics bench on Colour Maximite 2 G2 7.000001
-Error in line 47: Flash image slots are not provided: use slots 4 to 8
+writing bench.map ...
+
+---- cache off, ms per tick over 200 ticks
+  integrate, 16 objects, loop   1.26 ms   with MATH 0.16 ms
+  tile collision, 16 objects    8.63 ms
+  behaviours, 16 objects        2.42 ms
+  particles, 32, loop           1.1 ms   with MATH 0.33 ms
+  draw: 2 tilemaps, 16 blits, 32 pixels, copy   7.37 ms
+  FULL TICK, loops              19.2 ms of 40 ms  (48%)
+  full tick if MATH replaced the loops: about 17.33 ms
+
+---- TRACECACHE ON 80, ms per tick over 200 ticks
+  integrate, 16 objects, loop   1.26 ms   with MATH 0.16 ms
+  tile collision, 16 objects    8.63 ms
+  behaviours, 16 objects        2.43 ms
+  particles, 32, loop           1.1 ms   with MATH 0.33 ms
+  draw: 2 tilemaps, 16 blits, 32 pixels, copy   7.37 ms
+  FULL TICK, loops              19.17 ms of 40 ms  (47%)
+  full tick if MATH replaced the loops: about 17.3 ms
+done
 

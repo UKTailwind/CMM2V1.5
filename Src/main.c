@@ -534,6 +534,9 @@ if(_excep_code == RESTART_BOOT0){
   /* Configure the system clock */
   LoadOptions();
   G1Hardware |= (Option.CPUmode & 0x0f);
+  RBStreamSize = (!G1Hardware || Option.Compile == RB_ON || Option.Compile == RB_SHADOW) ? 0x100000 : 0;   // the compiler's
+  RBMode = (Option.Compile <= RB_SHADOW && RB_STREAM_SIZE) ? Option.Compile : RB_OFF;   // area (Memory.h), and OPTION COMPILE
+                                                                    // as saved (Stream.c): before the heap's start is first read
   Overclock = ((Option.CPUmode >>4 ) ? 0:1);
   SystemClock_Config();
   /* USER CODE BEGIN SysInit */
@@ -709,7 +712,7 @@ if(Option.ProgramStartCode>=0){
 	}
 } else {
 	if(G1Hardware)ProgMemory = (char *)0xD0300000;
-	else ProgMemory = (char *)0xD0780000;
+	else ProgMemory = (char *)0xD0700000;                              // (below the compiler's stream: Memory.h)
 }
 ProgFlash = ProgMemory;                                             // (ProgMemory is elsewhere while a flash slot's program runs)
 {
@@ -2969,7 +2972,7 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct15.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct15);
 		  /* Configure the MPU attributes for Video Memory */
-		  MPU_InitStruct8.Enable = MPU_REGION_DISABLE;               // spare: region 0 covers it
+		  MPU_InitStruct8.Enable = MPU_REGION_DISABLE;               // spare: region 0 covers it (and region 9 the 512 KB here)
 		  MPU_InitStruct8.BaseAddress = 0xD0700000;
 		  MPU_InitStruct8.Size = MPU_REGION_SIZE_512KB;
 		  MPU_InitStruct8.AccessPermission = MPU_REGION_FULL_ACCESS;
@@ -2981,9 +2984,9 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct8.SubRegionDisable = 0x00;
 		  MPU_InitStruct8.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct8);
-		  /* Configure the MPU attributes for SDRAM used for program*/
+		  /* Configure the MPU attributes for SDRAM used for program (OPTION RAM's, below the compiler's stream: Memory.h) */
 		  MPU_InitStruct9.Enable = MPU_REGION_ENABLE;
-		  MPU_InitStruct9.BaseAddress = 0xD0780000;
+		  MPU_InitStruct9.BaseAddress = 0xD0700000;
 		  MPU_InitStruct9.Size = MPU_REGION_SIZE_512KB;
 		  MPU_InitStruct9.AccessPermission = MPU_REGION_FULL_ACCESS;
 		  MPU_InitStruct9.IsBufferable = MPU_ACCESS_BUFFERABLE;

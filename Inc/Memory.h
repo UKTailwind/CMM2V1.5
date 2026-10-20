@@ -107,7 +107,14 @@ extern uint32_t RAMBASE;
 #define FUNEND				(FUNBASE+36*(MAXSUBFUN+1))   // where funtbl ended (the name index replaced it): the buffers after it stay put; the 18 KB is free
 #define SRAMBASE         	0x38000000
 #define SRAMEND         	0x38010000
-#define SDRAMBASE         	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) : 0xD0800000)
+// below the heap on a G2 (Peter, 17 Oct): the OPTION RAM program at 0xD0700000 (MPU region 9: its CSUBs run there),
+// then the compiler's stream (Stream.c), 1 MB, about three times a program of 340 KB. On a G1 (Peter, 20 Oct) the stream
+// takes the bottom 1 MB of the heap, above the OPTION RAM program, while OPTION COMPILE is on: RBStreamSize, set at boot
+// (main.c), is its size, 0 when a G1 does not compile.
+extern uint32_t RBStreamSize;
+#define RB_STREAM_BASE    	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) : 0xD0780000)
+#define RB_STREAM_SIZE    	RBStreamSize
+#define SDRAMBASE         	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) + RBStreamSize : 0xD0880000)
 #define SDRAMEND         	(G1Hardware ? 0xD0800000-0x100 : 0xD2000000-0x100)
 // the executable window: the top 512 KB of the SDRAM heap, below SDRAMEND (MPU region 15; the rest of the heap is
 // not executable, which keeps speculative instruction fetches off the FMC).  GetMemory allocates below it, GetExecMemory

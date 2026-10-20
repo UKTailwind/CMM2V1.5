@@ -168,7 +168,7 @@ long long int compare(void) {
     }
 	else
         if(targ & T_INT)
-            r = iarg1 - iarg2;
+            r = (iarg1 > iarg2) - (iarg1 < iarg2);                  // (not iarg1 - iarg2, which overflows when they are far apart)
         else
             r = Mstrcmp(sarg1, sarg2);
      targ = T_INT;									// always return an float, even if the args are string

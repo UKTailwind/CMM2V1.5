@@ -1,3 +1,5 @@
 -- write N without a buffer is fine --
-Error in line 7: Framebuffer not created
+  ok
+-- write F without one is not --
+Error in line 11: Framebuffer not created
 

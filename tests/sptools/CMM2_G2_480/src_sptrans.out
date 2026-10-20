@@ -20,7 +20,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_cmdline.bas --catch-errors --verbose
   test_too_many_arguments:                           PASS (1/1)
   test_incompatible_arguments:                       PASS (3/3)
   test_everything:                                   PASS (12/12)
-  Execution time: 0.63603 s
+  Execution time: 1.014143 s
   PASS (20/20)
 
 > 
@@ -39,7 +39,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_defines.bas --catch-errors --verbose
   test_always_undefined_values:                      PASS (10/10)
   test_define_fixed_value:                           PASS (10/10)
   test_undefine_fixed_value:                         PASS (10/10)
-  Execution time: 0.340613 s
+  Execution time: 0.602663 s
   PASS (13/13)
 
 > 
@@ -53,8 +53,8 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_expression.bas --catch-errors --verbose
   test_eval_operator_precedence:                     PASS (48/48)
   test_eval_brackets:                                PASS (30/30)
   test_eval_syntax_errors:                           FAIL (1/19)
-    19: MMBasic Error in ../expression.inc line 54: No closing bracket
-  Execution time: 0.514175 s
+    19: MMBasic No closing bracket
+  Execution time: 0.614197 s
   FAIL (1/8)
 
 > 
@@ -83,7 +83,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_format.bas --catch-errors --verbose
   Empty lines - respects leading comment before function: PASS (154/154)
   Omit comments:                                     PASS (154/154)
   Preserve comments:                                 PASS (154/154)
-  Execution time: 3.45696 s
+  Execution time: 3.300918 s
   PASS (23/23)
 
 > 
@@ -98,7 +98,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_input.bas --catch-errors --verbose
   test_readln_gvn_non_empty_buffer:                  PASS (7/7)
   test_readln_gvn_eof:                               PASS (6/6)
   test_buffer_line_gvn_full:                         PASS (9/9)
-  Execution time: 3.980778 s
+  Execution time: 4.635548 s
   PASS (9/9)
 
 > 
@@ -107,7 +107,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_keywords.bas --catch-errors --verbose
   test_init:                                         PASS (1/1)
   test_contains:                                     PASS (4/4)
   test_get:                                          PASS (3/3)
-  Execution time: 0.324095 s
+  Execution time: 0.345129 s
   PASS (3/3)
 
 > 
@@ -150,7 +150,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_lexer.bas --catch-errors --verbose
   test_replace_token:                                PASS (16/16)
   test_set_space_before:                             PASS (19/19)
   test_set_space_after:                              PASS (19/19)
-  Execution time: 1.205473 s
+  Execution time: 1.905107 s
   PASS (37/37)
 
 > 
@@ -173,7 +173,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_options.bas --catch-errors --verbose
   test_spacing:                                      PASS (14/14)
   test_tree_shake:                                   PASS (8/8)
   test_unknown:                                      PASS (1/1)
-  Execution time: 0.424474 s
+  Execution time: 0.766728 s
   PASS (17/17)
 
 > 
@@ -194,7 +194,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_output.bas --catch-errors --verbose
   test_empty_line:                                   PASS (3/3)
   test_empty_line_gvn_omit:                          PASS (3/3)
   test_empty_line_gvn_start:                         PASS (2/2)
-  Execution time: 0.663829 s
+  Execution time: 0.91677 s
   PASS (15/15)
 
 > 
@@ -240,11 +240,11 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_symbols.bas --catch-errors --verbose
   test_get_referenced_ids_given_too_many:            PASS (7/7)
   test_get_orphans_invalid_root:                     PASS (2/2)
   test_get_orphans_small_array:                      FAIL (1/3)
-    3: MMBasic Error in ../symbols.inc line 463: Array too small; minimum 5 elements required
+    3: MMBasic Array too small; minimum 5 elements required
   test_get_orphans:                                  PASS (10/10)
   test_get_orphans_recurses:                         PASS (11/11)
   test_get_orphans_not_global:                       PASS (11/11)
-  Execution time: 3.637076 s
+  Execution time: 4.233698 s
   FAIL (1/43)
 
 > 
@@ -265,7 +265,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_symproc.bas --catch-errors --verbose
   test_given_start_not_col_1:                        PASS (22/22)
   test_given_end_not_last_tok:                       PASS (22/22)
   test_given_leading_comment:                        PASS (22/22)
-  Execution time: 0.832141 s
+  Execution time: 1.045425 s
   PASS (15/15)
 
 > 
@@ -354,7 +354,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_trans.bas --catch-errors --verbose
   test_disable_format:                               PASS (12/12)
   test_disable_format_gvn_2_args:                    PASS (1/1)
   test_disable_format_gvn_invalid:                   PASS (1/1)
-  Execution time: 6.723502 s
+  Execution time: 7.476923 s
   PASS (83/83)
 
 > 
@@ -369,7 +369,7 @@ A:/SPTOOLS/SRC/SPTRANS/TESTS/tst_treeshake.bas --catch-errors --verbose
   test_shake_gvn_no_orphans:                         PASS (14/14)
   test_shake_gvn_all_orphans:                        PASS (2/2)
   test_shake_gvn_empty_lines:                        PASS (9/9)
-  Execution time: 2.901651 s
+  Execution time: 3.064979 s
   PASS (9/9)
 
 > 

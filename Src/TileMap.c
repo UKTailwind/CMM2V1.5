@@ -287,7 +287,7 @@ static int tilemap_get_dest(char *token)
    height; an error if the slot is empty */
 static uint8_t *tilemap_flash_image(int slot, int *fw, int *fh)
 {
-    return ImageSlotPixels(slot, fw, fh) - 8;
+    return ImageSlotPixels(slot, fw, fh, "No image in slot %") - 8;
 }
 
 /* Free whatever a tilemap slot holds and mark it inactive */

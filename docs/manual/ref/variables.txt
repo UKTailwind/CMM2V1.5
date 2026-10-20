@@ -80,6 +80,10 @@ The current background and foreground colours (see COLOUR).  BCOLOR and FCOLOR a
 --- keep
 The size, in bytes, of the program in program memory, as MMBasic prepared it when it was loaded (see LIST FLASH).
 
+=+= MM.INFO$(COMPILE)
+--- keep
+What OPTION COMPILE did at the last RUN: OFF; "TEXT: " and why the program ran as text (eg, too big for the area, with the bytes it needed of those there are); or COMPILED followed by the number of compiles since the Colour Maximite 2 started (REUSED: the times the program had not changed), the statements in the compiled program (STMTS), those the last run executed from it (RAN), a count for testing the compiler (MISS), the statements run as compiled code (CODE), then its size of the area's (SIZE n OF m).  Once a command has been typed at the command prompt it begins NONE instead of COMPILED.
+
 =+= MM.INFO(CPUSPEED)
 --- keep
 The speed of the processor's clock in Hz, as a number: 400000000 for the Rev Y version of the STM32H743 and 480000000 for the Rev V (see the chapter Hardware Features), or 504000000 with OPTION OVERCLOCK ON.  (The PicoMite returns the speed as a string: a PicoMite program that reads MM.INFO$(CPUSPEED) into a string needs STR$() here.)
