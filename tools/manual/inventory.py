@@ -47,14 +47,41 @@ def tables():
     return rows
 
 
+def uncomment(text):
+    """the text with its comments blanked (/* */ and //), its strings and its line numbers kept: a checkstring in
+    code that is commented out (ONEWIRE SEARCH) is not in the build"""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '"' or c == "'":
+            j = i + 1
+            while j < n and text[j] != c and text[j] != '\n':
+                j += 2 if text[j] == '\\' else 1
+            out.append(text[i:j + 1])
+            i = j + 1
+        elif text.startswith('/*', i):
+            j = text.find('*/', i + 2)
+            j = n if j < 0 else j + 2
+            out.append(re.sub(r'[^\n]', ' ', text[i:j]))
+            i = j
+        elif text.startswith('//', i):
+            j = text.find('\n', i)
+            j = n if j < 0 else j
+            i = j
+        else:
+            out.append(c)
+            i += 1
+    return ''.join(out)
+
+
 def functions():
-    """every top-level C function in Src/*.c: name -> (file, first line, body)"""
+    """every top-level C function in Src/*.c: name -> (file, first line, body), comments blanked"""
     defs = {}
     head = re.compile(r'^[A-Za-z_][\w \t\*]*?\b(\w+)\s*\(([^;{}]*)\)\s*(\{.*|//.*)?$')   # (a one-line body too)
     for fn in sorted(os.listdir(SRC)):
         if not fn.endswith('.c'):
             continue
-        lines = read(os.path.join(SRC, fn)).split('\n')
+        lines = uncomment(read(os.path.join(SRC, fn))).split('\n')
         i = 0
         while i < len(lines):
             m = head.match(lines[i])

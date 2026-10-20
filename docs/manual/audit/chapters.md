@@ -54,7 +54,7 @@ The actions:
 | D | SPI Communications | C p161 | replace | |
 | E | Regular Expressions | C p170, P | merge | The PicoMite's regex is in the build. Leave out P's PIO sections, which the harvest found under this heading. |
 | F | Sprites | C p163 | replace | The CMM2's BLIT/SPRITE engine. |
-| G | Turtle Graphics | C p165 | replace | The build still has the CMM2's `turtle.c` (the PicoMite's turtle is P3). |
+| G | Turtle Graphics | C p165, P | replace | The build's `turtle.c` is the PicoMite's, from b14, without its later spellings (PEN COLOR and the others). The commands are listed as the build reads them. |
 | H | Cyclic Redundancy Check (CRC) | C p167 | replace | |
 | I | Special Keyboard Keys | C p172 | replace | The codes are now KeyboardMap.c's, the PicoMite's: Shift-Up 164, Shift-Left 162. |
 | J | CAN Support | C p173 | replace | |

@@ -6200,13 +6200,6 @@
      "via": []
     },
     {
-     "kw": "BEEP",
-     "func": "cmd_gui",
-     "file": "GUI.c",
-     "line": 784,
-     "via": []
-    },
-    {
      "kw": "INTERRUPT",
      "func": "cmd_gui",
      "file": "GUI.c",
@@ -6474,13 +6467,6 @@
      "func": "cmd_onewire",
      "file": "Onewire.c",
      "line": 123,
-     "via": []
-    },
-    {
-     "kw": "SEARCH",
-     "func": "cmd_onewire",
-     "file": "Onewire.c",
-     "line": 126,
      "via": []
     }
    ],
@@ -10792,13 +10778,6 @@
      "func": "fun_info",
      "file": "MM_Misc.c",
      "line": 3165,
-     "via": []
-    },
-    {
-     "kw": "LINE",
-     "func": "fun_info",
-     "file": "MM_Misc.c",
-     "line": 3169,
      "via": []
     },
     {

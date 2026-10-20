@@ -126,6 +126,43 @@ Under each chapter heading, and under About, is a highlighted note: `[MANUAL TOD
 
 `tools/manual/word.ps1` has Word update the table of contents and fields, save, and export the PDF: 263 pages for now. The script was run once. From here the manual is edited in place.
 
+**M3, the chapters to replace (20 Oct).** Each chapter's text is in `docs/manual/text/NN_name.md`, a small Markdown. `tools/manual/chapter.py` writes it into the manual under the chapter's heading, in the template's own formats:
+- the pictures come from the b14 PDF, its embedded images or (for its vector drawings) an area of a page;
+- running it again after an edit replaces what it wrote before.
+
+Done: 1-5 (Introduction to Hardware Features), 17 (Special Device Support), 20 (Game Playing Features), 25 (Operators), and appendices B, C, D and F to K. Each is b14's text, checked against the source and, where it could be, on the board:
+- MEMORY, DATE$, the operators, and the CRC demonstration's check values were run;
+- the keyboard codes were read from the key map;
+- the first-boot questions and what an upgrade keeps were read from `main.c`.
+
+The merge chapters (6-16, 18-19, 21-23) and appendices A and E come next.
+
+What the chapters found:
+- **b14's text, wrong for this build or wrong outright:**
+  - string comparison ("A" is less than "a", not greater);
+  - CAN OPEN's default filter (FIFO1, not FIFO0);
+  - the 29-bit CAN identifier range (0-1FFFFFFF);
+  - WS2812 (now `type, pin, nbr, colours%()`, as the PicoMite's, with type W);
+  - HUMID's syntax (typed "DHD22");
+  - Alt giving 8B (it is a modifier);
+  - Shift over VT100 (only Shift-F3 is translated);
+  - a USB hub "not supported";
+  - the console at 115200;
+  - options "in the battery RAM" (they are in flash);
+  - "seven fonts" (eight);
+  - the first boot asking the screen type (it asks the keyboard, the time and the date);
+  - TTS as a command (it is PLAY TTS).
+- **In the code**, to fix or decide (not manual work):
+  - OPTION DEFAULT MODE tests "8" twice (`MiscSTM32.c:1573` and `:1579`), so its branch for mode 9 is dead.
+  - WS2812 with one LED takes a value of at most &HFFFFFF, even for type W (RGBW).
+  - CAN OPEN's error lists the speed "5000000" for 500000.
+  - The first boot's keyboard question offers six layouts; OPTION USBKEYBOARD has seven (IT).
+  - I2C WRITE/READ option 1 (keep the bus) is stored and never read, so every transfer ends with a stop. The manual says so.
+  - TURTLE lacks the PicoMite's later spellings (PEN COLOR, PENCOLOUR and the others).
+  - A program's OPTION EXPLICIT stays in force at the prompt after it ends: "FOR a = 1 TO 20" then fails with "A is not declared" until NEW. Is this as the PicoMite does?
+  - The Xbox controllers (`USBXInput.c`) are named in the manual but untested with a genuine controller.
+- **In this project's own documents:** the parity plan and `chapters.md` said the build has the CMM2's turtle; it has the PicoMite's (from b14). Both are corrected.
+
 ## The new manual's structure (proposed; M-A4 settles it)
 
 **Front matter:** the title page and the About section (M-D3), Introduction, Generation 1 and Generation 2, Hardware Features. These are the CMM2's, from b14.

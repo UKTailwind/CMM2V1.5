@@ -114,7 +114,13 @@ class Writer:
             r.italic = True
 
     def picture(self, src, width):
-        if src.startswith('pdf:'):
+        if src.startswith('clip:'):                    # a drawing in the PDF (vectors, not an image): its page area
+            _, page, box = src.split(':')
+            if self.pdf is None:
+                self.pdf = fitz.open(B14)
+            rect = fitz.Rect(*[float(v) for v in box.split(',')])
+            blob = io.BytesIO(self.pdf[int(page) - 1].get_pixmap(dpi=220, clip=rect).tobytes('png'))
+        elif src.startswith('pdf:'):
             _, page, xref = src.split(':')
             if self.pdf is None:
                 self.pdf = fitz.open(B14)

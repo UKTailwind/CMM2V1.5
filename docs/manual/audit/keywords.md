@@ -735,7 +735,6 @@ Keywords by where they are documented (a suggestion, to be confirmed): C 40, P 1
 | &nbsp;&nbsp;REDRAW | sub-keyword | GUI.c:738 | - | - | - | U |  |
 | &nbsp;&nbsp;FCOLOUR | sub-keyword | GUI.c:763 | - | - | - | U |  |
 | &nbsp;&nbsp;BCOLOUR | sub-keyword | GUI.c:763 | - | - | - | U |  |
-| &nbsp;&nbsp;BEEP | sub-keyword | GUI.c:784 | - | - | - | U |  |
 | &nbsp;&nbsp;INTERRUPT | sub-keyword | GUI.c:791 | - | - | - | U |  |
 | &nbsp;&nbsp;SETUP | sub-keyword | GUI.c:810 | - | - | - | U |  |
 | &nbsp;&nbsp;DATE1 | sub-keyword | GUI.c:319 (GetCtrlParams) | - | - | - | U |  |
@@ -766,7 +765,6 @@ Keywords by where they are documented (a suggestion, to be confirmed): C 40, P 1
 | &nbsp;&nbsp;RESET | sub-keyword | Onewire.c:119 | yes | yes | yes | P+C |  |
 | &nbsp;&nbsp;WRITE | sub-keyword | Onewire.c:121 | yes | yes | yes | P+C |  |
 | &nbsp;&nbsp;READ | sub-keyword | Onewire.c:123 | yes | yes | yes | P+C |  |
-| &nbsp;&nbsp;SEARCH | sub-keyword | Onewire.c:126 | - | - | - | U |  |
 | **TEMPR START** | command | Onewire.c:169 | t17 | p130 | t13 | P+C |  |
 | **PWM** | command | PWM.c:77 | t17 | p121 | t11 | P+C |  |
 | &nbsp;&nbsp;STOP | sub-keyword | PWM.c:91 | - | yes | yes | C |  |
@@ -1229,7 +1227,6 @@ Keywords by where they are documented (a suggestion, to be confirmed): C 40, P 1
 | &nbsp;&nbsp;FONT | sub-keyword | MM_Misc.c:3159 | yes | yes | - | P+C |  |
 | &nbsp;&nbsp;RTC | sub-keyword | MM_Misc.c:3162 | - | - | - | U |  |
 | &nbsp;&nbsp;LINES | sub-keyword | MM_Misc.c:3165 | - | - | - | U |  |
-| &nbsp;&nbsp;LINE | sub-keyword | MM_Misc.c:3169 | yes | - | - | P |  |
 | &nbsp;&nbsp;HARDWARE | sub-keyword | MM_Misc.c:3183 | - | - | - | U |  |
 | &nbsp;&nbsp;ERRNO | sub-keyword | MM_Misc.c:3186 | - | - | - | U |  |
 | &nbsp;&nbsp;ERRMSG | sub-keyword | MM_Misc.c:3189 | - | - | - | U |  |
