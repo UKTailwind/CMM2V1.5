@@ -375,7 +375,7 @@ Each phase ends at a gate that is run on the board through the harness; a phase 
   - the rest of P4's list: YMODEM, `LOAD ,C`, `AUTOSAVE N`, `OPTION DISK SAVE/LOAD`, HELP from help.txt, CALC, the LIST variants, MM.INFO.
 - **P5:** Peter brought performance forward. The first round is done (fd1b0b0): solar_eclipse takes 6.02 s, against 7.39 s on the original and 7.97 s before the round. Route B is not started.
 - **P6:** done but for two items: the `.ioc` (regenerate `main.c`'s `MX_*_Init` from it, or retire it) and the GNU regex (7.2 item 9).
-- **P7:** not started.
+- **P7:** not started, but for the upgrade test (20 Oct, G2). From 6.00.00b14 to 7.00.00b1: the first boot after flashing (`initoptions`, `main.c:557`, as in the 6.00 baseline) keeps the keyboard, the clock's settings, the console port, the SD speed, the default mode, the edit font, the mouse and MAXCTRLS, and resets the rest (OPTION AUTORUN, TAB, COLOURCODE...). It erases the program in flash and clears VAR SAVE's variables, so the reload of an older image from its file (`staleimage`) does not come into play after a firmware update. Back to b14 works the same way. Appendix K says so. The first boot leaves the console size (CURRENT DISPLAY) at MODE 1's 50,100 under a kept MODE 8, until the next OPTION command recalculates it (b14 too).
 - **Next** (review of 20 Oct):
   1. Peter's day of use of the new editor.
   2. Run the goldens and `Testfiles/` again, and commit the result as the new baseline. It sorts what fails into P1 language gaps, P3 graphics, hardware the CMM2 lacks, and the web commands. **Done 20 Oct** (see P1 above).

@@ -1,4 +1,4 @@
-# The Colour Maximite 2 user manual for the first release (7.00.00b0): plan
+# The Colour Maximite 2 user manual for the first release (7.00.00b1): plan
 
 *20 Oct 2026 (Peter: "a user manual up to date ... as I would like to release an alpha version to the users ... then we can keep it updated as we move forward").*
 
@@ -40,10 +40,10 @@ What this means:
 **M-D3. The title page and credits.** The manuals were written by Geoff Graham. The new one combines his CMM2 and PicoMite manuals with Gerry's b14 changes and this work. **Decided 20 Oct (Peter):**
 - Geoff Graham stays on the title page. (At first with a line "updated for MMBasic 7.00 by Peter Mather"; Peter had it taken off on 20 Oct.)
 - About credits Gerry's b14 work.
-- The version line reads "MMBasic Ver 7.00.00", and the firmware line "Matches firmware 7.00.00b0". The first release to users is b0, not an alpha (Peter, 20 Oct).
+- The version line reads "MMBasic Ver 7.00.00", and the firmware line "Matches firmware 7.00.00b1". The first release to users is a beta, not an alpha, and keeps the firmware's b1, since MM.VER for a b0 would be the release's (Peter, 20 Oct).
 
 **M-D4. The first release's scope.**
-- **For the first release (b0):** the reference sections complete and checked against the build, every chapter present, and the new parts written.
+- **For the first release (b1):** the reference sections complete and checked against the build, every chapter present, and the new parts written.
 - **Afterwards:** any chapter not yet revised line by line says so in a note at its head, and is revised in the releases that follow.
 
 **Decided 20 Oct (Peter): as above.**
@@ -223,7 +223,7 @@ What the chapters found:
 | M4 | The reference sections, entry by entry from `keywords.md`. The most-used keywords come first: PRINT, the file commands, graphics, MODE and PAGE. | 2-3 weeks |
 | M5 | The new parts: the editor, FM, USB devices, LIBRARY, structures, TILEMAP, MODE n,4, image slots, ZMODEM, the drives. | 1 week |
 | M6 | The checks (`tools/manual/check.py`), a PDF made by Word, and Peter's review. | 3-4 days |
-| M7 | The first release, 7.00.00b0: the docx and PDF, with `help.txt` for the CMM2 generated from the new manual (editor E8, P4's HELP item). | 1-2 days |
+| M7 | The first release, 7.00.00b1: the docx and PDF, with `help.txt` for the CMM2 generated from the new manual (editor E8, P4's HELP item). | 1-2 days |
 
 That is five to seven weeks of focused work. M4 is most of it.
 

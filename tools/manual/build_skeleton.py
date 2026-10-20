@@ -1,7 +1,7 @@
 """build_skeleton.py: step M2 of docs/Manual_Plan.md. Makes docs/manual/Colour_Maximite_2_User_Manual.docx from the
 PicoMite manual (the base, M-D1):
 
-- the title page as Peter decided (M-D3): Colour Maximite 2, MMBasic Ver 7.00.00, the firmware it matches (7.00.00b0,
+- the title page as Peter decided (M-D3): Colour Maximite 2, MMBasic Ver 7.00.00, the firmware it matches (7.00.00b1,
   the first release to users), Geoff Graham;
 - the chapters in the order of docs/manual/audit/chapters.md (CHAPTERS below). A chapter kept or merged keeps the
   PicoMite manual's text; one to be replaced or written new is its heading only; dropped chapters go;
@@ -170,7 +170,7 @@ def main():
         body.remove(el)
     # the title page (M-D3)
     title = {'PicoMite': 'Colour Maximite 2', 'Ver 7.0.00': 'MMBasic Ver 7.00.00',
-             'MMBasic BASIC Interpreter': '', 'For the': 'Matches firmware 7.00.00b0',
+             'MMBasic BASIC Interpreter': '', 'For the': 'Matches firmware 7.00.00b1',
              'Raspberry Pi Pico': '', 'Raspberry Pi Pico 2': '', 'Raspberry Pi Pico W': 'Geoff Graham',
              'http://geoffg.net/picomite.html': 'http://geoffg.net/maximite.html'}
     for el in front[:24]:
