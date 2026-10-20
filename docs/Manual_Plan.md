@@ -115,6 +115,17 @@ What the cross-reference found, before the audit confirms it:
 
 `chapters.md` is the chapter table: the proposal below, chapter by chapter, with each one's source and action.
 
+**M2 as built (20 Oct).** `tools/manual/build_skeleton.py` made `docs/manual/Colour_Maximite_2_User_Manual.docx` from the PicoMite manual. It has:
+- the title page of M-D3;
+- the 44 chapters of `chapters.md` in its order, with 19 PicoMite chapters dropped;
+- the footer reading "Colour Maximite 2 User Manual".
+
+The chapters to keep or merge keep the PicoMite text. Those to replace or write are their heading only.
+
+Under each chapter heading, and under About, is a highlighted note: `[MANUAL TODO] To be written / merged / checked / audited: ...`. It says what M3 or M4 does there, and the alpha has none left.
+
+`tools/manual/word.ps1` has Word update the table of contents and fields, save, and export the PDF: 263 pages for now. The script was run once. From here the manual is edited in place.
+
 ## The new manual's structure (proposed; M-A4 settles it)
 
 **Front matter:** the title page and the About section (M-D3), Introduction, Generation 1 and Generation 2, Hardware Features. These are the CMM2's, from b14.

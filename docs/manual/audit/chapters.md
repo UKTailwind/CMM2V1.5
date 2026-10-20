@@ -63,3 +63,10 @@ The actions:
 | M | Firmware Applicability | P (form) | new | The CMM2's closed list of labels (Manual_Plan.md). |
 | N | Where Each Keyword Is Documented | P (form) | new | Generated from the reference sections. |
 | O | Companion Manuals | P | keep | Only those that apply to the build: structures, FM, TILEMAP, PLAY SAMPLE, PLAY BBC, and others to check. |
+
+These PicoMite chapters are also dropped, each replaced by the CMM2 chapter named:
+- Introduction, by 1;
+- Firmware Versions and Files, which lists the PicoMite's images, by K (Loading the Firmware);
+- First Steps, by 2 (Quick Start Tutorial);
+- Hardware Details, by 5 (Hardware Features);
+- Appendix F, the PIO Programming Package: the CMM2 has no PIO.
