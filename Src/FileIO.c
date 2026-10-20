@@ -513,6 +513,13 @@ int FileLoadProgram(char *fname, int mode) {
 		strcpy(buff,getFstring(fname));
 	} else strcpy(buff,fname);
 	if(strchr(&buff[strlen(buff)-4], '.') == NULL) strcat(buff, ".BAS");
+	if(ProgMemory != ProgFlash) {                                   // a flash slot's program runs from the heap, which goes next:
+		int f = FindFreeFileNbr();                                  // the file is found first, or that program runs on
+		if(!InitSDCard() || !BasicFileOpen(buff, f, FA_READ)) return false;
+		FileClose(f);
+	}
+	SlotProgramLeave();                                             // program memory is where a program loads (ImageSlots.c)
+	ProgFromSlot = 0;
 	if(mode & 2) {                                                  // as ClearProgram, but the globals stay
 		ClearRuntimeKeepGlobals();
 		TraceOn = false;
@@ -2353,24 +2360,29 @@ static int InitUSBDrive(void) {
     return 2;
 }
 
-int InitSDCard(void) {
+// the SD card's volume ready, whatever the current drive, which is left as it is (A:/.vars, the flash slots' A:/.flash):
+// 1, or 2 if it was mounted now
+int InitACard(void) {
     int i;
-    if(filepath[0] == 'C') return InitUSBDrive();
     ErrorThrow(0);    // reset mm.errno to zero
     if(!MDD_SDSPI_CardDetectState()) { ErrorThrow(20); return false; }  // error if the card is not present
-    if(!(SDCardStat & STA_NOINIT)) {
-    	f_chdrive("A:");
-    	return 1;                     // if the card is present and has been initialised we have nothing to do
-    }
+    if(!(SDCardStat & STA_NOINIT)) return 1;                        // if the card is present and has been initialised we have nothing to do
     for(i = 0; i < MAXOPENFILES; i++)                               // only the files open on A: are stale
         if(FileTable[i].com > MAXCOMPORTS)
             if(FileTable[i].fptr != NULL && FileTable[i].fptr->obj.fs != &FatFs_USB)
                 ForceFileClose(i);
     i = f_mount(&FatFs, "A:", 1);
     if(i) { ErrorThrow(ErrorMap[i]); return false; }
-    f_mount(&FatFs_USB, "C:", 0);
-    f_chdrive("A:");
     return 2;
+}
+
+int InitSDCard(void) {
+    int r;
+    if(filepath[0] == 'C') return InitUSBDrive();
+    r = InitACard();
+    if(r == 2) f_mount(&FatFs_USB, "C:", 0);
+    if(r) f_chdrive("A:");
+    return r;
 }
 
 

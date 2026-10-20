@@ -393,11 +393,16 @@ void LibBoot(void);
 void LibCheckProgramFlash(int size);
 int LibFlashPresent(void);
 int LibraryImageValid(const unsigned char *lib, int limit);
+int ImageLayout(const unsigned char *lib, int limit, const unsigned int **records);
 #include "USBMouse.h"                                  // (UsbMouse, MouseOpenChannel: USBMouse.c)
 #include "USBGamepad.h"                                // (GamepadInterrupt, GamepadInterruptsOff: USBGamepad.c)
 #include "ImageSlots.h"                                // (image slots, TILEMAP: ImageSlots.c, TileMap.c)
 #include "Rgb121.h"                                   // (MODE n,4, the PicoMite's RGB121 display: Rgb121.c)
 int ImageIsCurrent(void);                       // does program memory hold an image of this format?
+int ImageIsCurrentAt(const char *image);        // does the image at image? (a flash slot's)
+int InProgMemory(const char *p);                // is p in program memory's image (or a running slot's)?
+void ProgramFlashErase(int size);               // program memory erased for an image of size bytes (main.c)
+void ProgramImageToFlash(const char *img, int len);   // and made that image (FLASH LOAD)
 void SubLayoutForget(void);                     // the SUBs' parameter layouts are gone with the heap (P6 F1)
 void NameIndexForget(void);                     // the index of SUBs, FUNCTIONs and labels is gone with the heap
 char *ProgName(void);                           // the program's file name from the image, or NULL

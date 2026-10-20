@@ -405,7 +405,7 @@ void ITCM_CODE ExecuteProgram(char *p) {
             	statement_time = ReadCoreTimer() + FastTimer;
             	ProfileLast = p;
             }
-            if(TraceOn && (p < ProgMemory+PROG_FLASH_SIZE || InLibrary(p)) && LHDR_LINE(p)) {   // (line 0: a file name line)
+            if(TraceOn && (InProgMemory(p) || InLibrary(p)) && LHDR_LINE(p)) {   // (line 0: a file name line)
             	char buff[10];
           		MMPrintString("[");
           		if(LHDR_FILE(p) > 1 || InLibrary(p)) {             // an #INCLUDE or library file: [name:line]
@@ -2361,7 +2361,12 @@ char *getstring(char *p) {
 // An image written by an older firmware has another format digit, or the name straight after the ' (the
 // header of 15 Oct), or the name's ' straight after its T_NEWLINE (before that).
 int ImageIsCurrent(void) {
-    unsigned char *p = (unsigned char *)ProgMemory;
+    return ImageIsCurrentAt(ProgMemory);
+}
+
+// the same for the image at p (a flash slot's: ImageSlots.c)
+int ImageIsCurrentAt(const char *image) {
+    const unsigned char *p = (const unsigned char *)image;
     return p[0] == T_NEWLINE && p[2] == LHDR_MIN && p[3] == LHDR_MIN && p[4] == LHDR_MIN && p[5] == '\''
         && p[6] == IMAGE_TAG && p[7] == IMAGE_FORMAT;
 }
@@ -4162,6 +4167,12 @@ void MMErrorchar(char c){
 //  % = insert a number
 // the optional data to be inserted is the second argument to this function
 // this uses longjump to skip back to the command input and cleanup the stack
+// is p in program memory's image (or a flash slot's program running in place: ImageSlots.c)? Both bounds: under OPTION
+// RAM, or with a slot's program in the heap, the token buffer at the prompt is below the program, not above it
+int InProgMemory(const char *p) {
+    return p >= (const char *)ProgMemory && p < (const char *)ProgMemory + PROG_FLASH_SIZE;
+}
+
 void error(char *msg, ...) {
     va_list ap;
     int fmline = 0;                                                 // the program's line, for FM (FmNoteError)
@@ -4181,7 +4192,7 @@ void error(char *msg, ...) {
     if(MMCharPos > 1 && !OptionErrorSkip) MMErrorString("\r\n");
     if(CurrentLinePtr) {
         int inlib = InLibrary(CurrentLinePtr);                      // a library line: its own image, and its file always named
-        if(*CurrentLinePtr != T_NEWLINE && (inlib || CurrentLinePtr < ProgMemory + PROG_FLASH_SIZE)) {
+        if(*CurrentLinePtr != T_NEWLINE && (inlib || InProgMemory(CurrentLinePtr))) {
             // normally CurrentLinePtr points to a T_NEWLINE token but in this case it does not
             // so we have to search for the start of the line and set CurrentLinePtr to that
             char *line = inlib ? LibMemory : (char *)ProgMemory, *next;
@@ -4192,7 +4203,7 @@ void error(char *msg, ...) {
             }
         }
         // the line's header names its file and line (see T_NEWLINE_HDR)
-       	if((inlib || CurrentLinePtr < ProgMemory +  PROG_FLASH_SIZE) && *CurrentLinePtr == T_NEWLINE) {
+       	if((inlib || InProgMemory(CurrentLinePtr)) && *CurrentLinePtr == T_NEWLINE) {
        		if(MMCharPos > 1)MMErrorString("\r\n");
        		MMErrorString("Error in ");
        		if(LHDR_FILE(CurrentLinePtr) > 1 || inlib) {           // an #INCLUDE file, or a library's
@@ -4969,7 +4980,7 @@ void SaveContext(void) {
     FIL f;
     struct s_ctxhead h = {CONTEXT_MAGIC, 0, OptionBase, DimUsed};
     int i, n;
-    if(!InitSDCard()) return;
+    if(!InitACard()) return;                                       // (A: whatever the current drive)
     for(i = MAXLOCALVARS; i < MAXVARS; i++) if(CtxSaved(VREC(i))) h.count++;
     CtxCheck(&f, f_open(&f, CONTEXT_FILE, FA_WRITE | FA_CREATE_ALWAYS));
     CtxXfer(&f, &h, sizeof(h), 1);
@@ -4990,7 +5001,7 @@ void RestoreContext(int keep) {
     struct s_vartbl r;
     char text[MAXVARLEN + 8 * (MAXDIM + 1) + 16];
     int i, d, n, SaveLocalIndex = LocalIndex;
-    if(!InitSDCard()) return;
+    if(!InitACard()) return;
     FRESULT fr = f_open(&f, CONTEXT_FILE, FA_READ);
     if(fr == FR_NO_FILE) error("No context saved");
     CtxCheck(&f, fr);

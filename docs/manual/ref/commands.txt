@@ -213,7 +213,7 @@ The optional parameter ‘colour’ defines a pixel colour on the source which w
 
 =+= BLIT FLASH n, to, xin, yin, xout, yout, width, height [,colour]
 ---
-Copies an area of the image held in image slot ‘n’ to a framebuffer or a page, as the PicoMite's BLIT FLASH does.  ‘n’ is 4 to 8: the image slots are loaded with FLASH LOAD IMAGE (see Image Slots in the chapter Video Modes and Pages).
+Copies an area of the image held in image slot ‘n’ to a framebuffer or a page, as the PicoMite's BLIT FLASH does.  ‘n’ is 1 to 8: the image slots are loaded with FLASH LOAD IMAGE (see Image Slots in the chapter Video Modes and Pages).
 ‘to’ is a framebuffer N, L, F, 2 or T, or a page number.  In a 4-bit mode a framebuffer that has not been created is N (but 2 is then an error); in the other colour depths N, L, F, 2 and T are the pages 0, 1, 2, 3 and 4.
 ‘xin’ and ‘yin’ define the top left of the area of ‘width’ and ‘height’ on the image to be copied, which must be within the image.  ‘xout’ and ‘yout’ define the top left of the area on the target to receive the copy; the copy is clipped to the target.
 The image's pixels are the PicoMite's 16 colours, drawn in the colour depth of the target.  The optional parameter ‘colour’ defines a pixel colour in the image which will not be copied.  If omitted (or -1) all pixels are copied.  The colour is specified as a number between 0 and 15 representing:\nBlack, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow and White
@@ -686,20 +686,49 @@ See also the FLAGS command and FLAG function and MM.FLAGS
 Sets all bits in the system flag register to the value specified.
 See also the FLAG command, the FLAG() function and MM.FLAGS
 
-=== FLASH LOAD IMAGE n, file$ [, O]
+=== FLASH SAVE n
+or
+FLASH OVERWRITE n
+--- keep
+Saves the program in program memory (the one RUN last loaded) into flash slot ‘n’ (1 to 3), as the PicoMite does, for FLASH RUN, FLASH CHAIN and FLASH LOAD.  FLASH SAVE gives the error "Already programmed" if the slot holds anything; FLASH OVERWRITE replaces what it holds.  They can only be used at the command prompt.
+The Colour Maximite 2 keeps its flash slots on the SD card, as the files slot1 to slot3 in the hidden directory A:/.flash, and reads a slot into RAM when it is first used after a RUN or NEW.  No flash memory is written, and the slots are kept when the power is off, as the PicoMite's are.  A slot holds the program as it was tokenised, not its source text, so a version of the firmware that tokenises programs differently will not run it: FLASH LIST then says that the slot was saved by another firmware version, and the program must be loaded from its file and saved again.
+
+=+= FLASH RUN n
+--- keep
+Runs the program in flash slot ‘n’, as RUN runs a program.  The program runs where it is, in the slot's copy in RAM: it is not loaded into program memory or tokenised again.  A slot of 0 runs the program in program memory.  MM.INFO(FLASH) returns the slot whose program is running, or 0.
+In a slot's program, RUN with no file name runs that program again.  When the program ends, or stops with an error or Ctrl-C, the program in program memory is the current program again (for LIST, RUN and EDIT), and CONTINUE cannot resume the slot's program.
+
+=+= FLASH CHAIN n
+--- keep
+Runs the program in flash slot ‘n’ as FLASH RUN does, but the global variables are kept, as with CHAIN.  A slot of 0 runs the program in program memory.  It can only be used in a program.
+
+=+= FLASH LOAD n
+--- keep
+Loads the program in flash slot ‘n’ into program memory, replacing the program there.  RUN then runs it as it is (not its file, which RUN otherwise loads afresh) until another program is loaded, NEW is used or the Colour Maximite 2 restarts.  It can only be used at the command prompt.
+
+=+= FLASH LIST [n [, ALL]]
+--- keep
+FLASH LIST reports what each flash slot holds: "available", the file name of a program, or the size of an image.  FLASH LIST n lists the program in slot ‘n’ as it is held (as LIST FLASH lists program memory), pausing at each screenful unless ALL is given.
+
+=+= FLASH ERASE n
+or
+FLASH ERASE ALL
+--- keep
+Empties flash slot ‘n’, or all three.  FLASH ERASE ALL can only be used at the command prompt.
+
+=+= FLASH LOAD IMAGE n, file$ [, O]
 or
 FLASH LOAD IMAGE n, file$ [, OVERWRITE]
 --- keep
-Loads the BMP file ‘file$’ (".BMP" is added if it has no extension) into image slot ‘n’ in the PicoMite's format, for the PicoMite's commands that use image slots (BLIT FLASH and TILEMAP).  The slot holds an 8 byte header, the image's width and height as two 32-bit words, followed by the pixels in the RGB121 format, two to a byte with the left pixel in the low four bits; MM.INFO(FLASH ADDRESS n) gives its address.
-‘n’ is 4 to 8.  These are the PicoMite's RAM slots: here they are blocks of the MMBasic heap, which RUN, NEW and loading a program free, so a program loads its images every time it starts.  Slots 1 to 3, the PicoMite's flash slots, are not provided.
-A slot that already holds an image gives the error "Already programmed" unless O (or OVERWRITE) is given.  At the command prompt the command reports the size of the image.
+Loads the BMP file ‘file$’ (".BMP" is added if it has no extension) into slot ‘n’ in the PicoMite's format, for the PicoMite's commands that use image slots (BLIT FLASH and TILEMAP).  The slot holds an 8 byte header, the image's width and height as two 32-bit words, followed by the pixels in the RGB121 format, two to a byte with the left pixel in the low four bits; MM.INFO(FLASH ADDRESS n) gives its address.
+‘n’ is 1 to 8.  Slots 1 to 3 are the flash slots, kept on the SD card (see FLASH SAVE).  Slots 4 to 8 are the PicoMite's RAM slots: here they are blocks of the MMBasic heap, which RUN, NEW and loading a program free, so a program loads its images every time it starts.
+A slot that already holds something gives the error "Already programmed" unless O (or OVERWRITE) is given.  At the command prompt the command reports the size of the image.
 
 =+= FLASH DISK LOAD n, file$ [, O]
 or
 FLASH DISK LOAD n, file$ [, OVERWRITE]
 --- keep
-Loads the bytes of the file ‘file$’, as they are, into image slot ‘n’ (4 to 8), for a program to read with PEEK or MEMORY COPY at MM.INFO(FLASH ADDRESS n) (eg, a PicoMite program's sprite data).  A slot that already holds something gives the error "Already programmed" unless O (or OVERWRITE) is given.
-The PicoMite's other FLASH commands, for its program slots (FLASH SAVE, LOAD, RUN, CHAIN, LIST, ERASE and OVERWRITE), are not provided: the Colour Maximite 2 runs its programs from files, and the library has its own area of the flash memory (see LIBRARY).
+Loads the bytes of the file ‘file$’, as they are, into slot ‘n’ (1 to 8), for a program to read with PEEK or MEMORY COPY at MM.INFO(FLASH ADDRESS n) (eg, a PicoMite program's sprite data).  A slot that already holds something gives the error "Already programmed" unless O (or OVERWRITE) is given.
 
 === FM
 --- keep

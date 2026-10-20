@@ -30,7 +30,7 @@ The TILEMAP command draws a background made of tiles (small images from one tile
 
 The Colour Maximite 2 can load and display images stored on the SD card in a variety of formats including BMP, GIF, PNG and JPG. These are read by the LOAD command and can be of any size and positioned anywhere on the screen. In addition on-screen images can be scaled and rotated under control of the program.
 
-Images can also be loaded into memory with FLASH LOAD IMAGE, into the image slots 4 to 8 that the PicoMite's games use, and drawn from there with BLIT FLASH.
+Images can also be loaded into memory with FLASH LOAD IMAGE, into the image slots 1 to 8 that the PicoMite's games use, and drawn from there with BLIT FLASH.
 
 ## Fonts
 

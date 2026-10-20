@@ -115,6 +115,12 @@ char *LineFileNameAt(char *p) {
    PrepareProgram before any input is possible, so it is checked at boot and before a .lib file is written; the walk
    is PrepareProgramExt's: the text, the zeros, the FF, the symbol table, then the records, each inside the limit. */
 int LibraryImageValid(const unsigned char *lib, int limit) {
+    return ImageLayout(lib, limit, NULL);
+}
+
+/* The same for a program's image or a library's: its length (0 if it is not sound), and in *records (if records is
+   not NULL) where its CSUB and font records start, after its symbol table (a flash slot's program: ImageSlots.c). */
+int ImageLayout(const unsigned char *lib, int limit, const unsigned int **records) {
     const unsigned char *p = lib, *end = lib + limit;
     const unsigned int *cfp, *cfpend;
     if(lib == NULL || *p != T_NEWLINE) return 0;                    // it starts with its first name line
@@ -132,6 +138,7 @@ int LibraryImageValid(const unsigned char *lib, int limit) {
            st->size > (uint32_t)(end - (const unsigned char *)cfp)) return 0;
         cfp += st->size / 4;
     }
+    if(records != NULL) *records = cfp;
     while(cfp < cfpend && *cfp != 0xffffffffu) {
         unsigned int words;
         cfp++;                                                      // over the address word

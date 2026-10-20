@@ -691,9 +691,9 @@ if(Option.ProgramStartCode>=0){
 	ProgMemory=(char *)((uint32_t)progstart[Option.ProgramStartCode]);
 	if(!(*ProgMemory==0 || ImageIsCurrent())){                  // erased, or an image from another format
 		char *nm = NULL;                                            // an older firmware's image: the file its first line names
-		if(ProgMemory[0]==T_NEWLINE && ProgMemory[1]=='\'') nm = ProgMemory + 2;              // before the line header
-		else if(ProgMemory[0]==T_NEWLINE && ProgMemory[5]=='\'')                               // with it
-			nm = ProgMemory + T_NEWLINE_HDR + (ProgMemory[6] == IMAGE_TAG ? IMAGE_NAME : 1);
+		if(ProgMemory[0]==T_NEWLINE && ProgMemory[5]=='\'')                                    // with the line header (first:
+			nm = ProgMemory + T_NEWLINE_HDR + (ProgMemory[6] == IMAGE_TAG ? IMAGE_NAME : 1);   // its skip byte can be a ')
+		else if(ProgMemory[0]==T_NEWLINE && ProgMemory[1]=='\'') nm = ProgMemory + 2;         // before it
 		if(nm) {
 			int k=0;
 			while(k < sizeof(staleimage)-1 && nm[k] >= ' ' && nm[k] < 0x7f && nm[k] != '"') {
@@ -711,6 +711,7 @@ if(Option.ProgramStartCode>=0){
 	if(G1Hardware)ProgMemory = (char *)0xD0300000;
 	else ProgMemory = (char *)0xD0780000;
 }
+ProgFlash = ProgMemory;                                             // (ProgMemory is elsewhere while a flash slot's program runs)
 {
     int reset=3;
 	  /*Configure RESET  pin : Pin40 */
@@ -890,6 +891,8 @@ if(setjmp(mark) != 0) {
 	  MMPrintString("\r\n");
     // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
     ContinuePoint = nextstmt;                                   // in case the user wants to use the continue command
+    if(ProgMemory != ProgFlash) ContinuePoint = NULL;           // (but not a flash slot's program: ProgMemory goes back to
+    SlotProgramLeave();                                         // program memory, ImageSlots.c)
     *tknbuf = 0;                                                // we do not want to run whatever is in the token buffer
     {   // a call whose arguments were being processed (a CTRL-C in them) is gone: a later error must not free its block
         extern uint32_t DefinedSubFunMem;
@@ -948,6 +951,8 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
   while (1)
   {
 	  executerun=0;
+	  SlotProgramLeave();                                          // (the prompt is program memory's: a flash slot's program
+	                                                               // ends through cleanend, which does this too)
 	  ShortScroll=Option.showstatus;
 	  MMAbort = false;
       BreakKey = BREAK_KEY;
@@ -3775,6 +3780,34 @@ done:
 }
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to program flash in tokenised format
+/* Program memory erased for an image of size bytes: each 128 KB sector it reaches, none of them the saved options'
+   (sector 7) nor the flash library's. (The test here was > where it is >=, which let a program over 128 KB at OPTION
+   FLASH 6, or over 256 KB at 5, erase the options' sector.) Under OPTION RAM FlashWriteInit clears the SDRAM program
+   area, once. */
+void ProgramFlashErase(int size) {
+    int i, k, n = (size + 0x1FFFF) / 0x20000;
+    if(n < 1 || Option.ProgramStartCode < 0) n = 1;
+    if(Option.ProgramStartCode >= 0 && (uint32_t)ProgMemory + n * 0x20000 > FLASH_SAVED_OPTION_ADDR)
+        error("OPTION FLASH must be in range % to % for this program", PROGRAMSTARTCODE, 7 - n);
+    LibCheckProgramFlash(size);
+    for(k = 0; k < n; k++) {
+        i = 3;
+        while(FlashWriteInit((uint32_t)ProgMemory + k * 0x20000) && i) i--;
+        if(i == 0) error("Failed to erase flash memory");
+    }
+}
+
+// program memory made the len bytes of the image at img, whose CSUB records hold their addresses there already
+// (FLASH LOAD, ImageSlots.c)
+void ProgramImageToFlash(const char *img, int len) {
+    SCB_CleanInvalidateDCache();
+    ProgramFlashErase(len);
+    SymTabProg = NULL;                                              // the old image's symbol table went with the erase
+    for(int k = 0; k < len; k++) FlashWriteByte(img[k]);
+    FlashWriteClose();
+    SCB_CleanInvalidateDCache();
+}
+
 void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
     CommandToken endtoken;
@@ -3784,28 +3817,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 	SCB_CleanInvalidateDCache();
 	clearrepeat();
     mycpy(buf, tknbuf, TKNBUFSIZE);                                // save the token buffer because we are going to use it
-    LibCheckProgramFlash(size);                                     // a program in flash may not reach the library's sector
-	i=3;
-    while(FlashWriteInit((uint32_t)ProgMemory) && i)i--;                     // erase program memory
-    if(i==0)error("Failed to erase flash memory");
-    if(size>384*1024){
-    	if((uint32_t)ProgMemory+0x60000> FLASH_SAVED_OPTION_ADDR)error("OPTION FLASH must be in range % to 3 for this program",PROGRAMSTARTCODE); //Should be 0 to 3
-    	i=3;
-        while(FlashWriteInit((uint32_t)ProgMemory+0x60000) && i)i--;                     // erase program memory
-        if(i==0)error("Failed to erase flash memory");
-    }
-    if(size>256*1024){
-    	if((uint32_t)ProgMemory+0x40000> FLASH_SAVED_OPTION_ADDR)error("OPTION FLASH must be in range % to 4 for this program",PROGRAMSTARTCODE); //should be 0 to 4
-    	i=3;
-        while(FlashWriteInit((uint32_t)ProgMemory+0x40000) && i)i--;                     // erase program memory
-        if(i==0)error("Failed to erase flash memory");
-    }
-    if(size>128*1024){
-    	if((uint32_t)ProgMemory+0x20000> FLASH_SAVED_OPTION_ADDR)error("OPTION FLASH must be in range % to 5 for this program",PROGRAMSTARTCODE);// should be 0 to 5
-    	i=3;
-        while(FlashWriteInit((uint32_t)ProgMemory+0x20000) && i)i--;                     // erase program memory
-        if(i==0)error("Failed to erase flash memory");
-    }
+    ProgramFlashErase(size);
     nbr = 0;
     // this is used to count the number of bytes written to flash
     CollectIncludes(pm);                                        // number the #INCLUDE files first

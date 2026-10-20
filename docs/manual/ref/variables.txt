@@ -109,9 +109,13 @@ MM.INFO$(MODIFIED file$)
 The size of the file ‘file$’ in bytes: -1 if it is not found and -2 if it is a directory.
 The date and time that ‘file$’ was last modified, as a string in the form "YYYY-MM-DD HH:MM:SS".  ‘file$’ can also be a directory.  It is an empty string if the file or directory is not found.
 
+=+= MM.INFO(FLASH)
+--- keep
+The flash slot whose program is running (see FLASH RUN and FLASH CHAIN), or 0 for the program in program memory.
+
 =+= MM.INFO(FLASH ADDRESS n)
 --- keep
-The address of image slot ‘n’ (1 to 8), as FLASH LOAD IMAGE and FLASH DISK LOAD fill it: an image's first two 32-bit words are its width and height.  Slots 4 to 8 are the ones the Colour Maximite 2 provides.  Slots 1 to 3 (the PicoMite's flash slots), and a slot with nothing loaded, read as an empty slot whose width and height are zero.
+The address of slot ‘n’ (1 to 8), as FLASH LOAD IMAGE, FLASH DISK LOAD and FLASH SAVE fill it: an image's first two 32-bit words are its width and height.  A flash slot (1 to 3) is read from the SD card into RAM when it is first used after a RUN or NEW.  An empty flash slot reads as erased flash memory (every byte &HFF), and an empty RAM slot (4 to 8) as a header whose width and height are zero, as on the PicoMite.
 
 =+= MM.INFO(FONT)
 MM.INFO(FONT ADDRESS n)

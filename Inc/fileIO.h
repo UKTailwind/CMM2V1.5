@@ -78,6 +78,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void FilePutData(char *c, int fnbr, int n);
     extern char *ChangeToDir(char *p);
     extern int InitSDCard(void);
+    extern int InitACard(void);
     extern void ErrorCheck(int fnbr);
     extern void ErrorThrow(int e);
     extern void CheckSDCard(void);

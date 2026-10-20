@@ -140,6 +140,7 @@ extern char DimUsed;
 //extern char *GetFileName(char* CmdLinePtr, char *LastFilePtr);
 //extern void mergefile(char *fname, char *MemPtr);
 extern void MIPS16 ListProgram(char *p, int all);
+extern void MIPS16 ListProgramFlash(char *p, int all);
 extern char MIPS16 *llist(char *b, char *p);
 extern char *CheckIfTypeSpecified(char *p, int *type, int AllowDefaultType);
 

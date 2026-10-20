@@ -1,15 +1,36 @@
 /***********************************************************************************************************************
-Image slots (the PicoMite's FLASH LOAD IMAGE, 18 Oct: for TILEMAP, and BLIT FLASH to come) and the writer that draws
-their 4-bit pixels into a CMM2 page.
+Flash and image slots (the PicoMite's FLASH commands) and the writer that draws an image's 4-bit pixels into a CMM2
+page.
 
-A slot holds what the PicoMite's does: an 8-byte header (its width and height, two 32-bit words), then the pixels as
-4-bit RGB121 values packed two to a byte, the left pixel in the low nibble, each row (width + 1) / 2 bytes. Programs PEEK
-the header (MM.INFO(FLASH ADDRESS n)) to see whether a slot is loaded, so the layout is the PicoMite's exactly.
+A slot holds what the PicoMite's does: a program (FLASH SAVE), an image (FLASH LOAD IMAGE: an 8-byte header, its width
+and height as two 32-bit words, then the pixels as 4-bit RGB121 values packed two to a byte, the left pixel in the low
+nibble, each row (width + 1) / 2 bytes) or a file's bytes as they are (FLASH DISK LOAD). Programs PEEK the header
+(MM.INFO(FLASH ADDRESS n)) to see whether a slot is loaded, so the layout is the PicoMite's exactly.
+
+Slots 1 to 3 are the PicoMite's flash slots, kept in RAM and on the SD card (Peter, 20 Oct): each is a file,
+A:/.flash/slot1 to slot3 (a hidden folder), and nothing is written to the CMM2's flash. A slot is read into a heap block
+the first time it is wanted after a heap wipe (RUN, NEW, a program load), so it costs no memory until then; an empty one
+reads as erased flash (FF), as the PicoMite's does. A program is the image program memory held, tokens and all (Peter,
+20 Oct: tokenised, not its source; a firmware of another IMAGE_FORMAT refuses it, naming its file to be loaded and
+saved again), but for its CSUB records' address words: the file keeps them as offsets from the image's start (a font's
+word is its number, below FONT_TABLE_SIZE) and the block as addresses in it, the block in the executable window if
+the program has a CSUB. FLASH RUN and FLASH CHAIN run the program there in place, as the PicoMite runs a slot's program
+from flash: nothing is tokenised and no flash is written. ProgMemory points at the block while it runs (FlashLoad says
+which slot: MM.INFO(FLASH)), and at program memory (ProgFlash) again at the prompt and before a program is loaded
+(SlotProgramLeave).
+
+  FLASH SAVE n                        the program in memory into slot n ("Already programmed" if it holds anything)
+  FLASH OVERWRITE n                   the same, whatever slot n holds
+  FLASH LOAD n                        slot n's program into program memory (RUN runs it as it is, not its file again)
+  FLASH RUN n                         slot n's program run (0: program memory's)
+  FLASH CHAIN n                       the same, the global variables kept (in a program)
+  FLASH LIST [n [, ALL]]              what the slots hold, or slot n's program listed
+  FLASH ERASE n / FLASH ERASE ALL     slot n emptied, or slots 1 to 3 (ALL: at the prompt)
 
 Slots 4 to 8 are the PicoMite's RAM slots, which its games use where there is PSRAM (MM.INFO(PSRAM SIZE) says the CMM2
-has). Here each is a heap block made by FLASH LOAD IMAGE (Peter, 18 Oct: no fixed SDRAM area), freed with the heap by
-RUN, NEW and a program load, so a program loads its images at every start, as the PicoMite's games do. An empty slot
-reads as a zero header, as an empty PicoMite RAM slot does. Slots 1 to 3, the PicoMite's flash slots, are not here yet.
+has). Here each is a heap block (Peter, 18 Oct: no fixed SDRAM area), freed with the heap by RUN, NEW and a program
+load, so a program loads its images at every start, as the PicoMite's games do. An empty one reads as a zero header,
+as an empty PicoMite RAM slot does.
 
   FLASH LOAD IMAGE n, f$ [, O | OVERWRITE]     a BMP file into slot n ("Already programmed" if it holds one, unless O)
   FLASH DISK LOAD n, f$ [, O | OVERWRITE]      a file's bytes into slot n as they are (18 Oct: PETSCII Robots' sprites)
@@ -26,11 +47,22 @@ themselves, as the PicoMite's blit121 does, and MAP acts on them there through t
 #include "Hardware_Includes.h"
 #include "ImageSlots.h"
 
-#define MAXFLASHSLOTS 3                                             // the PicoMite's flash slots (not here yet); then its RAM slots, 4 to 8
+#define SLOTDIR "A:/.flash"                                         // the flash slots' files
+#define SLOT_DATA 0                                                 // what a flash slot's block holds: an image or a file's bytes,
+#define SLOT_PROGRAM 1                                              // a program of this firmware's (its CSUBs' addresses made),
+#define SLOT_OLD 2                                                  // a program of another IMAGE_FORMAT's,
+#define SLOT_BAD 3                                                  // or one whose layout is not sound
 extern bool (*linecallback)(int *imagewidth, int *imageheight, uint32_t *linedata, int *linenumber);
+extern char runcmd[STRINGSIZE];
 
-static uint8_t *ImageSlot[MAXIMAGESLOTS + 1];                       // a RAM slot's heap block, or NULL
-static const uint32_t ImageSlotEmpty[4] = {0, 0, 0, 0};             // what an empty slot reads as
+int FlashLoad = 0;                                                  // the slot whose program is running (FLASH RUN, CHAIN), or 0
+char *ProgFlash = (char *)FLASH_PROGRAM_ADDR;                       // program memory, where ProgMemory points but while a slot's
+                                                                    // program runs (main.c sets it with ProgMemory at boot)
+int ProgFromSlot = 0;                                               // FLASH LOAD made program memory: RUN runs it as it is
+static uint8_t *ImageSlot[MAXIMAGESLOTS + 1];                       // a slot's heap block, or NULL
+static uint8_t SlotKind[MAXFLASHSLOTS + 1];                         // what a flash slot's block holds (SLOT_DATA...)
+static const uint32_t ImageSlotEmpty[4] = {0, 0, 0, 0};             // what an empty RAM slot reads as,
+static const uint32_t ImageSlotErased[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};   // and an empty flash slot
 
 // the PicoMite's RGB121 colours (graphics/Draw.c colours[16]): bit 3 red, bits 2-1 green, bit 0 blue
 const int Rgb121Colours[16] = {0x00, 0xFF, 0x4000, 0x40ff, 0x8000, 0x80ff, 0xff00, 0xffff,
@@ -41,17 +73,227 @@ void ImageSlotsForget(void) {
     memset(ImageSlot, 0, sizeof(ImageSlot));
 }
 
-// the address of slot n's header (an empty slot: a zero header)
+// slot n's block let go: freed, but for one a program runs from or a tilemap draws from (the next heap wipe frees it)
+static void SlotDrop(int slot) {
+    if(ImageSlot[slot] == NULL) return;
+    if(ImageSlot[slot] == (uint8_t *)ProgMemory || TileMapUses(ImageSlot[slot])) ImageSlot[slot] = NULL;
+    else FreeMemorySafe((void *)&ImageSlot[slot]);
+}
+
+/* The flash slots' files. Each is the slot's bytes; none, or none in it, is an empty slot. The SD card is made ready
+   whatever the current drive (InitACard), and the folder is made, hidden from FILES and FM, at the first save. */
+static void SlotPath(char *path, int slot) {
+    sprintf(path, SLOTDIR "/slot%d", slot);
+}
+
+static void SlotCard(void) {
+    if(!InitACard()) error("SD card not found");
+}
+
+// a FatFs call's result: an error if it failed (f, if not NULL, closed first)
+static void SlotCheck(FIL *f, FRESULT r) {
+    if(r == FR_OK) return;
+    if(f != NULL) f_close(f);
+    FSerror = r;
+    ErrorCheck(0);
+    error("Flash slot file");
+}
+
+// the size of flash slot n's file: 0 for an empty slot
+static int SlotSize(int slot) {
+    FILINFO fno;
+    char path[24];
+    SlotCard();
+    SlotPath(path, slot);
+    if(f_stat(path, &fno) != FR_OK || (fno.fattrib & AM_DIR)) return 0;
+    return (int)fno.fsize;
+}
+
+// up to n bytes from the start of flash slot n's file into buf: how many (0: the slot is empty)
+static int SlotHead(int slot, void *buf, int n) {
+    FIL f;
+    UINT got = 0;
+    char path[24];
+    SlotCard();
+    SlotPath(path, slot);
+    if(f_open(&f, path, FA_READ) != FR_OK) return 0;
+    SlotCheck(&f, f_read(&f, buf, n, &got));
+    f_close(&f);
+    return (int)got;
+}
+
+// flash slot n's file made the len bytes at data, and its block let go
+static void SlotWrite(int slot, const void *data, int len) {
+    FIL f;
+    FILINFO fno;
+    UINT done = 0;
+    FRESULT r;
+    char path[24];
+    SlotCard();
+    if(f_stat(SLOTDIR, &fno) != FR_OK) {
+        SlotCheck(NULL, f_mkdir(SLOTDIR));
+        f_chmod(SLOTDIR, AM_HID, AM_HID);
+    }
+    SlotPath(path, slot);
+    SlotCheck(NULL, f_open(&f, path, FA_WRITE | FA_CREATE_ALWAYS));
+    r = f_write(&f, data, len, &done);
+    if(r == FR_OK) r = f_close(&f);
+    else f_close(&f);
+    if(r != FR_OK || (int)done != len) {
+        f_unlink(path);                                             // not half a slot
+        if(r == FR_OK) error("Not enough space on the SD card");
+        SlotCheck(NULL, r);
+    }
+    SlotDrop(slot);
+}
+
+// flash slot n emptied: its file deleted, its block let go
+static void SlotErase(int slot) {
+    FRESULT r;
+    char path[24];
+    SlotCard();
+    SlotPath(path, slot);
+    r = f_unlink(path);
+    if(r != FR_NO_FILE && r != FR_NO_PATH) SlotCheck(NULL, r);
+    SlotDrop(slot);
+}
+
+// what the n bytes of a slot's image at p are: SLOT_PROGRAM, SLOT_OLD (main.c's test for an older image), SLOT_DATA
+static int SlotKindOf(const uint8_t *p, int n) {
+    if(n > 8 && ImageIsCurrentAt((const char *)p)) return SLOT_PROGRAM;
+    if(n > 8 && p[0] == T_NEWLINE && (p[1] == '\'' || p[5] == '\'')) return SLOT_OLD;
+    return SLOT_DATA;
+}
+
+// the file name in the first line of a program's image (n bytes at p, an older format's too) into name (FF_MAX_LFN):
+// after the line header (with IMAGE_TAG and the format, or before 15 Oct without), or before there was a header
+// straight after T_NEWLINE (the header first: its skip byte, p[1], can be a ')
+static void SlotName(const uint8_t *p, int n, char *name) {
+    const uint8_t *nm = NULL;
+    int k = 0;
+    if(p[5] == '\'') nm = p + T_NEWLINE_HDR + (p[6] == IMAGE_TAG ? IMAGE_NAME : 1);
+    else if(p[1] == '\'') nm = p + 2;
+    if(nm != NULL)
+        while(k < FF_MAX_LFN - 1 && nm + k < p + n && nm[k] >= ' ' && nm[k] < 0x7f && nm[k] != '"') {
+            name[k] = nm[k];
+            k++;
+        }
+    name[k] = 0;
+}
+
+// why slot n, of that kind (its first n bytes at p), has no program to run, as an error
+static void SlotRefuse(int slot, int kind, const uint8_t *p, int n) {
+    char name[FF_MAX_LFN];
+    if(kind == SLOT_BAD) error("Flash slot % is corrupt", slot);
+    if(kind == SLOT_OLD) {
+        SlotName(p, n, name);
+        error("Flash slot % holds $ from another firmware version: load it and save it again", slot, name);
+    }
+    error("Flash slot empty");
+}
+
+/* The CSUB records of the program's image at img (len bytes): each address word moved by delta (a font's, its number,
+   stays). -1 if the image is not sound, else 1 if it has a CSUB (delta 0: only the question). */
+static int ImageRebase(uint8_t *img, int len, int32_t delta) {
+    const unsigned int *rec;
+    unsigned int *cfp;
+    int csubs = 0;
+    if(!ImageLayout(img, len, &rec)) return -1;
+    cfp = (unsigned int *)rec;
+    while(*cfp != 0xffffffff) {
+        if(*cfp >= FONT_TABLE_SIZE) {
+            *cfp += delta;
+            csubs = 1;
+        }
+        cfp++;
+        cfp += (*cfp + 4) / sizeof(unsigned int);
+    }
+    return csubs;
+}
+
+// flash slot n's block, read from its file the first time it is wanted after a heap wipe; NULL for an empty slot
+static uint8_t *SlotGet(int slot) {
+    FIL f;
+    UINT got = 0;
+    FRESULT r;
+    char path[24];
+    int len, csubs;
+    uint8_t *b, *x;
+    if(ImageSlot[slot] != NULL) return ImageSlot[slot];
+    if((len = SlotSize(slot)) == 0) return NULL;
+    SlotPath(path, slot);
+    SlotCheck(NULL, f_open(&f, path, FA_READ));
+    b = GetMemory(len);
+    r = f_read(&f, b, len, &got);
+    f_close(&f);
+    if(r != FR_OK || (int)got != len) {
+        FreeMemorySafe((void *)&b);
+        SlotCheck(NULL, r != FR_OK ? r : FR_INT_ERR);
+    }
+    SlotKind[slot] = SlotKindOf(b, len);
+    if(SlotKind[slot] == SLOT_PROGRAM) {
+        if((csubs = ImageRebase(b, len, 0)) < 0) SlotKind[slot] = SLOT_BAD;
+        else {
+            if(csubs) {                                             // a CSUB's code runs from it
+                x = GetExecMemory(len);
+                memcpy(x, b, len);
+                FreeMemorySafe((void *)&b);
+                b = x;
+            }
+            ImageRebase(b, len, (int32_t)b);
+            if(csubs) {
+                SCB_CleanDCache();
+                SCB_InvalidateICache();
+            }
+        }
+    }
+    ImageSlot[slot] = b;
+    return b;
+}
+
+// FLASH RUN, CHAIN and LOAD, before anything is cleared: an error if slot n has no program of this firmware's (0:
+// program memory's), from the start of its file (a program's layout is checked when it is read: SlotProgram)
+void SlotProgramCheck(int slot) {
+    uint8_t head[T_NEWLINE_HDR + IMAGE_NAME + FF_MAX_LFN];
+    int n, kind;
+    if(slot == 0) {
+        if(!ImageIsCurrentAt(ProgFlash)) error("Nothing to run");
+        return;
+    }
+    n = SlotHead(slot, head, sizeof(head));
+    if((kind = SlotKindOf(head, n)) != SLOT_PROGRAM) SlotRefuse(slot, kind, head, n);
+}
+
+// slot n's program in its block, to run in place: an error if it holds none of this firmware's
+char *SlotProgram(int slot) {
+    uint8_t *b = SlotGet(slot);
+    if(b == NULL) error("Flash slot empty");
+    if(SlotKind[slot] != SLOT_PROGRAM) SlotRefuse(slot, SlotKind[slot], b, MemSize(b));
+    return (char *)b;
+}
+
+// ProgMemory back at program memory (the prompt, and before a program is loaded), and the tables made for the slot's
+// program forgotten, to be made again for program memory's (as after a heap wipe: their blocks go with the next one)
+void SlotProgramLeave(void) {
+    FlashLoad = 0;
+    if(ProgMemory == ProgFlash) return;
+    ProgMemory = ProgFlash;
+    ProgramCachesForget();
+    findlabel(NULL);
+}
+
+// the address of slot n's header (an empty flash slot: FF, an empty RAM slot: a zero header)
 uint8_t *ImageSlotAddress(int slot) {
+    uint8_t *b;
     if(slot < 1 || slot > MAXIMAGESLOTS) error("Invalid slot %", slot);
-    if(slot <= MAXFLASHSLOTS || ImageSlot[slot] == NULL) return (uint8_t *)ImageSlotEmpty;
+    if(slot <= MAXFLASHSLOTS) return (b = SlotGet(slot)) != NULL ? b : (uint8_t *)ImageSlotErased;
+    if(ImageSlot[slot] == NULL) return (uint8_t *)ImageSlotEmpty;
     return ImageSlot[slot];
 }
 
 // the image in slot n: its pixels (past the header), width and height; an error if there is none
 uint8_t *ImageSlotPixels(int slot, int *w, int *h) {
     uint32_t *hdr;
-    if(slot >= 1 && slot <= MAXFLASHSLOTS) error("Flash image slots are not provided: use slots 4 to 8");
     hdr = (uint32_t *)ImageSlotAddress(slot);
     *w = (int)hdr[0];
     *h = (int)hdr[1];
@@ -80,11 +322,66 @@ static bool SlotLineCallback(int *imagewidth, int *imageheight, uint32_t *lineda
     return true;
 }
 
-// FLASH LOAD IMAGE n, f$ [, O] (the PicoMite's other FLASH commands are its program slots: not here)
+// does slot n hold anything ("Already programmed")?
+static int SlotInUse(int slot) {
+    return slot <= MAXFLASHSLOTS ? SlotSize(slot) != 0 : ImageSlot[slot] != NULL;
+}
+
+// FLASH SAVE n and FLASH OVERWRITE n: the program in memory into flash slot n, its CSUBs' addresses made offsets
+static void SlotSave(int slot, int overwrite) {
+    int len;
+    uint8_t *img;
+    if(CurrentLinePtr) error("Invalid in a program");
+    if(!overwrite && SlotSize(slot)) error("Already programmed");
+    if(!ImageIsCurrentAt(ProgMemory) || (len = ImageLayout((unsigned char *)ProgMemory, PROG_FLASH_SIZE, NULL)) == 0)
+        error("Nothing to save");
+    img = GetMemory(len);
+    memcpy(img, ProgMemory, len);
+    ImageRebase(img, len, -(int32_t)ProgMemory);
+    SlotWrite(slot, img, len);
+    FreeMemorySafe((void *)&img);
+}
+
+// FLASH LIST: what each flash slot holds (the PicoMite's)
+static void SlotListAll(void) {
+    uint8_t head[T_NEWLINE_HDR + IMAGE_NAME + FF_MAX_LFN];
+    char name[FF_MAX_LFN];
+    uint32_t wh[2];
+    int n, kind;
+    for(int slot = 1; slot <= MAXFLASHSLOTS; slot++) {
+        n = SlotHead(slot, head, sizeof(head));
+        MMPrintString(" Slot ");
+        PInt(slot);
+        if(n == 0) {
+            MMPrintString(" available\r\n");
+            continue;
+        }
+        MMPrintString(" in use");
+        kind = SlotKindOf(head, n);
+        if(kind != SLOT_DATA) {
+            SlotName(head, n, name);
+            MMPrintString(": \"");
+            MMPrintString(name);
+            MMPrintString("\"");
+            if(kind == SLOT_OLD) MMPrintString(", saved by another firmware version");
+        } else if(n >= 8) {
+            memcpy(wh, head, 8);
+            if(wh[0] >= 1 && wh[0] <= 3840 && wh[1] >= 1 && wh[1] <= 2160) {
+                MMPrintString(": image ");
+                PInt(wh[0]);
+                MMPrintString(" x ");
+                PInt(wh[1]);
+            }
+        }
+        MMPrintString("\r\n");
+    }
+}
+
 void cmd_flash(void) {
     char *p, fp[FF_MAX_LFN];
+    int slot;
     if((p = checkstring(cmdline, "LOAD IMAGE"))) {
-        int slot, width, height, overwrite = 0;
+        int width, height, len, overwrite = 0;
         getargs(&p, 5, ",");
         if(!(argc == 3 || argc == 5)) error("Syntax");
         slot = getint(argv[0], 1, MAXIMAGESLOTS);
@@ -92,8 +389,7 @@ void cmd_flash(void) {
             if(checkstring(argv[4], "O") || checkstring(argv[4], "OVERWRITE")) overwrite = 1;
             else error("Syntax");
         }
-        if(slot <= MAXFLASHSLOTS) error("Flash image slots are not provided: use slots 4 to 8");
-        if(ImageSlot[slot] != NULL && !overwrite) error("Already programmed");
+        if(SlotInUse(slot) && !overwrite) error("Already programmed");
         if(!InitSDCard()) return;
         strcpy(fp, getFstring(argv[2]));
         if(strchr(&fp[strlen(fp) > 4 ? strlen(fp) - 4 : 0], '.') == NULL) strcat(fp, ".bmp");
@@ -104,15 +400,16 @@ void cmd_flash(void) {
             FileClose(BMPfnbr);
             error("Invalid BMP file");
         }
-        if(ImageSlot[slot] != NULL) FreeMemorySafe((void *)&ImageSlot[slot]);
-        SlotLoading = GetMemory(8 + ((width + 1) / 2) * height);    // (zeroed by the allocator)
+        if(slot > MAXFLASHSLOTS) SlotDrop(slot);                    // (a flash slot keeps its image until the new one is saved)
+        len = 8 + ((width + 1) / 2) * height;
+        SlotLoading = GetMemory(len);                               // (zeroed by the allocator)
         ((uint32_t *)SlotLoading)[0] = width;
         ((uint32_t *)SlotLoading)[1] = height;
         if(!CurrentLinePtr) {
             MMPrintString("Saving ");
             MMPrintString(fp);
-            MMPrintString(" to RAM slot ");
-            PInt(slot - MAXFLASHSLOTS);
+            MMPrintString(slot <= MAXFLASHSLOTS ? " to flash slot " : " to RAM slot ");
+            PInt(slot <= MAXFLASHSLOTS ? slot : slot - MAXFLASHSLOTS);
             MMPrintString("\r\nImage is ");
             PInt(width);
             MMPrintString(" by ");
@@ -127,12 +424,16 @@ void cmd_flash(void) {
             FreeMemorySafe((void *)&SlotLoading);
             error(r.errorMsg);
         }
+        if(slot <= MAXFLASHSLOTS) {
+            SlotWrite(slot, SlotLoading, len);
+            SlotKind[slot] = SLOT_DATA;
+        }
         ImageSlot[slot] = SlotLoading;
         SlotLoading = NULL;
         return;
     }
     if((p = checkstring(cmdline, "DISK LOAD"))) {                  // FLASH DISK LOAD n, f$ [, O]: a file's bytes into slot n, as
-        int slot, overwrite = 0, fnbr;                              // they are (the PicoMite's, for its flash slots; PETSCII Robots
+        int overwrite = 0, fnbr;                                    // they are (the PicoMite's, for its flash slots; PETSCII Robots
         unsigned int size, got = 0;                                 // keeps its sprites so, read at MM.INFO(FLASH ADDRESS n))
         getargs(&p, 5, ",");
         if(!(argc == 3 || argc == 5)) error("Syntax");
@@ -141,8 +442,7 @@ void cmd_flash(void) {
             if(checkstring(argv[4], "O") || checkstring(argv[4], "OVERWRITE")) overwrite = 1;
             else error("Syntax");
         }
-        if(slot <= MAXFLASHSLOTS) error("Flash slots are not provided: use slots 4 to 8");
-        if(ImageSlot[slot] != NULL && !overwrite) error("Already programmed");
+        if(SlotInUse(slot) && !overwrite) error("Already programmed");
         if(!InitSDCard()) return;
         strcpy(fp, getFstring(argv[2]));
         fnbr = FindFreeFileNbr();
@@ -152,7 +452,7 @@ void cmd_flash(void) {
             FileClose(fnbr);
             error("Empty file");
         }
-        if(ImageSlot[slot] != NULL) FreeMemorySafe((void *)&ImageSlot[slot]);
+        if(slot > MAXFLASHSLOTS) SlotDrop(slot);
         SlotLoading = GetMemory(size);
         FileGetData(fnbr, SlotLoading, size, &got);
         FileClose(fnbr);
@@ -160,11 +460,77 @@ void cmd_flash(void) {
             FreeMemorySafe((void *)&SlotLoading);
             error("File read error");
         }
+        if(slot <= MAXFLASHSLOTS) {                                 // a flash slot: its file, read again when it is wanted
+            SlotWrite(slot, SlotLoading, size);                     // (a program's image is made ready to run then: SlotGet)
+            FreeMemorySafe((void *)&SlotLoading);
+            return;
+        }
         ImageSlot[slot] = SlotLoading;
         SlotLoading = NULL;
         return;
     }
-    error("Only FLASH LOAD IMAGE and FLASH DISK LOAD are provided on the CMM2");
+    if((p = checkstring(cmdline, "ERASE ALL"))) {
+        if(CurrentLinePtr) error("Invalid in a program");
+        checkend(p);
+        for(slot = 1; slot <= MAXFLASHSLOTS; slot++) SlotErase(slot);
+        return;
+    }
+    if((p = checkstring(cmdline, "ERASE"))) {
+        SlotErase(getint(p, 1, MAXFLASHSLOTS));
+        return;
+    }
+    if((p = checkstring(cmdline, "SAVE"))) {
+        SlotSave(getint(p, 1, MAXFLASHSLOTS), 0);
+        return;
+    }
+    if((p = checkstring(cmdline, "OVERWRITE"))) {
+        SlotSave(getint(p, 1, MAXFLASHSLOTS), 1);
+        return;
+    }
+    if((p = checkstring(cmdline, "LOAD"))) {                       // the program into program memory, its CSUBs' addresses
+        char *img;                                                  // made there, as LOAD loads a file's
+        int len;
+        if(CurrentLinePtr) error("Invalid in a program");
+        slot = getint(p, 1, MAXFLASHSLOTS);
+        SlotProgramCheck(slot);
+        ClearProgram();
+        img = SlotProgram(slot);
+        len = ImageLayout((unsigned char *)img, MemSize(img), NULL);
+        ImageSlot[slot] = NULL;                                     // (the block is rebased: read again when it is wanted)
+        ImageRebase((uint8_t *)img, len, (int32_t)ProgMemory - (int32_t)img);
+        ProgramImageToFlash(img, len);
+        FreeMemorySafe((void *)&img);
+        ProgFromSlot = 1;
+        return;
+    }
+    if((p = checkstring(cmdline, "RUN"))) {
+        slot = getint(p, 0, MAXFLASHSLOTS);
+        mymemset(runcmd, 0, STRINGSIZE);                            // (MM.CMDLINE$ is empty)
+        FlashRunSlot(slot, 0);
+        return;
+    }
+    if((p = checkstring(cmdline, "CHAIN"))) {
+        if(!CurrentLinePtr) error("Invalid at command prompt");
+        slot = getint(p, 0, MAXFLASHSLOTS);
+        mymemset(runcmd, 0, STRINGSIZE);
+        FlashRunSlot(slot, 1);
+        return;
+    }
+    if((p = checkstring(cmdline, "LIST"))) {
+        char *img;
+        getargs(&p, 3, ",");
+        if(argc == 0) {
+            SlotListAll();
+            return;
+        }
+        if(!(argc == 1 || (argc == 3 && checkstring(argv[2], "ALL")))) error("Syntax");
+        img = SlotProgram(getint(argv[0], 1, MAXFLASHSLOTS));
+        SymSetProgram(img);                                         // (its names are its own symbols)
+        ListProgramFlash(img, argc == 3);
+        SymSetProgram(ProgMemory);
+        return;
+    }
+    error("Syntax");
 }
 
 // a colour as page 'page' stores it (DrawPixel8, DrawPixel16 and DrawPixel32's conversions; opaque in 12-bit)

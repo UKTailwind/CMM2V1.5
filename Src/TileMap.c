@@ -533,6 +533,15 @@ static void tilemap_cmd_destroy(char *p)
 
 /* Close all tilemaps (called on program end / NEW) */
 /* The heap was wiped (HeapWipe: RUN, NEW, a program load): the maps went with it */
+/* Does a tilemap draw from the slot image at img (ImageSlots.c, before it frees a slot's block)? */
+int TileMapUses(const uint8_t *img)
+{
+    for (int i = 0; i < MAX_TILEMAPS; i++)
+        if (tilemaps[i].active && tilemaps[i].flash_data == img + 8)
+            return 1;
+    return 0;
+}
+
 void TileMapForget(void)
 {
     memset(tilemaps, 0, sizeof(tilemaps));

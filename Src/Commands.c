@@ -1291,8 +1291,9 @@ void MIPS16 ListFile(char *pp, int all) {
 
 
 static void MIPS16 RunStart(int runlib);
-void MIPS16 cmd_run(void) {
-	char *c=(char *)ProgMemory;
+
+// RUN and FLASH RUN: the console, the keyboard and the status line made ready for a program
+static void MIPS16 RunPrelude(void) {
 	int maxH=PageTable[WritePage].ymax;
     int maxW=PageTable[WritePage].xmax;
 	SerUSBPutS("\033[?25h");
@@ -1309,18 +1310,47 @@ void MIPS16 cmd_run(void) {
 		CurrentY=lasty;
 		CurrentX=lastx;
 	}
+}
 
+void MIPS16 cmd_run(void) {
+	char *c;
 	skipspace(cmdline);
 	mymemset(runcmd,0,STRINGSIZE);
 	memcpy(runcmd,cmdline,strlen(cmdline));
+	if(*cmdline != 34 && FlashLoad) {                               // in a flash slot's program: it runs again (the PicoMite's)
+		FlashRunSlot(FlashLoad, 0);
+		return;
+	}
+	RunPrelude();
 	if(*cmdline == 34){
 		if(!FileLoadProgram(cmdline,1)) return;
+	} else if(ProgFromSlot) {                                       // FLASH LOAD's program, as it is (not its file again)
+		ClearProgram();
 	} else {
 		if((c = ProgName()) == NULL)error("Nothing to run");
 		if(!FileLoadProgram(c,0)) return;
 	}
 	ClearRuntime();
 	RunStart(1);
+}
+
+extern int executerun;
+// FLASH RUN n and FLASH CHAIN n (ImageSlots.c): slot n's program run in place from its block, read again after the
+// heap is cleared as RUN and CHAIN clear it (CHAIN: the globals kept); slot 0 is program memory's. MM.CMDLINE$ is
+// runcmd's.
+void MIPS16 FlashRunSlot(int slot, int chain) {
+	SlotProgramCheck(slot);                                         // (before anything is cleared)
+	if(chain) ClearRuntimeKeepGlobals();
+	else {
+		RunPrelude();
+		ClearRuntime();
+	}
+	TraceOn = false;
+	sendCRLF = 3;
+	ProgMemory = slot ? SlotProgram(slot) : ProgFlash;
+	FlashLoad = slot;
+	executerun = 1;                                                 // (typed at the prompt: as RUN, a program without END ends
+	RunStart(!chain);                                               // through ImpliedEnd, and ProgMemory comes back)
 }
 
 // RUN and CHAIN, the program loaded and the runtime cleared: prepare it and start at its first line
@@ -2195,6 +2225,7 @@ void cmd_new(void){
     FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
     FlashWriteClose();
 	ClearProgram();
+    ProgFromSlot = 0;
     WatchdogSet = false;
     LoadOptions();                                                  // NEW turns OPTION AUTORUN off, saved (as b14 says; the
     if(Option.Autorun) {                                            // prompt reloaded the saved options, so it stayed on). The

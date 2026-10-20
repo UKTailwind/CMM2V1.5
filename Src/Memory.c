@@ -1036,6 +1036,17 @@ static void HeapMark(void *addr, int size) {
     if(!inram && addr < minMMheap) minMMheap = addr;
 }
 
+// the tables made for the program in ProgMemory forgotten: a heap wipe took their blocks, or ProgMemory is another
+// program now (SlotProgramLeave, ImageSlots.c: their blocks go with the next wipe)
+void ProgramCachesForget(void) {
+    SubLayoutForget();                                              // the SUBs' parameter layouts (P6 F1)
+    IfTableForget();                                                // the IF jump table
+    NameIndexForget();                                              // the index of SUBs, FUNCTIONs and labels
+    StructTableForget();                                            // the TYPE table
+    SymBindForget();                                                // the symbols' bindings
+    ProfileForget();                                                // OPTION PROFILING's counters
+}
+
 // both heaps' maps cleared, but for the n blocks keep[i] of size[i] bytes (MemSize's, read before), and everything
 // that lived in the heap forgotten. The list may itself be in the heap: it is read before anything is allocated.
 static void HeapWipe(void **keep, int *size, int n) {
@@ -1051,13 +1062,8 @@ static void HeapWipe(void **keep, int *size, int n) {
     minMMheap=(void *)SDRAMEND;
     RamLowFree = NULL;                                              // (every page free: the searches start at RAMBASE)
     for(i = 0; i < n; i++) HeapMark(keep[i], size[i]);
-    SubLayoutForget();                                              // the SUBs' parameter layouts were in the heap (P6 F1)
-    IfTableForget();                                                // and so was the IF jump table
-    NameIndexForget();                                              // and the index of SUBs, FUNCTIONs and labels
-    StructTableForget();                                            // and the TYPE table
-    JsonArenaForget();                                              // and JSON$'s parse arena
-    SymBindForget();                                                // and the symbols' bindings
-    ProfileForget();                                                // and OPTION PROFILING's counters
+    ProgramCachesForget();                                          // the tables made for the program were in the heap
+    JsonArenaForget();                                              // and so was JSON$'s parse arena
     g_myrand = NULL;                                                // and MATH(RAND)'s generator
     ImageSlotsForget();                                             // and the image slots (ImageSlots.c)
     TileMapForget();                                                // and the tilemaps (TileMap.c)

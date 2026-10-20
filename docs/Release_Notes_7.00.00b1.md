@@ -66,7 +66,7 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 ### Graphics
 
 - MODE n,4: a 4-bit colour depth that gives the PicoMite's 16 colour display, with its FRAMEBUFFER, layers and PEEK/POKE addresses, so that PicoMite games run.
-- TILEMAP, image slots (FLASH LOAD IMAGE), BLIT FLASH and BLIT FRAMEBUFFER.
+- TILEMAP, image slots (FLASH LOAD IMAGE, FLASH DISK LOAD), BLIT FLASH and BLIT FRAMEBUFFER.
 - FILL (flood fill), BEZIER, a smoother ARC, and BOX with arrays of x and y and one size.
 - LOAD JPG with dithering, offsets and scaling; LOAD PNG of any size, a line at a time; LOAD BMP of every common kind (palette, RLE, 16-bit, top-down).
 - FRAMEBUFFER CREATE without a size makes one the size of the screen.
@@ -88,6 +88,12 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 - ADC START can scale each channel to a range, and ADC TRIGGER can give up after a number of samples.
 - SETPIN CIN can count either edge or both, with a pull-up or a pull-down; TEMPR takes a conversion time.
 - OPEN COMn: takes a transmit interrupt, called when everything queued has been sent.
+
+### Flash slots
+
+- The PicoMite's flash slots 1 to 3, with FLASH SAVE, OVERWRITE, LOAD, RUN, CHAIN, LIST and ERASE, and LOAD IMAGE and DISK LOAD into them.
+- The slots are kept on the SD card (in the hidden directory A:/.flash), and a slot's program runs from RAM, so no flash memory is written.
+- MM.INFO(FLASH) gives the slot whose program is running.
 
 ### Libraries
 
@@ -260,6 +266,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - MOUSE(D) reported a double click for ever.
 - EDIT stopped with "Mouse not connected" when the mouse that OPTION MOUSE names was not plugged in; it now works without the mouse.
 - AUTORUN of a program without END did not tidy up after it.
+- With OPTION FLASH 6, loading a program of more than 128 KB erased the saved options (and more than 256 KB with OPTION FLASH 5).
 
 ## Not there yet
 
@@ -267,7 +274,6 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - The compiler (OPTION COMPILE).
 - The PicoMite's SPRITE engine, RAY, FRAME, and the PicoMite's GUI list box and slider.
 - YMODEM, OPTION DISK SAVE/LOAD, and a mouse in the file manager.
-- Image slots in flash (FLASH LOAD IMAGE loads into RAM slots 4 to 8).
 
 ## Not yet tested with real hardware
 
