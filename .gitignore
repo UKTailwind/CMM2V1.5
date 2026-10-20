@@ -3,3 +3,5 @@ build/
 # Python bytecode from the tools
 __pycache__/
 tests/*/*/rows.jsonl
+# The manual project's sources, made from Peter's files (docs/Manual_Plan.md)
+docs/manual/sources/
