@@ -107,6 +107,34 @@ From `2026-03-26_035852_picofrog6_b9_3.zip` (Martin Herhaus 2022, Volhout 2025):
 | 68-70, 91 | `Mm.Info(PinNo GP1)` ... and `if nes_possible%() then nes_init` | `= 0`, the probe commented out | E (for now) | The NES probe runs on every non-Game*Mite board and reads `MM.INFO(PIN n)` of the three pins: it needs the GPnn mapping, deferred. |
 | 103 | `mode 2` | `mode 7,4` | C | |
 
+## TheBackShed thread 17161: small graphics programs
+
+Peter, 21 Oct: "This thread has multiple small mmbasic graphics program designed for the picomite. Load and run them to
+inform the OPTION PICOMITE concept" (https://www.thebackshed.com/forum/ViewTopic.php?FID=16&TID=17161, 13 pages).
+
+- **The run.** 147 code blocks, mostly javavi's demos, August 2024 to October 2026. The pages were saved and their
+  code blocks extracted (the posts' no-break spaces made spaces). Run with the harness's MODE mapping (MODE 1 as 8,8,
+  2 as 7,4, 3 as 8,4): on the G1 for 6 seconds each, then replayed on the G2 for 10 seconds for Peter to watch.
+- **Results.** 101 ran until stopped (most loop for ever) and 19 ended by themselves, with no error.
+- **Not the CMM2's to change:**
+  - 3 blocks are not programs: a list of variables, and code with its line numbers.
+  - 2 set OPTION CONSOLE NONE or SCREEN, so the harness's Ctrl-C cannot stop them.
+  - 1 sets OPTION SERIAL CONSOLE COM1, GP0, GP1, and 1 holds a PicoMite CSUB (skipped).
+  - 1 assigns to its FUNCTION fM with `fM=0`, which is now the FM command, as on the PicoMite.
+  - 1 starts two lines with `b3:`, meant as a call of SUB b3 but read as the same label twice, an error on the
+    PicoMite too.
+- **TILE (8 programs: "Unknown command").** The PicoMite's MODE 1 is 1 bit a pixel with a foreground and background
+  colour for each tile (8 x 12 pixels, or TILE HEIGHT's). TILE sets them, for instance after drawing a galaxy in white.
+  The CMM2's MODE 8,8 has no tiles.
+- **FRAMEBUFFER (10 programs: "Syntax").** CREATE, WRITE F, COPY F, N, B and LAYER, none of them in a 4-bit mode:
+  - 3 in MODE 1 (8,8);
+  - 3 with MODE Mode.N, a constant, which the harness's mapping of the text cannot see (so CMM2 MODE 2, 640 x 400 x 8);
+  - 4 with no MODE statement (the board's MODE 8).
+- **COLOUR MAP** (27 programs) works as it is.
+- **The same day, from the goldens corpus** (4 new programs): after DIM n%, the PicoMite takes `n` as n%, where the
+  CMM2 says "Different type already declared". That is the PicoMite's language to port, not the option's: only an
+  error changes.
+
 ## What OPTION PICOMITE has to do, from these ports
 
 - MODE 2 as MODE 7,4 and MODE 3 as MODE 8,4 (MODE 1 as 8,8).
@@ -114,7 +142,12 @@ From `2026-03-26_035852_picofrog6_b9_3.zip` (Martin Herhaus 2022, Volhout 2025):
 - ~~LOAD IMAGE as LOAD BMP~~: accepted by the CMM2 as it stands (19 Oct), so no option is needed for it.
 - RESOLUTION accepted and ignored where the CMM2 mode already has the timing.
 - GPnn pin names and MM.INFO(PINNO GPn) through the mapping table (plan 6.4), deferred.
-- FRAMEBUFFER as the PicoMite's in every mode, not only in a 4-bit one.
+- FRAMEBUFFER as the PicoMite's in every mode, not only in a 4-bit one (10 programs of thread 17161).
+- MODE mapped when it runs, so that MODE given by an expression (MODE Mode.N) is mapped too: not by changing the text.
+- A program with no MODE statement: the PicoMite's display at power-up is its MODE 1 (640 x 480). To decide: whether
+  RUN under the option starts in the mapped MODE 1, or leaves the mode as it is.
+- TILE, and the PicoMite's MODE 1 under it: a 1-bit display with a colour pair a tile, merged at each frame as MODE n,4
+  merges its layers (8 programs of thread 17161); or TILE refused.
 - SPRITE LOAD's palette 0 as the PicoMite's mode 0, whose digits 8-F are myrtle, cobalt, midgreen, cerulean, rust,
   fuchsia, brown and lilac; without the option they stay the CMM2's light grey to brown (Peter, 21 Oct: "The palette
   will depend on whether OPTION PICOMITE is set as part of the compatibility mode"). Palette 1 is the PicoMite's mode 1
