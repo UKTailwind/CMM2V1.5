@@ -112,6 +112,9 @@ void fun_device_fn(void);
 void cmd_tilemap(void);
 void fun_tilemap(void);
 void cmd_ray(void);
+void cmd_star(void);
+void cmd_slew(void);
+void cmd_locate(void);
 void cmd_flash(void);
 void cmd_ram(void);
 void cmd_do(void);
@@ -546,6 +549,10 @@ void op_inv(void);
 	{ "Ram",		    T_CMD,				0, cmd_ram		},      // RAM SAVE/LOAD/RUN/CHAIN/LIST/ERASE/FILE LOAD: the RAM slots (ImageSlots.c)
 	{ "Sprite",		    T_CMD,				0, cmd_blit		},      // BLIT's handler: it tells the two apart where the PicoMite's differ (sprites.c)
 	{ "Ray",		    T_CMD,				0, cmd_ray		},      // the PicoMite's raycaster (Ray.c); RAY( is a fold into SPRITE( (MMBasic.c)
+	{ "Star",		    T_CMD,				0, cmd_star		},      // STAR, ASTRO, LOCATION and SLEW: the PicoMite's astronomy (Astro.c)
+	{ "Astro",		    T_CMD,				0, cmd_star		},
+	{ "Location",	    T_CMD,				0, cmd_locate	},
+	{ "Slew",		    T_CMD,				0, cmd_slew		},
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

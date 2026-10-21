@@ -74,6 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "Astro.h"
 
 /* ************************************************************************** */
 /* ************************************************************************** */
@@ -120,6 +121,9 @@ int GPSvalid=0;
 char GPStime[9] = {8, '0', '0', ':', '0', '0', ':', '0', '0'};
 char GPSdate[11] = {10, '0', '0', '-', '0', '0', '-', '2', '0', '0', '0'};
 MMFLOAT GPStrack=0;
+int GPSut[6];                                       // the last fix's UT: day, month, year, hour, minute, second (STAR's)
+MMFLOAT GPSSidereal = 0.0;                          // its local sidereal time (hours) and Julian centuries since J2000.0
+MMFLOAT GPSJulian = 0.0;                            // (GPS(SIDEREAL), GPS(JULIAN): the PicoMite's)
 MMFLOAT GPSdop=0;
 int GPSsatellites=0;
 MMFLOAT GPSaltitude=0;
@@ -392,6 +396,14 @@ void fun_GPS(void){
         fret = GPSgeoid;
         targ = T_NBR;   
     }
+    else if(checkstring(ep, "SIDEREAL") != NULL) {              // the PicoMite's: the fix's local sidereal time (hours)
+        fret = GPSSidereal;
+        targ = T_NBR;
+    }
+    else if(checkstring(ep, "JULIAN") != NULL) {                // and Julian centuries since J2000.0
+        fret = GPSJulian;
+        targ = T_NBR;
+    }
     else error("Invalid command");
 }
   
@@ -571,6 +583,12 @@ void GPS_parse(char *nmea) {
             day = fulldate / 10000;
             month = (fulldate % 10000) / 100;
             year = (fulldate % 100);
+            GPSut[0] = day;                         // (UT: GPStime and GPSdate are moved by the offset)
+            GPSut[1] = month;
+            GPSut[2] = year + 2000;
+            GPSut[3] = hour;
+            GPSut[4] = minute;
+            GPSut[5] = seconds;
             GPStime[0] = 8;
             tm->tm_year = year + 100;
             tm->tm_mon = month - 1;
@@ -600,6 +618,8 @@ void GPS_parse(char *nmea) {
             i = tm->tm_year % 100;
             GPSdate[9] = (i / 10) + 48;
             GPSdate[10] = (i % 10) + 48;
+            GPSSidereal = getSiderealTime(day, month, year + 2000, hour, minute, seconds, GPSlongitude);
+            GPSJulian = getJulianCenturies(day, month, year + 2000, hour, minute, seconds);
             GPSvalid = localGPSvalid;
             return;
         }

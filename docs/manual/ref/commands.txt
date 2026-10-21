@@ -130,6 +130,12 @@ Closes the ADC and returns the pins to normal use.
 {b=0 a=0}c: 	Colour of arc (if omitted it will default to the foreground colour)
 {b=0}Zero degrees is at the 12 o'clock position.
 
+=== ASTRO body alt, az [, ra, dec]
+or
+ASTRO alt, az, ra2000, dec2000 [, pm_ra, pm_dec] [, ra, dec]
+--- keep
+Gives the position of the Sun, the Moon, a planet, a star or galaxy of the catalogue, or any object from its J2000 coordinates, at the time and place set by LOCATION: its altitude and azimuth, and its right ascension and declination if 'ra' and 'dec' are given.  See Appendix Q.
+
 === AUTOSAVE file$
 or
 AUTOSAVE N file$
@@ -1326,6 +1332,10 @@ See DIM for the full syntax.
 --- keep
 Defines a list of variable names as local to the subroutine or function.   This command uses exactly the same syntax as DIM and will create variables that will only be visible within the subroutine or function.  They will be automatically discarded when the subroutine or function exits.
 
+=== LOCATION date$, latitude, longitude [, sidereal]
+--- keep
+Sets the time (in UT) and the place that ASTRO works out positions for.  'sidereal', a variable, is set to the local sidereal time in hours.  See Appendix Q.
+
 === LONGSTRING
 ---
 The LONGSTRING commands allow for the manipulation of strings longer than the normal MMBasic limit of 255 characters (see the chapter Long Strings).
@@ -2503,6 +2513,10 @@ Pause or resume the specified timer.  When paused the interrupt is delayed but t
 An interrupt faster than the tick timers above allow (their shortest period is 1 ms), from a hardware timer.  ‘frequency’ is in Hz (it has been tested up to 50 kHz) and ‘target’ is the interrupt subroutine.  SETTICK FAST 0, 0 stops it, as does the end of the program.
 Ticks that arrive while the subroutine is running, or during a statement that takes longer than the time between them, are counted, and the subroutine is called once for each.  If the subroutine takes longer than the time between ticks the program will do nothing else.
 
+=== SLEW dRA1, dDec1, flipRA, flipDec, dRA2, dDec2, mountRA, mountDec, ra, dec, lst
+--- keep
+Works out the moves of a polar-aligned German equatorial telescope mount from where it points to a target from STAR or ASTRO, with the turn over the top of the mount (a meridian flip) when one is needed.  See Appendix Q.
+
 === SORT array() [,indexarray()] [,flags] [,startposition] [,elementstosort]
 ---
 This command takes an array of any type (integer, float or string) and sorts it into ascending order in place. 
@@ -2716,6 +2730,12 @@ The background that is overwritten is not stored so SPRITE WRITE is inherently h
 {l=720}&B010 = mirrored top to bottom
 {l=720}&B100 = don't copy transparent pixels
 Written as BLIT WRITE the default is 0, every pixel copied (see BLIT).  A sprite that is displayed can be written too: the copy is drawn, and the sprite shown, its orientation and its stored background are left as they were.
+
+=== STAR body alt, az [, ra, dec]
+or
+STAR alt, az, ra2000, dec2000 [, pm_ra, pm_dec] [, ra, dec]
+--- keep
+As ASTRO, at the time and place of the GPS receiver's last fix (OPEN ... AS GPS).  See Appendix Q.
 
 === STATIC variable [, variables]
 See DIM for the full syntax.

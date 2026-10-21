@@ -93,6 +93,7 @@ extern MMFLOAT GPSlatitude;
 extern MMFLOAT GPSlongitude;
 extern MMFLOAT GPSspeed;
 extern int GPSvalid;
+extern int GPSut[6];
 extern char GPStime[9];
 extern char GPSdate[11];
 extern MMFLOAT GPStrack;

@@ -382,6 +382,10 @@ Returns the quality of the fix (if the receiver sends the GGA sentence): 0 for n
 --- keep
 Returns the geoid-ellipsoid separation in metres (if the receiver sends the GGA sentence).
 
+=+= GPS(JULIAN)
+--- keep
+Returns the Julian centuries since J2000.0 at the time of the last fix (for the astronomy commands: Appendix Q).
+
 =+= GPS(LATITUDE)
 --- keep
 Returns the latitude in degrees as a floating point number, values are negative for South of the equator.
@@ -393,6 +397,10 @@ Returns the longitude in degrees as a floating point number, values are negative
 =+= GPS(SATELLITES)
 --- keep
 Returns the number of satellites in use (if the receiver sends the GGA sentence).
+
+=+= GPS(SIDEREAL)
+--- keep
+Returns the local sidereal time of the last fix, in hours (Appendix Q).
 
 =+= GPS(SPEED)
 --- keep

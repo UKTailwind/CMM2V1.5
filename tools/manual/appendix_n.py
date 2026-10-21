@@ -28,7 +28,8 @@ COMPANION = {'DRAW3D': 'The 3D engine.pdf', 'DRAW3D(': 'The 3D engine.pdf', 'GUI
              'TYPE': 'MMBasic_Structures_Manual.pdf', 'STRUCT': 'MMBasic_Structures_Manual.pdf',
              'STRUCT(': 'MMBasic_Structures_Manual.pdf', 'FM': 'FM_User_Manual.pdf',
              'TILEMAP': 'TILEMAP_User_Manual.pdf', 'TILEMAP(': 'TILEMAP_User_Manual.pdf',
-             'RAY': 'Appendix P', 'RAY(': 'Appendix P', 'TURTLE': 'Appendix G'}   # (and this manual's own appendices)
+             'RAY': 'Appendix P', 'RAY(': 'Appendix P', 'TURTLE': 'Appendix G',
+             'STAR': 'Appendix Q', 'ASTRO': 'Appendix Q', 'LOCATION': 'Appendix Q', 'SLEW': 'Appendix Q'}   # (and this manual's own appendices)
 
 
 def documented():

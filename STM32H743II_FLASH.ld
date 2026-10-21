@@ -108,6 +108,8 @@ SECTIONS
     *Editor.c.obj(.text .text* .rodata .rodata*)
     *Ray.o(.text .text* .rodata .rodata*)                /* RAY, the raycaster */
     *Ray.c.obj(.text .text* .rodata .rodata*)
+    *Astro.o(.text .text* .rodata .rodata*)              /* STAR, ASTRO, LOCATION and SLEW */
+    *Astro.c.obj(.text .text* .rodata .rodata*)
     *libm.a:libm_a-sf_tan.o(.text .text* .rodata .rodata*)  /* and the libm that only RAY uses: tanf, floorf */
     *libm.a:libm_a-kf_tan.o(.text .text* .rodata .rodata*)
     *libm.a:libm_a-ef_rem_pio2.o(.text .text* .rodata .rodata*)
