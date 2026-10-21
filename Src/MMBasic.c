@@ -2506,6 +2506,14 @@ inline char ITCM_CODE *doexpr(char *p, MMFLOAT *fa, long long int *ia, char **sa
 }
 
 
+// the powers after a unary minus's value, applied before the minus (getvalue): out of line and out of ITCM, as it is
+// rare. getvalue's speed depends on where its hot paths fall in ITCM: written inline (68 bytes), or with the test as one
+// compare (56), they moved and cost every expression ~1%; this way (64) none, measured on the G1.
+static char * __attribute__((noinline)) NegPowers(char *p, MMFLOAT *f, long long int *i64, char **s, int *ro, int *t) {
+    while(*ro != E_END && tokentbl[*ro].fptr == op_exp) p = doexpr(p, f, i64, s, ro, t);
+    return p;
+}
+
 // get a value, either from a constant, function or variable
 // also returns the next operator to the right of the value or E_END if no operator
 // Added OptionEscape
@@ -2561,11 +2569,13 @@ inline char ITCM_CODE *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **
 		}
 
 		// special processing for the unary - operator
-		// just get the next value and negate it
+		// get the next value, with any powers after it, and negate it: -2^2 is -(2^2), -4, as in maths and most languages
+		// (it was (-2)^2, as in Excel and BBC BASIC). The powers are applied left to right, as doexpr applies them.
 		if(tokenfunction(*p) == op_subtract) {
 			int ro;
 			p++; t = T_NOTYPE;
 			p = getvalue(p, &f, &i64, &s, &ro, &t);                     // get the next value
+			if(ro != E_END && tokentbl[ro].fptr == op_exp) p = NegPowers(p, &f, &i64, &s, &ro, &t);
 			if(t & T_NBR)
 				f = -f;                                                 // negate the MMFLOAT returned
 			else if(t & T_INT)
