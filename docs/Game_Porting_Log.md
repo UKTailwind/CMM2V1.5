@@ -131,9 +131,11 @@ inform the OPTION PICOMITE concept" (https://www.thebackshed.com/forum/ViewTopic
   - 3 with MODE Mode.N, a constant, which the harness's mapping of the text cannot see (so CMM2 MODE 2, 640 x 400 x 8);
   - 4 with no MODE statement (the board's MODE 8).
 - **COLOUR MAP** (27 programs) works as it is.
-- **The same day, from the goldens corpus** (4 new programs): after DIM n%, the PicoMite takes `n` as n%, where the
-  CMM2 says "Different type already declared". That is the PicoMite's language to port, not the option's: only an
-  error changes.
+- **The same day, from the goldens corpus**, not a difference from the PicoMite (corrected): 4 of its new programs use
+  `n` after DIM n%, which the CMM2 refuses ("Different type already declared"). So does the PicoMite's firmware: its
+  DIM and findvar are the CMM2's (no T_IMPLIED for a name with a suffix). Those programs' expected output is mmb2c's
+  own (`make bless`), whose runtime is more lenient, as it is with 2 more (SETTICK PAUSE's tick number, FORMAT$'s
+  message).
 
 ## What OPTION PICOMITE has to do, from these ports
 
