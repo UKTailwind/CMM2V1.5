@@ -313,9 +313,11 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 ## Not there yet
 
+- The PicoMite's raycasting engine (RAY), which comes next.
 - The PicoMite compatibility switch (OPTION PICOMITE), which will let PicoMite programs with conflicting keywords run unchanged.
-- RAY and FRAME.
-- YMODEM, OPTION DISK SAVE/LOAD, and a mouse in the file manager.
+- A mouse in the file manager.
+
+The PicoMite's FRAME command, YMODEM and OPTION DISK SAVE/LOAD are not planned for the Colour Maximite 2.
 
 ## Not yet tested with real hardware
 

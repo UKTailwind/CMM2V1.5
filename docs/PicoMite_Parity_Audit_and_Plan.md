@@ -371,7 +371,9 @@ Each phase ends at a gate that is run on the board through the harness; a phase 
     `docs/Sprite_Plan.md`: one engine on colour words, and the PicoMite's additions); GUI (21 Oct: LISTBOX, SLIDER and
     GUI CLICK, TOUCH() as CLICK(), a USB mouse taken at once). The PicoMite's TOUCH() gestures are for its multi-touch
     panels, which the CMM2 has none of.
-  - Not started: the dialect switch (`OPTION PICOMITE`), RAY, FRAME, DRAW3D, LAYER and MERGE. The turtle is already the PicoMite's (from b14), but for its later spellings.
+  - Next (Peter, 21 Oct): RAY, the raycasting engine, then the dialect switch (`OPTION PICOMITE`), with Peter's list of
+    programs tested first for the conversions it needs. Not to be ported (Peter, 21 Oct): FRAME, YMODEM and OPTION DISK
+    SAVE/LOAD. Not started: DRAW3D, LAYER and MERGE. The turtle is already the PicoMite's (from b14), but for its later spellings.
 - **P4:** FM (19 Oct), and the PicoMite's editor in place of kilo (19 Oct, `docs/Editor_Port_Plan.md` E0-E6 and S). Open:
   - the editor's E7-E9;
   - a mouse for FM;
