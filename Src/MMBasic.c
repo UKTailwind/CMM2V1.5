@@ -180,6 +180,7 @@ char *cmdline;                                                      // Command l
 char *nextstmt;                                                     // Pointer to the next statement to be executed.
 char *CurrentLinePtr;                                               // Pointer to the current line (used in error reporting)
 char *ContinuePoint;                                                // Where to continue from if using the continue statement
+int ContinueLocalIndex;                                             // the LocalIndex it was at (a SUB's level)
 
 uint32_t DefinedSubFunMem;         // Records memory allocated to DefinedSubFun incase of an error
 int DefinedSubFunLocalIndex;       // Records LocalIndex at start of DefinedSubFun incase of an error
@@ -1245,6 +1246,11 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     // for each one we create the local variable and compare its type to that supplied in the callers list
 
     CurrentLinePtr = SubLinePtr;                                    // any errors must be at the definition
+    if(CallersLinePtr == NULL && LocalIndex == 0 && hashlistpointer) {  // a call typed at the prompt, over the locals an
+        ClearVars(1);                                               // error or a break left in a SUB or FUNCTION on the level
+        ContinuePoint = NULL;                                       // this call takes ("Local variable already declared"):
+    }                                                               // that call is over, and CONTINUE with it. (Not at the
+                                                                    // prompt itself: CONTINUE needs them, and their loops.)
     LocalIndex++;
     for(i = 0; i < argc2; i += 2) {                                 // count through the arguments in the definition of the sub/fun
         ArgType = L->p[i >> 1].type;                                // its AS type, as read on the first call

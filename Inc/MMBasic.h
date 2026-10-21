@@ -369,6 +369,7 @@ extern int NextData;                            // used to track the next item t
 extern char *NextDataLine;                      // used to track the next line to read in DATA & READ stmts
 extern char *CurrentLinePtr;                    // pointer to the current line being executed
 extern char *ContinuePoint;                     // Where to continue from if using the continue statement
+extern int ContinueLocalIndex;                  // and the LocalIndex it was at
 
 extern char inpbuf[];                           // used to store user keystrokes until we have a line
 extern char tknbuf[];                           // used to store the tokenised representation of the users input line

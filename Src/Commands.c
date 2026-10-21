@@ -1425,7 +1425,8 @@ void MIPS16 cmd_continue(void) {
 	if(CurrentLinePtr) error("Invalid in a program");
 	if(ContinuePoint == NULL) error("Cannot continue");
     IgnorePIN = false;
-	nextstmt = ContinuePoint;
+    LocalIndex = ContinueLocalIndex;                                // back at the level it stopped at (a SUB's: its locals,
+	nextstmt = ContinuePoint;                                       // and the level its END SUB clears)
 }
 
 void cmd_goto(void) {

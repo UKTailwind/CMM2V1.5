@@ -196,6 +196,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - MM.CMDLINE$ was cut at a `|`, and `*"a name"` was split at its space.
   - A program that runs off its last line now runs MM.END.
   - RUN resets MM.ERRNO, and MM.INFO$(RESET) has no CR LF.
+  - CONTINUE after Ctrl-C or an error inside a SUB lost the SUB's local variables, and its END SUB then cleared every variable.
 
 ### Strings, numbers and MATH
 

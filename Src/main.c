@@ -897,6 +897,7 @@ if(setjmp(mark) != 0) {
 	  MMPrintString("\r\n");
     // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
     ContinuePoint = nextstmt;                                   // in case the user wants to use the continue command
+    ContinueLocalIndex = LocalIndex;                            // (and the level it goes on at: in a SUB, its own)
     if(ProgMemory != ProgFlash) ContinuePoint = NULL;           // (but not a flash slot's program: ProgMemory goes back to
     SlotProgramLeave();                                         // program memory, ImageSlots.c)
     *tknbuf = 0;                                                // we do not want to run whatever is in the token buffer
@@ -963,9 +964,8 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 	  MMAbort = false;
       BreakKey = BREAK_KEY;
       EchoOption = true;
-      if(hashlistpointer) ClearVars(1);                           // the locals an error left (in a SUB or FUNCTION, called here
-                                                                  // or in a program): the next call at the prompt found them
-                                                                  // ("$ Local variable already declared")
+      // (the locals an error or a break left in a SUB or FUNCTION stay, for CONTINUE: a call typed here clears them,
+      // DefinedSubFun)
       LocalIndex = 0;                                             // this should not be needed but it ensures that all space will be cleared
       ClearTempMemory();                                           // clear temp string space (might have been used by the prompt)
       CurrentLinePtr = NULL;                                      // do not use the line number in error reporting
