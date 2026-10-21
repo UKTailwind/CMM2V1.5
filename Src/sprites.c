@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "Ray.h"
 int layer_in_use[MAXLAYER+1];
 unsigned char LIFO[MAXBLITBUF];
 unsigned char zeroLIFO[MAXBLITBUF];
@@ -188,13 +189,9 @@ uint16_t convert_16bit(uint32_t c){
    docs/Sprite_Plan.md. */
 #define SPRITEBG 4
 static uint32_t SpriteKey = 0;
-// a colour word as the current depth's page holds it: what the drawing commands write (FILL's FillNative)
-#define NATIVE_32(c) (c)
-#define NATIVE_16(c) ((BIT_5[((c) & 0xFF0000) >> 19] << 11) | (BIT_6[((c) & 0xFF00) >> 10] << 5) | BIT_5[((c) & 0xFF) >> 3])
-#define NATIVE_12(c) ((BIT_4[((c) & 0xFF0000) >> 20] << 8) | (BIT_4[((c) & 0xFF00) >> 12] << 4) | BIT_4[((c) & 0xFF) >> 4] | \
-                      (((c) & 0xF000000) >> 12))
-// a colour word as the current depth's page holds it, and the bits of that which are the colour (not the transparency)
-static uint32_t SpriteNative(uint32_t c){
+// a colour word as the current depth's page holds it, and the bits of that which are the colour (not the transparency);
+// NATIVE_32, _16 and _12 are in sprites.h (RAY's too: Ray.c)
+uint32_t SpriteNative(uint32_t c){
     switch(VideoColour){
         case 32: return NATIVE_32(c);
         case 16: return NATIVE_16(c);
@@ -203,8 +200,13 @@ static uint32_t SpriteNative(uint32_t c){
         default: return RGB332(c);
     }
 }
-static uint32_t SpriteMask(void){
+uint32_t SpriteMask(void){
     return VideoColour == 32 ? 0xFFFFFF : VideoColour == 16 ? 0xFFFF : VideoColour == 12 ? 0x0FFF : 0xFF;
+}
+// the transparent colour as the current depth's page holds it, its transparency left out: a sprite's pixel of it is not
+// drawn (SHOW's test, and RAY's: Ray.c)
+uint32_t SpriteKeyNative(void){
+    return SpriteNative(SpriteKey) & SpriteMask();
 }
 // inv[level] for SpriteWord: the first input that a BIT table maps to that level, or above it (the RBIT tables of OPTION
 // VGA OUTPUT LOW and MEDIUM are not the inverses of their BIT tables: a sprite read would draw back other pixels)
@@ -386,6 +388,12 @@ static int SpriteBackground(int bnbr){
 
 void fun_sprite(void){
     int bnbr=0, w=-1, h=-1,t=0, x=10000, y=10000, l=0, n, c=0;
+    char *q;
+    if((q = checkstring(ep, "RAY")) != NULL && *q == ',') {         // RAY(, which the tokeniser writes SPRITE(RAY, (Ray.c)
+        ep = q + 1;
+        fun_ray();
+        return;
+    }
     getargs(&ep, 5,",");
     if(checkstring(argv[0], "B")){                                  // SPRITE(B, #n [, side 0-7])
         if(argc < 3) error("Syntax");

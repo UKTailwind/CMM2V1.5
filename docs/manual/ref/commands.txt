@@ -2326,6 +2326,10 @@ Empties RAM slot ‘n’, or all five.
 Seeds the C library's random number generator with ‘nbr’ (0 or more) or, if ‘nbr’ is omitted, from the microsecond timer.
 This does not affect the RND function: RND uses the hardware random number generator of the STM32H743, which needs no seeding and does not repeat a sequence (see Random Number Generator in the chapter *Porting Programs*).  RANDOMIZE is accepted so that programs written for other versions of MMBasic run.  For a repeatable sequence of random numbers use MATH RANDOMIZE and MATH(RAND).
 
+=== RAY subcommand
+--- keep
+The raycaster, the PicoMite's: a first-person view of a map of walls, with a patterned floor and ceiling, sliding doors and sprites, in every colour depth.  Its commands are RAY MAP, RAY DEFINE, RAY COLOUR, RAY CAMERA, RAY MOVE, RAY TURN, RAY CELL, RAY CAST, RAY DOOR, RAY SPRITE, RAY MINIMAP, RAY RENDER and RAY CLOSE.  See Appendix P.
+
 === RBOX  x,  y,  w,  h  [, r]  [,c] [,fill]
 {}
 ---

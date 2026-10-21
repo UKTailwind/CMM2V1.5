@@ -864,6 +864,10 @@ Note that this function will cause the running program to pause while the measur
 ---
 Converts 'degrees' to radians. 
 
+=== RAY( keyword [, arguments] )
+--- keep
+Returns information from the raycaster: its map, the viewer, the last RAY RENDER and RAY CAST, the doors, the wall types and the sprites.  See Appendix P.
+
 === RGB(red, green, blue [, trans])
 or
 RGB(shortcut [, trans])

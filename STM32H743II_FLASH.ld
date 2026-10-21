@@ -106,6 +106,13 @@ SECTIONS
     *FileManager.c.obj(.text .text* .rodata .rodata*)
     *Editor.o(.text .text* .rodata .rodata*)             /* the editor (the PicoMite's: EDIT) */
     *Editor.c.obj(.text .text* .rodata .rodata*)
+    *Ray.o(.text .text* .rodata .rodata*)                /* RAY, the raycaster */
+    *Ray.c.obj(.text .text* .rodata .rodata*)
+    *libm.a:libm_a-sf_tan.o(.text .text* .rodata .rodata*)  /* and the libm that only RAY uses: tanf, floorf */
+    *libm.a:libm_a-kf_tan.o(.text .text* .rodata .rodata*)
+    *libm.a:libm_a-ef_rem_pio2.o(.text .text* .rodata .rodata*)
+    *libm.a:libm_a-kf_rem_pio2.o(.text .text* .rodata .rodata*)
+    *libm.a:libm_a-sf_floor.o(.text .text* .rodata .rodata*)
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
     . = ALIGN(4);
     _ebank2 = .;

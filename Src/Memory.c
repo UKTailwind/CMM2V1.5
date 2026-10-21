@@ -105,6 +105,7 @@ NOTE:
 
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "Ray.h"
 
 
 
@@ -1072,6 +1073,7 @@ static void HeapWipe(void **keep, int *size, int n) {
     g_myrand = NULL;                                                // and MATH(RAND)'s generator
     ImageSlotsForget();                                             // and the image slots (ImageSlots.c)
     TileMapForget();                                                // and the tilemaps (TileMap.c)
+    RayForget();                                                    // and the raycaster (Ray.c)
 }
 
 void InitHeap(void) {

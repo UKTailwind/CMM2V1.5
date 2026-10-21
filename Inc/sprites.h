@@ -80,6 +80,15 @@ extern int CollisionFound;
 extern void closeallsprites(void);
 extern void loadsprite(char *p);
 extern void BlitShowBuff(int bnbr, int x1, int y1, int mode);  // every depth (sprites.c)
+// a colour word as the current depth's page holds it: what the drawing commands write (FILL's FillNative), in the 32,
+// 16 and 12-bit depths (RGB332 and RGB121 are Rgb121.h's)
+#define NATIVE_32(c) (c)
+#define NATIVE_16(c) ((BIT_5[((c) & 0xFF0000) >> 19] << 11) | (BIT_6[((c) & 0xFF00) >> 10] << 5) | BIT_5[((c) & 0xFF) >> 3])
+#define NATIVE_12(c) ((BIT_4[((c) & 0xFF0000) >> 20] << 8) | (BIT_4[((c) & 0xFF00) >> 12] << 4) | BIT_4[((c) & 0xFF) >> 4] | \
+                      (((c) & 0xF000000) >> 12))
+extern uint32_t SpriteNative(uint32_t c);                       // in the current depth (any depth: sprites.c)
+extern uint32_t SpriteMask(void);                               // the bits of that which are the colour
+extern uint32_t SpriteKeyNative(void);                          // the transparent colour, so held and masked
 extern void SpritesForget(void);                                // MODE: none showing, the images kept
 #endif
 #endif

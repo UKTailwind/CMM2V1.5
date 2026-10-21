@@ -111,6 +111,7 @@ void cmd_flush(void);
 void fun_device_fn(void);
 void cmd_tilemap(void);
 void fun_tilemap(void);
+void cmd_ray(void);
 void cmd_flash(void);
 void cmd_ram(void);
 void cmd_do(void);
@@ -544,6 +545,7 @@ void op_inv(void);
 	{ "FM",			    T_CMD,				0, cmd_fm		},      // FM: the two-panel file manager (FileManager.c, the PicoMite's)
 	{ "Ram",		    T_CMD,				0, cmd_ram		},      // RAM SAVE/LOAD/RUN/CHAIN/LIST/ERASE/FILE LOAD: the RAM slots (ImageSlots.c)
 	{ "Sprite",		    T_CMD,				0, cmd_blit		},      // BLIT's handler: it tells the two apart where the PicoMite's differ (sprites.c)
+	{ "Ray",		    T_CMD,				0, cmd_ray		},      // the PicoMite's raycaster (Ray.c); RAY( is a fold into SPRITE( (MMBasic.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

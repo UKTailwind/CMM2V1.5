@@ -26,6 +26,10 @@ Multiple sprites can be loaded and they can be moved around the screen, hidden o
 
 The TILEMAP command draws a background made of tiles (small images from one tile sheet) laid out as a map, and scrolls a view of it. It has sprites of its own, which move over the map and can test which tiles they touch. TILEMAP is the PicoMite's, so games written with it there run here too.
 
+## A First-Person View
+
+The RAY commands draw a first-person view of a map of walls, as in the game Wolfenstein 3D, with patterned walls, floor and ceiling, sliding doors, and sprites standing in the world. They also check movement against the walls and draw a map from above. RAY is the PicoMite's raycaster: it works in every colour depth, with RGB colours too. See Appendix P.
+
 ## Displaying Images
 
 The Colour Maximite 2 can load and display images stored on the SD card in a variety of formats including BMP, GIF, PNG and JPG. These are read by the LOAD command and can be of any size and positioned anywhere on the screen. In addition on-screen images can be scaled and rotated under control of the program.

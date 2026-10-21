@@ -27,7 +27,8 @@ COMPANION = {'DRAW3D': 'The 3D engine.pdf', 'DRAW3D(': 'The 3D engine.pdf', 'GUI
              'CTRLVAL(': 'GUI Controls and Programming.pdf', 'MSGBOX(': 'GUI Controls and Programming.pdf',
              'TYPE': 'MMBasic_Structures_Manual.pdf', 'STRUCT': 'MMBasic_Structures_Manual.pdf',
              'STRUCT(': 'MMBasic_Structures_Manual.pdf', 'FM': 'FM_User_Manual.pdf',
-             'TILEMAP': 'TILEMAP_User_Manual.pdf', 'TILEMAP(': 'TILEMAP_User_Manual.pdf'}
+             'TILEMAP': 'TILEMAP_User_Manual.pdf', 'TILEMAP(': 'TILEMAP_User_Manual.pdf',
+             'RAY': 'Appendix P', 'RAY(': 'Appendix P', 'TURTLE': 'Appendix G'}   # (and this manual's own appendices)
 
 
 def documented():
@@ -80,7 +81,7 @@ def main():
     for f in FW['folded_functions']:
         name = (f if isinstance(f, str) else f['name']).upper()
         if name in where:
-            add(name, ', '.join(sorted(where[name])))
+            add(name, ', '.join(sorted(where[name])) + ('; ' + COMPANION[name] if name in COMPANION else ''))
         else:
             missing.append(name)
     for v in FW['mm_variables']:

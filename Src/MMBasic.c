@@ -1803,10 +1803,14 @@ void STR_REPLACE(char *target, const char *needle, const char *replacement, uint
 
 // The functions tokenise() folds into one token for each family (the PicoMite's): BIN$( is written BASE$(2, and so on.
 // A function's own table entry allowed spaces before its bracket (LEFT$ (a$, 2)), so they are closed up before the fold.
-static const char *const FoldFrom[] = {"BIN$", "OCT$", "HEX$", "LCASE$", "UCASE$", "LEFT$", "RIGHT$", "MIN", "MAX", "BIT", "BYTE", "FLAG"};
+// RAY( is the CMM2's, to keep the last one-byte tokens: SPRITE( has its types, and fun_sprite hands it to fun_ray (Ray.c)
+static const char *const FoldFrom[] = {"BIN$", "OCT$", "HEX$", "LCASE$", "UCASE$", "LEFT$", "RIGHT$", "MIN", "MAX", "BIT", "BYTE", "FLAG",
+    "RAY"};
 static const char *const FoldTo[] = {"BASE$(2,", "BASE$(8,", "BASE$(16,", "SCHANGE$(L,", "SCHANGE$(U,", "SCHANGE$(E,",
-    "SCHANGE$(R,", "TOPBOTTOM(I,", "TOPBOTTOM(A,", "BITBYTEFLAG(1,", "BITBYTEFLAG(2,", "BITBYTEFLAG(3,"};   // (a digit: no symbol is made of it)
-const char *const FoldList[] = {"Bin$(", "Oct$(", "Hex$(", "LCase$(", "UCase$(", "Left$(", "Right$(", "Min(", "Max(", "Bit(", "Byte(", "Flag("};   // (LIST FUNCTIONS too)
+    "SCHANGE$(R,", "TOPBOTTOM(I,", "TOPBOTTOM(A,", "BITBYTEFLAG(1,", "BITBYTEFLAG(2,", "BITBYTEFLAG(3,",   // (a digit: no symbol is made of it)
+    "SPRITE(RAY,"};
+const char *const FoldList[] = {"Bin$(", "Oct$(", "Hex$(", "LCase$(", "UCase$(", "Left$(", "Right$(", "Min(", "Max(", "Bit(", "Byte(", "Flag(",
+    "Ray("};   // (LIST FUNCTIONS too)
 #define FOLDS (sizeof(FoldFrom) / sizeof(FoldFrom[0]))
 const int FoldCount = FOLDS;
 

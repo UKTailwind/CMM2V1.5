@@ -251,6 +251,8 @@ Every keyword of the language, and the section of this manual where it is descri
 | RAD( | Functions |
 | RAM | Commands |
 | RANDOMIZE | Commands |
+| RAY | Commands; Appendix P |
+| RAY( | Functions; Appendix P |
 | RBOX | Commands |
 | READ | Commands |
 | REDIM | Commands |
@@ -304,7 +306,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | TRACE | Commands |
 | TRIANGLE | Commands |
 | TRIM$( | Functions |
-| TURTLE | Commands |
+| TURTLE | Commands; Appendix G |
 | TYPE | Commands; MMBasic_Structures_Manual.pdf |
 | UCASE$( | Functions |
 | UNTIL | Commands, with DO |

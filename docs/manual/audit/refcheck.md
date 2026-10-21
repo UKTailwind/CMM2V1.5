@@ -1,8 +1,8 @@
 # The reference entries against the build
 
-Made by `tools/manual/refcheck.py` from `docs/manual/ref/` and `firmware.json` (7.00.00b1). Suggestions for the reference pass: the pass decides.
+Made by `tools/manual/refcheck.py` from `docs/manual/ref/` and `firmware.json` (7.00.00b2). Suggestions for the reference pass: the pass decides.
 
-Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 656, PART 7.
+Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 658, PART 7.
 
 ## Predefined Read Only Variables (`variables.txt`)
 
@@ -20,7 +20,7 @@ Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 656, PART 7.
 
 ## Commands (`commands.txt`)
 
-400 entries; not OK: 11
+401 entries; not OK: 11
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
@@ -34,11 +34,11 @@ Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 656, PART 7.
 | 1521 | NO KEYWORD | Matrix arithmetic | Matrix arithmetic (NO KEYWORD) |
 | 1548 | NO KEYWORD | Vector arithmetic | Vector arithmetic (NO KEYWORD) |
 | 1580 | NO KEYWORD | Quaternion arithmetic | Quaternion arithmetic (NO KEYWORD) |
-| 2716 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
+| 2720 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
 
 ## Functions (`functions.txt`)
 
-168 entries; not OK: 6
+169 entries; not OK: 6
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
