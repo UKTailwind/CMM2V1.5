@@ -1136,7 +1136,7 @@ void MIPS16 cmd_list(void) {
     } else if((p = checkstring(cmdline, "COMMANDS"))) {
     	step=maxW/gui_font_width/20;
     	m=0;
-    	static const char *const extra[] = {"ELSE IF", "END IF", "Exit Do", "Cat", "Sprite", "Bit(", "Byte(", "Flag("};   // the spellings the tokeniser turns into other commands
+    	static const char *const extra[] = {"ELSE IF", "END IF", "Exit Do", "Cat", "Bit(", "Byte(", "Flag("};   // the spellings the tokeniser turns into other commands
     	int x = sizeof(extra) / sizeof(extra[0]);
 		char** c=GetTempMemory((CommandTableSize+x)*sizeof(*c)+(CommandTableSize+x)*20);
 		for(i=0;i<CommandTableSize+x;i++){

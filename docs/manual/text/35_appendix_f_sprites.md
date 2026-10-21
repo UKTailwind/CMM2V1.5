@@ -4,11 +4,11 @@
 
 The concept of the sprite implementation is as follows:
 
-- Sprites are full colour and of any size. The collision boundary is the enclosing rectangle.
+- Sprites are full colour, up to the size of the screen, and kept through a change of mode. The collision boundary is the enclosing rectangle.
 - Sprites are loaded to a specific number (1 to 64).
 - Sprites are displayed using the SPRITE SHOW command.
 - For each SHOW command the user must select a "layer". This can be between 0 and 10.
-- Sprites collide with sprites on the same layer, layer 0, or the screen edge.
+- Sprites collide with sprites on the same layer, layer 0, the static objects, or the screen edge.
 - Layer 0 is a special case and sprites on all other layers will collide with it.
 - The SCROLL commands leave sprites on all layers except layer 0 unmoved.
 - Layer 0 sprites scroll with the background and this can cause collisions.
@@ -18,7 +18,7 @@ The concept of the sprite implementation is as follows:
 - A SCROLL command will overwrite details of previous collisions for ALL sprites.
 - To restore a screen to a previous state sprites should be removed in the opposite order to which they were written (ie, last in first out).
 
-SPRITE is another name for BLIT: every SPRITE command can also be written as BLIT.
+SPRITE and BLIT are one command: every SPRITE command can also be written as BLIT. Only WRITE and LOAD differ with the name used, as on the PicoMite (see BLIT).
 
 Because moving a sprite or, particularly, scrolling the background can cause multiple sprite collisions it is important to understand how they can be interrogated.
 
@@ -76,4 +76,31 @@ SUB process_collision(S AS INTEGER)
     ENDIF
   NEXT i
 END SUB
+```
+
+(A collision with static object k returns &H80 + k: see below.)
+
+## Static Objects and the Background
+
+A game's scenery is usually drawn on the screen rather than made of sprites. Two features of the PicoMite let sprites collide with it:
+
+- **Static objects** (SPRITE STATIC) are up to 64 invisible rectangles that the program declares where its scenery is solid: a wall, a platform, the ground. They have no pixels and are never drawn. Every collision check tests the sprites displayed against them, whatever their layer; a sprite overlapping static object k has &H80 + k in its list of collisions (SPRITE(C, n, m)), and SPRITE STINTERRUPT can name a routine of its own for them. Unlike a collision between sprites, which is reported once when it begins, a static object is reported at every check while the sprite overlaps it. SPRITE SCROLL moves the static objects with the background.
+- **SPRITE(B, n)** compares the background stored under sprite n with the sprite's shape, pixel by pixel: 0 if nothing is there, 1 if something is within its rectangle but not its shape, 2 if something touches its shape. SPRITE(B, n, side) then says from which side and how deep.
+
+So a sprite can land on a platform declared as a static object, and be stopped by anything drawn. This is the heart of a platform game's step, a frame at a time (the player is sprite 1, PH pixels high, at px, py and moving vx across and vy down):
+
+```
+' across: into the scenery, the step is taken back
+SPRITE SHOW #1, px + vx, py, 1
+IF SPRITE(B, 1) = 2 THEN SPRITE SHOW #1, px, py, 1 ELSE px = px + vx
+' down: a platform met from above is landed on
+SPRITE SHOW #1, px, py + vy, 1
+FOR m = 1 TO SPRITE(C, 1)
+  e = SPRITE(C, 1, m)
+  IF e >= &H80 AND e < &HF0 AND vy >= 0 THEN
+    IF py + PH <= SPRITE(ST, e - &H80, Y) THEN vy = 0 : py = SPRITE(ST, e - &H80, Y) - PH
+  ENDIF
+NEXT m
+SPRITE SHOW #1, px, py + vy, 1
+py = py + vy
 ```

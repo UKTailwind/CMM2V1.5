@@ -909,8 +909,30 @@ A single SPI transaction will send data while simultaneously receiving data from
 The SPRITE functions return information regarding sprites, which are small graphic images on the screen.  These are useful when writing games.  See also the SPRITE commands and Appendix F.  In each of them the # before a sprite number is optional.
 
 =+= SPRITE(A, [#]n)
---- keep
-Returns the address in memory of the image of sprite ‘n’, or 0 if the sprite is not loaded.  The pixels are held row after row in the pixel format of the colour depth (see Colour Depths in the chapter Video Modes and Pages), except that in the 4-bit colour depth each pixel takes a byte.
+---
+Returns the address in memory of the image of sprite ‘n’, or 0 if the sprite is not loaded.  The pixels are held row after row, four bytes each whatever the colour depth: the red, green and blue in bits 0-23 and the transparency (0 to 15, 15 solid) in bits 24-27.
+
+=+= SPRITE(B, [#]n)
+---
+Returns how the background under displayed sprite ‘n’ meets the sprite, pixel by pixel, as on the PicoMite: what is drawn on the screen, scenery for example, against the sprite's shape.  The background is the one stored when the sprite was last drawn (any sprites under it included).  The shape is each row's and each column's span of solid pixels, from the first to the last, so a gap inside a span counts as the sprite.
+It returns:
+{l=720}0 - nothing is there: every background pixel is the transparent colour (in the 12-bit colour depth, or transparent)
+{l=720}1 - something is within the sprite's rectangle but outside its shape
+{l=720}2 - something is within its shape
+It returns 0 if the sprite is not displayed.
+
+=+= SPRITE(B, [#]n, side)
+---
+Returns more about the background found by the last SPRITE(B, n), for ‘side’:
+{l=720}0 - how far in from the sprite's left edge the background reaches (the offset of the furthest pixel + 1)
+{l=720}1 - how far in from its right edge
+{l=720}2 - how far in from its top edge
+{l=720}3 - how far in from its bottom edge
+{l=720}4 - how deep the background within the shape is, from the left ends of the row spans
+{l=720}5 - from their right ends
+{l=720}6 - from the top ends of the column spans
+{l=720}7 - from their bottom ends
+Sides 0 to 3 are 0 if no background is there, or if it reaches all the way across.  Of 4 and 5 only the smaller, the depth from the nearer end, is given (the other is 0), and so of 6 and 7; both are 0 if they are equal.  So, after a step to the right, SPRITE(B, n, 5) > 0 says that the sprite has run into something on its right.
 
 =+= SPRITE(C, [#]n)
 --- keep
@@ -918,9 +940,9 @@ Returns the number of new collisions (contacts that began) of sprite ‘n’ fou
 A sprite that stays in contact with another is not counted again: SPRITE(T, n) returns all the sprites it is touching.
 
 =+= SPRITE(C, [#]n, m)
---- keep
+---
 Returns the number of the sprite which caused the ‘m’th collision of sprite ‘n’ (‘m’ from 1 to SPRITE(C, n)).  If n = 0 then returns the sprite number of the ‘m’th sprite that had a new collision following a SPRITE SCROLL, SCROLLR, MOVE or RESTORE command.
-If the collision was with the edge of the screen then the return value will be:
+If the collision was with a static object (see SPRITE STATIC) the return value is &H80 + its number, and if it was with the edge of the screen it is:
 {l=720}&HF1	collision with left of screen
 {l=720}&HF2	collision with top of screen
 {l=720}&HF4	collision with right of screen
@@ -953,6 +975,18 @@ Returns the number of displayed (active) sprites on layer ‘n’ (0 to 10).
 =+= SPRITE(S)
 --- keep
 Returns the number of the sprite which last caused a collision.  NB if the number returned is zero then the collision is the result of a SPRITE SCROLL, SCROLLR, MOVE or RESTORE command and the SPRITE(C…) function should be used to find how many and which sprites collided.  Returns -1 if the last command that checks for collisions found none.
+
+=+= SPRITE(ST, [#]n, X|Y|W|H|A)
+---
+Returns the left (X), top (Y), width (W) or height (H) of static object ‘n’ (1 to 64), or -1 if it is not declared, or (A) 1 if it is declared and 0 if not.  See SPRITE STATIC.
+
+=+= SPRITE(ST, COLLISION)
+---
+Returns the number of the sprite in the last collision with a static object, or -1 if there has been none.
+
+=+= SPRITE(ST, OBJECT)
+---
+Returns the number of the static object in the last collision with one, or -1 if there has been none.
 
 =+= SPRITE(T, [#]n)
 --- keep

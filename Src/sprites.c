@@ -54,6 +54,53 @@ int sprites_in_use=0;
 char *COLLISIONInterrupt=NULL;
 int CollisionFound=false;
 int sprite_which_collided = -1;
+// the PicoMite's static objects: rectangles of the scenery, not drawn, that every collision check tests the shown
+// sprites against (a hit is &H80 + n in the sprite's list, and SPRITE STINTERRUPT's); SCROLL moves them with the
+// background, SCROLLR those whose centre is in its rectangle, as the layer-0 sprites
+struct stobject stobjects[MAXSTOBJECTS + 1];
+char *STCollisionInterrupt = NULL;
+int STCollisionFound = false;
+int sprite_hit_st = -1;                                             // SPRITE(ST, COLLISION): the sprite of the last hit
+int st_which_collided = -1;                                         // SPRITE(ST, OBJECT): its static object
+void closeallstobjects(void){
+    memset(stobjects, 0, sizeof(stobjects));
+    STCollisionInterrupt = NULL;
+    STCollisionFound = false;
+    sprite_hit_st = -1;
+    st_which_collided = -1;
+}
+// sprite k's overlaps with static objects into its list (while there is room); a hit is reported at every check while
+// it lasts (unlike a sprite's, which is reported when it begins), as the PicoMite's
+static void CheckSTCollisions(int k, int *n){
+    int sx = blitbuff[k].x, sy = blitbuff[k].y, sw = blitbuff[k].w, sh = blitbuff[k].h;
+    for(int i = 1; i <= MAXSTOBJECTS; i++){
+        if(!stobjects[i].active) continue;
+        if(sx + sw <= stobjects[i].x || sx >= stobjects[i].x + stobjects[i].w ||
+           sy + sh <= stobjects[i].y || sy >= stobjects[i].y + stobjects[i].h) continue;
+        if(*n < MAXCOLLISIONS) blitbuff[k].collisions[(*n)++] = 0x80 | i;
+        STCollisionFound = true;
+        if(STCollisionInterrupt != NULL) IntSignal();
+        sprite_hit_st = k;
+        st_which_collided = i;
+    }
+}
+// a static object's centre moved by dx, dy, wrapped within xmin..xmax, ymin..ymax (SCROLL: the screen; SCROLLR: its
+// rectangle, for those whose centre is in it)
+static void StaticsMove(int dx, int dy, int xmin, int ymin, int xmax, int ymax, int inside){
+    for(int i = 1; i <= MAXSTOBJECTS; i++){
+        if(!stobjects[i].active) continue;
+        int xs = stobjects[i].x + (stobjects[i].w >> 1), ys = stobjects[i].y + (stobjects[i].h >> 1);
+        if(inside && !(xs <= xmax && xs >= xmin && ys <= ymax && ys >= ymin)) continue;
+        xs += dx;
+        if(xs > xmax) xs -= xmax - xmin + 1;
+        if(xs < xmin) xs += xmax - xmin + 1;
+        ys += dy;
+        if(ys > ymax) ys -= ymax - ymin + 1;
+        if(ys < ymin) ys += ymax - ymin + 1;
+        stobjects[i].x = xs - (stobjects[i].w >> 1);
+        stobjects[i].y = ys - (stobjects[i].h >> 1);
+    }
+}
 static int hideall=0;
 struct blitbuffer __attribute__((section(".d2free"))) blitbuff[MAXBLITBUF];		//Buffer pointers for the BLIT command (in D2 RAM,
 																				// out of DTCM for the stack: main() zeroes it)
@@ -131,7 +178,98 @@ uint16_t convert_16bit(uint32_t c){
     return red|green|blue;
 }
 
+/* A sprite's image is a colour word for each pixel, the CMM2's own (what RGB() gives and a BOX draws: red, green and
+   blue in bits 0-23, the transparency 0-15 in bits 24-27, 15 opaque), whatever the colour depth, so that a change of
+   mode keeps it (Peter, 21 Oct: "This would mean the mode could be changed and the sprites would still be usable").
+   A pixel is transparent when its colour, as the depth's page holds it (its transparency left out), is SpriteKey's:
+   black unless SET TRANSPARENT has made it one of the PicoMite's 16 colours. That is the PicoMite's test in the 4-bit
+   depth (an RGB121 index), and the old engine's native 0 with black; it holds for a sprite READ from the screen too.
+   Its saved background is the page's own pixels, read and restored raw, SPRITEBG bytes each (enough for any depth).
+   docs/Sprite_Plan.md. */
+#define SPRITEBG 4
+static uint32_t SpriteKey = 0;
+// a colour word as the current depth's page holds it: what the drawing commands write (FILL's FillNative)
+#define NATIVE_32(c) (c)
+#define NATIVE_16(c) ((BIT_5[((c) & 0xFF0000) >> 19] << 11) | (BIT_6[((c) & 0xFF00) >> 10] << 5) | BIT_5[((c) & 0xFF) >> 3])
+#define NATIVE_12(c) ((BIT_4[((c) & 0xFF0000) >> 20] << 8) | (BIT_4[((c) & 0xFF00) >> 12] << 4) | BIT_4[((c) & 0xFF) >> 4] | \
+                      (((c) & 0xF000000) >> 12))
+// a colour word as the current depth's page holds it, and the bits of that which are the colour (not the transparency)
+static uint32_t SpriteNative(uint32_t c){
+    switch(VideoColour){
+        case 32: return NATIVE_32(c);
+        case 16: return NATIVE_16(c);
+        case 12: return NATIVE_12(c);
+        case 4: return RGB121(c);
+        default: return RGB332(c);
+    }
+}
+static uint32_t SpriteMask(void){
+    return VideoColour == 32 ? 0xFFFFFF : VideoColour == 16 ? 0xFFFF : VideoColour == 12 ? 0x0FFF : 0xFF;
+}
+// inv[level] for SpriteWord: the first input that a BIT table maps to that level, or above it (the RBIT tables of OPTION
+// VGA OUTPUT LOW and MEDIUM are not the inverses of their BIT tables: a sprite read would draw back other pixels)
+static void SpriteLevels(uint8_t *inv, const char *bit, int n, int shift){
+    int i = 0;
+    for(int l = 0; l < n; l++) {
+        while(i < n - 1 && (uint8_t)bit[i] < l) i++;
+        inv[l] = i << shift;
+    }
+}
+// a pixel n of the current depth's page as a colour word (SPRITE READ): the inverse of NATIVE_*, so a sprite read from
+// the screen draws back the same pixels. A black pixel is black, which SpriteKey makes transparent, as it was.
+static uint32_t SpriteWord(uint32_t n, const uint8_t *i4, const uint8_t *i5, const uint8_t *i6){
+    int r, g, b;
+    switch(VideoColour){
+        case 32: return n;
+        case 16: return 0x0F000000 | i5[(n >> 11) & 31] << 16 | i6[(n >> 5) & 63] << 8 | i5[n & 31];
+        case 12: return (n & 0xF000) << 12 | i4[(n >> 8) & 15] << 16 | i4[(n >> 4) & 15] << 8 | i4[n & 15];
+        case 4: return 0x0F000000 | colours[n & 15];                // (the PicoMite's 16 colours: RGB121() gives n back)
+        default:                                                    // RGB332
+            r = (n >> 5) & 7; g = (n >> 2) & 7; b = n & 3;
+            return 0x0F000000 | (r << 5 | r << 2 | r >> 1) << 16 | (g << 5 | g << 2 | g >> 1) << 8 | b * 0x55;
+    }
+}
+// sprite bnbr made w x h and not shown (its buffers as they are)
+static void SpriteFields(int bnbr, int w, int h){
+    struct blitbuffer *b = &blitbuff[bnbr];
+    b->bc = 0;
+    b->w = w;
+    b->h = h;
+    b->master = 0;
+    b->mymaster = -1;
+    b->x = b->y = 10000;
+    b->layer = -1;
+    b->next_x = b->next_y = 10000;
+    b->active = false;
+    b->lastcollisions = 0;
+    b->edges = 0;
+}
+// a new sprite bnbr of w x h: its image (w * h words, zeroed: transparent) and its background store, not shown
+static void SpriteNew(int bnbr, int w, int h){
+    blitbuff[bnbr].blitbuffptr = GetMemory(w * h * 4);
+    blitbuff[bnbr].blitstoreptr = GetMemory(w * h * SPRITEBG);
+    SpriteFields(bnbr, w, h);
+}
 
+
+// MODE: the screen is cleared, so no sprite is showing (their backgrounds are gone), but their images are kept: they
+// are colour words, the same in every mode
+void SpritesForget(void){
+    for(int i = 0; i < MAXBLITBUF; i++){
+        if(i <= MAXLAYER) layer_in_use[i] = 0;
+        blitbuff[i].active = false;
+        blitbuff[i].layer = -1;
+        blitbuff[i].x = blitbuff[i].y = 10000;
+        blitbuff[i].next_x = blitbuff[i].next_y = 10000;
+        blitbuff[i].lastcollisions = 0;
+        blitbuff[i].edges = 0;
+        memset(blitbuff[i].collisions, 0, sizeof(blitbuff[i].collisions));
+    }
+    LIFOpointer = 0;
+    zeroLIFOpointer = 0;
+    sprites_in_use = 0;
+    hideall = 0;
+}
 void closeallsprites(void){
     int i;
     for(i = 0; i < MAXBLITBUF; i++) {
@@ -154,15 +292,126 @@ void closeallsprites(void){
         blitbuff[i].layer=-1;
 		blitbuff[i].active=false;
         blitbuff[i].edges=0;
+        blitbuff[i].rotation=0;                                     // (and the collision state: it outlived a RUN, so a
+        blitbuff[i].lastcollisions=0;                               // program's first SPRITE(T) could show the last one's)
+        memset(blitbuff[i].collisions, 0, sizeof(blitbuff[i].collisions));
     }
     LIFOpointer=0;
     zeroLIFOpointer=0;
     sprites_in_use=0;
     hideall=0;
+    closeallstobjects();                                            // (and the static objects, as the PicoMite's CLOSE ALL)
+    SpriteKey = 0;                                                  // (and black transparent again)
 }
+// SPRITE(B, #n): how the background under shown sprite n meets it (the PicoMite's, ksinger's idea): its saved store,
+// what was there when it was last drawn (sprites under it too), against the row and column spans of its opaque pixels.
+// 0: nothing there (every pixel empty: the transparent colour, or a 12-bit layer's transparent pixel); 1: something in
+// its rectangle but not within a span; 2: within one (a hole inside a span counts, as the PicoMite's). bgc[] for
+// SPRITE(B, #n, side): 0-3 how far the hits reach in from the left, right, top and bottom edges (the furthest hit's
+// offset + 1: 0 none, or all the way across), 4-7 the deepest hit from the row spans' left and right ends and the column
+// spans' top and bottom (of each pair only the smaller kept, the depth from the nearer end: both 0 if equal). The spans
+// are made each time: LOAD, READ and the key change images.
+static int SpriteBackground(int bnbr){
+    struct blitbuffer *b = &blitbuff[bnbr];
+    short *g = b->bgc;
+    int w = b->w, h = b->h, x, y, r = 0, rotation = b->rotation;
+    int bpp = VideoColour == 32 ? 4 : (VideoColour == 12 || VideoColour == 16) ? 2 : 1;
+    uint32_t *img = (uint32_t *)b->blitbuffptr, mask = SpriteMask(), key = SpriteNative(SpriteKey) & mask;
+    for(x = 0; x < 8; x++) g[x] = 0;
+    if(img == NULL || !b->active) return 0;
+    short *left = GetTempMemory((2 * h + 2 * w) * sizeof(short)), *right = left + h, *top = right + h, *bottom = top + w;
+    for(x = 0; x < w; x++){
+        top[x] = SHRT_MAX;
+        bottom[x] = -1;
+    }
+    for(y = 0; y < h; y++){
+        left[y] = w;
+        right[y] = -1;
+        for(x = 0; x < w; x++){
+            if((SpriteNative(img[y * w + x]) & mask) == key) continue;
+            if(left[y] == w) left[y] = x;
+            right[y] = x;
+            bottom[x] = y;
+            if(top[x] == SHRT_MAX) top[x] = y;
+        }
+    }
+    int g0 = -1, g1 = SHRT_MAX, g2 = -1, g3 = SHRT_MAX, g4 = -1, g5 = -1, g6 = -1, g7 = -1;
+    for(y = 0; y < h; y++){
+        for(x = 0; x < w; x++){
+            int k = y * w + x;
+            uint32_t n = bpp == 4 ? ((uint32_t *)b->blitstoreptr)[k] : bpp == 2 ? ((uint16_t *)b->blitstoreptr)[k] :
+                         ((uint8_t *)b->blitstoreptr)[k];
+            if(VideoColour == 12 && (n & 0xF000) == 0) continue;    // a layer's transparent pixel
+            if((n & mask) == key) continue;
+            if(x > g0) g0 = x;                                      // the hits' rectangle
+            if(x < g1) g1 = x;
+            if(y > g2) g2 = y;
+            if(y < g3) g3 = y;
+            if(r == 0) r = 1;
+            int bx = rotation & 1 ? w - 1 - x : x, by = rotation & 2 ? h - 1 - y : y;   // in the image's own orientation
+            if(bx >= left[by] && bx <= right[by]){
+                if(bx - left[by] > g4){ g4 = bx - left[by]; r = 2; }
+                if(right[by] - bx > g5){ g5 = right[by] - bx; r = 2; }
+            }
+            if(by >= top[bx] && by <= bottom[bx]){
+                if(by - top[bx] > g6){ g6 = by - top[bx]; r = 2; }
+                if(bottom[bx] - by > g7){ g7 = bottom[bx] - by; r = 2; }
+            }
+        }
+    }
+    g[0] = g0 == -1 ? 0 : g0 + 1;
+    g[1] = g1 == SHRT_MAX ? 0 : w - g1;
+    g[2] = g2 == -1 ? 0 : g2 + 1;
+    g[3] = g3 == SHRT_MAX ? 0 : h - g3;
+    g[4] = g4 + 1;                                                  // (-1 + 1: none)
+    g[5] = g5 + 1;
+    g[6] = g6 + 1;
+    g[7] = g7 + 1;
+    if(g[0] == w) g[0] = 0;
+    if(g[1] == w) g[1] = 0;
+    if(g[2] == h) g[2] = 0;
+    if(g[3] == h) g[3] = 0;
+    if(g[4] != 0 && g[5] != 0){
+        if(g[4] < g[5]) g[5] = 0;
+        else if(g[4] > g[5]) g[4] = 0;
+        else g[4] = g[5] = 0;                                       // (both sides: a hit from top or bottom)
+    }
+    if(g[6] != 0 && g[7] != 0){
+        if(g[6] < g[7]) g[7] = 0;
+        else if(g[6] > g[7]) g[6] = 0;
+        else g[6] = g[7] = 0;
+    }
+    return r;
+}
+
 void fun_sprite(void){
     int bnbr=0, w=-1, h=-1,t=0, x=10000, y=10000, l=0, n, c=0;
     getargs(&ep, 5,",");
+    if(checkstring(argv[0], "B")){                                  // SPRITE(B, #n [, side 0-7])
+        if(argc < 3) error("Syntax");
+        if(*argv[2] == '#') argv[2]++;
+        bnbr = getint(argv[2], 1, MAXBLITBUF - 1);
+        targ = T_INT;
+        if(argc == 5) iret = blitbuff[bnbr].bgc[getint(argv[4], 0, 7)];
+        else iret = SpriteBackground(bnbr);
+        return;
+    }
+    if(checkstring(argv[0], "ST")){                                 // the PicoMite's static objects
+        if(argc < 3) error("Syntax");
+        targ = T_INT;
+        if(checkstring(argv[2], "COLLISION")) { iret = sprite_hit_st; return; }     // the sprite of the last hit
+        if(checkstring(argv[2], "OBJECT")) { iret = st_which_collided; return; }    // and its object
+        if(argc < 5) error("Syntax");
+        if(*argv[2] == '#') argv[2]++;
+        struct stobject *s = &stobjects[getint(argv[2], 1, MAXSTOBJECTS)];
+        if(checkstring(argv[4], "X")) iret = s->active ? s->x : -1;
+        else if(checkstring(argv[4], "Y")) iret = s->active ? s->y : -1;
+        else if(checkstring(argv[4], "W")) iret = s->active ? s->w : -1;
+        else if(checkstring(argv[4], "H")) iret = s->active ? s->h : -1;
+        else if(checkstring(argv[4], "A")) iret = s->active;
+        else error("Syntax");
+        return;
+    }
     if(checkstring(argv[0], "W")) t=1;
     else if(checkstring(argv[0], "H")) t=2;
     else if(checkstring(argv[0], "X")) t=3;
@@ -293,115 +542,65 @@ void checklimits(int bnbr, int *n){
 	edgecollision(bnbr, n, blitbuff[bnbr].y + blitbuff[bnbr].h > maxH, 8);
 }
 
-void ProcessCollisions(int bnbr){
-    int k, j=1, n=1, bcol=1;
-    //We know that any collision is caused by movement of sprite bnbr
-    // a value of zero indicates that we are processing movement of layer 0 and any
-    // sprites on that layer
-    CollisionFound=false;
-    sprite_which_collided=-1;
-    uint64_t mask, mymask=(uint64_t)1<<((uint64_t)bnbr-(uint64_t)1);
-    mymemset(blitbuff[0].collisions, 0, MAXCOLLISIONS);
-    if(bnbr!=0){ // a specific sprite has moved
-    	mymemset( blitbuff[bnbr].collisions, 0, MAXCOLLISIONS); //clear our previous collisions
-        if(blitbuff[bnbr].layer!=0){
-            if(layer_in_use[blitbuff[bnbr].layer]+layer_in_use[0]>1){ //other sprites in this layer
-                for(k=1;k<MAXBLITBUF;k++){
-        			mask=(uint64_t)1<<((uint64_t)k-(uint64_t)1);
-                	if(!(blitbuff[k].active)){
-                		blitbuff[bnbr].lastcollisions &= ~mask;
-                		continue;
-                	}
-                	if(k==bnbr) continue;
-                    if(j == layer_in_use[blitbuff[bnbr].layer]+layer_in_use[0]) break; //nothing left to process
-                    if((blitbuff[k].layer == blitbuff[bnbr].layer || blitbuff[k].layer == 0)){
-                        j++;
-                        if( !(blitbuff[k].x + blitbuff[k].w < blitbuff[bnbr].x ||
-                                blitbuff[k].x > blitbuff[bnbr].x+blitbuff[bnbr].w ||
-                                blitbuff[k].y + blitbuff[k].h < blitbuff[bnbr].y ||
-                                blitbuff[k].y > blitbuff[bnbr].y + blitbuff[bnbr].h)){
-                					if(n<MAXCOLLISIONS && !(blitbuff[bnbr].lastcollisions & mask))blitbuff[bnbr].collisions[n++]=k;
-                					blitbuff[bnbr].lastcollisions |= mask;
-                					blitbuff[k].lastcollisions |= mymask;
-                        }	else {
-                        	blitbuff[bnbr].lastcollisions &= ~mask;
-        					blitbuff[k].lastcollisions &= ~mymask;
-                        }
-                    }
-                }
-            }
+// may sprites k and kk collide: both showing, and on the same layer or either on layer 0 (which meets every layer)
+static inline int SpritesMeet(int k, int kk){
+    return kk != k && blitbuff[kk].active &&
+           (blitbuff[k].layer == 0 || blitbuff[kk].layer == 0 || blitbuff[k].layer == blitbuff[kk].layer);
+}
+// do their rectangles overlap (touching counts, as it always has)
+static inline int SpritesOverlap(int k, int kk){
+    return !(blitbuff[kk].x + blitbuff[kk].w < blitbuff[k].x || blitbuff[kk].x > blitbuff[k].x + blitbuff[k].w ||
+             blitbuff[kk].y + blitbuff[kk].h < blitbuff[k].y || blitbuff[kk].y > blitbuff[k].y + blitbuff[k].h);
+}
+// sprite k's collisions that have begun into its list from collisions[1] (its lastcollisions bit kk-1 kept for each one
+// that lasts, so it is reported once), then the screen edges it has reached; the number of entries + 1. 'both' also
+// sets k's bit in each other sprite's mask (a sprite that moved alone: its meeting is not news to the other either).
+static int SpriteCollisions(int k, int both){
+    int kk, n = 1;
+    uint64_t mine = (uint64_t)1 << (k - 1);
+    mymemset(blitbuff[k].collisions, 0, MAXCOLLISIONS);
+    for(kk = 1; kk < MAXBLITBUF; kk++){
+        uint64_t bit = (uint64_t)1 << (kk - 1);
+        if(kk == k) continue;
+        if(SpritesMeet(k, kk) && SpritesOverlap(k, kk)){
+            if(n < MAXCOLLISIONS && !(blitbuff[k].lastcollisions & bit)) blitbuff[k].collisions[n++] = kk;
+            blitbuff[k].lastcollisions |= bit;
+            if(both) blitbuff[kk].lastcollisions |= mine;
         } else {
-            for(k=1;k<MAXBLITBUF;k++){
-                if(j == sprites_in_use) break; //nothing left to process
-                if(k == bnbr) continue;
-    			mask=(uint64_t)1<<((uint64_t)k-(uint64_t)1);
-            	if(!(blitbuff[k].active)){
-            		blitbuff[bnbr].lastcollisions &= ~mask;
-            		continue;
-            	} else j++;
-                if( !(blitbuff[k].x + blitbuff[k].w < blitbuff[bnbr].x ||
-                        blitbuff[k].x > blitbuff[bnbr].x+blitbuff[bnbr].w ||
-                        blitbuff[k].y + blitbuff[k].h < blitbuff[bnbr].y ||
-                        blitbuff[k].y > blitbuff[bnbr].y + blitbuff[bnbr].h)){
-							if(n<MAXCOLLISIONS && !(blitbuff[bnbr].lastcollisions & mask))blitbuff[bnbr].collisions[n++]=k;
-								blitbuff[bnbr].lastcollisions |= mask;
-            					blitbuff[k].lastcollisions |= mymask;
-                			}	else {
-                				blitbuff[bnbr].lastcollisions &= ~mask;
-            					blitbuff[k].lastcollisions &= ~mymask;
-                			}
-            }
-
+            blitbuff[k].lastcollisions &= ~bit;
+            if(both) blitbuff[kk].lastcollisions &= ~mine;
         }
-// now look for collisions with the edge of the screen
-        checklimits(bnbr, &n);
-        if(n>1){
-            CollisionFound=true;
+    }
+    checklimits(k, &n);
+    CheckSTCollisions(k, &n);
+    if(n > 1) blitbuff[k].collisions[0] = n - 1;
+    return n;
+}
+// after a sprite bnbr has been shown, or (bnbr 0) after MOVE, SCROLL, SCROLLR or RESTORE has moved everything: the
+// collisions found, SPRITE(C ...) and SPRITE(S) for them, and the collision interrupt. Which collided is in
+// blitbuff[0]'s list after a whole-scene check. CollisionFound stays set until the interrupt has run (MM_Misc.c).
+void ProcessCollisions(int bnbr){
+    int k, bcol = 1;
+    if(COLLISIONInterrupt == NULL) CollisionFound = false;
+    if(STCollisionInterrupt == NULL) STCollisionFound = false;
+    sprite_which_collided = -1;
+    mymemset(blitbuff[0].collisions, 0, MAXCOLLISIONS);
+    if(bnbr != 0){                                                  // one sprite has moved
+        if(SpriteCollisions(bnbr, 1) > 1){
+            CollisionFound = true;
             if(COLLISIONInterrupt != NULL) IntSignal();
-            sprite_which_collided=bnbr;
-            blitbuff[bnbr].collisions[0]=n-1;
+            sprite_which_collided = bnbr;
         }
-    } else { //the background layer has moved
-        j=0;
-        for(k=1;k<MAXBLITBUF;k++){ //loop through all sprites
-			mask=(uint64_t)1<<((uint64_t)k-(uint64_t)1);
-            n=1;
-            int kk, jj=1;
-            if(j == sprites_in_use) break; //nothing left to process
-            if(blitbuff[k].active){ //sprite found
-                mymemset( blitbuff[k].collisions, 0, MAXCOLLISIONS);
-                j++;
-                if(layer_in_use[blitbuff[k].layer]+layer_in_use[0]>1){ //other sprites in this layer
-                    for(kk=1;kk<MAXBLITBUF;kk++){
-                        if(kk == k) continue;
-                        if(jj == layer_in_use[blitbuff[k].layer]+layer_in_use[0]) break; //nothing left to process
-                        if((blitbuff[kk].layer == blitbuff[k].layer || blitbuff[kk].layer == 0)){
-                            jj++;
-                            if( !(blitbuff[kk].x + blitbuff[kk].w < blitbuff[k].x ||
-                                blitbuff[kk].x > blitbuff[k].x+blitbuff[k].w ||
-                                blitbuff[kk].y + blitbuff[kk].h < blitbuff[k].y ||
-                                blitbuff[kk].y > blitbuff[k].y + blitbuff[k].h)){
-    							if(n<MAXCOLLISIONS && !(blitbuff[k].lastcollisions & mask))blitbuff[k].collisions[n++]=kk;
-    								blitbuff[k].lastcollisions |= mask;
-                    			}	else {
-                    				blitbuff[k].lastcollisions &= ~mask;
-                    			}
-                        }
-                    }
-                }
-                checklimits(k, &n);
-                if(n>1 && n<MAXCOLLISIONS && bcol<MAXCOLLISIONS){
-                    blitbuff[0].collisions[bcol]=k;
-                    bcol++;
-                    blitbuff[k].collisions[0]=n-1;
-                }
-            }
+    } else {                                                        // everything has moved
+        for(k = 1; k < MAXBLITBUF; k++){
+            if(!blitbuff[k].active) continue;
+            if(SpriteCollisions(k, 0) > 1 && bcol < MAXCOLLISIONS) blitbuff[0].collisions[bcol++] = k;
         }
-        if(bcol>1){
-            CollisionFound=true;
+        if(bcol > 1){
+            CollisionFound = true;
             if(COLLISIONInterrupt != NULL) IntSignal();
-            sprite_which_collided=0;
-            blitbuff[0].collisions[0]=bcol-1;
+            sprite_which_collided = 0;
+            blitbuff[0].collisions[0] = bcol - 1;
         }
     }
 }
@@ -416,493 +615,342 @@ void blithide(int bnbr, int free){
     DrawBufferFast(x1,y1,x1+w-1,y1+h-1,blitbuff[bnbr].blitstoreptr);
 }
 
-void BlitShowBuff32(int bnbr, int x1, int y1, int mode){
-    char *current, *r, *rr, *q, *qq;
-    int x, y, rotation, linelength;
-    rotation = blitbuff[bnbr].rotation;
-    ReadPage=WritePage;
-    union colourmap
-    {
-        char rgbbytes[4];
-        short rgb[2];
-        int r;
-    } a, b __attribute((unused));
-    int w, h;
-    if(blitbuff[bnbr].blitbuffptr!=NULL){
-        qq = q = blitbuff[bnbr].blitbuffptr;
-        w=blitbuff[bnbr].w;
-        h=blitbuff[bnbr].h;
-        linelength=w*4;
-        current = blitbuff[bnbr].blitstoreptr;
-        if(!(mode==0 || mode & 4) && blitbuff[bnbr].active){
-            DrawBufferFast(blitbuff[bnbr].x, blitbuff[bnbr].y, blitbuff[bnbr].x + w - 1, blitbuff[bnbr].y + h - 1,current);
-        }
-        blitbuff[bnbr].x=x1;
-        blitbuff[bnbr].y=y1;
-        if(!(mode==2))ReadBufferFast(x1,y1,x1+w-1,y1+h-1,current);
-        // we now have the old screen image stored together with the coordinates
-        rr = r = GetMemory(w*h*4);
-        a.r=0;
-        b.r=0;
-        for(y=0; y<h; y++){
-            if(rotation<2)qq=q+linelength*y;
-            else qq=q+(h-y-1)*linelength;
-            if(rotation==1 || rotation==3)qq+=linelength;
-            for(x=0; x<w; x++){
-                if(rotation==1 || rotation==3){
-                    a.rgbbytes[3]=*--qq;
-                    a.rgbbytes[2]=*--qq;
-                    a.rgbbytes[1]=*--qq;
-                    a.rgbbytes[0]=*--qq;
-                } else {
-                    a.rgbbytes[0]=*qq++;
-                    a.rgbbytes[1]=*qq++;
-                    a.rgbbytes[2]=*qq++;
-                    a.rgbbytes[3]=*qq++;
-                }
-                b.rgbbytes[0]=*current++;
-                b.rgbbytes[1]=*current++;
-                b.rgbbytes[2]=*current++;
-                b.rgbbytes[3]=*current++;
-                if(a.r!=blitbuff[bnbr].bc || mode & 8){
-                    *r++=a.rgbbytes[0];
-                    *r++=a.rgbbytes[1];
-                    *r++=a.rgbbytes[2];
-                    *r++=a.rgbbytes[3];
-                } else {
-                    *r++=b.rgbbytes[0];
-                    *r++=b.rgbbytes[1];
-                    *r++=b.rgbbytes[2];
-                    *r++=b.rgbbytes[3];
-                }
-            }
-        }
-        DrawBufferFast(x1,y1,x1+w-1,y1+h-1,rr);
-        if(!(mode & 4))blitbuff[bnbr].active=1;
-        FreeMemory(rr);
+// Sprite bnbr drawn at x1, y1 over the write page: SHOW, SHOW SAFE, SWAP, WRITE and every redraw. Its image is read in
+// its orientation (rotation bit 0 mirrors it left to right, bit 1 top to bottom), and each pixel that is not its
+// transparent value bc is drawn, every pixel with mode 8. mode 0: a redraw (the old place is not restored), 1: SHOW (it
+// is, if the sprite is shown), 2: SWAP (the saved background is kept), 4: WRITE (not restored, not made shown); | 8.
+// The image is colour words, converted as they are drawn; the background is the depth's pixels, a byte each in the 8-bit
+// and 4-bit depths (the 4-bit one's RGB121 in the low nibble), two in the 12-bit and 16-bit, four in the 32-bit.
+#define SHOWLOOP(T, NATIVE) { \
+    uint32_t *img = (uint32_t *)b->blitbuffptr, mask = SpriteMask(), key = SpriteNative(SpriteKey) & mask; \
+    T *bg = (T *)store, *out = (T *)rr; \
+    for(y = 0; y < h; y++) { \
+        uint32_t *row = img + (rotation & 2 ? h - 1 - y : y) * w; \
+        for(x = 0; x < w; x++) { \
+            uint32_t a = rotation & 1 ? row[w - 1 - x] : row[x]; \
+            T n = (T)(NATIVE(a)), s = *bg++; \
+            *out++ = ((n & mask) != key || (mode & 8)) ? n : s; \
+        } \
+    } \
+}
+// BlitShowBuff's output, in on-chip RAM, where writing it and DrawBufferFast's reading it are fast: the 6 KB of .d2free
+// past noisetable and blitbuff (a 32 x 32 sprite in any depth, 64 x 64 in the 8-bit ones), for a bigger sprite a block
+// of the on-chip heap kept while the heap lasts (HeapGen), and past what that has, the SDRAM heap for the one draw
+#define SHOWOUT 4992                                                // (blitbuff's bgc took 1 KB of it)
+static char __attribute__((section(".d2free"), aligned(8))) ShowOut[SHOWOUT];
+static char *ShowBig = NULL;
+static int ShowBigSize = 0;
+static uint32_t ShowBigGen = 0;
+static char *ShowBuffer(int n){
+    if(n <= SHOWOUT) return ShowOut;
+    if(ShowBigGen != HeapGen){                                      // (wiped with the heap since)
+        ShowBig = NULL;
+        ShowBigSize = 0;
+        ShowBigGen = HeapGen;
     }
-}
-
-void BlitShowBuff16(int bnbr, int x1, int y1, int mode){
-    char *current, *r, *rr, *q, *qq;
-    int x, y, rotation, linelength;
-    rotation = blitbuff[bnbr].rotation;
-    ReadPage=WritePage;
-    union colourmap
-    {
-        char rgbbytes[4];
-        short rgb[2];
-        int r;
-    } a, b __attribute((unused));
-    int w, h;
-    if(blitbuff[bnbr].blitbuffptr!=NULL){
-        qq = q = blitbuff[bnbr].blitbuffptr;
-        w=blitbuff[bnbr].w;
-        h=blitbuff[bnbr].h;
-        linelength=w*2;
-        current = blitbuff[bnbr].blitstoreptr;
-        if(!(mode==0 || mode & 4) && blitbuff[bnbr].active){
-            DrawBufferFast(blitbuff[bnbr].x, blitbuff[bnbr].y, blitbuff[bnbr].x + w - 1, blitbuff[bnbr].y + h - 1,current);
-        }
-        blitbuff[bnbr].x=x1;
-        blitbuff[bnbr].y=y1;
-        if(!(mode==2))ReadBufferFast(x1,y1,x1+w-1,y1+h-1,current);
-        // we now have the old screen image stored together with the coordinates
-        rr = r = GetMemory(w*h*2);
-        a.r=0;
-        b.r=0;
-        for(y=0; y<h; y++){
-            if(rotation<2)qq=q+linelength*y;
-            else qq=q+(h-y-1)*linelength;
-            if(rotation==1 || rotation==3)qq+=linelength;
-            for(x=0; x<w; x++){
-                if(rotation==1 || rotation==3){
-                    a.rgbbytes[1]=*--qq;
-                    a.rgbbytes[0]=*--qq;
-                } else {
-                    a.rgbbytes[0]=*qq++;
-                    a.rgbbytes[1]=*qq++;
-                }
-                b.rgbbytes[0]=*current++;
-                b.rgbbytes[1]=*current++;
-                if(a.r!=blitbuff[bnbr].bc || mode & 8){
-                    *r++=a.rgbbytes[0];
-                    *r++=a.rgbbytes[1];
-                } else {
-                    *r++=b.rgbbytes[0];
-                    *r++=b.rgbbytes[1];
-                }
-            }
-        }
-        DrawBufferFast(x1,y1,x1+w-1,y1+h-1,rr);
-        if(!(mode & 4))blitbuff[bnbr].active=1;
-        FreeMemory(rr);
+    if(n > ShowBigSize){
+        if(ShowBig != NULL) FreeMemory(ShowBig);
+        ShowBig = GetInternalMemoryNull(n);
+        ShowBigSize = ShowBig != NULL ? n : 0;
     }
+    return ShowBig;                                                 // (NULL: the on-chip heap has not that much)
 }
-void BlitShowBuff8(int bnbr, int x1, int y1, int mode){
-    char *current, *r, *rr, *q, *qq;
-    int x, y, rotation, linelength;
-    rotation = blitbuff[bnbr].rotation;
-    ReadPage=WritePage;
-    char a, b ;
-    int w, h;
-        qq = q = blitbuff[bnbr].blitbuffptr;
-        w=blitbuff[bnbr].w;
-        h=blitbuff[bnbr].h;
-        linelength=w;
-        current = blitbuff[bnbr].blitstoreptr;
-        if(!(mode==0 || mode & 4) && blitbuff[bnbr].active){
-            DrawBufferFast(blitbuff[bnbr].x, blitbuff[bnbr].y, blitbuff[bnbr].x + w - 1, blitbuff[bnbr].y + h - 1,current);
-        }
-        blitbuff[bnbr].x=x1;
-        blitbuff[bnbr].y=y1;
-        if(!(mode==2))ReadBufferFast(x1,y1,x1+w-1,y1+h-1,current);
-        // we now have the old screen image stored together with the coordinates
-        rr = r = GetMemory(w*h);
-        a=0;
-        b=0;
-        for(y=0; y<h; y++){
-            if(rotation<2)qq=q+linelength*y;
-            else qq=q+(h-y-1)*linelength;
-            if(rotation==1 || rotation==3)qq+=linelength;
-            for(x=0; x<w; x++){
-                if(rotation==1 || rotation==3){
-                    a=*--qq;
-                } else {
-                    a=*qq++;
-                }
-                b=*current++;
-                if(a!=blitbuff[bnbr].bc || mode & 8){
-                    *r++=a;
-
-                } else {
-                    *r++=b;
-                }
-            }
-        }
-        DrawBufferFast(x1,y1,x1+w-1,y1+h-1,rr);
-        if(!(mode & 4))blitbuff[bnbr].active=1;
-        FreeMemory(rr);
+void BlitShowBuff(int bnbr, int x1, int y1, int mode){
+    struct blitbuffer *b = &blitbuff[bnbr];
+    int x, y, w = b->w, h = b->h, rotation = b->rotation & 3;
+    int bpp = VideoColour == 32 ? 4 : (VideoColour == 12 || VideoColour == 16) ? 2 : 1;
+    char *rr, *store = b->blitstoreptr;
+    if(b->rotation & 4) mode |= 8;                                  // orientations 4-7: every pixel (the PicoMite's)
+    ReadPage = WritePage;
+    if(b->blitbuffptr == NULL) return;
+    if(!(mode == 0 || mode & 4) && b->active)
+        DrawBufferFast(b->x, b->y, b->x + w - 1, b->y + h - 1, b->blitstoreptr);
+    if(mode & 4) store = GetTempMemory(w * h * SPRITEBG);           // WRITE: a sprite showing keeps its place and its
+    else {                                                          // background (they were overwritten: the PicoMite's too)
+        b->x = x1;
+        b->y = y1;
+    }
+    if(mode != 2) ReadBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, store);
+    // the old screen is now stored, with its place
+    if((rr = ShowBuffer(w * h * bpp)) == NULL) rr = GetMemory(w * h * bpp);
+    switch(VideoColour){
+        case 32: SHOWLOOP(uint32_t, NATIVE_32) break;
+        case 16: SHOWLOOP(uint16_t, NATIVE_16) break;
+        case 12: SHOWLOOP(uint16_t, NATIVE_12) break;
+        case 4: SHOWLOOP(uint8_t, RGB121) break;
+        default: SHOWLOOP(uint8_t, RGB332) break;
+    }
+    DrawBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, rr);
+    if(!(mode & 4)) b->active = 1;
+    if(rr != ShowOut && rr != ShowBig) FreeMemory(rr);
 }
+#undef SHOWLOOP
 
 int sumlayer(void){
     int i,j=0;
     for(i=0; i<=MAXLAYER ;i++)j+=layer_in_use[i];
     return j;
 }
-void loadarray(char *p){
-    int bnbr,w,h, size,i;
-	int maxH=PageTable[WritePage].ymax;
-    int maxW=PageTable[WritePage].xmax;
-    MMFLOAT *a3float=NULL;
-    int64_t *a3int=NULL;
-    char *q;
-    uint16_t *qq;
-    uint32_t *qqq;
-    getargs(&p, 7,",");
+void loadarray(char *p){                                           // SPRITE LOADARRAY #n, w, h, array(): a colour a pixel
+    int bnbr, w, h, size, i;
+	int maxH = PageTable[WritePage].ymax;
+    int maxW = PageTable[WritePage].xmax;
+    MMFLOAT *a3float = NULL;
+    int64_t *a3int = NULL;
+    uint32_t *q;
+    getargs(&p, 7, ",");
     if(*argv[0] == '#') argv[0]++;
-    bnbr=getint(argv[0],1,MAXBLITBUF-1);
-    if(blitbuff[bnbr].blitbuffptr==NULL){
-    	w=getint(argv[2],1,maxW);
-    	h=getint(argv[4],1,maxH);
+    bnbr = getint(argv[0], 1, MAXBLITBUF - 1);
+    if(blitbuff[bnbr].blitbuffptr == NULL){
+    	w = getint(argv[2], 1, maxW);
+    	h = getint(argv[4], 1, maxH);
         // the array whole, as the PicoMite's: a!(5) read w*h values from element 5, past the end
         size = parsenumberarray(argv[6], &a3float, &a3int, 4, 1, NULL, true, NULL) - 1;
-        if(size<w*h-1)error("Array Dimensions");
-        blitbuff[bnbr].blitbuffptr = GetMemory(w*h*PageTable[WritePage].nbytes);
-        blitbuff[bnbr].blitstoreptr = GetMemory(w*h*PageTable[WritePage].nbytes);
-        blitbuff[bnbr].bc=0;
-        blitbuff[bnbr].w=w;
-        blitbuff[bnbr].h=h;
-        blitbuff[bnbr].master=0;
-        blitbuff[bnbr].mymaster=-1;
-        blitbuff[bnbr].x=10000;
-        blitbuff[bnbr].y=10000;
-        blitbuff[bnbr].layer=-1;
-        blitbuff[bnbr].next_x = 10000;
-        blitbuff[bnbr].next_y = 10000;
-    	blitbuff[bnbr].active=false;
-    	blitbuff[bnbr].lastcollisions=0;
-        blitbuff[bnbr].edges=0;
-    	q=blitbuff[bnbr].blitbuffptr;
-        qq=(uint16_t *)q;
-        qqq=(uint32_t *)q;
-		if (VideoColour<=8) {
-			int c;
-			for(i=0; i<w*h;i++){
-				if(a3float)c=(int)a3float[i];
-				else c=(int)a3int[i];
-                *q++ = NATIVE8(c);
-			}
-        } else if (VideoColour==16) {
-			int c;
-			for(i=0; i<w*h;i++){
-				if(a3float)c=(int)a3float[i];
-				else c=(int)a3int[i];
-                *qq++=convert_16bit(c);
-			}
-        } else if (VideoColour==12) {
-			int c;
-			for(i=0; i<w*h;i++){
-				if(a3float)c=(int)a3float[i];
-				else c=(int)a3int[i];
-                *qq++=convert_12bit(c);
-			}
-        } else if (VideoColour==32){
-			int c;
-			for(i=0; i<w*h;i++){
-				if(a3float)c=(int)a3float[i];
-				else c=(int)a3int[i];
-                *qqq++=c;
-			}
-        }
+        if(size < w * h - 1) error("Array Dimensions");
+        SpriteNew(bnbr, w, h);
+        q = (uint32_t *)blitbuff[bnbr].blitbuffptr;
+        for(i = 0; i < w * h; i++) *q++ = a3float ? (uint32_t)(int)a3float[i] : (uint32_t)a3int[i];   // (the colour as given)
     } else error("Buffer already in use");
+}
+// SPRITE LOADPNG #n, f$ [, t] [, cutoff] [, x] [, y] [, w] [, h], the PicoMite's. A pixel whose alpha is above cutoff
+// (1-254, default 30) keeps its colour; the others are colour t of the PicoMite's 16 (0, black: transparent unless SET
+// TRANSPARENT says otherwise). A negative t instead makes the opaque pixels that would draw as black (in the depth: the
+// transparent colour) colour -t. x, y, w, h: a part of the image, no bigger than the screen; it is decoded a row at a
+// time, and is the sprite's only once every row has decoded. (The CMM2's third argument was a cut-off of 1-15.)
+typedef struct {
+    int xoff, yoff, sw, sh, cutoff, remap;
+    uint32_t transparent, mask, black, *q;
+} s_spritepng;
+static int spritepngrow(void *v, unsigned y, const unsigned char *rgba){
+    s_spritepng *c = (s_spritepng *)v;
+    if((int)y < c->yoff) return 1;
+    if((int)y >= c->yoff + c->sh) return 0;                         // (the rows past the part: not decoded)
+    routinechecks(1);                                               // (as LOAD PNG: sound keeps playing)
+    const unsigned char *rr = rgba + c->xoff * 4;
+    for(int x = 0; x < c->sw; x++, rr += 4){
+        uint32_t w;
+        if(rr[3] > c->cutoff){
+            w = 0x0F000000 | rr[0] << 16 | rr[1] << 8 | rr[2];
+            if(c->remap >= 0 && (SpriteNative(w) & c->mask) == c->black) w = 0x0F000000 | colours[c->remap];
+        } else w = c->transparent;
+        *c->q++ = w;
+    }
+    return (int)y + 1 < c->yoff + c->sh;                            // (0 after the part's last row: decoding stops)
 }
 void loadpng(char *p){
-	upng_t* upng;
-    union colourmap
-    {
-        unsigned char rgbbytes[4];
-        unsigned short rgb[2];
-        unsigned int r;
-    } b __attribute((unused)),c;
-    int maxW=PageTable[WritePage].xmax;
-	int maxH=PageTable[WritePage].ymax;
-    int bnbr, i, w, h, deftrans=8;
-    char *q;
-    uint16_t *qq;
-    uint32_t *qqq;
-    getargs(&p, 5,",");
+	upng_t *upng;
+    int maxW = PageTable[WritePage].xmax;
+	int maxH = PageTable[WritePage].ymax;
+    int bnbr, w, h, xoff = 0, yoff = 0, sw = -1, sh = -1, t = 0, remap = -1, cutoff = 30;
+    uint32_t *img;
+    getargs(&p, 15, ",");
+    if(argc < 3) error("Syntax");
     if(*argv[0] == '#') argv[0]++;
-    bnbr=getint(argv[0],1,MAXBLITBUF-1);
-    if(blitbuff[bnbr].blitbuffptr==NULL){
-        char *p=getCstring(argv[2]);
-        if(argc==5)deftrans=getint(argv[4],1,15);
-        upng = upng_new_from_file(p);
-        if(upng == NULL) return;
-        upng_header(upng);
-        upng_error_check(upng);                                     // (an unreadable or unsupported file: freed and reported)
-        if(upng_get_width(upng) >= maxW || upng_get_height(upng) >= maxH){
-            upng_free(upng);
-            error("Image too large");
-        }
-        if(!(upng_get_format(upng)==1 || upng_get_format(upng)==3)){
-            upng_free(upng);
-            error("Invalid format");
-        }
-        upng_decode(upng);
-        upng_error_check(upng);
-        w=upng_get_width(upng);
-        h=upng_get_height(upng);
-//        PInt(w*h*PageTable[WritePage].nbytes);PRet();MM_Delay(500);
-        blitbuff[bnbr].blitbuffptr = GetMemory(w*h*PageTable[WritePage].nbytes);
-        blitbuff[bnbr].blitstoreptr = GetMemory(w*h*PageTable[WritePage].nbytes);
-        blitbuff[bnbr].bc=0;
-        blitbuff[bnbr].w=w;
-        blitbuff[bnbr].h=h;
-        blitbuff[bnbr].master=0;
-        blitbuff[bnbr].mymaster=-1;
-        blitbuff[bnbr].x=10000;
-        blitbuff[bnbr].y=10000;
-        blitbuff[bnbr].layer=-1;
-        blitbuff[bnbr].next_x = 10000;
-        blitbuff[bnbr].next_y = 10000;
-		blitbuff[bnbr].active=false;
-		blitbuff[bnbr].lastcollisions=0;
-        blitbuff[bnbr].edges=0;
-		q=blitbuff[bnbr].blitbuffptr;
-        qq=(uint16_t *)q;
-        qqq=(uint32_t *)q;
-		if (VideoColour<=8) {
-            const unsigned char *rr;
-            rr=upng_get_buffer(upng);
-            i=upng_get_width(upng)*upng_get_height(upng)*4;
-            c.rgbbytes[3]=0;
-            while(i){
-                c.rgbbytes[2]=*rr++;
-                c.rgbbytes[1]=*rr++;
-                c.rgbbytes[0]=*rr++;
-                if(upng_get_format(upng)==3){
-                	c.rgbbytes[3]=*rr++;
-                	if((c.rgbbytes[3]>>4) < deftrans) c.rgbbytes[3]=0;
-                	else c.rgbbytes[3]=0xF0;
-                }
-                else c.rgbbytes[3]=1;
-                if(c.rgbbytes[3]==0)*q=0;
-                else {
-                    *q = NATIVE8(c.r);
-                    if(*q==0 && c.r!=0){ //problem
-                    	*q=convert_8bit(NOTBLACK);
-                    }
-                }
-                q++;
-                i-=4;
-            }
-        } else if (VideoColour==16) {
-        	uint32_t sc;
-            const unsigned char *rr;
-            rr=upng_get_buffer(upng);
-            i=upng_get_width(upng)*upng_get_height(upng)*4;
-            c.rgbbytes[3]=0;
-            while(i){
-                c.rgbbytes[2]=*rr++;
-                c.rgbbytes[1]=*rr++;
-                c.rgbbytes[0]=*rr++;
-                if(upng_get_format(upng)==3){
-                	c.rgbbytes[3]=*rr++;
-                	if((c.rgbbytes[3]>>4) < deftrans) c.rgbbytes[3]=0;
-                	else c.rgbbytes[3]=0xF0;
-                }
-                else c.rgbbytes[3]=1;
-                if(c.rgbbytes[3]==0)sc=0;
-                else {
-                	sc=convert_16bit(c.r);
-                    if(c.r!=0 && sc==0){
-                    	sc=convert_16bit(NOTBLACK);
-                    }
-                }
-       			*qq++=sc;
-       			i-=4;
-            }
-        } else if (VideoColour==12) {
-        	uint32_t sc;
-            const unsigned char *rr;
-            rr=upng_get_buffer(upng);
-            i=upng_get_width(upng)*upng_get_height(upng)*4;
-            c.rgbbytes[3]=0;
-            while(i){
-            	c.rgbbytes[3]=0;
-                c.rgbbytes[2]=*rr++;
-                c.rgbbytes[1]=*rr++;
-                c.rgbbytes[0]=*rr++;
-                if(upng_get_format(upng)==3){
-                	c.rgbbytes[3]=*rr++;
-                	if((c.rgbbytes[3]>>4) < deftrans){
-                		c.r=0;
-                	}
-                	else c.rgbbytes[3]=0xF0;
-                }
-            	sc=convert_12bit(c.r);
-                if(c.r!=0 && sc==0){
-                	sc=convert_12bit(NOTBLACK);
-                }
-                if(sc)sc|=0xF000;
-     			*qq++=sc;
-     			i-=4;
-            }
-        } else if (VideoColour==32){
-            const unsigned char *rr;
-            rr=upng_get_buffer(upng);
-            i=upng_get_width(upng)*upng_get_height(upng)*4;
-            c.rgbbytes[3]=0;
-            while(i){
-            	c.rgbbytes[3]=0;
-                c.rgbbytes[2]=*rr++;
-                c.rgbbytes[1]=*rr++;
-                c.rgbbytes[0]=*rr++;
-                if(upng_get_format(upng)==3)c.rgbbytes[3]=*rr++;
-                else c.rgbbytes[3]=0xFF;
-     			*qqq++=c.r;
-     			i-=4;
-            }
-        }
+    bnbr = getint(argv[0], 1, MAXBLITBUF - 1);
+    if(blitbuff[bnbr].blitbuffptr != NULL) error("Buffer already in use");
+    char *f = getCstring(argv[2]);
+    if(argc >= 5 && *argv[4]){
+        int tt = getint(argv[4], -15, 15);
+        if(tt < 0) remap = -tt;
+        else t = tt;
+    }
+    if(argc >= 7 && *argv[6]) cutoff = getint(argv[6], 1, 254);
+    if(argc >= 9 && *argv[8]) xoff = getinteger(argv[8]);
+    if(argc >= 11 && *argv[10]) yoff = getinteger(argv[10]);
+    if(argc >= 13 && *argv[12]) sw = getinteger(argv[12]);
+    if(argc == 15) sh = getinteger(argv[14]);
+    if(xoff < 0 || yoff < 0) error("Coordinates");
+    upng = upng_new_from_file(f);
+    if(upng == NULL) return;
+    upng_header(upng);
+    upng_error_check(upng);                                         // (an unreadable or unsupported file: freed and reported)
+    w = upng_get_width(upng);
+    h = upng_get_height(upng);
+    if(sw == -1) sw = w - xoff;
+    if(sh == -1) sh = h - yoff;
+    if(sw < 1 || sh < 1 || sw + xoff > w || sh + yoff > h){
         upng_free(upng);
-    } else error("Buffer already in use");
+        error("Coordinates");
+    }
+    if(sw > maxW || sh > maxH){
+        upng_free(upng);
+        error("Image too large");
+    }
+    img = GetMemory(sw * sh * 4);
+    s_spritepng c = {.xoff = xoff, .yoff = yoff, .sw = sw, .sh = sh, .cutoff = cutoff, .remap = remap,
+                     .transparent = 0x0F000000 | colours[t], .mask = SpriteMask(), .black = SpriteNative(0) & SpriteMask(),
+                     .q = img};
+    upng_decode_rows(upng, spritepngrow, &c);
+    if(upng_get_error(upng) != UPNG_EOK) FreeMemory(img);           // (not the sprite's: it stays free)
+    upng_error_check(upng);
+    upng_free(upng);
+    blitbuff[bnbr].blitbuffptr = (char *)img;
+    blitbuff[bnbr].blitstoreptr = GetMemory(sw * sh * SPRITEBG);
+    SpriteFields(bnbr, sw, sh);
 }
+// SPRITE LOADBMP #n, f$ [, x, y, w, h] (and BLIT LOAD, its other name), the PicoMite's: a BMP, or the part of it at x, y,
+// w by h (no bigger than the screen), every pixel opaque (black: transparent unless SET TRANSPARENT says otherwise);
+// decoded a row at a time into temporary memory, as the decoder's errors are raised inside it (cleanupAndError), and
+// the sprite's only once every row has decoded
+static struct { int xoff, yoff, sw, sh; uint32_t *img; } bmprows;
+static bool SpriteBMPRow(int *imagewidth, int *imageheight, uint32_t *linedata, int *linenumber){
+    int y = *linenumber - bmprows.yoff;
+    if(y < 0 || y >= bmprows.sh) return true;
+    uint32_t *d = bmprows.img + y * bmprows.sw, *s = linedata + bmprows.xoff;
+    for(int x = 0; x < bmprows.sw; x++) *d++ = 0x0F000000 | (*s++ & 0xFFFFFF);   // (0x00RRGGBB a pixel)
+    return true;
+}
+void loadbmp(char *p){
+    int maxW = PageTable[WritePage].xmax;
+	int maxH = PageTable[WritePage].ymax;
+    int bnbr, w, h, xoff = 0, yoff = 0, sw = -1, sh = -1;
+    char fp[STRINGSIZE];
+    uint32_t *img;
+    getargs(&p, 11, ",");
+    if(argc < 3) error("Syntax");
+    if(*argv[0] == '#') argv[0]++;
+    bnbr = getint(argv[0], 1, MAXBLITBUF - 1);
+    if(blitbuff[bnbr].blitbuffptr != NULL) error("Buffer already in use");
+    strcpy(fp, getFstring(argv[2]));
+    if(strchr(&fp[strlen(fp) > 4 ? strlen(fp) - 4 : 0], '.') == NULL) strcat(fp, ".bmp");
+    if(argc >= 5 && *argv[4]) xoff = getinteger(argv[4]);
+    if(argc >= 7 && *argv[6]) yoff = getinteger(argv[6]);
+    if(argc >= 9 && *argv[8]) sw = getinteger(argv[8]);
+    if(argc == 11) sh = getinteger(argv[10]);
+    if(xoff < 0 || yoff < 0) error("Coordinates");
+    if(!InitSDCard()) return;
+    BMPfnbr = FindFreeFileNbr();
+    if(!BasicFileOpen(fp, BMPfnbr, FA_READ)) return;
+    decodeBMPheader(&w, &h);
+    if(w < 1 || h < 1){
+        FileClose(BMPfnbr);
+        error("Invalid BMP file");
+    }
+    if(sw == -1) sw = w - xoff;
+    if(sh == -1) sh = h - yoff;
+    if(sw < 1 || sh < 1 || sw + xoff > w || sh + yoff > h){
+        FileClose(BMPfnbr);
+        error("Coordinates");
+    }
+    if(sw > maxW || sh > maxH){
+        FileClose(BMPfnbr);
+        error("Image too large");
+    }
+    img = GetTempMemory(sw * sh * 4);                               // (freed after the statement, or by an error)
+    bmprows.xoff = xoff;
+    bmprows.yoff = yoff;
+    bmprows.sw = sw;
+    bmprows.sh = sh;
+    bmprows.img = img;
+    linecallback = SpriteBMPRow;
+    BMP_Result r = decodeBMP(false);                                // (the file's own row order: the rows are numbered)
+    linecallback = NULL;
+    FileClose(BMPfnbr);
+    if(!r.success) error(r.errorMsg);                               // (the sprite stays free)
+    blitbuff[bnbr].blitbuffptr = GetMemory(sw * sh * 4);
+    memcpy(blitbuff[bnbr].blitbuffptr, img, sw * sh * 4);
+    blitbuff[bnbr].blitstoreptr = GetMemory(sw * sh * SPRITEBG);
+    SpriteFields(bnbr, sw, sh);
+}
+// written as SPRITE (its own token) and not as BLIT: the PicoMite's are two commands, which differ in WRITE and LOAD
+static int SpriteCommand(void){
+    static int sprite = -1;
+    if(sprite < 0) sprite = GetCommandValue("Sprite");
+    return cmdtoken == sprite;
+}
+
+// HIDE SAFE: the sprites above bnbr hidden, top first, then bnbr, then those above it drawn again; for a layer-0 sprite
+// every layer sprite is above it. -1 is "not found" (index 0, the bottom of a list, was taken for it, as the PicoMite's
+// was: the layer-0 sprites were then hidden and left so). The caller has checked bnbr is showing.
 void hidesafe(int bnbr){
-    int found=0;
-    int zerofound=0;
-	int i;
-    for(i=LIFOpointer-1; i>= 0; i--) {
-    	if(LIFO[i]==bnbr){
-    		blithide(LIFO[i],0);
-    		found=i;
+    int found = -1, zerofound = 0, i;
+    for(i = LIFOpointer - 1; i >= 0; i--) {
+    	blithide(LIFO[i], 0);
+    	if(LIFO[i] == bnbr){
+    		found = i;
     		break;
     	}
-    	blithide(LIFO[i],0);
     }
-    if(!found){
-		for(i=zeroLIFOpointer-1; i>= 0; i--){
-			if(zeroLIFO[i]==bnbr){
-				blithide(zeroLIFO[i],0);
-				found=i;
-				zerofound=1;
+    if(found < 0){
+		for(i = zeroLIFOpointer - 1; i >= 0; i--){
+			blithide(zeroLIFO[i], 0);
+			if(zeroLIFO[i] == bnbr){
+				found = i;
+				zerofound = 1;
 				break;
 			}
-			blithide(zeroLIFO[i],0);
 		}
     }
+    if(found < 0) return;                                           // (not showing: nothing was hidden)
     sprites_in_use--;
     layer_in_use[blitbuff[bnbr].layer]--;
-    blitbuff[bnbr].x=10000;
-    blitbuff[bnbr].y=10000;
-    if(blitbuff[bnbr].layer==0)zeroLIFOremove(bnbr);
+    blitbuff[bnbr].x = 10000;
+    blitbuff[bnbr].y = 10000;
+    if(zerofound) zeroLIFOremove(bnbr);
     else LIFOremove(bnbr);
-    blitbuff[bnbr].layer=-1;
+    blitbuff[bnbr].layer = -1;
     blitbuff[bnbr].next_x = 10000;
     blitbuff[bnbr].next_y = 10000;
-	blitbuff[bnbr].lastcollisions=0;
-    blitbuff[bnbr].edges=0;
-    if(zerofound){
-        for(i=found; i< zeroLIFOpointer; i++){
+	blitbuff[bnbr].lastcollisions = 0;
+    blitbuff[bnbr].edges = 0;
+    if(zerofound){                                                  // (the ones above it moved down into its place)
+        for(i = found; i < zeroLIFOpointer; i++)
         	BlitShowBuffer(zeroLIFO[i], blitbuff[zeroLIFO[i]].x, blitbuff[zeroLIFO[i]].y, 0);
-        }
-        for(i=0; i< LIFOpointer; i++){
+        for(i = 0; i < LIFOpointer; i++)
             BlitShowBuffer(LIFO[i], blitbuff[LIFO[i]].x, blitbuff[LIFO[i]].y, 0);
-        }
-    } else{
-        for(i=found; i< LIFOpointer; i++){
+    } else {
+        for(i = found; i < LIFOpointer; i++)
             BlitShowBuffer(LIFO[i], blitbuff[LIFO[i]].x, blitbuff[LIFO[i]].y, 0);
-        }
     }
 }
 
-void showsafe(int bnbr,int x,int y){
-    int found=0;
-	int i;
-    for(i=LIFOpointer-1; i>= 0; i--) {
-    	if(LIFO[i]==bnbr){
-    		blithide(LIFO[i],0);
-    		found=i;
+// SHOW SAFE of a sprite showing: as HIDE SAFE, but bnbr is drawn at x, y in its place among the others
+void showsafe(int bnbr, int x, int y){
+    int found = -1, zerofound = 0, i;
+    for(i = LIFOpointer - 1; i >= 0; i--) {
+    	blithide(LIFO[i], 0);
+    	if(LIFO[i] == bnbr){
+    		found = i;
     		break;
     	}
-    	blithide(LIFO[i],0);
     }
-    if(!found){
-		for(i=zeroLIFOpointer-1; i>= 0; i--){
-			if(zeroLIFO[i]==bnbr){
-				blithide(zeroLIFO[i],0);
-				found=-i;
+    if(found < 0){
+		for(i = zeroLIFOpointer - 1; i >= 0; i--){
+			blithide(zeroLIFO[i], 0);
+			if(zeroLIFO[i] == bnbr){
+				found = i;
+				zerofound = 1;
 				break;
 			}
-			blithide(zeroLIFO[i],0);
 		}
     }
 	BlitShowBuffer(bnbr, x, y, 1);
-    if(found<0){
-    	found=-found;
-        for(i=found+1; i< zeroLIFOpointer; i++){
+    if(zerofound){
+        for(i = found + 1; i < zeroLIFOpointer; i++)
         	BlitShowBuffer(zeroLIFO[i], blitbuff[zeroLIFO[i]].x, blitbuff[zeroLIFO[i]].y, 0);
-        }
-        for(i=0; i< LIFOpointer; i++){
+        for(i = 0; i < LIFOpointer; i++)
             BlitShowBuffer(LIFO[i], blitbuff[LIFO[i]].x, blitbuff[LIFO[i]].y, 0);
-        }
-    } else{
-        for(i=found+1; i< LIFOpointer; i++){
+    } else {
+        for(i = (found < 0 ? 0 : found + 1); i < LIFOpointer; i++)
             BlitShowBuffer(LIFO[i], blitbuff[LIFO[i]].x, blitbuff[LIFO[i]].y, 0);
-        }
     }
-
 }
-void loadsprite(char *p){
-    int fnbr, width=0, number=0,height=0, newsprite=1, startsprite=1, bnbr, lc, i;
-    char *q, *fname;
-    short *qq;
-	uint32_t *qqq;
+
+// the colours of a .SPR file's digits '0' to 'F', as colour words (BLACK is transparent, as SpriteKey says); with
+// SPRITE LOAD's palette 1, the PicoMite's mode 1: its 16 colours in index order (colours[], '0' black)
+static const char digits[] = "0123456789ABCDEF";
+static const uint32_t spr_colours[16] = {BLACK, BLUE, GREEN, CYAN, RED, MAGENTA, YELLOW, WHITE, LITEGRAY, GRAY, ORANGE,
+                                         PINK, GOLD, SALMON, BEIGE, BROWN};
+void loadsprite(char *p){                                           // SPRITE LOAD f$ [, start] [, palette 0-1]
+    int fnbr, width=0, number=0,height=0, newsprite=1, startsprite=1, bnbr, lc = 0, i, palette = 0;
+    char *fname;
+	uint32_t *qqq = NULL;
     char buff[256];
-    getargs(&p, 3,",");
+    getargs(&p, 5,",");
     fnbr = FindFreeFileNbr();
     fname = getFstring(argv[0]);
-    if(argc==3)startsprite=getint(argv[2],1,64);
+    if(argc>=3 && *argv[2])startsprite=getint(argv[2],1,64);
+    if(argc==5)palette=getint(argv[4],0,1);
     if(strchr(fname, '.') == NULL) strcat(fname, ".SPR");
     if(!BasicFileOpen(fname, fnbr, FA_READ)) error("File not found");
 	MMgetline(fnbr, (char *)buff);							    // get the input line
@@ -937,118 +985,20 @@ void loadsprite(char *p){
 					error(why, bnbr);
 				}
 			}
-	        if(blitbuff[bnbr].blitbuffptr==NULL)blitbuff[bnbr].blitbuffptr = GetMemory(width*height* (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
-	        if(blitbuff[bnbr].blitstoreptr==NULL)blitbuff[bnbr].blitstoreptr = GetMemory(width*height* (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
-	        if(!blitbuff[bnbr].active){							// (a sprite showing keeps its place, and gets the new image)
-		        blitbuff[bnbr].bc=0;
-		        blitbuff[bnbr].w=width;
-		        blitbuff[bnbr].h=height;
-		        blitbuff[bnbr].master=0;
-		        blitbuff[bnbr].mymaster=-1;
-		        blitbuff[bnbr].x=10000;
-		        blitbuff[bnbr].y=10000;
-		        blitbuff[bnbr].layer=-1;
-		        blitbuff[bnbr].next_x = 10000;
-		        blitbuff[bnbr].next_y = 10000;
-		        blitbuff[bnbr].lastcollisions=0;
-		        blitbuff[bnbr].edges=0;
-	        }
-	        q=blitbuff[bnbr].blitbuffptr;
-	        qq=(short *)blitbuff[bnbr].blitbuffptr;
-	        qqq=(uint32_t *)blitbuff[bnbr].blitbuffptr;
-	        lc=height;
+	        if(blitbuff[bnbr].blitbuffptr == NULL) SpriteNew(bnbr, width, height);
+	        else if(!blitbuff[bnbr].active) SpriteFields(bnbr, width, height);   // (the same size: its buffers used again; a
+	                                                                // sprite showing keeps its place, and gets the new image)
+	        qqq = (uint32_t *)blitbuff[bnbr].blitbuffptr;
+	        lc = height;
 		}
 		while(lc--){
 			MMgetline(fnbr, (char *)buff);									    // get the input line
-			while(buff[0]==39)MMgetline(fnbr, (char *)buff);
-			if(strlen(buff)<width)mymemset(&buff[strlen(buff)],32,width-strlen(buff));
-			if(VideoColour<=8){
-				for(i=0;i<width;i++){
-					if(buff[i]==' ')*q++=0;
-					else if(buff[i]=='0')*q++=convert_8bit(NOTBLACK);
-					else if(buff[i]=='1')*q++=convert_8bit(BLUE);
-					else if(buff[i]=='2')*q++=convert_8bit(GREEN);
-					else if(buff[i]=='3')*q++=convert_8bit(CYAN);
-					else if(buff[i]=='4')*q++=convert_8bit(RED);
-					else if(buff[i]=='5')*q++=convert_8bit(MAGENTA);
-					else if(buff[i]=='6')*q++=convert_8bit(YELLOW);
-					else if(buff[i]=='7')*q++=convert_8bit(WHITE);
-					else if(buff[i]=='8')*q++=convert_8bit(LITEGRAY);
-					else if(buff[i]=='9')*q++=convert_8bit(GRAY);
-					else if(buff[i]=='A' || buff[i]=='a')*q++=convert_8bit(ORANGE);
-					else if(buff[i]=='B' || buff[i]=='b')*q++=convert_8bit(PINK);
-					else if(buff[i]=='C' || buff[i]=='c')*q++=convert_8bit(GOLD);
-					else if(buff[i]=='D' || buff[i]=='d')*q++=convert_8bit(SALMON);
-					else if(buff[i]=='E' || buff[i]=='e')*q++=convert_8bit(BEIGE);
-					else if(buff[i]=='F' || buff[i]=='f')*q++=convert_8bit(BROWN);
-					else *q++=0;
-				}
-			}
-			if(VideoColour==12){
-				for(i=0;i<width;i++){
-					if(buff[i]==' ')*qq++=0;
-					else if(buff[i]=='0')*qq++=0xF000;
-					else if(buff[i]=='1')*qq++=convert_12bit(BLUE)|0xF000;
-					else if(buff[i]=='2')*qq++=convert_12bit(GREEN)|0xF000;
-					else if(buff[i]=='3')*qq++=convert_12bit(CYAN)|0xF000;
-					else if(buff[i]=='4')*qq++=convert_12bit(RED)|0xF000;
-					else if(buff[i]=='5')*qq++=convert_12bit(MAGENTA)|0xF000;
-					else if(buff[i]=='6')*qq++=convert_12bit(YELLOW)|0xF000;
-					else if(buff[i]=='7')*qq++=convert_12bit(WHITE)|0xF000;
-					else if(buff[i]=='8')*qq++=convert_12bit(LITEGRAY)|0xF000;
-					else if(buff[i]=='9')*qq++=convert_12bit(GRAY)|0xF000;
-					else if(buff[i]=='A' || buff[i]=='a')*qq++=convert_12bit(ORANGE)|0xF000;
-					else if(buff[i]=='B' || buff[i]=='b')*qq++=convert_12bit(PINK)|0xF000;
-					else if(buff[i]=='C' || buff[i]=='c')*qq++=convert_12bit(GOLD)|0xF000;
-					else if(buff[i]=='D' || buff[i]=='d')*qq++=convert_12bit(SALMON)|0xF000;
-					else if(buff[i]=='E' || buff[i]=='e')*qq++=convert_12bit(BEIGE)|0xF000;
-					else if(buff[i]=='F' || buff[i]=='f')*qq++=convert_12bit(BROWN)|0xF000;
-					else *qq++=0;
-				}
-			}
-			if(VideoColour==16){
-				for(i=0;i<width;i++){
-					if(buff[i]==' ')*qq++=0;
-					else if(buff[i]=='0')*qq++=convert_16bit(NOTBLACK);
-					else if(buff[i]=='1')*qq++=convert_16bit(BLUE);
-					else if(buff[i]=='2')*qq++=convert_16bit(GREEN);
-					else if(buff[i]=='3')*qq++=convert_16bit(CYAN);
-					else if(buff[i]=='4')*qq++=convert_16bit(RED);
-					else if(buff[i]=='5')*qq++=convert_16bit(MAGENTA);
-					else if(buff[i]=='6')*qq++=convert_16bit(YELLOW);
-					else if(buff[i]=='7')*qq++=convert_16bit(WHITE);
-					else if(buff[i]=='8')*qq++=convert_16bit(LITEGRAY);
-					else if(buff[i]=='9')*qq++=convert_16bit(GRAY);
-					else if(buff[i]=='A' || buff[i]=='a')*qq++=convert_16bit(ORANGE);
-					else if(buff[i]=='B' || buff[i]=='b')*qq++=convert_16bit(PINK);
-					else if(buff[i]=='C' || buff[i]=='c')*qq++=convert_16bit(GOLD);
-					else if(buff[i]=='D' || buff[i]=='d')*qq++=convert_16bit(SALMON);
-					else if(buff[i]=='E' || buff[i]=='e')*qq++=convert_16bit(BEIGE);
-					else if(buff[i]=='F' || buff[i]=='f')*qq++=convert_16bit(BROWN);
-					else *qq++=0;
-				}
-			}
-			if(VideoColour==32){
-				for(i=0;i<width;i++){
-					if(buff[i]==' ')*qqq++=0;
-					else if(buff[i]=='0')*qqq++=NOTBLACK;
-					else if(buff[i]=='1')*qqq++=BLUE;
-					else if(buff[i]=='2')*qqq++=GREEN;
-					else if(buff[i]=='3')*qqq++=CYAN;
-					else if(buff[i]=='4')*qqq++=RED;
-					else if(buff[i]=='5')*qqq++=MAGENTA;
-					else if(buff[i]=='6')*qqq++=YELLOW;
-					else if(buff[i]=='7')*qqq++=WHITE;
-					else if(buff[i]=='8')*qqq++=LITEGRAY;
-					else if(buff[i]=='9')*qqq++=GRAY;
-					else if(buff[i]=='A' || buff[i]=='a')*qqq++=ORANGE;
-					else if(buff[i]=='B' || buff[i]=='b')*qqq++=PINK;
-					else if(buff[i]=='C' || buff[i]=='c')*qqq++=GOLD;
-					else if(buff[i]=='D' || buff[i]=='d')*qqq++=SALMON;
-					else if(buff[i]=='E' || buff[i]=='e')*qqq++=BEIGE;
-					else if(buff[i]=='F' || buff[i]=='f')*qqq++=BROWN;
-					else *qqq++=0;
-				}
+			while(buff[0] == 39) MMgetline(fnbr, (char *)buff);
+			if(strlen(buff) < width) mymemset(&buff[strlen(buff)], 32, width - strlen(buff));
+			for(i = 0; i < width; i++){                                 // ' ' transparent, '0' black, 1-F the colours
+				const char *d = strchr(digits, toupper(buff[i]));
+				*qqq++ = (buff[i] == ' ' || d == NULL || (palette && d == digits)) ? 0 :
+				         palette ? 0x0F000000 | colours[d - digits] : spr_colours[d - digits];
 			}
 		}
 		bnbr++;
@@ -1337,7 +1287,7 @@ void cmd_blit(void) {
 			x1 = getint(argv[2],-blitbuff[bnbr].w+1,maxW-1);
 			y1 = getint(argv[4],-blitbuff[bnbr].h+1,maxH-1);
 			layer=getint(argv[6],0,MAXLAYER);
-			if(argc>=9 && *argv[8])blitbuff[bnbr].rotation=getint(argv[8],0,3);
+			if(argc>=9 && *argv[8])blitbuff[bnbr].rotation=getint(argv[8],0,7);   // (4-7 opaque: BlitShowBuff)
 			else blitbuff[bnbr].rotation = 0;
 			if(argc==11 && *argv[10]){
 				new=getint(argv[10],0,1);
@@ -1351,7 +1301,13 @@ void cmd_blit(void) {
 				cursorhidden=1;
 		    }
 			if(blitbuff[bnbr].active){
-				if(new){
+				int old = blitbuff[bnbr].layer;                     // another layer was ignored (the PicoMite's too): within
+				if(!new && layer != old && old != 0 && layer != 0){ // the list of layers 1-10 it keeps its place; to or from
+					layer_in_use[old]--;                            // layer 0 (the other list) it goes on top
+					layer_in_use[layer]++;
+					blitbuff[bnbr].layer = layer;
+				}
+				if(new || (layer != old && (old == 0 || layer == 0))){
 					hidesafe(bnbr);
 					blitbuff[bnbr].layer=layer;
 					layer_in_use[blitbuff[bnbr].layer]++;
@@ -1385,7 +1341,7 @@ void cmd_blit(void) {
 			x1 = getint(argv[2],-blitbuff[bnbr].w+1,maxW-1);
 			y1 = getint(argv[4],-blitbuff[bnbr].h+1,maxH-1);
 			layer=getint(argv[6],0,MAXLAYER);
-			if(argc==9)blitbuff[bnbr].rotation=getint(argv[8],0,3);
+			if(argc==9)blitbuff[bnbr].rotation=getint(argv[8],0,7);
 			else blitbuff[bnbr].rotation = 0;
 			q=blitbuff[bnbr].blitbuffptr;
 			w=blitbuff[bnbr].w;
@@ -1532,14 +1488,15 @@ void cmd_blit(void) {
         blitbuff[bnbr].next_y = 10000;
         blitbuff[bnbr].active=0;
         blitbuff[bnbr].lastcollisions=0;
-        if(argc==5)blitbuff[rbnbr].rotation=getint(argv[4],0,3);
+        if(argc==5)blitbuff[rbnbr].rotation=getint(argv[4],0,7);
         else blitbuff[rbnbr].rotation = 0;
 	    int cursorhidden=0;
 	    if(cursoron){
 			hidecursor(0);
 			cursorhidden=1;
 	    }
-        BlitShowBuffer(rbnbr, blitbuff[rbnbr].x, blitbuff[rbnbr].y, 2);
+        BlitShowBuffer(rbnbr, blitbuff[rbnbr].x, blitbuff[rbnbr].y, 2);   // (the whole rectangle, over the old one's
+                                                                    // background: none of the old image stays)
 	    if(cursorhidden)showcursor(0, xcursor,ycursor);
         if(sprites_in_use != LIFOpointer + zeroLIFOpointer || sprites_in_use != sumlayer())error("sprite internal error");
 
@@ -1553,30 +1510,13 @@ void cmd_blit(void) {
         w = getinteger(argv[6]);
         h = getinteger(argv[8]);
         if(w < 1 || h < 1) return;
-        blitbuff[bnbr].bc=0;
-        if(blitbuff[bnbr].blitbuffptr==NULL){
-            blitbuff[bnbr].blitbuffptr = GetMemory(w*h*PageTable[WritePage].nbytes);
-            blitbuff[bnbr].blitstoreptr = GetMemory(w*h*PageTable[WritePage].nbytes);
-            blitbuff[bnbr].bc=0;
-            blitbuff[bnbr].w=w;
-            blitbuff[bnbr].h=h;
-            blitbuff[bnbr].master=0;
-            blitbuff[bnbr].mymaster=-1;
-            blitbuff[bnbr].x=10000;
-            blitbuff[bnbr].y=10000;
-            blitbuff[bnbr].layer=-1;
-            blitbuff[bnbr].next_x = 10000;
-            blitbuff[bnbr].next_y = 10000;
-    		blitbuff[bnbr].active=false;
-    		blitbuff[bnbr].lastcollisions=0;
-            blitbuff[bnbr].edges=0;
-    		q=blitbuff[bnbr].blitbuffptr;
-        } else {
+        if(blitbuff[bnbr].blitbuffptr==NULL) SpriteNew(bnbr, w, h);
+        else {
             if(blitbuff[bnbr].mymaster != -1) error("Can't read into a copy", bnbr);
             if(blitbuff[bnbr].master >0) error("Copies exist", bnbr);
             if(!(blitbuff[bnbr].w==w && blitbuff[bnbr].h==h))error("Existing buffer is incorrect size");
-            q=blitbuff[bnbr].blitbuffptr;
-        } 
+        }
+        q = GetTempMemory(w * h * 4);                                   // the page's pixels, then as colour words
         if(argc==11){
         	if(checkstring(argv[10], "FRAMEBUFFER")){
         		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
@@ -1593,6 +1533,16 @@ void cmd_blit(void) {
         ReadBufferFast(x1,y1,x1+w-1,y1+h-1,q);
 	    if(cursorhidden)showcursor(0, xcursor,ycursor);
         ReadPage=WritePage;
+        {
+            uint8_t i4[16], i5[32], i6[64];
+            uint32_t *img = (uint32_t *)blitbuff[bnbr].blitbuffptr;
+            SpriteLevels(i4, BIT_4, 16, 4);
+            SpriteLevels(i5, BIT_5, 32, 3);
+            SpriteLevels(i6, BIT_6, 64, 2);
+            for(int k = 0; k < w * h; k++)
+                img[k] = SpriteWord(VideoColour == 32 ? ((uint32_t *)q)[k] : (VideoColour == 12 || VideoColour == 16) ?
+                                    ((uint16_t *)q)[k] : ((uint8_t *)q)[k], i4, i5, i6);
+        }
     } else if((p = checkstring(cmdline, "COPY"))) {
         int cpy,nbr,c1,n1;
         getargs(&p, 5,",");
@@ -1614,7 +1564,7 @@ void cmd_blit(void) {
                 blitbuff[cpy].blitbuffptr=blitbuff[bnbr].blitbuffptr;
                 blitbuff[cpy].w=blitbuff[bnbr].w;
                 blitbuff[cpy].h=blitbuff[bnbr].h;
-                blitbuff[cpy].blitstoreptr = GetMemory(blitbuff[cpy].w * blitbuff[cpy].h * PageTable[WritePage].nbytes);
+                blitbuff[cpy].blitstoreptr = GetMemory(blitbuff[cpy].w * blitbuff[cpy].h * SPRITEBG);
                 blitbuff[cpy].bc=blitbuff[bnbr].bc;
                 blitbuff[cpy].x=10000;
                 blitbuff[cpy].y=10000;
@@ -1638,9 +1588,35 @@ void cmd_blit(void) {
     } else if((p = checkstring(cmdline, "LOADPNG"))) {
         loadpng(p);
 
-    } else if((p = checkstring(cmdline, "LOAD"))) {
-        loadsprite(p);
+    } else if((p = checkstring(cmdline, "LOADBMP"))) {
+        loadbmp(p);
 
+    } else if((p = checkstring(cmdline, "LOAD"))) {
+        if(SpriteCommand()) loadsprite(p);                          // SPRITE LOAD: a .SPR file
+        else loadbmp(p);                                            // BLIT LOAD: the PicoMite's other name for LOADBMP
+
+    } else if((p = checkstring(cmdline, "SET TRANSPARENT"))) {   // the PicoMite's: one of its 16 colours (0 black)
+        SpriteKey = colours[getint(p, 0, 15)];
+    } else if((p = checkstring(cmdline, "STATIC CLEAR"))) {
+        closeallstobjects();
+    } else if((p = checkstring(cmdline, "STATIC"))) {            // SPRITE STATIC #n, x, y, w, h | SPRITE STATIC #n, OFF
+        getargs(&p, 9, ",");
+        if(*argv[0] == '#') argv[0]++;
+        int st = getint(argv[0], 1, MAXSTOBJECTS);
+        if(argc == 3 && checkstring(argv[2], "OFF")) memset(&stobjects[st], 0, sizeof(stobjects[st]));
+        else if(argc == 9){
+            stobjects[st].x = getint(argv[2], -32768, 32767);
+            stobjects[st].y = getint(argv[4], -32768, 32767);
+            stobjects[st].w = getint(argv[6], 1, 32767);
+            stobjects[st].h = getint(argv[8], 1, 32767);
+            stobjects[st].active = 1;
+        } else error("Syntax");
+    } else if((p = checkstring(cmdline, "STINTERRUPT"))) {
+        getargs(&p, 1, ",");
+        STCollisionInterrupt = GetIntAddress(argv[0]);
+        IntSignal();
+    } else if((p = checkstring(cmdline, "NOSTINTERRUPT"))) {
+        STCollisionInterrupt = NULL;
     } else if((p = checkstring(cmdline, "INTERRUPT"))) {
         getargs(&p, 1,",");
         COLLISIONInterrupt = GetIntAddress(argv[0]);					// get the interrupt location
@@ -1704,30 +1680,10 @@ void cmd_blit(void) {
         if(blitbuff[bnbr].blitbuffptr!=NULL){
             w=blitbuff[bnbr].w;
             h=blitbuff[bnbr].h;
-            if(VideoColour==12){
-            	uint16_t *q=(uint16_t *)blitbuff[bnbr].blitbuffptr;
-            	for(y=0;y<h;y++){
-            		for(x=0;x<w;x++){
-            			if(*q & 0xF000){
-            				*q &= 0xFFF;
-            				*q |= (trans<<12);
-            			}
-            			q++;
-            		}
-            	}
-            } else {
-            	uint8_t *q=(uint8_t *)blitbuff[bnbr].blitbuffptr;
-            	for(y=0;y<h;y++){
-            		for(x=0;x<w;x++){
-            			if(*q & 0xF0){
-            				*q &= 0xF;
-            				*q |= (trans<<4);
-            			}
-            			q++;
-            		}
-            	}
-            }
-
+            uint32_t *q = (uint32_t *)blitbuff[bnbr].blitbuffptr;   // every pixel not transparent gets it
+            for(y = 0; y < h; y++)
+            	for(x = 0; x < w; x++, q++)
+            		if(*q & 0x0F000000) *q = (*q & 0xF0FFFFFF) | (trans << 24);
         } else error("Buffer not in use");
 
     } else if((p = checkstring(cmdline, "NEXT"))) {
@@ -1747,10 +1703,10 @@ void cmd_blit(void) {
         if(blitbuff[bnbr].blitbuffptr!=NULL){
             x1 = getint(argv[2], -blitbuff[bnbr].w+1, maxW);
             y1 = getint(argv[4], -blitbuff[bnbr].h+1, maxH);
-            if(argc==7)blitbuff[bnbr].rotation=getint(argv[6],0,7);
-            else blitbuff[bnbr].rotation = 4;
-            if((blitbuff[bnbr].rotation & 4) ==0 )mode |=8;
-            blitbuff[bnbr].rotation &= 3;
+            int keep = blitbuff[bnbr].rotation, r = argc == 7 ? getint(argv[6], 0, 7) : SpriteCommand() ? 4 : 0;
+            if((r & 4) == 0) mode |= 8;                              // (0-3 every pixel, 4-7 not the transparent ones;
+                                                                    // the PicoMite's defaults: BLIT 0, SPRITE 4)
+            blitbuff[bnbr].rotation = r & 3;                         // for this draw only: a sprite showing keeps its own
             q=blitbuff[bnbr].blitbuffptr;
             w=blitbuff[bnbr].w;
             h=blitbuff[bnbr].h;
@@ -1760,6 +1716,7 @@ void cmd_blit(void) {
   			   cursorhidden=1;
   		    }
             BlitShowBuffer(bnbr, x1, y1, mode);
+            blitbuff[bnbr].rotation = keep;
   		    if(cursorhidden)showcursor(0, xcursor,ycursor);
         } else error("Buffer not in use");
     } else if((p = checkstring(cmdline, "MOVE"))) {
@@ -1875,6 +1832,7 @@ void cmd_blit(void) {
                 blitbuff[zeroLIFO[i]].y=ys-(blitbuff[zeroLIFO[i]].h >> 1);
             }
         }
+        StaticsMove(x2 - x1, y2 - y1, xmin, ymin, xmax, ymax, 1);
         if(blank==-1){
             if(x1!=x2){
                 if(sx>0){
@@ -1985,6 +1943,7 @@ void cmd_blit(void) {
                     if(ys < 0)ys+=maxH;
                     blitbuff[zeroLIFO[i]].y=ys-(blitbuff[zeroLIFO[i]].h >> 1);
             }
+            StaticsMove(x, -y, 0, 0, maxW - 1, maxH - 1, 0);
             if(x>0){
                 if(blank==-2)ReadBufferFast(maxW-x,0,maxW-1,maxH-1,current);
                 ScrollBufferH(x);

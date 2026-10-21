@@ -486,7 +486,8 @@ void cmd_flash(void) {
         }
         if(slot > MAXFLASHSLOTS) SlotDrop(slot);                    // (a flash slot keeps its image until the new one is saved)
         len = 8 + ((width + 1) / 2) * height;
-        SlotLoading = GetMemory(len);                               // (zeroed by the allocator)
+        SlotLoading = GetTempMemory(len);                           // (temporary: the decoder's errors are raised inside
+        memset(SlotLoading, 0, len);                                // decodeBMP, and it is freed after the statement)
         ((uint32_t *)SlotLoading)[0] = width;
         ((uint32_t *)SlotLoading)[1] = height;
         if(!CurrentLinePtr) {
@@ -504,12 +505,11 @@ void cmd_flash(void) {
         BMP_Result r = decodeBMP(true);
         linecallback = NULL;
         FileClose(BMPfnbr);
-        if(!r.success) {
-            FreeMemorySafe((void *)&SlotLoading);
-            error(r.errorMsg);
-        }
-        if(slot <= MAXFLASHSLOTS) SlotWrite(slot, SlotLoading, len);
-        ImageSlot[slot] = SlotLoading;
+        if(!r.success) error(r.errorMsg);
+        uint8_t *kept = GetMemory(len);
+        memcpy(kept, SlotLoading, len);
+        if(slot <= MAXFLASHSLOTS) SlotWrite(slot, kept, len);
+        ImageSlot[slot] = kept;
         SlotKind[slot] = SLOT_DATA;
         SlotLoading = NULL;
         return;

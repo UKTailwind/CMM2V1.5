@@ -254,9 +254,9 @@ void setmode(int mode, int colour, int bc, int force){
 	cursoron=0;
 	cursorenable=0;
 	FreeMemorySafe((void *)&cursorsave);
-	if(VideoColour!=colour){										// the sprites and a loaded cursor are in the old depth's pixels
-		closeallsprites();
-		FreeMemorySafe((void *)&loadcursordata);
+	SpritesForget();                                                 // the screen is cleared: no sprite is showing, but
+	if(VideoColour!=colour){										// their images are kept (colour words: sprites.c); a
+		FreeMemorySafe((void *)&loadcursordata);                    // loaded cursor is in the old depth's pixels
 	}
 	//FreeMemorySafe((void *)&main_turtle_polyX);
 	//FreeMemorySafe((void *)&main_turtle_polyY);
@@ -466,7 +466,7 @@ void setmode(int mode, int colour, int bc, int force){
 		ScrollBufferH = ScrollBuff16H;
 		DrawBufferFast = DrawBufferFast16;
 		ReadBufferFast = ReadBufferFast16;
-		BlitShowBuffer=BlitShowBuff16;
+		BlitShowBuffer=BlitShowBuff;
 		DrawPixel=DrawPixel16;
 	} else if(VideoColour==4) {
 		Rgb121Pointers();                                           // the 4-bit set (Rgb121.c)
@@ -480,7 +480,7 @@ void setmode(int mode, int colour, int bc, int force){
 		ScrollBufferH = ScrollBuff8H;
 		DrawBufferFast = DrawBufferFast8;
 		ReadBufferFast = ReadBufferFast8;
-		BlitShowBuffer=BlitShowBuff8;
+		BlitShowBuffer=BlitShowBuff;
 		DrawPixel=DrawPixel8;
 	} else {
 		DrawRectangle = DrawRectangle32;
@@ -492,7 +492,7 @@ void setmode(int mode, int colour, int bc, int force){
 		ScrollBufferH = ScrollBuff32H;
 		DrawBufferFast = DrawBufferFast32;
 		ReadBufferFast = ReadBufferFast32;
-		BlitShowBuffer=BlitShowBuff32;
+		BlitShowBuffer=BlitShowBuff;
 		DrawPixel=DrawPixel32;
 	}
 	SCB_CleanInvalidateDCache();

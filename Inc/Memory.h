@@ -62,6 +62,7 @@ extern void *GetTempStrMemory(void);
 extern void *GetMemory(size_t NbrBytes);
 extern void *GetMemoryNull(size_t NbrBytes);                       // as GetMemory, NULL when there is no room
 extern void *GetInternalMemory(size_t NbrBytes);
+extern uint32_t HeapGen;                                // counts the heap's wipes (Memory.c)
 extern void *GetInternalMemoryNull(size_t size);
 //extern void *GetSystemMemory(int  msize);
 extern void ClearTempMemory(void);

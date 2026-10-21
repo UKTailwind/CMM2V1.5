@@ -2039,9 +2039,6 @@ int MIPS16 tokenise(int console) {
             } else if((tp2 = checkstring(p, "COLOR")) != NULL) {
                     match_i = GetCommandValue("Colour");
                     match_p = p = tp2;
-            } else if((tp2 = checkstring(p, "SPRITE")) != NULL) {
-                    match_i = GetCommandValue("Blit");
-                    match_p = p = tp2;
             } else if((tp2 = checkstring(p, "WII")) != NULL) {
                     match_i = GetCommandValue("Controller");
                     match_p = p = tp2;

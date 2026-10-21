@@ -1,0 +1,211 @@
+depth 8
+  background: E1914137
+  sizes 16 16 28 14 16-1
+  show 1: D638BDD
+  show 2 over 1: 985C6BDB
+  C 2: 1 [ 1 ] T 1 E  0 S  2
+  show 3 and 4: 393EE21F
+  C 4: 1 [ F4 ] T 0 E  4 S  4
+  C 6: 1 [ F1 ] T 0 E  1 S  6
+  N 5 1 3 1  L 0-1
+  X Y 28 24 10000  V D 1.7819 14.3178
+  move: 3D94370B
+  C 0: 3 [ 1 2 3 ] T 0 E  0 S  0
+  C 1: 1 [ 3 ] T 6 E  0 S  0
+  C 2: 1 [ 3 ] T 5 E  0 S  0
+  C 0:-1 [ ] T 0 E  0 S -1
+  C 1:-1 [ ] T 6 E  0 S -1
+  hide safe 3: BDEBB9C
+  show safe 3: 96553F1B
+  hide safe 1: 4057927F
+  show safe 1 on top: 8E2B287C
+  orientation 0: 7A5DF76E
+  orientation 1: E1D7D198
+  orientation 2: 65394731
+  orientation 3: 169B6256
+  swap 1 for 5: 907CBA04
+  write: 5C7C2239
+  scrollr: 140EDC27
+  scroll: 4BE2A234
+  after scroll X Y 3: 45 31
+  hide all: D93101D4
+  restore: 4BE2A234
+  hide 2 4: 74CB3E38
+  interrupts 7
+  close all: 74CB3E38
+depth 12
+  background: 2525E2ED
+  sizes 16 16 28 14 16-1
+  show 1: D48FB9E9
+  show 2 over 1: EF8A2B
+  C 2: 1 [ 1 ] T 1 E  0 S  2
+  show 3 and 4: 5613A5E8
+  C 4: 1 [ F4 ] T 0 E  4 S  4
+  C 6: 1 [ F1 ] T 0 E  1 S  6
+  N 5 1 3 1  L 0-1
+  X Y 28 24 10000  V D 1.7819 14.3178
+  move: 7641A02F
+  C 0: 3 [ 1 2 3 ] T 0 E  0 S  0
+  C 1: 1 [ 3 ] T 6 E  0 S  0
+  C 2: 1 [ 3 ] T 5 E  0 S  0
+  C 0:-1 [ ] T 0 E  0 S -1
+  C 1:-1 [ ] T 6 E  0 S -1
+  hide safe 3: 6A99D5C4
+  show safe 3: 5E1EC9B3
+  hide safe 1: 11F8AF89
+  show safe 1 on top: B1B2F912
+  orientation 0: 6A24D389
+  orientation 1: 8B0A6414
+  orientation 2: 8BE634FA
+  orientation 3: C7F441B3
+  swap 1 for 5: 1BF7CBEC
+  write: CAEF8B8C
+  scrollr: E16B4C6
+  scroll: 86B44A18
+  after scroll X Y 3: 45 31
+  hide all: 41FE0131
+  restore: 86B44A18
+  hide 2 4: 8E5FC553
+  interrupts 7
+  close all: 8E5FC553
+depth 16
+  background: B3FABDD2
+  sizes 16 16 28 14 16-1
+  show 1: 7412951B
+  show 2 over 1: 858D4CEF
+  C 2: 1 [ 1 ] T 1 E  0 S  2
+  show 3 and 4: 6441D23B
+  C 4: 1 [ F4 ] T 0 E  4 S  4
+  C 6: 1 [ F1 ] T 0 E  1 S  6
+  N 5 1 3 1  L 0-1
+  X Y 28 24 10000  V D 1.7819 14.3178
+  move: B2C9127E
+  C 0: 3 [ 1 2 3 ] T 0 E  0 S  0
+  C 1: 1 [ 3 ] T 6 E  0 S  0
+  C 2: 1 [ 3 ] T 5 E  0 S  0
+  C 0:-1 [ ] T 0 E  0 S -1
+  C 1:-1 [ ] T 6 E  0 S -1
+  hide safe 3: A4A68959
+  show safe 3: 88A3B618
+  hide safe 1: F524B16A
+  show safe 1 on top: 8B327D15
+  orientation 0: 3144661C
+  orientation 1: 9CD30C18
+  orientation 2: 10CDE506
+  orientation 3: 2C0EC628
+  swap 1 for 5: 7E589922
+  write: 1FBA84B6
+  scrollr: C86162E9
+  scroll: 2D8490B0
+  after scroll X Y 3: 45 31
+  hide all: B8E8DAE9
+  restore: 2D8490B0
+  hide 2 4: DBF3DCF5
+  interrupts 7
+  close all: DBF3DCF5
+depth 32
+  background: 73964F5F
+  sizes 16 16 28 14 16-1
+  show 1: 8B77C0E6
+  show 2 over 1: 842109AF
+  C 2: 1 [ 1 ] T 1 E  0 S  2
+  show 3 and 4: 319AF6C
+  C 4: 1 [ F4 ] T 0 E  4 S  4
+  C 6: 1 [ F1 ] T 0 E  1 S  6
+  N 5 1 3 1  L 0-1
+  X Y 28 24 10000  V D 1.7819 14.3178
+  move: E515B10A
+  C 0: 3 [ 1 2 3 ] T 0 E  0 S  0
+  C 1: 1 [ 3 ] T 6 E  0 S  0
+  C 2: 1 [ 3 ] T 5 E  0 S  0
+  C 0:-1 [ ] T 0 E  0 S -1
+  C 1:-1 [ ] T 6 E  0 S -1
+  hide safe 3: 6F35AE4E
+  show safe 3: 3C16BDAC
+  hide safe 1: 647F1DD8
+  show safe 1 on top: 890EFC33
+  orientation 0: 87799F06
+  orientation 1: EBCB6D7A
+  orientation 2: 1D14A7BD
+  orientation 3: F97ABFA4
+  swap 1 for 5: 4109FBEB
+  write: 46EE5815
+  scrollr: FE22DE93
+  scroll: 7A005FAF
+  after scroll X Y 3: 45 31
+  hide all: 259C4FF6
+  restore: 7A005FAF
+  hide 2 4: 18D7553D
+  interrupts 7
+  close all: 18D7553D
+depth 4
+  background: 61DB880C
+  sizes 16 16 28 14 16-1
+  show 1: E843CE19
+  show 2 over 1: 841D0439
+  C 2: 1 [ 1 ] T 1 E  0 S  2
+  show 3 and 4: E84D2B9E
+  C 4: 1 [ F4 ] T 0 E  4 S  4
+  C 6: 1 [ F1 ] T 0 E  1 S  6
+  N 5 1 3 1  L 0-1
+  X Y 28 24 10000  V D 1.7819 14.3178
+  move: 3293BEA9
+  C 0: 3 [ 1 2 3 ] T 0 E  0 S  0
+  C 1: 1 [ 3 ] T 6 E  0 S  0
+  C 2: 1 [ 3 ] T 5 E  0 S  0
+  C 0:-1 [ ] T 0 E  0 S -1
+  C 1:-1 [ ] T 6 E  0 S -1
+  hide safe 3: AFF732BC
+  show safe 3: 6C60DD49
+  hide safe 1: 76EB0861
+  show safe 1 on top: FD09409D
+  orientation 0: B0DC7E2D
+  orientation 1: 61E2AE46
+  orientation 2: 523AAD1A
+  orientation 3: F5A08E7C
+  swap 1 for 5: 9D5FBCCF
+  write: ECD95824
+  scrollr: 7B8B39E1
+  scroll: 1D92A3E1
+  after scroll X Y 3: 45 31
+  hide all: 6D24CC3E
+  restore: 1D92A3E1
+  hide 2 4: E2347D00
+  interrupts 7
+  close all: E2347D00
+kept
+  loaded 8 6 16
+  depth8 show: 5EEEC82
+  depth12 show: 6737DAE6
+    transparency 7: A7BA89C1
+  depth16 show: 7C3D7E3D
+  depth32 show: DE8E5186
+  depth4 show: B16B085C
+statics
+  ST 1 100 100 50 20 1  ST 3-1 0
+  C 1: 1 [ 81 ] T 0 E  0 S  1
+  ST COLLISION 1 OBJECT 1
+  C 1: 1 [ 81 ] T 0 E  0 S  1
+  C 1:-1 [ ] T 0 E  0 S -1
+  after scroll ST 1 110 100
+  off 0 1
+  clear 0-1
+  st interrupts 2
+overlap
+  depth8 far: 0 [ 0 0 0 0 0 0 0 0 ]
+  corner: 1 [ 0 1 0 1 0 0 0 0 ]
+  over: 2 [ 0 8 0 11 0 7 0 10 ]
+  mirrored: 2 [ 0 8 0 11 7 0 0 10 ]
+  depth16 far: 0 [ 0 0 0 0 0 0 0 0 ]
+  corner: 1 [ 0 1 0 1 0 0 0 0 ]
+  over: 2 [ 0 8 0 11 0 7 0 10 ]
+  mirrored: 2 [ 0 8 0 11 7 0 0 10 ]
+opaque
+  orientation 0: 54BACD78
+  orientation 4: A668ECF9
+  moved: 3C194477
+  orientation 5: 3C194477
+  orientation 0 again: 33CB0BC8
+  transparent 6: 8CBD4515
+  B 2
+  transparent 0: 33CB0BC8

@@ -1,0 +1,22 @@
+frame 16: landed on1 at 40 416
+frame 73: wall, from the left at 256 416
+frame 74: wall, from the left at 256 416
+frame 75: wall, from the left at 256 416
+frame 76: wall, from the left at 256 416
+frame 77: wall, from the left at 256 416
+frame 78: wall, from the left at 256 416
+frame 79: wall, from the left at 256 416
+frame 80: jump at 252 416
+frame 104: landed on the wall at 276 356
+frame 121: wall, from the right at 248 359
+frame 122: wall, from the right at 248 362
+frame 123: wall, from the right at 248 366
+frame 129: landed on1 at 228 416
+frame 169: jump at 80 416
+frame 190: landed on2 at 168 336
+frame 206: jump at 228 336
+frame 230: landed on3 at 328 276
+frame 243: jump at 376 276
+frame 267: landed on4 at 476 216
+frame 312: landed on1 at 624 416
+end at 624 416 on the ground 1

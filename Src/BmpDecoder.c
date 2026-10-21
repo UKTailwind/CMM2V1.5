@@ -1508,23 +1508,12 @@ int ReadAndDisplayBMP(int fnbr, int dither_mode, int img_x_offset,
                 int dither_method = DITHER_METHOD(dither_mode);
                 int dither_format = DITHER_FORMAT(dither_mode);
 
-                // Allocate buffers for dithering error diffusion
+                // Allocate buffers for dithering error diffusion: temporary memory, freed after the statement, as the
+                // decoder's errors are raised inside decodeBMP (cleanupAndError) and the frees below are not reached
                 int error_lines = (dither_method == METHOD_ATKINSON) ? 3 : 2;
-                state.error_buffer_r = (int16_t *)GetMemory(width * error_lines * sizeof(int16_t));
-                state.error_buffer_g = (int16_t *)GetMemory(width * error_lines * sizeof(int16_t));
-                state.error_buffer_b = (int16_t *)GetMemory(width * error_lines * sizeof(int16_t));
-
-                if (!state.error_buffer_r || !state.error_buffer_g || !state.error_buffer_b)
-                {
-                        if (state.error_buffer_r)
-                                FreeMemory((void *)state.error_buffer_r);
-                        if (state.error_buffer_g)
-                                FreeMemory((void *)state.error_buffer_g);
-                        if (state.error_buffer_b)
-                                FreeMemory((void *)state.error_buffer_b);
-                        error("BMP: Failed to allocate error buffers");
-                        return -8;
-                }
+                state.error_buffer_r = (int16_t *)GetTempMemory(width * error_lines * sizeof(int16_t));
+                state.error_buffer_g = (int16_t *)GetTempMemory(width * error_lines * sizeof(int16_t));
+                state.error_buffer_b = (int16_t *)GetTempMemory(width * error_lines * sizeof(int16_t));
 
                 // Initialize error buffers to zero
                 memset(state.error_buffer_r, 0, width * error_lines * sizeof(int16_t));
@@ -1548,21 +1537,7 @@ int ReadAndDisplayBMP(int fnbr, int dither_mode, int img_x_offset,
 #endif
         // Allocate output buffer for visible portion
         int max_visible_width = (PageTable[WritePage].xmax < width) ? PageTable[WritePage].xmax : width;
-        state.output_buffer = (char *)GetMemory(max_visible_width * 3);
-        if (!state.output_buffer)
-        {
-#ifdef DITHERINGSUPPORT
-        	 if (use_dithering)
-                {
-                        FreeMemory((void *)state.error_buffer_r);
-                        FreeMemory((void *)state.error_buffer_g);
-                        FreeMemory((void *)state.error_buffer_b);
-                }
-#endif
-                ForceFileClose(fnbr);                                   // (LOAD BMP's close is not reached)
-                error("BMP: Failed to allocate output buffer");
-                return -10;
-        }
+        state.output_buffer = (char *)GetTempMemory(max_visible_width * 3);   // (temporary, as the error buffers)
 
         // Initialize state
         state.buffer_width = width;
@@ -1593,16 +1568,7 @@ int ReadAndDisplayBMP(int fnbr, int dither_mode, int img_x_offset,
                 result = decodeBMP(false);
         }
 
-        // Cleanup
-        FreeMemory((void *)state.output_buffer);
-#ifdef DITHERINGSUPPORT
-        if (use_dithering)
-        {
-                FreeMemory((void *)state.error_buffer_r);
-                FreeMemory((void *)state.error_buffer_g);
-                FreeMemory((void *)state.error_buffer_b);
-        }
-#endif
+        // Cleanup (the buffers are temporary memory)
         g_display_state = NULL;
         linecallback = NULL;
 

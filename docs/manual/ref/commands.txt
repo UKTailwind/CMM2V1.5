@@ -179,20 +179,24 @@ The PicoMite's second pin, output modes and logic functions are not available.  
 or
 BLIT WRITE [#]b, x, y [,orientation]
 or
+BLIT LOAD[BMP] [#]b, fname$ [,x] [,y] [,w] [,h]
+or
 BLIT CLOSE [#]b
 ---
 Copy one section of the display screen to or from a memory buffer.
 BLIT READ will copy a portion of the display to the memory buffer ‘#b’.  The source coordinate is ‘x’ and ‘y’ and the width of the display area to copy is ‘w’ and the height is ‘h’.  When this command is used the memory buffer is automatically created and sufficient memory allocated.  If the buffer is already in use and the new area has the same width and height the new area overwrites the stored one (a different size is an error).  The optional ‘page’ specifies which page is to be read; the default is the current write page.  Set ‘page’ to FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
-BLIT WRITE will copy the memory buffer ‘#b’ to the current write page.  The destination coordinate is ‘x’ and ‘y’ using the width and height of the buffer.  The optional ‘orientation’ parameter (0 to 7) defaults to 4 and specifies how the stored image data is changed as it is written out.  It is the sum of the following values:
+BLIT WRITE will copy the memory buffer ‘#b’ to the current write page.  The destination coordinate is ‘x’ and ‘y’ using the width and height of the buffer.  The optional ‘orientation’ parameter (0 to 7) defaults to 0, every pixel copied, and specifies how the stored image data is changed as it is written out.  It is the sum of the following values:
 {l=720}&B001 = mirrored left to right
 {l=720}&B010 = mirrored top to bottom
 {l=720}&B100 = don't copy transparent pixels
+BLIT LOAD, or BLIT LOADBMP, loads the BMP file ‘fname$’ into the buffer ‘#b’, as SPRITE LOADBMP does (see there for ‘x’, ‘y’, ‘w’ and ‘h’).
 BLIT CLOSE will close the memory buffer ‘#b’ to allow it to be used for another BLIT READ operation and recover the memory used.
 Notes:
 {n=39 v=0}Sixty four buffers are available ranging from #1 to #64.  They are the sprites: BLIT and SPRITE are the same command, so a buffer read with BLIT READ can be shown with SPRITE SHOW and every SPRITE command can also be written as BLIT (see SPRITE).
+{n=39 v=0}Two commands differ with the name used, as the PicoMite's separate BLIT and SPRITE commands do: BLIT WRITE copies every pixel unless its ‘orientation’ says otherwise, where SPRITE WRITE leaves out the transparent ones, and BLIT LOAD loads a BMP file, where SPRITE LOAD loads a sprite file.
 {n=39 v=0}When specifying the buffer number the # symbol is optional.
 {n=39 v=0}All other arguments are in pixels.
-{n=39 v=0}A transparent pixel is one whose stored value is zero: black in the 4, 8 and 16-bit colour depths, and the colour 0 (black with a transparency of 0, which RGB(0,0,0) is not) in the 12 and 32-bit colour depths.
+{n=39 v=0}A buffer's transparent pixels are those that the colour depth shows as the transparent colour: black, unless SPRITE SET TRANSPARENT has chosen another (see SPRITE).
 
 =+= BLIT x1, y1, x2, y2, w, h [,page] [,orientation]
 ---
@@ -203,7 +207,7 @@ All arguments are in pixels and the source and destination can overlap.  The are
 The optional ‘orientation’ parameter (0 to 7, default 0) specifies how the section of the screen is changed as it is copied.  It is the sum of the following values:
 {l=720}&B001 = mirrored left to right
 {l=720}&B010 = mirrored top to bottom
-{l=720}&B100 = don't copy transparent pixels (see the notes above)
+{l=720}&B100 = don't copy transparent pixels: here those whose stored value is zero, black in the 4, 8 and 16-bit colour depths, and the colour 0 (black with a transparency of 0, which RGB(0,0,0) is not) in the 12 and 32-bit colour depths
 
 =+= BLIT FRAMEBUFFER from, to, xin, yin, xout, yout, width, height [,colour]
 ---
@@ -2515,18 +2519,19 @@ SPI WRITE discards any data returned by the slave and SPI READ sends zeros while
 The same set of commands as for SPI (above) but applying to the second SPI channel.  It shares its pins with COM2: the two cannot be open at the same time.
 
 === SPRITE
---- keep
+---
 The SPRITE commands are used to manipulate small graphic images on the screen.  These are useful when writing games.  See Appendix F for how sprites, their layers and their collisions work, and the SPRITE() functions for interrogating them.
-SPRITE is another name for BLIT: every SPRITE command can also be written as BLIT and every BLIT command as SPRITE (a program lists them all as BLIT).  The sprites are the buffers #1 to #64 that BLIT READ also uses, and the # before a sprite number is optional.
-A sprite can be up to the size of the screen.  Its transparent pixels (see BLIT) are not drawn, so that the background shows through them.  A sprite is held in the pixel format of the colour depth set by MODE when it was loaded: after a MODE command that changes the colour depth close the sprites (SPRITE CLOSE ALL) and load them again.
+SPRITE and BLIT are one command: every SPRITE command can also be written as BLIT and every BLIT command as SPRITE.  The sprites are the buffers #1 to #64 that BLIT READ also uses, and the # before a sprite number is optional.  WRITE and LOAD differ with the name used, as on the PicoMite (see BLIT).
+A sprite can be up to the size of the screen.  Its image is held in full colour whatever the colour depth, so a sprite can be loaded before the MODE command and it is kept through a change of mode.  A MODE command clears the screen, and with it the sprites that were showing: they are no longer displayed and can be shown again.
+A sprite's transparent pixels are not drawn, so that the background shows through them.  A pixel is transparent when the colour depth shows it as the transparent colour, which is black unless SPRITE SET TRANSPARENT has set another.  So in every colour depth but the 32-bit one the colours too dark to be told from black are transparent too: in the 8-bit depth, say, any colour with red and green below 32 and blue below 64.
 
 =+= SPRITE CLOSE [#]n
 --- keep
 Closes sprite ‘n’ and releases its memory resources allowing the sprite number to be re-used.  If the sprite is displayed it is first removed and the stored background replaced.  The command will give an error if other sprites are copied from this one unless they are closed first.
 
 =+= SPRITE CLOSE ALL
---- keep
-Closes all sprites and releases all sprite memory.  The screen is not changed.
+---
+Closes all sprites and releases all sprite memory, removes the static objects (see SPRITE STATIC) and makes black the transparent colour again.  The screen is not changed.  RUN does the same.
 
 =+= SPRITE COPY [#]n, [#]m, nbr
 --- keep
@@ -2549,27 +2554,41 @@ Removes sprite ‘n’ from the display and replaces the stored background.  Aut
 --- keep
 Specifies the name of the subroutine that will be called when a sprite collision occurs.  See Appendix F for how to use the SPRITE() functions to interrogate details of what has collided.
 
-=+= SPRITE LOAD fname$ [,start_sprite_number]
+=+= SPRITE LOAD fname$ [,start_sprite_number] [,palette]
 ---
 Loads the file ‘fname$’ which must be formatted as an original Colour Maximite sprite file.  If an extension is not specified “.SPR” will be added to the file name.
 The first line of the file holds the width of the sprites and their number, and optionally their height (the width if it is omitted), separated by commas: eg, `16, 8` or `16, 8, 24`.  Each sprite follows as ‘height’ lines of ‘width’ characters, a character for each pixel:
 {l=720}space = transparent
 {l=720}0 = black, 1 = blue, 2 = green, 3 = cyan, 4 = red, 5 = magenta, 6 = yellow, 7 = white
 {l=720}8 = light grey, 9 = grey, A = orange, B = pink, C = gold, D = salmon, E = beige, F = brown
+Black is the transparent colour (unless SPRITE SET TRANSPARENT has set another), so a 0 is not drawn when the sprite is shown, as on the PicoMite.
+With ‘palette’ 1 the characters 0 to F are the PicoMite's 16 colours in order instead (its palette 1):
+{l=720}0 = black, 1 = blue, 2 = myrtle, 3 = cobalt, 4 = midgreen, 5 = cerulean, 6 = green, 7 = cyan
+{l=720}8 = red, 9 = magenta, A = rust, B = fuchsia, C = brown, D = lilac, E = yellow, F = white
+‘palette’ 0, the list above it, is the default.
 Any other character is also transparent, a short line is filled out with spaces, and lines starting with an apostrophe (') are comments.
 The sprites are loaded as the sprite numbers from ‘start_sprite_number’ (1 if it is omitted) on.  Multiple sprite files can be loaded by specifying a different ‘start_sprite_number’ for each file.  The programmer is responsible for making sure that the sprite numbers used by the files do not overlap.
 A sprite number already in use is loaded again, as SPRITE READ reads into one: a sprite that is showing takes the new image and stays where it is, if it is the same size ("Sprite n is showing, at another size" otherwise), and a copy, or a sprite that has copies, cannot be loaded into ("Sprite n is a copy", "Sprite n has copies").  The file's first line must give a width of 1 to 255 and at least one sprite ("Invalid sprite file").
+Written as BLIT LOAD the command loads a BMP file instead (see BLIT).
 
 =+= SPRITE LOADARRAY [#]n, w, h, array%()
 --- keep
 Creates the sprite ‘n’ with width ‘w’ and height ‘h’ by reading w × h RGB888 colour values from ‘array%()’ (an integer or floating point array).  The values must be stored in order of columns across and then rows down starting at the top left.  Black pixels are transparent.
 This allows the programmer to create simple sprites in a program without needing to load them from disk or read them from the display.  The firmware will generate an error if ‘array%()’ is not big enough to hold the number of values required, or if sprite ‘n’ is already in use.
 
-=+= SPRITE LOADPNG [#]n, fname$ [,transparency_cut_off]
+=+= SPRITE LOADBMP [#]n, fname$ [,x] [,y] [,w] [,h]
 ---
-Loads the PNG image ‘fname$’ as sprite number ‘n’, which must not be in use.  If an extension is not specified “.PNG” will be added to the file name.  The image must be smaller than the screen (at most MM.HRES-1 by MM.VRES-1 pixels) and be an 8-bit RGB, RGBA, grey or grey with alpha PNG, or an indexed one; interlaced files are not supported.
-If the file has transparency (an alpha channel, or an indexed file with a transparency chunk) the ‘transparency_cut_off’ parameter is used to determine whether each pixel should be solid or missing/transparent.  Valid values are 1 to 15, default is 8.  MMBasic compares the 4 most significant bits of the pixel's transparency with the cut off value: a pixel below it is transparent and the others are solid.  This allows RGB(0,0,0) to be a valid solid colour.  In the 32-bit colour depth the transparency values are kept as they are in the file.
-A file without transparency (RGB or grey) is loaded with all its pixels solid.
+Loads the BMP image ‘fname$’ as sprite number ‘n’, which must not be in use.  If an extension is not specified “.BMP” will be added to the file name.  The file can be of any of the types that LOAD BMP reads.
+‘x’, ‘y’, ‘w’ and ‘h’ load a part of the image: ‘w’ by ‘h’ pixels with its top left at ‘x’, ‘y’ in the image (0, 0 is the image's top left).  ‘x’ and ‘y’ default to 0, and ‘w’ and ‘h’ to the rest of the image.  The part must be within the image (the error "Coordinates") and no bigger than the screen ("Image too large").
+Every pixel of the image is loaded as it is, so its black pixels are transparent when the sprite is shown (see SPRITE).  BLIT LOAD and BLIT LOADBMP are other names for this command.
+
+=+= SPRITE LOADPNG [#]n, fname$ [,t] [,cutoff] [,x] [,y] [,w] [,h]
+---
+Loads the PNG image ‘fname$’ as sprite number ‘n’, which must not be in use.  If an extension is not specified “.PNG” will be added to the file name.  The file can be of any of the types that LOAD PNG reads, and it is decoded a line at a time.
+A pixel whose alpha value (its opacity) is above ‘cutoff’ (1 to 254, default 30) is solid.  The others take the colour ‘t’, one of the PicoMite's 16 colours (0 to 15, default 0, black: the transparent colour, so that they are not drawn), as on the PicoMite.  The colours are numbered from 0:\nBlack, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow and White
+A negative ‘t’ (-1 to -15) instead gives the colour -‘t’ to the solid pixels that the colour depth shows as black, which would be transparent, so that the image's black can be drawn; the others are then transparent.
+A file without transparency (RGB or grey, or indexed with no transparency chunk) has every pixel solid.
+‘x’, ‘y’, ‘w’ and ‘h’ load a part of the image, as with SPRITE LOADBMP.  The part must be within the image (the error "Coordinates") and no bigger than the screen ("Image too large").
 
 =+= SPRITE MOVE
 --- keep
@@ -2582,6 +2601,10 @@ Sets the X and Y coordinate of the sprite to be used when the screen is next scr
 =+= SPRITE NOINTERRUPT
 --- keep
 Disables collision interrupts.
+
+=+= SPRITE NOSTINTERRUPT
+---
+Disables the static object interrupt (see SPRITE STINTERRUPT).
 
 =+= SPRITE READ [#]n, x, y, w, h [,page]
 --- keep
@@ -2602,14 +2625,21 @@ Sprites on any layer other than zero will remain fixed in position on the screen
 Scrolls the region of the screen defined by the top left coordinates ‘x’ and ‘y’ and width and height ‘w’ and ‘h’ by ‘delta_x’ pixels to the right and ‘delta_y’ pixels up (each less than the width or height of the region).
 By default the scroll wraps the background round.  If ‘colour’ is specified the colour will replace the area behind the scrolled image (-1 wraps it as the default does).  Sprites on any layer other than zero will remain fixed in position on the screen (or move to the position set by SPRITE NEXT).  Sprites in layer zero where the centre of the sprite (x + w/2, y + h/2) falls within the scrolled region will move with the scroll and wrap round if the centre moves outside one of the boundaries of the scrolled region.
 
+=+= SPRITE SET TRANSPARENT colour
+---
+Sets the transparent colour of the sprites to ‘colour’, one of the PicoMite's 16 colours (0 to 15, default 0, black).  They are numbered from 0:\nBlack, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow and White
+A pixel of a sprite is then transparent when the colour depth shows it as that colour.  It applies to every sprite from its next draw on, and to SPRITE(B).  SPRITE CLOSE ALL, and RUN, make black the transparent colour again.
+
 =+= SPRITE SHOW [#]n, x, y, layer [,orientation]
 ---
-Displays sprite ‘n’ on the screen with the top left at coordinates ‘x’, ‘y’ (part of the sprite can be off the screen: ‘x’ can be from 1 - its width to MM.HRES-1 and ‘y’ from 1 - its height to MM.VRES-1).  ‘layer’ is a number from 0 to 10.  Sprites will only collide with other sprites on the same layer, layer zero, or with the screen edge.  If a sprite is already displayed on the screen then the SPRITE SHOW command acts to move the sprite to the new location (and layer).  The display background is stored as part of the command and will be replaced when the sprite is hidden or moved further.
+Displays sprite ‘n’ on the screen with the top left at coordinates ‘x’, ‘y’ (part of the sprite can be off the screen: ‘x’ can be from 1 - its width to MM.HRES-1 and ‘y’ from 1 - its height to MM.VRES-1).  ‘layer’ is a number from 0 to 10.  Sprites will only collide with other sprites on the same layer, layer zero, the static objects or the screen edge.  If a sprite is already displayed on the screen then the SPRITE SHOW command acts to move the sprite to the new location (and layer).  The display background is stored as part of the command and will be replaced when the sprite is hidden or moved further.
 ‘orientation’ is optional and can be:
 {l=720}0 - normal display (default if omitted)
 {l=720}1 - mirrored left to right
 {l=720}2 - mirrored top to bottom
 {l=720}3 - rotated 180 degrees (= 1+2)
+{l=720}4 to 7 - the same with every pixel drawn, the transparent ones too, as on the PicoMite
+The orientation stays with the sprite: SPRITE MOVE, SCROLL, SCROLLR and RESTORE draw it the same way.
 
 =+= SPRITE SHOW SAFE [#]n, x, y, layer [,orientation] [,ontop]
 ---
@@ -2618,6 +2648,22 @@ If the sprite is not already being displayed the command acts exactly the same a
 If the sprite is already shown it is moved and remains in its position relative to other sprites based on the original order of writing.  ie, if sprite 1 was written before sprite 2 and it is moved to overlap sprite 2 it will display under sprite 2.
 If the optional ‘ontop’ parameter is set to 1 then the sprite moved will become the newest sprite and will sit on top of any other sprite it overlaps.
 Refer to SPRITE SHOW for details of the orientation parameter.
+
+=+= SPRITE STATIC [#]n, x, y, w, h
+or
+SPRITE STATIC [#]n, OFF
+---
+Declares static object ‘n’ (1 to 64): an invisible rectangle ‘w’ by ‘h’ pixels with its top left at ‘x’, ‘y’, as on the PicoMite.  OFF removes it.  A static object has no pixels and is never drawn: it marks where the scenery that the program has drawn (a wall, a platform) is solid.
+Each collision check tests the sprites displayed against the static objects as well as the other sprites.  A sprite that overlaps static object ‘n’ (touching is not overlapping) has &H80 + ‘n’ in its list of collisions (see SPRITE(C …)), and the collision interrupt is called.  Unlike a collision between sprites, which is reported once when it begins, a static object is reported at each check while the sprite overlaps it.
+SPRITE SCROLL moves the static objects with the background, wrapping them round as it does, and SPRITE SCROLLR moves those whose centre is within its region.  See also SPRITE STINTERRUPT and SPRITE(ST …), and SPRITE(B) for a sprite's collision with the drawn background itself.
+
+=+= SPRITE STATIC CLEAR
+---
+Removes every static object.  SPRITE CLOSE ALL does too.
+
+=+= SPRITE STINTERRUPT sub
+---
+Specifies the name of the subroutine that will be called when a sprite overlaps a static object (see SPRITE STATIC).  SPRITE(ST, COLLISION) and SPRITE(ST, OBJECT) give the sprite and the static object of the last such collision.
 
 =+= SPRITE SWAP [#]n1, [#]n2 [,orientation]
 --- keep
@@ -2628,13 +2674,13 @@ Replaces the sprite ‘n1’ with the sprite ‘n2’.  The sprites must have th
 __IN THE 12-BIT COLOUR DEPTH ONLY__ Changes all pixels with a non-zero transparency in the stored sprite ‘n’ to the new level ‘transparency’, which can be between 1 and 15 (15 is solid).
 
 =+= SPRITE WRITE [#]n, x, y [,orientation]
---- keep
+---
 Overwrites the display with the contents of sprite buffer ‘n’ with the top left at coordinates ‘x’, ‘y’.
 The background that is overwritten is not stored so SPRITE WRITE is inherently higher performing than SPRITE SHOW but with greater functional limitations.  The optional ‘orientation’ parameter (0 to 7) defaults to 4 and specifies how the stored image data is changed as it is written out.  It is the sum of the following values:
 {l=720}&B001 = mirrored left to right
 {l=720}&B010 = mirrored top to bottom
 {l=720}&B100 = don't copy transparent pixels
-Use SPRITE WRITE on a sprite that is not displayed: on a displayed one it replaces the background that SPRITE SHOW stored.
+Written as BLIT WRITE the default is 0, every pixel copied (see BLIT).  A sprite that is displayed can be written too: the copy is drawn, and the sprite shown, its orientation and its stored background are left as they were.
 
 === STATIC variable [, variables]
 See DIM for the full syntax.

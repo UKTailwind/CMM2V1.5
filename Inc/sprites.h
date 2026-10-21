@@ -62,6 +62,7 @@ struct blitbuffer{
     char rotation;
     char active;
     char edges;
+    short bgc[8];       // SPRITE(B, #n, side): the last SPRITE(B, #n)'s reach of the background (sprites.c)
 };
 extern struct blitbuffer blitbuff[MAXBLITBUF];	
 extern int layer_in_use[MAXLAYER+1];
@@ -69,11 +70,16 @@ extern int sprites_in_use;
 extern int LIFOpointer;
 extern int zeroLIFOpointer;
 extern char *COLLISIONInterrupt;
+#define MAXSTOBJECTS 64                                 // the PicoMite's static objects (sprites.c)
+struct stobject { short x, y, w, h; char active; };
+extern struct stobject stobjects[MAXSTOBJECTS + 1];
+extern char *STCollisionInterrupt;
+extern int STCollisionFound;
+extern void closeallstobjects(void);
 extern int CollisionFound;
 extern void closeallsprites(void);
 extern void loadsprite(char *p);
-extern void BlitShowBuff8(int bnbr, int x1, int y1, int mode);
-extern void BlitShowBuff16(int bnbr, int x1, int y1, int mode);
-extern void BlitShowBuff32(int bnbr, int x1, int y1, int mode);
+extern void BlitShowBuff(int bnbr, int x1, int y1, int mode);  // every depth (sprites.c)
+extern void SpritesForget(void);                                // MODE: none showing, the images kept
 #endif
 #endif

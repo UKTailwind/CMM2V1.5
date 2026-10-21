@@ -4000,6 +4000,11 @@ int check_interrupt(void) {
 		intaddr = COLLISIONInterrupt;									    // set the next stmt to the interrupt location
 		goto GotAnInterrupt;
 	}
+    if(STCollisionInterrupt != NULL && STCollisionFound) {         // a sprite on a static object (the PicoMite's: sprites.c)
+        STCollisionFound=false;
+		intaddr = STCollisionInterrupt;
+		goto GotAnInterrupt;
+	}
     if(ADCInterrupt != NULL && ADCcomplete){
  		ADCcomplete=false;
     	intaddr = ADCInterrupt;									    // set the next stmt to the interrupt location

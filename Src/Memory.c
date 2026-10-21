@@ -1049,7 +1049,10 @@ void ProgramCachesForget(void) {
 
 // both heaps' maps cleared, but for the n blocks keep[i] of size[i] bytes (MemSize's, read before), and everything
 // that lived in the heap forgotten. The list may itself be in the heap: it is read before anything is allocated.
+uint32_t HeapGen = 0;                                               // HeapWipe's count: a block kept across statements (the
+                                                                    // sprites' output buffer) knows when it has gone
 static void HeapWipe(void **keep, int *size, int n) {
+    HeapGen++;
     void *slot[MAXIMAGESLOTS];
     int i, slotsize[MAXIMAGESLOTS], nslots = RamSlotBlocks(slot, slotsize);   // the RAM slots stay (ImageSlots.c): their sizes
     BBCSoundRelease();                                              // read now. PLAY BBC's state block is in this heap: freed while the map is valid

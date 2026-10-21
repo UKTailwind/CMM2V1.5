@@ -398,6 +398,7 @@ void cleanend(void){
     WAVInterrupt=NULL;									    // set the next stmt to the interrupt location
     EFFECTInterrupt=NULL;
     COLLISIONInterrupt=NULL;									    // set the next stmt to the interrupt location
+    STCollisionInterrupt=NULL;
     ADCInterrupt=NULL;									    // set the next stmt to the interrupt location
     DACInterrupt=NULL;									    // set the next stmt to the interrupt location
     IrInterrupt=NULL;									    // set the next stmt to the interrupt location

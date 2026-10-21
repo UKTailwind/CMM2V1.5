@@ -74,6 +74,20 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 • 25 colour names for RGB().
 • GUI CURSOR LINK MOUSE works with or without GUI controls.
 
+[SIZE=3][B]Sprites[/B][/SIZE]
+• The PicoMite's additions:
+    ◦ static objects: SPRITE STATIC, STATIC CLEAR, STINTERRUPT and NOSTINTERRUPT, and SPRITE(ST …), invisible rectangles for the solid parts of the scenery that sprites collide with;
+    ◦ SPRITE(B), a sprite's collision with what is drawn on the screen, pixel by pixel, and from which side;
+    ◦ SPRITE SHOW, SHOW SAFE and SWAP orientations 4 to 7, which draw every pixel;
+    ◦ SPRITE SET TRANSPARENT;
+    ◦ SPRITE LOADBMP, also BLIT LOAD;
+    ◦ SPRITE LOADPNG of part of an image, with the transparent pixels given a colour;
+    ◦ SPRITE LOAD's palette argument.
+• Sprites are kept through a change of mode: their images are full colour in every colour depth, so they can be loaded once and shown in any mode.
+• SPRITE LOADPNG reads every kind of PNG that LOAD PNG reads, a line at a time.
+• SPRITE MOVE and SHOW are faster in most colour depths: MOVE by 9% to 27%.
+• A program's SPRITE commands list as SPRITE (they listed as BLIT).
+
 [SIZE=3][B]Sound[/B][/SIZE]
 • FLAC and MP3 are decoded to 16 bits.
 • PLAY ARRAY, PLAY SAMPLE (with envelopes), PLAY RELEASE and PLAY LOAD SOUND.
@@ -121,6 +135,12 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 • MM.WATCHDOG stays true until a program ends, so a program run by OPTION AUTORUN after a watchdog restart sees it.
 • GUI controls, like the editor, use a USB mouse without OPTION MOUSE.
 • In the 32-bit colour depth RGB(r, g, b, t) keeps the top 4 bits of t.
+• Sprites, as on the PicoMite:
+    ◦ SPRITE LOADPNG's third argument is the colour of the transparent pixels; the cut-off is the fourth, from 1 to 254. The old cut-off n is the new cut-off 16 × n - 1: [FONT=Courier]SPRITE LOADPNG 1, f$, 8[/FONT] is now [FONT=Courier]SPRITE LOADPNG 1, f$, , 127[/FONT]. With none given, a pixel whose alpha value is above 30 is now solid (it had to be at least 128).
+    ◦ Black in a sprite is transparent, whatever loaded it: in a sprite file a 0, and a solid black pixel of a PNG (a negative third argument gives these a colour). SPRITE SET TRANSPARENT chooses another transparent colour, and orientations 4 to 7 draw every pixel. In the colour depths below 32 bits, colours too dark to be told from black are transparent too.
+    ◦ BLIT WRITE copies every pixel unless its orientation is 4 to 7; SPRITE WRITE leaves out the transparent ones, as before.
+    ◦ BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
+    ◦ SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 • One mouse is used at a time.
 • MM.VER is 7.000001.
 
@@ -205,7 +225,14 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 • SPRITE SWAP with # before the second number, and SPRITE CLOSE after a SWAP could corrupt memory.
 • SPRITE SCROLL's fill colour.
 • Edge collisions could overrun.
-• A change of colour depth now closes the sprites.
+• A change of colour depth kept the sprites in the old depth's pixels, and a change of resolution kept them shown with backgrounds from the cleared screen. Now a change of mode keeps them, no longer shown, to be shown again.
+• After SPRITE MOVE, SCROLL or RESTORE, later collisions could be missed and SPRITE(T) was wrong; a sprite on layer 0 met only other layer 0 sprites; and a sprite with the most collisions recorded was left out of SPRITE(C, 0 …).
+• The details of a collision could be cleared before the collision interrupt ran.
+• The collision state outlived a RUN, so a program's first SPRITE(T) could show the last program's.
+• SPRITE WRITE of a sprite that was shown moved it and overwrote its stored background.
+• SPRITE SHOW SAFE of a shown sprite ignored a new layer.
+• SPRITE HIDE SAFE and SHOW SAFE of a sprite at the bottom of the list left the others hidden until the next MOVE.
+• In the 12-bit colour depth a SPRITE LOADARRAY sprite was invisible.
 
 [SIZE=3][B]Sound[/B][/SIZE]
 • Mono FLAC and MP3 played at double speed.
@@ -262,7 +289,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 [SIZE=4][COLOR=BLUE][B]Not there yet[/B][/COLOR][/SIZE]
 • The PicoMite compatibility switch (OPTION PICOMITE), which will let PicoMite programs with conflicting keywords run unchanged.
-• The PicoMite's SPRITE engine, RAY, FRAME, and the PicoMite's GUI list box and slider.
+• RAY, FRAME, and the PicoMite's GUI list box and slider.
 • YMODEM, OPTION DISK SAVE/LOAD, and a mouse in the file manager.
 
 

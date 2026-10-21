@@ -115,3 +115,7 @@ From `2026-03-26_035852_picofrog6_b9_3.zip` (Martin Herhaus 2022, Volhout 2025):
 - RESOLUTION accepted and ignored where the CMM2 mode already has the timing.
 - GPnn pin names and MM.INFO(PINNO GPn) through the mapping table (plan 6.4), deferred.
 - FRAMEBUFFER as the PicoMite's in every mode, not only in a 4-bit one.
+- SPRITE LOAD's palette 0 as the PicoMite's mode 0, whose digits 8-F are myrtle, cobalt, midgreen, cerulean, rust,
+  fuchsia, brown and lilac; without the option they stay the CMM2's light grey to brown (Peter, 21 Oct: "The palette
+  will depend on whether OPTION PICOMITE is set as part of the compatibility mode"). Palette 1 is the PicoMite's mode 1
+  either way (docs/Sprite_Plan.md, D3).
