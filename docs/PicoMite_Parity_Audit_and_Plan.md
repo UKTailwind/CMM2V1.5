@@ -367,8 +367,11 @@ Each phase ends at a gate that is run on the board through the harness; a phase 
   - Also done: FatFs R0.16 and the audio merge.
   - Open: I2C sharing steps 2-5, the hardware tests owed (7.4), and the System item (6), not yet reviewed.
 - **P3:** brought forward by the game ports (Chuckie Egg, Exile, Picanoid, Prince of Pico, Elite).
-  - Done: image slots, MODE n,4 with the PicoMite's FRAMEBUFFER, and TILEMAP (18 Oct).
-  - Not started: the dialect switch (`OPTION PICOMITE`), SPRITE, RAY, FRAME, DRAW3D, GUI, LAYER and MERGE. The turtle is already the PicoMite's (from b14), but for its later spellings.
+  - Done: image slots, MODE n,4 with the PicoMite's FRAMEBUFFER, and TILEMAP (18 Oct); SPRITE (21 Oct,
+    `docs/Sprite_Plan.md`: one engine on colour words, and the PicoMite's additions); GUI (21 Oct: LISTBOX, SLIDER and
+    GUI CLICK, TOUCH() as CLICK(), a USB mouse taken at once). The PicoMite's TOUCH() gestures are for its multi-touch
+    panels, which the CMM2 has none of.
+  - Not started: the dialect switch (`OPTION PICOMITE`), RAY, FRAME, DRAW3D, LAYER and MERGE. The turtle is already the PicoMite's (from b14), but for its later spellings.
 - **P4:** FM (19 Oct), and the PicoMite's editor in place of kilo (19 Oct, `docs/Editor_Port_Plan.md` E0-E6 and S). Open:
   - the editor's E7-E9;
   - a mouse for FM;

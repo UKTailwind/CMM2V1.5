@@ -372,6 +372,7 @@ void cleanend(void){
     int lastgui=gui_font_height;
 	SetFont(Option.DefaultFont);
 	adjust=gui_font_height-lastgui;
+    GuiClickDown = GuiClickPhase = 0;                               // (a GUI CLICK cut short)
     if(GUIactive || autocursor){
     	GUIactive=0;
     	autocursor=0;

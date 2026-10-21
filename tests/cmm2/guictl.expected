@@ -1,0 +1,24 @@
+the mouse's button up: 1
+created: 0 0 0 0
+list set to 2: 2
+to 9: 4
+to -3: 0
+slider set to 150: 100
+to 25.5: 25.5
+open: under it 1
+picked: 3 Date, closed: 1
+a click outside it: 3, closed: 1
+scrolled two, the first row: 2 Item3
+LISTBOX CANCEL: 2, closed: 1
+slider clicked at 150: 50
+at 50: 0
+vertical, at the middle: 5
+near the top: 8
+dragged past its end: 100
+interrupts: 1 1, picked 0, LASTREF 1
+after deleting an open list, the slider: 76.31578827
+GUI LISTBOX #5, nums(), 40, 100, 100, 20: Argument 2 must be a string array
+GUI LISTBOX #5, two$(), 40, 100, 100, 20: Argument 2 must be a 1D string array
+GUI SLIDER #3, 40, 100, 100, 20: GUI reference number #3 is in use
+a LOCAL array: Must be a global variable
+a STATIC array: taken

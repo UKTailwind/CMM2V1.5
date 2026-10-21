@@ -4,15 +4,17 @@ The Colour Maximite 2 incorporates a suite of advanced graphic controls that res
 
 ![GUI controls](pdf:42:117){width=9}
 
-The controls are created with the GUI command: GUI BUTTON, SWITCH, CHECKBOX, RADIO, LED, FRAME, NUMBERBOX, TEXTBOX, FORMATBOX, SPINBOX, DISPLAYBOX, CAPTION, GAUGE, BARGAUGE and AREA, and managed with GUI PAGE, SETUP, DELETE, DISABLE, ENABLE, HIDE, SHOW, RESTORE, REDRAW, FCOLOUR and BCOLOUR. The value of a control is read or set with the CTRLVAL() function and command, and MSGBOX() displays a message box and returns the button pressed. The GUI controls are described in detail in the document GUI Controls and Programming.pdf which is included in the firmware download file.
+The controls are created with the GUI command: GUI BUTTON, SWITCH, CHECKBOX, RADIO, LED, FRAME, NUMBERBOX, TEXTBOX, FORMATBOX, SPINBOX, DISPLAYBOX, CAPTION, GAUGE, BARGAUGE, AREA, LISTBOX and SLIDER, and managed with GUI PAGE, SETUP, DELETE, DISABLE, ENABLE, HIDE, SHOW, RESTORE, REDRAW, FCOLOUR and BCOLOUR. The value of a control is read or set with the CTRLVAL() function and command, and MSGBOX() displays a message box and returns the button pressed. The GUI controls are described in detail in the document GUI Controls and Programming.pdf which is included in the firmware download file; GUI LISTBOX (a list to choose from), GUI SLIDER (a value set with a thumb on a track) and GUI CLICK, which came later from the PicoMite, are described with the GUI command.
 
 Before the controls can be used, memory must be reserved for them with the command OPTION MAXCTRLS n, where 'n' is the number of controls that the program will use (up to 2000). Without it a program that creates a control stops with the error "No memory allocated for GUI controls".
 
 ## Using a Mouse
 
-The controls respond to a click of the left mouse button. The controls use the mouse set up with OPTION MOUSE or, without that option, a USB mouse (channel 2), as the editor does: with neither, creating a control gives the error "Mouse not enabled". The first control a program creates opens the mouse and shows the cursor, which then tracks the mouse, and the left mouse button acts on the control under the cursor. GUI CURSOR COLOUR and GUI CURSOR LOAD set the cursor's colour and its shape.
+The controls respond to a click of the left mouse button. A USB mouse is used as soon as it is plugged in, as the editor uses it, with no option to set; a PS2 or I^^2^^C mouse is set with OPTION MOUSE. The first GUI command a program runs opens the mouse and shows the cursor, which then tracks the mouse, and the left mouse button acts on the control under the cursor. A program can create its controls before a mouse is there: a USB mouse plugged in later is used at once. GUI CURSOR COLOUR and GUI CURSOR LOAD set the cursor's colour and its shape. In the 4-bit colour depth there is no cursor, and the controls are used without one.
 
-The current state of the mouse button can be read at any time with the CLICK() function: CLICK(X) and CLICK(Y) return where it was clicked, CLICK(DOWN) and CLICK(UP) whether the button has been pressed or released, CLICK(REF) the control under the cursor, and CLICK(LASTX), CLICK(LASTY) and CLICK(LASTREF) where and on what the last click was.
+GUI CLICK clicks the controls without a mouse: from the program (at a position, or held down and released), or with a button on a pin.
+
+The current state of the mouse button can be read at any time with the CLICK() function (or TOUCH(), its PicoMite name): CLICK(X) and CLICK(Y) return where it was clicked, CLICK(DOWN) and CLICK(UP) whether the button has been pressed or released, CLICK(REF) the control under the cursor, and CLICK(LASTX), CLICK(LASTY) and CLICK(LASTREF) where and on what the last click was.
 
 The GUI INTERRUPT command arms interrupt routines that are called when the button is pressed or released:
 

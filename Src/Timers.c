@@ -332,8 +332,9 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 	    TouchTimer++;
 	    if(CheckGuiFlag) CheckGuiTimeouts();                            // are blinking LEDs in use?  If so count down their timers
 
-	    if(Option.Mouse>=0 && Option.MaxCtrls>0){                       // is touch enabled and the PEN IRQ pin an input?
-	        if(TOUCH_DOWN) {                                            // is the pen down
+	    if(GUIactive && Option.MaxCtrls>0){                             // the GUI's touch: any mouse's left button (TOUCH_DOWN), a
+	                                                                    // USB one without OPTION MOUSE too, while the GUI is active,
+	        if(GuiButtonDown()) {                                       // or GUI CLICK's (the program's, a pin's)
 	            if(!TouchState) {                                       // yes, it is.  If we have not reported this before
 	                TouchState = TouchDown = true;                      // set the flags
 	                TouchUp = false;

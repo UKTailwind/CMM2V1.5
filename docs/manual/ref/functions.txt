@@ -150,7 +150,7 @@ CLICK(LASTX)
 or
 CLICK(LASTY)
 ---
-Reports the clicks of the left mouse button, for the GUI controls (see the chapter GUI Controls).  The mouse must be set with OPTION MOUSE (a USB mouse is channel 2).
+Reports the clicks of the left mouse button, for the GUI controls (see the chapter GUI Controls): a USB mouse's as soon as it is plugged in, or a mouse's set with OPTION MOUSE.  A click made with GUI CLICK counts as the button too.  TOUCH() is another name for CLICK(), the PicoMite's.
 CLICK(DOWN) returns 1 (true) if the left mouse button is currently down.  CLICK(UP) returns 1 (true) if it is not.
 CLICK(X) and CLICK(Y) return the coordinates of the mouse while the button is down, or -1 if it is not.
 CLICK(LASTX) and CLICK(LASTY) return the coordinates of the last location that was clicked on.
@@ -163,8 +163,8 @@ Returns the cosine of the argument 'number' in radians (or in degrees after OPTI
 
 === CTRLVAL( [#]ref )
 ---
-Returns the value of the GUI control number ‘ref’: a number for most controls, and a string for a text box, a format box, a display box or a caption.
-The GUI controls need OPTION MAXCTRLS and OPTION MOUSE.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
+Returns the value of the GUI control number ‘ref’: a number for most controls (for a list box the index of the item selected, for a slider its value), and a string for a text box, a format box, a display box or a caption.
+The GUI controls need OPTION MAXCTRLS, and are clicked with a mouse or with GUI CLICK.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
 
 === CWD$
 ---

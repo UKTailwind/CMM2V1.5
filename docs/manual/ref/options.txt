@@ -204,7 +204,7 @@ This command is accepted, for programs written for the PicoMite, and ignored.  O
 === OPTION MAXCTRLS n
 --- P keep roomy
 Sets the number of GUI controls that a program can create (see the chapter GUI Controls).  ‘n’ can be 0 to 2000 and the controls are numbered 1 to ‘n’.  The default is 0, and then a program that creates a control stops with the error "No memory allocated for GUI controls".
-The controls also need a mouse set with OPTION MOUSE.
+The controls are clicked with a USB mouse, a mouse set with OPTION MOUSE, or GUI CLICK.
 This command will cause a reboot.  This setting is kept through a firmware upgrade.
 
 === OPTION MILLISECONDS ON
@@ -220,7 +220,7 @@ or
 OPTION MOUSE OFF
 --- P roomy
 Sets the mouse used by the editor and the GUI controls.  ‘channel’ is 0 for a PS2 mouse, or 1 to 3 for a Hobbytronic USB mouse interface on that I^^2^^C channel.  The optional ‘sensitivity’ can be 0 to 8 for a PS2 mouse and 0 to 10 for the Hobbytronic interface (see Mouse Support in the chapter Hardware Features).
-While this option is set, a USB mouse plugged into the USB connector is used by the editor in place of the mouse set here.  The GUI controls use the channel set here, which must be 2 for a USB mouse.
+While this option is set, a USB mouse plugged into the USB connector is used by the editor and the GUI controls in place of the mouse set here.
 If a Hobbytronic interface is set but not connected the error "Mouse not connected" is reported when the editor is started.
 OPTION MOUSE OFF (the default) disables it.  MM.INFO(OPTION MOUSE) returns the channel, or -1 when it is off.
 This command can only be run from the command line and will cause a reboot.  This setting, with its sensitivity, is kept through a firmware upgrade.

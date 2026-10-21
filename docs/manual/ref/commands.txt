@@ -905,10 +905,10 @@ GOSUB is a legacy command; defined subroutines (SUB…END SUB) are recommended i
 Branches program execution to the target, which can be a line number or a label.
 
 === GUI
---- keep
-The GUI commands create the GUI controls and manage them: GUI BUTTON, SWITCH, CHECKBOX, RADIO, LED, FRAME, NUMBERBOX, TEXTBOX, FORMATBOX, SPINBOX, DISPLAYBOX, CAPTION, GAUGE, BARGAUGE and AREA create a control and GUI PAGE, SETUP, DELETE, DISABLE, ENABLE, HIDE, SHOW, RESTORE, REDRAW, FCOLOUR, BCOLOUR and INTERRUPT manage them.  See the chapter *GUI Controls*; the commands are described in full in the document GUI Controls and Programming.pdf (see Appendix O).
-The controls need memory reserved for them with OPTION MAXCTRLS and a mouse set with OPTION MOUSE (otherwise the errors are "No memory allocated for GUI controls" and "Mouse not enabled").  The first control that is created opens that mouse and displays the cursor, which then follows the mouse.
-The controls are those of the Micromite Plus with the mouse in place of its touch screen: its TOUCH() function is CLICK() here, and GUI BEEP is not provided (use PLAY TONE in the interrupt routine if a click is wanted).
+---
+The GUI commands create the GUI controls and manage them: GUI BUTTON, SWITCH, CHECKBOX, RADIO, LED, FRAME, NUMBERBOX, TEXTBOX, FORMATBOX, SPINBOX, DISPLAYBOX, CAPTION, GAUGE, BARGAUGE, AREA, LISTBOX and SLIDER create a control and GUI PAGE, SETUP, DELETE, DISABLE, ENABLE, HIDE, SHOW, RESTORE, REDRAW, FCOLOUR, BCOLOUR and INTERRUPT manage them.  GUI CLICK clicks them from a program or a pin.  See the chapter *GUI Controls*; the commands are described in full in the document GUI Controls and Programming.pdf (see Appendix O), and GUI LISTBOX, SLIDER and CLICK below.
+The controls need memory reserved for them with OPTION MAXCTRLS (otherwise the error is "No memory allocated for GUI controls").  They are clicked with the left button of a USB mouse, which is used as soon as it is plugged in, or of a PS2 or I^^2^^C mouse set with OPTION MOUSE.  The first GUI command opens that mouse and displays the cursor, which then follows it; a USB mouse plugged in after that is used at once, and the cursor is then displayed.  In the 4-bit colour depth there is no cursor (see GUI CURSOR) and the controls are used without one.
+The controls are those of the Micromite Plus with the mouse in place of its touch screen: its TOUCH() function is CLICK() here (TOUCH() is accepted as another name, as on the PicoMite), and GUI BEEP is not provided (use PLAY TONE in the interrupt routine if a click is wanted).
 
 === GUI BITMAP  x,  y,  bits  [, width]  [, height]  [, scale]  [, c]  [, bc]
 ---
@@ -918,6 +918,22 @@ Displays the bits in a bitmap on the screen starting at 'x' and 'y'.
 {t=l2592}'c' is the drawing colour and 'bc' is the background colour.  They are optional and default to the current foreground and background colours.  'bc' can be -1 and then the background is not drawn (the pixels of the zero bits are left as they are).
 The bitmap can be an integer or a string variable or constant and is drawn using the first byte as the first bits of the top line (bit 7 first, then bit 6, etc) followed by the next byte, etc.  When the top line has been filled the next line of the displayed bitmap will start with the next bit in the integer or string.  An integer holds 64 bits (its least significant byte is the first) and a string up to 255 bytes: 'width' x 'height' must not be more bits than it holds ("Not enough data").
 See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
+
+=== GUI CLICK [x, y]
+or
+GUI CLICK DOWN
+or
+GUI CLICK UP
+or
+GUI CLICK PIN pin [, INV]
+or
+GUI CLICK PIN OFF
+---
+Clicks the GUI controls without a mouse, as on the PicoMite: from a program (a joystick read by it, say, or a test), or with a button on a pin.  The clicks act as the left mouse button, for the controls and for CLICK(DOWN), CLICK(X) and the others.
+GUI CLICK presses and releases the button where the pointer is: the cursor's active point, or without the cursor the mouse, or without a mouse the last ‘x’, ‘y’ given.  With ‘x’ and ‘y’ it moves the pointer (and the mouse) there first.  It returns when the controls have taken the press and the release (in 130 mS to one second), and a GUI interrupt routine that the click calls has run by then.
+GUI CLICK DOWN presses the button where the pointer is and holds it until GUI CLICK UP: a slider then follows the pointer (moved by the mouse, or by MOUSE SET), and a spin box repeats.
+GUI CLICK PIN makes a button on ‘pin’ click where the pointer is: pressed when the pin is low, the pin set as a digital input with a pull-up, or with INV pressed when it is high, with a pull-down.  The pin must not be in use.  GUI CLICK PIN OFF releases it.
+GUI CLICK, DOWN and UP cannot be used in an interrupt routine.
 
 === GUI CURSOR ON [n [,x, y [,colour]]]
 --- keep tight
@@ -950,6 +966,21 @@ GUI CURSOR LOAD loads cursor number 2 from the file ‘fname$’ (".CUR" is adde
 GUI CURSOR UNLINK MOUSE
 --- keep tight
 GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "Not open").  The cursor cannot be linked while the GUI controls are using the mouse ("Mouse in use for GUI").  The cursor's active point (see GUI CURSOR LOAD) follows the mouse, and GUI CURSOR OFF also breaks the link.
+
+=== GUI LISTBOX [#]ref, array$(), x, y, w, h [,fc] [,bc] [,maxrows]
+or
+GUI LISTBOX CANCEL
+---
+Creates a list box, as on the PicoMite: a box ‘w’ by ‘h’ pixels with its top left at ‘x’, ‘y’, showing the selected item of the string array ‘array$()’ and a marker pointing down.  ‘fc’ and ‘bc’ are its foreground and background colours (by default the last ones used).
+Clicking it opens a list of the items below it (or above it, if there is more room there), each row as high as the box; while the list is open the other controls are greyed and do not respond.  Clicking an item selects it and closes the list, and clicking outside the list closes it with the selection unchanged.  If there are more items than fit on the screen, or than ‘maxrows’ (1 to 100), arrows above and below the rows scroll the list, and repeat while they are held.  GUI LISTBOX CANCEL closes an open list, with the selection unchanged.
+CTRLVAL(#ref) returns the index of the item selected, 0 for the array's first element (so with OPTION BASE 1 the item is array$(CTRLVAL(#ref) + 1)); it is 0 when the control is created.  CTRLVAL(#ref) = n selects item ‘n’ (kept within the items).  The GUI up interrupt is called when an item is selected.
+The control reads the array's items each time it is drawn, so an item changed and the control drawn again (by CTRLVAL, or GUI REDRAW) shows the change.  The array must therefore last as long as the control: it must be global or STATIC ("Must be a global variable" for a LOCAL one) and one-dimensional, and the number of items is its size when the control is created.
+
+=== GUI SLIDER [#]ref, x, y, w, h [,fc] [,bc] [,min] [,max] [,inc]
+---
+Creates a slider, as on the PicoMite: a thumb on a track, ‘w’ by ‘h’ pixels with its top left at ‘x’, ‘y’, for a value from ‘min’ to ‘max’ (by default 0 to 100).  It is horizontal if it is wider than it is tall, with ‘min’ at the left, and vertical otherwise, with ‘min’ at the bottom.  ‘fc’ is the colour of the thumb and of the track up to it, and ‘bc’ is the background colour (by default the last ones used).
+Clicking the track moves the thumb there, and while the button is held the thumb follows the mouse, past the ends of the track too.  If ‘inc’ is more than 0 (the default is 0) the value is a whole number of steps of ‘inc’ from ‘min’.
+CTRLVAL(#ref) returns the value, ‘min’ when the control is created, and CTRLVAL(#ref) = v sets it (kept within ‘min’ and ‘max’).  The GUI down interrupt is called every 50 mS while the thumb is being dragged, and the up interrupt when the button is released.
 
 === HELP [searchtext]
 ---

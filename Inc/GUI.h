@@ -54,6 +54,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void ResetGUI(void);
     extern void DrawKeyboard(int);
     extern void DrawFmtBox(int);
+    extern void DrawListBoxPopup(int);
+    extern int GuiMouse(void);
+    extern void GuiPointer(void);
+    extern volatile int GuiClickDown;          // GUI CLICK: the program's click, and a pin's (GUI.c)
+    extern int GuiClickPhase;
+    extern int ClickPinDown(void);
+    extern int GuiButtonDown(void);
 
     // define the blink rate for the cursor
     #define CURSOR_OFF        350              // cursor off time in mS
@@ -83,6 +90,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern char *GuiIntUpVector;               // address of the interrupt routine or NULL if no interrupt
     extern volatile int DelayedDrawKeyboard;            // a flag to indicate that the pop-up keyboard should be drawn AFTER the pen down interrupt
     extern volatile int DelayedDrawFmtBox;              // a flag to indicate that the pop-up formatted keyboard should be drawn AFTER the pen down interrupt
+    extern volatile int DelayedDrawListbox;             // a flag to indicate that the pop-up listbox should be drawn AFTER the pen down interrupt
 
     extern int CurrentRef;                     // if the pen is down this is the control (or zero if not on a control)
     extern int LastRef;                        // this is the last control touched

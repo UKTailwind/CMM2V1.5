@@ -2390,6 +2390,10 @@ void cmd_ireturn(void){
         DelayedDrawFmtBox = false;
         DrawFmtBox(1);                                              // the pop-up GUI keyboard should be drawn AFTER the pen down interrupt
     }
+    if(DelayedDrawListbox) {
+        DelayedDrawListbox = false;
+        DrawListBoxPopup(1);                                        // the pop-up listbox should be drawn AFTER the pen down interrupt
+    }
     // the caller's error state again; a count gains one when this statement will use one up on completion (in
     // the loop of ON ERROR SKIP, not a FUNCTION's deeper one), as the statements of the handler did not
     ErrorSkipDepth = SaveErrorSkipDepth;
@@ -3894,7 +3898,8 @@ int check_interrupt(void) {
 	char *intaddr;
 	static char rti[4];		// a dummy IRETURN statement: the token (up to two bytes) and zeros to end it
 	if(GUIactive && GUITimer1>=16){
-		int gm=GuiMouse();                                           // (OPTION MOUSE's, or a USB mouse)
+		GuiPointer();                                               // (the pointer, once there is a mouse)
+		int gm=GuiMouse();                                           // (a USB mouse, or OPTION MOUSE's)
 		int x=mousestruct[gm<0 ? 0 : gm].ax-xoffcursor, y=mousestruct[gm<0 ? 0 : gm].ay-yoffcursor;
 		if(gm>=0 && (x!=xcursor || y!=ycursor)){
 			hidecursor(0);

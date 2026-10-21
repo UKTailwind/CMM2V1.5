@@ -81,6 +81,7 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 - FRAMEBUFFER CREATE without a size makes one the size of the screen.
 - 25 colour names for RGB().
 - GUI CURSOR LINK MOUSE works with or without GUI controls.
+- The PicoMite's GUI LISTBOX (a list to choose from, which scrolls) and GUI SLIDER controls, and GUI CLICK, which clicks the controls from a program or with a button on a pin. TOUCH() is accepted as another name for CLICK().
 
 ### Sprites
 
@@ -146,7 +147,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - OPTION USBKEYBOARD DISABLE ignores a USB keyboard.
 - With OPTION SLEEP, any key wakes the monitor, while a program runs too.
 - MM.WATCHDOG stays true until a program ends, so a program run by OPTION AUTORUN after a watchdog restart sees it.
-- GUI controls, like the editor, use a USB mouse without OPTION MOUSE.
+- GUI controls, like the editor, use a USB mouse without OPTION MOUSE, as soon as it is plugged in; a program can create its controls before there is a mouse.
 - In the 32-bit colour depth RGB(r, g, b, t) keeps the top 4 bits of t.
 - Sprites, as on the PicoMite:
   - SPRITE LOADPNG's third argument is the colour of the transparent pixels; the cut-off is the fourth, from 1 to 254. The old cut-off n is the new cut-off 16 × n - 1: `SPRITE LOADPNG 1, f$, 8` is now `SPRITE LOADPNG 1, f$, , 127`. With none given, a pixel whose alpha value is above 30 is now solid (it had to be at least 128).
@@ -311,7 +312,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 ## Not there yet
 
 - The PicoMite compatibility switch (OPTION PICOMITE), which will let PicoMite programs with conflicting keywords run unchanged.
-- RAY, FRAME, and the PicoMite's GUI list box and slider.
+- RAY and FRAME.
 - YMODEM, OPTION DISK SAVE/LOAD, and a mouse in the file manager.
 
 ## Not yet tested with real hardware

@@ -1925,6 +1925,7 @@ int MIPS16 tokenise(int console) {
                 str_replace(inpbuf,overlaid_functions[i],buff, false);
             }
             str_replace(inpbuf,"MM.INFO$","MM.INFO",0);
+            str_replace(inpbuf,"TOUCH(","CLICK(",2);                // the PicoMite's name for CLICK( (its GUI controls')
             SubstFold(inpbuf);                                      // BIN$( LEFT$( MAX( and the rest, one token a family
             str_replace(inpbuf,"=>",">=", 3);
             str_replace(inpbuf,"=<","<=", 3);

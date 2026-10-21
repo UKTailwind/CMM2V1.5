@@ -2,7 +2,7 @@
 
 Made by `tools/manual/refcheck.py` from `docs/manual/ref/` and `firmware.json` (7.00.00b1). Suggestions for the reference pass: the pass decides.
 
-Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 653, PART 7.
+Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 656, PART 7.
 
 ## Predefined Read Only Variables (`variables.txt`)
 
@@ -20,7 +20,7 @@ Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 653, PART 7.
 
 ## Commands (`commands.txt`)
 
-397 entries; not OK: 11
+400 entries; not OK: 11
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
@@ -29,12 +29,12 @@ Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 653, PART 7.
 | 440 | PART | CSUB name [type  [, type]  …] | hex [[ hex[…] (NO KEYWORD); hex [[ hex[…] (NO KEYWORD) |
 | 487 | PART | DEFINEFONT #Nbr | hex [[ hex[…] (NO KEYWORD); hex [[ hex[…] (NO KEYWORD) |
 | 499 | PART | DIM [type] decl [,decl].. | where 'decl' is: (NO KEYWORD); Examples: (NO KEYWORD) |
-| 1293 | PART | LOCAL variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
-| 1419 | NO KEYWORD | Simple array arithmetic | Simple array arithmetic (NO KEYWORD) |
-| 1490 | NO KEYWORD | Matrix arithmetic | Matrix arithmetic (NO KEYWORD) |
-| 1517 | NO KEYWORD | Vector arithmetic | Vector arithmetic (NO KEYWORD) |
-| 1549 | NO KEYWORD | Quaternion arithmetic | Quaternion arithmetic (NO KEYWORD) |
-| 2685 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
+| 1324 | PART | LOCAL variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
+| 1450 | NO KEYWORD | Simple array arithmetic | Simple array arithmetic (NO KEYWORD) |
+| 1521 | NO KEYWORD | Matrix arithmetic | Matrix arithmetic (NO KEYWORD) |
+| 1548 | NO KEYWORD | Vector arithmetic | Vector arithmetic (NO KEYWORD) |
+| 1580 | NO KEYWORD | Quaternion arithmetic | Quaternion arithmetic (NO KEYWORD) |
+| 2716 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
 
 ## Functions (`functions.txt`)
 
