@@ -55,7 +55,8 @@ char *COLLISIONInterrupt=NULL;
 int CollisionFound=false;
 int sprite_which_collided = -1;
 static int hideall=0;
-struct blitbuffer blitbuff[MAXBLITBUF];											//Buffer pointers for the BLIT command
+struct blitbuffer __attribute__((section(".d2free"))) blitbuff[MAXBLITBUF];		//Buffer pointers for the BLIT command (in D2 RAM,
+																				// out of DTCM for the stack: main() zeroes it)
 const int colours[16]={0x00,0xFF,0x4000,0x40ff,0x8000,0x80ff,0xff00,0xffff,0xff0000,0xff00FF,0xff4000,0xff40ff,0xff8000,0xff80ff,0xffff00,0xffffff};
 void LIFOadd(int n){
     int i, j=0;

@@ -33,6 +33,8 @@ You can go back to an earlier firmware the same way, should you need to.
 - **MATH** is the PicoMite's complete command and function, with CLAMP, SINC and the reworked CROSSING and SENSORFUSION, on integer, float and string arrays.
 - **Other additions**: RANDOMIZE, FLUSH, CWD$, SYNC, INTERRUPT (for CSUBs), SETTICK FAST, OPTION ESCAPE OFF, OPTION CONSOLE NONE, COLOUR MAP, MAP GREYSCALE, LOAD IMAGE, DRIVE, MM.INFO(HEAPI) and (HEAPS), MM.ONEWIRE, and the regular expressions' `{n}`, `\b` and `\B`.
 - `&h`, `&o`, `&b` and the hex digits a-f may be written in lower case.
+- A command can take up to 75 arguments, and a DATA statement up to 75 values, as the PicoMite's: the limit was 32. A SUB or FUNCTION can have up to 38 parameters (16 before).
+- The PicoMite's stack check: a recursion too deep stops with "Stack overflow" before it can overwrite other memory, a recursive FUNCTION goes about 40 levels deep, and the prompt warns when a program came close to the limit. MM.INFO(HEAPEND) is the limit.
 
 ### Speed
 

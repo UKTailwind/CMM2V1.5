@@ -131,7 +131,17 @@ static int localtop = 0;
 int NextData;                                                       // used to track the next item to read in DATA & READ stmts
 char *NextDataLine;                                                 // used to track the next line to read in DATA & READ stmts
 int OptionBase;
-uint64_t __attribute__((section("._user_heap_stack"))) stackcheck;
+// The stack check, the PicoMite's (Peter, 21 Oct: "There should be a proper stack check like we have now in the
+// Picomite").  The stack grows down from _estack in DTCM, and below it are the static variables (.bss, to _ebss), so
+// StackFloor is STACK_GUARD above them: the room for what the stack takes between two checks (a check comes at each
+// value and argument list; a built-in can go some KB deeper before its next one, and interrupts' handlers run on the
+// same stack).  Below StackFloor is the error; in the 1K above it, stackwarn, the stack is noted and the prompt warns.
+#define STACK_GUARD 4096
+extern char _ebss[];
+uint32_t StackFloor;                                                // MM.INFO(HEAPEND): the PicoMite's heapend
+uint32_t stackwarn;                                                 // StackFloor + 1K: a stack below this is noted
+uint32_t StackLow;                                                  // the lowest noted since the last prompt, 0 for none
+int StackLowDepth;                                                  // LocalIndex when it was noted
 // track the state of OPTION BASE
 extern char errstring[256];
 extern int errpos;
@@ -266,6 +276,8 @@ char syscheck;
 
 // Initialise MMBasic
 void MIPS16 InitBasic(void) {
+    StackFloor = (uint32_t)_ebss + STACK_GUARD;                     // (the stack check: see StackNearLimit)
+    stackwarn = StackFloor + 1024;
     DefaultType = T_NBR;
     CommandTableSize =  (sizeof(commandtbl)/sizeof(struct s_tokentbl));
     TokenTableSize =  (sizeof(tokentbl)/sizeof(struct s_tokentbl));
@@ -1134,7 +1146,8 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
     // allocate memory for processing the arguments
     //argval=GetMemory(buffneeded);
     //argval=GetSystemMemory(buffneeded);
-    argval=GetInternalMemory(buffneeded);
+    argval=GetInternalMemoryNull(buffneeded);                       // on-chip while there is room (2.8 KB a call, MAX_ARG_COUNT
+    if(argval == NULL) argval=GetMemory(buffneeded);                // 75: about 80 deep), then SDRAM up to MAXGOSUB
     DefinedSubFunMem=(uint32_t)argval;      //save pointer to memory for cleanup on error
     argtype=(void *)argval+MAX_ARG_COUNT * sizeof(union u_argval);
     argVarIndex = (void *)argtype+MAX_ARG_COUNT * sizeof(int);
@@ -2444,9 +2457,7 @@ inline char ITCM_CODE *doexpr(char *p, MMFLOAT *fa, long long int *ia, char **sa
     int o1, o2;
     int t1, t2;
     char *sa1, *sa2;
-	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
-		error("Expression is too complex at depth %",LocalIndex);
-	}
+	TestStackOverflow();                                            // (the PicoMite's: MMBasic.h)
     fa1 = *fa;
     ia1 = *ia;
     sa1 = *sa;
@@ -2503,9 +2514,7 @@ inline char ITCM_CODE *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **
     int t = T_NOTYPE;
     char *tp, *p1, *p2;
     int i;
-	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
-		error("Expression is too complex at depth %",LocalIndex);
-	}
+	TestStackOverflow();                                            // (the PicoMite's: MMBasic.h)
      skipspace(p);
     if(*p>=C_BASETOKEN){ //don't waste time if not a built-in function
 		// special processing for the NOT operator
@@ -2828,9 +2837,7 @@ inline char ITCM_CODE *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **
     int t = T_NOTYPE;
     char *tp, *p1, *p2;
     int i;
-	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
-		error("Expression is too complex at depth %",LocalIndex);
-	}
+	TestStackOverflow();                                            // (the PicoMite's: MMBasic.h)
      skipspace(p);
     if(*p>=C_BASETOKEN){ //don't waste time if not a built-in function
 		// special processing for the NOT operator
@@ -4057,9 +4064,7 @@ inline void ITCM_CODE makeargs(char **p, int maxargs, char *argbuf, char *argv[]
     int inarg, expect_cmd, expect_bracket, then_tkn, else_tkn;
     char *tp;
 
-	if(__get_MSP() < (uint32_t)&stackcheck-0x5000){
-		error("Expression is too complex at depth %",LocalIndex);
-	}
+	TestStackOverflow();                                            // (the PicoMite's: MMBasic.h)
 
     tp = *p;
     op = argbuf;
@@ -4193,8 +4198,17 @@ int InProgMemory(const char *p) {
 }
 
 // the evaluator's stack test, for a recursion through the compiler's calls, which never reaches the evaluator (Stream.c)
-void TestStackOverflow(void) {
-    if(__get_MSP() < (uint32_t)&stackcheck-0x5000) error("Expression is too complex at depth %",LocalIndex);
+// the stack is in its last 1K above StackFloor (TestStackOverflow, MMBasic.h): below StackFloor it has overflowed,
+// otherwise the lowest is kept for a warning at the prompt (the PicoMite's)
+void __attribute__((noinline)) StackNearLimit(uint32_t stack) {
+    if(stack < StackFloor) {
+        StackLow = 0;
+        error("Stack overflow, at depth %, stack &, heap &", LocalIndex, (int)stack, (int)StackFloor);
+    }
+    if(StackLow == 0 || stack < StackLow) {
+        StackLow = stack;
+        StackLowDepth = LocalIndex;
+    }
 }
 
 void error(char *msg, ...) {

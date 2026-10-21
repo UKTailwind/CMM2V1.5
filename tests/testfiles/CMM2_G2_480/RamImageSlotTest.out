@@ -25,7 +25,7 @@ ok:   TILEMAP on an empty RAM slot ->No image in slot 5
 ok:   slot 9 refused ->9 is invalid (valid is 1 to 8)
 ok:   BLIT FLASH after RAM ERASE ->Invalid Image
 FAIL: erased header got128 want0
-320x240 load into RAM took999 ms
+320x240 load into RAM took1145 ms
 ok:   big image column 0 =0
 ok:   big image column 1 =255
 ok:   big image column 2 =16384

@@ -2660,18 +2660,22 @@ void cmd_subfun(void) {
 
 
 
+// The target is found before anything is pushed, as the PicoMite's: a GOSUB to a label that is not there (under
+// ON ERROR SKIP, or at the prompt) left gosubindex and LocalIndex one too high (TBS TID=15486; Peter, 21 Oct)
 void cmd_gosub(void) {
+	char *return_to = nextstmt;
 	if(gosubindex >= MAXGOSUB) error("Too many nested GOSUB");
-    errorstack[gosubindex] = CurrentLinePtr;
-    substack[gosubindex] = NULL;                                    // a GOSUB runs in the SUB it was called from
-	gosubstack[gosubindex++] = nextstmt;
-	LocalIndex++;
 	routinechecks(1);
 	if(isnamestartsym(*cmdline))
 		nextstmt = findlabel(cmdline);								// must be a label (a symbol or text)
 	else
 		nextstmt = findline(getinteger(cmdline), true);				// try for a line number
     IgnorePIN = false;
+    errorstack[gosubindex] = CurrentLinePtr;
+    substack[gosubindex] = NULL;                                    // a GOSUB runs in the SUB it was called from
+	gosubstack[gosubindex++] = return_to;
+	LocalIndex++;
+	CurrentLinePtr = nextstmt;
 }
 
 // BIT(var%, n) = 0|1, BYTE(s$, pos) = 0..255 and FLAG(n) = 0|1 are one token: tokenise() writes them BITBYTEFLAG(1, 2

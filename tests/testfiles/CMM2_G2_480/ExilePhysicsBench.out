@@ -2,21 +2,21 @@ Exile physics bench on Colour Maximite 2 G2 7.000001
 writing bench.map ...
 
 ---- cache off, ms per tick over 200 ticks
-  integrate, 16 objects, loop   1.26 ms   with MATH 0.16 ms
-  tile collision, 16 objects    8.63 ms
-  behaviours, 16 objects        2.43 ms
+  integrate, 16 objects, loop   1.27 ms   with MATH 0.16 ms
+  tile collision, 16 objects    8.74 ms
+  behaviours, 16 objects        2.5 ms
   particles, 32, loop           1.1 ms   with MATH 0.34 ms
-  draw: 2 tilemaps, 16 blits, 32 pixels, copy   7.37 ms
-  FULL TICK, loops              19.18 ms of 40 ms  (47%)
-  full tick if MATH replaced the loops: about 17.31 ms
+  draw: 2 tilemaps, 16 blits, 32 pixels, copy   7.41 ms
+  FULL TICK, loops              19.43 ms of 40 ms  (48%)
+  full tick if MATH replaced the loops: about 17.56 ms
 
 ---- TRACECACHE ON 80, ms per tick over 200 ticks
-  integrate, 16 objects, loop   1.26 ms   with MATH 0.16 ms
-  tile collision, 16 objects    8.63 ms
-  behaviours, 16 objects        2.43 ms
-  particles, 32, loop           1.1 ms   with MATH 0.33 ms
-  draw: 2 tilemaps, 16 blits, 32 pixels, copy   7.37 ms
-  FULL TICK, loops              19.24 ms of 40 ms  (48%)
-  full tick if MATH replaced the loops: about 17.37 ms
+  integrate, 16 objects, loop   1.27 ms   with MATH 0.16 ms
+  tile collision, 16 objects    8.74 ms
+  behaviours, 16 objects        2.49 ms
+  particles, 32, loop           1.11 ms   with MATH 0.34 ms
+  draw: 2 tilemaps, 16 blits, 32 pixels, copy   7.41 ms
+  FULL TICK, loops              19.48 ms of 40 ms  (48%)
+  full tick if MATH replaced the loops: about 17.6 ms
 done
 

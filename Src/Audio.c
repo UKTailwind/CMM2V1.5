@@ -267,7 +267,8 @@ void my_free(void* p, void* pUserData)
 //unsigned char *sampledConsonantFlag; // tab44800
 volatile float PhaseAC_left, PhaseAC_right;
 #define PSpeedDiv (PeripheralBusSpeed)/2
-unsigned short noisetable[4096]={[0 ... 4095]=0xFFFF};
+unsigned short __attribute__((section(".d2free"))) noisetable[4096];   // in D2 RAM, out of DTCM for the stack (Peter,
+                                                                    // 21 Oct); main() fills it with 0xFFFF (not made yet)
 const unsigned short whitenoise[2]={0};
 const unsigned short nulltable[4096]={[0 ... 4095]=2000};
 const int mapping[101]={0,4,11,18,25,33,41,49,57,66,75,84,93,103,113,123,134,145,156,167,179,191,203,216,228,241,255,268,

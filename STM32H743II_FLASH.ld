@@ -226,6 +226,16 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
   } >DTCMRAM AT> FLASH
 
+  /* noisetable and blitbuff, out of DTCM for the stack (Peter, 21 Oct 2026): the 18 KB of D2 RAM at FUNBASE that the
+     function table left (Memory.h: tbuff follows at FUNEND).  Neither loaded nor zeroed: main() sets them up. */
+  .d2free 0x30040000 (NOLOAD) :
+  {
+    *(.d2free)
+    . = ALIGN(4);
+    _e_d2free = .;
+  } >RAM_D2
+  ASSERT(_e_d2free <= 0x30040000 + 36 * 513, "the D2 RAM at FUNBASE overflows into tbuff (Memory.h FUNEND)")
+
    .my_section (NOLOAD):
   {
     . = ALIGN(4);

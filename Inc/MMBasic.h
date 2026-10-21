@@ -265,6 +265,7 @@ extern int Globalvarcnt;                              // number of GLOBAL variab
 extern char *FindvarEnd;                        // where the reference the last findvar() read ends, or NULL (getvalue)
 extern int VarIndex;                            // index of the current variable.  set after the findvar() function has found/created a variable
 extern int LocalIndex;                          // used to track the level of local variables
+extern int hashlistpointer;                     // the local stack's length (MMBasic.c)
 
 extern int OptionBase;                          // value of OPTION BASE
 extern char OptionExplicit,OptionEscape ;       // true if OPTION EXPLICIT has been used
@@ -403,7 +404,14 @@ int ImageIsCurrent(void);                       // does program memory hold an i
 int ImageIsCurrentAt(const char *image);        // does the image at image? (a flash slot's)
 int InProgMemory(const char *p);                // is p in program memory's image (or a running slot's)?
 char *CheckByKeyword(char *p, int kind);        // BYVAL ('V') or BYREF ('R') at a parameter's start: its name, or NULL
-void TestStackOverflow(void);                   // the evaluator's stack test ("Expression is too complex")
+extern uint32_t stackwarn, StackFloor, StackLow;   // the stack check (MMBasic.c): the PicoMite's
+extern int StackLowDepth;
+void StackNearLimit(uint32_t stack);
+static inline void TestStackOverflow(void) {    // at each value and argument list, and each compiled call (Stream.c)
+    uint32_t stack;
+    __asm volatile("MRS %0, msp" : "=r"(stack));
+    if(stack < stackwarn) StackNearLimit(stack);
+}
 // the pure numeric functions on a value (Functions.c): their fun_ handlers and the compiler (Stream.c) share them
 MMFLOAT FnSin(MMFLOAT t);
 MMFLOAT FnCos(MMFLOAT t);

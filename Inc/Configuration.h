@@ -122,8 +122,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MAXVARS				(MAXLOCALVARS + MAXGLOBALVARS)
 #define MAXSUBFUN           512                     // maximum nbr of defined subroutines or functions in a program. each entry takes up 4 bytes
 // define the maximum number of arguments to PRINT, INPUT, WRITE, ON, DIM, ERASE, DATA and READ
-// each entry uses zero bytes.  The number is limited by the length of a command line
-#define MAX_ARG_COUNT       32
+// each entry uses zero bytes.  The number is limited by the length of a command line.  75, the PicoMite's (Peter, 21 Oct:
+// a DATA line of 40 values was "Syntax"); getargs puts 4 bytes an argument on the stack, DefinedSubFun 29 in its block
+#define MAX_ARG_COUNT       75
 #define MAXCFUNCTION	20
 // size of the console terminal emulator's screen
 #define SCREENWIDTH     80

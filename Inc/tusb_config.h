@@ -81,6 +81,11 @@ extern "C" {
 #define CFG_TUSB_MEM_ALIGN          __attribute__((aligned(4)))
 
 #define CFG_TUH_ENUMERATION_BUFSIZE 1024
+#ifndef CFG_TUH_ENUM_RESET_RECOVERY_MS            // after a port reset, before the first request (usbh.c): the USB minimum is
+#define CFG_TUH_ENUM_RESET_RECOVERY_MS 100          // 10 ms, but a mouse behind the hub NAKs its first request for 14 ms or
+#endif                                              // more, and a long run of NAKs can wedge the FS core in slave mode: every
+                                                    // later request stalls (21 Oct: 4 of 24 restarts lost the mouse and
+                                                    // the drive; with 100 ms, none of 24)
 #define CFG_TUH_HUB                 2                   // a hub, and a keyboard hub behind it
 #define CFG_TUH_DEVICE_MAX          (3 * CFG_TUH_HUB + 1)
 #define CFG_TUH_HID                 8                   // the PicoMite has 4 * CFG_TUH_DEVICE_MAX; DTCM is tight here

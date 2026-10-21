@@ -58,6 +58,7 @@ typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P
 extern volatile e_CurrentlyPlaying CurrentlyPlaying; 
 extern volatile e_CurrentlyPlaying CurrentlyPlayinge;
 extern int PWM_FREQ;
+extern unsigned short noisetable[4096];             // (in D2 RAM: Audio.c)
 extern char *sbuff1, *sbuff2;
 extern unsigned char *stress; //numbers from 0 to 8
 extern unsigned char *phonemeLength; //tab40160

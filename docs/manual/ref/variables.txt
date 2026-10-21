@@ -203,8 +203,9 @@ These are the PicoMite's.  On the Colour Maximite 2 both return an empty string,
 
 =+= MM.INFO(PROGRAM)
 MM.INFO(STACK)
+MM.INFO(HEAPEND)
 --- keep
-The address in memory of the start of program memory (in the flash memory, or in the SDRAM with OPTION RAM), and the current value of the processor's stack pointer.
+The address in memory of the start of program memory (in the flash memory, or in the SDRAM with OPTION RAM), the current value of the processor's stack pointer, and the lowest the stack may go (the PicoMite's name): below it a program stops with the error "Stack overflow".
 
 =+= MM.INFO(PSRAM SIZE)
 --- keep

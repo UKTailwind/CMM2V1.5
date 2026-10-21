@@ -4257,7 +4257,7 @@ static __attribute__((noinline)) int RBCallFun(const uint16_t *pc, int np, union
     // what can change the binds at the caller's level (as RBRun's gen)
     uint32_t g0 = g_LocalIndex < SYM_LEVELS ? SymBindGenG + SymLevelGen[g_LocalIndex] : 0, g1;
     unsigned char *def = subfun[idx], *callers = CurrentLinePtr, nm[MAXVARLEN + 8], *tp, *savecmdline, *savenext;
-    // TestStackOverflow (MMBasic.c), which the text path's evaluator makes at every
+    // TestStackOverflow (MMBasic.h), which the text path's evaluator makes at every
     // value: a recursion through compiled calls never reaches it
     TestStackOverflow();
     if (gosubindex >= MAXGOSUB)

@@ -148,7 +148,7 @@ There can be only one END SUB or END FUNCTION for each definition of a subroutin
 
 Recursion is where a subroutine or function calls itself. You can do recursion in MMBasic but there are a number of issues (these are a direct consequence of the limitations of microcontrollers and the BASIC language):
 
-- There is a fixed limit to the depth of recursion: 100 levels of subroutine and function calls together. A recursive function is also limited by how deeply expressions can be nested: a simple recursive function such as f = f(n + 1) + 1 reaches about 35 levels before the error "Expression is too complex".
+- There is a fixed limit to the depth of recursion: 100 levels of subroutine and function calls together. A recursive function is also limited by the processor's stack, as each level is in the middle of evaluating an expression: a simple recursive function such as f = f(n - 1) + 1 reaches about 40 levels (about 37 with OPTION COMPILE ON) before the error "Stack overflow, at depth n, stack ..., heap ...". A recursive subroutine reaches the 100 levels. When a program has come within 1K of the stack's limit without passing it, the command prompt warns of it ("Warning: the stack came within n bytes of its limit, at depth n"). MM.INFO(STACK) is where the stack is now and MM.INFO(HEAPEND) its limit.
 
 - If you have many arguments to the subroutine or function and many LOCAL variables (especially strings) you could easily run out of memory before reaching the 100 level limit.
 

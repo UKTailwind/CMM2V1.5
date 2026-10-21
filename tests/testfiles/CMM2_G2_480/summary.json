@@ -24,7 +24,7 @@
   "name": "ArrayFuncTest",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 1.6,
+  "secs": 1.5,
   "note": ""
  },
  {
@@ -45,7 +45,7 @@
   "name": "Breakout",
   "class": "TIMEOUT",
   "deterministic": true,
-  "secs": 61.4,
+  "secs": 61.5,
   "note": ">"
  },
  {
@@ -66,7 +66,7 @@
   "name": "ExilePhysicsBench",
   "class": "NO-EXPECTED",
   "deterministic": false,
-  "secs": 26.6,
+  "secs": 27.3,
   "note": ""
  },
  {
@@ -87,7 +87,7 @@
   "name": "FrameTest",
   "class": "ERROR",
   "deterministic": true,
-  "secs": 2.0,
+  "secs": 2.1,
   "note": "Error in line 18: Unknown command"
  },
  {
@@ -150,7 +150,7 @@
   "name": "MathStructTest",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 1.8,
+  "secs": 1.9,
   "note": ""
  },
  {
@@ -203,8 +203,8 @@
  {
   "name": "RamImageSlotTest",
   "class": "NO-EXPECTED",
-  "deterministic": true,
-  "secs": 4.9,
+  "deterministic": false,
+  "secs": 5.3,
   "note": ""
  },
  {
@@ -244,7 +244,7 @@
   "name": "ShareHost",
   "class": "NO-EXPECTED",
   "deterministic": true,
-  "secs": 2.0,
+  "secs": 2.1,
   "note": ""
  },
  {
@@ -326,10 +326,10 @@
  },
  {
   "name": "TilemapTest",
-  "class": "ERROR",
+  "class": "TIMEOUT",
   "deterministic": true,
-  "secs": 3.4,
-  "note": "Error in line 67: Syntax"
+  "secs": 61.4,
+  "note": ">"
  },
  {
   "name": "UntypedParamTest",
@@ -384,7 +384,7 @@
   "name": "example",
   "class": "TIMEOUT",
   "deterministic": true,
-  "secs": 61.4,
+  "secs": 61.5,
   "note": ">"
  },
  {

@@ -106,17 +106,24 @@ void tusb_no_breakpoint(void)
    the screen) by usblog_drain(), as far as the console's transmit buffer
    has room, so that logging never waits and never re-enters routinechecks(). */
 #if CFG_TUSB_DEBUG
-static char usblog[6144];
+static char usblog[16384];
 static volatile uint32_t usblog_head, usblog_tail;
 extern volatile int ConsoleTxBufHead, ConsoleTxBufTail;
 void SerialConsolePutC(int c);
 int tusb_log_printf(const char *fmt, ...)
 {
+	static bool linestart = true;                               /* each line starts with the HAL tick, in ms */
 	char b[200];
+	int n = 0;
+	if (HAL_GetTick() > 15000)
+		return 0;                                               /* the start-up only: then a pad's reports flood it */
+	if (linestart)
+		n = snprintf(b, sizeof(b), "%6lu ", (unsigned long)HAL_GetTick());
 	va_list ap;
 	va_start(ap, fmt);
-	int n = vsnprintf(b, sizeof(b), fmt, ap);
+	n += vsnprintf(b + n, sizeof(b) - n, fmt, ap);
 	va_end(ap);
+	linestart = n > 0 && b[(n < (int)sizeof(b) ? n : (int)sizeof(b) - 1) - 1] == '\n';
 	if (n > (int)sizeof(b) - 1)
 		n = sizeof(b) - 1;
 	uint32_t primask = __get_PRIMASK();
@@ -193,6 +200,7 @@ void USBKeyboardInit(void)
 	HAL_NVIC_SetPriority(OTG_FS_IRQn, 0, 0);                    /* TinyUSB enables it */
 
 	const tusb_rhport_init_t host_init = {.role = TUSB_ROLE_HOST, .speed = TUSB_SPEED_FULL};
+	TU_LOG1("USBKeyboardInit: tusb_init\r\n");
 	tusb_init(BOARD_TUH_RHPORT, &host_init);
 	USBenabled = true;
 }

@@ -3271,6 +3271,9 @@ void fun_info(void){
 	} else if(checkstring(ep, "PSRAM SIZE")){                      // the PicoMite's PSRAM, in bytes: here the SDRAM, 8 MB on a G1
 		iret = G1Hardware ? 8 * 1024 * 1024 : 32 * 1024 * 1024;    // and 32 MB on a G2 (Peter, 17 Oct)
 		rettype='I';
+	} else if(checkstring(ep, "HEAPEND")){                          // the stack's floor (the PicoMite's heapend: MMBasic.c)
+		iret=(int64_t)StackFloor;
+		rettype='I';
 	} else if(checkstring(ep, "HEAP")){
 	    int nbr = 0;
 	    unsigned char *addr;

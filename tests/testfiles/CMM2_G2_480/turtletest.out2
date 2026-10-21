@@ -189,15 +189,15 @@ Stress Tests
 ==========================================
 
 Test 1: 1000 random lines
-Time: 38.492 ms
+Time: 38.294 ms
   (Press any key for next test)
 Test 2: 100 random circles
-Time: 9.528 ms
+Time: 9.092 ms
   (Press any key for next test)
 Test 3: Deep PUSH/POP stack (10 levels)
   (Press any key for next test)
 Test 4: 100-sided polygon fill
-Time: 1.799 ms
+Time: 2.522 ms
   (Press any key for next test)
 
 Test section complete.

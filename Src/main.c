@@ -636,6 +636,8 @@ if(_excep_code == RESTART_BOOT0){
   xmit_byte_multi=(Option.SDspeed==0 ? xmit_bitbang_multi : xmit_spi_multi);
   rcvr_byte_multi=(Option.SDspeed==0 ? rcvr_bitbang_multi : rcvr_spi_multi);
   RAMBASE=(0x30008000 + MRoundUp(Option.MaxCtrls * sizeof(struct s_ctrl)));
+  memset(blitbuff, 0, sizeof(blitbuff));                          // out of DTCM, in D2 RAM (.d2free): not zeroed by the
+  memset(noisetable, 0xFF, sizeof(noisetable));                   // start-up code (noisetable's 0xFFFF: not yet made)
   goto skip;
   /* USER CODE END SysInit */
 
@@ -960,10 +962,19 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 	  MMAbort = false;
       BreakKey = BREAK_KEY;
       EchoOption = true;
+      if(hashlistpointer) ClearVars(1);                           // the locals an error left (in a SUB or FUNCTION, called here
+                                                                  // or in a program): the next call at the prompt found them
+                                                                  // ("$ Local variable already declared")
       LocalIndex = 0;                                             // this should not be needed but it ensures that all space will be cleared
       ClearTempMemory();                                           // clear temp string space (might have been used by the prompt)
       CurrentLinePtr = NULL;                                      // do not use the line number in error reporting
       if(MMCharPos > 1) MMPrintString("\r\n");                    // prompt should be on a new line
+      if(StackLow) {                                              // the stack reached its last 1K above its floor since
+          char sbuf[96];                                          // the last prompt (StackNearLimit, MMBasic.c): the
+          sprintf(sbuf, "Warning: the stack came within %d bytes of its limit, at depth %d\r\n", (int)(StackLow - StackFloor), StackLowDepth);
+          MMPrintString(sbuf);                                    // PicoMite's warning
+          StackLow = 0;
+      }
         while(Option.PIN && !IgnorePIN) {
           _excep_code = PIN_RESTART;
           if(Option.PIN == 99999999)                              // 99999999 is permanent lockdown
