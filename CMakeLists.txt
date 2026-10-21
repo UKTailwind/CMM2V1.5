@@ -115,6 +115,10 @@ list(TRANSFORM RELEASE_O2_FILES PREPEND Src/)
 list(TRANSFORM RELEASE_OZ_FILES PREPEND Src/)
 set_property(SOURCE ${RELEASE_O2_FILES} APPEND PROPERTY COMPILE_OPTIONS $<$<CONFIG:Release>:-O2>)
 set_property(SOURCE ${RELEASE_OZ_FILES} APPEND PROPERTY COMPILE_OPTIONS $<$<CONFIG:Release>:-Oz>)
+# MATHS.c's complex arithmetic (the FFT, the complex MATH functions) inline, without libgcc's __muldc3 and the like,
+# which only try to rescue a product or quotient that overflowed to Inf/NaN: 3 KB less flash (Peter, 21 Oct: the
+# PicoMite's flag for MATHS.c, without its -Os)
+set_property(SOURCE Src/MATHS.c APPEND PROPERTY COMPILE_OPTIONS -fcx-fortran-rules)
 
 # --- Linker -----------------------------------------------------------------
 target_link_options(${TARGET} PRIVATE
