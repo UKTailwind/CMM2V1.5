@@ -249,6 +249,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | PULSIN( | Functions |
 | PWM | Commands |
 | RAD( | Functions |
+| RAM | Commands |
 | RANDOMIZE | Commands |
 | RBOX | Commands |
 | READ | Commands |

@@ -1,5 +1,5 @@
-[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00b1 (beta) release notes[/B][/COLOR][/SIZE][/CENTER]
-[I]Draft, 20 October 2026. Compared with MMBasic 5.07.02, the last official release.[/I]
+[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00b2 (beta) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
+[I]21 October 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b1, have notes of their own.[/I]
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes, and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
@@ -144,6 +144,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
     ◦ SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 • One mouse is used at a time.
 • MM.VER is 7.000001.
+• A minus sign in front of a value now applies after a power that follows it, as in mathematics and most languages: -2^2 is -4 (it was 4), and -X^2 is -(X^2). Write (-2)^2 for the old result.
 
 
 [SIZE=4][COLOR=BLUE][B]Fixed from 5.07.02[/B][/COLOR][/SIZE]
@@ -184,6 +185,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
     ◦ A program that runs off its last line now runs MM.END.
     ◦ RUN resets MM.ERRNO, and MM.INFO$(RESET) has no CR LF.
     ◦ CONTINUE after Ctrl-C or an error inside a SUB lost the SUB's local variables, and its END SUB then cleared every variable.
+    ◦ GOSUB to a label or line that does not exist left a return behind it.
 
 [SIZE=3][B]Strings, numbers and MATH[/B][/SIZE]
 • Dates and times:

@@ -1,0 +1,136 @@
+# Colour Maximite 2: MMBasic 7.00.00b2 (beta) release notes
+
+*21 October 2026. Compared with 7.00.00b1, the previous beta. The full notes, compared with MMBasic 5.07.02, are posted with these.*
+
+This beta brings across more of the PicoMite's MMBasic version 7: its compiler, its flash and RAM slots, the additions to its sprites and its GUI list box and slider. It also fixes the problems found in 7.00.00b1.
+
+This is a beta: a work-in-progress build for users to try. Please report problems on the Back Shed forum.
+
+The same firmware file runs on both the Generation 1 and the Generation 2.
+
+## Before you update
+
+As with 7.00.00b1:
+
+- **Options kept:** the keyboard layout, the clock's settings, the console port, the SD card speed, the default video mode, the editor's font, the mouse and its sensitivity, and OPTION MAXCTRLS.
+- **Options reset:** every other option returns to its default, including OPTION AUTORUN.
+- **Erased:** the program held in flash, and any variables saved with VAR SAVE. A program that ran at power-up has to be run again from its file, and OPTION AUTORUN set again.
+- **Not affected:** programs and files on the SD card.
+
+## What is new
+
+### The compiler
+
+- OPTION COMPILE ON runs programs from a compiled form, as the PicoMite does: the solar eclipse benchmark takes 1.7 s (6.0 s without), and tight loops run up to ten times faster.
+- The program is compiled when it is run, if it has changed; any statement the compiler does not handle runs as before, and LIST, EDIT, errors, TRACE and interrupts behave as without it.
+- OPTION COMPILE SHADOW checks every compiled calculation against the interpreter. MM.INFO$(COMPILE) reports what the last RUN did.
+- The compiled program has 1 MB of RAM of its own. On the Generation 2 half of it is taken from the variable memory (512 KB less than before). On the Generation 1 all of it is, but only while the option is on: the first OPTION COMPILE ON after a restart restarts the CMM2 to make the area.
+
+### Flash and RAM slots
+
+- The PicoMite's flash slots 1 to 3, with FLASH SAVE, OVERWRITE, LOAD, RUN, CHAIN, LIST and ERASE, and LOAD IMAGE and DISK LOAD into them.
+- The flash slots are kept on the SD card (in the hidden directory A:/.flash), and a slot's program runs from RAM, so no flash memory is written.
+- The PicoMite's RAM slots 1 to 5 (the image slots 4 to 8), with RAM SAVE, OVERWRITE, LOAD, RUN, CHAIN, LIST and ERASE, and RAM FILE LOAD, which loads a program into a RAM slot while another runs.
+- The RAM slots are kept through RUN, CHAIN and NEW until RAM ERASE or a restart, as the PicoMite's are.
+- FLASH DISK LOAD, and MM.INFO(FLASH), which gives the slot whose program is running.
+
+### Sprites
+
+- The PicoMite's additions:
+  - static objects: SPRITE STATIC, STATIC CLEAR, STINTERRUPT and NOSTINTERRUPT, and SPRITE(ST …), invisible rectangles for the solid parts of the scenery that sprites collide with;
+  - SPRITE(B), a sprite's collision with what is drawn on the screen, pixel by pixel, and from which side;
+  - SPRITE SHOW, SHOW SAFE and SWAP orientations 4 to 7, which draw every pixel;
+  - SPRITE SET TRANSPARENT;
+  - SPRITE LOADBMP, also BLIT LOAD;
+  - SPRITE LOADPNG of part of an image, with the transparent pixels given a colour;
+  - SPRITE LOAD's palette argument.
+- Sprites are kept through a change of mode: their images are full colour in every colour depth, so they can be loaded once and shown in any mode.
+- SPRITE LOADPNG reads every kind of PNG that LOAD PNG reads, a line at a time.
+- SPRITE MOVE and SHOW are faster in most colour depths: MOVE by 9% to 27%.
+- A program's SPRITE commands list as SPRITE (they listed as BLIT).
+
+### GUI controls
+
+- The PicoMite's GUI LISTBOX (a list to choose from, which scrolls) and GUI SLIDER controls.
+- GUI CLICK, which clicks the controls from a program, or with a button on a pin.
+- TOUCH() is accepted as another name for CLICK().
+- A USB mouse is used by the controls as soon as it is plugged in, without OPTION MOUSE, and a program can create its controls before there is a mouse. The controls also work in the 4-bit colour depth, without a pointer.
+
+### The language
+
+- A command can take up to 75 arguments, and a DATA statement up to 75 values, as the PicoMite's: the limit was 32. A SUB or FUNCTION can have up to 38 parameters (16 before).
+- The PicoMite's stack check: a recursion too deep stops with "Stack overflow" before it can overwrite other memory, a recursive FUNCTION goes about 40 levels deep, and the prompt warns when a program came close to the limit. MM.INFO(HEAPEND) is the limit.
+
+## What behaves differently
+
+- A minus sign in front of a value now applies after a power that follows it, as in mathematics and most languages: -2^2 is -4 (it was 4), and -X^2 is -(X^2). Write (-2)^2 for the old result.
+- Sprites, as on the PicoMite:
+  - SPRITE LOADPNG's third argument is the colour of the transparent pixels; the cut-off is the fourth, from 1 to 254. The old cut-off n is the new cut-off 16 × n - 1: `SPRITE LOADPNG 1, f$, 8` is now `SPRITE LOADPNG 1, f$, , 127`. With none given, a pixel whose alpha value is above 30 is now solid (it had to be at least 128).
+  - Black in a sprite is transparent, whatever loaded it: in a sprite file a 0, and a solid black pixel of a PNG (a negative third argument gives these a colour). SPRITE SET TRANSPARENT chooses another transparent colour, and orientations 4 to 7 draw every pixel. In the colour depths below 32 bits, colours too dark to be told from black are transparent too.
+  - BLIT WRITE copies every pixel unless its orientation is 4 to 7; SPRITE WRITE leaves out the transparent ones, as before.
+  - BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
+  - SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
+  - A change of mode keeps the sprites, no longer shown, to be shown again (7.00.00b1 closed them).
+
+## Fixed since 7.00.00b1
+
+### The interpreter
+
+- GOSUB to a label or line that does not exist left a return behind it.
+- After an error in a SUB or FUNCTION, calling it again at the command prompt stopped with "Local variable already declared".
+- CONTINUE after Ctrl-C or an error inside a SUB lost the SUB's local variables and its loops, and its END SUB then cleared every variable.
+- Comparing two integers very far apart (one near the most negative value and one large) could give the wrong answer, and a DO loop's test could disagree with the same comparison elsewhere.
+- An IF typed at the command prompt, or run by EXECUTE, could take a THEN or ELSE inside a quoted string as its own.
+
+### Sprites
+
+- After SPRITE MOVE, SCROLL or RESTORE, later collisions could be missed and SPRITE(T) was wrong; a sprite on layer 0 met only other layer 0 sprites; and a sprite with the most collisions recorded was left out of SPRITE(C, 0 …).
+- The details of a collision could be cleared before the collision interrupt ran.
+- The collision state outlived a RUN, so a program's first SPRITE(T) could show the last program's.
+- SPRITE WRITE of a sprite that was shown moved it and overwrote its stored background.
+- SPRITE SHOW SAFE of a shown sprite ignored a new layer.
+- SPRITE HIDE SAFE and SHOW SAFE of a sprite at the bottom of the list left the others hidden until the next MOVE.
+- In the 12-bit colour depth a SPRITE LOADARRAY sprite was invisible.
+
+### GUI controls
+
+- A USB mouse's clicks did not reach the controls unless OPTION MOUSE was set.
+- Creating a control in a 4-bit colour depth was an error.
+- GUI DELETE of a control whose keyboard or keypad was open left every later click going to it.
+
+### Files, images and memory
+
+- LOAD BMP and FLASH LOAD IMAGE lost memory each time they met a file they could not read.
+- With OPTION FLASH 6, loading a program of more than 128 KB erased the saved options (and more than 256 KB with OPTION FLASH 5).
+- SAVE CONTEXT and LOAD CONTEXT on A: needed the USB flash drive when C: was the current drive.
+
+### USB
+
+- The devices behind a USB hub sometimes failed to start after a restart.
+
+## Not there yet
+
+- The PicoMite compatibility switch (OPTION PICOMITE), which will let PicoMite programs with conflicting keywords run unchanged.
+- RAY and FRAME.
+- YMODEM, OPTION DISK SAVE/LOAD, and a mouse in the file manager.
+
+## Not yet tested with real hardware
+
+- SPI and I2C with real devices, and I2C option 1's repeated start.
+- I2C with a Wii controller on the same bus.
+- CAN on a bus (sending and receiving are tested in the internal loop back).
+- PWM channels 3 to 6.
+- The ADC.
+- The serial ports COM1 to COM3.
+- RTC calibration.
+- The COUNT, ADC, DAC and IR interrupts.
+- Xbox controllers.
+
+## Known problems
+
+- An armed interrupt pin slows the program down, because the pin is polled after every statement.
+- The keyboard layout list names IT, but it cannot be selected.
+
+## The manual
+
+The Colour Maximite 2 User Manual for this release is posted with it. It describes everything above: the compiler, the flash and RAM slots, the new SPRITE and GUI commands, and the changed precedence of a minus sign (the chapter Operators). Appendix N lists where each keyword is described.
