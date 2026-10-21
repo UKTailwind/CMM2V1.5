@@ -4026,8 +4026,8 @@ findvar_found:
         size = structarg;                                           // its size is its type
     }  else {
     	tmp=(nbr * (size + 1));
-    	if(tmp<=16 && j==0)mptr = (void *)&VREC(ifree)->dimtbl[1];
-    	else if(tmp<=12 && DimIsEnd(VREC(ifree)->dimtbl[1]))mptr = (void *)&VREC(ifree)->dimtbl[2];  // Strings <=12 into vartbl
+    	if(tmp<=16 && j==0)mptr = (void *)&VREC(ifree)->dimtbl[1];  // a short string scalar in its record (the PicoMite's);
+    	                                                // never an array: counts multiply all of dimtbl (parsestringarray)
     	else if(tmp<=256)mptr = GetStringMemoryBottom();  // <=256 into Heap
         else mptr = GetMemory(tmp);                 // else SDRAM
     }
