@@ -47,7 +47,7 @@ COLOUR foreground-colour, background-colour
 
 ## Fonts
 
-There are seven built in fonts. These are:
+There are nine built in fonts. These are:
 
 {widths: 12,16,26,46}
 | Font Number | Size (width x height) | Character Set | Description |
@@ -59,8 +59,12 @@ There are seven built in fonts. These are:
 | 5 | 24 x 32 | All 95 ASCII characters | Large font, very clear |
 | 6 | 32 x 50 | 0 to 9 plus some symbols | Numbers plus decimal point, positive, negative, equals, degree and colon symbols. Very clear. |
 | 7 | 6 x 8 | All 95 ASCII characters | A small font useful when low resolutions are used. |
+| 8 | 4 x 6 | All 95 ASCII characters plus 7F (hex) | A tiny font, the PicoMite's font 8. |
+| 9 | 8 x 10 | All 95 ASCII characters | The PicoMite's font 9. |
 
-In all fonts (including font #6) the back quote character (60 hex or 96 decimal) has been replaced with the degree symbol (º).
+In fonts 1 to 7 (including font #6) the back quote character (60 hex or 96 decimal) has been replaced with the degree symbol (º).
+
+Fonts 8 and 9 are the PicoMite's, so that its programs find the same fonts. A program can replace either of them, as it can fonts 2 to 5: LOAD FONT installs a font as font 8, and DEFINEFONT #8 or #9 replaces it. The built in font comes back when a program is next run.
 
 Font #1 (the default font) and font #4 have an extended character set covering all characters from CHR$(32) to CHR$(255) or 20 to FF (hex) as illustrated below.
 

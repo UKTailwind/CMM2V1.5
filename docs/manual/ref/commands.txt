@@ -1297,7 +1297,7 @@ Note that there is no validation of the address so the command must be used with
 
 === LOAD FONT file$
 --- keep
-Loads the font contained in ‘file$’ and installs it as font #8.  If an extension is not specified “.FNT” will be added to the file name.  A program can load many fonts this way during the course of its execution but each new font replaces the one loaded before.
+Loads the font contained in ‘file$’ and installs it as font #8, in place of the built in font 8 (which comes back when the next program runs).  If an extension is not specified “.FNT” will be added to the file name.  A program can load many fonts this way during the course of its execution but each new font replaces the one loaded before.
 The file has the format of an embedded font (see DEFINEFONT) except that no comments or blank lines are allowed, the first line must be `DefineFont #8` (spelt so), the first word must be on a line on its own and the following lines (except the last) must have exactly eight words per line.  See Embedded Fonts in the chapter *Graphics Functions*.
 You can convert font files designed for the original Colour Maximite using FontTweak, included in the Colour Maximite 2 download.
 

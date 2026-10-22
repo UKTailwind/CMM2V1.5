@@ -94,6 +94,8 @@ void polygon(char *p, int close);
 
     #include "font1.h"
     #include "Misc_12x20_LE.h"
+    #include "TinyFont.h"                       // fonts 8 and 9, the PicoMite's (22 Oct 2026)
+    #include "font8x10.h"
     #include "Hom_16x24_LE.h"
     #include "Fnt_10x16.h"
     #include "Inconsola.h"
@@ -107,8 +109,8 @@ void polygon(char *p, int close);
                                                     (unsigned char *)Inconsola,
                                                     (unsigned char *)ArialNumFontPlus,
 													(unsigned char *)F_6x8_LE,
-													(unsigned char *)NULL,
-                                                    NULL,
+													(unsigned char *)TinyFont,          // 8: 4 x 6, the PicoMite's (LOAD FONT replaces it)
+													(unsigned char *)font8x10,          // 9: 8 x 10, the PicoMite's
                                                     NULL,
                                                     NULL,
                                                     NULL,

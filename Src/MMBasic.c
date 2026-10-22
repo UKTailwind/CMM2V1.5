@@ -696,6 +696,12 @@ void MIPS16 PrepareProgram(int ErrAbort) {
     RBLive = 0;                                                     // a compiled stream is trusted only after RUN checks its stamp (Stream.h)
     for(i = FONT_BUILTIN_NBR; i < FONT_TABLE_SIZE; i++)
         FontTable[i] = NULL;                                        // clear the font table
+    {   // fonts 8 and 9 built in again (the PicoMite's): a program's LOAD FONT or DEFINEFONT #8 or #9 replaced them
+        extern const uint32_t TinyFont[];
+        extern const unsigned char font8x10[];
+        FontTable[7] = (unsigned char *)TinyFont;
+        FontTable[8] = (unsigned char *)font8x10;
+    }
 
     CFunctionFlash = CFunctionLibrary = NULL;
     SymSetLibrary(LibPresent() ? LibMemory : NULL);                 // the library's symbol table (Library.c), and

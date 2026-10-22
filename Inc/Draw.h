@@ -136,7 +136,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern int gui_bcolour;
     
 
-    #define FONT_BUILTIN_NBR     8              // the number of built in fonts
+    #define FONT_BUILTIN_NBR     9              // the number of built in fonts (8 and 9 the PicoMite's, 22 Oct 2026)
     #define FONT_TABLE_SIZE     16              // the total size of the font table (builtin + loadable)
     extern unsigned char *FontTable[];
     extern uint32_t GetPageAddress(int page);
