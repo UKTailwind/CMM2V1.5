@@ -5417,7 +5417,9 @@ char *checkstring(char *p, char *tkn) {
             p += symbolsize(*p);
             continue;
         }
-        if(*tkn != *p) break;
+        // blind to case, as the PicoMite's: a DATA statement keeps its case (READ evaluated DATA RGB(red) and found no
+        // colour), and so do strings (22 Oct 2026, a user's report). Elsewhere tokenise() has made the text capitals.
+        if(toupper((unsigned char)*tkn) != toupper((unsigned char)*p)) break;
         tkn++; p++;
     }
     if(*tkn == 0 && (*p == ' ' || *p == ',' || *p == '\'' || *p == '(' || *p == 0)) {
