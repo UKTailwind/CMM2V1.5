@@ -38,6 +38,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | AS | Commands, with DIM, LOCAL, OPEN and the other statements that use it |
 | ASC( | Functions |
 | ASIN( | Functions |
+| ASTRO | Commands; Appendix Q |
 | ATAN2( | Functions |
 | ATN( | Functions |
 | AUTOSAVE | Commands |
@@ -181,6 +182,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | LOAD | Commands |
 | LOC( | Functions |
 | LOCAL | Commands |
+| LOCATION | Commands; Appendix Q |
 | LOF( | Functions |
 | LOG( | Functions |
 | LONGSTRING | Commands |
@@ -274,6 +276,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | SETTICK | Commands |
 | SGN( | Functions |
 | SIN( | Functions |
+| SLEW | Commands; Appendix Q |
 | SORT | Commands |
 | SPACE$( | Functions |
 | SPI | Commands, Functions |
@@ -283,6 +286,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | SPRITE | Commands (the sprite commands: SPRITE is another name for BLIT), and Functions, SPRITE( |
 | SPRITE( | Functions |
 | SQR( | Functions |
+| STAR | Commands; Appendix Q |
 | STATIC | Commands |
 | STEP | Commands, with FOR |
 | STR$( | Functions |
