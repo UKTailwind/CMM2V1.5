@@ -308,11 +308,13 @@ void GuiPointer(void){
 	if(VideoColour >= 8 && !cursorenable) cmd_cursor("ON");
 }
 // the GUI started by its first command: OPTION MOUSE's mouse opened if it is not (a USB one needs nothing), and the
-// touch events taken from then on. A mouse need not be there yet: a USB mouse plugged in later is used at once.
+// touch events taken from then on. A mouse need not be there yet: a USB mouse plugged in later is used at once, and
+// OPTION MOUSE 0's PS/2 mouse is started as EDIT and FM start it, with no error if none answers (UiMouse.c).
 void mouseon(void){
     if(!GUIactive){
 		int m = GuiMouse();
-		if(m >= 0 && MouseOpenChannel() != m){
+		if(m == 0) MouseOptionStart();
+		else if(m >= 0 && MouseOpenChannel() != m){
 			char mouseopen[20]={0};
 			strcpy(mouseopen,"OPEN n,,,m");
 			mouseopen[5]=m+48;
