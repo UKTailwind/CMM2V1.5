@@ -117,6 +117,9 @@ bool tuh_cdc_peek(uint8_t idx, uint8_t *ch);
 // Clear the received FIFO
 bool tuh_cdc_read_clear(uint8_t idx);
 
+// CMM2: arm the bulk IN (the port is open) or stop it (closed); the FIFO is emptied either way
+bool tuh_cdc_rx_enable(uint8_t idx, bool on);
+
 //--------------------------------------------------------------------+
 // Control Request API
 // Each Function will make a USB control transfer request to/from device

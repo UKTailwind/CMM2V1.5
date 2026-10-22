@@ -979,6 +979,35 @@ bool hcd_edpt_abort_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr) {
   const uint8_t ch_id = channel_find_enabled(dwc2, dev_addr, ep_num, ep_dir);
   if (ch_id < 16) {
     dwc2_channel_t* channel = &dwc2->channel[ch_id];
+#if CFG_TUH_DWC2_SLAVE_ENABLE
+    if (!dma_host_enabled(dwc2)) {
+      // CMM2, 22 Oct 2026: in slave mode the halt handler re-armed a NAKed IN at once, so an abort never ended a
+      // transfer to a device with nothing to send, and it left the PID that channel_xfer_start() predicted for the
+      // whole transfer. Marked aborting, the channel is retired on its halt (handle_channel_irq), keeping the PID it
+      // reached and reporting nothing. A halt comes within a transaction; this waits for it, so that a transfer can
+      // follow at once (hcd_edpt_xfer refuses one while the endpoint is aborting).
+      hcd_xfer_t* xfer = &_hcd_data.xfer[ch_id];
+      edpt->aborting = 1;
+      xfer->aborting = true;
+      if (channel->hcchar & HCCHAR_CHENA) {
+        channel_disable(dwc2, channel);
+      }
+      const uint32_t t0 = tusb_time_millis_api();
+      while (xfer->allocated && xfer->aborting && (tusb_time_millis_api() - t0) < 3u) {}
+      hcd_int_disable(rhport);
+      if (xfer->allocated && xfer->aborting) {                 // no halt came: retire it here
+        if (edpt->hcchar_bm.ep_type != HCCHAR_EPTYPE_ISOCHRONOUS) {
+          const dwc2_channel_tsize_t hctsiz = {.value = channel->hctsiz};
+          edpt->next_pid = hctsiz.pid;
+        }
+        xfer->aborting = false;
+        channel_dealloc(dwc2, ch_id);
+      }
+      edpt->aborting = 0;
+      hcd_int_enable(rhport);
+      return true;
+    }
+#endif
     channel_disable(dwc2, channel);
   }
 
@@ -1599,7 +1628,9 @@ static void handle_channel_irq(uint8_t rhport, bool in_isr) {
       channel->hcint = hcint_clear;
 
       // Retire closing/aborted DMA channels before retry handling can re-arm them (Programming Guide 3.5, p73).
-      if (is_dma && (xfer->aborting || xfer->closing) && (hcint & HCINT_HALTED)) {
+      // CMM2: an aborted slave channel too (hcd_edpt_abort_xfer): its halt handler re-armed a NAKed IN.
+      if ((xfer->aborting || (is_dma && xfer->closing)) && (hcint & HCINT_HALTED)) {
+        channel->hcint = hcint;                                 // (slave mode left the halt pending with another cause)
         hcd_endpoint_t* edpt = &_hcd_data.edpt[xfer->ep_id];
         const bool closing = xfer->closing;
         // channel_xfer_start() predicts the PID after all requested packets;

@@ -47,6 +47,7 @@ typedef struct {
   uint8_t ep_notif;
   uint8_t serial_drid; // Serial Driver ID
   bool mounted;        // Enumeration is complete
+  bool rx_on;          // CMM2: the bulk IN is armed only while the port is open (tuh_cdc_rx_enable)
 
   struct {
     TU_ATTR_ALIGNED(4) cdc_line_coding_t coding; // Baudrate, stop bits, parity, data width
@@ -481,10 +482,36 @@ uint32_t tuh_cdc_write_available(uint8_t idx) {
 // Read
 //--------------------------------------------------------------------+
 
+// CMM2: every arming of the bulk IN goes through here, so that it is armed only while the program has the port open
+static void cdch_rx_arm(cdch_interface_t *p_cdc) {
+  if (p_cdc->rx_on) {
+    (void)tu_edpt_stream_read_xfer(&p_cdc->stream.rx);
+  }
+}
+
+// CMM2 (Peter, 22 Oct 2026: "the cdc device should be inactive unless OPENed by basic"): stock TinyUSB arms the bulk
+// IN at mount and keeps it armed. A device with nothing to send then NAKs every IN token, and the DWC2's slave mode
+// spends two interrupts and a re-arm on each. On: the FIFO emptied and the IN armed. Off: the IN aborted, the FIFO
+// emptied.
+bool tuh_cdc_rx_enable(uint8_t idx, bool on) {
+  cdch_interface_t *p_cdc = get_itf(idx);
+  TU_VERIFY(p_cdc && p_cdc->mounted);
+  p_cdc->rx_on = on;
+  if (!on) {
+    (void)tuh_edpt_abort_xfer(p_cdc->daddr, p_cdc->stream.rx.ep_addr);   // (false when none was armed)
+  }
+  tu_edpt_stream_clear(&p_cdc->stream.rx);
+  cdch_rx_arm(p_cdc);
+  return true;
+}
+
 uint32_t tuh_cdc_read (uint8_t idx, void * buffer, uint32_t bufsize) {
   cdch_interface_t * p_cdc = get_itf(idx);
   TU_VERIFY(p_cdc);
-  return tu_edpt_stream_read(&p_cdc->stream.rx, buffer, bufsize);
+  // tu_edpt_stream_read() as it is, but its re-arm only while the port is open
+  const uint32_t num_read = tu_fifo_read_n(&p_cdc->stream.rx.ff, buffer, (uint16_t) tu_min32(bufsize, UINT16_MAX));
+  cdch_rx_arm(p_cdc);
+  return num_read;
 }
 
 uint32_t tuh_cdc_read_available(uint8_t idx) {
@@ -504,7 +531,7 @@ bool tuh_cdc_read_clear (uint8_t idx) {
   TU_VERIFY(p_cdc);
 
   tu_edpt_stream_clear(&p_cdc->stream.rx);
-  (void)tu_edpt_stream_read_xfer(&p_cdc->stream.rx);
+  cdch_rx_arm(p_cdc);
   return true;
 }
 
@@ -682,7 +709,7 @@ bool cdch_xfer_cb(uint8_t daddr, uint8_t ep_addr, xfer_result_t event, uint32_t 
       uint8_t const fidx = get_idx_by_ep_addr(daddr, ep_addr);
       cdch_interface_t *p_fcdc = (fidx < CFG_TUH_CDC) ? get_itf(fidx) : NULL;
       if (p_fcdc != NULL && ep_addr == p_fcdc->stream.rx.ep_addr) {
-        (void)tu_edpt_stream_read_xfer(&p_fcdc->stream.rx);
+        cdch_rx_arm(p_fcdc);
       }
     }
     return false;
@@ -718,7 +745,7 @@ bool cdch_xfer_cb(uint8_t daddr, uint8_t ep_addr, xfer_result_t event, uint32_t 
     }
 
     // prepare for next transfer if needed
-    tu_edpt_stream_read_xfer(&p_cdc->stream.rx);
+    cdch_rx_arm(p_cdc);
   } else if (ep_addr == p_cdc->ep_notif) {
     // TODO handle notification endpoint
   } else {
@@ -784,9 +811,8 @@ static void set_config_complete(cdch_interface_t *p_cdc, bool success) {
   if (success) {
     const uint8_t idx = get_idx_by_ptr(p_cdc);
     p_cdc->mounted    = true;
+    p_cdc->rx_on      = false;                    // CMM2: the IN is armed when the port is opened (tuh_cdc_rx_enable)
     tuh_cdc_mount_cb(idx);
-    // Prepare for incoming data
-    tu_edpt_stream_read_xfer(&p_cdc->stream.rx);
   } else {
     // clear the interface entry
     p_cdc->daddr            = 0;

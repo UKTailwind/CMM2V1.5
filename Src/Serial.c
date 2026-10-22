@@ -157,13 +157,18 @@ void CdcGpsFeed(void) {
 static const char *CdcLineSetup(int idx, xfer_result_t *res) {
 	struct s_cdccom *p = &CdcCom[idx];
 	cdc_line_coding_t coding = {p->baud, p->stop_bits, p->parity, p->data_bits};
-	*res = XFER_RESULT_INVALID;
+	tuh_cdc_rx_enable(idx, true);                                   // the device is read only while its port is open
+	                                                                // (Peter, 22 Oct 2026; CLOSE stops it), armed first:
+	                                                                // what it held while closed comes in during the
+	*res = XFER_RESULT_INVALID;                                     // requests below, and is thrown away after them
 	if(!tuh_cdc_set_line_coding(idx, &coding, NULL, (uintptr_t)res) && *res == XFER_RESULT_INVALID)
 		tuh_cdc_set_baudrate(idx, p->baud, NULL, (uintptr_t)res);
 	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "the baud rate";
 	*res = XFER_RESULT_INVALID;
 	tuh_cdc_set_control_line_state(idx, CDC_CONTROL_LINE_STATE_DTR | CDC_CONTROL_LINE_STATE_RTS, NULL, (uintptr_t)res);
 	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "DTR/RTS";
+	for(uint32_t t0 = tusb_time_millis_api(); tusb_time_millis_api() - t0 < 5; ) tuh_task();   // the rest of it: a
+	tuh_cdc_read_clear(idx);                                        // device can send what it held in several transfers
 	return NULL;
 }
 
@@ -649,12 +654,13 @@ void SerialOpen(char *spec) {
 		p->parity = parity == 1 ? CDC_LINE_CODING_PARITY_EVEN : parity == 2 ? CDC_LINE_CODING_PARITY_ODD : CDC_LINE_CODING_PARITY_NONE;
 		p->data_bits = b7 ? 7 : 8;
 		p->setup = false;
-		tuh_cdc_read_clear(idx);                                    // nothing from before it was opened
-		p->open = true;
+		p->open = true;                                             // (CdcLineSetup arms the device's IN)
 		xfer_result_t res;
 		const char *refused = CdcLineSetup(idx, &res);
+		p->Rx_head = p->Rx_tail = 0;                                // nothing from before it was opened
 		if(refused) {                                               // undone without asking the device anything more
 			p->open = false;
+			tuh_cdc_rx_enable(idx, false);
 			p->interrupt = p->TX_interrupt = NULL;
 			FreeMemorySafe((void *)&p->Rx_buf);
 			strcpy(m, "COM");
@@ -716,7 +722,10 @@ void SerialClose(int comnbr) {
 		p->open = false;
 		p->interrupt = p->TX_interrupt = NULL;
 		p->setup = false;
-		if(tuh_cdc_mounted(idx)) tuh_cdc_set_control_line_state(idx, 0, NULL, 0);  // DTR and RTS down
+		if(tuh_cdc_mounted(idx)) {
+			tuh_cdc_rx_enable(idx, false);                          // the device's IN stopped: not read while closed
+			tuh_cdc_set_control_line_state(idx, 0, NULL, 0);        // DTR and RTS down
+		}
 		FreeMemorySafe((void *)&p->Rx_buf);
 	}
 }

@@ -153,7 +153,9 @@ void cmd_close(void) {
         if(FileTable[fnbr].com == 0) error("File number is not open");
         if(FileTable[fnbr].com > MAXCOMPORTS) FileClose(fnbr);
         else {
-        	while(SerialTxStatus(FileTable[fnbr].com) && !MMAbort);     // wait for anything in the buffer to be transmitted
+        	while(SerialTxStatus(FileTable[fnbr].com) && !MMAbort)      // wait for anything in the buffer to be transmitted
+        		routinechecks(1);                                       // (a USB port's empties only as USB is serviced:
+        		                                                        // CLOSE soon after a long PRINT waited for ever)
         }
         SerialClose(FileTable[fnbr].com);
         
