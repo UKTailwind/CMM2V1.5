@@ -1,5 +1,7 @@
 # Colour Maximite 2 firmware: audit against PicoMite V7.00.00RC1, and the plan to catch up
 
+*Checked again on 22 October 2026 against both trees: docs/PicoMite_Parity_Recheck.md has what is done, what is left and the statements below that no longer hold.*
+
 *Working document, 14 October 2026. Compares `CMM2V1.5` (MMBasic 6.00.00b7, STM32H743II) with `D:\Dropbox\PicoMite\PicoMite` at tag `PicoMite-V7.00.00RC1` (main at 675891c). Everything below was read from the two source trees, the PicoMite design documents in `docs/`, the two user manuals and the V6.01 to V7.00 release notes. Nothing was built or run on a board. Figures marked "estimate" are guesses.*
 
 ---
