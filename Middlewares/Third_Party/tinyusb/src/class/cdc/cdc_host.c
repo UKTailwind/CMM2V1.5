@@ -492,10 +492,13 @@ static void cdch_rx_arm(cdch_interface_t *p_cdc) {
 // CMM2 (Peter, 22 Oct 2026: "the cdc device should be inactive unless OPENed by basic"): stock TinyUSB arms the bulk
 // IN at mount and keeps it armed. A device with nothing to send then NAKs every IN token, and the DWC2's slave mode
 // spends two interrupts and a re-arm on each. On: the FIFO emptied and the IN armed. Off: the IN aborted, the FIFO
-// emptied.
+// emptied. No change when it is already so (as the PicoMite's: CMM2V1.5 issue #1).
 bool tuh_cdc_rx_enable(uint8_t idx, bool on) {
   cdch_interface_t *p_cdc = get_itf(idx);
   TU_VERIFY(p_cdc && p_cdc->mounted);
+  if (on == p_cdc->rx_on) {
+    return true;
+  }
   p_cdc->rx_on = on;
   if (!on) {
     (void)tuh_edpt_abort_xfer(p_cdc->daddr, p_cdc->stream.rx.ep_addr);   // (false when none was armed)
@@ -688,6 +691,7 @@ void cdch_close(uint8_t daddr) {
       p_cdc->daddr            = 0;
       p_cdc->bInterfaceNumber = 0;
       p_cdc->mounted = false;
+      p_cdc->rx_on   = false;                     // CMM2: the next device here starts with receiving off
       tu_edpt_stream_close(&p_cdc->stream.tx);
       tu_edpt_stream_close(&p_cdc->stream.rx);
     }
