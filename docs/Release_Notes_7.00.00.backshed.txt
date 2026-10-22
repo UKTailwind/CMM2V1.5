@@ -275,7 +275,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
     ◦ ADC OPEN's pin check could unconfigure a COM pin.
     ◦ The 400 MHz limit was never applied.
 • ADC START, BLIT LOADARRAY and WS2812 read or wrote past an array given from an element.
-• DAC START, ADC START, IR and KEYPAD refuse a LOCAL array, which the interrupt went on using after its SUB ended.
+• DAC START, ADC START and IR refuse a LOCAL array, which the interrupt went on using after its SUB ended.
 • SPI READ refuses a count below 1.
 • WS2812 type W, and chains of more than 85 LEDs.
 • GPS: GPS(TIME) and GPS(DATE) before the first fix, a sentence without a good checksum, and PRINT #GPS's checksum.

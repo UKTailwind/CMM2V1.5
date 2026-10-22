@@ -1,0 +1,18 @@
+OPTION NOCHECK: accepted
+OPTION PROFILING in a program: no restart
+OPTION NOCHECK MAYBE: Syntax
+MM.INFO$(LCDPANEL): MODE8, has MODE: 1
+DEVICE WII OPEN: Classic not connected
+DEVICE WII CLASSIC OPEN: Classic not connected
+WII OPEN: Classic not connected
+DEVICE NUNCHUCK OPEN: Nunchuk not connected
+WII NUNCHUCK OPEN: Nunchuk not connected
+DEVICE WII CLOSE: Not open
+DEVICE(WII B): Not open
+DEVICE(NUNCHUCK Z): Not open
+DEVICE KEYPAD: Not available on the Colour Maximite 2
+DEVICE SERIALTX: Not available on the Colour Maximite 2
+DEVICE TOASTER: Syntax
+a variable called device: 4
+done
+

@@ -1199,11 +1199,58 @@ void cmd_mouse(char *cmd){
 	error("Syntax");
 }
 
+/* The PicoMite's Wii Classic (nunchuck 0) or Nunchuck commands: OPEN [int [, mask]] (a Nunchuck: OPEN [int]) and CLOSE.
+   Its one Wii connector is channel 3 here, so its arguments follow a channel of 3. Its Nunchuck interrupt is the
+   Nunchuk's first here, the Z button's. */
+static void WiiPico(char *tp, int nunchuck){
+	char *p, *buf = GetTempMemory(STRINGSIZE);
+	if((p = checkstring(tp, "OPEN"))) {
+		strcpy(buf, "OPEN 3");
+		skipspace(p);
+		if(*p && *p != '\'') {
+			if(strlen(p) > STRINGSIZE - 8) error("Line is too long");
+			strcat(buf, ",");
+			strcat(buf, p);
+		}
+	} else if((p = checkstring(tp, "CLOSE"))) {
+		checkend(p);
+		strcpy(buf, "CLOSE 3");
+	} else error("Syntax");
+	if(nunchuck) cmd_nunchuck(buf);
+	else cmd_classic(buf);
+}
+
+/* DEVICE ...: the PicoMite's prefix for its device commands, which the CMM2 has under their own names: DEVICE WII
+   [CLASSIC] and DEVICE NUNCHUCK (the Wii connector: WiiPico above), MOUSE, GAMEPAD, HUMID, WS2812 and BITSTREAM. */
+void cmd_device(void){
+	char *tp;
+	if((tp = checkstring(cmdline, "WII CLASSIC")) || (tp = checkstring(cmdline, "WII"))) WiiPico(tp, 0);
+	else if((tp = checkstring(cmdline, "NUNCHUCK"))) WiiPico(tp, 1);
+	else if((tp = checkstring(cmdline, "MOUSE"))) { cmdline = tp; cmd_usbmouse(); }
+	else if((tp = checkstring(cmdline, "GAMEPAD"))) { cmdline = tp; cmd_gamepad(); }
+	else if((tp = checkstring(cmdline, "HUMID"))) DHT22(tp);
+	else if((tp = checkstring(cmdline, "WS2812"))) WS2812(tp);
+	else if((tp = checkstring(cmdline, "BITSTREAM"))) Bitstream(tp);
+	else if(checkstring(cmdline, "KEYPAD") || checkstring(cmdline, "LCD") || checkstring(cmdline, "CAMERA") ||
+	        checkstring(cmdline, "SERIALRX") || checkstring(cmdline, "SERIALTX"))
+		error("Not available on the Colour Maximite 2");
+	else error("Syntax");
+}
+
 void cmd_Controller(void){
 	char *tp;
 	tp=checkstring(cmdline, "NUNCHUK");
 	if(tp){
 		cmd_nunchuck(tp);
+		return;
+	}
+	tp=checkstring(cmdline, "NUNCHUCK");                            // the PicoMite's WII NUNCHUCK OPEN [int] and CLOSE (WII is
+	if(tp){                                                         // CONTROLLER here: MMBasic.c, tokenise)
+		WiiPico(tp, 1);
+		return;
+	}
+	if(checkstring(cmdline, "OPEN") || checkstring(cmdline, "CLOSE")){   // the PicoMite's WII OPEN [int [, mask]] and WII
+		WiiPico(cmdline, 0);                                        // CLOSE: its Classic
 		return;
 	}
 	tp=checkstring(cmdline, "MOUSE");
@@ -1522,6 +1569,10 @@ void MIPS16 OtherOptions(void) {
 	}
 	tp=checkstring(cmdline, "PROFILING");
 	if(tp) {
+		if(CurrentLinePtr) {                                        // in a program: the PicoMite's run-time profiler (its
+			if(!checkstring(tp, "ON") && !checkstring(tp, "OFF")) error("Invalid Command");   // benchmarks: ON [, SAMPLE]),
+			return;                                                 // which reports at END: nothing here, not the restart
+		}
  		if(checkstring(tp, "ON")) {
             Option.profile = 1;
         } else if(checkstring(tp, "OFF")) {

@@ -245,6 +245,10 @@ Returns data from the mouse in use: a USB mouse, or else the PS2 mouse set with 
 {l=374}T 	3 if a PS2 mouse has a scroll wheel, otherwise 0
 {l=374}
 
+=== DEVICE(WII funct)\nor\nDEVICE(CLASSIC funct)\nor\nDEVICE(NUNCHUCK funct)
+--- keep
+The PicoMite's way of reading a Wii controller on the Wii connector (channel 3), opened with DEVICE WII OPEN or DEVICE NUNCHUCK OPEN (see DEVICE).  DEVICE(WII funct) and DEVICE(CLASSIC funct) are CLASSIC(funct), and DEVICE(NUNCHUCK funct) is NUNCHUK(funct): see those functions for ‘funct’.  The error is "Not open" when the controller has not been opened.
+
 === DIR$( fspec, type )\nor\nDIR$( fspec )\nor\nDIR$(  )
 ---
 Will search the current drive (the SD card or the USB flash drive) for files and return the names of entries found.

@@ -267,7 +267,7 @@ void checktype(int *, int);
 char ITCM_CODE *getvalue(char *p, MMFLOAT *fa, long long int *ia, char **sa, int *oo, int *ta);
 char tokenTHEN, tokenELSE, tokenGOTO, tokenEQUAL, tokenTO, tokenSTEP, tokenWHILE, tokenUNTIL, tokenGOSUB, tokenAS, tokenFOR;
 CommandToken cmdIF, cmdENDIF,  cmdELSEIF, cmdELSE, cmdSELECT_CASE, cmdFOR, cmdNEXT, cmdWHILE, cmdENDSUB, cmdENDFUNCTION, cmdLOCAL, cmdSTATIC, cmdCASE, cmdDO, cmdLOOP, cmdCASE_ELSE, cmdEND_SELECT;
-CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET, cmdTYPE, cmdEND_TYPE, cmdSTRUCT, cmdTILE;
+CommandToken cmdSUB, cmdFUN, cmdCSUB, cmdIRET, cmdTYPE, cmdEND_TYPE, cmdSTRUCT, cmdTILE, cmdDEVICE;
 char syscheck;
 
 /********************************************************************************************************************************************
@@ -316,6 +316,7 @@ void MIPS16 InitBasic(void) {
     cmdEND_TYPE = GetCommandValue("End Type");
     cmdSTRUCT = GetCommandValue("Struct");
     cmdTILE = GetCommandValue("Tile");
+    cmdDEVICE = GetCommandValue("Device");
     cmdLOCAL = GetCommandValue("Local");
     cmdSTATIC = GetCommandValue("Static");
     cmdENDSUB= GetCommandValue("End Sub");
@@ -2120,8 +2121,8 @@ int MIPS16 tokenise(int console) {
                     skipspace(q);
                     if((match_i == cmdTYPE || match_i == cmdSTRUCT) && (*q == '=' || *q == '('))
                         match_i = -1;
-                    else if(match_i == cmdTILE && *q == '=')       // a variable called TILE (tile = 3), as before MODE n,1's
-                        match_i = -1;                               // TILE came, and an array (tile(2) = 3) below
+                    else if((match_i == cmdTILE || match_i == cmdDEVICE) && *q == '=')   // a variable called TILE or DEVICE
+                        match_i = -1;                               // (tile = 3), as before those commands came, and an array below
                     else if(checkstring(q, "AS") != NULL && match_i != cmdLOCAL && match_i != cmdSTATIC && match_i != GetCommandValue("Dim"))
                         match_i = -1;
                     else if(*q == '(' && commandtbl[match_i].name[strlen((char *)commandtbl[match_i].name) - 1] != '(') {
@@ -2132,7 +2133,7 @@ int MIPS16 tokenise(int console) {
                             q++;
                         } while(*q && depth);
                         skipspace(q);
-                        if(depth == 0 && (checkstring(q, "AS") != NULL || (match_i == cmdTILE && *q == '='))) match_i = -1;
+                        if(depth == 0 && (checkstring(q, "AS") != NULL || ((match_i == cmdTILE || match_i == cmdDEVICE) && *q == '='))) match_i = -1;
                     }
                 }
                 if(match_i == -1) p = cmdstart;
@@ -4978,6 +4979,7 @@ static void MIPS16 ClearRuntimeAll(int keep) {
     cmdEND_TYPE = GetCommandValue("End Type");
     cmdSTRUCT = GetCommandValue("Struct");
     cmdTILE = GetCommandValue("Tile");
+    cmdDEVICE = GetCommandValue("Device");
     cmdLOCAL = GetCommandValue("Local");
     cmdSTATIC = GetCommandValue("Static");
     cmdENDSUB= GetCommandValue("End Sub");

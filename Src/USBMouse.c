@@ -365,5 +365,15 @@ void fun_device_fn(void) {
         USBGamepadDevice(tp);
         return;
     }
+    if((tp = checkstring(ep, "WII")) || (tp = checkstring(ep, "CLASSIC"))) {   // DEVICE(WII x), DEVICE(CLASSIC x): CLASSIC(x)
+        ep = tp;                                                    // on the Wii connector, channel 3 (MiscSTM32.c)
+        fun_classic();
+        return;
+    }
+    if((tp = checkstring(ep, "NUNCHUCK"))) {                        // DEVICE(NUNCHUCK x): NUNCHUK(x) there
+        ep = tp;
+        fun_nunchuck();
+        return;
+    }
     error("Syntax");
 }

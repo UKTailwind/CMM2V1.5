@@ -232,6 +232,12 @@ Sets the speed of a USB mouse: its movement is divided by ‘n’, so a number a
 The firmware always reads the full report of a USB mouse (its wheel and all its buttons), so unlike the PicoMite this option does not change how the mouse is read.
 This command can only be run from the command line.  The setting is kept through a firmware upgrade; OPTION RESET returns it to the default.
 
+=== OPTION NOCHECK ON
+or
+OPTION NOCHECK OFF
+--- keep
+The PicoMite's option to stop checking for Ctrl-C and interrupts between statements, which makes its programs faster.  On the Colour Maximite 2 those checks are made only when something is waiting, so they cost almost nothing: the option is accepted, so that PicoMite programs run, and does nothing.  Ctrl-C still stops a program and interrupts still run.
+
 === OPTION OVERCLOCK ON
 or
 OPTION OVERCLOCK OFF
@@ -253,7 +259,7 @@ OPTION PROFILING OFF
 --- P keep roomy
 Turns the profiler on or off.  While it is on, each time a program is run MMBasic counts how many times each line of the program runs and the time spent in it.  After the program has run, LIST PROFILE lists the program with, in front of each line, the number of times it ran and the average time it took in microseconds, and LIST PROFILE CSV writes the same to a file named after the program with the extension .CSV.
 The counters take 8 bytes of the heap for each line of the program, and collecting them makes the program run a little slower.  MM.INFO(OPTION PROFILING) returns the current setting.
-This command will cause a reboot.
+This command will cause a reboot.  In a program it does nothing: there OPTION PROFILING ON or OFF (with anything after it, such as the PicoMite's ", SAMPLE") is accepted so that programs written for the PicoMite, whose run-time profiler it turns on, run unchanged.
 
 === OPTION RAM
 --- P keep roomy

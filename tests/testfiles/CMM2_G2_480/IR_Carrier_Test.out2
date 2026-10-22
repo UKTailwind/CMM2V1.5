@@ -6,5 +6,5 @@ Testing BITSTREAM with AND logic for IR modulation
 Pin  1, carrier array, envelope array
 
 Press any key to transmit 9ms IR burst...
-Error in line 63: Unknown command
+Error in line 63: Syntax
 

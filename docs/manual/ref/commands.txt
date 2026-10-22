@@ -390,6 +390,7 @@ CONTROLLER CLASSIC CLOSE [channel]
 Opens a Wii Classic controller for communications.  These commands can also be written with WII in place of CONTROLLER (eg, `WII CLASSIC OPEN`).
 ‘channel’ is the I^^2^^C channel that the Classic is connected to: 1 or 2 on the rear I/O connector, or 3 (the default if it is not specified) for the Wii connector on the front panel.
 ‘interrupt’ is an optional MMBasic interrupt routine that will be triggered when a button is pressed.  ‘bitmask’ specifies which of the 15 buttons on the Wii Classic will trigger an interrupt.  The default is that they all will.  See the CLASSIC() function for which bits in the bitmask control which buttons.
+The PicoMite's forms are accepted too: WII OPEN [interrupt [, bitmask]] and WII CLOSE (or DEVICE WII OPEN and DEVICE WII CLOSE, see DEVICE) open and close a Classic on the Wii connector, channel 3.
 The firmware checks for the existence of a controller on open and will throw an error if not found.  Once open the Classic is polled continuously in the background every 20 ms.  The I^^2^^C transfers are under interrupt control and non-blocking for the rest of the firmware.  The I^^2^^C channel is opened at 100KHz: other I^^2^^C devices can share the channel with the Classic, in which case I2C OPEN should not be used (I2C WRITE, READ and CHECK work on the channel without it).  A Nunchuk and a Classic cannot be open on the same channel.
 CONTROLLER CLASSIC CLOSE will close the Classic on ‘channel’ (3 if it is omitted).
 Also see the CLASSIC() function for accessing the state of the device.
@@ -428,6 +429,7 @@ Opens a Wii Nunchuk for communications.
 ‘channel’ is the I^^2^^C channel that the Nunchuk is connected to: 1 or 2 on the rear I/O connector, or 3 (the default if it is not specified) for the Wii connector on the front panel.
 ‘Zinterrupt’ and ‘Cinterrupt’ are optional MMBasic interrupt routines that will be triggered when the Z or the C button is pressed.  The interrupts trigger once on the button press and will not re-interrupt until it is released.
 The firmware checks for the existence of a controller on open and will throw an error if not found.  This error can be trapped with the ON ERROR command.  If a Classic controller is plugged in instead, an error will not be thrown: you can check the ID code with NUNCHUK(T, channel).
+The PicoMite's forms are accepted too: WII NUNCHUCK OPEN [interrupt] and WII NUNCHUCK CLOSE (or DEVICE NUNCHUCK OPEN and CLOSE) open and close a Nunchuk on the Wii connector, channel 3, the interrupt being ‘Zinterrupt’.
 Once open the Nunchuk is polled continuously in the background every 20 ms.  The I^^2^^C transfers are under interrupt control and non-blocking for the rest of the firmware.  The I^^2^^C channel is opened at 100KHz: other I^^2^^C devices can share the channel with the Nunchuk, in which case I2C OPEN should not be used (I2C WRITE, READ and CHECK work on the channel without it).
 CONTROLLER NUNCHUK CLOSE will close the Nunchuk on ‘channel’ (3 if it is omitted).
 Also see the NUNCHUK() function for accessing the state of the device.
@@ -491,6 +493,14 @@ Numerical constants can also be expressions such as 5 \* 60.
 Set the date of the internal clock/calendar.
 DD, MM and YY are numbers, for example:   DATE$ = "28-7-2024".  The year can be abbreviated to two digits (ie, 24), and the real time clock holds the years 2000 to 2099.
 The date is kept by the battery backed real time clock while the power is off (see Backup Battery in the chapter Hardware Features), and with OPTION DS3231 ON it is set in the DS3231 real time clock too.  If the clock holds a date before 2018 when the power is applied MMBasic takes it to have stopped: it sets the date and time to 01-01-2000 and 00:00:00 and asks for them (see Appendix K).  So the time (set with TIME$ =) is lost when the power is cycled unless a correct date has also been set.
+
+=== DEVICE device [arguments]
+--- keep
+The PicoMite's prefix for its device commands, so that its programs run unchanged.  ‘device’ is one of:
+{l=720}WII or WII CLASSIC: a Wii Classic on the Wii connector (DEVICE WII OPEN [interrupt [, bitmask]], DEVICE WII CLOSE: see CONTROLLER CLASSIC)
+{l=720}NUNCHUCK: a Wii Nunchuk on the Wii connector (DEVICE NUNCHUCK OPEN [interrupt], DEVICE NUNCHUCK CLOSE: see CONTROLLER NUNCHUK)
+{l=720}MOUSE, GAMEPAD, HUMID, WS2812 and BITSTREAM: the same as those commands
+DEVICE KEYPAD, LCD, CAMERA, SERIALRX and SERIALTX give the error "Not available on the Colour Maximite 2".  DEVICE(WII funct), DEVICE(CLASSIC funct) and DEVICE(NUNCHUCK funct) read the Wii controllers (see the DEVICE() function).
 
 === DEFINEFONT #Nbr
     hex [[ hex[…]

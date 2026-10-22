@@ -222,6 +222,9 @@ extern char *IrInterrupt;
 void IrInit(void);
 void IrReset(void);
 void IRSendSignal(int pin, int half_cycles);
+void DHT22(char *p);                            // BITBANG DHT22 (HUMID), WS2812 and BITSTREAM's own: their arguments (External.c),
+void WS2812(char *q);                           // for DEVICE too (MiscSTM32.c)
+void Bitstream(char *tp);
 
 // numpad declares
 extern char *KeypadInterrupt;

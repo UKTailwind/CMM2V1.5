@@ -89,6 +89,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | DAY$( | Functions |
 | DEFINEFONT | Commands |
 | DEG( | Functions |
+| DEVICE | Commands |
 | DEVICE( | Functions |
 | DHT22 | Commands, Obsolete Commands and Functions |
 | DIM | Commands |
@@ -302,6 +303,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | TEMPR( | Functions |
 | TEXT | Commands |
 | THEN | Commands, with IF |
+| TILE | Commands |
 | TILEMAP | Commands; TILEMAP_User_Manual.pdf |
 | TILEMAP( | Functions; TILEMAP_User_Manual.pdf |
 | TIME$ | Commands, Functions |

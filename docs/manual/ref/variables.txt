@@ -196,6 +196,10 @@ The number of samples that the last ADC START could not take because the next on
 --- keep
 The status of I/O pin ‘pinno’ of the rear connector: "Unused", "In Use", "Reserved" (used by the Colour Maximite 2 itself) or "Invalid" (not an I/O pin).
 
+=+= MM.INFO$(LCDPANEL)
+--- keep
+The PicoMite's: the display.  On its VGA and HDMI versions it is "MODE" and the mode's number, which programs test to tell those screens from an LCD panel.  On the Colour Maximite 2 it is "MODE" and the number of the current mode (eg, "MODE8").
+
 =+= MM.INFO$(PLATFORM)
 MM.INFO$(SYSTEM I2C)
 --- keep

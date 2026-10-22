@@ -2452,6 +2452,11 @@ void cmd_option(void) {
 		getint(tp, 1, 100000);
 		return;
 	}
+	tp = checkstring(cmdline, "NOCHECK");                          // the PicoMite's: no Ctrl-C or interrupt checks between
+	if(tp) {                                                        // statements, for speed. Here those checks run only when
+		if(!checkstring(tp, "ON") && !checkstring(tp, "OFF")) error("Syntax");   // something is waiting (a flag), so it is
+		return;                                                     // accepted and does nothing: Ctrl-C still stops a program
+	}
 	if(checkstring(cmdline, "TRACECACHE") || checkstring(cmdline, "CACHE SUB") || checkstring(cmdline, "CACHE DEBUG"))
 		return;                                                     // the PicoMite's trace cache (gone there in c50b6bc, where
 		                                                            // these are now errors): accepted and ignored, for the
@@ -3137,6 +3142,9 @@ void fun_info(void){
 		rettype='N';
 	} else if(checkstring(ep, "SEARCH PATH")){
 	    strcpy(sret, (char *)Option.path);
+	} else if(checkstring(ep, "LCDPANEL")){                       // the PicoMite's: on its VGA and HDMI builds "MODE1" to "MODE5",
+	    strcpy(sret, "MODE");                                       // which programs test for "MODE" (a VGA or HDMI screen, not an
+	    IntToStr(sret + 4, VideoMode, 10);                          // LCD panel: the chess programs). Here the CMM2's mode number
 	} else if(checkstring(ep, "PLATFORM") || checkstring(ep, "SYSTEM I2C")){   // the PicoMite's: what a PicoMite with no OPTION
 	    sret[0] = 0;                                                // PLATFORM and no OPTION SYSTEM I2C says (18 Oct: Picofrog)
 	} else if(checkstring(ep, "VERSION")){
