@@ -139,7 +139,7 @@ void initMouse0(int sensitivity) {
 	sendCommand(0xF5);                                              // Turn off streaming
 	ReadReturn(5);
 	if(sensitivity){
-		int scaling;
+		int scaling = 0;                                            // (it was read unset for 1 to 4: PicoMite issue #121)
 		if(sensitivity>4){
 			scaling=1;
 			sensitivity-=4;
@@ -204,6 +204,17 @@ void mouse0close(void){
     mouse0Interruptc=NULL;
     __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_3);
 	mymemset((struct s_nunstruct *)&mousestruct[0],0,sizeof(struct s_nunstruct));
+}
+/* what a program, FM or EDIT leaves of the PS/2 mouse (22 Oct 2026): OPTION MOUSE 0's goes on running, the system's as a
+   USB mouse is, and only the program's interrupts go; one a program opened is closed */
+void mouse0release(void){
+	if(Option.Mouse == 0 && mouse0){
+		mouse0Interruptz=NULL;
+		mouse0Interruptc=NULL;
+		mouse0Interruptu=NULL;
+		return;
+	}
+	mouse0close();
 }
 /***************************************************************************************************
 sendCommand - Send a command to to mouse.

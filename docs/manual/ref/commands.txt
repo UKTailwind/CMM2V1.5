@@ -397,7 +397,7 @@ Also see the CLASSIC() function for accessing the state of the device.
 or
 CONTROLLER MOUSE CLOSE [channel]
 ---
-Opens a mouse connected through the Hobbytronic USB mouse interface (see the chapter *Special Device Support*) for communications.
+Opens a mouse connected through the Hobbytronic USB mouse interface (see the chapter *Special Device Support*) for communications.  The latest board, the G2 V2.0, does not support the Hobbytronic interface, and Hobbytronics no longer appears to be trading.
 ‘channel’ is the I^^2^^C channel that the interface is connected to: 1, 2 (the default: pins 27 and 28 on the rear I/O connector) or 3.
 ‘LBinterrupt’ and ‘RBinterrupt’ are optional MMBasic interrupt routines that will be triggered when the left or the right mouse button is pressed.  The interrupts trigger once on the button press and will not re-interrupt until it is released.  ‘LBUpinterrupt’ is an optional interrupt routine which is called when the left button is released.
 The sensitivity of the Hobbytronic interface can be set by specifying a number between 0 and 10 for ‘sensitivity’.  0 (the default) sets it from the width of the screen; other values explicitly set the sensitivity as per the Hobbytronic documentation.
@@ -411,12 +411,13 @@ or
 CONTROLLER MOUSE CLOSE 0
 ---
 Opens a PS2 mouse for communications.
-On the Generation 1 Colour Maximite 2 the mouse clock line is connected to pin 33 and the mouse data to pin 32 of the rear I/O connector.  Both lines MUST be pulled up to 5V with 4.7K resistors.  On the Generation 2 additional pins are allocated to the PS2 mouse and it is connected to the lower USB port: the pullup resistors are already fitted.
+With OPTION MOUSE 0 the PS2 mouse is already running, as a USB mouse is: it is started when the computer starts, or when a mouse is first needed.  CONTROLLER MOUSE OPEN 0 then only sets the interrupts (the sensitivity is OPTION MOUSE's), and CONTROLLER MOUSE CLOSE 0 removes them, the mouse running on.
+On the Generation 1 Colour Maximite 2 the mouse clock line is connected to pin 33 and the mouse data to pin 32 of the rear I/O connector.  Both lines MUST be pulled up to 5V with 4.7K resistors.  On the Generation 2 additional pins are allocated to the PS2 mouse and it is connected to the lower USB port: the pullup resistors are already fitted.  The recommended mouse is the Microsoft Basic Optical Mouse v2.0, used in PS2 mode.
 ‘LBinterrupt’, ‘RBinterrupt’ and ‘LBUpinterrupt’ are optional interrupt routines as for the mouse above.
 The PS2 mouse sensitivity can be set between 0 and 8.  Values of 1-4 set the resolution of the mouse to 1, 2, 4 or 8 counts/mm.  Values 5-8 do the same but in addition enable mouse scaling which gives a non-linear relationship between speed and count.  See <<https://isdaman.com/alsos/hardware/mouse/ps2interface.htm>> for more details.  NB: not all PS2 mice seem to implement these commands.
 The firmware checks for the existence of a mouse on open and will throw an error if not found.  This error can be trapped with the ON ERROR command.  Once open the mouse operates under interrupt control so it has no performance impact unless the mouse is moving.
 The PS2 mouse shares a hardware interrupt with pin 15, so it cannot be opened while pin 15 is a frequency, period or counting input, and pin 15 cannot be made one while the mouse is open.
-CONTROLLER MOUSE CLOSE 0 will close the PS2 mouse.  Also see the MOUSE() function for accessing the state of the device.
+CONTROLLER MOUSE CLOSE 0 will close the PS2 mouse (with OPTION MOUSE 0, only remove its interrupts).  Also see the MOUSE() function for accessing the state of the device.
 
 =+= CONTROLLER NUNCHUK OPEN [channel] [, Zinterrupt [, Cinterrupt]]
 or
@@ -742,7 +743,7 @@ Loads the bytes of the file ‘file$’, as they are, into slot ‘n’ (1 to 8)
 
 === FM
 --- keep
-Opens the full screen, two panel file manager for the files on the SD card (A:, also called B:) and a USB flash drive (C:).  Files can be browsed, sorted, filtered, copied, moved, renamed and deleted; files can be listed and edited and BASIC programs run and created; audio files can be played, singly or as a track list of marked files, and image files displayed.  Press Esc to exit and F1 for a summary of the keys.
+Opens the full screen, two panel file manager for the files on the SD card (A:, also called B:) and a USB flash drive (C:).  Files can be browsed, sorted, filtered, copied, moved, renamed and deleted; files can be listed and edited and BASIC programs run and created; audio files can be played, singly or as a track list of marked files, and image files displayed.  Press Esc to exit and F1 for a summary of the keys.  A mouse can be used as well.
 It can only be used at the command prompt, where the F1 key also starts it.  See the chapter File Manager for the details.
 
 === FLUSH [#]fnbr
@@ -971,7 +972,7 @@ GUI CURSOR LOAD loads cursor number 2 from the file ‘fname$’ (".CUR" is adde
 =+= GUI CURSOR LINK MOUSE
 GUI CURSOR UNLINK MOUSE
 --- keep tight
-GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "Not open").  The cursor cannot be linked while the GUI controls are using the mouse ("Mouse in use for GUI").  The cursor's active point (see GUI CURSOR LOAD) follows the mouse, and GUI CURSOR OFF also breaks the link.
+GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, a PS2 mouse set with OPTION MOUSE 0, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "Not open").  The cursor cannot be linked while the GUI controls are using the mouse ("Mouse in use for GUI").  The cursor's active point (see GUI CURSOR LOAD) follows the mouse, and GUI CURSOR OFF also breaks the link.
 
 === GUI LISTBOX [#]ref, array$(), x, y, w, h [,fc] [,bc] [,maxrows]
 or

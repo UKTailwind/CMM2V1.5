@@ -162,7 +162,7 @@ This command was called BITBANG WS2812 in earlier versions of MMBasic for the Co
 
 ## Hobbytronic Mouse Support
 
-The Colour Maximite 2 has built in support for the Hobbytronic USB mouse interface (https://www.hobbytronics.co.uk/usb-host-mouse). This is enabled using the CONTROLLER MOUSE OPEN command and then the mouse position and buttons can be interrogated using the MOUSE function.
+The Colour Maximite 2 has built in support for the Hobbytronic USB mouse interface (https://www.hobbytronics.co.uk/usb-host-mouse). This is enabled using the CONTROLLER MOUSE OPEN command and then the mouse position and buttons can be interrogated using the MOUSE function. The latest board, the G2 V2.0, does not support the Hobbytronic interface, and Hobbytronics no longer appears to be trading. A PS2 mouse (OPTION MOUSE 0) or a USB mouse can be used instead.
 
 ## CAN Support
 

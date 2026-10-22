@@ -41,19 +41,23 @@ The serial console is available if the Colour Maximite 2 is connected via this p
 
 A USB mouse plugged into the USB socket on the front panel (directly, or through a hub if it is a full-speed mouse) is mouse channel 2. It needs no configuration: the editor uses it whenever it is connected. OPTION MOUSE SENSITIVITY n divides its movement by n: a number above 1 slows the mouse down and a number below 1 speeds it up (0 or 1 leaves it as it is).
 
-A PS2 mouse or the Hobbytronic USB mouse interface is configured for the editor with this command (use channel 0 for a PS2 mouse):
+A PS2 mouse is set up with this command:
 
 ```
-OPTION MOUSE channel [,sensitivity]
+OPTION MOUSE 0 [,sensitivity]
 ```
 
-The optional sensitivity parameter allows you to tune the sensitivity of the Hobbytronic interface by specifying a number between 0 and 10. Zero indicates that the default automatic sensitivity should be used while other values will explicitly set the sensitivity as per the Hobbytronic documentation.
+The PS2 mouse is then the mouse of the Colour Maximite 2, as a USB mouse is. It is started when the computer starts, or when a mouse is first needed if it was plugged in later, and it keeps running when a program ends. The editor, the file manager, the GUI controls, GUI CURSOR LINK MOUSE and the MOUSE() function use it without CONTROLLER MOUSE OPEN. If no PS2 mouse answers when the computer starts, the start waits for it for about half a second.
+
+On the Generation 2 the PS2 mouse plugs into the lower USB socket on the rear panel, and on the Generation 1 it is connected to the rear I/O connector (see the chapters for each generation). The recommended mouse is the Microsoft Basic Optical Mouse v2.0, which works as a USB or a PS2 mouse: in the lower USB socket of the G2 V2.0 it is used in PS2 mode.
 
 For a PS2 mouse the sensitivity can be set between 0 and 8. Values of 1-4 set the resolution of the mouse to 1, 2, 4 or 8 counts/mm. Values 5-8 do the same but in addition enable mouse scaling which gives a non-linear relationship between speed and count (note that not all PS2 mice implement these settings).
 
-OPTION MOUSE OFF stops the editor using a PS2 or Hobbytronic mouse.
+The Hobbytronic USB mouse interface is set with OPTION MOUSE 1, 2 or 3 (the I2C channel it is connected to) and is opened in a program with CONTROLLER MOUSE OPEN. The optional sensitivity parameter allows you to tune the sensitivity of the Hobbytronic interface by specifying a number between 0 and 10. Zero indicates that the default automatic sensitivity should be used while other values will explicitly set the sensitivity as per the Hobbytronic documentation. The latest board, the G2 V2.0, does not support the Hobbytronic interface, and Hobbytronics no longer appears to be trading.
 
-Within the editor the mouse works as you would expect. For example, you can use the mouse to point and select text, scroll using the scroll wheel, and so on. For the details see the chapter Full Screen Editor.
+OPTION MOUSE OFF stops the use of a PS2 or Hobbytronic mouse.
+
+Within the editor and the file manager the mouse works as you would expect. For example, you can use the mouse to point and select text or files, scroll using the scroll wheel, and so on. For the details see the chapters Full Screen Editor and File Manager.
 
 Within a MMBasic program the mouse can be enabled for access with various sensitivity settings and interrupts on left and/or right clicks. Specialised built in functions can be used to determine the current mouse position in pixels and detect single or double clicks.
 

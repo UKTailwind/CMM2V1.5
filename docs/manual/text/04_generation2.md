@@ -16,15 +16,17 @@ This diagram lists the key hardware features:
 
 ## Mouse Interface
 
-The Generation 2 design supports two types of mouse interface on its rear USB mouse socket (the lower socket). The first is a full USB mouse and for this to be implemented a Hobbytronics mouse controller chip (https://www.hobbytronics.co.uk/usb-host-soic) needs to be installed at the position for IC5 along with the associated supporting components. The mouse then connects to the USB mouse socket on the rear of the Colour Maximite 2.
+The Generation 2 design supports two types of mouse interface on its rear USB mouse socket (the lower socket).
 
-The second type of support is for a dual USB/PS2 mouse. Most wired mice will automatically switch between USB and PS2 modes and many come with a USB to PS2 adapter. This adapter simply signals the mouse to switch to PS2 mode via a pull-up resistor and provides the physical PS2 connector. A typical example that has been tested on the Colour Maximite 2 is the Microsoft Basic Optical Mouse which is low cost and widely available.
+The first is a dual USB/PS2 mouse, used in PS2 mode. Most wired mice will automatically switch between USB and PS2 modes and many come with a USB to PS2 adapter. This adapter simply signals the mouse to switch to PS2 mode via a pull-up resistor and provides the physical PS2 connector. The recommended mouse is the Microsoft Basic Optical Mouse v2.0, which is low cost and widely available.
 
-To use a dual USB/PS2 mouse IC5 must not be populated, and all four solder jumpers marked "select USB or PS2 mouse" (diagram above) must be joined with a solder blob. The mouse then plugs into the USB mouse socket (the lower socket) on the rear of the Colour Maximite 2. A USB to PS2 adapter is not required (the Colour Maximite 2 will automatically switch the mouse into PS2 mode).
+On the latest board, the G2 V2.0, the mouse plugs straight into the lower USB socket on the rear of the Colour Maximite 2 and is used in PS2 mode. On earlier Generation 2 boards IC5 must not be populated, and all four solder jumpers marked "select USB or PS2 mouse" (diagram above) must be joined with a solder blob; the mouse then plugs into the same socket. A USB to PS2 adapter is not required (the Colour Maximite 2 will automatically switch the mouse into PS2 mode). The mouse is enabled with OPTION MOUSE 0.
 
-A USB mouse can also be plugged into the USB keyboard socket on the front panel, without the Hobbytronics chip (see USB Connector in the chapter Hardware Features).
+The second type, on earlier Generation 2 boards only, is a full USB mouse through a Hobbytronics mouse controller chip (https://www.hobbytronics.co.uk/usb-host-soic) installed at the position for IC5 along with the associated supporting components. The latest board, the G2 V2.0, does not support the Hobbytronic interface, and Hobbytronics no longer appears to be trading.
 
-MMBasic has built in support for a mouse via the MOUSE() function. The mouse can also be used in the editor to select text, etc. A full description is provided in the chapter Hardware Features.
+A USB mouse can also be plugged into the USB keyboard socket on the front panel (see USB Connector in the chapter Hardware Features).
+
+MMBasic has built in support for a mouse via the MOUSE() function. The mouse can also be used in the editor to select text and in the file manager to select files, etc. A full description is provided in the chapter Hardware Features.
 
 ## Power Switch Orientation
 

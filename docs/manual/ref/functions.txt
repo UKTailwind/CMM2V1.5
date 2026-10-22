@@ -231,7 +231,7 @@ The button bitmap is as follows:
 
 === DEVICE(MOUSE channel, funct)
 --- keep
-Returns data from the mouse in use: a USB mouse, or else a mouse opened with CONTROLLER MOUSE OPEN (a PS2 mouse or a Hobbytronic interface).  This is the PicoMite's function; the MOUSE() function reads the same mice.
+Returns data from the mouse in use: a USB mouse, or else the PS2 mouse set with OPTION MOUSE 0 or a mouse opened with CONTROLLER MOUSE OPEN (a PS2 mouse or a Hobbytronic interface).  This is the PicoMite's function; the MOUSE() function reads the same mice.
 ‘channel’ is 1 to 4 and is normally 2, the channel of a USB mouse, but the function reads the mouse in use whatever the channel.  It returns 0 if there is no mouse.
 'funct' is a 1 letter code indicating the information to return as follows:
 {l=374}X 	the X coordinate (0 to MM.HRES-1)
@@ -705,7 +705,7 @@ If ‘nbr’ is omitted the returned string will extend to the end of ‘string$
 
 === MOUSE(funct [, channel])
 ---
-Returns data from a mouse opened with CONTROLLER MOUSE OPEN, or from a USB mouse.
+Returns data from a mouse opened with CONTROLLER MOUSE OPEN, the PS2 mouse set with OPTION MOUSE 0, or a USB mouse.
 ‘channel’ is optional: 0 for a PS2 mouse, or 1 to 3 for a mouse on the Hobbytronic interface on that I^^2^^C channel.  It defaults to 2, which is also the channel of a USB mouse.  An error is given if no mouse is open on the channel.
 ‘funct’ is a 1 letter code indicating the information to return as follows:
 {b=20 a=20 l=941 h=567}X	the X coordinate (0 to MM.HRES-1)

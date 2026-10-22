@@ -83,6 +83,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Hardware_Includes.h"
 #include "Memory.h"
 #include "FileManager.h"
+#include "UiMouse.h"
 #include <time.h>
 
 /* USER CODE END Includes */
@@ -386,8 +387,8 @@ void cleanend(void){
 	ShareNeeded=RoundUptoPage512((uint32_t)PageTable[0].address);
 	MPU_Config_nCacheable(0);
 	HAL_LTDC_SetAddress(&hltdc,  (uint32_t)PageTable[0].address, LTDC_LAYER_1);
-    mouse0close();
-    mouse0=0; mouse1=0; mouse2=0; mouse3=0;
+    mouse0release();                                                // (OPTION MOUSE 0's mouse goes on running)
+    mouse1=0; mouse2=0; mouse3=0;
     OnKeyGOSUB=NULL;							            // set the next stmt to the interrupt location
     com1_interrupt=NULL;									// set the next stmt to the interrupt location
     com1_TX_interrupt=NULL;
@@ -843,6 +844,7 @@ if(_excep_code == RESTART_HEAP) {
 
 CloseAllFiles();
 LibBoot();                                                          // the flash library checked, and attached (Library.c)
+MouseOptionStart();                                                 // OPTION MOUSE 0: the PS/2 mouse started (UiMouse.c)
 while ((i = getConsole()) != -1){;} //clear anything in console
 if(setjmp(mark) != 0) {
 	  SerUSBPutS("\033[?25h");
@@ -998,6 +1000,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
       _excep_code = 0;
       PrepareProgram(false);
       fm_active = 0;                                              // (FM is not open at the prompt: an error may have ended it)
+      UiMouseEnd();                                               // (nor is EDIT: their mouse, pointer and a terminal's clicks off)
       if((fm_program_launched_from_fm || fm_relaunch_status_valid) && !*EndLine) {   // a program FM ran has ended (or
           fm_program_launched_from_fm = 0;                        // stopped with an error): FM again (FileManager.c, the
           strcpy(EndLine, "FM");                                  // PicoMite's). (FM's RUN "file" is EndLine until it runs.)

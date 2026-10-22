@@ -1986,7 +1986,7 @@ void ClearExternalIO(void) {
     i2c_disable();                                                  // close I2C
     i2c2_disable();                                                  // close I2C
     i2c3_disable();                                                  // close I2C
-    mouse0close();
+    mouse0release();                                                // (OPTION MOUSE 0's mouse goes on running)
     IrState = IR_CLOSED;
     IrInterrupt = NULL;
     IrGotMsg = false;

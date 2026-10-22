@@ -7,6 +7,7 @@ USB flash drive; the PicoMite's A:, its flash drive, does not exist here.
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "FileManager_cmm2.h"
+#include "UiMouse.h"                               // CMM2: the mouse, shared with EDIT
 
 #define FM_MIN_WIDTH 50
 #define FM_CONTEXT_FILE "/.fm"
@@ -324,15 +325,155 @@ static int fm_name_image_type(const char *name)
     return FM_IMAGE_NONE;
 }
 
+/* CMM2: the mouse (22 Oct 2026; Peter: "The old fm on the CMM2 had mouse support"). OPTION MOUSE's mouse or a USB mouse
+   (UiMouse.c, shared with EDIT; one plugged in while FM runs is taken up), or a serial terminal's clicks (ESC [ M b x y).
+   While FM waits for a key, in the panels:
+   - left: the panel under the pointer made active and the entry under it selected; a panel's header, the panel active;
+   - a double click: Enter on the entry (a directory opened, a program run, an image shown, a sound played);
+   - right: the entry marked or unmarked, as Space does but without moving down;
+   - the wheel: Up or Down in the panel under the pointer;
+   - the top line: a click is the key of the label under it (F1:Help, A/C:Drive, S:Sort, F3:List, SPACE:Mark, /).
+   A click ends an image, LIST's last page or the help screen, as a key does. Prompts, confirmations and type-select
+   ignore the mouse, and a terminal's click there is taken and dropped: its Esc would have cancelled the prompt and its
+   M been the Move key. The old fm.c's clicks went on acting in its prompts (a click at "Are you sure" chose the file its
+   KILL deleted) and past the list's end. */
+enum { FM_MOUSE_NONE, FM_MOUSE_LEFT, FM_MOUSE_DOUBLE, FM_MOUSE_RIGHT, FM_MOUSE_WHEELUP, FM_MOUSE_WHEELDOWN };
+#define FM_MOUSE_KEY 0x7FFF                             // (not a key) a mouse action: fm_mouse_kind, at fm_mouse_col, _row
+extern volatile struct s_nunstruct mousestruct[4];      // the mice's state, in the display's pixels
+static int fm_mouse_kind, fm_mouse_col, fm_mouse_row;
+static int fm_mouse_lastL, fm_mouse_lastR;              // the buttons as last read (a press is a change to down)
+static int fm_mouse_keep;                               // the last action was a selection: what the mouse does next is kept
+
+// what the mouse did while FM was not waiting for a key (drawing, a prompt, a view) is not FM's: dropped
+static void fm_mouse_reset(void)
+{
+    volatile struct s_nunstruct *m;
+    if (UiMouseChan < 0)
+        return;
+    m = &mousestruct[UiMouseChan];
+    m->az = 0;
+    m->Z = 0;
+    fm_mouse_lastL = m->L;
+    fm_mouse_lastR = m->R;
+}
+
+// what the mouse has done since it was last read: fm_mouse_kind and the character cell under the pointer; 1 if anything
+static int fm_mouse_poll(void)
+{
+    volatile struct s_nunstruct *m;
+    if (UiMouseChan < 0)
+        return 0;
+    m = &mousestruct[UiMouseChan];
+    fm_mouse_col = m->ax / gui_font_width;
+    fm_mouse_row = m->ay / gui_font_height;
+    fm_mouse_kind = FM_MOUSE_NONE;
+    if (m->az)
+    {                                                   // the wheel: a USB mouse (HID) counts up away from the user, the
+        int up = (UiMouseChan == USBMOUSE_CHANNEL && UsbMouse) ? m->az > 0 : m->az < 0;   // PS/2 and I2C mice toward them
+        m->az = 0;
+        fm_mouse_kind = up ? FM_MOUSE_WHEELUP : FM_MOUSE_WHEELDOWN;
+    }
+    else if (m->Z)
+    {                                                   // a double click: its second press is not a click of its own
+        m->Z = 0;
+        fm_mouse_lastL = m->L;
+        fm_mouse_kind = FM_MOUSE_DOUBLE;
+    }
+    else if (m->L != fm_mouse_lastL)
+    {
+        fm_mouse_lastL = m->L;
+        if (m->L)
+            fm_mouse_kind = FM_MOUSE_LEFT;
+    }
+    else if (m->R != fm_mouse_lastR)
+    {
+        fm_mouse_lastR = m->R;
+        if (m->R)
+            fm_mouse_kind = FM_MOUSE_RIGHT;
+    }
+    return fm_mouse_kind != FM_MOUSE_NONE;
+}
+
+/* just after an Esc: a serial terminal's mouse report taken (Tera Term's ESC [ M b x y, read as the editor reads them).
+   1 if there was one, with fm_mouse_kind and the cell (FM_MOUSE_NONE for a release or the middle button); a left press
+   at the same cell within 0.5 s of the last is a double click. 0 if the Esc was a key (what came after it given back). */
+static int fm_terminal_mouse(void)
+{
+    static uint64_t last_us;
+    static int last_col = -1, last_row = -1;
+    int b, x, y;
+    uSec(50000);                                        // (a report's bytes come with its Esc)
+    routinechecks();
+    if (!UiMouseReport())
+        return 0;
+    b = MMInkey();
+    x = MMInkey() - '!';
+    y = MMInkey() - '!';
+    fm_mouse_kind = FM_MOUSE_NONE;
+    fm_mouse_col = x;
+    fm_mouse_row = y;
+    if (b == 'e' || b == 'a')                           // (the wheel as the editor reads Tera Term's)
+        fm_mouse_kind = FM_MOUSE_WHEELUP;
+    else if (b == 'd' || b == '`')
+        fm_mouse_kind = FM_MOUSE_WHEELDOWN;
+    else if (b == '"')
+        fm_mouse_kind = FM_MOUSE_RIGHT;
+    else if (b == ' ')
+    {
+        uint64_t now = time_us_64();
+        if (x == last_col && y == last_row && now - last_us < 500000)
+        {
+            fm_mouse_kind = FM_MOUSE_DOUBLE;
+            last_col = -1;                              // (a third press starts again)
+        }
+        else
+        {
+            fm_mouse_kind = FM_MOUSE_LEFT;
+            last_col = x;
+            last_row = y;
+        }
+        last_us = now;
+    }
+    return 1;
+}
+
+// a button pressed since a view began (*last starts at -1: the buttons as they are then, one still down not a press)
+static int fm_mouse_clicked(int *last)
+{
+    volatile struct s_nunstruct *m;
+    int b;
+    if (UiMouseChan < 0)
+        return 0;
+    m = &mousestruct[UiMouseChan];
+    b = m->L || m->R;
+    if (*last < 0)
+    {
+        *last = b;
+        m->Z = 0;
+        return 0;
+    }
+    if (b && !*last)
+        return 1;
+    *last = b;
+    return 0;
+}
+
 static void fm_wait_for_escape(void)
 {
-    int c = -1;
+    int c = -1, last = -1;
 
     while (1)
     {
         routinechecks();
         c = MMInkey();
-        if (c != -1)
+        if (c == ESC)
+        {                                               // CMM2: a terminal's press ends it, as Esc does; a release
+            if (fm_terminal_mouse() && fm_mouse_kind != FM_MOUSE_LEFT && fm_mouse_kind != FM_MOUSE_DOUBLE &&
+                fm_mouse_kind != FM_MOUSE_RIGHT)        // or the wheel does not (the release of the click that
+                continue;                               // opened the view comes after it)
+            break;
+        }
+        if (c != -1 || fm_mouse_clicked(&last))         // CMM2: a key or a click
             break;
     }
 }
@@ -1405,6 +1546,102 @@ static const char *fm_top_help_line(int width)
     return "F1:Help  S:Sort  F3:List";
 }
 
+/* CMM2: the key of the top line's label under column col ("F1:Help  A/C:Drive  S:Sort  F3:List  SPACE:Mark  /:Type-
+   select", as fm_top_help_line has it for the width), or -1. A/C: the letter clicked, else the drive the active panel is
+   not on. */
+static int fm_help_line_key(int col, int filesystem)
+{
+    const char *s = fm_top_help_line(Option.Width);
+    int i = 0;
+    while (s[i])
+    {
+        int start = i, colon = -1;
+        while (s[i] && !(s[i] == ' ' && s[i + 1] == ' '))
+        {
+            if (s[i] == ':' && colon < 0)
+                colon = i;
+            i++;
+        }
+        if (col >= start && col < i && colon > start)
+        {
+            int n = colon - start;
+            if (n == 2 && s[start] == 'F' && s[start + 1] >= '1' && s[start + 1] <= '9')
+                return F1 + s[start + 1] - '1';
+            if (n == 5 && strncmp(s + start, "SPACE", 5) == 0)
+                return ' ';
+            if (n == 3 && s[start + 1] == '/')
+            {
+                if (col == start || col == start + 2)
+                    return s[col];
+                return filesystem == 2 ? 'A' : 'C';
+            }
+            return n == 1 ? s[start] : -1;
+        }
+        while (s[i] == ' ')
+            i++;
+    }
+    return -1;
+}
+
+/* CMM2: what the mouse's action (fm_mouse_kind at fm_mouse_col, _row) does in FM's main screen: the key it stands for
+   (Enter, UP, DOWN, a top-line key), or -1 when it is done here: the panel under it made active, the entry under it
+   selected or marked. *redraw: 1 the selection moved within the active panel (its rows from *old_selected), 2 the whole
+   screen. fm_mouse_keep is set when what the mouse does next must not be dropped (the second press of a double click
+   after the first one's selection). */
+static int fm_mouse_key(fm_panel_t panels[2], int *active, int *old_selected, int *redraw, char *status, int statuslen,
+                        char *errmsg, int errmsglen)
+{
+    int list_top = 2, list_rows = Option.Height - 4;
+    int left_width = (Option.Width - 1) / 2;
+    int row = fm_mouse_row, col = fm_mouse_col, panel, idx;
+    fm_panel_t *p;
+
+    *redraw = 0;
+    fm_mouse_keep = 0;
+    if (row == 0)
+        return fm_mouse_kind == FM_MOUSE_LEFT ? fm_help_line_key(col, panels[*active].filesystem) : -1;
+    if (row < 1 || row >= list_top + list_rows || col == left_width || col < 0 || col >= Option.Width)
+        return -1;                                      // (the divider, the blank row and the status line: nothing)
+    panel = col < left_width ? 0 : 1;
+    if (panel != *active)
+    {
+        *active = panel;
+        fm_set_status_to_selected(&panels[panel], status, statuslen);
+        *redraw = 2;
+    }
+    p = &panels[panel];
+    *old_selected = p->selected;
+    fm_mouse_keep = 1;
+    if (fm_mouse_kind == FM_MOUSE_WHEELUP)
+        return UP;
+    if (fm_mouse_kind == FM_MOUSE_WHEELDOWN)
+        return DOWN;
+    idx = p->top + row - list_top;
+    if (row < list_top || idx >= p->count)
+        return -1;                                      // a header, or below the list's end: the panel only
+    if (idx != p->selected)
+    {
+        p->selected = idx;
+        fm_set_status_to_selected(p, status, statuslen);
+        if (!*redraw)
+            *redraw = 1;
+    }
+    if (fm_mouse_kind == FM_MOUSE_DOUBLE)
+    {
+        fm_mouse_keep = 0;                              // (Enter may open a directory, a view or a program)
+        return '\r';
+    }
+    if (fm_mouse_kind == FM_MOUSE_RIGHT)
+    {
+        if (fm_mark_toggle(p, idx, errmsg, errmsglen))
+            snprintf(status, statuslen, "%d marked", p->marked_count);
+        else
+            snprintf(status, statuslen, "Select a file or directory to mark");
+        *redraw = 2;
+    }
+    return -1;
+}
+
 /* Draw one help-table line: up to two (key, action) pairs in aligned columns.
  * Keys are highlighted (yellow), actions normal (white).  Each cell is drawn
  * with fm_draw_field which pads/truncates to its width, so columns stay aligned
@@ -1429,7 +1666,7 @@ static int fm_help_row(int y, int half, int kw,
 
 static void fm_show_help_screen(void)
 {
-    int i, c, y;
+    int i, y;
     int half = Option.Width / 2;
     int kw = 9; /* key column width (fits "Enter F2", "Home/End", etc.) */
     int bottom = Option.Height - 1;
@@ -1491,12 +1728,7 @@ static void fm_show_help_screen(void)
     else
         fm_draw_field(0, bottom, Option.Width, "Press any key to return to FM", FM_ANSI_STATUS, YELLOW, BLACK);
 
-    c = -1;
-    while (c == -1)
-    {
-        routinechecks();
-        c = MMInkey();
-    }
+    fm_wait_for_escape();                               // CMM2: a key or a click (a terminal's click taken whole)
 }
 
 static int fm_is_valid_leaf_name(const char *name)
@@ -1545,6 +1777,8 @@ static int fm_prompt_text(const char *label, const char *initial, char *out, int
         fm_prompt_cursor(strlen(line), 1);
         c = MMgetchar();
         fm_prompt_cursor(strlen(line), 0);
+        if (c == ESC && fm_terminal_mouse())            // CMM2: a terminal's click, not the Esc that cancels
+            continue;
         if (c == '\r' || c == '\n')
         {
             strncpy(out, temp, outlen - 1);
@@ -1587,7 +1821,7 @@ static int fm_confirm_action(const char *prompt)
     {
         routinechecks();
         c = MMInkey();
-        if (c == -1)
+        if (c == -1 || (c == ESC && fm_terminal_mouse()))   // CMM2: (a terminal's click is not the Esc that says no)
             continue;
         if (c >= 'a' && c <= 'z')
             c = mytoupper(c);
@@ -2619,6 +2853,8 @@ static int fm_prompt_filter(fm_panel_t *panel)
         fm_prompt_cursor(strlen(line), 1);
         c = MMgetchar();
         fm_prompt_cursor(strlen(line), 0);
+        if (c == ESC && fm_terminal_mouse())            // CMM2: a terminal's click, not the Esc that cancels
+            continue;
         if (c == '\r' || c == '\n')
         {
             if (len == 0)
@@ -3512,7 +3748,7 @@ static void fm_display_setup(void)
     i2c_disable();
     i2c2_disable();
     i2c3_disable();
-    mouse0close();
+    mouse0release();                                    // (OPTION MOUSE 0's mouse goes on running)
     ClearVars(0);
     closeallsprites();
     closeall3d();
@@ -3675,6 +3911,9 @@ fm_relaunch:
     MX470Display(DISPLAY_CLS);
     fm_local_cache_invalidate();
     clearrepeat();
+    UiMouseOpen();                                      // CMM2: the mouse and its pointer, and a terminal's clicks
+    UiTermMouse(1);
+    fm_mouse_keep = 0;
 
     while (!done)
     {
@@ -3722,7 +3961,7 @@ fm_relaunch:
 
             // Local display uses targeted redraw to avoid unnecessary flashing.
             fm_skip_serial_output = 1;
-            fm_draw_panel_entries(p, active == 1 ? 0 : 1,
+            fm_draw_panel_entries(p, 1,                       // (the active panel: the PicoMite's passed 0 for the right)
                                   active == 0 ? 0 : right_x,
                                   active == 0 ? left_width : right_width,
                                   list_top, list_rows,
@@ -3739,21 +3978,27 @@ fm_relaunch:
         if (type_select_active)
             fm_prompt_cursor(strlen(status), 1);
         c = -1;
+        if (!fm_mouse_keep)
+            fm_mouse_reset();                           // CMM2: (what the mouse did while FM was busy is dropped)
+        fm_mouse_keep = 0;
         while (c == -1)
         {
             routinechecks();
+            UiMouseRecheck();                           // CMM2: (a USB mouse plugged in since FM started)
             /* A track list is playing: keep the status line on the current
                track, and say when the list has finished. */
             if (!type_select_active)
             {
                 if (fm_album_playing() && trackplaying != album_shown)
                 {
+                    UiPointer(0);                       // CMM2: (the pointer hidden while FM draws)
                     album_shown = trackplaying;
                     fm_album_status(status, sizeof(status));
                     fm_draw_field(0, Option.Height - 1, Option.Width, status, FM_ANSI_STATUS, YELLOW, BLACK);
                 }
                 else if (album_shown >= 0 && CurrentlyPlaying == P_NOTHING)
                 {
+                    UiPointer(0);
                     album_shown = -1;
                     snprintf(status, sizeof(status), "Track list finished");
                     fm_draw_field(0, Option.Height - 1, Option.Width, status, FM_ANSI_STATUS, YELLOW, BLACK);
@@ -3786,6 +4031,7 @@ fm_relaunch:
                         snprintf(status, sizeof(status), "Type-select: type filename prefix");
                     }
                     ShowCursor(0);
+                    UiPointer(0);
                     fm_prompt_cursor(strlen(status), 0);
                     fm_draw_ui(panels, active, status);
                     need_full_redraw = 0;
@@ -3795,13 +4041,20 @@ fm_relaunch:
             }
             if (type_select_active)
                 ShowCursor(1); // the local display's cursor blinks from here, as MMgetchar's does
+            else
+                UiPointer(1);                           // CMM2: the pointer where the mouse is
             c = MMInkey();
             if (c == 0x9D)
             {                                           // CMM2: Print Screen saves the display (Console.c)
                 ScreenShot();
                 c = -1;
             }
+            if (c == ESC && fm_terminal_mouse())        // CMM2: a terminal's click (dropped in type-select)
+                c = (!type_select_active && fm_mouse_kind != FM_MOUSE_NONE) ? FM_MOUSE_KEY : -1;
+            else if (c == -1 && !type_select_active && fm_mouse_poll())
+                c = FM_MOUSE_KEY;                       // CMM2: the mouse
         }
+        UiPointer(0);
 
         if (type_select_active)
         {
@@ -3850,6 +4103,27 @@ fm_relaunch:
             type_select_dirty = 0;
             type_select_prefix[0] = 0;
         }
+
+        if (c == FM_MOUSE_KEY)
+        {                                               // CMM2: the mouse's action (fm_mouse_key)
+            int msel = 0, redraw;
+            c = fm_mouse_key(panels, &active, &msel, &redraw, status, sizeof(status), errmsg, sizeof(errmsg));
+            p = &panels[active];
+            if (redraw == 2)
+                need_full_redraw = 1;
+            else if (redraw == 1)
+            {                                           // (as Up and Down: the two rows and the status line)
+                fm_draw_panel_row(p, 1, active == 0 ? 0 : right_x, active == 0 ? left_width : right_width,
+                                  list_top, list_rows, msel - p->top, errmsg, sizeof(errmsg));
+                fm_draw_panel_row(p, 1, active == 0 ? 0 : right_x, active == 0 ? left_width : right_width,
+                                  list_top, list_rows, p->selected - p->top, errmsg, sizeof(errmsg));
+                fm_draw_field(0, Option.Height - 1, Option.Width, status, FM_ANSI_STATUS, YELLOW, BLACK);
+            }
+            if (c == -1)
+                continue;
+        }
+        else
+            fm_mouse_keep = 0;
 
         if (c >= 'a' && c <= 'z')
             c = mytoupper(c);
@@ -4415,6 +4689,8 @@ fm_relaunch:
 
     fm_save_context(panels, active);
 
+    UiMouseClose();                                     // CMM2: (EDIT opens its own; FM opens it again after)
+    UiTermMouse(0);
     fm_active = 0;
     PrintString("\033[0m\033[?25h\0338\033[2J\033[H");
     fm_display_restore();                               // CMM2: the prompt's display, as the editor leaves it

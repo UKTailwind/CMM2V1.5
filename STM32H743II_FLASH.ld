@@ -106,6 +106,8 @@ SECTIONS
     *FileManager.c.obj(.text .text* .rodata .rodata*)
     *Editor.o(.text .text* .rodata .rodata*)             /* the editor (the PicoMite's: EDIT) */
     *Editor.c.obj(.text .text* .rodata .rodata*)
+    *UiMouse.o(.text .text* .rodata .rodata*)            /* the mouse of EDIT and FM */
+    *UiMouse.c.obj(.text .text* .rodata .rodata*)
     *Ray.o(.text .text* .rodata .rodata*)                /* RAY, the raycaster */
     *Ray.c.obj(.text .text* .rodata .rodata*)
     *Astro.o(.text .text* .rodata .rodata*)              /* STAR, ASTRO, LOCATION and SLEW */

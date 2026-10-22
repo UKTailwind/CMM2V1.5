@@ -7,6 +7,7 @@ fixed by hand where the CMM2 differs; the platform layer is Inc/Editor_cmm2.h. I
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "Editor_cmm2.h"
+#include "UiMouse.h"                               // CMM2: the mouse, shared with FM
 
 // (CMM2: where EDIT opens a program is StartEditLine and StartEditCharacter, Console.c, which error() sets; the
 // PicoMite's StartEditPoint is a place in its program memory)
@@ -215,7 +216,7 @@ static void EdDisplaySetup(void)
     i2c_disable();
     i2c2_disable();
     i2c3_disable();
-    mouse0close();
+    mouse0release();                                    // (OPTION MOUSE 0's mouse goes on running)
     ClearVars(0);
     closeallsprites();
     closeall3d();
@@ -266,27 +267,6 @@ static void EdDisplayRestore(void)
    editor's own kept them for its next session instead, where they were typed into the file. */
 #define EdUnget(c) MMInkeyUnget(c)
 
-/* CMM2: after Esc, a terminal's mouse report (ESC [ M b x y, Tera Term's) or not: its next two keys are looked at and
-   given back unless they are '[' 'M'. The PicoMite's editor took them with MMInkey and so lost a key typed straight
-   after Esc (the Y of "Exit and discard"). 1 when they are, and the report's three bytes are next. */
-static int EdMouseReport(void)
-{
-    int a = MMInkey(), b;
-    if (a != '[')
-    {
-        EdUnget(a);
-        return 0;
-    }
-    b = MMInkey();
-    if (b != 'M')
-    {
-        EdUnget(b);                                     // (given back in the order they came: MMInkey returns the
-        EdUnget(a);                                     // last given first)
-        return 0;
-    }
-    return 1;
-}
-
 static int EdInkey(void)
 {
     static int lastcr = 0;
@@ -318,80 +298,10 @@ static int EdInkey(void)
    - right: mark mode from the pointer; in mark mode, cut (F4);
    - middle: paste at the pointer (F5); in mark mode, copy (F5).
    The PicoMite's right and middle buttons extend a selection to the pointer before the cut or the copy; here they act
-   on the selection as it is, the left button being the one that moves it. */
+   on the selection as it is, the left button being the one that moves it. The mouse is opened, its pointer drawn and a
+   terminal's reports read by UiMouse.c, which FM shares (22 Oct 2026). */
 #define EDMOUSE_CELL 9999                               // (not a key) the left button at EdMouseX, EdMouseY
-static int EdMouseChan = -1;                            // the mouse's channel, -1 when the editor has none
 static int EdMouseX, EdMouseY;                          // the editing area's cell under the pointer
-
-/* CONTROLLER MOUSE OPEN for the editor, its errors kept from ending EDIT: the mouse OPTION MOUSE names may not be
-   there (OPTION MOUSE 2 with the USB mouse unplugged tries an I2C mouse: "Mouse not connected"), and the editor then
-   goes on without one. Under OptionErrorSkip error() prints nothing and longjmps to ErrNext, so both are borrowed for
-   the call, and MM.ERRNO and MM.ERRMSG$ put back after it. 1 if the mouse opened. */
-extern jmp_buf ErrNext;
-static int EdMouseTry(char *open)
-{
-    jmp_buf save;
-    int skip = OptionErrorSkip, errno_was = MMerrno, line_was = MMerrline, ok = 1;
-    char msg[STRINGSIZE];
-    strcpy(msg, MMErrMsg);
-    memcpy(save, ErrNext, sizeof(jmp_buf));
-    OptionErrorSkip = 1;
-    if (setjmp(ErrNext) == 0)
-        cmd_mouse(open);
-    else
-        ok = 0;
-    memcpy(ErrNext, save, sizeof(jmp_buf));
-    OptionErrorSkip = skip;
-    if (!ok) {
-        mT4IntEnable(1);                                // (some of the open's failures left the controllers' tick off)
-        MMerrno = errno_was;
-        MMerrline = line_was;
-        strcpy(MMErrMsg, msg);
-    }
-    return ok;
-}
-
-static void EdMouseOpen(void)
-{
-    char open[24];
-    EdMouseChan = -1;
-    if ((Option.Mouse < 0 && !UsbMouse) || !(OptionConsole & 2) || VideoColour == 4)
-        return;                                         // (a USB mouse needs no OPTION MOUSE; GUI CURSOR has no 4-bit modes)
-    sprintf(open, "OPEN %d,,,%d", UsbMouse ? 2 : Option.Mouse, Option.Sensitivity);
-    cmd_cursor("ON");
-    if (!EdMouseTry(open)) {                            // (kilo's GUI CURSOR ON:CONTROLLER MOUSE OPEN n,,,s)
-        cmd_cursor("OFF");                              // no mouse: the editor without one
-        return;
-    }
-    EdMouseChan = UsbMouse ? 2 : Option.Mouse;
-}
-
-static void EdMouseClose(void)
-{
-    char close[24];
-    if (EdMouseChan < 0)
-        return;
-    sprintf(close, "CLOSE %d", EdMouseChan);
-    EdMouseChan = -1;
-    cmd_mouse(close);
-    cmd_cursor("OFF");
-}
-
-// the pointer where the mouse is (show), or hidden while the editor draws (!show)
-static void EdPointer(int show)
-{
-    volatile struct s_nunstruct *m;
-    if (EdMouseChan < 0)
-        return;
-    m = &mousestruct[EdMouseChan];
-    if (!show)
-        hidecursor(1);
-    else if (!cursoron || m->ax != xcursor || m->ay != ycursor)
-    {
-        hidecursor(1);
-        showcursor(1, m->ax, m->ay);
-    }
-}
 
 /* what the mouse has done since it was last read, as a key (UP, DOWN, HOME, END, F4, F5), EDMOUSE_CELL, or -1. A key
    that follows a move of the cursor (right and middle in edit mode) is given back (EdUnget) for the next read. */
@@ -401,9 +311,9 @@ static int EdMouse(int marking)
     static unsigned long long pressed;
     volatile struct s_nunstruct *m;
     int x, y, k = -1, inside, right, middle;
-    if (EdMouseChan < 0)
+    if (UiMouseChan < 0)
         return -1;
-    m = &mousestruct[EdMouseChan];
+    m = &mousestruct[UiMouseChan];
     x = m->ax / gui_font_width;
     y = m->ay / gui_font_height;
     if (x >= VWidth)
@@ -411,7 +321,7 @@ static int EdMouse(int marking)
     inside = (y < VHeight);                             // (not on the status bar or the message line)
     if (m->az)
     {                                                   // the wheel: the PS/2 and I2C mice count up toward the user, a
-        int down = (EdMouseChan == 2 && UsbMouse) ? m->az < 0 : m->az > 0;   // USB mouse (HID) away from them
+        int down = (UiMouseChan == 2 && UsbMouse) ? m->az < 0 : m->az > 0;   // USB mouse (HID) away from them
         m->az = 0;
         return down ? DOWN : UP;
     }
@@ -871,7 +781,7 @@ static void EdHelp(void)
         if (c == ESC)
         {
             uSec(50000);
-            if (EdMouseReport())
+            if (UiMouseReport())
             {                                           // (a terminal's mouse report: ignored)
                 MMInkey();
                 MMInkey();
@@ -1028,9 +938,9 @@ static void edit(char *cmdline)
     }
     if (nbrlines == 0)
         nbrlines++;
-    EdMouseOpen();                                      // CMM2: (after the buffer and the load, which can end in an error)
+    UiMouseOpen();                                      // CMM2: (after the buffer and the load, which can end in an error)
     setterminal();                                      // CMM2: the serial terminal asked to be the console's size
-    PrintString("\033[?1000h");        // Tera Term turn on mouse click report in VT200 mode
+    UiTermMouse(1);                    // Tera Term turn on mouse click report in VT200 mode
     PrintString("\033[?7l");           // disable autowrap while in editor
     PrintString("\0337\033[2J\033[H"); // vt100 clear screen and home cursor
     EdDisplay(DISPLAY_CLS);         // clear screen on the MX470 display only
@@ -1714,23 +1624,23 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
         do
         {
             ShowCursor(true);
-            EdPointer(1);                               // (CMM2: the mouse's pointer, and its actions: EdMouse)
+            UiPointer(1);                               // (CMM2: the mouse's pointer, and its actions: EdMouse)
             c = EdInkey();                              // (CMM2: Enter is '\n', EdInkey)
             if (c == -1 && (c = EdMouse(0)) == EDMOUSE_CELL)
             {
                 ShowCursor(false);
-                EdPointer(0);
+                UiPointer(0);
                 EdClick(EdMouseX, EdMouseY);
                 c = -1;
             }
             if (statuscount++ == 5000)
             {
-                EdPointer(0);
+                UiPointer(0);
                 EdPrintStatus();
             }
         } while (c == -1);
         ShowCursor(false);
-        EdPointer(0);
+        UiPointer(0);
 
         if (drawstatusline)
             PrintFunctKeys(EDIT);
@@ -2206,7 +2116,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
             case ESC:
                 uSec(50000); // wait 50ms to see if anything more is coming
                 routinechecks();
-                if (EdMouseReport())                    // (CMM2: the keys after Esc given back if not)
+                if (UiMouseReport())                    // (CMM2: the keys after Esc given back if not)
                 {
                     // received escape code for Tera Term reporting a mouse click or scroll wheel movement
                     int c, x, y;
@@ -2283,14 +2193,14 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                     StartEditLine = edy + cury;         // EDIT with no file opens here next (kilo's editorSave)
                     StartEditCharacter = edx + curx;
                 }
-                PrintString("\033[?1000l");        // Tera Term turn off mouse click report in vt200 mode
+                UiTermMouse(0);                    // Tera Term turn off mouse click report in vt200 mode
                 PrintString("\033[?7h");           // restore autowrap (was disabled by setterminal on entry)
                 PrintString("\0338\033[2J\033[H"); // vt100 clear screen and home cursor
                 gui_fcolour = GUI_C_NORMAL;
                 PrintString(VT100_C_NORMAL);
                 PrintString("\033[0m");
                 BreakKey = BreakKeySave;
-                EdMouseClose();
+                UiMouseClose();
                 EdDisplayRestore();
                 ClearTempMemory();                      // (the edit buffer, the clipboard)
                 if (c == ESC)
@@ -2692,10 +2602,10 @@ void MarkMode(char *buf)
             c = EdMouse(1);                             // (CMM2: the mouse, EdMouse)
         if (c == -1)
         {
-            EdPointer(1);
+            UiPointer(1);
             continue;
         }
-        EdPointer(0);
+        UiPointer(0);
         if (c == EDMOUSE_CELL)
             mark = EdTextAt(mark, EdMouseX, EdMouseY);  // (the selection's end to the pointer)
         if (c != -1 && errmsg)
@@ -2707,7 +2617,7 @@ void MarkMode(char *buf)
         {
         case ESC:
             uSec(50000); // wait 50ms to see if anything more is coming
-            if (EdMouseReport())                    // (CMM2: the keys after Esc given back if not)
+            if (UiMouseReport())                    // (CMM2: the keys after Esc given back if not)
             {
                 // received escape code for Tera Term reporting a mouse click.  in mark mode we ignore it
                 MMInkey();

@@ -50,7 +50,7 @@ A program can also display a cursor on the screen and link it to the mouse using
 
 ## PS2 and I2C Mice
 
-A PS2 mouse (connected to the rear I/O connector on the Generation 1, or to the mouse socket on the Generation 2) is mouse channel 0, and a Hobbytronic USB mouse interface is opened on an I2C channel. Both are opened in a program with CONTROLLER MOUSE OPEN and read with the MOUSE() function; for the editor they are set up with OPTION MOUSE. See Mouse Support in the chapter Hardware Features.
+A PS2 mouse (connected to the rear I/O connector on the Generation 1, or to the lower USB socket on the Generation 2) is mouse channel 0. Set with OPTION MOUSE 0 it is the computer's mouse, as a USB mouse is: programs read it with the MOUSE() function and link the GUI cursor to it without CONTROLLER MOUSE OPEN, which then only sets its interrupts. A Hobbytronic USB mouse interface is opened on an I2C channel with CONTROLLER MOUSE OPEN; the G2 V2.0 does not support it. See Mouse Support in the chapter Hardware Features.
 
 ## USB Gamepads
 

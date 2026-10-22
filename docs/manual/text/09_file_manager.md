@@ -51,4 +51,19 @@ Notes: a file copy overwrites the destination without asking and a directory cop
 
 FM starts by clearing the variables and the other memory left by the last program to run, as EDIT does, so the file manager and its editor always have the memory they need.
 
-The file manager does not yet use the mouse.
+## Using a Mouse
+
+The file manager can be used with a mouse: a USB mouse, or a PS2 mouse set with OPTION MOUSE 0 (see Mouse Support in the chapter Hardware Features). A USB mouse plugged in while the file manager is running is used at once. The mouse pointer is shown on the screen while the file manager waits for a key.
+
+{widths: 55,45}
+| Action | Mouse |
+|---|---|
+| Select a file or directory, and make its panel the active one | Click it |
+| Open a directory, run a program, play a sound or show an image (as Enter) | Double click it |
+| Mark or unmark a file or directory (the selection does not move) | Right click it |
+| Move the selection up or down | Scroll wheel, over a panel |
+| Make a panel the active one | Click its heading |
+| A key named on the top line (F1:Help, A/C:Drive, S:Sort, F3:List, SPACE:Mark, /:Type-select) | Click it; on A/C:Drive click A or C, or Drive for the other drive |
+| Return from an image, the help screen or the end of a listing | Click anywhere |
+
+The mouse is ignored while the file manager asks a question (a name, a path or Y/N) and during type-select. On the serial console a terminal emulator that reports mouse clicks (such as Tera Term) can be used in the same way.

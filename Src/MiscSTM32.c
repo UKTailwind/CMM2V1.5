@@ -879,6 +879,18 @@ void cmd_classic(char *cmd){
 	error("Syntax");
 }
 
+/* the PS/2 mouse started (22 Oct 2026: out of CONTROLLER MOUSE OPEN 0, for OPTION MOUSE 0's start too): pin 15's
+   COUNT input refused (the mouse takes its interrupt, EXTI3), the pins reserved, and the mouse reset and set streaming
+   (initMouse0: "Mouse timeout n" if none answers, the pins then given back) */
+void mouse0start(int sensitivity){
+	if(ExtCurrentConfig[INT3PIN] == EXT_PER_IN || ExtCurrentConfig[INT3PIN] == EXT_CNT_IN || ExtCurrentConfig[INT3PIN] == EXT_FREQ_IN ) error("H/W interrupt in use for pin-15 (COUNT 3)");
+	CheckPin(MOUSE_CLOCK, CP_CHECKALL);
+	CheckPin(MOUSE_DATA, CP_CHECKALL);
+	ExtCfg(MOUSE_CLOCK, EXT_DIG_IN, 0);ExtCfg(MOUSE_CLOCK, EXT_COM_RESERVED, 0);
+	ExtCfg(MOUSE_DATA, EXT_DIG_IN, 0);ExtCfg(MOUSE_DATA, EXT_COM_RESERVED, 0);
+	initMouse0(sensitivity);
+}
+
 void cmd_mouse(char *cmd){
 	int nchan=2, sensitivity=0;
 	char * tp;
@@ -900,11 +912,6 @@ void cmd_mouse(char *cmd){
 			if(open >= 0 && open != nchan) error("The mouse on channel % is open", open);
 		}
 		if(nchan==0){
-	    	if(ExtCurrentConfig[INT3PIN] == EXT_PER_IN || ExtCurrentConfig[INT3PIN] == EXT_CNT_IN || ExtCurrentConfig[INT3PIN] == EXT_FREQ_IN ) error("H/W interrupt in use for pin-15 (COUNT 3)");
-			CheckPin(MOUSE_CLOCK, CP_CHECKALL);
-			CheckPin(MOUSE_DATA, CP_CHECKALL);
-		    ExtCfg(MOUSE_CLOCK, EXT_DIG_IN, 0);ExtCfg(MOUSE_CLOCK, EXT_COM_RESERVED, 0);
-		    ExtCfg(MOUSE_DATA, EXT_DIG_IN, 0);ExtCfg(MOUSE_DATA, EXT_COM_RESERVED, 0);
 			if(argc>=3 && *argv[2]){
 				mouse0Interruptz = GetIntAddress(argv[2]);					// get the interrupt location
 	            IntSignal();
@@ -918,8 +925,8 @@ void cmd_mouse(char *cmd){
 				mouse0Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
 	            IntSignal();
 			}
-			initMouse0(sensitivity);
-		} else if(nchan==1){
+			if(!mouse0)mouse0start(sensitivity);                          // (OPTION MOUSE 0's runs already: only its
+		} else if(nchan==1){                                             // interrupts, as for a USB mouse)
 			if(mouse1) error("I2C1 already OPEN");
 			mymemset((struct s_nunstruct *)&mousestruct[nchan],0,sizeof(struct s_nunstruct));
 			if(!(nun1 || classic1)){
@@ -1167,7 +1174,7 @@ void cmd_mouse(char *cmd){
 			return;
 		}
 		if(nchan==0){
-			mouse0close();
+			mouse0release();                                            // (OPTION MOUSE 0's goes on running)
 		} else if(nchan==1){
 			if(!mouse1)return;
 			if(!(nun1 || classic1))i2c_disable();

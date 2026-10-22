@@ -149,6 +149,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern char *CountInterrupt;
 	extern void mouse0close(void);
 	extern void initMouse0(int sensitivity);
+	extern void mouse0start(int sensitivity);                       // the PS/2 mouse started (MiscSTM32.c)
+	extern void mouse0release(void);                                // what a program leaves: OPTION MOUSE 0's runs on (mouse.c)
+	extern int MouseOptionStart(void);                              // OPTION MOUSE 0's started if not yet, quietly (UiMouse.c)
 	extern int CMM1;
 	extern int sendCRLF;
 	extern void update_clock(void);

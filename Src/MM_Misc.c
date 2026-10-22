@@ -534,6 +534,7 @@ void fun_mouse(void){
 	char *p;
 	getargs(&ep,3,",");
 	if(argc==3)chan=getint(argv[2],0,3);
+	if(chan==0 && !mouse0)MouseOptionStart();                       // (OPTION MOUSE 0's mouse started if not yet)
 	if(!((chan==3 && mouse3) || (chan==2 && (mouse2 || UsbMouse)) || (chan==1 && mouse1) || (chan==0 && mouse0) ))error("Not open");
 	p=argv[0];
 	if(toupper(*p)=='X')iret=mousestruct[chan].ax;
