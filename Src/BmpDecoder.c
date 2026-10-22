@@ -903,6 +903,7 @@ BMP_Result decodeBMP(bool topdown)
                                 }
 
                                 // Call callback with screen row position
+                                routinechecks(1);               // (a row at a time: sound and USB go on while a big image decodes)
                                 if (!linecallback(&result.width, &result.height, lineData, &screenRow))
                                 {
                                         result.linesProcessed = i;
@@ -1068,6 +1069,7 @@ BMP_Result decodeBMP(bool topdown)
                 }
 
                 // Call the callback with screen row position
+                routinechecks(1);                               // (a row at a time: sound and USB go on while a big image decodes)
                 if (!linecallback(&result.width, &result.height, lineData, &screenRow))
                 {
                         // Callback requested abort - clean up and return successfully

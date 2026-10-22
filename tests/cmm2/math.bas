@@ -22,6 +22,8 @@ Math Randomize 5
 x = Math(Rand)
 Math Randomize 5
 CheckF "MATH RANDOMIZE n repeats MATH(RAND)'s sequence (it was the hardware RNG every time)", Math(Rand), x
+Math Randomize 5
+Check "MATH RANDOMIZE 5 gives the PicoMite's numbers (the seeding's multiplier 69069, not 6069)", Math(Rand) * 4294967296, 530851887
 For i = 1 To 50 : Math Randomize : Next
 Check "MATH RANDOMIZE with no seed, 50 times (about half were Number out of bounds)", 1, 1
 

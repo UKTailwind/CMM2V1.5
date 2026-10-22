@@ -30,6 +30,12 @@ ReDim f(5, 5)
 Print "2d anew: "; f(1, 2); Bound(f(), 1); Bound(f(), 2)
 ReDim Preserve a(n + 3)
 Print "expression bound: "; Bound(a(), 1)
+a(3) = 33
+ReDim Preserve a(Bound(a()) * 2)
+Print "bound from the array itself: "; Bound(a(), 1); a(3)
+For i = 0 To 3 : s$(i) = "s" + Str$(i) : Next
+ReDim Preserve s$(Bound(s$()) + 1)
+Print "a string array's own bound: "; Bound(s$(), 1); " "; s$(3)
 On Error Skip 1
 ReDim i(3)
 e$ = MM.ErrMsg$ : Print "not an array: "; e$

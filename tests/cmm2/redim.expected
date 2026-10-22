@@ -8,6 +8,8 @@ length kept: String too long
 2d first bound: Only the last array index can be changed
 2d anew:  0 5 5
 expression bound:  3
+bound from the array itself:  6 33
+a string array's own bound:  7 s3
 not an array: Array dimensions
 not declared: Cannot find NOSUCH
 done

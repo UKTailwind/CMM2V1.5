@@ -3,6 +3,7 @@ ok  a 3x3 inverse
 ok  its determinant
 ok  the heap is the same after 300 of each (an inverse leaked 15.5 KB)
 ok  MATH RANDOMIZE n repeats MATH(RAND)'s sequence (it was the hardware RNG every time)
+ok  MATH RANDOMIZE 5 gives the PicoMite's numbers (the seeding's multiplier 69069, not 6069)
 ok  MATH RANDOMIZE with no seed, 50 times (about half were Number out of bounds)
 ok  integer C_DIV by zero
 ok  SLICE with every index given
@@ -47,4 +48,4 @@ ok  inside it
 ok  above it
 ok  SINC of a constant is the constant
 ok  and the x values stay
-math: 49 of 49 passed
+math: 50 of 50 passed

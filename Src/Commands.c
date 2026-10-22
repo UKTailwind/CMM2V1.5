@@ -3681,12 +3681,16 @@ void cmd_erasevar(char *erase_args) {
 
 // REDIM's: the dimension expressions of "name(e1, e2)" are evaluated into dims, and the text becomes "name()" for
 // findvar (the PicoMite's parse_and_strip, closing at the last bracket so that an index may hold a function call)
-static void parse_and_strip(char *string, int *dims) {
+// an argument's bounds evaluated once, into dims, and into 'bounds' as numbers (name(10, 20)), which the new array is made
+// from: the expressions may use the old array (REDIM PRESERVE a(BOUND(a()) * 2)), which is erased before (the PicoMite's
+// #105); string is left as name()
+static void parse_and_strip(char *string, int *dims, char *bounds) {
 	char *open = strchr(string, '('), *close = strrchr(string, ')');
 	for(int i = 0; i < MAXDIM; i++) dims[i] = 0;
+	strcpy(bounds, string);
 	if(open && close && close > open) {
 		char buffer[STRINGSIZE], *p = buffer, *start, saved;
-		int n = close - open - 1, idx = 0;
+		int n = close - open - 1, idx = 0, b = open - string + 1;
 		if(n >= (int)sizeof(buffer)) error("Line is too long");
 		memcpy(buffer, open + 1, n); buffer[n] = 0;
 		while(*p && idx < MAXDIM) {
@@ -3695,10 +3699,15 @@ static void parse_and_strip(char *string, int *dims) {
 			start = p;                                              // this expression: to a comma outside its brackets,
 			p = skipexpression(p);                                  // strings and functions (MAX(4, 8): the PicoMite's #105)
 			saved = *p; *p = 0;
-			dims[idx++] = DimEncode(getinteger(start));
+			long long int v = getinteger(start);
+			dims[idx++] = DimEncode(v);
+			if(idx > 1) bounds[b++] = ',';
+			IntToStr(bounds + b, v, 10);
+			b += strlen(bounds + b);
 			*p = saved;
 			if(*p == ',') p++;
 		}
+		strcpy(bounds + b, ")");
 		strcpy(open + 1, ")");                                      // name()
 	}
 }
@@ -3723,7 +3732,7 @@ static int array_comp(int in[MAXDIM], int out[MAXDIM]) {
 // with each argument copied whole (its strncpy left one of 32 characters unterminated: issue 21).
 void cmd_redim(void) {
 	int dims[MAXDIM], newdims[MAXDIM];
-	char *oldmemory = NULL, *newmemory, *tp, old[STRINGSIZE];
+	char *oldmemory = NULL, *newmemory, *tp, old[STRINGSIZE], bounds[STRINGSIZE];
 	int oldsize = 0, newsize, length = -1, structIdx = -1;
 	int preserve = ((tp = checkstring(cmdline, "PRESERVE")) != NULL);
 	if(tp == NULL) tp = cmdline;
@@ -3731,7 +3740,7 @@ void cmd_redim(void) {
 		getargs(&tp, MAX_ARG_COUNT, ",");
 		for(int i = 0; i < argc; i += 2) {
 			strcpy(old, argv[i]);
-			parse_and_strip(old, newdims);
+			parse_and_strip(old, newdims, bounds);
 			findvar(old, V_FIND | V_NOFIND_ERR | V_EMPTY_OK);
 			if(VREC(VarIndex)->type & T_STR) length = VREC(VarIndex)->size;
 			if(VREC(VarIndex)->type & T_STRUCT) structIdx = (int)VREC(VarIndex)->size;   // its TYPE
@@ -3746,13 +3755,13 @@ void cmd_redim(void) {
 			uint32_t addr = erase(old, preserve);                   // the record goes; with PRESERVE the data stays for the copy
 			if(type & T_STR) {
 				char *newstring = GetTempStrMemory();
-				strcpy(newstring, argv[i]);
+				strcpy(newstring, bounds);
 				strcat(newstring, " LENGTH ");
 				IntToStr(&newstring[strlen(newstring)], length, 10);
 				findvar(newstring, type | T_IMPLIED | V_FIND | V_DIM_VAR);   // (T_IMPLIED: the type as declared, not DefaultType)
 			} else if(type & T_STRUCT) {
 				char *vararg = GetTempStrMemory(), *asp;
-				strcpy(vararg, argv[i]);
+				strcpy(vararg, bounds);
 				asp = skipvar(vararg, false);
 				while(*asp && *asp != tokenAS) asp++;
 				if(*asp == tokenAS) *asp = 0;                       // without an AS: the TYPE is structIdx
@@ -3760,7 +3769,7 @@ void cmd_redim(void) {
 				findvar(vararg, type | T_IMPLIED | V_FIND | V_DIM_VAR);
 				g_StructArg = -1;
 			} else
-				findvar(argv[i], type | T_IMPLIED | V_FIND | V_DIM_VAR);
+				findvar(bounds, type | T_IMPLIED | V_FIND | V_DIM_VAR);
 			newmemory = VREC(VarIndex)->val.s;
 			newsize = MemSize(newmemory);
 			if(preserve) {
