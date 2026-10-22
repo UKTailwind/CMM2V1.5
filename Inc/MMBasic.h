@@ -401,6 +401,7 @@ int ImageLayout(const unsigned char *lib, int limit, const unsigned int **record
 #include "ImageSlots.h"                                // (image slots, TILEMAP: ImageSlots.c, TileMap.c)
 #include "Stream.h"                                    // (the compiler, Route B: Stream.c)
 #include "Rgb121.h"                                   // (MODE n,4, the PicoMite's RGB121 display: Rgb121.c)
+#include "Mono.h"                                     // (MODE n,1, the PicoMite's MODE 1: Mono.c)
 int ImageIsCurrent(void);                       // does program memory hold an image of this format?
 int ImageIsCurrentAt(const char *image);        // does the image at image? (a flash slot's)
 int InProgMemory(const char *p);                // is p in program memory's image (or a running slot's)?

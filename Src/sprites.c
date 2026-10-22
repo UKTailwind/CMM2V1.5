@@ -197,6 +197,7 @@ uint32_t SpriteNative(uint32_t c){
         case 16: return NATIVE_16(c);
         case 12: return NATIVE_12(c);
         case 4: return RGB121(c);
+        case 1: return RGB121(c) != 0;                              // (the PicoMite's MODE 1 sprites: a nibble not 0 is set)
         default: return RGB332(c);
     }
 }
@@ -226,6 +227,7 @@ static uint32_t SpriteWord(uint32_t n, const uint8_t *i4, const uint8_t *i5, con
         case 16: return 0x0F000000 | i5[(n >> 11) & 31] << 16 | i6[(n >> 5) & 63] << 8 | i5[n & 31];
         case 12: return (n & 0xF000) << 12 | i4[(n >> 8) & 15] << 16 | i4[(n >> 4) & 15] << 8 | i4[n & 15];
         case 4: return 0x0F000000 | colours[n & 15];                // (the PicoMite's 16 colours: RGB121() gives n back)
+        case 1: return n ? 0x0FFFFFFF : 0x0F000000;                 // (set: white, as it draws back)
         default:                                                    // RGB332
             r = (n >> 5) & 7; g = (n >> 2) & 7; b = n & 3;
             return 0x0F000000 | (r << 5 | r << 2 | r >> 1) << 16 | (g << 5 | g << 2 | g >> 1) << 8 | b * 0x55;
@@ -686,6 +688,7 @@ void BlitShowBuff(int bnbr, int x1, int y1, int mode){
         case 16: SHOWLOOP(uint16_t, NATIVE_16) break;
         case 12: SHOWLOOP(uint16_t, NATIVE_12) break;
         case 4: SHOWLOOP(uint8_t, RGB121) break;
+        case 1: SHOWLOOP(uint8_t, SpriteNative) break;
         default: SHOWLOOP(uint8_t, RGB332) break;
     }
     DrawBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, rr);
@@ -2060,6 +2063,11 @@ void cmd_blit(void) {
         }
         if(VideoColour==4){                                         // 4-bit pages (Rgb121.c)
             Rgb121Blit(x1, y1, x2, y2, w, h, flip);
+            ReadPage=WritePage;
+            return;
+        }
+        if(VideoColour==1){                                         // 1-bit pages (Mono.c)
+            MonoBlit(x1, y1, x2, y2, w, h, flip);
             ReadPage=WritePage;
             return;
         }

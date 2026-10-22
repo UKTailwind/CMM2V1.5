@@ -2527,6 +2527,7 @@ int ReadPixelFast(int x, int y) {
 	if(x>=maxW || y>=maxH)return 0;
 	int Scale=(PageTable[ReadPage].expand ? 2 : 1);
 	if(VideoColour==4) return (x < 0 || y < 0) ? 0 : Rgb121Get(x, y);   // a 4-bit page (Rgb121.c)
+	if(VideoColour==1) return (x < 0 || y < 0) ? 0 : MonoGet(x, y);     // a 1-bit page (Mono.c)
 	if(VideoColour==8)	return (int)*(char *)((y * Scale * maxW + x) + rpa);
 	else if(VideoColour<=16) return (int)*(uint16_t *)((y * Scale * maxW + x) *2 + rpa);
 	else return (int)*(uint32_t *)((y * Scale * maxW + x) *4 + rpa);
@@ -3089,6 +3090,10 @@ void __attribute__((section(".extra"))) DrawPixelFast(int x, int y, int c){
 		Rgb121Set(x, y, c);
 		return;
 	}
+	if(VideoColour==1){                                            // a 1-bit page, c 1 or 0 (Mono.c)
+		MonoSet(x, y, c);
+		return;
+	}
 	if(VideoColour==8){
 		if(PageTable[WritePage].expand==0){
 			*(uint8_t *)((y * maxW + x) + wpa)=(uint8_t)c;
@@ -3125,6 +3130,10 @@ void __attribute__((section(".extra"))) DrawHLineFast(int x1, int y, int x2, int
 	if(x2>=maxW)x2=maxW-1;
 	if(VideoColour==4){                                            // a 4-bit page (Rgb121.c)
 		Rgb121HLine(x1, x2, y, c);
+		return;
+	}
+	if(VideoColour==1){                                            // a 1-bit page (Mono.c)
+		MonoHLine(x1, x2, y, c);
 		return;
 	}
 	if(VideoColour==8){

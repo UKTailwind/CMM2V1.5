@@ -108,6 +108,8 @@ SECTIONS
     *Editor.c.obj(.text .text* .rodata .rodata*)
     *UiMouse.o(.text .text* .rodata .rodata*)            /* the mouse of EDIT and FM */
     *UiMouse.c.obj(.text .text* .rodata .rodata*)
+    *Mono.o(.text .text* .rodata .rodata*)               /* MODE n,1's drawing and TILE (its merge is in ITCM: Rgb121.c) */
+    *Mono.c.obj(.text .text* .rodata .rodata*)
     *Ray.o(.text .text* .rodata .rodata*)                /* RAY, the raycaster */
     *Ray.c.obj(.text .text* .rodata .rodata*)
     *Astro.o(.text .text* .rodata .rodata*)              /* STAR, ASTRO, LOCATION and SLEW */

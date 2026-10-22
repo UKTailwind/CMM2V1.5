@@ -6,7 +6,7 @@ Other useful features include managing the video output and drawing moveable ima
 
 ## VGA Resolution, Colour Depth and Pages
 
-The video output to the VGA monitor is controlled by the MODE command. With this you can select various resolutions from 1920x1080 (on the Generation 2) and 800x600 pixels (the normal default on startup) down to 240x216, and colour depths of 8, 12, 16 and (on the Generation 2) 32 bits. For the 8-bit colour mode each individual colour can be specified from a 16-bit palette using the MAP command. A colour depth of 4 bits gives the PicoMite's 16 colour display, so that games written for the PicoMite can draw as they do there.
+The video output to the VGA monitor is controlled by the MODE command. With this you can select various resolutions from 1920x1080 (on the Generation 2) and 800x600 pixels (the normal default on startup) down to 240x216, and colour depths of 8, 12, 16 and (on the Generation 2) 32 bits. For the 8-bit colour mode each individual colour can be specified from a 16-bit palette using the MAP command. A colour depth of 4 bits gives the PicoMite's 16 colour display, and 1 bit its MODE 1 with coloured tiles, so that games written for the PicoMite can draw as they do there.
 
 Particularly useful is the 12-bit colour mode which supports 4096 colours with an additional 4-bit alpha channel allowing 16 levels of transparency. This mode has provision for two image layers plus a background colour. Images on the top layer will cover the lower layer except where the alpha channel is set to allow transparency thereby allowing various degrees of the lower layer and/or background to show through.
 

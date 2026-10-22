@@ -1,0 +1,98 @@
+mode 8,1: 8.1 640 480, tile height 12
+  bits: 1 2 128 0
+  Pixel(): FFFFFF 0
+  poked: 1 0 1
+  tiles: FF0000 FF FF00 FF00 0 848484
+  off the edge: 80 is invalid (valid is 0 to 79)
+  no colours: Syntax
+  too wide: 81 is invalid (valid is 1 to 80)
+  reset: FFFFFF 0
+  text in line: yellow 49, neither 0, the tile before it 0
+  black on red, not in line (inverted): 22 74 96
+  transparent background, in line: wrong 0 22
+  black on green, in line: wrong 0 22
+  CLS blue: 0 FFFF00 FF
+  set: 345
+  layer: 0 1
+  N 4, shown with L ORed in: wrong 0, rows doubled 1
+  T not shown: 1
+  L cleared: 1 1
+  a second layer: Framebuffer already exists
+  write F: Frame buffer not created
+  BLIT FRAMEBUFFER: Invalid for this screen mode
+  merge F and 2: 9, copy F to N: 1
+  POKE shown: 1 1 1
+  BLIT wrong: 0, tiles with it: FF 0
+  SPRITE wrong: 0, closed: 0
+  PAGE COPY wrong 0, page 5 written: 1
+  MAP: Invalid for this screen mode
+  MAP(): Invalid for this screen mode
+  IMAGE: Invalid for this screen mode
+  PAGE DISPLAY: Invalid for this screen mode
+mode 7,1: 7.1 320 240, tile height 10
+  bits: 1 2 128 0
+  Pixel(): FFFFFF 0
+  poked: 1 0 1
+  tiles: FF0000 FF FF00 FF00 0 848484
+  off the edge: 40 is invalid (valid is 0 to 39)
+  no colours: Syntax
+  too wide: 41 is invalid (valid is 1 to 40)
+  reset: FFFFFF 0
+  text in line: yellow 49, neither 0, the tile before it 0
+  black on red, not in line (inverted): 22 74 96
+  transparent background, in line: wrong 0 22
+  black on green, in line: wrong 0 22
+  CLS blue: 0 FFFF00 FF
+  set: 345
+  layer: 0 1
+  N 4, shown with L ORed in: wrong 0, rows doubled 1
+  T not shown: 1
+  L cleared: 1 1
+  a second layer: Framebuffer already exists
+  write F: Frame buffer not created
+  BLIT FRAMEBUFFER: Invalid for this screen mode
+  merge F and 2: 9, copy F to N: 1
+  POKE shown: 1 1 1
+  BLIT wrong: 0, tiles with it: FF 0
+  SPRITE wrong: 0, closed: 0
+  PAGE COPY wrong 0, page 5 written: 1
+  MAP: Invalid for this screen mode
+  MAP(): Invalid for this screen mode
+  IMAGE: Invalid for this screen mode
+  PAGE DISPLAY: Invalid for this screen mode
+mode 11,1: 11.1 1280 720, tile height 16
+  bits: 1 2 128 0
+  Pixel(): FFFFFF 0
+  poked: 1 0 1
+  tiles: FF0000 FF FF00 FF00 0 848484
+  off the edge: 160 is invalid (valid is 0 to 159)
+  no colours: Syntax
+  too wide: 161 is invalid (valid is 1 to 160)
+  reset: FFFFFF 0
+  text in line: yellow 49, neither 0, the tile before it 0
+  black on red, not in line (inverted): 22 74 96
+  transparent background, in line: wrong 0 22
+  black on green, in line: wrong 0 22
+  CLS blue: 0 FFFF00 FF
+  set: 345
+  layer: 0 1
+  N 4, shown with L ORed in: wrong 0, rows doubled 1
+  T not shown: 1
+  L cleared: 1 1
+  a second layer: Framebuffer already exists
+  write F: Frame buffer not created
+  BLIT FRAMEBUFFER: Invalid for this screen mode
+  merge F and 2: 9, copy F to N: 1
+  POKE shown: 1 1 1
+  BLIT wrong: 0, tiles with it: FF 0
+  SPRITE wrong: 0, closed: 0
+  PAGE COPY wrong 0, page 5 written: 1
+  MAP: Invalid for this screen mode
+  MAP(): Invalid for this screen mode
+  IMAGE: Invalid for this screen mode
+  PAGE DISPLAY: Invalid for this screen mode
+TILE in MODE 8: Invalid for this screen mode
+a variable called tile: 3
+an array called tile: 5
+done
+

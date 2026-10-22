@@ -132,7 +132,7 @@ The address in memory of the data of font ‘n’ (1 to 16, 0 if there is no suc
 MM.INFO(FRAMEH)
 MM.INFO(FRAMEV)
 --- keep
-The address in memory of the framebuffer made by FRAMEBUFFER CREATE (0 if there is none), and its width and height in pixels.  The address is useful if you need to PEEK or POKE its contents.  In the 4-bit colour depth FRAMEBUFFER makes the PicoMite's framebuffers, which are pages: use MM.INFO(WRITEBUFF) or MM.INFO(PAGE ADDRESS n) for them (see FRAMEBUFFER).
+The address in memory of the framebuffer made by FRAMEBUFFER CREATE (0 if there is none), and its width and height in pixels.  The address is useful if you need to PEEK or POKE its contents.  In the 4 and 1-bit colour depths FRAMEBUFFER makes the PicoMite's framebuffers, which are pages: use MM.INFO(WRITEBUFF) or MM.INFO(PAGE ADDRESS n) for them (see FRAMEBUFFER).
 
 =+= MM.INFO(HARDWARE)
 --- keep
@@ -169,7 +169,7 @@ MM.INFO(WRITE PAGE) and MM.INFO(WRITEBUFF) (the PicoMite's name) are the address
 
 =+= MM.INFO(MODE)
 --- keep
-The current video mode and colour depth as a number: the mode, then the depth as its decimals (eg, 1.8 for MODE 1,8, 8.16 for MODE 8,16, 1.12 for MODE 1,12 and 7.4 for MODE 7,4).
+The current video mode and colour depth as a number: the mode, then the depth as its decimals (eg, 1.8 for MODE 1,8, 8.16 for MODE 8,16, 1.12 for MODE 1,12, 7.4 for MODE 7,4 and 8.1 for MODE 8,1).
 
 =+= MM.INFO$(OPTION option)
 ---
@@ -236,6 +236,10 @@ MM.INFO$(TRACK)
 --- keep
 What the audio output is doing: "OFF", "TONE", "WAV", "FLAC", "MP3", "MOD", "SOUND", "TTS", "ARRAY", "SAMPLE", "BBC" or "DAC" (the DAC command), or "PAUSED" followed by a space and what is paused (eg, "PAUSED WAV").
 The name of the WAV, FLAC, MP3 or MOD file that is playing (or paused), or "OFF".
+
+=+= MM.INFO(TILE HEIGHT)
+--- keep
+The height of the tiles in the 1-bit colour depth (see TILE).
 
 =+= MM.INFO(UPTIME)
 --- keep

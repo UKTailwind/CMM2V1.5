@@ -1,5 +1,5 @@
 /* Rgb121.h - the PicoMite's RGB121 display: MODE n,4, its 4-bit pages, the merge onto the display and the PicoMite's
-   FRAMEBUFFER (Rgb121.c) */
+   FRAMEBUFFER (Rgb121.c), which MODE n,1 shares (Mono.h) */
 #ifndef RGB121_H
 #define RGB121_H
 #include <stdint.h>
@@ -8,8 +8,9 @@
 #define RGB121(c) ((((c) & 0x800000) >> 20) | (((c) & 0xC000) >> 13) | (((c) & 0x80) >> 7))
 // a colour as an 8-bit page holds it (RGB332)
 #define RGB332(c) ((((c) & 0xE00000) >> 16) | (((c) & 0xE000) >> 11) | (((c) & 0xC0) >> 6))
-// a colour as a page of one byte or less a pixel holds it: RGB121 in MODE n,4, RGB332 in the 8-bit modes
-#define NATIVE8(c) (VideoColour == 4 ? RGB121(c) : RGB332(c))
+// a colour as a page of one byte or less a pixel holds it: RGB121 in MODE n,4, 1 or 0 in MODE n,1 (set unless black),
+// RGB332 in the 8-bit modes
+#define NATIVE8(c) (VideoColour == 4 ? RGB121(c) : VideoColour == 1 ? (((c) & 0xFFFFFF) != 0) : RGB332(c))
 
 // the PicoMite's framebuffers in MODE n,4 are pages 0 to 4: N the display, L the layer, F the framebuffer, 2 the second
 // framebuffer, T the top layer (a bit of Rgb121Buffers each, set while it is created)

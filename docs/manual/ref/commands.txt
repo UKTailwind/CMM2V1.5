@@ -224,7 +224,7 @@ The optional parameter ‘colour’ defines a pixel colour on the source which w
 =+= BLIT FLASH n, to, xin, yin, xout, yout, width, height [,colour]
 ---
 Copies an area of the image held in image slot ‘n’ to a framebuffer or a page, as the PicoMite's BLIT FLASH does.  ‘n’ is 1 to 8: the image slots are loaded with FLASH LOAD IMAGE (see Image Slots in the chapter Video Modes and Pages).
-‘to’ is a framebuffer N, L, F, 2 or T, or a page number.  In a 4-bit mode a framebuffer that has not been created is N (but 2 is then an error); in the other colour depths N, L, F, 2 and T are the pages 0, 1, 2, 3 and 4.
+‘to’ is a framebuffer N, L, F, 2 or T, or a page number.  In a 4 or 1-bit mode a framebuffer that has not been created is N (but 2 is then an error); in the other colour depths N, L, F, 2 and T are the pages 0, 1, 2, 3 and 4.  In the 1-bit colour depth a pixel of the image that is not black is set.
 ‘xin’ and ‘yin’ define the top left of the area of ‘width’ and ‘height’ on the image to be copied, which must be within the image.  ‘xout’ and ‘yout’ define the top left of the area on the target to receive the copy; the copy is clipped to the target.
 The image's pixels are the PicoMite's 16 colours, drawn in the colour depth of the target.  The optional parameter ‘colour’ defines a pixel colour in the image which will not be copied.  If omitted (or -1) all pixels are copied.  The colour is specified as a number between 0 and 15 representing:\nBlack, Blue, Myrtle, Cobalt, Midgreen, Cerulean, Green, Cyan, Red, Magenta, Rust, Fuchsia, Brown, Lilac, Yellow and White
 
@@ -249,7 +249,7 @@ BOX OR_PIXELS x, y, w, h, colour [,page]
 or
 BOX XOR_PIXELS x, y, w, h, colour [,page]
 --- keep
-Executes the requested logical operation (AND, OR or exclusive OR) between each pixel in the area with its top left at ‘x’, ‘y’, ‘w’ pixels wide and ‘h’ pixels high, and the colour ‘colour’ (in the pixel format of the colour depth), and writes the result to the same area of the current write page.  The pixels are read from page ‘page’ (the write page if it is omitted; FRAMEBUFFER for the framebuffer).  The area is clipped to the page.
+Executes the requested logical operation (AND, OR or exclusive OR) between each pixel in the area with its top left at ‘x’, ‘y’, ‘w’ pixels wide and ‘h’ pixels high, and the colour ‘colour’ (in the pixel format of the colour depth), and writes the result to the same area of the current write page.  The pixels are read from page ‘page’ (the write page if it is omitted; FRAMEBUFFER for the framebuffer).  The area is clipped to the page.  They are not available in the 4 and 1-bit colour depths ("Invalid for this screen mode").
 In the 12-bit colour depth the operation includes the pixels' transparency, which RGB() sets to 15 (solid): eg, XOR_PIXELS with RGB(255,255,255) also makes the solid pixels transparent, and with &HFFFFFF changes only their colour.
 
 === BYTE(var$, byteno)=value
@@ -356,6 +356,7 @@ CLOSE GPS closes the serial port opened for a GPS receiver (OPEN ... AS GPS); GP
 --- keep
 Clears the screen (the page being written to: see PAGE WRITE) and moves the text position for PRINT to the top left.  Optionally 'colour' can be specified which will be used for the background colour when clearing the screen; otherwise the background colour set by COLOUR is used.  When the write page is page 0 the screen of the terminal emulator on the serial console is cleared too.
 In the 4-bit colour depth CLS without a colour clears a layer made by FRAMEBUFFER LAYER or FRAMEBUFFER LAYER TOP, while it is the write target, to its transparent colour.
+In the 1-bit colour depth CLS on the display (N) also gives every tile the foreground colour set by COLOUR and the background colour it clears to (see TILE).
 
 === COLOUR fore [, back]\nor\nCOLOR fore [, back]
 --- keep
@@ -766,7 +767,7 @@ See also the NEXT command.
 === FRAMEBUFFER
 --- keep
 This command allows you to create, use and remove a variable size framebuffer which should make many applications which have a working area bigger than the screen easier to program.  The framebuffer is held in the variable memory.
-These are the Colour Maximite 2's own FRAMEBUFFER commands, for all colour depths except 4 bits.  In the 4-bit colour depth FRAMEBUFFER is the PicoMite's (see below) and these forms are not available.
+These are the Colour Maximite 2's own FRAMEBUFFER commands, for all colour depths except 4 and 1 bits.  In the 4 and 1-bit colour depths FRAMEBUFFER is the PicoMite's (see below) and these forms are not available.
 While a framebuffer exists, a MODE command that changes the colour depth gives the error "Colour mismatch with framebuffer": use FRAMEBUFFER CLOSE first.  The framebuffer and its backup are deleted when the program ends (for any reason, including Ctrl-C) and by running a program.
 FRAMEBUFFER can be given as the page number to PAGE WRITE (which is the same as FRAMEBUFFER WRITE) and to the commands that read from a page, such as BLIT, SPRITE READ and the IMAGE commands.
 
@@ -778,7 +779,7 @@ FRAMEBUFFER CREATE with a framebuffer already there replaces it with the new siz
 =+= FRAMEBUFFER WRITE [F | N]
 --- keep
 Sets all drawing commands to write to the framebuffer and inherit its width and height (MM.HRES and MM.VRES report them).  PAGE WRITE n returns the drawing to a page.
-The PicoMite's letters are accepted too, as a letter or a string: FRAMEBUFFER WRITE F is the same as FRAMEBUFFER WRITE, and FRAMEBUFFER WRITE N draws on the display again, as PAGE WRITE 0 does.  The other letters are for the 4-bit colour depth only (see below).
+The PicoMite's letters are accepted too, as a letter or a string: FRAMEBUFFER WRITE F is the same as FRAMEBUFFER WRITE, and FRAMEBUFFER WRITE N draws on the display again, as PAGE WRITE 0 does.  The other letters are for the 4 and 1-bit colour depths only (see below).
 
 =+= FRAMEBUFFER BACKUP
 --- keep
@@ -800,7 +801,7 @@ Releases the memory used by the framebuffer and its backup, allowing a new frame
 
 === FRAMEBUFFER CREATE
 --- keep
-__IN THE 4-BIT COLOUR DEPTH ONLY__ In the 4-bit colour depth (MODE r, 4) the FRAMEBUFFER command is the PicoMite's, so that programs written for the PicoMite's VGA and HDMI versions work as they do there (see the chapter Video Modes and Pages).  Its framebuffers are pages 0 to 4: N (the display, page 0), L (the layer, page 1), F (the framebuffer, page 2), 2 (the second framebuffer, page 3) and T (the top layer, page 4).  They are held in the video memory, not in the variable memory, and MODE closes them.  Creating a buffer that exists already is an error.  BLIT FRAMEBUFFER, BLIT FLASH and TILEMAP use the same letters.
+__IN THE 4 AND 1-BIT COLOUR DEPTHS ONLY__ In the 4-bit colour depth (MODE r, 4) and the 1-bit colour depth (MODE r, 1) the FRAMEBUFFER command is the PicoMite's, so that programs written for the PicoMite's VGA and HDMI versions work as they do there (see the chapter Video Modes and Pages).  In the 1-bit depth a buffer holds a bit a pixel, as the display does, and a pixel drawn in any colour but black is set.  Its framebuffers are pages 0 to 4: N (the display, page 0), L (the layer, page 1), F (the framebuffer, page 2), 2 (the second framebuffer, page 3) and T (the top layer, page 4).  They are held in the video memory, not in the variable memory, and MODE closes them.  Creating a buffer that exists already is an error.  BLIT FRAMEBUFFER, BLIT FLASH and TILEMAP use the same letters.
 A colour given as a number from 0 to 15 is one of the 16 colours: 0 black, 1 blue, 2 myrtle, 3 cobalt, 4 midgreen, 5 cerulean, 6 green, 7 cyan, 8 red, 9 magenta, 10 rust, 11 fuchsia, 12 brown, 13 lilac, 14 yellow and 15 white (unless changed by MAP).
 FRAMEBUFFER CREATE creates the framebuffer F, cleared to black, with the resolution of the current mode.  It takes no size (the Colour Maximite 2's FRAMEBUFFER CREATE w, h gives the error "Unexpected text" in this depth).
 
@@ -811,10 +812,12 @@ Creates the second framebuffer "2", cleared to black, with the resolution of the
 =+= FRAMEBUFFER LAYER [colour]
 --- keep
 Creates the layer buffer L with the resolution of the current mode.  The layer is shown over the display N automatically: at the end of each frame the firmware puts the two onto the screen, the pixels of the layer that are of the transparent colour ‘colour’ (0 to 15, default 0) letting N show through.  The layer is cleared to that colour, as CLS without a colour does while the layer is the write target.
+In the 1-bit colour depth the layer has no transparent colour (‘colour’ is not used): it is ORed with N, a pixel set in either showing its tile's foreground colour, as on the PicoMite.
 
 =+= FRAMEBUFFER LAYER TOP [colour]
 --- keep
 Creates the top layer T with the resolution of the current mode.  It is shown over the layer L (where that has been created) and N in the same way, its pixels of the transparent colour ‘colour’ (0 to 15, default 0) letting what is under them show through.  It is cleared to that colour.
+In the 1-bit colour depth T can be created and drawn on but, as on the PicoMite, it is not shown.
 
 =+= FRAMEBUFFER WRITE where
 or
@@ -838,7 +841,7 @@ Pauses processing until the next frame blanking starts.
 
 =+= FRAMEBUFFER MERGE [colour] [, B]
 --- keep
-Copies framebuffer "2" over framebuffer F into the display N in a single pass.  Pixels in "2" that are of the transparent colour ‘colour’ (0 to 15, default 0) show the F pixel instead.  Both must have been created.  The layers L and T are not involved and continue to be applied over the result.
+Copies framebuffer "2" over framebuffer F into the display N in a single pass.  Pixels in "2" that are of the transparent colour ‘colour’ (0 to 15, default 0) show the F pixel instead.  Both must have been created.  The layers L and T are not involved and continue to be applied over the result.  In the 1-bit colour depth N is F ORed with "2" (‘colour’ is not used).
 If the optional parameter B is specified the merge waits until the next frame blanking starts before it begins, so that tearing is avoided.  This is the alternative to a live layer for programs that draw sprites over a background: the display only changes when MERGE is commanded.
 
 === FUNCTION xxx (arg1 [,arg2, …]) [AS <type>]\n   <statements>\n   <statements>\n   xxx = <return value>\nEND FUNCTION
@@ -944,7 +947,7 @@ GUI CLICK, DOWN and UP cannot be used in an interrupt routine.
 
 === GUI CURSOR ON [n [,x, y [,colour]]]
 --- keep tight
-Displays and manipulates a cursor (eg, a mouse pointer) on the screen.  The cursor sits above all other graphics and nothing can overwrite it.  It is drawn on page 0 (page 1 in the 12-bit colour depth) and it is not available in the 4-bit colour depth ("Invalid for this screen mode").
+Displays and manipulates a cursor (eg, a mouse pointer) on the screen.  The cursor sits above all other graphics and nothing can overwrite it.  It is drawn on page 0 (page 1 in the 12-bit colour depth) and it is not available in the 4 and 1-bit colour depths ("Invalid for this screen mode").
 GUI CURSOR ON enables and displays the cursor.  ‘n’ is the cursor number: 0 is a mouse type pointer (the default), 1 is a cross hair and 2 is a user defined cursor previously loaded with GUI CURSOR LOAD.  ‘x’ and ‘y’ specify the initial position of the cursor's active point (the top left corner of the screen if omitted) and ‘colour’ can be used to override the default white colour of cursors 0 and 1.  If the cursor is already on the command does nothing.
 
 =+= GUI CURSOR x, y
@@ -1075,7 +1078,7 @@ Evaluates 'expression' and performs the statement(s) following THEN if the expre
 --- keep
 The IMAGE commands resize, rotate and warp a rectangular part of the image on a page.  The image is read from the write page, or from the page given by ‘page’, and written to the write page as specified by the PAGE WRITE command.  ‘page’ can also be FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
 The area read must lie within the page it is read from and the top left corner of the area written must lie on the write page.  If ‘flag’ is set to 1 then black pixels are not written.
-The IMAGE commands are not available in the 4-bit colour depth ("Invalid for this screen mode").
+The IMAGE commands are not available in the 4 and 1-bit colour depths ("Invalid for this screen mode").
 
 =+= IMAGE RESIZE x, y, width, height, new_x, new_y, new_width, new_height [, page] [, flag]
 or
@@ -1247,7 +1250,7 @@ The same as FILES.
 
 =+= LIST PAGES
 --- keep
-Lists the video pages of the current mode (see MODE and PAGE): for each its number, address, width, height and size in bytes (in hexadecimal), and whether its lines are each shown twice on the screen (2) or once (1).  In the 4-bit colour depth it also gives the address of the display that MMBasic builds from the pages.
+Lists the video pages of the current mode (see MODE and PAGE): for each its number, address, width, height and size in bytes (in hexadecimal), and whether its lines are each shown twice on the screen (2) or once (1).  In the 4 and 1-bit colour depths it also gives the address of the display that MMBasic builds from the pages, and in the 1-bit depth the address of the tiles' colours.
 
 =+= LIST PROFILE
 or
@@ -1423,7 +1426,7 @@ Terminates a program loop:  see DO.
 
 === MAP
 --- keep
-The MAP commands set the colours used in the 8-bit and 4-bit colour depths.  Each value in the palette (0 to 255 in the 8-bit depth, 0 to 15 in the 4-bit depth) can be set to any 24-bit colour.  They are refused in the other colour depths.
+The MAP commands set the colours used in the 8-bit and 4-bit colour depths.  Each value in the palette (0 to 255 in the 8-bit depth, 0 to 15 in the 4-bit depth) can be set to any 24-bit colour.  They are refused in the other colour depths (in the 1-bit depth the colours are the tiles': see TILE).
 
 =+= MAP( n ) = rgb%
 --- keep
@@ -1861,19 +1864,21 @@ Sets the resolution and the colour depth of the VGA video output.
 {b=0 a=0 l=720}17 = 384 x 240 pixels
 {b=0 a=0 l=720}18 = 1024 x 600 pixels
 All resolutions except 10, 11, 12, 14 and 16 work perfectly with monitors that have an aspect ratio of 4:3 or widescreen monitors that can switch to that ratio (most widescreen monitors will do this automatically).
-‘bits’ is the colour depth.  It can be 4, 8, 12, 16 or 32 and is 8 if it is left out:
+‘bits’ is the colour depth.  It can be 1, 4, 8, 12, 16 or 32 and is 8 if it is left out:
+{b=0 a=0 l=720}1 = a bit a pixel, eight pixels to a byte, each in its tile's colours: the PicoMite's MODE 1 (see below)
 {b=0 a=0 l=720}4 = RGB121, 16 colours, two pixels to a byte: the PicoMite's 16 colour display (see below)
 {b=0 a=0 l=720}8 = RGB332, 256 colours, each of which can be changed with the MAP command
 {b=0 a=0 l=720}12 = ARGB4444, 4096 colours with 16 levels of transparency, in two layers over a background colour
 {b=0 a=0 l=720}16 = RGB565, 65,536 colours
 {b=0 a=0 l=720}32 = ARGB8888, 16,777,216 colours (Generation 2 only)
-Not every combination is available: modes 9, 11 and 12 have no 12 or 32-bit depth, modes 15 and 16 have the 8-bit depth only, and the 4-bit depth is not available in modes 9, 11, 12, 15, 16 and 18.  With OPTION LEGACY ON only the 8-bit depth can be used.
+Not every combination is available: modes 9, 11 and 12 have no 12 or 32-bit depth, modes 15 and 16 have the 8 and 1-bit depths only, and the 4-bit depth is not available in modes 9, 11, 12, 15, 16 and 18.  The 1-bit depth is available in every mode.  With OPTION LEGACY ON only the 8-bit depth can be used.
 ‘bg’ is the background colour and can be used in the 12-bit depth.  If the pixels in page 0 (the lower layer) are not set to solid (transparency = 15) then the background will show through as determined by the transparency value of the pixel.  This parameter is ignored in the other depths.
 ‘int’ is a subroutine that will be called at the start of each frame blanking (useful for updating the screen without tearing).  A MODE command without it cancels the interrupt.  To give ‘int’ without a background colour leave ‘bg’ out (MODE r, bits, , int) or give 0.
 MODE sets the colours to white on black and the default font for the resolution: font 7 in modes 3, 5, 6, 7, 13 and 17, font 4 in modes 9, 11, 15 and 18, font 3 in mode 16 and font 1 in the others.  When it changes the resolution or the colour depth it also clears the screen and makes page 0 the write page.  A change of colour depth also closes the sprites and deletes a cursor loaded by GUI CURSOR LOAD, as they are held in the pixel format of the old depth.
 A program is started (RUN) in the default mode, MODE 1 or the mode set by OPTION DEFAULT MODE with the 8-bit depth, and the display returns to it when the program ends.
 The display always shows the contents of page 0 (pages 0 and 1 in the 12-bit depth, page 1 being the upper layer) unless overridden with the PAGE DISPLAY command.  Use PAGE WRITE and PAGE COPY to avoid the artefacts of flashing and tearing.  The pages available in each mode and colour depth, and how to PEEK and POKE them, are listed in the chapter Video Modes and Pages.  MM.INFO(MAX PAGES) returns the highest page number in the current mode.
 The 4-bit depth gives the display of the PicoMite's VGA and HDMI versions in their 16 colour modes: MODE 7,4 (320 x 240) is the PicoMite's MODE 2 and MODE 8,4 (640 x 480) is its MODE 3.  Its 16 colours can be changed with MAP and its FRAMEBUFFER command is the PicoMite's (see FRAMEBUFFER).  PAGE DISPLAY and the IMAGE commands are not available in it.
+The 1-bit depth gives the PicoMite's MODE 1: MODE 8,1 (640 x 480) is the PicoMite's MODE 1 on its VGA version and at 640 x 480 on its HDMI version.  A pixel is set or clear, and the screen is divided into tiles 8 pixels wide and TILE HEIGHT tall, each with a foreground colour for its set pixels and a background colour for the others (see TILE).  Its FRAMEBUFFER command is the PicoMite's.  MAP, PAGE DISPLAY, the IMAGE commands, GUI CURSOR and RAY are not available in it.  MODE r,1 clears the screen and resets the tiles even when that mode is already set, as the PicoMite's MODE does.
 
 === MOUSE INTERRUPT ENABLE channel, int
 or
@@ -1985,7 +1990,7 @@ The port takes the first free file number.  It is closed with CLOSE GPS, and PRI
 === PAGE
 --- keep
 The PAGE commands manage the video pages.  Building an image on a page that is not displayed and then copying it to the display page avoids flashing and tearing.  The pages available in each mode and colour depth are listed in the chapter Video Modes and Pages, and MM.INFO(MAX PAGES) returns the highest page number in the current mode.
-In the 4-bit colour depth only PAGE WRITE, PAGE COPY and PAGE SCROLL are available (the others give the error "Invalid for this screen mode").  There pages 0 to 4 are the PicoMite's framebuffers N, L, F, 2 and T (see the FRAMEBUFFER command).
+In the 4 and 1-bit colour depths only PAGE WRITE, PAGE COPY and PAGE SCROLL are available (the others give the error "Invalid for this screen mode").  There pages 0 to 4 are the PicoMite's framebuffers N, L, F, 2 and T (see the FRAMEBUFFER command).
 
 =+= PAGE WRITE n
 or
@@ -2339,7 +2344,7 @@ This does not affect the RND function: RND uses the hardware random number gener
 
 === RAY subcommand
 --- keep
-The raycaster, the PicoMite's: a first-person view of a map of walls, with a patterned floor and ceiling, sliding doors and sprites, in every colour depth.  Its commands are RAY MAP, RAY DEFINE, RAY COLOUR, RAY CAMERA, RAY MOVE, RAY TURN, RAY CELL, RAY CAST, RAY DOOR, RAY SPRITE, RAY MINIMAP, RAY RENDER and RAY CLOSE.  See Appendix P.
+The raycaster, the PicoMite's: a first-person view of a map of walls, with a patterned floor and ceiling, sliding doors and sprites, in every colour depth but the 1-bit one.  Its commands are RAY MAP, RAY DEFINE, RAY COLOUR, RAY CAMERA, RAY MOVE, RAY TURN, RAY CELL, RAY CAST, RAY DOOR, RAY SPRITE, RAY MINIMAP, RAY RENDER and RAY CLOSE.  See Appendix P.
 
 === RBOX  x,  y,  w,  h  [, r]  [,c] [,fill]
 {}
@@ -2814,6 +2819,19 @@ TIME$ = sec
 Sets the time of the internal clock.  MM and SS are optional and will default to zero if not specified.  For example TIME$ = "14:30" will set the clock to 14:30 with zero seconds.
 TIME$ = sec, where ‘sec’ is a number rather than a string, adds ‘sec’ seconds to the current time (or subtracts them when it is negative), which makes it easy to fine tune the clock; the date changes too if the adjustment crosses midnight.
 The clock is the battery backed real time clock of the processor, or the DS3231 of a Generation 2 with OPTION DS3231 ON, so the time is kept while the power is off (see Backup Battery in the chapter *Hardware Features*).  The time is "00:00:00" when the clock is first powered.
+
+=== TILE x, y [, foreground] [, background] [, w] [, h]
+or
+TILE RESET
+or
+TILE HEIGHT h
+--- keep
+The PicoMite's MODE 1 tiles, in the 1-bit colour depth (MODE r,1) only: elsewhere the error is "Invalid for this screen mode".  The screen is divided into tiles 8 pixels wide and TILE HEIGHT pixels tall, each with its own foreground colour, which its set pixels show, and background colour, which the others show.  A pixel drawn in any colour but black is set, so the colour it is seen in is its tile's foreground colour.
+TILE x, y sets the colours of the tile ‘x’ across and ‘y’ down (counting from 0), or of ‘w’ tiles across and ‘h’ down from it.  A colour that is left out stays as it is.
+Text drawn by PRINT or TEXT that lines up with the tiles (its left edge on a multiple of 8, its top on a multiple of the tile height, and its width and height whole tiles) also sets the tiles it covers to its foreground and background colours.  A transparent background (-1) leaves the tiles' background colours as they are.
+TILE RESET gives every tile the default colours: white on black.
+TILE HEIGHT h sets the height of the tiles to ‘h’ (8 to the height of the screen) and clears the screen.  MODE sets it to the height of the font.  MM.INFO(TILE HEIGHT) returns it.
+The tiles' colours are held to 15 bits (RGB555), as on the PicoMite's HDMI version.  Up to 256 different colours can be on the screen at once: beyond that a new colour is shown as the nearest one in use.
 
 === TILEMAP
 --- keep

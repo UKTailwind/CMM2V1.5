@@ -1112,6 +1112,11 @@ void MIPS16 cmd_list(void) {
     		MMPrintString("Display at &H");PIntH((uint32_t)Rgb121Display);
     		MMPrintString(", 8-bit: N (page 0) with L (1) and T (4) over it\r\n");
     	}
+    	if(VideoColour==1){                                         // (Mono.c)
+    		MMPrintString("Display at &H");PIntH((uint32_t)Rgb121Display);
+    		MMPrintString(", 8-bit: N (page 0) with L (1) ORed in; tile colours at &H");PIntH((uint32_t)MonoTileF);
+    		PRet();
+    	}
     	MMPrintString("Page no.   Page Address   Width   Height   Size   Lines");PRet();
     	for(int i=0;i<=LastPage;i++){
     		putConsole(' ');

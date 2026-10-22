@@ -25,15 +25,16 @@ Peter, 22 Oct 2026:
    - CLS clears the whole screen, so nothing is left in the spare border.
 4. **The PicoMite's area is at the top left** of the larger screen. There is no offset ("adding an offset just adds
    complexity").
-5. **MODE 1 is to be discussed** (section 5).
+5. **MODE 1 is a new 1-bit depth, MODE n,1** (Peter, 22 Oct 2026: "do B immediately"). Built the same day:
+   section 5.
 6. **The resolution** (Peter, 22 Oct 2026, the open questions answered):
    - OPTION PICOMITE HDMI or VGA takes the PicoMite's resolution as a second argument, with 640x480 the default
      (`OPTION PICOMITE HDMI, 1280x720`).
    - **The RESOLUTION command is to be implemented as well**, because it can be run in a program as MODE can. It
      changes the resolution the mapping uses, and so the CMM2 mode, and leaves MODE 1, as the PicoMite's RESOLUTION
      does (Draw.c:5185-5251).
-7. **A program with no MODE statement runs in MODE 1** (mapped as section 5 decides), as on a PicoMite booted in its
-   default mode. What that looks like is part of the MODE 1 discussion.
+7. **A program with no MODE statement runs in MODE 1** (mapped to n,1 as section 5 says), as on a PicoMite booted in
+   its default mode.
 8. **The end of a program:**
    - On the PicoMite the program's mode stays at the prompt (Commands.c:4107-4109), until EDIT or FM is entered;
      those go back to MODE 1.
@@ -146,7 +147,7 @@ Depth:
 - a PicoMite 4-bit mode becomes the CMM2's 4-bit depth: the same pixels, and the PicoMite's FRAMEBUFFER, L and T;
 - 8-bit becomes 8-bit (RGB332 and MAP);
 - RGB555 becomes 16-bit (RGB565);
-- MODE 1 is in section 5.
+- MODE 1 becomes the CMM2's 1-bit depth (section 5): the same bits, tiles and FRAMEBUFFER.
 
 Size: the same size where the CMM2 has it, otherwise the next bigger (decision 2). "Spare" is what the larger CMM2
 screen has beyond the PicoMite's area.
@@ -170,18 +171,18 @@ screen has beyond the PicoMite's area.
 | 256x192 (MODE 2, 5 at 1024x768, HDMI) | 6,4 / 6,8 | 0 x 48 | 256x240 |
 | 512x384 (MODE 3 at 1024x768, HDMI) | 2,4 | 128 x 16 | 640x400 |
 
-MODE 1, at full resolution, would go to:
+MODE 1, at full resolution, goes to (the 1-bit depth is in every CMM2 mode):
 
 | Size | CMM2 MODE | Note |
 |---|---|---|
-| 640x480 | 8 | exact |
-| 720x400 | 10 | 848x480, next bigger |
-| 800x600 | 1 | exact |
-| 848x480 | 10 | exact |
-| 800x480 | 10 | 848x480, next bigger |
-| 1024x600 | 18 | exact; no 4-bit there |
-| 1280x720 | 11 | exact; 8 or 16-bit only |
-| 1024x768 | 9 | exact; 8 or 16-bit only |
+| 640x480 | 8,1 | exact |
+| 720x400 | 10,1 | 848x480, next bigger |
+| 800x600 | 1,1 | exact |
+| 848x480 | 10,1 | exact |
+| 800x480 | 10,1 | 848x480, next bigger |
+| 1024x600 | 18,1 | exact |
+| 1280x720 | 11,1 | exact; the display in SDRAM |
+| 1024x768 | 9,1 | exact; the display in SDRAM |
 
 **What still differs, whatever the mapping:**
 - **Frame rates:** 640x480 at 252 or 378 MHz is 60 Hz on the PicoMite and 75 Hz here; 800x600 is 56 against 60;
@@ -191,9 +192,29 @@ MODE 1, at full resolution, would go to:
   page 0 doubles its rows in modes 3, 5, 6, 7, 12, 13 and 17.
 - **MAP in 4-bit** takes any colour here; on VGA it picks among the 16 hardware colours.
 
-## 5. MODE 1, to be discussed
+## 5. MODE 1: the 1-bit depth, MODE n,1 (decided and built 22 Oct 2026)
 
 MODE 1 is the PicoMite's default mode, so it is also what a program with no MODE statement runs in.
+
+**Decided:** B below as it was put to Peter on 22 Oct (not the table's B): a new colour depth, 1 bit, built on the
+4-bit depth's machinery. Src/Mono.c has the drawing set and TILE; Src/Rgb121.c the merge and the PicoMite's
+FRAMEBUFFER, shared with the 4-bit depth.
+- The pages hold the PicoMite's MODE 1 bits (the leftmost pixel in bit 0, a row HRES/8 bytes).
+- Each tile's colours are CLUT entries, kept to RGB555 as on the PicoMite's HDMI 640x480 and given entries as they are
+  first used (past 256, entries no tile uses are reused, then the nearest colour).
+- A frame-end merge (the 4-bit depth's CEC_IRQn software interrupt, ITCM) writes N ORed with L into the 8-bit display,
+  a byte (8 pixels of one tile) at a time, only after something was drawn (and every 16th frame for a CSUB's writes).
+- The display is in AXI SRAM where it fits and at the start of SDRAM otherwise (9, 11, 15, 16).
+- Every CMM2 mode can be 1-bit. TILE HEIGHT is 8 to the screen's height (HDMI's minimum), TILE RESET uses the defaults
+  (HDMI's).
+- Kept from the PicoMite: LAYER TOP is created and not shown; MAP, PAGE DISPLAY, IMAGE, GUI CURSOR refused.
+- Not copied (PicoMite #124-#129): a transparent background leaves the tiles' background as it is (#124); TILE's
+  range is the HDMI one (#125); BLIT moves the tile colours in every direction (#126); BLIT FLASH sets the pixels
+  that are not 0 and RAY is refused (#127).
+- tests/cmm2/mode1.bas checks it in MODE 8,1, 7,1 (rows doubled) and 11,1 (the display in SDRAM);
+  tests/display/mode1_demo.bas is a demonstration to look at.
+
+The options as first written down, kept for the record:
 
 **What it is:**
 - one bit per pixel;

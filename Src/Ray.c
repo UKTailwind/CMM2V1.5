@@ -138,6 +138,7 @@ typedef struct {
 } RayPage;
 
 static void RayPageGet(RayPage *pg) {
+    if(VideoColour == 1) error("Invalid for this screen mode");    // (a bit a pixel: the PicoMite's writes 4-bit rows over it)
     pg->base = PageTable[WritePage].address;
     pg->w = PageTable[WritePage].xmax;
     pg->h = PageTable[WritePage].ymax;
@@ -189,7 +190,7 @@ static void RayDouble(RayPage *pg, int y1, int y2) {
 // the mouse pointer, where it is drawn on the page about to be written (DrawPixel leaves its pixels alone): hidden, then
 // shown again (the 4-bit depth has none)
 static int RayHidePointer(void) {
-    if(VideoColour == 4 || !cursoron || WritePage != (VideoColour == 12 ? 1 : 0)) return 0;
+    if(VideoColour < 8 || !cursoron || WritePage != (VideoColour == 12 ? 1 : 0)) return 0;
     hidecursor(0);
     return 1;
 }

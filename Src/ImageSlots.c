@@ -724,6 +724,23 @@ void ImageSlotBlit(const uint8_t *src, int srcw, int srch, int sx, int sy, int w
         }
         return;
     }
+    if(VideoColour == 1) {                                          // a 1-bit page: a value not 0 sets the pixel (Mono.c;
+        for(int y = 0; y < h; y++) {                                // the PicoMite's MODE 1 writes 4-bit rows over it)
+            const uint8_t *s = src + (sy + y) * stride;
+            int py = dy + y;
+            if(optiony) py = maxH - 1 - py;
+            uint8_t *d = base + py * (maxW >> 3);
+            for(int x = 0; x < w; x++) {
+                int sxx = sx + x, dxx = dx + x;
+                int v = (s[sxx >> 1] >> ((sxx & 1) << 2)) & 0xF;
+                if(v == transparent) continue;
+                if(v) d[dxx >> 3] |= 1 << (dxx & 7);
+                else d[dxx >> 3] &= ~(1 << (dxx & 7));
+            }
+        }
+        MonoDirty = 1;
+        return;
+    }
     for(int i = 0; i < 16; i++) native[i] = ImageNative(Rgb121Colours[i]);
     for(int y = 0; y < h; y++) {
         const uint8_t *s = src + (sy + y) * stride;
@@ -752,7 +769,7 @@ void BlitFlash(char *p) {
     getargs(&p, 17, ",");
     if(!(argc == 15 || argc == 17)) error("Syntax");
     s = ImageSlotPixels(getint(argv[0], 1, MAXIMAGESLOTS), &sw, &sh, "Invalid Image");
-    if(VideoColour == 4 && checkstring(argv[2], "2") && !(Rgb121Buffers & (1 << RGB121_2))) error("Frame buffer 2 not created");
+    if(VideoColour < 8 && checkstring(argv[2], "2") && !(Rgb121Buffers & (1 << RGB121_2))) error("Frame buffer 2 not created");
     if((page = Rgb121Letter(argv[2])) < 0) page = getint(argv[2], 0, LastPage);
     x1 = getinteger(argv[4]);
     y1 = getinteger(argv[6]);

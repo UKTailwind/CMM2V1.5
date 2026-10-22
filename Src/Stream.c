@@ -1056,7 +1056,7 @@ static const struct
 } RBInfoKw[] = {
     {"FONTWIDTH", T_INT}, {"FONTHEIGHT", T_INT}, {"FONT", T_INT}, {"FCOLOUR", T_INT}, {"FCOLOR", T_INT},
     {"BCOLOUR", T_INT}, {"BCOLOR", T_INT}, {"HEAP", T_INT}, {"HPOS", T_INT}, {"VPOS", T_INT},
-    {"WRITEBUFF", T_INT}, {"STACK", T_INT}, {"FLASH ADDRESS", T_INT}, {"FILESIZE", T_INT},
+    {"WRITEBUFF", T_INT}, {"TILE HEIGHT", T_INT}, {"STACK", T_INT}, {"FLASH ADDRESS", T_INT}, {"FILESIZE", T_INT},
     {"DISK SIZE", T_INT}, {"FREE SPACE", T_INT}, {"ERRNO", T_INT}, {"UPTIME", T_NBR}, {"CPUSPEED", T_INT},
     {"PATH", T_STR}, {"SOUND", T_STR}, {"ERRMSG", T_STR}, {"SYSTEM I2C", T_STR},
 }; // (the CMM2's fun_info: CPUSPEED is a number here; it has no PINNO, LCDPANEL or PS2)

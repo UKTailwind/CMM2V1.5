@@ -548,7 +548,7 @@ void cmd_cursor(char *p){
     tp = checkstring(p, "ON");
     if(tp) {
     	int x=0,y=0;
-    	if(VideoColour==4)error("Invalid for this screen mode");
+    	if(VideoColour<8)error("Invalid for this screen mode");
     	getargs(&tp,7,",");
     	if(cursorenable)return;
 		cursorcolour32=0xFFFEFEFE;
@@ -863,6 +863,10 @@ void PageCopy(uint32_t fadd, uint32_t tadd, int transparent){
 		Rgb121PageCopy(fadd, tadd, transparent);
 		return;
 	}
+	if(VideoColour==1){                                            // 1-bit pages (Mono.c)
+		MonoPageCopy(fadd, tadd, transparent);
+		return;
+	}
 	uint8_t writesave=WritePage, readsave=ReadPage;
 	transparent = (transparent<<2);
 	int copymode=PageTable[fadd].expand | ((PageTable[tadd].expand)<<1) | transparent;
@@ -919,7 +923,7 @@ void PageDisplayOn(void){
 }
 void cmd_framebuffer(void){
 	char *p;
-	if(VideoColour==4){                                            // a 4-bit mode: the PicoMite's FRAMEBUFFER (Rgb121.c)
+	if(VideoColour<8){                                             // a 4 or 1-bit mode: the PicoMite's FRAMEBUFFER (Rgb121.c)
 		Rgb121Framebuffer();
 		return;
 	}
@@ -1841,7 +1845,7 @@ void fun_3D(void){
 }
 void cmd_image(void){
 	char *p;
-	if(VideoColour==4)error("Invalid for this screen mode");
+	if(VideoColour<8)error("Invalid for this screen mode");
 	if((p=checkstring(cmdline, "ROTATE_FAST"))) {
     	int dontcopyblack=0;
     	getargs(&p,17,",");
@@ -2564,6 +2568,7 @@ uint32_t GetPageAddress(int page){
 void fun_clut(void){
 	int cl=getint(ep,0,255);
 	targ=T_INT;
+	if(VideoColour==1)error("Invalid for this screen mode");       // (the PicoMite's MODE 1: "Invalid for Mode")
 	if(VideoColour==4){                                            // the PicoMite's: the colour its RGB121 makes cl of
 		if(cl>15)error("Mode has 16 colours - 0 to 15");
 		iret=((cl & 0b1000)<<20) | ((cl & 0b110)<<13) | ((cl & 0b1)<<7);
@@ -2573,6 +2578,7 @@ void fun_clut(void){
 }
 void cmd_clut(void){
 	char *p;
+	if(VideoColour==1)error("Invalid for this screen mode");       // (the CLUT is the tiles': Mono.c)
     if((p=checkstring(cmdline, "SET"))) {
 		pagesetdone=0;
 		while(!pagesetdone)CheckAbort();
@@ -2647,8 +2653,8 @@ void cmd_page(void){
 	int cursorhidden=0;
 	int maxH=PageTable[WritePage].ymax;
     int maxW=PageTable[WritePage].xmax;
-    if(VideoColour==4 && !(checkstring(cmdline, "WRITE") || checkstring(cmdline, "COPY") || checkstring(cmdline, "SCROLL")))
-    	error("Invalid for this screen mode");                       // a 4-bit mode: PAGE WRITE, COPY and SCROLL (Rgb121.c)
+    if(VideoColour<8 && !(checkstring(cmdline, "WRITE") || checkstring(cmdline, "COPY") || checkstring(cmdline, "SCROLL")))
+    	error("Invalid for this screen mode");                       // a 4 or 1-bit mode: PAGE WRITE, COPY and SCROLL (Rgb121.c)
     p = checkstring(cmdline, "DISPLAY");
     if(p) {
     	int LayerIDX=LTDC_LAYER_1;
@@ -3380,6 +3386,7 @@ static uint8_t *fillseen;
 static inline uint32_t FillRead(int x, int y) {
 	if(optiony) y = fillmaxh - 1 - y;
 	if(VideoColour == 4) return (((uint8_t *)fillwpa)[y * ((fillmaxw + 1) >> 1) + (x >> 1)] >> ((x & 1) << 2)) & 0xF;
+	if(VideoColour == 1) return (((uint8_t *)fillwpa)[y * (fillmaxw >> 3) + (x >> 3)] >> (x & 7)) & 1;
 	if(VideoColour == 8) return *(uint8_t *)((y * fillscale * fillmaxw + x) + fillwpa);
 	else if(VideoColour <= 16) return *(uint16_t *)((y * fillscale * fillmaxw + x) * 2 + fillwpa);
 	else return *(uint32_t *)((y * fillscale * fillmaxw + x) * 4 + fillwpa) & fillmask;
@@ -4416,6 +4423,8 @@ void cmd_box(void) {
     long long int *x1ptr, *y1ptr, *wiptr, *hptr, *wptr, *cptr, *fptr;
     MMFLOAT *x1fptr, *y1fptr, *wifptr, *hfptr, *wfptr, *cfptr, *ffptr;
     char *tp;
+	if(VideoColour<8 && (checkstring(cmdline, "AND_PIXELS") || checkstring(cmdline, "OR_PIXELS") || checkstring(cmdline, "XOR_PIXELS")))
+		error("Invalid for this screen mode");                      // (a byte or more a pixel: not the 4 and 1-bit pages)
 	if((tp = checkstring(cmdline, "AND_PIXELS"))) {
 		uint64_t ConvertedColour;
 		int f, red, blue, green, trans, size;
@@ -5175,6 +5184,10 @@ void fun_mmcharheight(void) {
 void ClearScreen(int c) {
 	int maxH=PageTable[WritePage].ymax;
     int maxW=PageTable[WritePage].xmax;
+	if(VideoColour==1){                                            // N: the tiles too (Mono.c)
+		MonoClearScreen(c);
+		return;
+	}
 	DrawRectangle(0, 0, maxW - 1, maxH - 1, c);
 }
 

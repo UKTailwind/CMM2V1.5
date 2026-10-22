@@ -31,14 +31,14 @@ The GETSCANLINE function returns the line of the monitor that is being drawn. It
 
 ## Colour Depths
 
-{widths: 16,17,17,17,17,16}
-| | 32-bit (G2) | 16-bit | 12-bit | 8-bit | 4-bit |
-|---|---|---|---|---|---|
-| Pixel format | ARGB8888 | RGB565 | ARGB4444 | RGB332 | RGB121 |
-| Bits per pixel | 32 (4 bytes) | 16 (2 bytes) | 16 (2 bytes) | 8 (1 byte) | 4 (two pixels a byte) |
-| Colours | 16,777,216 | 65,536 | 4,096 | 256 | 16 |
-| Transparency | None | None | 16 levels | None | In the layers |
-| Pages displayed | 1 | 1 | 2 + background | 1 | 1 to 3 (the layers) |
+{widths: 14,14,14,14,14,15,15}
+| | 32-bit (G2) | 16-bit | 12-bit | 8-bit | 4-bit | 1-bit |
+|---|---|---|---|---|---|---|
+| Pixel format | ARGB8888 | RGB565 | ARGB4444 | RGB332 | RGB121 | Set or clear |
+| Bits per pixel | 32 (4 bytes) | 16 (2 bytes) | 16 (2 bytes) | 8 (1 byte) | 4 (two pixels a byte) | 1 (eight pixels a byte) |
+| Colours | 16,777,216 | 65,536 | 4,096 | 256 | 16 | Two in each tile, 256 on the screen |
+| Transparency | None | None | 16 levels | None | In the layers | None (the layer is ORed) |
+| Pages displayed | 1 | 1 | 2 + background | 1 | 1 to 3 (the layers) | 1 or 2 (the layer) |
 
 The 32-bit depth is available on the Generation 2 only.
 
@@ -46,7 +46,7 @@ The 12-bit depth is particularly useful for games: it supports 4096 colours with
 
 In the 8-bit depth each of the 256 colours can be changed with the MAP command.
 
-The 4-bit depth is the PicoMite's 16 colour display: see The PicoMite's 16 Colour Display below.
+The 4-bit depth is the PicoMite's 16 colour display: see The PicoMite's 16 Colour Display below. The 1-bit depth is the PicoMite's MODE 1: see The PicoMite's MODE 1 below.
 
 ## Pages
 
@@ -54,27 +54,27 @@ In addition to the page that is displayed there are many extra video pages that 
 
 The pages available in each mode and colour depth are (Generation 1 / Generation 2):
 
-{widths: 9,15,19,19,19,19}
-| Mode | 32-bit (G2) | 16-bit | 12-bit | 8-bit | 4-bit (G2) |
-|---|---|---|---|---|---|
-| 1 | 0 to 2 | 0-2 / 0-6 | 0-2 / 0-6 | 0-6 / 0-15 | 0 to 28 |
-| 2 | 0 to 6 | 0-6 / 0-14 | 0-6 / 0-14 | 0-13 / 0-29 | 0 to 57 |
-| 3 | 0 to 27 | 0-25 / 0-57 | 0-24 / 0-56 | 0-53 / 0-60 | 0 to 60 |
-| 4 | 0 to 7 | 0-7 / 0-17 | 0-7 / 0-17 | 0-15 / 0-35 | 0 to 60 |
-| 5 | 0 to 33 | 0-30 / 0-60 | 0-29 / 0-60 | 0-60 / 0-60 | 0 to 60 |
-| 6 | 0 to 28 | 0-26 / 0-60 | 0-25 / 0-59 | 0-53 / 0-60 | 0 to 60 |
-| 7 | 0 to 20 | 0-19 / 0-46 | 0-18 / 0-45 | 0-41 / 0-60 | 0 to 60 |
-| 8 | 0 to 4 | 0-4 / 0-10 | 0-4 / 0-10 | 0-10 / 0-23 | 0 to 47 |
-| 9 | - | 0-1 / 0-3 | - | 0-3 / 0-8 | - |
-| 10 | 0 to 3 | 0-2 / 0-7 | 0-2 / 0-7 | 0-7 / 0-17 | 0 to 34 |
-| 11 | - | 0 / 0-2 | - | 0-2 / 0-6 | - |
-| 12 | - | 0 / 0-4 | - | 0-3 / 0-11 | - |
-| 13 | 0 to 12 | 0-11 / 0-28 | 0-10 / 0-27 | 0-26 / 0-60 | 0 to 60 |
-| 14 | 0 to 2 | 0-2 / 0-6 | 0-2 / 0-6 | 0-6 / 0-14 | 0 to 27 |
-| 15 | - | - | - | 0-1 / 0-4 | - |
-| 16 | - | - | - | - / 0-2 | - |
-| 17 | 0 to 16 | 0-15 / 0-38 | 0-14 / 0-37 | 0-34 / 0-60 | 0 to 60 |
-| 18 | 0 to 1 | 0-1 / 0-4 | 0-1 / 0-4 | 0-6 / 0-10 | - |
+{widths: 8,13,16,16,16,15,16}
+| Mode | 32-bit (G2) | 16-bit | 12-bit | 8-bit | 4-bit (G2) | 1-bit |
+|---|---|---|---|---|---|---|
+| 1 | 0 to 2 | 0-2 / 0-6 | 0-2 / 0-6 | 0-6 / 0-15 | 0 to 28 | 0-47 / 0-60 |
+| 2 | 0 to 6 | 0-6 / 0-14 | 0-6 / 0-14 | 0-13 / 0-29 | 0 to 57 | 0-60 / 0-60 |
+| 3 | 0 to 27 | 0-25 / 0-57 | 0-24 / 0-56 | 0-53 / 0-60 | 0 to 60 | 0-60 / 0-60 |
+| 4 | 0 to 7 | 0-7 / 0-17 | 0-7 / 0-17 | 0-15 / 0-35 | 0 to 60 | 0-60 / 0-60 |
+| 5 | 0 to 33 | 0-30 / 0-60 | 0-29 / 0-60 | 0-60 / 0-60 | 0 to 60 | 0-60 / 0-60 |
+| 6 | 0 to 28 | 0-26 / 0-60 | 0-25 / 0-59 | 0-53 / 0-60 | 0 to 60 | 0-60 / 0-60 |
+| 7 | 0 to 20 | 0-19 / 0-46 | 0-18 / 0-45 | 0-41 / 0-60 | 0 to 60 | 0-60 / 0-60 |
+| 8 | 0 to 4 | 0-4 / 0-10 | 0-4 / 0-10 | 0-10 / 0-23 | 0 to 47 | 0-60 / 0-60 |
+| 9 | - | 0-1 / 0-3 | - | 0-3 / 0-8 | - | 0-28 / 0-60 |
+| 10 | 0 to 3 | 0-2 / 0-7 | 0-2 / 0-7 | 0-7 / 0-17 | 0 to 34 | 0-54 / 0-60 |
+| 11 | - | 0 / 0-2 | - | 0-2 / 0-6 | - | 0-21 / 0-55 |
+| 12 | - | 0 / 0-4 | - | 0-3 / 0-11 | - | 0-38 / 0-60 |
+| 13 | 0 to 12 | 0-11 / 0-28 | 0-10 / 0-27 | 0-26 / 0-60 | 0 to 60 | 0-60 / 0-60 |
+| 14 | 0 to 2 | 0-2 / 0-6 | 0-2 / 0-6 | 0-6 / 0-14 | 0 to 27 | 0-46 / 0-60 |
+| 15 | - | - | - | 0-1 / 0-4 | - | 0-12 / 0-37 |
+| 16 | - | - | - | - / 0-2 | - | - / 0-20 |
+| 17 | 0 to 16 | 0-15 / 0-38 | 0-14 / 0-37 | 0-34 / 0-60 | 0 to 60 | 0-60 / 0-60 |
+| 18 | 0 to 1 | 0-1 / 0-4 | 0-1 / 0-4 | 0-6 / 0-10 | - | 0-35 / 0-60 |
 
 A "-" means that the combination is not available. The 4-bit figures are for the Generation 2 (the Generation 1, with less memory, has fewer). MM.INFO(MAX PAGES) returns the highest page number in the current mode.
 
@@ -85,8 +85,9 @@ MM.INFO(PAGE ADDRESS n) and MM.INFO(MAX PAGES) are useful if you wish to PEEK or
 - With an 8-bit colour depth you would use: add% = MM.INFO(PAGE ADDRESS n) + y * MM.HRES + x
 - For the 12 or 16-bit colour depth you would use: add% = MM.INFO(PAGE ADDRESS n) + (y * MM.HRES + x) * 2
 - With the 4-bit colour depth two pixels share a byte, the left pixel in the low four bits: add% = MM.INFO(PAGE ADDRESS n) + y * ((MM.HRES + 1) \ 2) + x \ 2
+- With the 1-bit colour depth eight pixels share a byte, the leftmost in bit 0: add% = MM.INFO(PAGE ADDRESS n) + y * (MM.HRES \ 8) + x \ 8, and the pixel is bit x AND 7
 
-For modes 3, 5, 6, 7, 12, 13 and 17 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4-bit pages hold each line once). For example, for an 8-bit colour depth:
+For modes 3, 5, 6, 7, 12, 13 and 17 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4 and 1-bit pages hold each line once). For example, for an 8-bit colour depth:
 
 ```
 add1% = MM.INFO(PAGE ADDRESS n) + (y * 2) * MM.HRES + x
@@ -104,6 +105,18 @@ A colour depth of 4 bits gives the display that the PicoMite's VGA and HDMI vers
 - The FRAMEBUFFER command works as it does on the PicoMite: FRAMEBUFFER CREATE makes the framebuffer F, LAYER the layer L (shown over the display, with a transparent colour), LAYER TOP the top layer T, and CREATE 2 a second framebuffer; WRITE, COPY, MERGE, WAIT and CLOSE act on them. The framebuffers are pages 0 to 4 (N, L, F, 2 and T) and the pages after them are more 4-bit pages, for PAGE WRITE, PAGE COPY, BLIT and the like.
 - BLIT, SPRITE and TILEMAP work on 4-bit pages, with colour 0 (black) as the transparent colour of a sprite.
 
+## The PicoMite's MODE 1 (MODE n,1)
+
+A colour depth of 1 bit gives the PicoMite's MODE 1, its default mode, so that programs written for it (and their PEEKs and POKEs of the screen) work as they do there. MODE 8,1 (640 x 480) is the PicoMite's MODE 1 on its VGA version, and on its HDMI version at 640 x 480. The 1-bit depth is available in every mode.
+
+- A pixel is set or clear: drawn in any colour but black it is set, drawn in black it is cleared.
+- The screen is divided into tiles 8 pixels wide and TILE HEIGHT tall (the height of the font when the mode was set). Each tile has a foreground colour, which its set pixels show, and a background colour, which the others show. The TILE command sets them, and so does text that lines up with the tiles: PRINT and TEXT in a font whose characters are whole tiles (such as font 1 with tiles 12 high), at a position that is a multiple of 8 across and of the tile height down, colour the tiles they cover. CLS gives every tile the colour COLOUR set on the colour it clears to.
+- The pixels are held eight to a byte, the leftmost in bit 0, at MM.INFO(WRITEBUFF) as on the PicoMite. PIXEL( returns the colour a pixel shows.
+- The tiles' colours are held to 15 bits, as on the PicoMite's HDMI version, and up to 256 different colours can be on the screen at once.
+- The FRAMEBUFFER command works as it does on the PicoMite: CREATE makes the framebuffer F, LAYER the layer L, which is ORed with the display, CREATE 2 a second framebuffer, and MERGE makes the display F ORed with 2.
+- BLIT, SPRITE and TILEMAP work on 1-bit pages, a pixel of a sprite set unless its colour is black or nearly black (black among the PicoMite's 16 colours). BLIT also moves the tiles' colours when the area lines up with the tiles.
+- MAP, PAGE DISPLAY, the IMAGE commands, GUI CURSOR and RAY are not available.
+
 In the other colour depths FRAMEBUFFER is the Colour Maximite 2's own: a working area larger than the screen, with FRAMEBUFFER CREATE width, height, WRITE, BACKUP, RESTORE, WINDOW and CLOSE (see the FRAMEBUFFER command). While a framebuffer exists, a MODE command that changes the colour depth is refused with the error "Colour mismatch with framebuffer": use FRAMEBUFFER CLOSE first.
 
 ## Image Slots
@@ -117,7 +130,7 @@ A program written for the PicoMite selects its display with the PicoMite's MODE 
 {widths: 30,30,40}
 | PicoMite | Colour Maximite 2 | Display |
 |---|---|---|
-| MODE 1 | MODE 8,8 | 640 x 480, 2 colours on the PicoMite (8-bit here) |
+| MODE 1 | MODE 8,1 | 640 x 480, set or clear pixels in coloured tiles |
 | MODE 2 | MODE 7,4 | 320 x 240, 16 colours |
 | MODE 3 | MODE 8,4 | 640 x 480, 16 colours |
 | MODE 4 | MODE 7,16 | 320 x 240, RGB555 on the PicoMite (16-bit here) |

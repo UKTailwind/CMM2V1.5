@@ -31,6 +31,6 @@ Version 7.00 brings MMBasic on the Colour Maximite 2 up to date with MMBasic ver
 - **The file manager (FM)** is the PicoMite's two-panel file manager, which copies between the SD card and a USB flash drive.
 - **The full screen editor** is the PicoMite's, with the Colour Maximite 2's mouse support and extra keys.
 - **Files** can be transferred with the ZModem protocol as well as XModem.
-- **Graphics** gain the PicoMite's tile maps (TILEMAP), image slots and its 16 colour display (MODE n,4), so that games written for the PicoMite need few changes.
+- **Graphics** gain the PicoMite's tile maps (TILEMAP), image slots, its 16 colour display (MODE n,4) and its MODE 1 (MODE n,1), so that games written for the PicoMite need few changes.
 
 !NOTE This manual is for version 7.00.00b2, the second beta of version 7.00. Chapters that have not yet been revised line by line for this version say so at their start.

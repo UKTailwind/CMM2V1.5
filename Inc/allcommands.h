@@ -110,6 +110,7 @@ void cmd_randomize(void);
 void cmd_flush(void);
 void fun_device_fn(void);
 void cmd_tilemap(void);
+void cmd_tile(void);
 void fun_tilemap(void);
 void cmd_ray(void);
 void cmd_star(void);
@@ -553,6 +554,7 @@ void op_inv(void);
 	{ "Astro",		    T_CMD,				0, cmd_star		},
 	{ "Location",	    T_CMD,				0, cmd_locate	},
 	{ "Slew",		    T_CMD,				0, cmd_slew		},
+	{ "Tile",		    T_CMD,				0, cmd_tile		},      // TILE x, y [, fc] [, bc] [, w] [, h], TILE RESET, TILE HEIGHT h: MODE n,1's tiles (Mono.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

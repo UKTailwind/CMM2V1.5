@@ -531,7 +531,7 @@ Returns the natural logarithm of the argument 'number'.
 
 === MAP( n )
 --- keep
-Returns the colour that is drawn with the palette value ‘n’ in the 8-bit or 4-bit colour depth: ‘n’ is 0 to 255 (RGB332) in the 8-bit depth and 0 to 15 (RGB121) in the 4-bit depth.  For example, in the 8-bit depth MAP(255) always returns &HE0E0C0, which the firmware will then convert to 255.
+Returns the colour that is drawn with the palette value ‘n’ in the 8-bit or 4-bit colour depth: ‘n’ is 0 to 255 (RGB332) in the 8-bit depth and 0 to 15 (RGB121) in the 4-bit depth.  It is not available in the 1-bit colour depth.  For example, in the 8-bit depth MAP(255) always returns &HE0E0C0, which the firmware will then convert to 255.
 This is a way of selecting the colour that will use the place in the colour map that you want.  It is not a window into the map: MAP( n ) = rgb% changes the colour shown, not the value returned.  See the MAP command.
 
 === MATH
@@ -844,7 +844,7 @@ Returns the value of a special function.  ‘function$’ is a string (a string 
 === PIXEL( x, y [,page])
 --- keep
 Returns the colour of a pixel on the screen.  ‘x’ is the horizontal coordinate and ‘y’ is the vertical coordinate of the pixel.  The optional ‘page’ specifies which page is to be read; the default is the current write page.  Set ‘page’ to FRAMEBUFFER to read from the framebuffer (see the FRAMEBUFFER command).
-The colour is returned as a 24-bit RGB number: in the 12-bit colour depth with its transparency as well, and in the 4-bit colour depth as one of the PicoMite's 16 colours (which MAP does not change).
+The colour is returned as a 24-bit RGB number: in the 12-bit colour depth with its transparency as well, in the 4-bit colour depth as one of the PicoMite's 16 colours (which MAP does not change), and in the 1-bit colour depth as the colour the pixel shows, its tile's foreground colour if it is set and its background colour if not (see TILE).
 The colour is the one the colour depth holds, which is not the value RGB() gave when the pixel was drawn.  RGB() includes the transparency (15, opaque) in every colour depth but the 32-bit one, and each depth keeps only part of the 24 bits.  For example RGB(200, 100, 50) reads back as &HCD6531 in the 16-bit colour depth, &HFCC6633 in the 12-bit one and &HFF4000 in the 4-bit one.  In the 8-bit colour depth the colour comes back through the palette (see MAP and OPTION VGA OUTPUT), so with the default palette RGB(red) reads back as &HE00000.  Only the 32-bit colour depth returns the colour exactly.
 So, to test what is on the screen, do not compare PIXEL( with RGB().  Compare it with a colour read by PIXEL( from a pixel drawn in that colour: drawing the value PIXEL( returned and reading it again gives the same value in every colour depth.  Black reads as 0 in every colour depth but the 12-bit one, where opaque black is &HF000000.
 See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.

@@ -20,10 +20,14 @@ MODE 3.
 The drawing set (DrawPixel4 and the others, set by setmode as the 8, 16 and 32-bit ones are) works on the write page and
 honours OPTION Y AXIS INVERT as they do. The "fast" buffers (BLIT READ, SPRITE, PAGE SCROLL) hold a byte a pixel, its
 RGB121 value, so the 8-bit sprite code serves a 4-bit page as it is, colour 0 (black) the transparent one as there.
+
+The 1-bit depth (MODE n,1, the PicoMite's MODE 1: Mono.c) shares the display, the software interrupt and the
+FRAMEBUFFER code here. Its merge (MonoMergeRun) is N ORed with L, each pixel its tile's colour, and its MERGE is F OR 2.
 ***********************************************************************************************************************/
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "Rgb121.h"
+#include "Mono.h"
 
 extern volatile uint8_t pagesetdone;
 extern const int xres[], yres[];
@@ -37,7 +41,7 @@ int Rgb121Transparent, Rgb121TransparentTop;
 #define RGB121MAXW 1024                                             // the widest mode the merge's row buffers take
 #define RoundUp8K(a) (((a) + 8 * 1024 - 1) & ~(8 * 1024 - 1))
 
-static inline int Stride(int page) { return (PageTable[page].xmax + 1) >> 1; }
+static inline int Stride(int page) { return VideoColour == 1 ? PageTable[page].xmax >> 3 : (PageTable[page].xmax + 1) >> 1; }
 static inline uint8_t *Row(int page, int y) { return PageTable[page].address + y * Stride(page); }
 static inline void Put4(uint8_t *row, int x, int c) {
     uint8_t *p = row + (x >> 1);
@@ -120,7 +124,7 @@ static inline uint32_t Over(uint32_t f, uint32_t v, uint32_t t) {
 }
 
 static uint32_t MergeN[RGB121MAXW / 8], MergeL[RGB121MAXW / 8];
-static void ITCM_CODE Rgb121Merge(void) {
+static void __attribute__((noinline)) ITCM_CODE Rgb121Merge(void) {   // (not inlined: in ITCM)
     int w = PageTable[RGB121_N].xmax, h = PageTable[RGB121_N].ymax, scale = Rgb121DisplayScale;
     int bytes = (w + 1) >> 1, words = (bytes + 3) >> 2, dwords = w >> 2, i;
     int layer = (Rgb121Buffers >> RGB121_L) & 1, top = (Rgb121Buffers >> RGB121_T) & 1;
@@ -163,9 +167,67 @@ static void ITCM_CODE Rgb121Merge(void) {
     }
 }
 
+/* The 1-bit merge (MODE n,1: Mono.c): the CLUT entries given colours since the last frame first, while the LTDC is not
+   reading the CLUT (the vertical blanking). Then, if something was drawn, or every 16th frame for what a program wrote
+   to a page itself, N with L ORed in where it is created: each byte 8 pixels of one tile, a set pixel its foreground's
+   entry, the others its background's (a nibble's bits spread to the bytes of a word by a multiply). */
+static void __attribute__((noinline)) ITCM_CODE MonoMergeRun(void) {
+    static int idle;
+    for(int i = 0; i < 8; i++) {
+        uint32_t m = MonoClutNew[i];
+        MonoClutNew[i] = 0;
+        while(m) {
+            int k = i * 32 + __builtin_ctz(m);
+            m &= m - 1;
+            LTDC_Layer1->CLUTWR = ((uint32_t)k << 24) | (CLUT[k] & 0xFFFFFF);
+        }
+    }
+    if(!MonoDirty && ++idle < 16) return;
+    idle = 0;
+    MonoDirty = MonoDirty > 1 ? MonoDirty - 1 : 0;                  // (2, a POKE's: set before its write, so the next too)
+    int w = PageTable[RGB121_N].xmax, h = PageTable[RGB121_N].ymax, scale = Rgb121DisplayScale;
+    int bytes = w >> 3, words = (bytes + 3) >> 2, dwords = w >> 2, i, tc = 0, trow = 0;
+    int layer = (Rgb121Buffers >> RGB121_L) & 1;
+    const uint8_t *n = PageTable[RGB121_N].address, *l = PageTable[RGB121_L].address;
+    uint8_t *rn = (uint8_t *)MergeN, *tf = (uint8_t *)MergeL + 256, *tb = (uint8_t *)MergeN + 256;
+    uint32_t *d = (uint32_t *)Rgb121Display;
+    if(n == NULL || d == NULL || bytes > 240 || MonoTileF == NULL) return;
+    if(l == NULL) layer = 0;
+    for(int y = 0; y < h; y++) {
+        if(tc == 0) {                                               // a new row of tiles
+            mycpy(tf, MonoTileF + trow * MonoTilesX, bytes);
+            mycpy(tb, MonoTileB + trow * MonoTilesX, bytes);
+            trow++;
+        }
+        if(++tc == MonoTileH) tc = 0;
+        mycpy(rn, n, bytes);
+        n += bytes;
+        if(layer) {
+            mycpy(MergeL, l, bytes);
+            l += bytes;
+            for(i = 0; i < words; i++) MergeN[i] |= MergeL[i];
+        }
+        uint32_t *d0 = d, *d1 = d + dwords;                         // the row, and its second copy where rows are doubled
+        d += dwords * scale;
+        for(i = 0; i < bytes; i++) {
+            uint32_t v = rn[i], f = tf[i] * 0x01010101u, b = tb[i] * 0x01010101u, x = f ^ b;
+            uint32_t lo = (((v & 0xF) * 0x00204081u) & 0x01010101u) * 0xFFu;
+            uint32_t hi = (((v >> 4) * 0x00204081u) & 0x01010101u) * 0xFFu;
+            d0[2 * i] = b ^ (x & lo);
+            d0[2 * i + 1] = b ^ (x & hi);
+            if(scale == 2) {
+                d1[2 * i] = b ^ (x & lo);
+                d1[2 * i + 1] = b ^ (x & hi);
+            }
+        }
+    }
+}
+
 // the software interrupt the LTDC's line interrupt pends at the end of each frame
 void CEC_IRQHandler(void) {
-    if(Rgb121Active) Rgb121Merge();
+    if(!Rgb121Active) return;
+    if(VideoColour == 1) MonoMergeRun();
+    else Rgb121Merge();
 }
 void Rgb121MergeRequest(void) {
     NVIC_SetPendingIRQ(CEC_IRQn);
@@ -395,8 +457,9 @@ void Rgb121Blit(int x1, int y1, int x2, int y2, int w, int h, int flip) {
 /***********************************************************************************************************************
 The PicoMite's framebuffers
 ***********************************************************************************************************************/
-// a framebuffer letter (N, L, F, 2, T) as its page, -1 if it is not one; in a 4-bit mode a buffer not created is N, as
-// the PicoMite's pointer to it is DisplayBuf (the other modes: the pages the game ports put them on, Game_Porting_Log.md)
+// a framebuffer letter (N, L, F, 2, T) as its page, -1 if it is not one; in a 4 or 1-bit mode a buffer not created is
+// N, as the PicoMite's pointer to it is DisplayBuf (the other modes: the pages the game ports put them on,
+// Game_Porting_Log.md)
 int Rgb121Letter(char *p) {
     int page;
     if(checkword(p, "N")) page = RGB121_N;      // (the letter alone: N(1) is an expression, the PicoMite's #112)
@@ -405,7 +468,7 @@ int Rgb121Letter(char *p) {
     else if(checkword(p, "2")) page = RGB121_2;
     else if(checkword(p, "T")) page = RGB121_T;
     else return -1;
-    if(VideoColour == 4 && !(Rgb121Buffers & (1 << page))) page = RGB121_N;
+    if(VideoColour < 8 && !(Rgb121Buffers & (1 << page))) page = RGB121_N;
     return page;
 }
 
@@ -450,9 +513,11 @@ static void FbWrite(int page) {
     VRes = PageTable[page].ymax;
 }
 
-// FRAMEBUFFER in a 4-bit mode: the PicoMite's (FrameBuffer.c, its VGA and HDMI versions), its messages
+/* FRAMEBUFFER in a 4 or 1-bit mode: the PicoMite's (FrameBuffer.c, its VGA and HDMI versions), its messages. In a
+   1-bit mode a layer has no transparent colour (L is ORed into N: its argument is not read), and MERGE is N = F OR 2. */
 void Rgb121Framebuffer(void) {
     char *p;
+    MonoDirty = 1;                                                  // (a 1-bit mode's merge: N or L may change)
     if((p = checkstring(cmdline, "CREATE 2"))) {
         FbCreate(RGB121_2, 0, "Framebuffer 2 already exists");
     } else if((p = checkstring(cmdline, "CREATE"))) {
@@ -461,14 +526,14 @@ void Rgb121Framebuffer(void) {
     } else if((p = checkstring(cmdline, "LAYER TOP"))) {
         int t = 0;
         getargs(&p, 1, ",");
-        if(argc == 1) t = getint(argv[0], 0, 15);
+        if(argc == 1 && VideoColour == 4) t = getint(argv[0], 0, 15);
         if(FbCreated(RGB121_T)) error("Framebuffer already exists");
         Rgb121TransparentTop = t;
         FbCreate(RGB121_T, t, "Framebuffer already exists");
     } else if((p = checkstring(cmdline, "LAYER"))) {
         int t = 0;
         getargs(&p, 1, ",");
-        if(argc == 1) t = getint(argv[0], 0, 15);
+        if(argc == 1 && VideoColour == 4) t = getint(argv[0], 0, 15);
         if(FbCreated(RGB121_L)) error("Framebuffer already exists");
         Rgb121Transparent = t;
         FbCreate(RGB121_L, t, "Framebuffer already exists");
@@ -513,7 +578,7 @@ void Rgb121Framebuffer(void) {
         if(!FbCreated(RGB121_F)) error("Frame buffer not created");
         if(!FbCreated(RGB121_2)) error("Frame buffer 2 not created");
         getargs(&p, 3, ",");
-        if(argc >= 1 && *argv[0]) colour = getint(argv[0], 0, 15);
+        if(argc >= 1 && *argv[0] && VideoColour == 4) colour = getint(argv[0], 0, 15);
         if(argc == 3) {
             if(!checkstring(argv[2], "B")) error("Syntax");
             WaitFrame();
@@ -521,7 +586,8 @@ void Rgb121Framebuffer(void) {
         uint32_t *d = (uint32_t *)PageTable[RGB121_N].address, *f = (uint32_t *)PageTable[RGB121_F].address;
         uint32_t *s = (uint32_t *)PageTable[RGB121_2].address, t = (uint32_t)colour * 0x11111111u;
         words = (Stride(RGB121_N) * PageTable[RGB121_N].ymax + 3) >> 2;
-        for(int i = 0; i < words; i++) d[i] = Over(f[i], s[i], t);
+        if(VideoColour == 1) for(int i = 0; i < words; i++) d[i] = f[i] | s[i];
+        else for(int i = 0; i < words; i++) d[i] = Over(f[i], s[i], t);
     } else if((p = checkstring(cmdline, "WAIT"))) {
         WaitFrame();
     } else if((p = checkstring(cmdline, "COPY"))) {
@@ -542,7 +608,7 @@ void Rgb121Framebuffer(void) {
    'colour' (0-15) left alone (the PicoMite's, its blit121) */
 void Rgb121BlitFramebuffer(char *p) {
     int s, d = RGB121_N, x1, y1, x2, y2, w, h, blank = -1;
-    if(VideoColour != 4) error("Invalid for this screen mode");
+    if(VideoColour != 4) error("Invalid for this screen mode");     // (the PicoMite's MODE 1: "Not available in mode 1")
     getargs(&p, 17, ",");
     if(argc < 15) error("Syntax");
     if((s = Rgb121Letter(argv[0])) < 0 || (d = Rgb121Letter(argv[2])) < 0) error("Syntax");

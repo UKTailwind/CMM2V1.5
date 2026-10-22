@@ -2849,6 +2849,11 @@ void fun_info(void){
 		targ=T_INT;
 		return;
 	}
+	if(checkstring(ep, "TILE HEIGHT")){                             // MODE n,1's tiles (Mono.c): the PicoMite's
+		iret = MonoTileH;
+		targ=T_INT;
+		return;
+	}
 	tp=checkstring(ep, "PAGE ADDRESS");
 	if(tp){
 		iret = (int64_t)((uint32_t)GetPageAddress(getint(tp, 0, LastPage)));
@@ -3122,7 +3127,7 @@ void fun_info(void){
 		iret=SystemCoreClock;
 		rettype='I';
 	} else if(checkstring(ep, "MODE")){
-		fret = VideoMode+(VideoColour==4? 0.4: (VideoColour==8? 0.8: (VideoColour==12? 0.12: (VideoColour==16 ? 0.16 : 0.32))));
+		fret = VideoMode+(VideoColour==1? 0.1: VideoColour==4? 0.4: (VideoColour==8? 0.8: (VideoColour==12? 0.12: (VideoColour==16 ? 0.16 : 0.32))));
 	    rettype='N';
 	} else if(checkstring(ep, "DEVICE")){
 	    fun_device();
@@ -3456,6 +3461,7 @@ void cmd_poke(void) {
     char *p;
     void *pp;
 
+	MonoDirty = 2;                                                  // (a 1-bit mode: a POKE to a page shows, Mono.c)
 	getargs(&cmdline, 5, ",");
     if((p = checkstring(argv[0], "BYTE"))) {
     	if(argc != 3) error("Argument count");

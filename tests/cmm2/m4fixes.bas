@@ -213,7 +213,7 @@ Check "  its last 4, the top of the integer before (SEND and READ disagreed)", f
 ' ---- MODE ------------------------------------------------------------------------------------------------------------
 On Error Skip 1
 Mode 15, 16
-CheckS "MODE 15 in another depth: the message", ErrText$(), "Mode 15 has 8-bit colour only"
+CheckS "MODE 15 in another depth: the message", ErrText$(), "Mode 15 has 8 and 1-bit colour only"
 On Error Skip 1
 Mode 8, 8, , M4Frame
 CheckS "MODE r, bits, , interrupt (Syntax: argv[4] was tested, not *argv[4])", ErrText$(), ""

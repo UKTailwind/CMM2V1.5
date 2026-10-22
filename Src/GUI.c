@@ -305,7 +305,7 @@ static int GuiPointerWanted = 0;
 void GuiPointer(void){
 	if(!GuiPointerWanted || GuiMouse() < 0) return;
 	GuiPointerWanted = 0;
-	if(VideoColour != 4 && !cursorenable) cmd_cursor("ON");
+	if(VideoColour >= 8 && !cursorenable) cmd_cursor("ON");
 }
 // the GUI started by its first command: OPTION MOUSE's mouse opened if it is not (a USB one needs nothing), and the
 // touch events taken from then on. A mouse need not be there yet: a USB mouse plugged in later is used at once.
