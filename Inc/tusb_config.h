@@ -88,6 +88,10 @@ extern "C" {
                                                     // the drive; with 100 ms, none of 24)
 #define CFG_TUH_HUB                 2                   // a hub, and a keyboard hub behind it
 #define CFG_TUH_DEVICE_MAX          (3 * CFG_TUH_HUB + 1)
+#define CFG_TUH_DWC2_ENDPOINT_MAX   32                  // the DWC2 driver's table of open endpoints (16 by default:
+                                                    // 22 Oct, the hub, keyboard, CH340, mouse and flash drive need
+                                                    // 17, and the drive, the last, came up "not supported"). 24
+                                                    // bytes each, in DTCM: 32 cost the stack 384 bytes
 #define CFG_TUH_HID                 8                   // the PicoMite has 4 * CFG_TUH_DEVICE_MAX; DTCM is tight here
 #define CFG_TUH_HID_EPIN_BUFSIZE    64
 #define CFG_TUH_HID_EPOUT_BUFSIZE   64
