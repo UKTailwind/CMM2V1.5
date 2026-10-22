@@ -298,7 +298,9 @@ void execute(char *mycmd){
     // we have to fool the tokeniser into thinking that it is processing a program line entered at the console
     skipspace(mycmd);
 	strcpy(inpbuf, getCstring(mycmd));                                      // then copy the argument
-	if(!(toupper(inpbuf[0])=='R' && toupper(inpbuf[1])=='U' && toupper(inpbuf[2])=='N')){ //convert the string to upper case
+	char *rp = inpbuf;                                                      // the word RUN, not only its letters
+	skipspace(rp);                                                          // (runs = 5: the PicoMite's #108)
+	if(!(toupper(rp[0])=='R' && toupper(rp[1])=='U' && toupper(rp[2])=='N' && !isnamechar(rp[3]))){ //convert the string to upper case
 		 char savetkn[TKNBUFSIZE];                                      // an EXECUTE run from inside another (by a SUB that one
 		 int savescrew = ScrewUpTimer;                                  // called) keeps the outer one's line, which runs from
 		 memcpy(savetkn, tknbuf, TKNBUFSIZE);                           // tknbuf, and its timeout (it cleared it)
@@ -331,16 +333,15 @@ void execute(char *mycmd){
 		char fn[FF_MAX_LFN];
 		FRESULT fr;
 		FILINFO fno;
-		int len = strlen(p);
-		char *a = commandtbl_put(p, GetCommandValue("RUN"));     // the RUN token takes the place of "RUN "
-		if(len > 4) memmove(a, &p[4], len - 4); else len = 4;   // (a bare RUN has nothing to move)
-		if((q=strchr(p,':'))){
-			q--;
-			*q='0';
-		}
-		p[len - 4 + sizeof(CommandToken)]=0;
+		char *a = commandtbl_put(p, GetCommandValue("RUN"));     // the RUN token, then the text after the word (the
+		memmove(a, rp + 3, strlen(rp + 3) + 1);                 // PicoMite's #108: from a fixed offset; and a drive's
+		                                                        // letter was made 0:, the SD card's, so C: was A:)
 		if((q=strchr(p,'\"')) != 0){
-			if((s=strchr(&q[1],'\"')) != 0)*s=0;
+			if((s=strchr(&q[1],'\"')) == 0) {                     // no closing quote: one at the end, as tokenise()
+				s = q + strlen(q);                                  // closes a typed line's (getvalue relies on it: RUN
+				s[1] = 0;                                           // read on past the line, and the old code wrote to NULL)
+			}
+			*s=0;
 			strcpy(fn,&q[1]);
 			strcpy(fn,q);
 			if(strchr(fn, '.') == NULL){
@@ -645,16 +646,18 @@ void cmd_let(void) {
 	char *s;
 	char *p1, *p2;
 
-	p1 = cmdline;
-
-	// search through the line looking for the equals sign
-	while(*p1 && tokenfunction(*p1) != op_equal) p1++;
-	if(!*p1) error("Unknown command");
-
-	// check that we have a straight forward variable
-	p2 = skipvar(cmdline, false);
+	// the '=' straight after the variable (skipvar steps over its brackets, their strings and functions): one
+	// inside the brackets is a comparison, a(CHOICE(k = 1, 1, 2)) = 5 (the PicoMite's issue #101)
+	p2 = skipvar(cmdline, true);
 	skipspace(p2);
-	if(p1 != p2) error("Syntax");
+	if(tokenfunction(*p2) == op_equal) p1 = p2;
+	else {                                                      // the errors as they were: no '=' at all, then
+		p1 = cmdline;                                           // skipvar's own, then a '=' elsewhere
+		while(*p1 && tokenfunction(*p1) != op_equal) p1++;
+		if(!*p1) error("Unknown command");
+		skipvar(cmdline, false);
+		error("Syntax");
+	}
 
 	// a whole array, a() = b(): only empty brackets put ( against the ) before the = (the byte before cmdline is the
 	// command's token, so the look back cannot match it)
@@ -763,7 +766,8 @@ void do_listfiles(char *ccmdline){
 	mymemset(&djd,0,sizeof(DIR));
 	mymemset(&fnod,0,sizeof(FILINFO));
     fcnt = 0;
-    if(*ccmdline){
+    skipspace(ccmdline);
+    if(*ccmdline && *ccmdline != '\''){                             // (a comment is not a pattern: the PicoMite's #113)
     	getargs(&ccmdline,3,",");
     	if(!(argc==1 || argc==3))error("Syntax");
     	p = getCstring(argv[0]);
@@ -1316,7 +1320,15 @@ void MIPS16 cmd_run(void) {
 	char *c;
 	skipspace(cmdline);
 	mymemset(runcmd,0,STRINGSIZE);
-	memcpy(runcmd,cmdline,strlen(cmdline));
+	{                                                               // MM.CMDLINE$'s text: the statement's, to a comment
+		int n = 0, inq = false;                                     // (the PicoMite's #113: the comment was part of it)
+		while(cmdline[n] && n < STRINGSIZE - 1 && (inq || cmdline[n] != '\'')) {
+			if(cmdline[n] == '"') inq = !inq;
+			n++;
+		}
+		while(n && cmdline[n - 1] == ' ') n--;
+		memcpy(runcmd, cmdline, n);
+	}
 	if(*cmdline != 34 && FlashLoad) {                               // in a flash slot's program: it runs again (the PicoMite's)
 		FlashRunSlot(FlashLoad, 0);
 		return;
@@ -2622,7 +2634,7 @@ void cmd_error(void) {
 		s = getCstring(cmdline);
 
 		strcpy(p,s);
-		error(p);
+		error("$", p);                                          // the text, not error()'s format (50% off: the PicoMite's #110)
 	}
 	else
 		error("");
@@ -2687,10 +2699,7 @@ void cmd_bitbyteflag(void) {
 	getargs(&cmdline, 5, ",");
 	which = argc ? getint(argv[0], 1, 3) : 0;
 	if(!((which == 3 && argc == 3) || (which != 3 && argc == 5))) error("Argument count");
-	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
-	if(!*cmdline) error("Syntax");
-	++cmdline;
-	if(!*cmdline) error("Syntax");
+	cmdline = GetAssignedValue(cmdline, "Syntax");          // the = after the ) (#101)
 	if(which == 1) {                                                // BIT(var%, n) = 0|1
 		uint64_t *source = (uint64_t *)findvar(argv[2], V_NOFIND_ERR);
 		if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
@@ -2735,10 +2744,7 @@ void cmd_lmid(void){
 	if(argc == 5) num = getint(argv[4], 0, currentlength);
 	if(start + (num < 0 ? 0 : num - 1) > currentlength) error("Selection exceeds length of string");
 	start--;                                                        // position 1 is array position 0
-	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
-	if(!*cmdline) error("Syntax");
-	++cmdline;
-	if(!*cmdline) error("Syntax");
+	cmdline = GetAssignedValue(cmdline, "Syntax");          // the = after the ) (#101)
 	char *value = getstring(cmdline);
 	if(num == -1) num = value[0];
 	p = (unsigned char *)&value[1];
@@ -2764,10 +2770,7 @@ void cmd_mid(void){
 	int num=-1;                                                     // -1: the value's own length; 0 inserts (the PicoMite's)
 	if(argc==5)num=getint(argv[4],0,sourcestring[0]);
 	if(start+(num<0 ? 0 : num-1)>sourcestring[0])error("Selection exceeds length of string");
-	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
-	if(!*cmdline) error("Syntax");
-	++cmdline;
-	if(!*cmdline) error("Syntax");
+	cmdline = GetAssignedValue(cmdline, "Syntax");          // the = after the ) (#101)
 	char *value = getstring(cmdline);
 	if(num==-1)num=value[0];
 	p=&value[1];
@@ -3218,29 +3221,30 @@ void cmd_restore(void) {
 				NextDataLine = findline(getinteger(cmdline), true);		// try for a line number
 				NextData = 0;
 		} else {
-			void *ptr=findvar(cmdline,V_NOFIND_NULL);
-			if(ptr){
-				if(VREC(VarIndex)->type & T_NBR) {
-					if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-						error("Syntax");
-					}
-					NextDataLine = findline(getinteger(cmdline), true);
-				} else if(VREC(VarIndex)->type & T_INT) {
-					if(DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-						error("Syntax");
-					}
-					NextDataLine = findline(getinteger(cmdline), true);
-				} else {
-					char *c=getCstring(cmdline);
-					char b[STRINGSIZE]={0};
-					char *d=b;
-					while(*c){
-						*d++=toupper(*c++);
-					}
-					NextDataLine = findlabel(b);					    // must be a label
-				}
-			} else if(isnamestart(*cmdline)) {
-				NextDataLine = findlabel(cmdline);					    // must be a label
+			// by the text's shape, not a probe with findvar (the PicoMite's #103: it raised "Variable name" on CHOICE( and
+			// MID$(, took a FUNCTION's call for a label, refused an array's element, and found an array where a label of
+			// its name was meant). A bare name is a label unless it is a variable that is not an array, or a FUNCTION;
+			// anything else is an expression: a string is a label, a number a line.
+			char *e = skipvar(cmdline, true);
+			int v, bare = isnamestart(*cmdline) && e[-1] != ')';
+			skipspace(e);
+			if(bare && (*e == 0 || *e == '\'') && FindSubFun(cmdline, 1) < 0 &&
+			   ((v = FindVarSlot(cmdline)) < 0 || DimIsRealArray(VREC(v)->dimtbl[0])))
+				NextDataLine = findlabel(cmdline);
+			else {
+				MMFLOAT f;
+				long long int i64;
+				char *s;
+				int t = T_NOTYPE;
+				evaluate(cmdline, &f, &i64, &s, &t, false);
+				if(t & T_STR) {                                     // a label, in capitals as the program's are
+					char b[MAXSTRLEN + 1];
+					int n = (unsigned char)*s;
+					for(int k = 0; k < n; k++) b[k] = toupper(s[k + 1]);
+					b[n] = 0;
+					NextDataLine = findlabel(b);
+				} else
+					NextDataLine = findline((t & T_INT) ? (int)i64 : FloatToInt32(f), true);
 			}
 			NextData = 0;
 		}
@@ -3495,8 +3499,17 @@ void MIPS16 cmd_dim(void) {
                                                                     // back only after making a variable, a STATIC whose global existed
                                                                     // passed its AS type on to the names after it: the PicoMite's 74ed383)
             p = skipvar(argv[i], false);                            // point to after the variable
-            while(!(*p == 0 || *p == tokenAS || *p == '\'' || *p == tokenEQUAL))
-                p++;                                                // skip over a LENGTH keyword if there and see if we can find "AS"
+            {                                                       // to AS, a comment or '=' outside LENGTH's brackets and
+                int depth = 0, inq = false;                         // strings (CHOICE(w = 1, 80, 40), LEN("it's"): the
+                while(*p && (inq || depth || !(*p == tokenAS || *p == '\'' || *p == tokenEQUAL))) {   // PicoMite's #104)
+                    if(*p == '"') inq = !inq;
+                    else if(!inq) {
+                        if(*p == '(' || (tokentype(*p) & T_FUN)) depth++;
+                        else if(*p == ')' && depth) depth--;
+                    }
+                    p++;                                            // skip over a LENGTH keyword if there and see if we can find "AS"
+                }
+            }
             chSave = *p; chPosit = p; *p = 0;                       // save the char then terminate the string so that LENGTH is evaluated correctly
             if(chSave == tokenAS) {                                 // are we using Microsoft syntax (eg, AS INTEGER)?
                 if(ImpliedType & T_IMPLIED) error("Type specified twice");
@@ -3668,17 +3681,14 @@ static void parse_and_strip(char *string, int *dims) {
 	for(int i = 0; i < MAXDIM; i++) dims[i] = 0;
 	if(open && close && close > open) {
 		char buffer[STRINGSIZE], *p = buffer, *start, saved;
-		int n = close - open - 1, idx = 0, depth;
+		int n = close - open - 1, idx = 0;
 		if(n >= (int)sizeof(buffer)) error("Line is too long");
 		memcpy(buffer, open + 1, n); buffer[n] = 0;
 		while(*p && idx < MAXDIM) {
 			skipspace(p);
 			if(*p == 0) break;
-			start = p; depth = 0;                                   // this expression, up to a comma outside brackets
-			while(*p && !(*p == ',' && depth == 0)) {
-				if(*p == '(') depth++; else if(*p == ')') depth--;
-				p++;
-			}
+			start = p;                                              // this expression: to a comma outside its brackets,
+			p = skipexpression(p);                                  // strings and functions (MAX(4, 8): the PicoMite's #105)
 			saved = *p; *p = 0;
 			dims[idx++] = DimEncode(getinteger(start));
 			*p = saved;

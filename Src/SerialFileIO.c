@@ -89,17 +89,13 @@ void cmd_open(void) {
 
 		// check that it is a serial port that we are opening
 
-        if(argc == 5 && !((*argv[2] == 'G') || (*argv[2] == 'g'))) {
+        if(argc == 5 && !checkword(argv[2], "GPS")) {                  // (the word GPS, not any G: the PicoMite's #107)
             FileOpen(fname, argv[2], argv[4]);
             return;
         }
         if(!(mem_equal(fname, "COM", 3) && fname[3] >= '1' && fname[3] <= '0' + MAXCOMPORTS && fname[4] == ':'))  error("Invalid COM port");
-        if((*argv[2] == 'G') || (*argv[2] == 'g')){
+        if(checkword(argv[2], "GPS")){                             // (AS g, a file number: the PicoMite's #107)
             MMFLOAT timeadjust=0.0;
-            argv[2]++;
-            if(!((*argv[2] == 'P') || (*argv[2] == 'p')))error("Syntax");
-            argv[2]++;
-            if(!((*argv[2] == 'S') || (*argv[2] == 's')))error("Syntax");
             if(argc >= 5)timeadjust=getnumber(argv[4]);
             if(timeadjust<-12.0 || timeadjust>14.0)error("Invalid Time Offset");
             gpsmonitor=0;
@@ -132,11 +128,7 @@ void cmd_close(void) {
 	getargs(&cmdline, (MAX_ARG_COUNT * 2) - 1,",");				// getargscomma macro must be the first executable stmt in a block
 	if((argc & 0x01) == 0) error("Syntax");
 	for(i = 0; i < argc; i += 2) {
-        if((*argv[i] == 'G') || (*argv[i] == 'g')){
-            argv[i]++;
-            if(!((*argv[i] == 'P') || (*argv[i] == 'p')))error("Syntax");
-            argv[i]++;
-            if(!((*argv[i] == 'S') || (*argv[i] == 's')))error("Syntax");
+        if(checkword(argv[i], "GPS")){                             // (CLOSE gpsf closed the GPS: the PicoMite's #107)
             if(!GPSfnbr)error("Not open");
             SerialClose(FileTable[GPSfnbr].com);
             FileTable[GPSfnbr].com = 0;

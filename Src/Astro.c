@@ -818,7 +818,8 @@ static int tryGetStringArg(char *cmd, char *nameBuf, int nameBufLen, char **rest
     // Declared string variable without '$' suffix (DIM s AS STRING).
     // V_NOFIND_NULL is safe on plain keywords — returns NULL without auto-creating.
     // (Only on a name: findvar raises "Variable name" on anything else, such as a function's token: the CMM2's.)
-    if (isnamestart(*p) && findvar(p, V_NOFIND_NULL) != NULL && (VREC(VarIndex)->type & T_STR))
+    // (Nor on a FUNCTION's call: findvar would evaluate its arguments as indices, the PicoMite's #102.)
+    if (isnamestart(*p) && FindSubFun(p, 1) < 0 && findvar(p, V_NOFIND_NULL) != NULL && (VREC(VarIndex)->type & T_STR))
       isStrExpr = 1;
   }
 

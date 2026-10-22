@@ -563,11 +563,13 @@ char *skipexpression(char *p);
 char *GetNextCommand(char *p, char **CLine, char *EOFMsg);
 int FunctionType(char *p);
 char *getclosebracket(char *p);
+char *GetAssignedValue(char *p, char *msg);    // NAME(args) = value: the value
 void makeupper(char *p);
 void checkend(char *p);
 int GetCommandValue(char *n);
 int GetTokenValue(char *n);
 char *checkstring(char *p, char *tkn);
+int checkword(char *p, char *tkn);                  // tkn as the whole argument (MMBasic.c)
 char *MtoC(char *p);
 char *CtoM(char *p);
 void Mstrcpy(char *dest, char *src);
@@ -579,6 +581,7 @@ void InsertLastcmd(char *s);
 int MIPS16 TraceLines(char *target);
 void DefinedSubFun(int iscmd, char *cmd, int index, MMFLOAT *fa, long long int *i64, char **sa, int *t);
 int FindSubFun(char *p, int type);
+int FindVarSlot(char *p);                           // the variable named at p: its slot, or -1
 void MIPS16 PrepareProgram(int);
 void MMPrintString(char* s);
 void MMfputs(char *p, int filenbr);

@@ -399,11 +399,11 @@ The PicoMite's framebuffers
 // the PicoMite's pointer to it is DisplayBuf (the other modes: the pages the game ports put them on, Game_Porting_Log.md)
 int Rgb121Letter(char *p) {
     int page;
-    if(checkstring(p, "N")) page = RGB121_N;
-    else if(checkstring(p, "L")) page = RGB121_L;
-    else if(checkstring(p, "F")) page = RGB121_F;
-    else if(checkstring(p, "2")) page = RGB121_2;
-    else if(checkstring(p, "T")) page = RGB121_T;
+    if(checkword(p, "N")) page = RGB121_N;      // (the letter alone: N(1) is an expression, the PicoMite's #112)
+    else if(checkword(p, "L")) page = RGB121_L;
+    else if(checkword(p, "F")) page = RGB121_F;
+    else if(checkword(p, "2")) page = RGB121_2;
+    else if(checkword(p, "T")) page = RGB121_T;
     else return -1;
     if(VideoColour == 4 && !(Rgb121Buffers & (1 << page))) page = RGB121_N;
     return page;
@@ -483,11 +483,11 @@ void Rgb121Framebuffer(void) {
     } else if((p = checkstring(cmdline, "WRITE"))) {
         char *q;
         int page = RGB121_N;
-        if(checkstring(p, "N")) q = "N";
-        else if(checkstring(p, "L")) q = "L";
-        else if(checkstring(p, "F")) q = "F";
-        else if(checkstring(p, "2")) q = "2";
-        else if(checkstring(p, "T")) q = "T";
+        if(checkword(p, "N")) q = "N";
+        else if(checkword(p, "L")) q = "L";
+        else if(checkword(p, "F")) q = "F";
+        else if(checkword(p, "2")) q = "2";
+        else if(checkword(p, "T")) q = "T";
         else {
             getargs(&p, 1, ",");
             if(argc != 1) error("Syntax");

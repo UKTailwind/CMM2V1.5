@@ -373,10 +373,8 @@ int GetCtrlParams(int type, char *p) {
     if(type == CTRL_FMTBOX) {
         // get string space
         a += 2;
-        if(*argv[a] == '"') {
-            Ctrl[r].fmt = GetMemory(MAXSTRLEN);
-            strcpy(Ctrl[r].fmt, getCstring(argv[a]));
-        } else {
+        Ctrl[r].fmt = NULL;
+        if(*argv[a] != '"') {
             // Format String:
             // xc where x is the maximum value digit and c is the ghost char
             // these are concatenated to make a string of digits (eg, seconds = 5s9s)
@@ -384,22 +382,28 @@ int GetCtrlParams(int type, char *p) {
             //                     1 to 24 = 2hHh       0 to 179 = 1dLd9d
             // A separator is in brackets.  Eg (:)   or   (' )
             // Special chars: A = AM/PM    N = N/S    E = E/W
-            if(checkstring(argv[a], "DATE1")) Ctrl[r].fmt = "3dDd(/)1mMm(/)9y9y";
-            if(checkstring(argv[a], "DATE2")) Ctrl[r].fmt = "1mMm(/)3dDd(/)9y9y";
-            if(checkstring(argv[a], "DATE3")) Ctrl[r].fmt = "9y9y9y9y(/)1mMm(/)3dDd";
-            if(checkstring(argv[a], "TIME1")) Ctrl[r].fmt = "2hHh(:)5m9m";
-            if(checkstring(argv[a], "TIME2")) Ctrl[r].fmt = "2hHh(:)5m9m(:)5s9s";
-            if(checkstring(argv[a], "TIME3")) Ctrl[r].fmt = "1hMh(:)5m9m( )A";
-            if(checkstring(argv[a], "TIME4")) Ctrl[r].fmt = "1hMh(:)5m9m(:)5s9s( )A";
-            if(checkstring(argv[a], "DATETIME1")) Ctrl[r].fmt = "3dDd(/)1mMm(/)9y9y( )1hMh(:)5m9m( )A";
-            if(checkstring(argv[a], "DATETIME2")) Ctrl[r].fmt = "3dDd(/)1mMm(/)9y9y( )2hHh(:)5m9m";
-            if(checkstring(argv[a], "DATETIME3")) Ctrl[r].fmt = "1mMm(/)3dDd(/)9y9y( )1hMh(:)5m9m( )A";
-            if(checkstring(argv[a], "DATETIME4")) Ctrl[r].fmt = "1mMm(/)3dDd(/)9y9y( )2hHh(:)5m9m";
-            if(checkstring(argv[a], "LAT1")) Ctrl[r].fmt = "8d9d(` )5m9m(' )5s9s(\" )N";
-            if(checkstring(argv[a], "LAT2")) Ctrl[r].fmt = "8d9d(` )5m9m(' )5s9s(.)9s(\" )N";
-            if(checkstring(argv[a], "LONG1")) Ctrl[r].fmt = "1dLd9d(` )5m9m(' )5s9s(\" )E";
-            if(checkstring(argv[a], "LONG2")) Ctrl[r].fmt = "1dLd9d(` )5m9m(' )5s9s(.)9s(\" )E";
-            if(checkstring(argv[a], "ANGLE1")) Ctrl[r].fmt = "9d9d9d(` )5m9m(')";
+            if(checkword(argv[a], "DATE1")) Ctrl[r].fmt = "3dDd(/)1mMm(/)9y9y";
+            if(checkword(argv[a], "DATE2")) Ctrl[r].fmt = "1mMm(/)3dDd(/)9y9y";
+            if(checkword(argv[a], "DATE3")) Ctrl[r].fmt = "9y9y9y9y(/)1mMm(/)3dDd";
+            if(checkword(argv[a], "TIME1")) Ctrl[r].fmt = "2hHh(:)5m9m";
+            if(checkword(argv[a], "TIME2")) Ctrl[r].fmt = "2hHh(:)5m9m(:)5s9s";
+            if(checkword(argv[a], "TIME3")) Ctrl[r].fmt = "1hMh(:)5m9m( )A";
+            if(checkword(argv[a], "TIME4")) Ctrl[r].fmt = "1hMh(:)5m9m(:)5s9s( )A";
+            if(checkword(argv[a], "DATETIME1")) Ctrl[r].fmt = "3dDd(/)1mMm(/)9y9y( )1hMh(:)5m9m( )A";
+            if(checkword(argv[a], "DATETIME2")) Ctrl[r].fmt = "3dDd(/)1mMm(/)9y9y( )2hHh(:)5m9m";
+            if(checkword(argv[a], "DATETIME3")) Ctrl[r].fmt = "1mMm(/)3dDd(/)9y9y( )1hMh(:)5m9m( )A";
+            if(checkword(argv[a], "DATETIME4")) Ctrl[r].fmt = "1mMm(/)3dDd(/)9y9y( )2hHh(:)5m9m";
+            if(checkword(argv[a], "LAT1")) Ctrl[r].fmt = "8d9d(` )5m9m(' )5s9s(\" )N";
+            if(checkword(argv[a], "LAT2")) Ctrl[r].fmt = "8d9d(` )5m9m(' )5s9s(.)9s(\" )N";
+            if(checkword(argv[a], "LONG1")) Ctrl[r].fmt = "1dLd9d(` )5m9m(' )5s9s(\" )E";
+            if(checkword(argv[a], "LONG2")) Ctrl[r].fmt = "1dLd9d(` )5m9m(' )5s9s(.)9s(\" )E";
+            if(checkword(argv[a], "ANGLE1")) Ctrl[r].fmt = "9d9d9d(` )5m9m(')";
+        }
+        if(Ctrl[r].fmt == NULL) {                                   // a string, quoted or any expression (f$): it
+            char *s = getCstring(argv[a]);                          // stayed unset, with no error (the PicoMite's #112)
+            if(*s == 0) error("Invalid format");
+            Ctrl[r].fmt = GetMemory(MAXSTRLEN);
+            strcpy(Ctrl[r].fmt, s);
         }
     }
 
@@ -593,8 +597,14 @@ static void GuiClick(char *p){
         if(argc != 1 && argc != 3) error("Syntax");
         int pin = getinteger(argv[0]), inv = 0;
         if(argc == 3) {
-            if(checkstring(argv[2], "INV")) inv = 1;
-            else error("Syntax");
+            char *ip = argv[2];                                     // INV is an operator, held as its token (the text
+            skipspace(ip);                                          // never matched: the PicoMite's #112)
+            if(*ip == GetTokenValue("INV")) {
+                ip++;
+                skipspace(ip);
+                if(*ip == 0) inv = 1;
+            }
+            if(!inv) error("Syntax");
         }
         CheckPin(pin, CP_CHECKALL);
         ExtCfg(pin, EXT_DIG_IN, inv ? CNPDSET : CNPUSET);           // (active low pulled up; INV active high pulled down)
@@ -2911,11 +2921,7 @@ void cmd_ctrlval(void) {
     if(*cmdline == '#') cmdline++;
     r = getint(cmdline, 1, Option.MaxCtrls);
     if(Ctrl[r].type == 0) error("Control #% does not exist", r);
-    while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++; // search for the = symbol
-    if(!*cmdline) error("Syntax");
-    ++cmdline;                                                        // step over the = symbol
-        skipspace(cmdline);
-    if(!*cmdline || *cmdline == '\'') error("Syntax");
+    cmdline = GetAssignedValue(cmdline, "Syntax");          // the = after the ) (#101)
     switch(Ctrl[r].type) {
         case CTRL_BUTTON:
         case CTRL_SWITCH:

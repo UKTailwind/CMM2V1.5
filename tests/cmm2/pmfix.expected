@@ -1,0 +1,41 @@
+101 let 5 0
+101 mid$ aXYdef
+101 bit 4
+101 byte aAc
+101 err Unknown command
+102 pixel  1
+102 big 
+103 choice 2
+103 mid$ 2
+103 fun 2
+103 fun str 2
+103 label 42
+103 element 2
+103 var 1
+103 two 2
+103 quoted 1
+103 err Cannot find label
+104 choice 80
+104 len String too long
+104 bound  3
+104 length String too long
+105 max 8
+105 bracket 3
+106 3 4
+107 g 
+107 gpsf 
+107 closed File number is not open
+108 5
+108 1
+110 50% off
+110 mail me @ home
+110 $5 & up | ~1
+110 long 235 xxx
+111 Only one format specifier (%) allowed
+111 Syntax: STRUCT(SIZEOF typename$)
+111 Syntax: STRUCT(OFFSET typename$, element$)
+111 Expected: RAY MAP w, h, map%() or map$()
+112 [  ab][ab  ][ab  ]
+116 708
+116 5060708
+

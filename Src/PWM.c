@@ -159,25 +159,25 @@ void cmd_pwm(void) {
     	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     	if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
     	{
-    		error("HAL_TIM_Base_Init(&htim3)");
+    		error("HAL_TIM_Base_Init(htim3)");
     	}
 
     	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
     	if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
     	{
-    		error("HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig)");
+    		error("HAL_TIM_ConfigClockSource(htim3, sClockSourceConfig)");
     	}
 
     	if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
     	{
-    		error("HAL_TIM_PWM_Init(&htim3)");
+    		error("HAL_TIM_PWM_Init(htim3)");
     	}
 
     	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
     	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
     	if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
     	{
-    		error("HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig)");
+    		error("HAL_TIMEx_MasterConfigSynchronization(htim3, sMasterConfig)");
     	}
     } else if(channel==1 && f!=f2){								// (controller 2's timer: not when controller 1 keeps its frequency)
     	htim8.Instance = TIM8;
@@ -188,25 +188,25 @@ void cmd_pwm(void) {
     	htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     	if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
     	{
-    		error("HAL_TIM_Base_Init(&htim8)");
+    		error("HAL_TIM_Base_Init(htim8)");
     	}
 
     	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
     	if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
     	{
-    		error("HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig)");
+    		error("HAL_TIM_ConfigClockSource(htim8, sClockSourceConfig)");
     	}
 
     	if (HAL_TIM_PWM_Init(&htim8) != HAL_OK)
     	{
-    		error("HAL_TIM_PWM_Init(&htim8)");
+    		error("HAL_TIM_PWM_Init(htim8)");
     	}
 
     	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
     	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
     	if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
     	{
-    		error("HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig)");
+    		error("HAL_TIMEx_MasterConfigSynchronization(htim8, sMasterConfig)");
     	}
     }
 

@@ -491,10 +491,7 @@ void cmd_pin(void) {
     long long int value;
 	pin = getinteger(cmdline);
     if(IsInvalidPin(pin)) error("Invalid pin");
-	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
-	if(!*cmdline) error("Invalid syntax");
-	++cmdline;
-	if(!*cmdline) error("Invalid syntax");
+	cmdline = GetAssignedValue(cmdline, "Invalid syntax");          // the = after the ) (#101)
 	value = getinteger(cmdline);
     if(ExtCurrentConfig[pin] == EXT_NOT_CONFIG || ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)
 		PinPut(pin, value != 0);
@@ -953,10 +950,7 @@ void cmd_port(void) {
 	if((argc & 0b11) != 0b11) error("Invalid syntax");
 
     // step over the equals sign and get the value for the assignment
-	while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
-	if(!*cmdline) error("Invalid syntax");
-	++cmdline;
-	if(!*cmdline) error("Invalid syntax");
+	cmdline = GetAssignedValue(cmdline, "Invalid syntax");          // the = after the ) (#101)
 	value = getinteger(cmdline);
 
     for(i = 0; i < argc; i += 4) {

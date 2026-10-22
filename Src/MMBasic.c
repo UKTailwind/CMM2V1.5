@@ -332,6 +332,8 @@ void MIPS16 InitBasic(void) {
 int CheckEmpty(char *p){
         int emptyarray=0;
         char *pp = strchr((char *)p, '(');
+        if(pp == NULL) return 0;                                    // no bracket at all: an address (the loop
+                                                                    // below stepped a NULL pointer: the PicoMite's #116)
         if(pp){
             pp++;
             skipspace(pp);
@@ -1908,7 +1910,9 @@ int MIPS16 tokenise(int console) {
         if(strncasecmp(h, "HELP ", 5) == 0) {
             char *q = h + 5;
             int n;
+            char *c;
             skipspace(q);
+            if(*q != '"' && (c = strchr(q, '\'')) != NULL) *c = 0;      // a comment is not the topic (the PicoMite's #113)
             n = strlen(q);
             while(n && q[n - 1] == ' ') q[--n] = 0;
             if(n && *q != '"' && strlen(inpbuf) + 2 < STRINGSIZE) {
@@ -3451,6 +3455,33 @@ static int FindStructBase(char *basename, int baselen, int *pvindex) {
     return VREC(vindex)->size;
 }
 
+// the variable named at p (its text: a command's statement is spelt out, SymExpandStatement), found as findvar finds
+// it (this level's locals, then the globals; a structure's member, P.X, by its base) but with nothing made and no
+// error: its slot, or -1.  RESTORE's test of a bare name, a label unless it is a variable (the PicoMite's #103).
+int FindVarSlot(char *p) {
+    char name[MAXVARLEN + 1];
+    int namelen = 0, baselen = 0, vindex = -1, gfree;
+    uint32_t hash = FNV_offset_basis;
+    skipspace(p);
+    if(!isnamestart(*p)) return -1;
+    do {
+        char c = toupper(*p++);
+        if(namelen == MAXVARLEN) return -1;                         // too long for a variable's name
+        if(c == '.' && baselen == 0) baselen = namelen;
+        hash ^= c;
+        hash *= FNV_prime;
+        name[namelen++] = c;
+    } while(isnamechar(*p));
+    if(namelen != MAXVARLEN) name[namelen] = 0;
+    if(LocalIndex) vindex = find_local_slot(name, namelen);
+    if(vindex < 0) {
+        vindex = probe_global_slot(name, namelen, MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1)), &gfree);
+        if(gfree != -1) vindex = -1;
+    }
+    if(vindex < 0 && baselen && g_structcnt > 0) FindStructBase(name, baselen, &vindex);
+    return vindex;
+}
+
 // where the reference findvar read ends, when nothing follows it that skipvar would step over too (getvalue's)
 char *FindvarEnd;
 static void __attribute__((noinline)) *findvar_body(char *p, int action, char **endp);
@@ -3914,14 +3945,7 @@ findvar_found:
       if(action & V_DIM_VAR) {
           if(vtype & T_STR) {
             i = 0;
-            if(*p == '(') {
-                do {
-                    if(*p == '(') i++;
-                    if(tokentype(*p) & T_FUN) i++;
-                    if(*p == ')') i--;
-                    p++;
-                } while(i);
-            }
+            if(*p == '(') p = getclosebracket(p) + 1;                  // (past a quoted bracket too: the PicoMite's #104)
             skipspace(p);
             if((s = checkstring(p, "LENGTH")) != NULL)
                 size = getint(s, 1, MAXSTRLEN) ;
@@ -4190,16 +4214,14 @@ inline void ITCM_CODE makeargs(char **p, int maxargs, char *argbuf, char *argv[]
     // (FRAMEBUFFER CREATE with no size) evaluated garbage and could fault.  They are empty strings now.
     for(int i = *argc; i < maxargs; i++) argv[i] = op;
 }
-void MMErrorString(char *msg){
-	char *c=&errstring[errpos];
-	char *q=msg;
-	while(*q)*c++=*q++;
-	errpos+=strlen(msg);
-	errstring[errpos]=0;
-}
+// the error's text, into errstring (256 bytes): what does not fit is lost, but the line's end keeps its room (an
+// ERROR message of 255 characters after "Error in line N: " ran past it: the PicoMite's #110)
 void MMErrorchar(char c){
-	errstring[errpos]=c;
-	errpos++;
+    if(errpos < (int)sizeof(errstring) - ((c == '\r' || c == '\n') ? 1 : 3)) errstring[errpos++] = c;
+    errstring[errpos] = 0;
+}
+void MMErrorString(char *msg){
+    while(*msg) MMErrorchar(*msg++);
 }
 // throw an error
 // displays the error message and aborts the program
@@ -5343,6 +5365,30 @@ char ITCM_CODE *getclosebracket(char *p) {
 }
 
 
+// NAME(args) = value, for a command whose token carries its '(' (MID$(, LMID(, BITBYTEFLAG(, PIN(, PORT(, MAP(,
+// CTRLVAL(): p is just after the token. The value's text, after the ')' that matches it and the '=' straight after
+// that; msg is the command's message for anything else. A '=' inside the brackets is a comparison
+// (CHOICE(k = 1, 1, 2)): the scans for the statement's first '=' took it (the PicoMite's issue #101).
+char *GetAssignedValue(char *p, char *msg) {
+    int i = 1, inquote = false;
+    for(;; p++) {
+        if(*p == 0) error(msg);
+        if(*p == '\"') inquote = !inquote;
+        else if(!inquote) {
+            if(*p == ')') { if(--i == 0) break; }
+            else if(*p == '(' || (tokentype(*p) & T_FUN)) i++;
+        }
+    }
+    p++;
+    skipspace(p);
+    if(tokenfunction(*p) != op_equal) error(msg);
+    p++;
+    skipspace(p);
+    if(*p == 0 || *p == '\'') error(msg);
+    return p;
+}
+
+
 // check that there is no excess text following an element
 // will skip spaces and abort if a zero char is not found
 void checkend(char *p) {
@@ -5379,6 +5425,13 @@ char *checkstring(char *p, char *tkn) {
         return p;                                                   // if successful return a pointer to the next non space character after the matched string
     }
     return NULL;                                                    // or NULL if not
+}
+
+// the keyword tkn as the whole of an argument, or of the rest of a statement (a comment may follow): L, but not L(1)
+// or L + x$, which checkstring matches as L and more (the PicoMite's #107 and #112: an expression taken for the word)
+int checkword(char *p, char *tkn) {
+    char *tp = checkstring(p, tkn);
+    return tp != NULL && (*tp == 0 || *tp == '\'');
 }
 
 

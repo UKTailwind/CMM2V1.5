@@ -166,8 +166,8 @@ void fun_cmdline(void){
 	if(*p==34){
 		do{
 			p++;
-		} while(*p!=34);
-		p++;
+		} while(*p && *p!=34);                                    // (no closing quote: no arguments)
+		if(*p) p++;
 		skipspace(p);
 		if(*p==','){
 			p++;
@@ -620,11 +620,11 @@ void fun_trim(void)
 		mask = defaultmask;
 	if (argc == 5)
 	{
-		if (checkstring(argv[4], "L"))
+		if (checkword(argv[4], "L"))                       // (the letter alone: the PicoMite's #112)
 			where = 'L';
-		else if (checkstring(argv[4], "R"))
+		else if (checkword(argv[4], "R"))
 			where = 'R';
-		else if (checkstring(argv[4], "B"))
+		else if (checkword(argv[4], "B"))
 			where = 'B';
 		else
 		{

@@ -229,7 +229,7 @@ read_ext(gd_GIF *gif)
         read_application_ext(gif);
         break;
     default:
-        error( "unknown extension: %02X\n", label);
+        error("Unknown GIF extension %", label);   // (error() is not printf)
     }
 }
 

@@ -1078,9 +1078,8 @@ void cmd_struct(void)
 		if (FileTable[fnbr].com <= MAXCOMPORTS)
 			error("Not a disk file");
 
-		// Skip past file number to comma
-		while (*p && *p != ',')
-			p++;
+		// Skip past file number to comma, past its brackets (#MAX(1, 0): the PicoMite's #106)
+		p = skipexpression(p);
 		if (*p != ',')
 			error("Expected comma");
 		p++;
@@ -1159,9 +1158,8 @@ void cmd_struct(void)
 		if (FileTable[fnbr].com <= MAXCOMPORTS)
 			error("Not a disk file");
 
-		// Skip past file number to comma
-		while (*p && *p != ',')
-			p++;
+		// Skip past file number to comma, past its brackets (#MAX(1, 0): the PicoMite's #106)
+		p = skipexpression(p);
 		if (*p != ',')
 			error("Expected comma");
 		p++;
@@ -1921,7 +1919,7 @@ void fun_struct(void)
 		// Parse remaining arguments: typename$, element$
 		getargs(&p, 3, ","); // typename$, element$ = 3 tokens
 		if (argc != 3)
-			error("Syntax: STRUCT(OFFSET typename$, element$)");
+			error("Syntax: STRUCT(OFFSET typename$, element$)", "$", "$");   // ($ is error()'s code for a string: the PicoMite's #111)
 
 		// Get the structure type name (argv[0])
 		typename_str = getstring(argv[0]);
@@ -1958,7 +1956,7 @@ void fun_struct(void)
 		// Parse remaining argument: typename$
 		getargs(&p, 1, ","); // typename$ = 1 token
 		if (argc != 1)
-			error("Syntax: STRUCT(SIZEOF typename$)");
+			error("Syntax: STRUCT(SIZEOF typename$)", "$");   // ($ is error()'s code for a string: the PicoMite's #111)
 
 		// Get the structure type name (argv[0])
 		typename_str = getstring(argv[0]);
@@ -1989,7 +1987,7 @@ void fun_struct(void)
 		// Parse remaining arguments: typename$, element$
 		getargs(&p, 3, ","); // typename$, element$ = 3 tokens
 		if (argc != 3)
-			error("Syntax: STRUCT(TYPE typename$, element$)");
+			error("Syntax: STRUCT(TYPE typename$, element$)", "$", "$");   // ($ is error()'s code for a string: the PicoMite's #111)
 
 		// Get the structure type name (argv[0])
 		typename_str = getstring(argv[0]);

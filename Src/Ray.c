@@ -863,7 +863,7 @@ static void ray_cmd_map(char *p)
 {
     getargs(&p, 5, ",");
     if (argc < 5)
-        error("Expected: RAY MAP w, h, map%() or map$()");
+        error("Expected: RAY MAP w, h, map$() or map$()", "%", "$");   // (error()'s codes: the PicoMite's #111)
 
     int w = getint(argv[0], 1, RAY_MAX_MAP_W);
     int h = getint(argv[2], 1, RAY_MAX_MAP_H);

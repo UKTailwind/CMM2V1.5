@@ -1868,14 +1868,14 @@ void cmd_play(void) {
         // get the command line arguments
         getargs(&tp, 9,",");                                       // this MUST be the first executable line in the function
         if(!(argc == 9 || argc == 7 || argc == 5)) error("Argument count");
-        if(checkstring(argv[4],"O")==NULL && argc == 5) error("Argument count");
+        if(!checkword(argv[4],"O") && argc == 5) error("Argument count");
 		WAV_fnbr=0;
         channel=getint(argv[0],1,MAXSOUNDS)-1;
         lastleft=(uint16_t *)sound_mode_left[channel];
         lastright=(uint16_t *)sound_mode_right[channel];
-        if(checkstring(argv[2],"L")!=NULL) left=1;
-        else if(checkstring(argv[2],"R")!=NULL) right=1;
-        else if(checkstring(argv[2],"B")!=NULL) { left=1; right=1; }
+        if(checkword(argv[2],"L")) left=1;          // (the letter alone: L(1) is an expression, the PicoMite's #112)
+        else if(checkword(argv[2],"R")) right=1;
+        else if(checkword(argv[2],"B")) { left=1; right=1; }
         else {                                                      // a string expression, where "M" is "B" (the PicoMite's)
             char *s = getCstring(argv[2]);
             if(strcasecmp(s, "L") == 0) left=1;
@@ -1887,14 +1887,14 @@ void cmd_play(void) {
         // the type, the frequency and the volume are all checked before the channel is changed ("Invalid type" could
         // not fire: the channel had already been set to nulltable, and the live channel changed before the checks)
         uint16_t *type = NULL;
-        if(checkstring(argv[4],"O")!=NULL) type=(uint16_t *)nulltable;
-        else if(checkstring(argv[4],"Q")!=NULL) type=(uint16_t *)squaretable;
-        else if(checkstring(argv[4],"T")!=NULL) type=(uint16_t *)triangletable;
-        else if(checkstring(argv[4],"W")!=NULL) type=(uint16_t *)sawtable;
-        else if(checkstring(argv[4],"S")!=NULL) type=(uint16_t *)SineTable;
-        else if(checkstring(argv[4],"P")!=NULL) type=(uint16_t *)noisetable;
-        else if(checkstring(argv[4],"N")!=NULL) type=(uint16_t *)whitenoise;
-        else if(checkstring(argv[4],"U")!=NULL) type=(uint16_t *)usertable;
+        if(checkword(argv[4],"O")) type=(uint16_t *)nulltable;
+        else if(checkword(argv[4],"Q")) type=(uint16_t *)squaretable;
+        else if(checkword(argv[4],"T")) type=(uint16_t *)triangletable;
+        else if(checkword(argv[4],"W")) type=(uint16_t *)sawtable;
+        else if(checkword(argv[4],"S")) type=(uint16_t *)SineTable;
+        else if(checkword(argv[4],"P")) type=(uint16_t *)noisetable;
+        else if(checkword(argv[4],"N")) type=(uint16_t *)whitenoise;
+        else if(checkword(argv[4],"U")) type=(uint16_t *)usertable;
         else {                                                      // a string expression (the PicoMite's)
             static const char k[] = "OQTWSPNU";
             const char *s = getCstring(argv[4]), *q = (s[0] && !s[1]) ? strchr(k, toupper(s[0])) : NULL;

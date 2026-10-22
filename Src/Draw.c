@@ -954,8 +954,8 @@ void cmd_framebuffer(void){
     	skipspace(p);
     	if(*p && *p!='\''){
     		char *q;
-    		if(checkstring(p, "N")) q = "N";
-    		else if(checkstring(p, "F")) q = "F";
+    		if(checkword(p, "N")) q = "N";
+    		else if(checkword(p, "F")) q = "F";
     		else {
     			getargs(&p, 1, ",");
     			if(argc != 1) error("Syntax");
@@ -2626,10 +2626,13 @@ void cmd_clut(void){
     	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
     } else {
     	int cl = getint(cmdline,0,255);
-		while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
-		if(!*cmdline) error("Invalid syntax");
-		++cmdline;
-		if(!*cmdline) error("Invalid syntax");
+		if(cmdtoken == GetCommandValue("Map(")) cmdline = GetAssignedValue(cmdline, "Invalid syntax");   // MAP(n) = c (#101)
+		else {                                                   // MAP n = c
+		    while(*cmdline && tokenfunction(*cmdline) != op_equal) cmdline++;
+		    if(!*cmdline) error("Invalid syntax");
+		    ++cmdline;
+		    if(!*cmdline) error("Invalid syntax");
+		}
 		int col=getColour(cmdline,0);
 		if(VideoColour==4){                                         // the PicoMite's 16 (Rgb121.c)
 			if(cl>15)error("Mode has 16 colours - 0 to 15");
@@ -2675,7 +2678,7 @@ void cmd_page(void){
     	}
     	if(Address>=0xD0000000 &&  Address < 0xD0000000+(G1Hardware ? 0x300000: 0x780000)-PageTable[0].size){
     		ShareNeeded=RoundUptoPage512(Address+PageTable[fadd].size);
-    		if(ShareNeeded>0xD0300000)error("Display page address > &HD0300000 - use a lower page number");
+    		if(ShareNeeded>0xD0300000)error("Display page address > $ - use a lower page number", "&HD0300000");   // (& is error()'s hex code)
     		MPU_Config_nCacheable(0);
 			pagesetdone=0;
 			while(!pagesetdone){
@@ -3197,8 +3200,8 @@ void  getargaddress (volatile char *p, long long int **ip, MMFLOAT **fp, volatil
     *ip=NULL;
     char pp[STRINGSIZE]={0};
     strcpy(pp,(char *)p);
-    if(!isnamestart(pp[0])){ //found a literal
-        *n=1;
+    if(!isnamestart(pp[0]) || FindSubFun(pp, 1) >= 0){ //found a literal, or a FUNCTION's call: an expression (findvar
+        *n=1;                                           // would evaluate its arguments as indices: the PicoMite's #102)
         return;
     }
     ptr = findvar(pp, V_FIND | V_EMPTY_OK | V_NOFIND_NULL);
@@ -4011,7 +4014,7 @@ void cmd_circle(void) {
 		getargs(&cmdline, 9, ",");
 		if(argc%2 == 0 || argc < 3) error("Invalid syntax");
 		if(*argv[0] != '(') error("Expected opening bracket");
-		if(toupper(*argv[argc - 1]) == 'F') {
+		if(checkword(argv[argc - 1], "F")) {                     // (F alone: fcol is a colour, the PicoMite's #112)
 	    	argc -= 2;
 	    	fill = true;
 	    } else fill = false;

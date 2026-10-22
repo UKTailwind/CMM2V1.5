@@ -569,7 +569,7 @@ void fun_format(void) {
 	for(inspec = 0, p = fmt; *p; p++) {
 		if(*p == '%') {
 			inspec++;
-			if(inspec > 1) error("Only one format specifier (%) allowed");
+			if(inspec > 1) error("Only one format specifier (@) allowed", '%');   // (% is error()'s code for a number: the PicoMite's #111)
 			continue;
 		}
 
