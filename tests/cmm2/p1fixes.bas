@@ -9,8 +9,9 @@ Sub NotReal
 End Sub
 */
 Print "after the block comment"
-/* a one-line block comment */
-Print "after the one-line comment"
+/* the rest of a /* line is comment
+*/ and so is the rest of a */ line
+Print "after the second block comment"
 Option Local Variables 300
 Print "OPTION LOCAL VARIABLES accepted"
 On Error Ignore

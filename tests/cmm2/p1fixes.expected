@@ -1,5 +1,5 @@
 after the block comment
-after the one-line comment
+after the second block comment
 OPTION LOCAL VARIABLES accepted
 errno 1
 byval with a local array first: 14 9

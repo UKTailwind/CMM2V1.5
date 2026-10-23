@@ -339,8 +339,72 @@ int massage(char *buff){
 	STR_REPLACE(buff," '","'",3);
 	return strlen(buff);
 }
+// a word at s, in any case, not run on into a name
+static int WordAt(const char *s, const char *w) {
+    int n = strlen(w);
+    return strncasecmp(s, w, n) == 0 && !isnamechar(s[n]);
+}
+
+// A /* ... */ block comment as the manual has it: "/* and */ must be the first non-space characters at the start of a
+// line and have a space or end-of-line after them ... Multi-line comments cannot be used inside subroutines and
+// functions. Any characters after */ on a line are also treated as a comment." The loaders drop a block's lines, so
+// anything else fails the load here (Peter, 23 Oct 2026: "the loader should be rigorous"): /**** or /*text, a */ on
+// the /* line or one after a statement, a */ with no /*, a /* in a SUB or FUNCTION (the PicoMite takes /**** and leaves
+// the others to its run). s is the line, its leading spaces stepped over; *block holds the /* line's number while in a
+// block; *insub is set from a SUB or FUNCTION line to its END SUB or END FUNCTION. Returns 1 for a block's line
+// (dropped), 0 for a line, -1 with *msg the error.
+static int BlockComment(char *s, int *block, int *insub, int line, const char **msg) {
+    char *p = s;
+    int start = 1;                                                  // at a statement's start
+    if(*block) {
+        if(s[0] == '*' && s[1] == '/') {
+            if(s[2] != ' ' && s[2] != 0) { *msg = "*/ needs a space or the end of the line after it"; return -1; }
+            *block = 0;                                             // (the rest of its line is comment)
+        }
+        return 1;
+    }
+    if(s[0] == '/' && s[1] == '*') {
+        if(s[2] != ' ' && s[2] != 0) { *msg = "/* needs a space or the end of the line after it"; return -1; }
+        if(*insub) { *msg = "/* cannot be used inside a SUB or FUNCTION"; return -1; }
+        if(strstr(&s[2], "*/")) { *msg = "*/ must be at the start of a line"; return -1; }   // (/* ... */ on one line)
+        *block = line;
+        return 1;
+    }
+    if(s[0] == '*' && s[1] == '/') { *msg = "*/ without a /*"; return -1; }
+    while(*p) {                                                     // the rest of the line, statement by statement
+        if(start) {
+            while(*p == ' ') p++;
+            if(WordAt(p, "REM") || WordAt(p, "DATA")) break;        // (comment, or DATA's unquoted items)
+            if(WordAt(p, "SUB") || WordAt(p, "FUNCTION")) *insub = 1;
+            else if(WordAt(p, "END")) {
+                char *q = p + 3;
+                while(*q == ' ') q++;
+                if(WordAt(q, "SUB") || WordAt(q, "FUNCTION")) *insub = 0;
+            }
+            start = 0;
+            continue;
+        }
+        if(*p == '"') {                                             // a string, to its closing quote
+            p++;
+            while(*p && *p != '"') p++;
+            if(*p) p++;
+            continue;
+        }
+        if(*p == '\'') break;                                       // a comment
+        if((p[0] == '/' && p[1] == '*') || (p[0] == '*' && p[1] == '/')) {   // (after a statement, a THEN, a line number)
+            *msg = p[0] == '/' ? "/* must be at the start of a line" : "*/ must be at the start of a line";
+            return -1;
+        }
+        if(*p == ':') start = 1;
+        p++;
+    }
+    return 0;
+}
+
 void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
-    int blockcomment = 0;                                           // within /* ... */ (a block comment)
+    int blockcomment = 0;                                           // within /* ... */ (a block comment): its /* line
+    int insub = 0;                                                  // within a SUB or FUNCTION (BlockComment)
+    const char *bm;
     int fnbr;
     char buff[256];
     char qq[FF_MAX_LFN] = {0};
@@ -381,10 +445,10 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 			sbuff++;
 			len--;
 		}
-		if(blockcomment || (sbuff[0] == '/' && sbuff[1] == '*')) {   // a /* ... */ block comment (the PicoMite's): its lines
-			if(!blockcomment) blockcomment = (strstr(&sbuff[2], "*/") == NULL);   // dropped, from the /* line to the */ line
-			else if(sbuff[0] == '*' && sbuff[1] == '/') blockcomment = 0;     // (a /* line with its own */ is a line)
-			continue;
+		if(!ignore || blockcomment) {                               // a /* ... */ block comment (BlockComment), not in #COMMENT's
+			c = BlockComment(sbuff, &blockcomment, &insub, importlines, &bm);
+			if(c < 0) error("Line % of $: $", importlines, fname, bm);
+			if(c) continue;
 		}
 		if(ignore && !(sbuff[0]=='#' && cmpstr("COMMENT END",&sbuff[1])==0))*sbuff='\'';   // (# lines too, but its END)
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
@@ -501,7 +565,7 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 		}
     }
     FileClose(fnbr);
-    if(blockcomment) error("No matching */ in $", fname);
+    if(blockcomment) error("No matching */ for the /* in line % of $", blockcomment, fname);
     return ;
 }
 // load a file into program memory
@@ -517,7 +581,9 @@ static char *ProgramText(char *fname, char *name) {
     int c;
     int convertdebug=1;
     int ignore=0;
-    int blockcomment = 0;                                           // within /* ... */ (a block comment)
+    int blockcomment = 0;                                           // within /* ... */ (a block comment): its /* line
+    int insub = 0;                                                  // within a SUB or FUNCTION (BlockComment)
+    const char *bm;
     nDefines=0;
     LineCount=0;
     int i,importlines=0, data;
@@ -550,10 +616,14 @@ static char *ProgramText(char *fname, char *name) {
 			sbuff++;
 			len--;
 		}
-		if(blockcomment || (sbuff[0] == '/' && sbuff[1] == '*')) {   // a /* ... */ block comment (the PicoMite's): its lines
-			if(!blockcomment) blockcomment = (strstr(&sbuff[2], "*/") == NULL);   // dropped, from the /* line to the */ line
-			else if(sbuff[0] == '*' && sbuff[1] == '/') blockcomment = 0;     // (a /* line with its own */ is a line)
-			continue;
+		if(!ignore || blockcomment) {                               // a /* ... */ block comment (BlockComment), not in #COMMENT's
+			c = BlockComment(sbuff, &blockcomment, &insub, importlines, &bm);
+			if(c < 0) {
+			    FreeMemorySafe((void *)&buf);
+			    FreeMemorySafe((void *)&dlist);
+				error("Line %: $", importlines, bm);
+			}
+			if(c) continue;
 		}
 		if(ignore && !(sbuff[0]=='#' && cmpstr("COMMENT END",&sbuff[1])==0))*sbuff='\'';   // (# lines too, but its END)
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
@@ -670,7 +740,7 @@ static char *ProgramText(char *fname, char *name) {
     if(blockcomment) {
         FreeMemorySafe((void *)&buf);
         FreeMemorySafe((void *)&dlist);
-        error("No matching */");
+        error("No matching */ for the /* in line %", blockcomment);
     }
     return buf;
 }
