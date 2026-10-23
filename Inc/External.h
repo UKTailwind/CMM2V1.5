@@ -167,6 +167,11 @@ extern void ExtCfg(int pin, int cfg, int option) ;
 extern void ExtSet(int pin, long long int val);
 extern int64_t ExtInp(int pin);
 extern int IsInvalidPin(int pin);
+extern int GetPinArg(char *p);                  // a pin argument: a number, or with OPTION PICOMITE a GP name
+extern int GetPinArgN(char *p);                 // the same, checked as getint(p, 1, NBRPINS) checks a number
+extern int PinArgGP(char *p, int *pin);         // the same, giving the GP number (-1: a number) and the pin (0: none)
+extern int GPPinOf(int gp);                     // a GP's pin
+extern int PinFnArg(char *p, MMFLOAT *f, long long int *i64, char **s);   // PIN('s argument, evaluated
 extern int p100interrupts[];
 extern unsigned long ReadCount5(void);
 extern void WriteCount5(unsigned long timeset);

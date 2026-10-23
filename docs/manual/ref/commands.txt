@@ -2499,6 +2499,7 @@ The SERVO function will take control of any specified outputs and when stopped t
 {t=l2592}Previous versions of MMBasic used numbers for ‘cfg’ (1 AIN, 2 DIN, 3 FIN, 4 PIN, 5 CIN, 6 INTH, 7 INTL, 8 DOUT and 9 OOUT) and the mode OOUT (an open collector output).  For backwards compatibility they will still be recognised.
 {t=l2592}Pin 15 shares its hardware interrupt with the PS2 mouse: it cannot be a frequency, period or counting input while the PS2 mouse is open (CONTROLLER MOUSE OPEN 0).  On the counting pins 7, 13, 15 and 24 a CSub can have its own routine called on each edge in place of the count (CFuncInt1 to CFuncInt4).
 {t=l2592}The functions PIN() and PORT() can also be used to return the value on one or more output pins.  See the function PIN() for reading inputs and the statement PIN()= for setting an output.  See the command below if an interrupt is configured.
+{t=l2592}With OPTION PICOMITE ‘pin’ can also be a PicoMite GP name (eg, SETPIN GP2, DOUT), and the PicoMite's SETPIN commands that give COM ports, I2C, SPI, PWM and IR their pins are accepted (see PicoMite Pin Names in the chapter Using the I/O Pins).
 
 === SETPIN pin, cfg, target [, option]
 ---

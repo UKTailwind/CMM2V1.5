@@ -597,7 +597,7 @@ static void GuiClick(char *p){
         if(GuiClickPin) error("GUI CLICK PIN already set; use GUI CLICK PIN OFF first");
         getargs(&q, 3, ",");
         if(argc != 1 && argc != 3) error("Syntax");
-        int pin = getinteger(argv[0]), inv = 0;
+        int pin = GetPinArg(argv[0]), inv = 0;
         if(argc == 3) {
             char *ip = argv[2];                                     // INV is an operator, held as its token (the text
             skipspace(ip);                                          // never matched: the PicoMite's #112)

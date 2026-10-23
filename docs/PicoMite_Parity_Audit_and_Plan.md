@@ -309,6 +309,25 @@ The CMM2's LTDC can generate any of the PicoMite geometries from SDRAM pages, so
 
 By peripheral function, because the CMM2's peripherals are on fixed pins: COM1 TX/RX (GP0/GP12/GP16/GP28, GP1/GP13/GP17) to pins 8/10; COM2 TX/RX (GP4/GP8/GP20, GP5/GP9/GP21) to 16/11; I2C SDA/SCL to 3/5; I2C2 SDA/SCL to 27/28; SPI RX/TX/CLK to 21/19/23; SPI2 to 35/38/40; counting inputs GP6-GP9 to 7/13/15/24 and `FFIN` to 18; ADC GP26-GP29 to four of the twelve AIN pins; PWM outputs to 12, 22, 29, 36, 31 in order of first use; IR to 41; DS18B20 to 42. Plain digital `GPn` through a 30-entry table of the general-purpose pins; `GP30`-`GP47` refused; Pico physical numbers converted to `GPnn` first; `"GPn"` strings parsed as the PicoMite does. The table is a constant in `cmm2/IOPorts.h` and `OPTION PICOMITE PINS` could let a user override single entries (decision 6 in 7.2).
 
+**Decided 23 Oct 2026 (Peter), and built.** A fixed map by function ("much better would be to try and match
+functionality"), under OPTION PICOMITE only; plain numbers stay the CMM2's own pins. GP1 is COM1 RX, so the fast
+counting pin is GP13 and FFIN (GP1 only on the PicoMite) is refused; COM2 is on GP36 and GP37, the RP2350B's UART1
+pins ("put com2RX/TX on GP36,37 to use the extra pins so GP21 becomes pin 33"), so all 28 connector pins have a name:
+
+| GP | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| pin | 8 | 10 | 12 | 22 | 36 | 31 | 7 | 13 | 15 | 24 | 40 | 38 | 35 | 18 |
+
+| GP | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 26 | 27 | 28 | 36 | 37 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| pin | 27 | 28 | 3 | 5 | 23 | 19 | 21 | 33 | 32 | 26 | 29 | 37 | 16 | 11 |
+
+COM1 on GP0/1, PWM 1A, 1B, 2A, 2B on GP2-5, the counting inputs on GP6-9, SPI2 on GP10-12, I2C2 on GP14/15, I2C on
+GP16/17 and SPI on GP18-20, as on the PicoMite; the analog inputs on GP26-28. The other GPs are an error. The
+PicoMite's SETPINs for a port's pins are checked against the RP2350's pin functions and change nothing (the CMM2's
+ports keep their fixed pins); SETPIN pin, PWM is accepted on GP2-5 and SETPIN pin, IR for the CMM2's receiver. No
+OPTION PICOMITE PINS. `Src/External.c` (GPPin, GetPinArg, PicoSetpin), `tests/picomite/gppins.bas`.
+
 ### 6.5 Drives and program files
 
 Under the switch, `B:` is the SD card root, `A:` is a directory on the SD card (default `A:/FLASH/`, so the PicoMite's two drives do not collide), `C:` is "USB drive not available" unless TinyUSB MSC is in; `DRIVE` and the `A:`/`B:`/`C:` prompt shortcuts set the prefix; `MM.INFO$(DRIVE)` reports the virtual letter. Under strategy B the PicoMite's program memory, `FLASH` slots, `LIBRARY` and `SAVE/LOAD CONTEXT` are native (bank 2 sectors and SDRAM); under A they map to files (`A:/FLASH/SLOTn.BAS`, `A:/FLASH/LIBRARY.BAS` as an implicit `#INCLUDE`), and `CHAIN` loses the variables, which the manual would have to say.
@@ -744,7 +763,7 @@ In this order, each a commit with the goldens run after it: ~~STM32CubeH7 v1.13.
 3. CSUB ABI: keep the fixed-address `CallTable` for old CMM2 CSUBs, or move to the PicoMite layout (P0). **Decided 15 Oct: the PicoMite layout** (found through VTOR slot 7, the same offsets as `PicoCFunctions.h`), CSUBs compiled for the M7 with the hardware FPU. Built that way a CSUB needs no helper for double or single arithmetic, square root, float conversions, 32-bit divide, 64-bit multiply or shifts; it still needs 64-bit divide and modulo (the M7 divides 32-bit integers only), 64-bit integer to and from float, and the transcendental functions. The redundant slots keep their one-line implementations so the header stays shared; hardware the CMM2 lacks (PIO) gets a stub that raises an error. Existing CMM2 CSUBs are rebuilt.
 4. USB host stack: TinyUSB or the ST library (P2). **Decided 15 Oct: TinyUSB** (P2 item 2); the ST host library is gone.
 5. Drive letters under each dialect (section 6).
-6. Pin naming under the PicoMite dialect: a fixed `GPn`-to-connector-pin map, a user-settable map (`OPTION PICOMITE PINS`), or `GPn` refused (section 6).
+6. Pin naming under the PicoMite dialect: a fixed `GPn`-to-connector-pin map, a user-settable map (`OPTION PICOMITE PINS`), or `GPn` refused (section 6). **Decided 23 Oct (Peter): a fixed map by function** (6.4), under OPTION PICOMITE.
 7. The default dialect on a CMM2 (the CMM2's) and how a PicoMite program selects the other (saved option, `OPTION PICOMITE ON` as the first line, or `RUN file$, P`). **Named 17 Oct (Peter): `OPTION PICOMITE ON | OFF`.**
 8. Editor: PicoMite `Editor.c` or `kilo.c` (P4). **Decided 19 Oct (Peter): the PicoMite's.** It replaced `kilo.c` the same day.
 9. The GNU regex engine: keep or replace (P6).

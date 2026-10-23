@@ -1059,7 +1059,7 @@ static const struct
     {"WRITEBUFF", T_INT}, {"TILE HEIGHT", T_INT}, {"STACK", T_INT}, {"FLASH ADDRESS", T_INT}, {"FILESIZE", T_INT},
     {"DISK SIZE", T_INT}, {"FREE SPACE", T_INT}, {"ERRNO", T_INT}, {"UPTIME", T_NBR}, {"CPUSPEED", T_INT},
     {"PATH", T_STR}, {"SOUND", T_STR}, {"ERRMSG", T_STR}, {"SYSTEM I2C", T_STR}, {"LCDPANEL", T_STR},
-}; // (the CMM2's fun_info: CPUSPEED is a number here; it has no PINNO or PS2)
+}; // (the CMM2's fun_info: CPUSPEED is a number here; PINNO and MAX GP, OPTION PICOMITE's GPs, are not compiled; no PS2)
 static int RBInfoType(unsigned char *txt)
 {
     for (unsigned k = 0; k < sizeof(RBInfoKw) / sizeof(RBInfoKw[0]); k++)

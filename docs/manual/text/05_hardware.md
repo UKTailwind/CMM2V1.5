@@ -143,7 +143,7 @@ The capabilities of each pin are (5V: the pin tolerates inputs up to 5.3V):
 | 37 | Analog Input or COM1 DE |  | 38 | SPI2 MOSI | 5V |
 | 39 | Ground |  | 40 | SPI2 CLOCK / CAN2 Tx | 5V |
 
-Except for the power and ground pins all pins can be used for digital I/O using the PIN() function and command and using the pin number as the reference. For example pin 3 can be set to an output using SETPIN 3, DOUT and then the pin set high (ie, to 3.3V) using the command PIN(3) = 1.
+Except for the power and ground pins all pins can be used for digital I/O using the PIN() function and command and using the pin number as the reference. For example pin 3 can be set to an output using SETPIN 3, DOUT and then the pin set high (ie, to 3.3V) using the command PIN(3) = 1. With OPTION PICOMITE the pins can also be referred to by the PicoMite's GP names (see PicoMite Pin Names in the chapter Using the I/O Pins).
 
 All pins marked 5V can tolerate inputs up to 5.3V; all other pins can tolerate up to 3.6V.
 

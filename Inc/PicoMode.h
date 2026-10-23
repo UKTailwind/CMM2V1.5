@@ -18,6 +18,7 @@ int ModeXres(int mode);                         // the display's size: the mode'
 int ModeYres(int mode);
 int PicoFlavour(void);                          // OPTION PICOMITE: PICO_NONE, PICO_VGA or PICO_HDMI
 const char *PicoDeviceName(void);               // and the PicoMite's MM.DEVICE$ it names (NULL: NONE)
+int PicoMaxGP(void);                            // and its MM.INFO(MAX GP)
 void PicoModeSet(int mode);
 void PicoModeEnd(void);
 void PicoOption(char *tp);

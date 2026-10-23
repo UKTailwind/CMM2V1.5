@@ -489,7 +489,7 @@ execute longjmp(mark, 1) if it wants to abort the program.
 void cmd_pin(void) {
 	int pin;
     long long int value;
-	pin = getinteger(cmdline);
+	pin = GetPinArg(cmdline);
     if(IsInvalidPin(pin)) error("Invalid pin");
 	cmdline = GetAssignedValue(cmdline, "Invalid syntax");          // the = after the ) (#101)
 	value = getinteger(cmdline);
@@ -526,8 +526,7 @@ void fun_pin(void) {
     MMFLOAT f;
     long long int i64;
     char *ss;
-    int t=0;
-    evaluate(ep, &f, &i64, &ss, &t, false);
+    int t=PinFnArg(ep, &f, &i64, &ss);                             // (OPTION PICOMITE: GPn or "GPn" is its pin)
 	ADC_ChannelConfTypeDef sConfig;
 	int pin;
 	if(t & T_STR){
@@ -944,7 +943,7 @@ void fun_pin(void) {
 void cmd_port(void) {
 	int pin, nbr;
 	uint64_t value;                                                 // (unsigned: beyond 32 pins a signed int repeated bit 31)
-    int i;
+    int i, gp;
 	getargs(&cmdline, NBRPINS * 4, ",");
 
 	if((argc & 0b11) != 0b11) error("Invalid syntax");
@@ -954,12 +953,13 @@ void cmd_port(void) {
 	value = getinteger(cmdline);
 
     for(i = 0; i < argc; i += 4) {
-        pin = getinteger(argv[i]);
+        gp = PinArgGP(argv[i], &pin);
         nbr = getinteger(argv[i + 2]);
 
-        if(nbr < 0 || pin <= 0) error("Invalid argument");
+        if(nbr < 0 || (gp < 0 && pin <= 0)) error("Invalid argument");
 
         while(nbr) {
+            if(gp >= 0) pin = GPPinOf(gp++);
             if(IsInvalidPin(pin) || !(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Invalid output pin");
             ExtSet(pin, value & 1);
             value >>= 1;
@@ -973,20 +973,22 @@ void cmd_port(void) {
 
 // this is invoked as a function (ie, x = port(10,8) )
 void fun_port(void) {
-	int pin, nbr, i;
+	int pin, nbr, i, gp;
 	int64_t value = 0;                                              // (up to 64 pins)
 
 	getargs(&ep, NBRPINS * 4, ",");
 	if((argc & 0b11) != 0b11) error("Invalid syntax");
 
     for(i = argc - 3; i >= 0; i -= 4) {
-        pin = getinteger(argv[i]);
+        gp = PinArgGP(argv[i], &pin);
         nbr = getinteger(argv[i + 2]);
 
-        if(nbr < 0 || pin <= 0) error("Invalid argument");
+        if(nbr < 0 || (gp < 0 && pin <= 0)) error("Invalid argument");
         pin += nbr - 1;                                             // we start by reading the most significant bit
+        if(gp >= 0) gp += nbr - 1;                                  // (a GP name's: n consecutive GP numbers, as for PORT =)
 
         while(nbr) {
+            if(gp >= 0) pin = GPPinOf(gp--);
             if(IsInvalidPin(pin) || !(ExtCurrentConfig[pin] == EXT_DIG_IN || ExtCurrentConfig[pin] == EXT_INT_HI || ExtCurrentConfig[pin] == EXT_INT_LO || ExtCurrentConfig[pin] == EXT_INT_BOTH
                 || ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Invalid input pin");   // (an output's state too, as b14's and the PicoMite's)
             value <<= 1;
@@ -1002,10 +1004,12 @@ void fun_port(void) {
 
 
 
+static int PicoSetpin(int argc, char **argv);
 void cmd_setpin(void) {
 	int i, pin, value, option = 0;
 	getargs(&cmdline, 7, ",");
 	if(argc%2 == 0 || argc < 3) error("Argument count");
+    if(PicoFlavour() != PICO_NONE && PicoSetpin(argc, argv)) return;   // (OPTION PICOMITE: a port's pins, IR)
 
     if(checkstring(argv[2], "OFF") || checkstring(argv[2], "0"))
         value = EXT_NOT_CONFIG;
@@ -1063,7 +1067,7 @@ void cmd_setpin(void) {
                                 option = 1000;
                             break;
         case EXT_CNT_IN:   if(argc == 5) {
-                                if(getinteger(argv[0]) == COUNT5) option = (int)GetIntAddress(argv[4]);   // its interrupt (pin is read below)
+                                if(GetPinArg(argv[0]) == COUNT5) option = (int)GetIntAddress(argv[4]);   // its interrupt (pin is read below)
                                 else option = getint(argv[4], 1, 5);                      // the edge and pull (ExtCfg)
                             } else
                                 option = 0;
@@ -1083,7 +1087,7 @@ void cmd_setpin(void) {
         default:            if(argc > 3) error("Unexpected text");
     }
 
-	pin = getinteger(argv[0]);                                      // (CIN's fifth argument is the edge and pull on pins 7-10, the interrupt on 18)
+	pin = GetPinArg(argv[0]);                                       // (CIN's fifth argument is the edge and pull on pins 7-10, the interrupt on 18)
     {
         CheckPin(pin, CP_IGNORE_INUSE);
         ExtCfg(pin, value, option);
@@ -1114,7 +1118,8 @@ void cmd_pulse(void) {
 
 	getargs(&cmdline, 3, ",");
 	if(argc != 3) error("Invalid syntax");
-	pin = getinteger(argv[0]);
+	pin = GetPinArg(argv[0]);
+    if(IsInvalidPin(pin)) error("Invalid pin");
 	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
 
     f = getnumber(argv[2]);                                         // get the pulse width
@@ -1159,7 +1164,7 @@ void fun_pulsin(void) { //allowas timeouts up to 10 seconds
 
 	getargs(&ep, 7, ",");
 	if((argc &1) != 1 || argc < 3) error("Invalid syntax");
-    pin = getinteger(argv[0]);
+    pin = GetPinArg(argv[0]);
     if(IsInvalidPin(pin)) error("Invalid pin");
 	if(ExtCurrentConfig[pin] != EXT_DIG_IN) error("Pin is not an input");
     polarity = getinteger(argv[2]);
@@ -1200,7 +1205,7 @@ void cmd_ir(void) {
         IrInterrupt = NULL;
     } else if((p = checkstring(cmdline, "SEND"))) {
         getargs(&p, 5, ",");
-        pin = getinteger(argv[0]);
+        pin = GetPinArg(argv[0]);
         dev = getint(argv[2], 0, 0b11111);
         cmd = getint(argv[4], 0, 0b1111111);
         ExtCfg(pin, EXT_DIG_OUT, 0);
@@ -1288,7 +1293,7 @@ void cmd_lcd(void)
         if(argc != 11) error("Invalid syntax");
         if(*lcd_pins) error("Already open");
         for(i = 0; i < 6; i++) {
-            lcd_pins[i] = getinteger(argv[i * 2]);
+            lcd_pins[i] = GetPinArg(argv[i * 2]);
             if(ExtCurrentConfig[(int)lcd_pins[i]] >= EXT_COM_RESERVED)  error("Pin is in use");
             ExtCfg(lcd_pins[i], EXT_DIG_OUT, 0);
             ExtCfg(lcd_pins[i], EXT_COM_RESERVED, 0);
@@ -1409,7 +1414,7 @@ void DHT22(char *p) {
 	if(!(FoundType() & T_NBR)) error("Invalid variable");
 
     // get the pin number and set it up
-    pin = getinteger(argv[0]);
+    pin = GetPinArg(argv[0]);
     if(IsInvalidPin(pin)) error("Invalid pin");
     if(ExtCurrentConfig[pin] != EXT_NOT_CONFIG)  error("Pin is in use");
     ExtCfg(pin, EXT_OC_OUT, 0);
@@ -1472,7 +1477,7 @@ void Bitstream(char *tp){
 	getargs(&tp, 5,",");
 	if(!(argc == 5)) error("Argument count");
 	num=getint(argv[2],1,250000);
-	pin=getinteger(argv[0]);
+	pin=GetPinArg(argv[0]);
 	if(IsInvalidPin(pin)) error("Invalid pin");
 	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
 	   /*
@@ -1613,7 +1618,7 @@ void WS2812(char *q){
                 dest = &colour1;
             }
 
-        pin=getinteger(argv[2]);
+        pin=GetPinArg(argv[2]);
         if(IsInvalidPin(pin)) error("Invalid pin");
     	//if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
     	if(!(ExtCurrentConfig[pin] == EXT_NOT_CONFIG || ExtCurrentConfig[pin] == EXT_DIG_OUT))  error("Pin | is in use",pin);
@@ -1687,7 +1692,7 @@ void cmd_bitbang(void){
 		getargs(&tp, 5,",");
 		if(!(argc == 5)) error("Argument count");
 		num=getint(argv[2],1,250000);
-        pin=getinteger(argv[0]);
+        pin=GetPinArg(argv[0]);
         if(IsInvalidPin(pin)) error("Invalid pin");
     	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
 		ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
@@ -1786,7 +1791,7 @@ void WS2812(char *q){
 				dest = (long long int *)ptr1;
 			} else error("Argument 1 must be integer array");
 			}
-        pin=getinteger(argv[2]);
+        pin=GetPinArg(argv[2]);
         if(IsInvalidPin(pin)) error("Invalid pin");
     	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
 		PinDef[pin].sfr->BSRR = PinDef[pin].bitnbr<<16;
@@ -1836,9 +1841,9 @@ void fun_distance(void) {
 
 	getargs(&ep, 3, ",");
 	if((argc &1) != 1) error("Invalid syntax");
-    trig = getinteger(argv[0]);
+    trig = GetPinArg(argv[0]);
     if(argc == 3)
-        echo = getinteger(argv[2]);
+        echo = GetPinArg(argv[2]);
     else
         echo = trig;                                                // they are the same if it is a 3-pin device
     if(IsInvalidPin(trig) || IsInvalidPin(echo)) error("Invalid pin");
@@ -1899,7 +1904,8 @@ void cmd_keypad(void) {
                 keypad_pins[i] = 0;
                 break;
             }
-            j = getinteger(argv[(i + 2) * 2]);
+            j = GetPinArg(argv[(i + 2) * 2]);
+            if(IsInvalidPin(j)) error("Invalid pin");
             if(ExtCurrentConfig[j] >= EXT_COM_RESERVED)  error("Pin is in use");
             if(i < 4) {
                 ExtCfg(j, EXT_DIG_IN, CNPUSET);
@@ -2500,6 +2506,159 @@ int IsInvalidPin(int pin) {
     if(pin < 1 || pin > NBRPINS) return true;
     if(PinDef[pin].mode & PUNUSED) return true;
     return false;
+}
+
+/* OPTION PICOMITE's GP names (Peter's map, 23 Oct 2026). Each PicoMite GPIO is the pin here that has its function, where
+   one does, so that a PicoMite program's wiring carries over: COM1 on GP0 and GP1, PWM 1A, 1B, 2A and 2B on GP2-5, the
+   counting inputs on GP6-9 (the PicoMite's INT1-4 pins), SPI2 on GP10-12, the fast counting pin on GP13, I2C2 on GP14
+   and GP15, I2C on GP16 and GP17, SPI on GP18-20, the analog inputs on GP26-28, and COM2 on GP36 and GP37 (the
+   RP2350B's UART1 pins: the connector has two pins more than a Pico has GPs). 0: no pin here. */
+static const unsigned char GPPin[48] = {
+     8, 10, 12, 22, 36, 31,  7, 13, 15, 24,                        // GP0-9
+    40, 38, 35, 18, 27, 28,  3,  5, 23, 19,                        // GP10-19
+    21, 33, 32,  0,  0,  0, 26, 29, 37,  0,                        // GP20-29
+     0,  0,  0,  0,  0,  0, 16, 11,  0,  0,                        // GP30-39
+     0,  0,  0,  0,  0,  0,  0,  0};                               // GP40-47
+#define NBRGP (int)sizeof(GPPin)
+
+// the GP number of a PicoMite pin name, GPn (any case), at 's', -1 if it is not one; 'end': what may follow it
+static int GPName(char *s, const char *end) {
+    int n, i = 3;
+    if(toupper((unsigned char)s[0]) != 'G' || toupper((unsigned char)s[1]) != 'P' || !isdigit((unsigned char)s[2])) return -1;
+    n = s[2] - '0';
+    if(isdigit((unsigned char)s[3])) n = n * 10 + s[i++] - '0';
+    while(s[i] == ' ') i++;
+    if(s[i] && !strchr(end, s[i])) return -1;                       // (GP1A, GP1$ and GP1 + 1 are not pin names)
+    return n;
+}
+
+// the same for an MMBasic string, which is the whole name
+static int GPString(char *ms) {
+    char b[5];
+    int len = *(unsigned char *)ms;
+    if(len < 3 || len > 4) return -1;
+    memcpy(b, ms + 1, len);
+    b[len] = 0;
+    return GPName(b, "");
+}
+
+// a GP's pin; an error for a GP that has none
+int GPPinOf(int gp) {
+    if(gp < 0 || gp >= NBRGP) error("Invalid GPIO");
+    if(GPPin[gp] == 0) error("GP% is not available on the Colour Maximite 2", gp);
+    return GPPin[gp];
+}
+
+/* A pin argument: a pin number, or with OPTION PICOMITE also a PicoMite GP name, unquoted as the PicoMite takes it or as
+   a string. Returns the GP number (-1 for a number) and puts the pin in *pin: a GP name's is GPPin[]'s (0: none). */
+int PinArgGP(char *p, int *pin) {
+    MMFLOAT f;
+    long long int i64;
+    char *s;
+    int gp, t = T_NOTYPE;
+    if(PicoFlavour() == PICO_NONE) {
+        *pin = getinteger(p);
+        return -1;
+    }
+    skipspace(p);
+    if((gp = GPName(p, ",)")) < 0) {
+        evaluate(p, &f, &i64, &s, &t, false);
+        if(!(t & T_STR)) {
+            *pin = (t & T_INT) ? i64 : FloatToInt64(f);
+            return -1;
+        }
+        if((gp = GPString(s)) < 0) error("Invalid pin string");
+    }
+    if(gp >= NBRGP) error("Invalid GPIO");
+    *pin = GPPin[gp];
+    return gp;
+}
+
+// a pin argument (PinArgGP) as its pin; a GP name with no pin here is an error
+int GetPinArg(char *p) {
+    int pin, gp = PinArgGP(p, &pin);
+    if(gp >= 0) pin = GPPinOf(gp);
+    return pin;
+}
+
+// and checked as getint(p, 1, NBRPINS) checks a number
+int GetPinArgN(char *p) {
+    int pin = GetPinArg(p);
+    if(pin < 1 || pin > NBRPINS) error("% is invalid (valid is % to %)", pin, 1, NBRPINS);
+    return pin;
+}
+
+/* PIN('s argument, which may be a string of its own (DAC1 and so on): evaluated, its type returned, as evaluate gives
+   them, except that with OPTION PICOMITE a GP name, unquoted or as a string, is its pin (T_INT) */
+int PinFnArg(char *p, MMFLOAT *f, long long int *i64, char **s) {
+    int t = T_NOTYPE, gp = -1;
+    if(PicoFlavour() != PICO_NONE) {
+        skipspace(p);
+        gp = GPName(p, ",)");
+    }
+    if(gp < 0) {
+        evaluate(p, f, i64, s, &t, false);
+        if(PicoFlavour() == PICO_NONE || !(t & T_STR) || (gp = GPString(*s)) < 0) return t;
+    }
+    *i64 = GPPinOf(gp);
+    return T_INT;
+}
+
+// the GP that a pin argument names: a GP name's, or the GP whose pin a number is (-1: none)
+static int GPArg(char *p) {
+    int pin, gp = PinArgGP(p, &pin);
+    if(gp >= 0 || pin <= 0) return gp;
+    for(gp = 0; gp < NBRGP; gp++) if(GPPin[gp] == pin) return gp;
+    return -1;
+}
+
+/* What a GP is in a PicoMite port (the RP2350's GPIO functions, as its PinDef gives them), -1 if it is not one of
+   the port's pins: COM1 and COM2 (UART0, UART1) TX 0, RX 1; I2C and I2C2 (I2C0, I2C1) SDA 0, SCL 1; SPI and SPI2
+   (SPI0, SPI1) RX 0, SCK 2, TX 3 */
+static int GPRole(int gp, int port) {
+    switch(port) {
+        case 0: case 1: if(gp % 4 > 1 || ((gp / 4) % 4 == 1 || (gp / 4) % 4 == 2) != port) return -1;
+                        return gp % 4;
+        case 2: case 3: return (gp / 2) % 2 == port - 2 ? gp % 2 : -1;
+        default:        return (gp / 8) % 2 == port - 4 && gp % 4 != 1 ? gp % 4 : -1;
+    }
+}
+
+/* OPTION PICOMITE's SETPINs that a CMM2 has no use for (Peter, 23 Oct 2026). With the pins of a COM, I2C or SPI port
+   (SETPIN GP0, GP1, COM1 or SETPIN GP20, GP19, GP18, SPI, in any order) SETPIN checks them as the PicoMite does, by
+   their functions there, and does nothing more: the port is the CMM2's own, on its own pins, when it is opened. SETPIN
+   pin, PWM (or PWM1A and so on) is checked to be one of PWM 1A, 1B, 2A and 2B, which are GP2-5 on both, and the PWM
+   command sets the pin up. SETPIN pin, IR is the CMM2's IR receiver. FFIN, the RP2350's fast frequency input, is on
+   GP1, which is COM1's here, and the fast counting pin's FIN (GP13) is the same. 1: it was one of these. */
+static int PicoSetpin(int argc, char **argv) {
+    static const char *const ports[] = {"COM1", "COM2", "I2C", "I2C2", "SPI", "SPI2"};
+    static const char *const pwms[] = {"PWM1A", "PWM1B", "PWM2A", "PWM2B"};
+    static const unsigned char pwmpin[] = {12, 22, 36, 31};
+    char *s = argv[2];
+    int port, n = 0, i, j, role[3];
+    if(argc == 3 && checkstring(argv[2], "IR")) {
+        GetPinArg(argv[0]);
+        return 1;
+    }
+    skipspace(s);
+    if(argc == 3 && (checkstring(s, "PWM") || (strncasecmp(s, "PWM", 3) == 0 && isdigit((unsigned char)s[3])))) {
+        j = GetPinArg(argv[0]);
+        for(i = 0; i < 4 && pwmpin[i] != j; i++);
+        if(i == 4 || (isdigit((unsigned char)s[3]) && !checkstring(s, (char *)pwms[i]))) error("Invalid configuration");
+        return 1;
+    }
+    if(checkstring(argv[2], "FFIN")) error("Not available: use SETPIN GP13, FIN");
+    for(port = 0; port < 6; port++) {
+        n = port < 4 ? 2 : 3;
+        if(argc == n * 2 + 1 && checkstring(argv[n * 2], (char *)ports[port])) break;
+    }
+    if(port == 6) return 0;
+    for(i = 0; i < n; i++) {
+        j = GPArg(argv[i * 2]);
+        if(j < 0 || (role[i] = GPRole(j, port)) < 0) error("Invalid configuration");
+        for(j = 0; j < i; j++) if(role[j] == role[i]) error("Invalid configuration");
+    }
+    return 1;
 }
 
 int MIPS16 CheckPin(int pin, int action) {

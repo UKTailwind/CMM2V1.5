@@ -170,7 +170,7 @@ void cmd_ds18b20(void) {
     int pin, precision, timeout;
 	getargs(&cmdline, 5,",");
     if(argc < 1) error("Argument count");
-    pin = getint(argv[0], 1, NBRPINS);
+    pin = GetPinArgN(argv[0]);
     precision = 1;
     if(argc >= 3 && *argv[2]) precision = getint(argv[2], 0, 3);
     timeout = 100 << precision;                                     // the conversion time for the precision, or as given
@@ -185,7 +185,7 @@ void fun_ds18b20(void) {
     int pin, b1, b2, timeout = 200;                                 // TEMPR(pin [, timeout]): the conversion time, 200 ms unless given
     getargs(&ep, 3, ",");
     if(!(argc == 1 || argc == 3)) error("Syntax");
-    pin = getint(argv[0], 1, NBRPINS);
+    pin = GetPinArgN(argv[0]);
     if(argc == 3) timeout = getint(argv[2], 100, 2000);
     if(ds18b20Timers == NULL || ds18b20Timers[pin] == 0) {
         // the TIMR command has not used
@@ -229,7 +229,7 @@ void fun_ds18b20(void) {
 void owReset(char *p) {
 	int pin;
 
-	pin = getinteger(p);
+	pin = GetPinArg(p);
 	ow_pinChk(pin);
 
 // set up initial pin status (open drain, output, high)
@@ -248,7 +248,7 @@ void owWrite(char *p) {
 
 	getargs(&p, MAX_ARG_COUNT*2,",");
 	if (!(argc & 0x01) || (argc < 7)) error("Argument count");
-    pin = getint(argv[0], 1, NBRPINS);
+    pin = GetPinArgN(argv[0]);
 	ow_pinChk(pin);
 
 	flag = getint(argv[2], 0, 15);
@@ -286,7 +286,7 @@ void owRead(char *p) {
 
 	getargs(&p, MAX_ARG_COUNT*2,",");
 	if (!(argc & 0x01) || (argc < 7)) error("Argument count");
-    pin = getint(argv[0], 1, NBRPINS);
+    pin = GetPinArgN(argv[0]);
 	ow_pinChk(pin);
 
 	flag = getint(argv[2], 0, 15);
@@ -337,7 +337,7 @@ void fun_owSearch(void) {
 
 	getargs(&ep, MAX_ARG_COUNT*2,",");
 	if (!(argc & 0x01) || (argc < 3)) error("Argument count");
-    pin = getint(argv[0], 1, NBRPINS);
+    pin = GetPinArgN(argv[0]);
 	ow_pinChk(pin);
 
 	flag = getinteger(argv[2]);

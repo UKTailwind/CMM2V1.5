@@ -1,0 +1,61 @@
+-- MM.INFO(PINNO GPn), 0 for none
+GP0-11: 8 10 12 22 36 31 7 13 15 24 40 38
+GP12-23: 35 18 27 28 3 5 23 19 21 33 32 0
+GP24-35: 0 0 26 29 37 0 0 0 0 0 0 0
+GP36-47: 16 11 0 0 0 0 0 0 0 0 0 0
+gp13: 18, 18: 18, MAX GP: 47
+GP23: GP23 is not available on the Colour Maximite 2
+GP48: Invalid GPIO
+-- SETPIN, PIN() and PIN() =
+GP16: 1 1 In Use, GP17 Unused, GP23 Invalid
+GP16: 0 0
+gp17: 1 1
+-- PORT: from a GP name, consecutive GP numbers
+pins 23 19 21: 1 0 1, PORT(GP18, 3) = 5
+pins 3 5 23 19 21: 0 1 0 1 0, PORT(GP16, 2, GP18, 3) = 10
+PORT(19, 1, GP20, 1) = 1
+PORT(GP22, 2): GP23 is not available on the Colour Maximite 2
+-- PULSE
+PULSE GP6: In Use
+PULSE 99: Invalid pin
+-- names
+GP23: GP23 is not available on the Colour Maximite 2
+GP48: Invalid GPIO
+GPX: Invalid pin string
+PIN(GP29): GP29 is not available on the Colour Maximite 2
+PIN("GP12A"): Syntax
+-- a port's pins, checked and nothing more
+GP0, GP1, COM1: ok
+GP1, GP0, COM1: ok
+GP12, GP13, COM1: ok
+8, 10, COM1: ok
+GP0, GP2, COM1: Invalid configuration
+GP0, GP0, COM1: Invalid configuration
+GP36, GP37, COM2: ok
+GP4, GP5, COM2: ok
+GP0, GP1, COM2: Invalid configuration
+16, 11, COM2: ok
+GP16, GP17, I2C: ok
+GP14, GP15, I2C2: ok
+GP16, GP17, I2C2: Invalid configuration
+3, 5, I2C: ok
+GP20, GP19, GP18, SPI: ok
+GP17, GP19, GP18, SPI: Invalid configuration
+GP12, GP11, GP10, SPI2: ok
+GP12, GP11, GP11, SPI2: Invalid configuration
+35, 38, 40, SPI2: ok
+pin 8 after them: Unused
+COM1 opened: Reserved
+-- PWM, IR and FFIN
+GP2, PWM: ok
+GP3, PWM1B: ok
+GP5, pwm2b: ok
+36, PWM2A: ok
+GP3, PWM1A: Invalid configuration
+GP18, PWM: Invalid configuration
+GP4, PWM0A: Invalid configuration
+pin 12 after them: Unused
+GP5, IR: ok
+GP1, FFIN: Not available: use SETPIN GP13, FIN
+end
+

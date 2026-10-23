@@ -2830,13 +2830,24 @@ void fun_info(void){
 	tp=checkstring(ep, "PIN");
 	if(tp){
 		int pin;
-		pin = getint(tp, 1, NBRPINS);
-		if(IsInvalidPin(pin))strcpy(sret,"Invalid");
+		if(PinArgGP(tp, &pin) < 0 && (pin < 1 || pin > NBRPINS)) error("% is invalid (valid is % to %)", pin, 1, NBRPINS);
+		if(IsInvalidPin(pin))strcpy(sret,"Invalid");                // (and a GP name with no pin here)
 		else if(ExtCurrentConfig[pin] & CP_IGNORE_RESERVED)strcpy(sret,"Reserved");
 		else if(ExtCurrentConfig[pin]) strcpy(sret,"In Use");
 		else strcpy(sret,"Unused");
 		CtoM(sret);
 		targ=T_STR;
+		return;
+	}
+	tp=checkstring(ep, "PINNO");                                    // the pin a GP name is (OPTION PICOMITE: External.c)
+	if(tp){
+		iret = GetPinArg(tp);
+		targ=T_INT;
+		return;
+	}
+	if(PicoFlavour() != PICO_NONE && checkstring(ep, "MAX GP")){    // OPTION PICOMITE's PicoMite's highest GP
+		iret = PicoMaxGP();
+		targ=T_INT;
 		return;
 	}
 	tp=checkstring(ep, "FLASH ADDRESS");                            // an image slot's (ImageSlots.c: the PicoMite's)

@@ -160,6 +160,10 @@ The unique 12 byte ID of the processor as a string of 24 hexadecimal digits, and
 --- keep
 The number of lines of source code in the program in program memory: the lines read from its file and its #INCLUDE files when it was loaded.
 
+=+= MM.INFO(MAX GP)
+--- keep
+With OPTION PICOMITE: the highest GP number of the PicoMite that the option gives, 47 for an RP2350B and 29 for the others (see PicoMite Pin Names in the chapter Using the I/O Pins).
+
 =+= MM.INFO(MAX PAGES)
 MM.INFO(PAGE ADDRESS n)
 MM.INFO(WRITE PAGE)
@@ -195,7 +199,11 @@ The number of samples that the last ADC START could not take because the next on
 
 =+= MM.INFO$(PIN pinno)
 --- keep
-The status of I/O pin ‘pinno’ of the rear connector: "Unused", "In Use", "Reserved" (used by the Colour Maximite 2 itself) or "Invalid" (not an I/O pin).
+The status of I/O pin ‘pinno’ of the rear connector: "Unused", "In Use", "Reserved" (used by the Colour Maximite 2 itself) or "Invalid" (not an I/O pin).  With OPTION PICOMITE ‘pinno’ can also be a PicoMite GP name; one with no pin here is "Invalid".
+
+=+= MM.INFO(PINNO GPn)
+--- keep
+With OPTION PICOMITE: the number of the pin of the rear connector that the PicoMite's name GPn stands for (see PicoMite Pin Names in the chapter Using the I/O Pins).  ‘GPn’ can also be a string (eg, MM.INFO(PINNO "GP" + STR$(n))).
 
 =+= MM.INFO$(LCDPANEL)
 --- keep

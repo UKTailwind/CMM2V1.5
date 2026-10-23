@@ -30,6 +30,17 @@ on 22 Oct. The report itself, below the status, is as it was written.
 kept at the prompt, HDMI's colours, MM.INFO$(LCDPANEL) and POKE DISPLAY VRES (gap 6, HRES refused): see
 docs/PicoMite_CMM2_Mode_Map.md section 0.
 
+**OPTION PICOMITE, its pin names (23 Oct, the commit after):** Peter chose a map by function ("much better would be
+to try and match functionality"; then "gp1 - com1rx. Then put com2RX/TX on GP36,37 to use the extra pins so GP21
+becomes pin 33"). This settles decision 6 of the audit's 7.2 and the GPn item of gap 2:
+- all 28 connector pins have a GP name (the table: the audit's section 6.4 and the manual's PicoMite Pin Names);
+- GP names, unquoted and as strings, wherever a pin is read (`Src/External.c`, GetPinArg), and PORT's consecutive
+  GP numbers;
+- MM.INFO(PINNO GPn) and MM.INFO(MAX GP);
+- the PicoMite's SETPINs for COM1, COM2, I2C, I2C2, SPI and SPI2 are checked as the PicoMite checks them and change
+  nothing (the ports keep their fixed pins); SETPIN pin, PWM on GP2-5; SETPIN pin, IR; FFIN refused (GP1 is COM1);
+- plain numbers stay the CMM2's own pins.
+
 **Still with OPTION PICOMITE:**
 - Gap 1: the PicoMite's FRAMEBUFFER in the other depths. With the switch, a program with no MODE runs in MODE n,1,
   which has it already.
