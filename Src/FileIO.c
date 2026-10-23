@@ -459,23 +459,16 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 				}
 			}
 		} else {
-			// the line and its '|file,line marker must fit in buff: check before appending (this used to
-			// write the marker first and check after), using the whole buffer (leading spaces were stepped over)
+			// the line is crunched (massage) before its '|file,line marker is added, and checked as it is kept: a
+			// line the PicoMite takes (255 characters with its one-character mark) then fits with the longer marker
+			// (MMbg's line 5649). The whole buffer is used (leading spaces were stepped over).
 			if(sbuff != buff){ memmove(buff, sbuff, len); sbuff = buff; }
-			IntToStr(num,importlines,10);
-			if(len + (toggle ? 1 : 0) + 3 + f + (int)strlen(num) > 254){
+			if(len + (toggle ? 1 : 0) > 254){
 				FreeMemorySafe((void *)&buf);
 				FreeMemorySafe((void *)&dlist);
 				error("Line % of $ is too long", importlines, fname);
 			}
 			if(toggle)sbuff[len++]=34;
-			sbuff[len++]=39;
-			sbuff[len++]='|';
-			memcpy(&sbuff[len],fname,f);
-			len+=strlen(fname);
-			sbuff[len++]=',';
-			strcpy(&sbuff[len],num);
-			len+=strlen(num);
 			sbuff[len]=0;
 			strreplace_overflow = 0;
 			len=massage(sbuff); //can't risk crushing lines with a quote in them
@@ -484,6 +477,21 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 				FreeMemorySafe((void *)&dlist);
 				error("Line % of $ is too long", importlines, fname);
 			}
+			while(len && sbuff[len-1]==' ')len--;                   // (a stripped comment's spaces)
+			IntToStr(num,importlines,10);
+			if(len + 3 + f + (int)strlen(num) > 254){
+				FreeMemorySafe((void *)&buf);
+				FreeMemorySafe((void *)&dlist);
+				error("Line % of $ is too long", importlines, fname);
+			}
+			sbuff[len++]=39;
+			sbuff[len++]='|';
+			memcpy(&sbuff[len],fname,f);
+			len+=f;
+			sbuff[len++]=',';
+			strcpy(&sbuff[len],num);
+			len+=strlen(num);
+			sbuff[len]=0;
 			if((sbuff[0]!=39) || (sbuff[0]==39 && sbuff[1]==39)){
 				memcpy(*p,sbuff,len);
 				*p+=len;
@@ -619,20 +627,16 @@ static char *ProgramText(char *fname, char *name) {
 					break;
 				}
 			}
-			// the line and its '|line marker must fit in buff: check before appending (this used to write
-			// the marker first and check after), using the whole buffer (leading spaces were stepped over)
+			// the line is crunched (massage) before its '|line marker is added, and checked as it is kept: a line
+			// the PicoMite takes (255 characters with its one-character mark) then fits with the longer marker
+			// (MMbg's line 5649). The whole buffer is used (leading spaces were stepped over).
 			if(sbuff != buff){ memmove(buff, sbuff, len); sbuff = buff; }
-			IntToStr(num,importlines,10);
-			if(len + (toggle ? 1 : 0) + 2 + (int)strlen(num) > 254){
+			if(len + (toggle ? 1 : 0) > 254){
 			    FreeMemorySafe((void *)&buf);
 			    FreeMemorySafe((void *)&dlist);
 				error("Line % is too long", importlines);
 			}
 			if(toggle)sbuff[len++]=34;
-			sbuff[len++]=39;
-			sbuff[len++]='|';
-			strcpy(&sbuff[len],num);
-			len+=strlen(num);
 			sbuff[len]=0;
 			strreplace_overflow = 0;
 			len=massage(sbuff); //can't risk crushing lines with a quote in them
@@ -641,6 +645,18 @@ static char *ProgramText(char *fname, char *name) {
 			    FreeMemorySafe((void *)&dlist);
 				error("Line % is too long", importlines);
 			}
+			while(len && sbuff[len-1]==' ')len--;                   // (a stripped comment's spaces)
+			IntToStr(num,importlines,10);
+			if(len + 2 + (int)strlen(num) > 254){
+			    FreeMemorySafe((void *)&buf);
+			    FreeMemorySafe((void *)&dlist);
+				error("Line % is too long", importlines);
+			}
+			sbuff[len++]=39;
+			sbuff[len++]='|';
+			strcpy(&sbuff[len],num);
+			len+=strlen(num);
+			sbuff[len]=0;
 			if((sbuff[0]!=39) || (sbuff[0]==39 && sbuff[1]==39)){
 				mycpy(p,sbuff,len);
 				p+=len;

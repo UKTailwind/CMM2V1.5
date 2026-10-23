@@ -188,6 +188,11 @@ static int MonoIndex(int c) {
     return i;
 }
 
+// a colour's CLUT entry, for GUI CURSOR's pointer drawn over the display (Rgb121.c)
+int MonoColourEntry(int c) {
+    return MonoIndex(c);
+}
+
 // tiles x1 to x2 across and y1 to y2 down (clipped) given entries f and b (-1: the colour left as it is)
 static void Tiles(int x1, int y1, int x2, int y2, int f, int b) {
     if(x1 < 0) x1 = 0;

@@ -459,7 +459,13 @@ void loadcursor(char *p){
 }
 
 void hidecursor(int override){
-	if(cursoron==0 ||  (WritePage != (VideoColour==12 ? 1 : 0) && !override))return;
+	if(cursoron==0)return;
+	if(VideoColour<8){                                              // a 4 or 1-bit mode: drawn over the merge's display (Rgb121.c)
+		cursoron=0;
+		CursorOverlaySet(0);
+		return;
+	}
+	if(WritePage != (VideoColour==12 ? 1 : 0) && !override)return;
     uint8_t readsave=ReadPage, writesave=WritePage; //save the current read and write page
     ReadPage = WritePage = (VideoColour==12 ? 1 : 0);
     DrawBufferFast(xcursor,ycursor,xcursor+wcursor-1,ycursor+hcursor-1,cursorsave);
@@ -479,7 +485,15 @@ void closecursor(void){
 	cursorsave=NULL;
 }
 void showcursor(int override, int x, int y){
-	if(cursorenable==0  || (WritePage != (VideoColour==12 ? 1 : 0) && !override))return;
+	if(cursorenable==0)return;
+	if(VideoColour<8){                                              // a 4 or 1-bit mode: drawn over the merge's display, not in a
+		xcursor=x;                                                  // page, which the PicoMite's programs copy over it (FRAMEBUFFER
+		ycursor=y;                                                  // COPY F, N: MMbg), whatever page is written (Rgb121.c)
+		cursoron=1;
+		CursorOverlaySet(1);
+		return;
+	}
+	if(WritePage != (VideoColour==12 ? 1 : 0) && !override)return;
 	char *modify=GetInternalMemory(wcursor * hcursor * (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
     uint8_t readsave=ReadPage, writesave=WritePage; //save the current read and write page
     ReadPage = WritePage = (VideoColour==12 ? 1 : 0);
@@ -548,7 +562,6 @@ void cmd_cursor(char *p){
     tp = checkstring(p, "ON");
     if(tp) {
     	int x=0,y=0;
-    	if(VideoColour<8)error("Invalid for this screen mode");
     	getargs(&tp,7,",");
     	if(cursorenable)return;
 		cursorcolour32=0xFFFEFEFE;
@@ -583,10 +596,16 @@ void cmd_cursor(char *p){
     	            blue=BIT_4[((c & 0xFF)>>4)];
     	            trans=((c & 0xF000000)>>12);
     	            cursorcolour16=red|green|blue|trans;
+    	        } else if(VideoColour<8){
+    	        	CursorOverlayColour(c);
     	        } else {
     	        	cursorcolour8 = ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
     	        }
     		}
+    	}
+    	if(VideoColour<8){
+    		if(cursor==2)error("Invalid for this screen mode");      // (a loaded cursor is in an 8-bit or wider depth's pixels)
+    		if(argc<7)CursorOverlayColour(0xFFFFFF);
     	}
     	if(cursor==1){
     		wcursor=15;
@@ -624,6 +643,8 @@ void cmd_cursor(char *p){
             blue=BIT_4[((c & 0xFF)>>4)];
             trans=((c & 0xF000000)>>12);
             cursorcolour16=red|green|blue|trans;
+        } else if(VideoColour<8){
+        	CursorOverlayColour(c);
         } else {
         	cursorcolour8 = ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
         }

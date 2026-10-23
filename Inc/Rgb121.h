@@ -31,6 +31,8 @@ int Rgb121SizeFits(int w, int h, int scale);
 void Rgb121CloseAll(void);
 uint32_t Rgb121Layout(int mode, uint32_t start);
 void Rgb121Clut(void);
+void CursorOverlaySet(int on);                  // GUI CURSOR in a 4 or 1-bit mode: over the merge's display
+void CursorOverlayColour(int c);
 void Rgb121Palette(void);
 void Rgb121Pointers(void);
 void Rgb121Framebuffer(void);

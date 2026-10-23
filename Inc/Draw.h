@@ -158,6 +158,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern void hidecursor(int override);
 	extern void showcursor(int override, int x, int y);
 	extern const uint8_t cursor8[];
+	extern const uint8_t cross8[];
+	extern int wcursor, hcursor, cursor;
 	extern const uint16_t cursor16[];
 	extern void cmd_cursor(char *p);
 	extern int autocursor;

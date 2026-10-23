@@ -299,13 +299,13 @@ int GuiMouse(void){
 	if(UsbMouse) return USBMOUSE_CHANNEL;
 	return Option.Mouse >= 0 ? Option.Mouse : MouseOpenChannel();
 }
-// the GUI's pointer, shown once there is a mouse (one plugged in after the GUI started too: check_interrupt calls this);
-// not in the 4-bit depth, where GUI CURSOR ON is refused (the controls work there, without a pointer)
+// the GUI's pointer, shown once there is a mouse (one plugged in after the GUI started too: check_interrupt calls this),
+// in every depth (in a 4 or 1-bit one over the display: Rgb121.c)
 static int GuiPointerWanted = 0;
 void GuiPointer(void){
 	if(!GuiPointerWanted || GuiMouse() < 0) return;
 	GuiPointerWanted = 0;
-	if(VideoColour >= 8 && !cursorenable) cmd_cursor("ON");
+	if(!cursorenable) cmd_cursor("ON");
 }
 // the GUI started by its first command: OPTION MOUSE's mouse opened if it is not (a USB one needs nothing), and the
 // touch events taken from then on. A mouse need not be there yet: a USB mouse plugged in later is used at once, and

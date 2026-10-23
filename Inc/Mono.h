@@ -12,6 +12,7 @@
 
 extern uint8_t *MonoTileF, *MonoTileB;          // each tile's foreground and background colour: CLUT entries
 extern int MonoTileH, MonoTilesX, MonoTilesY;   // TILE HEIGHT, the tiles across and down
+int MonoColourEntry(int c);                     // a colour's CLUT entry (GUI CURSOR's pointer: Rgb121.c)
 extern volatile int MonoDirty;                  // something was drawn: the merge runs at the frame's end
 extern volatile uint32_t MonoClutNew[8];        // CLUT entries given colours: written to the LTDC at the frame's end
 

@@ -49,7 +49,7 @@ void UiMouseOpen(void)
     char open[24];
     UiMouseChan = -1;
     if ((Option.Mouse < 0 && !UsbMouse) || !(OptionConsole & 2) || VideoColour < 8)
-        return;                                         // (a USB mouse needs no OPTION MOUSE; GUI CURSOR has no 4-bit modes)
+        return;                                         // (a USB mouse needs no OPTION MOUSE; EDIT and FM are in 8 bits)
     sprintf(open, "OPEN %d,,,%d", UsbMouse ? USBMOUSE_CHANNEL : Option.Mouse, Option.Sensitivity);
     cmd_cursor("ON");
     if (!UiTry(cmd_mouse, open)) {                      // (kilo's GUI CURSOR ON:CONTROLLER MOUSE OPEN n,,,s)

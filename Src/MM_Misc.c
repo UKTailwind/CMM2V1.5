@@ -68,6 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include "ffconf.h"
 #include "hxcmod.h"
+#include "USBGamepad.h"
 #include "cJSON.h"
 //#include "xregex.h"
 #include "re.h"
@@ -2863,6 +2864,31 @@ void fun_info(void){
 	}
 	if(checkstring(ep, "WRITEBUFF")){                               // the PicoMite's buffer being drawn into: here the write page's
 		iret = (int64_t)GetPageAddress(WritePage);
+		targ=T_INT;
+		return;
+	}
+	tp=checkstring(ep, "USB VID");                                 // the PicoMite's: a USB slot's device, by its vendor and product
+	if(tp){
+		iret = HID[getint(tp, 1, HID_SLOTS) - 1].vid;
+		targ=T_INT;
+		return;
+	}
+	tp=checkstring(ep, "USB PID");
+	if(tp){
+		iret = HID[getint(tp, 1, HID_SLOTS) - 1].pid;
+		targ=T_INT;
+		return;
+	}
+	tp=checkstring(ep, "USB");                                     // MM.INFO(USB n): the type of the device in USB slot n (1 a
+	if(tp){                                                         // keyboard, 2 a mouse, 128 up a gamepad, 0 none), and n = 0
+		int n = getint(tp, 0, HID_SLOTS), t;                        // the number of devices: the PicoMite's, which programs use to
+		if(n == 0) {                                                // find the mouse (MMbg). The CMM2's own pad types are given as
+			iret = 0;                                               // the PicoMite's: its Switch pad (133) as SWITCHPRO, 135, its
+			for(int i = 0; i < HID_SLOTS; i++) if(HID[i].Device_type) iret++;   // X-input pad (134) as XBOX, 131
+		} else {
+			t = HID[n - 1].Device_type;
+			iret = t == GAMEPAD_SWITCH ? 135 : t == GAMEPAD_XINPUT ? 131 : t;
+		}
 		targ=T_INT;
 		return;
 	}

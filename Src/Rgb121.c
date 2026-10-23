@@ -134,6 +134,43 @@ void Rgb121CloseAll(void) {
 }
 
 /***********************************************************************************************************************
+GUI CURSOR in a 4 or 1-bit mode: drawn over the merge's display, at xcursor, ycursor (Draw.c), so the program's pages
+are not touched: the PicoMite's programs copy F to N under it (MMbg). Each of its rows goes in as the merge writes that
+row, which is before the LTDC shows it: drawn after the whole merge it came too late for the top of the screen, which the
+LTDC had shown by then (Peter: above about line 200 it disappeared). The shapes are the 8-bit depth's (a byte a pixel,
+not 0 in the cursor), in the colour's CLUT entry. The 4-bit merge runs every frame; the 1-bit one is asked for
+(MonoDirty) when the cursor moves.
+***********************************************************************************************************************/
+static volatile int OverlayOn, OverlayEntry;
+void CursorOverlaySet(int on) {
+    OverlayOn = on;
+    MonoDirty = 1;
+}
+void CursorOverlayColour(int c) {
+    OverlayEntry = VideoColour == 1 ? MonoColourEntry(c) : RGB121(c);   // (4-bit: entries 0-15 are the 16 colours)
+}
+static struct { int x, y, w, h; const uint8_t *s; uint8_t e; } Ov;   // the cursor for this merge (OvStart): h 0 none
+static void OvStart(void) {
+    Ov.h = 0;
+    if(!OverlayOn || !cursorenable) return;
+    Ov.x = xcursor; Ov.y = ycursor; Ov.w = wcursor; Ov.h = hcursor;
+    Ov.s = cursor == 1 ? cross8 : cursor8;
+    Ov.e = OverlayEntry;
+}
+// the cursor's part of page row y, on its display rows (from the merge's loop, once it has written them)
+static inline void OvRow(int y, int w, int scale) {
+    if(y < Ov.y || y >= Ov.y + Ov.h) return;
+    const uint8_t *s = Ov.s + (y - Ov.y) * Ov.w;
+    for(int k = 0; k < scale; k++) {
+        uint8_t *row = Rgb121Display + (y * scale + k) * w;
+        for(int x = 0; x < Ov.w; x++) {
+            int xx = Ov.x + x;
+            if(xx >= 0 && xx < w && s[x]) row[xx] = Ov.e;
+        }
+    }
+}
+
+/***********************************************************************************************************************
 The merge: N, then L and T over it where they are created, onto the display, a byte a pixel
 ***********************************************************************************************************************/
 // the layer word v over the word f: each nibble of v that is not t's (t in every nibble) comes from v (FrameBuffer.c's
@@ -155,6 +192,7 @@ static void __attribute__((noinline)) ITCM_CODE Rgb121Merge(void) {   // (not in
     if(n == NULL || d == NULL || w > RGB121MAXW) return;
     if(l == NULL) layer = 0;
     if(t == NULL) top = 0;
+    OvStart();
     for(int y = 0; y < h; y++) {
         mycpy(MergeN, n, bytes);                                    // (a row at a time from AXI SRAM, which is not cached)
         n += bytes;
@@ -183,6 +221,7 @@ static void __attribute__((noinline)) ITCM_CODE Rgb121Merge(void) {   // (not in
                 for(int k = 0; k < scale; k++) d0[k * dwords + 2 * i + 1] = b;
             }
         }
+        OvRow(y, w, scale);
     }
 }
 
@@ -212,6 +251,7 @@ static void __attribute__((noinline)) ITCM_CODE MonoMergeRun(void) {
     uint32_t *d = (uint32_t *)Rgb121Display;
     if(n == NULL || d == NULL || bytes > 240 || MonoTileF == NULL) return;
     if(l == NULL) layer = 0;
+    OvStart();
     for(int y = 0; y < h; y++) {
         if(tc == 0) {                                               // a new row of tiles
             mycpy(tf, MonoTileF + trow * MonoTilesX, bytes);
@@ -237,6 +277,7 @@ static void __attribute__((noinline)) ITCM_CODE MonoMergeRun(void) {
                 d0[k * dwords + 2 * i + 1] = b ^ (x & hi);
             }
         }
+        OvRow(y, w, scale);
     }
 }
 
