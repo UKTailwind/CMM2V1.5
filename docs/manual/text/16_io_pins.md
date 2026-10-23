@@ -153,6 +153,6 @@ COM2 is on GP36 and GP37, which are COM2 pins on a PicoMite with an RP2350B too,
 - PORT() with a GP name takes consecutive GP numbers, as the PicoMite does: PORT(GP6, 4) is the pins 7, 13, 15 and 24.
 - MM.INFO(PINNO GPn) gives the pin that GPn stands for, and MM.INFO(MAX GP) the highest GP number of the PicoMite that OPTION PICOMITE names.
 - The PicoMite's SETPIN commands that give a COM port, I2C or SPI its pins (eg, SETPIN GP0, GP1, COM1 or SETPIN GP20, GP19, GP18, SPI) are accepted. The pins are checked as the PicoMite checks them, so any of the pins it allows for that port can be given, and the port is then opened on the Colour Maximite 2's own pins (those in the table above).
-- SETPIN pin, PWM (or PWM1A, PWM1B, PWM2A or PWM2B) is accepted for GP2 to GP5, which are PWM 1A, 1B, 2A and 2B on both. The PWM and SERVO commands then set the pins up as they always do here.
+- SETPIN pin, PWM (or PWM1A, PWM1B, PWM2A or PWM2B) is accepted for GP2 to GP5, which are PWM 1A, 1B, 2A and 2B on both. The PWM and SERVO commands take the PicoMite's arguments, and set the pins up as they always do here (see PWM and SERVO in the chapter Commands).
 - SETPIN pin, IR is accepted for any pin, and the IR receiver of the Colour Maximite 2 is used.
 - The RP2350's fast frequency input, SETPIN GP1, FFIN, is not available, as GP1 is COM1 here. Use SETPIN GP13, FIN: the fast counting pin measures a frequency the same way, up to 40MHz.

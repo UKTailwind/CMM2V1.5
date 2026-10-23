@@ -2310,15 +2310,16 @@ Notes:
 or
 PWM 2, freq, 2A [, 2B] [, , centre]
 or
-PWM channel, STOP
+PWM channel, STOP (or OFF)
 ---
 Generate a pulse width modulated (PWM) output for driving analog circuits, sound output, etc.
 There are a total of five outputs designated as PWM in the table of the external I/O connector in the chapter *Hardware Features* (they are also used for the SERVO command).  Controller 1 can have one, two or three outputs (1A on pin 12, 1B on pin 22 and 1C on pin 29) while controller 2 can have one or two outputs (2A on pin 36 and 2B on pin 31).  Both controllers are independent and can be turned on and off and have different frequencies.
-‘1’ or ‘2’ is the controller number and ‘freq’ is the output frequency in Hz (1 to 20000000).  1A, 1B and 1C are the duty cycles for each of the controller 1 outputs while 2A and 2B are the duty cycles for the controller 2 outputs.  1B and 1C can be left out or left empty.  The specified I/O pins will be automatically configured as outputs while any others will be unaffected and can be used for other duties.
+‘1’ or ‘2’ is the controller number and ‘freq’ is the output frequency in Hz (1 to 20000000).  1A, 1B and 1C are the duty cycles for each of the controller 1 outputs while 2A and 2B are the duty cycles for the controller 2 outputs.  1B and 1C can be left out, and any of them can be left empty (eg, PWM 1, 1000, , 50): an output that is not given is left as it is.  The specified I/O pins will be automatically configured as outputs while any others will be unaffected and can be used for other duties.
 The duty cycle for each output is independent of the others and is specified as a percentage.  If it is close to zero the output will be a narrow positive pulse, if 50 a square wave will be generated and if close to 100 it will be a very wide positive pulse.  A negative duty cycle (down to -100) inverts the output, giving negative going pulses.
 ‘centre’ is 1 for centre aligned outputs: the pulses of the outputs are centred in the period, so that a shorter pulse starts and ends equal times from a longer one.  0 (or omitted) starts all the pulses at the beginning of the period.
 The frequency is derived from a 240MHz clock (200MHz on a 400MHz processor), so it can be any value of 240,000,000/n and the duty cycle and frequency accuracy will depend on the frequency (eg, at 1MHz the duty cycle has 240 steps).  The output will run continuously in the background while the program is running and can be stopped using the STOP command.  The frequency and duty cycle can be changed at any time (without stopping the output) by issuing a new PWM command.
 The PWM function will take control of any specified outputs and when stopped the pins will be returned to a high impedance "not configured" state.
+With OPTION PICOMITE the arguments are the PicoMite's: PWM channel, freq, [A] [, B] [, phase] [, defer].  ‘phase’ is 1 for centre aligned outputs, as ‘centre’ is above, and there is no output C.  ‘defer’, on the PicoMite a start left to PWM SYNC, can only be 0.  The channels are 1 and 2, whose outputs are GP2 to GP5 (see PicoMite Pin Names in the chapter Using the I/O Pins).
 
 === RAM SAVE n
 or
@@ -2476,14 +2477,15 @@ Each SELECT CASE must have one and one only matching END SELECT statement.  Any 
 or
 SERVO 2 [, freq], 2A [, 2B]
 or
-SERVO channel, STOP
+SERVO channel, STOP (or OFF)
 ---
 Generate a constant stream of positive going pulses for driving a servo.
 The Colour Maximite 2 has two servo controllers with the first being able to control up to three servos and the second two servos.  Both controllers are independent and can be turned on and off and have different frequencies.  This command uses the I/O pins that are designated as PWM in the table of the external I/O connector (the two commands are very similar): 1A is pin 12, 1B pin 22, 1C pin 29, 2A pin 36 and 2B pin 31.
 ‘1’ or ‘2’ is the controller number.  ‘freq’ is the output frequency (between 20Hz and 1000Hz) and is optional.  If not specified it will default to 50Hz.  (A first value of 20 or more is taken as the frequency.)
-1A, 1B and 1C are the pulse widths for each of the controller 1 outputs while 2A and 2B are the pulse widths for the controller 2 outputs.  The specified I/O pins will be automatically configured as outputs while any others will be unaffected and can be used for other duties.
+1A, 1B and 1C are the pulse widths for each of the controller 1 outputs while 2A and 2B are the pulse widths for the controller 2 outputs.  Any of them can be left empty (eg, SERVO 1, , 1.5): an output that is not given is left as it is.  The specified I/O pins will be automatically configured as outputs while any others will be unaffected and can be used for other duties.
 The pulse width for each output is independent of the others and is specified in milliseconds, which can be a fractional number (i.e. 1.536).  For accurate positioning the output resolution is about 0.005 ms.  The minimum value is 0.01ms while the maximum is 18.9ms (and less than the period).  Most servos will accept a range of 0.8ms to 2.2ms.  The output will run continuously in the background while the program is running and can be stopped using the STOP command.  The pulse widths of the outputs can be changed at any time (without stopping the output) by issuing a new SERVO command.
 The SERVO function will take control of any specified outputs and when stopped the pins will be returned to a high impedance "not configured" state.
+With OPTION PICOMITE the arguments are the PicoMite's: SERVO channel, [A] [, B], at 50Hz, where A and B are positions from -20 to 120.  A position of 0 is a pulse of 1 ms and 100 one of 2 ms (1 ms and a hundredth of a millisecond for each unit), so -20 to 120 is 0.8 ms to 2.2 ms.  There is no frequency and no output C.
 
 === SETPIN pin, cfg [, option]
 ---

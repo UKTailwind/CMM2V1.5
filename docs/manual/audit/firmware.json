@@ -6480,11 +6480,18 @@
      "kw": "STOP",
      "func": "cmd_pwm",
      "file": "PWM.c",
-     "line": 91,
+     "line": 97,
+     "via": []
+    },
+    {
+     "kw": "OFF",
+     "func": "cmd_pwm",
+     "file": "PWM.c",
+     "line": 97,
      "via": []
     }
    ],
-   "where": "PWM.c:77"
+   "where": "PWM.c:82"
   },
   {
    "table": "command",
@@ -6500,11 +6507,18 @@
      "kw": "STOP",
      "func": "cmd_pwm",
      "file": "PWM.c",
-     "line": 91,
+     "line": 97,
+     "via": []
+    },
+    {
+     "kw": "OFF",
+     "func": "cmd_pwm",
+     "file": "PWM.c",
+     "line": 97,
      "via": []
     }
    ],
-   "where": "PWM.c:77"
+   "where": "PWM.c:82"
   },
   {
    "table": "command",

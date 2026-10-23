@@ -1,0 +1,20 @@
+-- PWM
+1, 1000, 25, 50: f=1000.0 A=25.0 B=50.0 C off
+1, 1000, 25, 50, 1 (phase): f=1000.0 centre A=25.0 B=50.0 C off
+1, 1000, 25, 50, 0, 0: f=1000.0 A=25.0 B=50.0 C off
+defer 1: Deferred start is not available
+1, OFF: stopped
+1, 1000, , 50: f=1000.0 A off B=50.0 C off
+2, 100, -10, 90: f=100.0 A=-10.0 B=90.0
+PWM 0: 0 is invalid (valid is 1 to 2)
+-- SERVO
+1, 50: f=50.0 A=7.5 B off C off
+1, 0, 100: f=50.0 A=5.0 B=10.0 C off
+1, -20, 120: f=50.0 A=4.0 B=11.0 C off
+1, , 30: f=50.0 A=4.0 B=6.5 C off
+SERVO 1, 121: Number out of bounds
+SERVO 1, 1, 2, 3: Argument count
+1, OFF: stopped
+2, 50, 25: f=50.0 A=7.5 B=6.2
+end
+

@@ -73,13 +73,19 @@ static int invertchannel[2][3]={0};
 
 // flags which are true is the OCx module is opened
 
-// the PWM and SERVO commands use the same function
+/* The PWM and SERVO commands use the same function. An empty duty or pulse width leaves that output as it is (the
+   PicoMite's PWM 1, f, , dutyB drives only B), and OFF stops a channel as STOP does. With OPTION PICOMITE they take the
+   PicoMite's arguments (Peter, 23 Oct 2026): PWM channel, freq, [dutyA] [, dutyB] [, phase] [, defer], where phase is
+   the CMM2's centre (both count up and down, at twice the frequency) and defer, a start left to PWM SYNC, is not
+   available; SERVO channel, [positionA] [, positionB], a position of -20 to 120 being a pulse of 0.8 to 2.2 ms (1 ms
+   at 0, 2 ms at 100) at 50Hz. Output C is the CMM2's alone. */
 void cmd_pwm(void) {
-	GPIO_InitTypeDef GPIO_InitStruct;
-    TIM_ClockConfigTypeDef sClockSourceConfig;
-    TIM_MasterConfigTypeDef sMasterConfig;
-    TIM_OC_InitTypeDef sConfigOC;
-	int i, j, channel, f, centre=0;
+	GPIO_InitTypeDef GPIO_InitStruct = {0};                         // (all zero: TIM8, PWM 2, is an advanced timer, and the HAL
+    TIM_ClockConfigTypeDef sClockSourceConfig = {0};                // ORs the fields left unset, OCNPolarity, OCIdleState,
+    TIM_MasterConfigTypeDef sMasterConfig = {0};                    // OCNIdleState and MasterOutputTrigger2, into its CCER and
+    TIM_OC_InitTypeDef sConfigOC = {0};                             // CR2: from the stack they enabled outputs and inverted 2A)
+	int i, j, channel, f, centre=0, outputs = 3, pico = (PicoFlavour() != PICO_NONE);
+    unsigned int fk;
 	MMFLOAT  a, duty;
 	int prescale=0, counts;
 
@@ -88,12 +94,16 @@ void cmd_pwm(void) {
 
     channel = getint(argv[0], 1, 2)-1;
 
-    if(checkstring(argv[2], "STOP")){
+    if(checkstring(argv[2], "STOP") || checkstring(argv[2], "OFF")){
         PWMClose(channel);
         return;
     }
+    if(pico) outputs = 2;                                           // (the PicoMite's channels have A and B)
 	if(cmdtoken == GetCommandValue("PWM")) {
-        if(argc==11)centre=getint(argv[10],0,1);
+        if(pico) {
+            if(argc >= 9 && *argv[8]) centre = getint(argv[8], 0, 1);  // phase
+            if(argc == 11 && *argv[10] && getint(argv[10], 0, 1)) error("Deferred start is not available");
+        } else if(argc==11)centre=getint(argv[10],0,1);
         f = getint(argv[2], 1, 20000000)*(centre+1);
         do {
         	prescale++;
@@ -103,7 +113,7 @@ void cmd_pwm(void) {
         prescale--;
         j = 4;
         for(i = 0; i < (3); i++, j += 2) {
-            if(argc < j  || !*argv[j])
+            if(i >= outputs || argc < j  || !*argv[j])
                 dcy[channel][i] = -1;
             else {
                 duty = getnumber(argv[j]);
@@ -120,7 +130,8 @@ void cmd_pwm(void) {
         }
     } else {
         // Command must be SERVO
-        f = getinteger(argv[2]);
+        f = (pico || !*argv[2]) ? 0 : getinteger(argv[2]);         // (the PicoMite's has no frequency)
+        if(pico && argc > 5) error("Argument count");
         if(f >= 20) { //must be a frequency
             if(f > 1000) error("% out of bounds", f);
             j = 4;
@@ -136,21 +147,28 @@ void cmd_pwm(void) {
         prescale--;
 
         for(i = 0; i < 3; i++, j += 2) {
-            if(argc < j)
+            if(i >= outputs || argc < j || !*argv[j])
                 dcy[channel][i] = -1;
             else {
                 long double ontime = getnumber(argv[j]);
+                if(pico) {                                          // a position: 0 is 1 ms, 100 is 2 ms
+                    if(ontime < -20.0 || ontime > 120.0) error("Number out of bounds");
+                    ontime = 1.0 + ontime / 100.0;
+                }
                 if(ontime < 0.01 || ontime > 18.9) error("Number out of bounds");
                 a=((double)1.0)/((double)f) * ((double)1000.0);
                 duty = ontime / a *((double)100.0);
                 if(duty>99.9) error("Number out of bounds");
+                invertchannel[channel][i] = 0;                      // (a servo's pulses are positive, whatever PWM left)
                 dcy[channel][i] = duty * 100.0;
                 dcy[channel][i] = (counts * dcy[channel][i]) / 10000;
             }
         }
     }
-    if(channel==0 && f!=f1){ //reset the clock if needed
+    fk = (unsigned int)f | (centre ? 0x80000000u : 0);              // (the timer's frequency and its counting: centre or up)
+    if(channel==0 && fk!=f1){ //reset the clock if needed
 //        PInt(prescale);PIntComma(counts);
+        f1 = fk;                                                    // (the outputs that run keep running: their duty is set below)
     	htim3.Instance = TIM3;
     	htim3.Init.Prescaler = prescale;
     	htim3.Init.CounterMode = (centre ? TIM_COUNTERMODE_CENTERALIGNED3 :TIM_COUNTERMODE_UP);
@@ -179,7 +197,8 @@ void cmd_pwm(void) {
     	{
     		error("HAL_TIMEx_MasterConfigSynchronization(htim3, sMasterConfig)");
     	}
-    } else if(channel==1 && f!=f2){								// (controller 2's timer: not when controller 1 keeps its frequency)
+    } else if(channel==1 && fk!=f2){								// (controller 2's timer: not when controller 1 keeps its frequency)
+        f2 = fk;
     	htim8.Instance = TIM8;
     	htim8.Init.Prescaler = prescale;
     	htim8.Init.CounterMode =  (centre ? TIM_COUNTERMODE_CENTERALIGNED3 :TIM_COUNTERMODE_UP);
@@ -213,7 +232,9 @@ void cmd_pwm(void) {
     // this is channel 1
     if(channel == 0) {
         // this is output 1A
-        if(!oc1) {
+        if(dcy[0][0] < 0) {
+            ;                                                       // (left as it is)
+        } else if(!oc1) {
 //        	PIntComma(dcy[0][0]);MMPrintString("\r\n");
             ExtCfg(PWM_CH1_PIN, EXT_COM_RESERVED, 0);
             sConfigOC.OCMode = TIM_OCMODE_PWM1;
@@ -236,9 +257,7 @@ void cmd_pwm(void) {
               /* PWM Generation Error */
             	error("HAL_TIM_PWM_Start");
             }
-            f1=f;
             oc1 = true;
-            oc2 = false; oc3=false;
         } else {
         	htim3.Instance->CCR1 = dcy[0][0];
         	htim3.Instance->CCER &=~(1<<1);
@@ -247,7 +266,7 @@ void cmd_pwm(void) {
 
         // this is output 1B
         if(dcy[0][1] >= 0) {
-            if(!oc2 || f1!=f) {
+            if(!oc2) {
                 ExtCfg(PWM_CH2_PIN, EXT_COM_RESERVED, 0);
                 sConfigOC.OCMode = TIM_OCMODE_PWM1;
                 sConfigOC.Pulse = dcy[0][1];
@@ -310,7 +329,9 @@ void cmd_pwm(void) {
         // now set the timer for channel 2
     } else {
         // this is channel 2A
-        if(!oc4 || f2!=f) {
+        if(dcy[1][0] < 0) {
+            ;                                                       // (left as it is)
+        } else if(!oc4) {
             ExtCfg(PWM_CH4_PIN, EXT_COM_RESERVED, 0);
             sConfigOC.OCMode = TIM_OCMODE_PWM1;
             sConfigOC.Pulse = dcy[1][0];
@@ -332,8 +353,6 @@ void cmd_pwm(void) {
               /* PWM Generation Error */
             	error("HAL_TIM_PWM_Start");
             }
-            f2=f;
-            oc5 = false;
             oc4 = true;
         } else {
         	htim8.Instance->CCR1 = dcy[1][0];
