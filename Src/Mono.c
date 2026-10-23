@@ -30,7 +30,7 @@ where it fits and otherwise at the start of SDRAM (the large modes), as an 8-bit
 #include "Rgb121.h"
 #include "Mono.h"
 
-extern const int xres[], yres[];
+extern int ModeXres(int mode), ModeYres(int mode);
 extern void BlitShowBuff(int bnbr, int x1, int y1, int mode);
 
 uint8_t *MonoTileF, *MonoTileB;
@@ -88,16 +88,12 @@ void MonoRow(uint8_t *d, int dx, const uint8_t *s, int sx, int w, int t) {
 /***********************************************************************************************************************
 The mode
 ***********************************************************************************************************************/
-static int Doubled(int mode) {                                      // the modes whose display stores each row twice (pagegen's)
-    return mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17;
-}
-
 /* pagegen's start for a 1-bit mode: the tiles' colours at 'start' (AXI SRAM) for the least TILE HEIGHT, then the
    display there if it fits, else at *sdram, which then moves past it; the framebuffers none. The pages follow. */
 uint32_t MonoLayout(int mode, uint32_t start, uint32_t *sdram) {
-    int w = xres[mode], h = yres[mode], tiles;
+    int w = ModeXres(mode), h = ModeYres(mode), tiles;
     uint32_t display;
-    Rgb121DisplayScale = Doubled(mode) ? 2 : 1;
+    Rgb121DisplayScale = ModeRowScale(mode);
     Rgb121Buffers = 0;
     Rgb121Transparent = Rgb121TransparentTop = 0;
     MonoTilesX = w / 8;
@@ -133,9 +129,11 @@ void MonoClut(void) {
     ClutUsed = 0;
 }
 
-// a colour as the PicoMite HDMI's tiles hold it (its RGB555()), made RGB888 again as its RGB555toRGB888() does
+// a colour as the PicoMite HDMI's tiles hold it (its RGB555()), made RGB888 again as its RGB555toRGB888() does; under
+// OPTION PICOMITE VGA as its VGA tiles do, one of the 16 RGB121 colours
 static uint32_t Colour555(uint32_t c) {
     uint32_t r = (c >> 19) & 31, g = (c >> 11) & 31, b = (c >> 3) & 31;
+    if(PicoActive && PicoFlavour() == PICO_VGA) return Rgb121Vga[RGB121(c)];
     return (r << 3 | r >> 2) << 16 | (g << 3 | g >> 2) << 8 | (b << 3 | b >> 2);
 }
 
@@ -220,6 +218,14 @@ void MonoStart(void) {
     MonoClut();
     memset(PageTable[RGB121_N].address, 0, Stride(RGB121_N) * PageTable[RGB121_N].ymax);
     TilesAll(gui_fcolour, gui_bcolour);
+}
+
+// a program's end with a PicoMite mode showing (PicoMode.c): the tiles the font's height and the default colours, the
+// pixels kept, as the PicoMite's setmode(mode, false)
+void MonoTilesReset(void) {
+    MonoTileH = gui_font_height < MONOMINTILEH ? MONOMINTILEH : gui_font_height;
+    MonoTilesY = (PageTable[RGB121_N].ymax + MonoTileH - 1) / MonoTileH;
+    TilesAll(Option.DefaultFC, Option.DefaultBC);
 }
 
 // ClearScreen in a 1-bit mode: N cleared and every tile in the foreground colour on c (the PicoMite's), a framebuffer

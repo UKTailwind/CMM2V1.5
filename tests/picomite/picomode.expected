@@ -1,0 +1,22 @@
+start: 8.1 640 480 MODE1
+MM.DEVICE$: PicoMiteHDMIUSB RP2350B, MM.INFO$(DEVICE): PicoMiteHDMIUSB RP2350B
+640x480:  1= 8.1 640x480  2= 8.4 320x240  3= 8.4 640x480  4= 8.16 320x240  5= 8.8 320x240
+720x400:  1= 10.1 720x400  2= 10.4 360x200  3= 10.4 720x400  4= 10.16 360x200  5= 10.8 360x200
+800x600:  1= 1.1 800x600  2= 1.4 400x300  3= 1.4 800x600 [4: Mode not available in this resolution]  5= 1.8 400x300
+848x480:  1= 10.1 848x480  2= 10.4 424x240  3= 10.4 848x480 [4: Mode not available in this resolution]  5= 10.8 424x240
+800x480:  1= 10.1 800x480  2= 10.4 400x240  3= 10.4 800x480 [4: Mode not available in this resolution]  5= 10.8 400x240
+1024x600:  1= 9.1 1024x600  2= 9.4 256x150  3= 9.4 512x300 [4: Mode not available in this resolution]  5= 9.8 256x150
+1280x720:  1= 11.1 1280x720  2= 11.4 320x180  3= 11.4 640x360 [4: Mode not available in this resolution]  5= 11.8 320x180
+1024x768:  1= 9.1 1024x768  2= 9.4 256x192  3= 9.4 512x384 [4: Mode not available in this resolution]  5= 9.8 256x192
+LCDPANEL: MODE2, font 7 8
+HDMI green 128: AA00
+MODE 2 again clears: 0
+4-bit rows  160 bytes: POKE FF 5500
+POKE DISPLAY VRES 100: 100 0
+POKE DISPLAY HRES: Not available on the Colour Maximite 2
+MODE puts it back: 240
+MODE 1: 8.1 12
+MODE 6: 6 is invalid (valid is 1 to 5)
+MODE 8,8 is the CMM2's: 8.8 640 480 MODE8
+done
+

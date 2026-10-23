@@ -8,6 +8,7 @@ It is an empty string when the program was run without arguments, from the edito
 === MM.DEVICE$
 --- keep
 A string identifying the computer that MMBasic is running on: "Colour Maximite 2" on a Generation 1 and "Colour Maximite 2 G2" on a Generation 2.  Other versions of MMBasic return their own name (eg, a PicoMite's), so a program can use it to tell which computer it is running on.
+With OPTION PICOMITE it returns the name of the PicoMite that the option gives (eg, "PicoMiteHDMIUSB RP2350B"), so that a program written for the PicoMite configures itself as it would there.
 
 === MM.ERRNO
 MM.ERRMSG$
@@ -198,7 +199,7 @@ The status of I/O pin ‘pinno’ of the rear connector: "Unused", "In Use", "Re
 
 =+= MM.INFO$(LCDPANEL)
 --- keep
-The PicoMite's: the display.  On its VGA and HDMI versions it is "MODE" and the mode's number, which programs test to tell those screens from an LCD panel.  On the Colour Maximite 2 it is "MODE" and the number of the current mode (eg, "MODE8").
+The PicoMite's: the display.  On its VGA and HDMI versions it is "MODE" and the mode's number, which programs test to tell those screens from an LCD panel.  On the Colour Maximite 2 it is "MODE" and the number of the current mode (eg, "MODE8"), or with OPTION PICOMITE the PicoMite's mode (eg, "MODE2").
 
 =+= MM.INFO$(PLATFORM)
 MM.INFO$(SYSTEM I2C)

@@ -10,6 +10,43 @@ Sources:
 The facts were gathered from the code, with file:line references, and the ones the mapping rests on were checked
 again. Refresh rates were computed from the timing values in the code, not measured.
 
+## 0. Built (22 Oct 2026)
+
+OPTION PICOMITE's display part is in Src/PicoMode.c, with tests/picomite/picomode.bas (run under OPTION PICOMITE
+HDMI).
+- Decisions 1 and 5-9 are as written. **Decision 2 was replaced on 23 Oct**, after Peter looked at every mode on the
+  monitor:
+  - each PicoMite resolution is shown on one CMM2 timing, which all its modes use, as on the PicoMite: 640x480 mode 8,
+    720x400 mode 10, 800x600 mode 1, 848x480 mode 10, 800x480 mode 10 ("last 48 columns blank"), 1024x600 mode 9
+    ("It should use mode 9 and blank the last 168 rows": mode 18's timing looked "terrible"), 1280x720 mode 11,
+    1024x768 mode 9;
+  - the smaller modes are made from it as the CMM2 makes mode 7 from mode 8 ("424x240 should use ... pixel and line
+    doubling the same as the picomite"): the pixel clock divided by 2 or 4 (PLL3's dividers multiplied, the LTDC's
+    horizontal timing divided: ModeHs) and each row shown 2 or 4 times (ModeVs: the 8 and 16-bit pages store a row
+    twice as the doubled modes' do, the 4 and 1-bit merges write it 2 or 4 times, and MODE 5's 8-bit rows four times go
+    through a copy at the frame's end, Merge8Run, as an 8-bit page holds a row twice at most);
+  - so a pixel is 1x1, 2x2 or 4x4 as on the PicoMite, and a mode change never changes the monitor's timing. The first
+    way (the smallest CMM2 mode holding the size) moved mode 17's pictures (the monitor re-adjusted), left 424x240
+    half the screen high and put 1024x600 on mode 18.
+- **Decisions 3 and 4 (the PicoMite's size, at the top left) are met without clipping in the drawing code.** The pages
+  are made the PicoMite's size (setmode takes a size: ModeReqW/ModeReqH, ltdc.c). The LTDC shows them as a window at
+  the top left of the CMM2 mode's screen, with the background (black) around it. So:
+  - MM.HRES, MM.VRES, the clipping, the console's wrap and scroll and PEEK/POKE are the PicoMite's;
+  - nothing can be drawn in the border.
+- **Decision 8:** the CMM2 starts at its own display. A program starts in MODE 1, and its mode stays at the prompt
+  after it ends (PicoModeEnd: framebuffers closed, font, colours and tiles reset, as do_end). EDIT and FM go back to
+  the CMM2's display, which then stays.
+- **HDMI's colours:**
+  - its 16 colours (MAP16DEF) are used in the 4-bit modes;
+  - its MODE 1 tiles are kept to RGB555 (the full-colour 640x480 and 720x400; the RGB332 resolutions get RGB555 too).
+- **VGA:** its MODE 1 tiles are its 16 RGB121 colours.
+- **Font 7** has its lines 8 apart in a PicoMite mode, not the CMM2's 10.
+- **POKE DISPLAY VRES** n sets the pages' height (HRES would change a row's length: refused).
+- **Not yet:**
+  - VGA's font 3 (16x16);
+  - the RP2040/RP2350 VGA difference (MODE 3 is accepted for VGA);
+  - the pin names and the other dialect items in docs/PicoMite_Parity_Recheck.md.
+
 ## 1. Decisions
 
 Peter, 22 Oct 2026:

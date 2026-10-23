@@ -263,6 +263,7 @@ void printoptions(void){
     if(Option.rtcdrive!=2)PO2Int("RTC DRIVE", Option.rtcdrive);   // (a number, as OPTION RTC DRIVE takes it)
     if(Option.RTCinstalled)PO2Str("DS3231", "ON",1);
     if(Option.profile)PO2Str("PROFILING", "ON",1);
+    PicoOptionList();                                               // (OPTION PICOMITE, when it is not NONE)
     if(OptionConsole == 0) PO2Str("CONSOLE","NONE",1);
     else if(OptionConsole == 1) PO2Str("CONSOLE","SERIAL",1);
     else if(OptionConsole == 2) PO2Str("CONSOLE","SCREEN",1);
@@ -1355,6 +1356,10 @@ void cmd_mode(void){
 	int mode,colour,bc=0;
     getargs(&cmdline, 7, ",");
     if(!argc)error("Syntax");
+    if(PicoFlavour() && argc == 1) {                                // OPTION PICOMITE: MODE n alone is the PicoMite's (PicoMode.c);
+    	PicoModeSet(getint(argv[0], 1, 5));                         // with a colour depth it is the CMM2's
+    	return;
+    }
     mode = getint(argv[0], 1, MAX_MODES);
     if(!(G1Hardware==0 && HAL_GetREVID()!=0x1003) && mode==16)error("G2 resolution only");
 	colour=8;
@@ -1566,6 +1571,11 @@ void MIPS16 OtherOptions(void) {
         } else error("Invalid Command");
         goto saveandreset;
 
+	}
+	tp=checkstring(cmdline, "PICOMITE");                            // OPTION PICOMITE VGA | HDMI | NONE [, resolution]
+	if(tp) {                                                        // (PicoMode.c)
+		PicoOption(tp);
+		return;
 	}
 	tp=checkstring(cmdline, "PROFILING");
 	if(tp) {

@@ -529,6 +529,8 @@ void LoadOptions(void) {
 void ResetAllOptions(void) {
     Option.PIN = 0;
     Option.Compile = RB_OFF;                                        // (OPTION COMPILE: Stream.c)
+    Option.Picomite = 0;                                            // (OPTION PICOMITE NONE: PicoMode.c)
+    Option.PicoRes = 0;
     Option.Baudrate = CONSOLE_BAUDRATE;
     Option.Autorun = false;
     Option.Listcase = CONFIG_TITLE;

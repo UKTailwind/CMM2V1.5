@@ -112,6 +112,7 @@ void fun_device_fn(void);
 void cmd_tilemap(void);
 void cmd_tile(void);
 void cmd_device(void);
+void cmd_resolution(void);
 void fun_tilemap(void);
 void cmd_ray(void);
 void cmd_star(void);
@@ -557,6 +558,7 @@ void op_inv(void);
 	{ "Slew",		    T_CMD,				0, cmd_slew		},
 	{ "Tile",		    T_CMD,				0, cmd_tile		},      // TILE x, y [, fc] [, bc] [, w] [, h], TILE RESET, TILE HEIGHT h: MODE n,1's tiles (Mono.c)
 	{ "Device",		    T_CMD,				0, cmd_device	},      // DEVICE WII|NUNCHUCK|MOUSE|GAMEPAD|HUMID|WS2812|BITSTREAM ...: the PicoMite's prefix (MiscSTM32.c)
+	{ "Resolution",	    T_CMD,				0, cmd_resolution },    // RESOLUTION res [, speed]: OPTION PICOMITE HDMI's (PicoMode.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

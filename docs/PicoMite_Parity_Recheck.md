@@ -26,12 +26,14 @@ on 22 Oct. The report itself, below the status, is as it was written.
 - Behaviour item 4: the BMP decoder calls routinechecks for each row, so sound and USB go on while an image decodes.
 - The porting chapter's statement that the flash slots 1-3 are not provided, and the release notes' KEYPAD line.
 
-**With OPTION PICOMITE:**
+**OPTION PICOMITE, its display (22 Oct, the next commit):** MODE, RESOLUTION, a program starting in MODE 1, the mode
+kept at the prompt, HDMI's colours, MM.INFO$(LCDPANEL) and POKE DISPLAY VRES (gap 6, HRES refused): see
+docs/PicoMite_CMM2_Mode_Map.md section 0.
+
+**Still with OPTION PICOMITE:**
 - Gap 1: the PicoMite's FRAMEBUFFER in the other depths. With the switch, a program with no MODE runs in MODE n,1,
   which has it already.
 - Gap 2 and its dialect items.
-- Gap 6: POKE DISPLAY HRES/VRES. It needs drawing to clip to a size smaller than the page, which the switch needs
-  anyway for the PicoMite's screen sizes.
 
 **Open, medium:**
 - BITSTREAM's mode argument and its two-pin form (gap 4).

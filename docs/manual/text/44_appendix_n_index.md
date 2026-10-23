@@ -261,6 +261,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | REDIM | Commands |
 | REM | Commands |
 | RENAME | Commands |
+| RESOLUTION | Commands |
 | RESTORE | Commands |
 | RETURN | Commands, Obsolete Commands and Functions |
 | RGB( | Functions |

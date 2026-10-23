@@ -2658,6 +2658,7 @@ void cmd_page(void){
     p = checkstring(cmdline, "DISPLAY");
     if(p) {
     	int LayerIDX=LTDC_LAYER_1;
+    	if(DisplayMerged)error("Invalid for this screen mode");      // (the LTDC shows the merge's display: OPTION PICOMITE)
     	uint32_t Address;
     	getargs(&p,3,",");
     	if(argc==3)LayerIDX=getint(argv[2],LTDC_LAYER_1,(VideoColour==12 ? LTDC_LAYER_2 : LTDC_LAYER_1));
@@ -5113,7 +5114,7 @@ void cmd_font(void) {
 // it stands for in a 4-bit mode (Rgb121Colours, the PicoMite's RGB121 colours, or the 16 of map()), into out().
 // (The PicoMite does not refuse a negative code.)
 static void ColourMap(char *tp) {
-    extern const int Rgb121Colours[16];
+    extern int Rgb121Colours[16];
     int64_t *cptr = NULL, *fptr = NULL;
     MMFLOAT *cfptr = NULL, *ffptr = NULL;
     int nf, n, i, map[16];
@@ -6183,7 +6184,7 @@ void SetFont(int fnt) {
 	ShowCursor(false);
     gui_font_width = FontTable[fnt >> 4][0] * (fnt & 0b1111);
     gui_font_height = FontTable[fnt >> 4][1] * (fnt & 0b1111);
-    if(((fnt >> 4)+1)==7)gui_font_height=10 * (fnt & 0b1111);
+    if(((fnt >> 4)+1)==7 && !PicoActive)gui_font_height=10 * (fnt & 0b1111);   // (font 7's lines 10 apart; the PicoMite's 8)
     if((OptionConsole & 2)) {
         Option.Height = maxH/gui_font_height;
         Option.Width = maxW/gui_font_width;

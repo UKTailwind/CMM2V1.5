@@ -1383,6 +1383,7 @@ static void MIPS16 RunStart(int runlib) {
     	mymemset((char *)0xD0000000,0,512*6*1024);
     	mymemset((char *)0x24000000+PageTable[0].size,0,512*1024-PageTable[0].size);
     }
+    if(PicoFlavour()) PicoModeSet(1);                               // OPTION PICOMITE: a program starts in the PicoMite's MODE 1
     if(Option.profile) ProfileStart();                              // OPTION PROFILING's counters, for this program's lines
     turtle_init();  //turtle
     statement_time= ReadCoreTimer() + FastTimer;

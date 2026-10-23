@@ -19,5 +19,6 @@ void ImageSlotBlit(const uint8_t *src, int srcw, int srch, int sx, int sy, int w
 void ImageSlotsForget(void);
 void BlitFlash(char *p);
 void TileMapForget(void);
-extern const int Rgb121Colours[16];
+extern int Rgb121Colours[16];                   // the 4-bit depth's 16 colours: Rgb121Vga's, or Rgb121Hdmi's under OPTION
+extern const int Rgb121Vga[16], Rgb121Hdmi[16]; // PICOMITE HDMI (Rgb121Clut)
 #endif

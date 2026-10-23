@@ -2814,7 +2814,8 @@ int64_t getBoardSerial(void)
 // function (which looks like a pre defined variable) to return the type of platform
 void fun_device(void){
 	sret = GetTempStrMemory();									// this will last for the life of the command
-    strcpy(sret, (G1Hardware ? "Colour Maximite 2" :"Colour Maximite 2 G2"));
+    if(PicoDeviceName()) strcpy(sret, PicoDeviceName());           // (OPTION PICOMITE: the PicoMite's name, for a program
+    else strcpy(sret, (G1Hardware ? "Colour Maximite 2" :"Colour Maximite 2 G2"));   // that configures itself by it)
     CtoM(sret);
     targ = T_STR;
 }
@@ -3144,7 +3145,8 @@ void fun_info(void){
 	    strcpy(sret, (char *)Option.path);
 	} else if(checkstring(ep, "LCDPANEL")){                       // the PicoMite's: on its VGA and HDMI builds "MODE1" to "MODE5",
 	    strcpy(sret, "MODE");                                       // which programs test for "MODE" (a VGA or HDMI screen, not an
-	    IntToStr(sret + 4, VideoMode, 10);                          // LCD panel: the chess programs). Here the CMM2's mode number
+	    IntToStr(sret + 4, PicoActive ? PicoModeNow : VideoMode, 10);   // LCD panel: the chess programs). Here the CMM2's mode
+	                                                                // number, or the PicoMite's under OPTION PICOMITE
 	} else if(checkstring(ep, "PLATFORM") || checkstring(ep, "SYSTEM I2C")){   // the PicoMite's: what a PicoMite with no OPTION
 	    sret[0] = 0;                                                // PLATFORM and no OPTION SYSTEM I2C says (18 Oct: Picofrog)
 	} else if(checkstring(ep, "VERSION")){
@@ -3470,6 +3472,19 @@ void cmd_poke(void) {
     void *pp;
 
 	MonoDirty = 2;                                                  // (a 1-bit mode: a POKE to a page shows, Mono.c)
+	if((p = checkstring(cmdline, "DISPLAY"))) {                     // the PicoMite's POKE DISPLAY VRES n: the height drawn on, for
+		char *q;                                                    // every page (MM.VRES says it; a MODE or the program's end
+		if((q = checkstring(p, "VRES"))) {                          // puts it back). HRES would change the length of a row here
+			int n = getint(q, 0, 1200), full = ModeYres(VideoMode);
+			if(n < 1) n = 1;
+			if(n > full) n = full;
+			for(int i = 0; i <= LastPage; i++) if(PageTable[i].address) PageTable[i].ymax = n;
+			VRes = n;
+			return;
+		}
+		if(checkstring(p, "HRES")) error("Not available on the Colour Maximite 2");
+		error("Syntax");
+	}
 	getargs(&cmdline, 5, ",");
     if((p = checkstring(argv[0], "BYTE"))) {
     	if(argc != 3) error("Argument count");

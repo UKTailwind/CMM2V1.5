@@ -1888,6 +1888,7 @@ MODE sets the colours to white on black and the default font for the resolution:
 A program is started (RUN) in the default mode, MODE 1 or the mode set by OPTION DEFAULT MODE with the 8-bit depth, and the display returns to it when the program ends.
 The display always shows the contents of page 0 (pages 0 and 1 in the 12-bit depth, page 1 being the upper layer) unless overridden with the PAGE DISPLAY command.  Use PAGE WRITE and PAGE COPY to avoid the artefacts of flashing and tearing.  The pages available in each mode and colour depth, and how to PEEK and POKE them, are listed in the chapter Video Modes and Pages.  MM.INFO(MAX PAGES) returns the highest page number in the current mode.
 The 4-bit depth gives the display of the PicoMite's VGA and HDMI versions in their 16 colour modes: MODE 7,4 (320 x 240) is the PicoMite's MODE 2 and MODE 8,4 (640 x 480) is its MODE 3.  Its 16 colours can be changed with MAP and its FRAMEBUFFER command is the PicoMite's (see FRAMEBUFFER).  PAGE DISPLAY and the IMAGE commands are not available in it.
+With OPTION PICOMITE VGA or HDMI, MODE with no colour depth is the PicoMite's MODE (1 to 3 for VGA, 1 to 5 for HDMI), and always clears the screen: see Running PicoMite Programs in the chapter Video Modes and Pages.  MODE with a colour depth is the Colour Maximite 2's.
 The 1-bit depth gives the PicoMite's MODE 1: MODE 8,1 (640 x 480) is the PicoMite's MODE 1 on its VGA version and at 640 x 480 on its HDMI version.  A pixel is set or clear, and the screen is divided into tiles 8 pixels wide and TILE HEIGHT tall, each with a foreground colour for its set pixels and a background colour for the others (see TILE).  Its FRAMEBUFFER command is the PicoMite's.  MAP, PAGE DISPLAY, the IMAGE commands, GUI CURSOR and RAY are not available in it.  MODE r,1 clears the screen and resets the tiles even when that mode is already set, as the PicoMite's MODE does.
 
 === MOUSE INTERRUPT ENABLE channel, int
@@ -2230,6 +2231,10 @@ When a directory of files is playing (PLAY WAV, FLAC or MP3 with a directory) th
 {kl=1 b=0 a=0 z=16}
 {kl=1 b=0 a=0 z=16}
 
+=+= {b=0 a=0}POKE DISPLAY VRES n
+--- tight
+{kl=1 a=0}The PicoMite's: sets the height of the screen that is drawn on to ‘n’ lines, on every page, so that drawing below it is cut off and MM.VRES returns ‘n’.  It cannot be more than the height of the screen.  MODE, and the end of the program, set the full height again.  POKE DISPLAY HRES is not available on the Colour Maximite 2.
+
 === POLYGON n, xarray%(), yarray%() [, bordercolour] [, fillcolour]
 {}
 POLYGON n(), xarray%(), yarray%() [, bordercolour()] [, fillcolour()]
@@ -2393,6 +2398,11 @@ Note the Microsoft style use of the single quotation mark (‘) to denote remark
 --- keep
 Rename a file or a directory from ‘old$’ to ‘new$’.  Both are strings.
 A directory path can be used in both 'old$' and 'new$'.  If the paths differ the file specified in 'old$' will be moved to the path specified in 'new$' with the file name as specified.  Both must be on the same drive ("Cannot rename across drives").
+
+=== RESOLUTION res [, speed]
+--- keep
+The PicoMite HDMI's command to change its resolution while a program runs, with OPTION PICOMITE HDMI only (elsewhere the error is "Needs OPTION PICOMITE HDMI").  ‘res’ is one of OPTION PICOMITE's resolutions: 640x480 (or 640), 720x400 (or 720), 800x600 (or 800), 848x480 (or 848), 800x480, 1024x600, 1280x720 (or 1280) and 1024x768 (or 1024).  ‘speed’, for 640x480 only, is the PicoMite's processor speed (252000, 315000 or 378000) and makes no difference here.
+The resolution is used by the MODE commands that follow until the next restart.  RESOLUTION then sets MODE 1, as on the PicoMite.
 
 === RESTORE [line]
 --- keep

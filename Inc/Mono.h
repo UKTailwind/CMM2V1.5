@@ -18,6 +18,7 @@ extern volatile uint32_t MonoClutNew[8];        // CLUT entries given colours: w
 uint32_t MonoLayout(int mode, uint32_t start, uint32_t *sdram);
 void MonoClut(void);
 void MonoStart(void);
+void MonoTilesReset(void);
 void MonoPointers(void);
 void MonoMerge(void);
 void MonoClearScreen(int c);

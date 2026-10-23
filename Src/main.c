@@ -384,9 +384,11 @@ void cleanend(void){
     if(mouse2)i2c2_disable();                                                  // close I2C
     if(mouse3)i2c3_disable();                                                  // close I2C
 	PageDisplayOn();													// (PAGE DISPLAY -1 left the display off)
-	ShareNeeded=RoundUptoPage512((uint32_t)PageTable[0].address);
-	MPU_Config_nCacheable(0);
-	HAL_LTDC_SetAddress(&hltdc,  (uint32_t)PageTable[0].address, LTDC_LAYER_1);
+	if(!DisplayMerged) {                                            // (a 4 or 1-bit mode's display is the merge's, which stays
+		ShareNeeded=RoundUptoPage512((uint32_t)PageTable[0].address);   // where pagegen put it: Rgb121.c. OPTION PICOMITE
+		MPU_Config_nCacheable(0);                                   // keeps the mode at the prompt)
+		HAL_LTDC_SetAddress(&hltdc,  (uint32_t)PageTable[0].address, LTDC_LAYER_1);
+	}
     mouse0release();                                                // (OPTION MOUSE 0's mouse goes on running)
     mouse1=0; mouse2=0; mouse3=0;
     OnKeyGOSUB=NULL;							            // set the next stmt to the interrupt location
@@ -882,7 +884,8 @@ if(setjmp(mark) != 0) {
 		  start_console();
 	  }
 	  OptionConsole=Option.Console;
-	  setmode(Option.mode,DEFCOLOUR,0,0);
+	  if(PicoActive) PicoModeEnd();                                  // (OPTION PICOMITE: the program's mode stays, PicoMode.c)
+	  else setmode(Option.mode,DEFCOLOUR,0,0);
 	  WritePage=ReadPage=0;
 	  if(CurrentY<0)CurrentY=0;
 	  if(errpos){

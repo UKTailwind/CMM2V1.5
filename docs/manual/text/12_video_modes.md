@@ -125,7 +125,30 @@ FLASH LOAD IMAGE n, file$ loads an image into image slot n (1 to 8), as the Pico
 
 ## Running PicoMite Programs
 
-A program written for the PicoMite selects its display with the PicoMite's MODE numbers, which mean different resolutions on the Colour Maximite 2 (MODE 1 here is 800 x 600). Change its MODE statements as follows so that it has the display it expects:
+A program written for the PicoMite selects its display with the PicoMite's MODE numbers, which mean different resolutions on the Colour Maximite 2 (MODE 1 here is 800 x 600). OPTION PICOMITE gives it the display it expects without changes:
+
+- OPTION PICOMITE says which PicoMite the program was written for, by the name it returns in MM.DEVICE$ (eg, OPTION PICOMITE PicoMiteVGA RP2350B, or VGA or HDMI for short), and at which of its resolutions (640x480 if none is given; with HDMI as well 800x480, 1024x600, 1280x720 and 1024x768). MM.DEVICE$ then returns that name, so a program that configures itself by it does so as on that PicoMite.
+- MODE n with no colour depth is then the PicoMite's MODE n: 1 to 3 on VGA, 1 to 5 on HDMI. MM.HRES and MM.VRES are the PicoMite's sizes, and so are its framebuffers and its screen memory for PEEK and POKE. A program starts in MODE 1. MODE always clears the screen.
+- Each PicoMite resolution is shown with one of the Colour Maximite 2's display timings, the same for all its modes, as on the PicoMite, so the monitor does not change when the mode does. In the smaller modes each pixel is 2 x 2 or 4 x 4, as on the PicoMite. MM.INFO(MODE) gives the Colour Maximite 2 mode whose timing is used.
+- Three resolutions do not fill the screen: 720x400 and 800x480 are shown at the top left of 848 x 480, and 1024x600 at the top of 1024 x 768. The rest of the screen is black and cannot be drawn on.
+- PAGE DISPLAY is not available in MODE 5 at 1024x600, 1280x720 and 1024x768, whose rows are each shown four times by MMBasic.
+- When the program ends its display stays at the command prompt until EDIT or FM is used, as on the PicoMite.
+- With HDMI, RESOLUTION changes the resolution in a program, and the 16 colours of MODE 2 and 3 are the PicoMite HDMI's (its greens are 0x55 and 0xAA rather than VGA's 0x40 and 0x80). With VGA the tiles of MODE 1 are in VGA's 16 colours.
+- MODE with a colour depth is still the Colour Maximite 2's MODE.
+
+{widths: 16,14,14,14,14,14,14}
+| PicoMite resolution | Timing (mode) | MODE 1 | MODE 2 | MODE 3 | MODE 4 (HDMI) | MODE 5 (HDMI) |
+|---|---|---|---|---|---|---|
+| 640x480 | 640 x 480 (8) | 640x480 | 320x240, 2x2 | 640x480 | 320x240, 2x2 | 320x240, 2x2 |
+| 720x400 | 848 x 480 (10) | 720x400 | 360x200, 2x2 | 720x400 | 360x200, 2x2 | 360x200, 2x2 |
+| 800x600 | 800 x 600 (1) | 800x600 | 400x300, 2x2 | 800x600 | - | 400x300, 2x2 |
+| 848x480 | 848 x 480 (10) | 848x480 | 424x240, 2x2 | 848x480 | - | 424x240, 2x2 |
+| 800x480 (HDMI) | 848 x 480 (10) | 800x480 | 400x240, 2x2 | 800x480 | - | 400x240, 2x2 |
+| 1024x600 (HDMI) | 1024 x 768 (9) | 1024x600 | 256x150, 4x4 | 512x300, 2x2 | - | 256x150, 4x4 |
+| 1280x720 (HDMI) | 1280 x 720 (11) | 1280x720 | 320x180, 4x4 | 640x360, 2x2 | - | 320x180, 4x4 |
+| 1024x768 (HDMI) | 1024 x 768 (9) | 1024x768 | 256x192, 4x4 | 512x384, 2x2 | - | 256x192, 4x4 |
+
+Each entry is the PicoMite's screen, with the size of its pixels on the monitor where they are larger than one; the timing is that of the Colour Maximite 2 mode given. MODE 1 is in the 1-bit colour depth, MODE 2 and 3 in the 4-bit depth, MODE 4 in the 16-bit depth and MODE 5 in the 8-bit depth. Without OPTION PICOMITE, change a program's MODE statements as follows so that it has the display it expects:
 
 {widths: 30,30,40}
 | PicoMite | Colour Maximite 2 | Display |

@@ -61,13 +61,28 @@ LTDC_HandleTypeDef hltdc={0};
 const int xres[MAX_MODES+1]={0,800,640,320,480,240,256,320,640,1024,848,1280,960,400,960,1280,1920,384,1024};
 const int yres[MAX_MODES+1]={0,600,400,200,432,216,240,240,480,768,480,720,540,300,540,1024,1080,240,600};
 const int pageheight[MAX_MODES+1]={0,627,499,499,499,499,499,499,499,805,516,749,1124,627,568,1067,1124,499,637};
+/* The display's size: the mode's (xres, yres), or under OPTION PICOMITE the PicoMite's (PicoMode.c), smaller. setmode
+   takes a size asked for in ModeReqW and ModeReqH (and a font in ModeReqFont) and clears them, so every other call is
+   the mode's own size. The pages are that size, and the LTDC shows them as a window at the top left of the screen. */
+int ModeReqW, ModeReqH, ModeReqFont, ModeW, ModeH;
+int ModeXres(int mode) { return ModeW ? ModeW : xres[mode]; }
+int ModeYres(int mode) { return ModeH ? ModeH : yres[mode]; }
+/* OPTION PICOMITE's smaller modes, made from the base mode's timing as mode 7 is made from mode 8 (PicoMode.c): the pixel
+   clock divided by ModeHs (each pixel ModeHs wide), each row shown ModeVs times (2: the pages store it twice, as the
+   doubled modes' do; in a 4 or 1-bit mode the merge writes it so; 8-bit rows four times: Merge8, Rgb121.c). 0: the
+   mode's own. DisplayMerged: the LTDC shows the merge's display (Rgb121Display), not page 0. */
+int ModeReqHs, ModeReqVs, ModeHs, ModeVs, DisplayMerged;
+int ModeRowScale(int mode) {
+  if(ModeVs) return ModeVs;
+  return (mode==3 || mode==5 || mode==6 || mode==7 || mode==12 || mode==13 || mode==17) ? 2 : 1;
+}
 
 #define RoundUptoPage8(a)     ((((uint64_t)a) + (uint64_t)(8*1024 - 1)) & (uint64_t)(~(8*1024 - 1)))// round up to the nearest whole integer
 #define RoundUptoPage512(a)     ((((uint64_t)a) + (uint64_t)(512*1024 - 1)) & (uint64_t)(~(512*1024 - 1)))// round up to the nearest whole integer
 //
 int scalesize(int vmode,int vcol, int pageno){
  int retscale=1;
-  if(vmode==3 || vmode==5 || vmode==6 || vmode==7 || vmode==12 || vmode==13 || vmode==17){
+  if(ModeRowScale(vmode)==2){
     if(pageno==0 || pageno==1) retscale=2;
     if(pageno==2 && vcol==12)retscale=2;
   }
@@ -82,27 +97,29 @@ int pagegen(int Vmode, int Vcol){
   Rgb121Active=0;                                                   // (the merge stops while the pages are laid out: setmode restarts it)
   memset(&PageTable,0,sizeof(struct s_pagetable)*64);
   ShareNeeded=0;
-  if(Vcol==4)startadd=Rgb121Layout(Vmode, startadd);              // a 4-bit mode: the display the merge writes, then the pages (Rgb121.c)
+  DisplayMerged=(Vcol<8 || (Vcol==8 && ModeVs==4));
+  if(Vcol==4 || (Vcol==8 && ModeVs==4))startadd=Rgb121Layout(Vmode, startadd);   // a 4-bit mode (or 8-bit rows four times):
+                                                                    // the display the merge writes, then the pages (Rgb121.c)
   if(Vcol==1){                                                      // a 1-bit mode: the tiles' colours and the display, then the
 	  startadd=MonoLayout(Vmode, startadd, &sdram);                 // pages (Mono.c); the display in SDRAM is shown, as a page 0 there is
 	  if(sdram>(uint32_t)0xD0000000)ShareNeeded=RoundUptoPage512(sdram);
   }
   while(1){
-    size=RoundUptoPage8(Vcol==4 ? ((xres[Vmode]+1)/2)*yres[Vmode] : Vcol==1 ? (xres[Vmode]/8)*yres[Vmode] : xres[Vmode]*yres[Vmode]*scalesize(Vmode,Vcol,pageno));
+    size=RoundUptoPage8(Vcol==4 ? ((ModeXres(Vmode)+1)/2)*ModeYres(Vmode) : Vcol==1 ? (ModeXres(Vmode)/8)*ModeYres(Vmode) : ModeXres(Vmode)*ModeYres(Vmode)*scalesize(Vmode,Vcol,pageno));
     if(startadd+(uint32_t)size>0x24080000 && startadd<(uint32_t)0xD0000000)startadd=sdram;
     if((startadd+(uint32_t)size>(G1Hardware ? (uint32_t)0xD0300000 : (uint32_t)0xD0700000))  || pageno>MAXPAGES)break;
     PageTable[pageno].address=(uint8_t *)startadd;
     PageTable[pageno].nbytes=(Vcol>8)+1;                            // (4 and 1-bit: 1, so sizes made from it are enough)
     if(Vcol==32)PageTable[pageno].nbytes*=2;
     PageTable[pageno].expand=0;
-    if(Vcol>=8 && (Vmode==3 || Vmode==5 || Vmode==6 || Vmode==7 || Vmode==12 || Vmode==13 || Vmode==17)){
+    if(Vcol>=8 && ModeRowScale(Vmode)==2){
     	if(pageno==0 || pageno==1) PageTable[pageno].expand=1;
     	if(pageno==2 && Vcol==12)PageTable[pageno].expand=1;
     }
-    PageTable[pageno].xmax=xres[Vmode];
-    PageTable[pageno].ymax=yres[Vmode];
+    PageTable[pageno].xmax=ModeXres(Vmode);
+    PageTable[pageno].ymax=ModeYres(Vmode);
     PageTable[pageno].maxlines=pageheight[Vmode];
-    PageTable[pageno].size=(Vcol==4 ? ((xres[Vmode]+1)/2)*yres[Vmode] : Vcol==1 ? (xres[Vmode]/8)*yres[Vmode] : xres[Vmode]*yres[Vmode]*scalesize(Vmode,Vcol,pageno));
+    PageTable[pageno].size=(Vcol==4 ? ((ModeXres(Vmode)+1)/2)*ModeYres(Vmode) : Vcol==1 ? (ModeXres(Vmode)/8)*ModeYres(Vmode) : ModeXres(Vmode)*ModeYres(Vmode)*scalesize(Vmode,Vcol,pageno));
     startadd+=(uint32_t)size;
     if(pageno==0 && Vcol>=8 && startadd>(uint32_t)0xD0000000){      // (a 4 or 1-bit page 0 is not shown)
     	ShareNeeded=RoundUptoPage512(startadd);
@@ -241,19 +258,32 @@ void setmode(int mode, int colour, int bc, int force){
 	gui_bcolour = PromptBC = Option.DefaultBC = BLACK;
    // turtle_init_not_done=1;
 	if(VideoColour!=colour && PageTable[WPN].address!=NULL)error("Colour mismatch with framebuffer ");
+	{                                                                // the display's size asked for (OPTION PICOMITE), or the
+		int w = ModeReqW, h = ModeReqH, hs = ModeReqHs, vs = ModeReqVs;   // mode's: a new one is not the same mode
+		ModeReqW = ModeReqH = ModeReqHs = ModeReqVs = 0;
+		if((w != ModeW || h != ModeH || hs != ModeHs || vs != ModeVs) && force <= 0) force = 1;
+		ModeW = w;
+		ModeH = h;
+		ModeHs = hs;
+		ModeVs = vs;
+		PicoActive = (w != 0);
+		Rgb121Palette();                                             // (the 16 colours: HDMI's in its modes, else VGA's)
+	}
+	int reqfont = ModeReqFont;
+	ModeReqFont = 0;
 	if(VideoMode==mode && VideoColour==colour && force<=0){
 		  SetFont(fnt);
 		  Option.DefaultFont = gui_font;
 		  if(bc!=VideoBackground || force<0){
 			  VideoBackground=bc;
-			  MX_LTDC_Init(DisplayH, DisplayV, (VideoColour<8 ? Rgb121DisplayScale : (PageTable[0].expand ? 2 : 1)), VideoColour, VideoBackground);
+			  MX_LTDC_Init(DisplayH, DisplayV, (DisplayMerged ? Rgb121DisplayScale : (PageTable[0].expand ? 2 : 1)), VideoColour, VideoBackground);
 		  }
 		  LastPage=pagegen(VideoMode, VideoColour);
 		  if(VideoColour<8){                                            // (the PicoMite's framebuffers closed, as its MODE does)
 			  WritePage=ReadPage=0;
 			  if(VideoColour==1)MonoStart();                            // (and its MODE 1 cleared, the tiles reset: Mono.c)
-			  Rgb121Active=1;
 		  }
+		  if(DisplayMerged)Rgb121Active=1;
 		  return;
 	}
 	cursoron=0;
@@ -293,8 +323,8 @@ void setmode(int mode, int colour, int bc, int force){
     CurrentY=0;
 	pll.PLL3VCOSEL=RCC_PLL3VCOWIDE;
 	pll.PLL3FRACN=0;
-	DisplayH=xres[VideoMode];
-	DisplayV=yres[VideoMode];
+	DisplayH=ModeXres(VideoMode);                                     // (OPTION PICOMITE's size: a window of the screen)
+	DisplayV=ModeYres(VideoMode);
 	if(VideoMode==1){
 	  pll.PLL3M = 1; //60Hz 40.0MHz pixel clock
 	  pll.PLL3N = 100;
@@ -458,10 +488,16 @@ void setmode(int mode, int colour, int bc, int force){
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	}
+	if(reqfont) fnt = reqfont;                                        // (the PicoMite's font for its mode: PicoMode.c)
+	if(ModeHs > 1){                                                   // (OPTION PICOMITE: the pixel clock divided, PicoMode.c)
+		pll.PLL3P *= ModeHs;
+		pll.PLL3Q *= ModeHs;
+		pll.PLL3R *= ModeHs;
+	}
 	WritePage=0; ReadPage=0;
-	if(VideoColour<8)mymemset(Rgb121Display,0,xres[VideoMode]*yres[VideoMode]*Rgb121DisplayScale);
+	if(DisplayMerged)mymemset(Rgb121Display,0,DisplayH*DisplayV*Rgb121DisplayScale);
 	if(oldmode!=VideoMode || force)PLL3_Config(&pll,DIVIDER_P_UPDATE|DIVIDER_Q_UPDATE|DIVIDER_R_UPDATE);
-	MX_LTDC_Init(DisplayH, DisplayV, (VideoColour<8 ? Rgb121DisplayScale : (PageTable[0].expand ? 2 : 1)), VideoColour, VideoBackground);
+	MX_LTDC_Init(DisplayH, DisplayV, (DisplayMerged ? Rgb121DisplayScale : (PageTable[0].expand ? 2 : 1)), VideoColour, VideoBackground);
 	if( VideoColour==16 || VideoColour==12){
 		DrawRectangle = DrawRectangle16;
 		DrawBitmap = DrawBitmap16;
@@ -490,6 +526,10 @@ void setmode(int mode, int colour, int bc, int force){
 		ReadBufferFast = ReadBufferFast8;
 		BlitShowBuffer=BlitShowBuff;
 		DrawPixel=DrawPixel8;
+		if(DisplayMerged){                                          // (8-bit rows four times: the merge, Rgb121.c)
+			HAL_NVIC_SetPriority(CEC_IRQn, 6, 0);
+			HAL_NVIC_EnableIRQ(CEC_IRQn);
+		}
 	} else {
 		DrawRectangle = DrawRectangle32;
 		DrawBitmap = DrawBitmap32;
@@ -511,7 +551,7 @@ void setmode(int mode, int colour, int bc, int force){
 	Option.DefaultFont = gui_font;
 	clearrepeat();
 	if(VideoColour==1)MonoStart();                                   // the tiles the font's height (Mono.c)
-	Rgb121Active=(VideoColour<8);                                     // a 4 or 1-bit mode: the merge at each frame (Rgb121.c)
+	Rgb121Active=DisplayMerged;                                       // a 4 or 1-bit mode: the merge at each frame (Rgb121.c)
 }
 
 /* LTDC init function */
@@ -532,7 +572,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  pLayerCfg.Backcolor.Red = 0;
 		  pLayerCfg.Alpha = 255;
 		  pLayerCfg.Alpha0 = 255;
-		  pLayerCfg.FBStartAdress = (colours<8 ? (uint32_t)Rgb121Display : (uint32_t)PageTable[0].address);
+		  pLayerCfg.FBStartAdress = (DisplayMerged ? (uint32_t)Rgb121Display : (uint32_t)PageTable[0].address);
 		  pLayerCfg.WindowX0 = 0;
 		  pLayerCfg.WindowY0 = 0;
 		  pLayerCfg.WindowX1 = x;
@@ -566,7 +606,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  pLayerCfg.Backcolor.Red = 0;
 		  pLayerCfg.Alpha = 255;
 		  pLayerCfg.Alpha0 = 255;
-		  pLayerCfg.FBStartAdress = (colours<8 ? (uint32_t)Rgb121Display : (uint32_t)PageTable[0].address);
+		  pLayerCfg.FBStartAdress = (DisplayMerged ? (uint32_t)Rgb121Display : (uint32_t)PageTable[0].address);
 		  pLayerCfg.WindowX0 = 0;
 		  pLayerCfg.WindowY0 = 0;
 		  pLayerCfg.WindowX1 = x;
@@ -787,6 +827,12 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.AccumulatedActiveH = 619;
 		  hltdc.Init.TotalWidth = 1343;
 		  hltdc.Init.TotalHeigh = 637;
+	  }
+	  if(ModeHs > 1){                                                 // OPTION PICOMITE's smaller modes: the line's parts in
+		  hltdc.Init.HorizontalSync = (hltdc.Init.HorizontalSync + 1) / ModeHs - 1;   // pixels of the divided clock,
+		  hltdc.Init.AccumulatedHBP = (hltdc.Init.AccumulatedHBP + 1) / ModeHs - 1;   // as mode 7's are mode 8's halved
+		  hltdc.Init.AccumulatedActiveW = (hltdc.Init.AccumulatedActiveW + 1) / ModeHs - 1;
+		  hltdc.Init.TotalWidth = (hltdc.Init.TotalWidth + 1) / ModeHs - 1;
 	  }
 	  PageTable[0].maxlines=hltdc.Init.TotalHeigh;
 	  PageTable[0].startactive=hltdc.Init.AccumulatedVBP;

@@ -460,7 +460,7 @@ def main():
         keep(rows[-1])
     write_summary(outdir, rows, device)
     json.dump(rows, open(os.path.join(outdir, "summary.json"), "w"), indent=1)
-    b.cmd("MODE 8", 10)
+    b.cmd("MODE 8,8", 10)                          # (with the depth: the CMM2's MODE under OPTION PICOMITE too)
     b.close()
 
 

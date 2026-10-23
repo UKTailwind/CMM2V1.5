@@ -66,9 +66,14 @@ static uint8_t SlotKind[MAXIMAGESLOTS + 1];                         // what a sl
 static const uint32_t ImageSlotEmpty[4] = {0, 0, 0, 0};             // what an empty RAM slot reads as,
 static const uint32_t ImageSlotErased[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};   // and an empty flash slot
 
-// the PicoMite's RGB121 colours (graphics/Draw.c colours[16]): bit 3 red, bits 2-1 green, bit 0 blue
-const int Rgb121Colours[16] = {0x00, 0xFF, 0x4000, 0x40ff, 0x8000, 0x80ff, 0xff00, 0xffff,
-                               0xff0000, 0xff00FF, 0xff4000, 0xff40ff, 0xff8000, 0xff80ff, 0xffff00, 0xffffff};
+// the PicoMite's RGB121 colours (graphics/Draw.c colours[16]): bit 3 red, bits 2-1 green, bit 0 blue; its HDMI ones
+// (graphics/HDMI.c MAP16DEF), and the ones in use (the VGA's, or the HDMI's under OPTION PICOMITE HDMI: Rgb121Clut)
+const int Rgb121Vga[16] = {0x00, 0xFF, 0x4000, 0x40ff, 0x8000, 0x80ff, 0xff00, 0xffff,
+                           0xff0000, 0xff00FF, 0xff4000, 0xff40ff, 0xff8000, 0xff80ff, 0xffff00, 0xffffff};
+const int Rgb121Hdmi[16] = {0x00, 0xFF, 0x5500, 0x55ff, 0xAA00, 0xAAff, 0xff00, 0xffff,
+                            0xff0000, 0xff00FF, 0xff5500, 0xff55ff, 0xffAA00, 0xffAAff, 0xffff00, 0xffffff};
+int Rgb121Colours[16] = {0x00, 0xFF, 0x4000, 0x40ff, 0x8000, 0x80ff, 0xff00, 0xffff,
+                         0xff0000, 0xff00FF, 0xff4000, 0xff40ff, 0xff8000, 0xff80ff, 0xffff00, 0xffffff};
 
 // the RAM slots' blocks, which every heap wipe keeps (HeapWipe, Memory.c), each with its size, read before the wipe:
 // how many. They go only with RAM ERASE, an overwrite or a restart, as the PicoMite's PSRAM slots go with a reset.

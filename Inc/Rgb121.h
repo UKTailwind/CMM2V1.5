@@ -27,8 +27,11 @@ extern int Rgb121Buffers;                       // the framebuffers created: bit
 extern int Rgb121Transparent, Rgb121TransparentTop; // the colours (0-15) L and T are transparent in
 
 int Rgb121ModeFits(int mode);
+int Rgb121SizeFits(int w, int h, int scale);
+void Rgb121CloseAll(void);
 uint32_t Rgb121Layout(int mode, uint32_t start);
 void Rgb121Clut(void);
+void Rgb121Palette(void);
 void Rgb121Pointers(void);
 void Rgb121Framebuffer(void);
 int Rgb121Letter(char *p);

@@ -248,6 +248,8 @@ struct option_s {
 	unsigned char libhash[4];
 	unsigned char mousespeed[4];
 	unsigned char Compile;
+	unsigned char Picomite;
+	unsigned char PicoRes;
 	unsigned char end;
 // 128
 };

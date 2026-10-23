@@ -246,6 +246,19 @@ OPTION OVERCLOCK ON runs the processor at 504MHz in place of 480MHz (or 400MHz o
 OPTION OVERCLOCK and OPTION BASELINE cannot both be on: turning one on turns the other off, and OPTION OVERCLOCK OFF (or OPTION BASELINE OFF) returns to the normal speed.
 This command will cause a reboot.
 
+=== OPTION PICOMITE device [, resolution]
+or
+OPTION PICOMITE NONE
+--- P keep
+Makes the Colour Maximite 2 behave as the PicoMite ‘device’, so that programs written for it get the display they expect.  ‘device’ is the name a PicoMite with a VGA or HDMI display returns in MM.DEVICE$, written as it is or as a string:
+{l=720}PicoMiteVGA, PicoMiteVGAUSB (an RP2040), or either followed by RP2350A or RP2350B
+{l=720}PicoMiteHDMI, PicoMiteHDMIUSB, PicoMitePC3, PicoMiteHDMIBTH or PicoMiteHDMIWEB, followed by RP2350A or RP2350B
+{l=720}VGA, the same as PicoMiteVGAUSB RP2350B, or HDMI, the same as PicoMiteHDMIUSB RP2350B
+MM.DEVICE$ then returns that name, so that a program which configures itself by it does so as on that PicoMite.  The VGA and HDMI versions' MODE numbers mean different displays, and the name says which the program's are; nothing else is limited by it.  For example: OPTION PICOMITE PicoMiteHDMIUSB RP2350B, 1280x720
+‘resolution’ is the PicoMite's OPTION RESOLUTION: 640x480 (the default), 720x400, 800x600 or 848x480, and with an HDMI device also 800x480, 1024x600, 1280x720 or 1024x768.
+With it, MODE n with no colour depth is the PicoMite's MODE n, a program starts in MODE 1, and RESOLUTION can be used with HDMI.  See Running PicoMite Programs in the chapter Video Modes and Pages.  OPTION PICOMITE NONE, the default, makes MODE the Colour Maximite 2's.
+This command can only be run from the command line.
+
 === OPTION PIN nbr
 --- P roomy
 Set ‘nbr’ as the PIN (Personal Identification Number) for access to the console prompt.  ‘nbr’ can be any non zero number of up to eight digits.

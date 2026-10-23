@@ -30,7 +30,7 @@ FRAMEBUFFER code here. Its merge (MonoMergeRun) is N ORed with L, each pixel its
 #include "Mono.h"
 
 extern volatile uint8_t pagesetdone;
-extern const int xres[], yres[];
+extern int ModeXres(int mode), ModeYres(int mode);
 
 uint8_t *Rgb121Display;
 int Rgb121DisplayScale = 1;
@@ -89,27 +89,47 @@ void Rgb121Row(uint8_t *d, int dx, const uint8_t *s, int sx, int w, int t) {
 /***********************************************************************************************************************
 The mode
 ***********************************************************************************************************************/
-static int Doubled(int mode) {                                      // the modes whose display stores each row twice (pagegen's)
-    return mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17;
+// whether a display w x h (each row 'scale' times) can be 4-bit: in AXI SRAM, its rows in the merge's buffers
+int Rgb121SizeFits(int w, int h, int scale) {
+    return w <= RGB121MAXW && (w & 3) == 0 && w * h * scale <= 512 * 1024;
 }
 
-// whether a mode can be 4-bit: its display in AXI SRAM, its rows in the merge's buffers
+// whether a mode can be 4-bit
 int Rgb121ModeFits(int mode) {
-    return xres[mode] <= RGB121MAXW && (xres[mode] & 3) == 0 && xres[mode] * yres[mode] * (Doubled(mode) ? 2 : 1) <= 512 * 1024;
+    return Rgb121SizeFits(ModeXres(mode), ModeYres(mode), ModeRowScale(mode));
 }
 
-// pagegen's start for a 4-bit mode: the display at 'start' (AXI SRAM), the framebuffers none; the pages follow it
+// pagegen's start for a 4-bit mode (or 8-bit rows shown four times): the display at 'start' (AXI SRAM), the
+// framebuffers none; the pages follow it
 uint32_t Rgb121Layout(int mode, uint32_t start) {
     Rgb121Display = (uint8_t *)start;
-    Rgb121DisplayScale = Doubled(mode) ? 2 : 1;
+    Rgb121DisplayScale = ModeRowScale(mode);
     Rgb121Buffers = 0;
     Rgb121Transparent = Rgb121TransparentTop = 0;
-    return start + RoundUp8K(xres[mode] * yres[mode] * Rgb121DisplayScale);
+    return start + RoundUp8K(ModeXres(mode) * ModeYres(mode) * Rgb121DisplayScale);
+}
+
+// the PicoMite's 16 colours for the mode being set (setmode), which COLOUR MAP, PIXEL( and the 4-bit CLUT use: its VGA
+// colours, and its HDMI ones in an OPTION PICOMITE HDMI mode, whose greens differ (0x55 and 0xAA: its MAP16DEF)
+void Rgb121Palette(void) {
+    const int *pal = (PicoActive && PicoFlavour() == PICO_HDMI) ? Rgb121Hdmi : Rgb121Vga;
+    for(int i = 0; i < 16; i++) Rgb121Colours[i] = pal[i];
 }
 
 // the CLUT: entries 0 to 15 the PicoMite's colours, the others black (MODE n,4 and MAP RESET)
 void Rgb121Clut(void) {
+    Rgb121Palette();
     for(int i = 0; i < 256; i++) CLUT[i] = i < 16 ? (uint32_t)Rgb121Colours[i] : 0;
+}
+
+// a program's end with a PicoMite mode showing (PicoMode.c): its framebuffers closed, as the PicoMite's do_end does
+void Rgb121CloseAll(void) {
+    if(VideoColour >= 8) return;
+    Rgb121Buffers = 0;
+    Rgb121Transparent = Rgb121TransparentTop = 0;
+    HRes = PageTable[RGB121_N].xmax;
+    VRes = PageTable[RGB121_N].ymax;
+    MonoDirty = 1;
 }
 
 /***********************************************************************************************************************
@@ -147,21 +167,19 @@ static void __attribute__((noinline)) ITCM_CODE Rgb121Merge(void) {   // (not in
             t += bytes;
             for(i = 0; i < words; i++) MergeN[i] = Over(MergeN[i], MergeL[i], tt);
         }
-        uint32_t *d0 = d, *d1 = d + dwords;                         // the row, and its second copy where rows are doubled
+        uint32_t *d0 = d;                                           // the row, and its copies where rows are repeated
         d += dwords * scale;
         for(i = 0; 2 * i < dwords; i++) {                           // a word of 8 pixels, two words of bytes
             uint32_t v = MergeN[i], a, b;
             a = v & 0xFFFF;
             a = (a | (a << 8)) & 0x00FF00FF;
             a = (a | (a << 4)) & 0x0F0F0F0F;
-            d0[2 * i] = a;
-            if(scale == 2) d1[2 * i] = a;
+            for(int k = 0; k < scale; k++) d0[k * dwords + 2 * i] = a;
             if(2 * i + 1 < dwords) {
                 b = v >> 16;
                 b = (b | (b << 8)) & 0x00FF00FF;
                 b = (b | (b << 4)) & 0x0F0F0F0F;
-                d0[2 * i + 1] = b;
-                if(scale == 2) d1[2 * i + 1] = b;
+                for(int k = 0; k < scale; k++) d0[k * dwords + 2 * i + 1] = b;
             }
         }
     }
@@ -207,19 +225,31 @@ static void __attribute__((noinline)) ITCM_CODE MonoMergeRun(void) {
             l += bytes;
             for(i = 0; i < words; i++) MergeN[i] |= MergeL[i];
         }
-        uint32_t *d0 = d, *d1 = d + dwords;                         // the row, and its second copy where rows are doubled
+        uint32_t *d0 = d;                                           // the row, and its copies where rows are repeated
         d += dwords * scale;
         for(i = 0; i < bytes; i++) {
             uint32_t v = rn[i], f = tf[i] * 0x01010101u, b = tb[i] * 0x01010101u, x = f ^ b;
             uint32_t lo = (((v & 0xF) * 0x00204081u) & 0x01010101u) * 0xFFu;
             uint32_t hi = (((v >> 4) * 0x00204081u) & 0x01010101u) * 0xFFu;
-            d0[2 * i] = b ^ (x & lo);
-            d0[2 * i + 1] = b ^ (x & hi);
-            if(scale == 2) {
-                d1[2 * i] = b ^ (x & lo);
-                d1[2 * i + 1] = b ^ (x & hi);
+            for(int k = 0; k < scale; k++) {
+                d0[k * dwords + 2 * i] = b ^ (x & lo);
+                d0[k * dwords + 2 * i + 1] = b ^ (x & hi);
             }
         }
+    }
+}
+
+/* The 8-bit merge: OPTION PICOMITE's MODE 5 at 1024x600, 1280x720 and 1024x768 shows each row four times, which an
+   8-bit page cannot hold (it stores a row twice at most), so page 0's rows are copied to the display that many times */
+static void __attribute__((noinline)) ITCM_CODE Merge8Run(void) {
+    int w = PageTable[0].xmax, h = PageTable[0].ymax, scale = Rgb121DisplayScale, dwords = w >> 2;
+    const uint8_t *n = PageTable[0].address;
+    uint32_t *d = (uint32_t *)Rgb121Display;
+    if(n == NULL || d == NULL || w > (int)sizeof(MergeN)) return;
+    for(int y = 0; y < h; y++) {
+        mycpy(MergeN, n, w);
+        n += w;
+        for(int k = 0; k < scale; k++, d += dwords) mycpy(d, MergeN, w);
     }
 }
 
@@ -227,6 +257,7 @@ static void __attribute__((noinline)) ITCM_CODE MonoMergeRun(void) {
 void CEC_IRQHandler(void) {
     if(!Rgb121Active) return;
     if(VideoColour == 1) MonoMergeRun();
+    else if(VideoColour == 8) Merge8Run();
     else Rgb121Merge();
 }
 void Rgb121MergeRequest(void) {

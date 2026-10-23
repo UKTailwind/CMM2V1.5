@@ -145,6 +145,8 @@ struct option_s {
 	uint8_t libhash[4];                 // and the hash of the files LIBRARY LOAD made it from (0: from none)
 	uint8_t mousespeed[4];              // OPTION MOUSE SENSITIVITY: a float, USB mice's divisor (erased flash: 0)
 	uint8_t Compile;                    // OPTION COMPILE: RB_OFF, RB_ON or RB_SHADOW (Stream.h; erased flash, 0xFF: OFF)
+	uint8_t Picomite;                   // OPTION PICOMITE: the PicoMite build named, 0 NONE (PicoMode.c; erased: NONE)
+	uint8_t PicoRes;                    // and its resolution (PicoMode.c's table; erased: 640x480)
 	uint8_t end;
 // 128
 };
