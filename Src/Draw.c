@@ -2645,7 +2645,7 @@ void cmd_clut(void){
 		if(VideoColour==4){                                         // the PicoMite's 16 (Rgb121.c)
 			if(cl>15)error("Mode has 16 colours - 0 to 15");
 		} else if(!(VideoColour==8))error("8-bit video mode only");
-		CLUT[cl]=col;
+		CLUT[cl]=(VideoColour==4 ? VgaLevel(col) : col);              // (4-bit: OPTION VGA OUTPUT's levels, as Rgb121Clut's)
     }
 }
 void cmd_page(void){

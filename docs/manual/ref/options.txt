@@ -365,7 +365,8 @@ The parameter is not saved and should be initialised either on the command line 
 
 === OPTION VGA OUTPUT HIGH | MEDIUM | LOW
 --- P keep roomy
-Selects the colour look up table (CLUT) used to drive the VGA output: HIGH (the default) drives each colour up to its full level, MEDIUM up to about 7/8 of it and LOW up to 3/4.  MEDIUM and LOW make the picture darker, for a monitor that shows it too brightly.
+Selects the levels that drive the VGA output: HIGH (the default) and MEDIUM drive each colour up to about 7/8 of its full level, HIGH with brighter mid tones, and LOW up to 3/4.  Every colour depth but 12 bits follows it: the 8-bit modes through their colour look up table (CLUT), the 4 and 1-bit modes' colours (COLOUR MAP and PIXEL( still give the colours themselves) and the 16 and 32-bit modes, whose pixels are scaled.  A colour set with MAP in an 8-bit mode is used as it is.
+MEDIUM and LOW make the picture darker, for a monitor that shows it too brightly.  LOW, which draws the least current from the outputs, also steadies the picture through a video capture device.
 This command can only be run from the command line and will cause a reboot.
 
 === OPTION Y_AXIS DOWN | UP

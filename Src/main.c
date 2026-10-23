@@ -1253,7 +1253,8 @@ void SystemClock_Config(void)
   {
     SystemError=1;Error_Handler();
   }
-  if(G1Hardware==1)HAL_RCC_MCOConfig(RCC_MCO1, RCC_MCO1SOURCE_HSI, RCC_MCODIV_1);
+  // (the G1 put HSI, the 64 MHz RC oscillator, out on MCO1, PA8, with nothing using it: a clock unrelated to the
+  // video's beside it; removed, Peter, 23 Oct 2026)
   /** Enable USB Voltage detector 
   */
   HAL_PWREx_EnableUSBVoltageDetector();
@@ -2754,16 +2755,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(IR_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PA8 */
-  if(G1Hardware==1){
-	  GPIO_InitStruct.Pin = GPIO_PIN_8;
-	  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-	  GPIO_InitStruct.Pull = GPIO_NOPULL;
-	  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	  GPIO_InitStruct.Alternate = GPIO_AF0_MCO;
-	  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  }
 
   /*Configure GPIO pin : SD_CE_Pin */
   GPIO_InitStruct.Pin = SD_CE_Pin;

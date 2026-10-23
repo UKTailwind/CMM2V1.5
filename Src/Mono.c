@@ -117,13 +117,15 @@ uint32_t MonoLayout(int mode, uint32_t start, uint32_t *sdram) {
 The tiles' colours: CLUT entries
 ***********************************************************************************************************************/
 static int ClutUsed;                                                // entries 0 to ClutUsed - 1 have been given colours
+static uint32_t MonoRGB[256];                                       // each entry's colour (the CLUT has it at OPTION VGA
+                                                                    // OUTPUT's levels: VgaLevel, ltdc.c)
 static int Recent[4], RecentN;                                      // the last given out, kept until their tiles are set
 static uint32_t CacheRGB[16];
 static uint8_t CacheIndex[16];
 
 // MODE n,1: no colour has an entry, each is black (the LTDC is given them all at the frame's end)
 void MonoClut(void) {
-    for(int i = 0; i < 256; i++) CLUT[i] = 0;
+    for(int i = 0; i < 256; i++) CLUT[i] = MonoRGB[i] = 0;
     for(int i = 0; i < 8; i++) MonoClutNew[i] = 0xFFFFFFFF;
     for(int i = 0; i < 16; i++) CacheRGB[i] = 0xFFFFFFFF;
     ClutUsed = 0;
@@ -153,9 +155,9 @@ static int ClutFree(void) {
 static int Nearest(uint32_t rgb) {
     int best = 0, bestd = 0x7FFFFFFF;
     for(int i = 0; i < 256; i++) {
-        int dr = (int)((CLUT[i] >> 16) & 0xFF) - (int)((rgb >> 16) & 0xFF);
-        int dg = (int)((CLUT[i] >> 8) & 0xFF) - (int)((rgb >> 8) & 0xFF);
-        int db = (int)(CLUT[i] & 0xFF) - (int)(rgb & 0xFF);
+        int dr = (int)((MonoRGB[i] >> 16) & 0xFF) - (int)((rgb >> 16) & 0xFF);
+        int dg = (int)((MonoRGB[i] >> 8) & 0xFF) - (int)((rgb >> 8) & 0xFF);
+        int db = (int)(MonoRGB[i] & 0xFF) - (int)(rgb & 0xFF);
         int dd = dr * dr + dg * dg + db * db;
         if(dd < bestd) { bestd = dd; best = i; }
     }
@@ -166,15 +168,16 @@ static int Nearest(uint32_t rgb) {
 static int MonoIndex(int c) {
     uint32_t rgb = Colour555(c);
     int h = ((rgb >> 3) ^ (rgb >> 11) ^ (rgb >> 19)) & 15, i;
-    if(CacheRGB[h] == rgb && CLUT[CacheIndex[h]] == rgb) i = CacheIndex[h];
+    if(CacheRGB[h] == rgb && MonoRGB[CacheIndex[h]] == rgb) i = CacheIndex[h];
     else {
-        for(i = 0; i < ClutUsed; i++) if(CLUT[i] == rgb) break;
+        for(i = 0; i < ClutUsed; i++) if(MonoRGB[i] == rgb) break;
         if(i == ClutUsed) {
             if(ClutUsed < 256) i = ClutUsed++;
             else i = ClutFree();
             if(i < 0) i = Nearest(rgb);
             else {
-                CLUT[i] = rgb;
+                MonoRGB[i] = rgb;
+                CLUT[i] = VgaLevel(rgb);
                 MonoClutNew[i >> 5] |= 1u << (i & 31);
             }
         }
@@ -207,7 +210,7 @@ static void TilesAll(int fc, int bc) {
 // the colour (RGB888) pixel x, y shows, set or not: its tile's foreground or background
 int MonoTileColour(int x, int y, int set) {
     int t = (y / MonoTileH) * MonoTilesX + (x >> 3);
-    return CLUT[set ? MonoTileF[t] : MonoTileB[t]];
+    return MonoRGB[set ? MonoTileF[t] : MonoTileB[t]];
 }
 
 /* the end of setmode, the mode set (and MODE n,1 again): TILE HEIGHT the font's height, no colour with an entry, every

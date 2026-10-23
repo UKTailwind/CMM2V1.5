@@ -116,10 +116,11 @@ void Rgb121Palette(void) {
     for(int i = 0; i < 16; i++) Rgb121Colours[i] = pal[i];
 }
 
-// the CLUT: entries 0 to 15 the PicoMite's colours, the others black (MODE n,4 and MAP RESET)
+// the CLUT: entries 0 to 15 the PicoMite's colours at OPTION VGA OUTPUT's levels (VgaLevel: COLOUR MAP and PIXEL( give
+// Rgb121Colours'), the others black (MODE n,4 and MAP RESET)
 void Rgb121Clut(void) {
     Rgb121Palette();
-    for(int i = 0; i < 256; i++) CLUT[i] = i < 16 ? (uint32_t)Rgb121Colours[i] : 0;
+    for(int i = 0; i < 256; i++) CLUT[i] = i < 16 ? VgaLevel((uint32_t)Rgb121Colours[i]) : 0;
 }
 
 // a program's end with a PicoMite mode showing (PicoMode.c): its framebuffers closed, as the PicoMite's do_end does

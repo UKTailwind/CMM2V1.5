@@ -52,6 +52,7 @@
 
 extern LTDC_HandleTypeDef hltdc;
 extern void reset_CLUT(void);
+extern uint32_t VgaLevel(uint32_t rgb);          // a colour at OPTION VGA OUTPUT's levels, for the CLUT (ltdc.c)
 struct s_pagetable{
     uint8_t *address;	//points to the framebuffer for the page
     uint8_t expand;   	//set to 1 if the lines need duplicating

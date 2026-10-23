@@ -233,6 +233,33 @@ HAL_StatusTypeDef PLL3_Config(RCC_PLL3InitTypeDef *pll3, uint32_t Divider)
   return status;
 }
 
+/* OPTION VGA OUTPUT for the colours that are not the 8-bit tables' (L8_CLUT_*: the 4-bit modes' palette and the 1-bit
+   modes' tiles in the CLUT). The tables never drive a channel to full: HIGH (the default) and MEDIUM reach 0xE0, LOW
+   0xC0. Each channel goes through the red levels of the table the option picks, between its eight. Peter, 23 Oct 2026,
+   the G1 through a capture device: the more of the screen is full white the more the picture jitters (the outputs'
+   current moves the supply), "This is why the clut originally never drove pixels to 0xFFFFFF"; with OPTION VGA
+   OUTPUT LOW mode 11 was "rock solid". */
+static uint8_t VgaCurve[256];
+static int VgaCurveFor = -1;
+uint32_t VgaLevel(uint32_t rgb) {
+    if(VgaCurveFor != Option.colourmap) {
+        const uint32_t *t = Option.colourmap == 0 ? L8_CLUT_LOW : (Option.colourmap == 1 ? L8_CLUT_MEDIUM : L8_CLUT_HIGH);
+        for(int v = 0; v < 256; v++) {
+            int k = v * 7 / 255, f = v * 7 - k * 255;                  // f/255 of the way from level k to k + 1
+            int a = (t[k << 5] >> 16) & 0xFF, b = k < 7 ? (t[(k + 1) << 5] >> 16) & 0xFF : a;
+            VgaCurve[v] = a + (b - a) * f / 255;
+        }
+        VgaCurveFor = Option.colourmap;
+    }
+    return (uint32_t)VgaCurve[(rgb >> 16) & 0xFF] << 16 | (uint32_t)VgaCurve[(rgb >> 8) & 0xFF] << 8 | VgaCurve[rgb & 0xFF];
+}
+
+// and for the 16 and 32-bit modes, which have no CLUT: the layer's constant alpha over black, so full is the tables'
+// top (0xE0, or 0xC0 with LOW). The 12-bit mode's layers blend by their pixels' alpha times it, so it is not given one.
+static uint32_t VgaAlpha(void) {
+    return Option.colourmap == 0 ? 0xC0 : 0xE0;
+}
+
 void reset_CLUT(void){
 	if(VideoColour==8){
 		if(Option.colourmap==0)mycopy((char *)CLUT,(char *)L8_CLUT_LOW, sizeof(CLUT));
@@ -321,170 +348,178 @@ void setmode(int mode, int colour, int bc, int force){
     hltdc.Instance=0;
     CurrentX=0;
     CurrentY=0;
+	/* PLL3, the pixel clock. The LTDC is made for panels clocked by its LCD_CLK, where the clock's jitter does not
+	   matter; over VGA the receiver makes its own pixel clock from HSYNC, so any wander in PLL3 puts each line's pixels
+	   in a different place. A capture device shows it (Peter, 23 Oct 2026, the G1: "the line start timing is varying").
+	   The jitter falls as the reference and the VCO rise: so the 8 MHz crystal undivided (M 1, the 8-16 MHz range) and
+	   the highest VCO in range (192-836 MHz, so N 24-104) whose clock, 8N/R, is within 0.45% of the mode's (VESA allows
+	   0.5%). Peter, on the monitor: a 2 MHz reference was "massive flickering", 4 MHz (the old settings) flickered,
+	   and at 8 MHz mode 11 with an 816 MHz VCO was better than mode 9 with 520. Integer N only: FRACN's modulator
+	   would add jitter of its own. */
 	pll.PLL3VCOSEL=RCC_PLL3VCOWIDE;
 	pll.PLL3FRACN=0;
 	DisplayH=ModeXres(VideoMode);                                     // (OPTION PICOMITE's size: a window of the screen)
 	DisplayV=ModeYres(VideoMode);
 	if(VideoMode==1){
-	  pll.PLL3M = 1; //60Hz 40.0MHz pixel clock
-	  pll.PLL3N = 100;
-	  pll.PLL3P = 20;
-	  pll.PLL3Q = 20;
-	  pll.PLL3R = 20;
+	  pll.PLL3M = 1; //75Hz 49.5MHz pixel clock, VCO 792 MHz (VESA 800x600 at 75Hz: Peter's test, 23 Oct 2026)
+	  pll.PLL3N = 99;
+	  pll.PLL3P = 16;
+	  pll.PLL3Q = 16;
+	  pll.PLL3R = 16;
 	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==2){
-	  pll.PLL3M = 2; //75 Hz 31.5MHz pixel clock
-	  pll.PLL3N = 126;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //75Hz 31.385MHz (31.5 -0.37%) pixel clock, VCO 816 MHz
+	  pll.PLL3N = 102;
+	  pll.PLL3P = 26;
+	  pll.PLL3Q = 26;
+	  pll.PLL3R = 26;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==3){
-	  pll.PLL3M = 2; //75 Hz 15.75MHz pixel clock
-	  pll.PLL3N = 126;
-	  pll.PLL3P = 32;
-	  pll.PLL3Q = 32;
-	  pll.PLL3R = 32;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //75Hz 15.698MHz (15.75 -0.33%) pixel clock, VCO 832 MHz
+	  pll.PLL3N = 104;
+	  pll.PLL3P = 53;
+	  pll.PLL3Q = 53;
+	  pll.PLL3R = 53;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==4){
-	  pll.PLL3M = 8; //60Hz 23.625MHz pixel clock
-	  pll.PLL3N = 189;
-	  pll.PLL3P = 8;
-	  pll.PLL3Q = 8;
-	  pll.PLL3R = 8;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_1;
+	  pll.PLL3M = 1; //60Hz 23.543MHz (23.625 -0.35%) pixel clock, VCO 824 MHz
+	  pll.PLL3N = 103;
+	  pll.PLL3P = 35;
+	  pll.PLL3Q = 35;
+	  pll.PLL3R = 35;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==5){
-	  pll.PLL3M = 8; //75Hz 11.8125MHz pixel clock
-	  pll.PLL3N = 189;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_1;
+	  pll.PLL3M = 1; //75Hz 11.771MHz (11.8125 -0.35%) pixel clock, VCO 824 MHz
+	  pll.PLL3N = 103;
+	  pll.PLL3P = 70;
+	  pll.PLL3Q = 70;
+	  pll.PLL3R = 70;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==6){
-	  pll.PLL3M = 2; //75Hz 12.6MHz pixel clock
-	  pll.PLL3N = 126;
-	  pll.PLL3P = 40;
-	  pll.PLL3Q = 40;
-	  pll.PLL3R = 40;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //75Hz 12.606MHz (12.6 +0.05%) pixel clock, VCO 832 MHz
+	  pll.PLL3N = 104;
+	  pll.PLL3P = 66;
+	  pll.PLL3Q = 66;
+	  pll.PLL3R = 66;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==7){
-	  pll.PLL3M = 2; //75 Hz 15.75MHz pixel clock
-	  pll.PLL3N = 126;
-	  pll.PLL3P = 32;
-	  pll.PLL3Q = 32;
-	  pll.PLL3R = 32;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //75Hz 15.698MHz (15.75 -0.33%) pixel clock, VCO 832 MHz
+	  pll.PLL3N = 104;
+	  pll.PLL3P = 53;
+	  pll.PLL3Q = 53;
+	  pll.PLL3R = 53;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==8){
-	  pll.PLL3M = 2; //75 Hz 31.5MHz pixel clock
-	  pll.PLL3N = 126;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //75Hz 31.385MHz (31.5 -0.37%) pixel clock, VCO 816 MHz
+	  pll.PLL3N = 102;
+	  pll.PLL3P = 26;
+	  pll.PLL3Q = 26;
+	  pll.PLL3R = 26;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==9){
-	  pll.PLL3M = 2; //60 Hz 65MHz pixel clock
-	  pll.PLL3N = 130;
-	  pll.PLL3P = 8;
-	  pll.PLL3Q = 8;
-	  pll.PLL3R = 8;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //60Hz 64.727MHz (65 -0.42%) pixel clock, VCO 712 MHz
+	  pll.PLL3N = 89;
+	  pll.PLL3P = 11;
+	  pll.PLL3Q = 11;
+	  pll.PLL3R = 11;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==10){
-	  pll.PLL3M = 2; //60 Hz 39.375MHz pixel clock
-	  pll.PLL3N = 135;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //60Hz 33.667MHz (33.75 -0.25%) pixel clock, VCO 808 MHz
+	  pll.PLL3N = 101;
+	  pll.PLL3P = 24;
+	  pll.PLL3Q = 24;
+	  pll.PLL3R = 24;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==11){
-	  pll.PLL3M = 2; //60 Hz 74.25MHz pixel clock
-	  pll.PLL3N = 297;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //60Hz 74.182MHz (74.25 -0.09%) pixel clock, VCO 816 MHz
+	  pll.PLL3N = 102;
+	  pll.PLL3P = 11;
+	  pll.PLL3Q = 11;
+	  pll.PLL3R = 11;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==12){
-	  pll.PLL3M = 4; //60 Hz 74.25MHz pixel clock
-	  pll.PLL3N = 297;
-	  pll.PLL3P = 8;
-	  pll.PLL3Q = 8;
-	  pll.PLL3R = 8;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_1;
+	  pll.PLL3M = 1; //60Hz 74.182MHz (74.25 -0.09%) pixel clock, VCO 816 MHz
+	  pll.PLL3N = 102;
+	  pll.PLL3P = 11;
+	  pll.PLL3Q = 11;
+	  pll.PLL3R = 11;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else 	if(VideoMode==13){
-	  pll.PLL3M = 1; //60Hz 20.0MHz pixel clock
-	  pll.PLL3N = 100;
-	  pll.PLL3P = 40;
-	  pll.PLL3Q = 40;
-	  pll.PLL3R = 40;
+	  pll.PLL3M = 1; //75Hz 24.75MHz pixel clock, VCO 792 MHz (mode 1's at half the clock: Peter, 23 Oct 2026)
+	  pll.PLL3N = 99;
+	  pll.PLL3P = 32;
+	  pll.PLL3Q = 32;
+	  pll.PLL3R = 32;
 	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==14){
-	  pll.PLL3M = 2; //60 Hz 37.75 MHz pixel clock
-	  pll.PLL3N = 151;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //60Hz 37.818MHz (37.75 +0.18%) pixel clock, VCO 832 MHz
+	  pll.PLL3N = 104;
+	  pll.PLL3P = 22;
+	  pll.PLL3Q = 22;
+	  pll.PLL3R = 22;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==15){
-	  pll.PLL3M = 4; //60 Hz 108MHz pixel clock
-	  pll.PLL3N = 216;
-	  pll.PLL3P = 4;
-	  pll.PLL3Q = 4;
-	  pll.PLL3R = 4;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_1;
+	  pll.PLL3M = 1; //60Hz 108MHz pixel clock, VCO 648 MHz
+	  pll.PLL3N = 81;
+	  pll.PLL3P = 6;
+	  pll.PLL3Q = 6;
+	  pll.PLL3R = 6;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==16){
-	  pll.PLL3M = 4; //60 Hz 148.5MHz pixel clock
-	  pll.PLL3N = 297;
-	  pll.PLL3P = 4;
-	  pll.PLL3Q = 4;
-	  pll.PLL3R = 4;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_1;
+	  pll.PLL3M = 1; //60Hz 148.8MHz (148.5 +0.20%) pixel clock, VCO 744 MHz
+	  pll.PLL3N = 93;
+	  pll.PLL3P = 5;
+	  pll.PLL3Q = 5;
+	  pll.PLL3R = 5;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((2 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==17){
-	  pll.PLL3M = 2; //75 Hz 18.9MHz pixel clock
-	  pll.PLL3N = 189;
-	  pll.PLL3P = 40;
-	  pll.PLL3Q = 40;
-	  pll.PLL3R = 40;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //75Hz 18.909MHz (18.9 +0.05%) pixel clock, VCO 832 MHz
+	  pll.PLL3N = 104;
+	  pll.PLL3P = 44;
+	  pll.PLL3Q = 44;
+	  pll.PLL3R = 44;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==18){
-	  pll.PLL3M = 2; //75 Hz 18.9MHz pixel clock
-	  pll.PLL3N = 234;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
-	  pll.PLL3RGE=RCC_PLL3VCIRANGE_2;
+	  pll.PLL3M = 1; //60Hz 58.286MHz (58.5 -0.37%) pixel clock, VCO 816 MHz
+	  pll.PLL3N = 102;
+	  pll.PLL3P = 14;
+	  pll.PLL3Q = 14;
+	  pll.PLL3R = 14;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	}
@@ -604,7 +639,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  pLayerCfg.Backcolor.Blue = 0;
 		  pLayerCfg.Backcolor.Green = 0;
 		  pLayerCfg.Backcolor.Red = 0;
-		  pLayerCfg.Alpha = 255;
+		  pLayerCfg.Alpha = (colours > 8 ? VgaAlpha() : 255);         // (OPTION VGA OUTPUT: the CLUT's modes have it there)
 		  pLayerCfg.Alpha0 = 255;
 		  pLayerCfg.FBStartAdress = (DisplayMerged ? (uint32_t)Rgb121Display : (uint32_t)PageTable[0].address);
 		  pLayerCfg.WindowX0 = 0;
@@ -616,17 +651,17 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 	  }
 	  /* USER CODE BEGIN LTDC_Init 1 */
 	  if(VideoMode==1){//800x600
-	  	  hltdc.Instance = LTDC; //60Hz 40.0MHz pixel clock
+	  	  hltdc.Instance = LTDC; //75Hz 49.5MHz pixel clock (VESA: H 800 + 16 + 80 + 160, V 600 + 1 + 3 + 21, +H +V)
 	  	  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AH;
 	  	  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
-	  	  hltdc.Init.HorizontalSync = 127;
-	  	  hltdc.Init.VerticalSync = 3;
-	  	  hltdc.Init.AccumulatedHBP = 215 + Option.offsets[1];
-	  	  hltdc.Init.AccumulatedVBP = 26;
-	  	  hltdc.Init.AccumulatedActiveW = 1015;;
-	  	  hltdc.Init.AccumulatedActiveH = 626;
+	  	  hltdc.Init.HorizontalSync = 79;
+	  	  hltdc.Init.VerticalSync = 2;
+	  	  hltdc.Init.AccumulatedHBP = 239 + Option.offsets[1];
+	  	  hltdc.Init.AccumulatedVBP = 23;
+	  	  hltdc.Init.AccumulatedActiveW = 1039;
+	  	  hltdc.Init.AccumulatedActiveH = 623;
 	  	  hltdc.Init.TotalWidth = 1055;
-	  	  hltdc.Init.TotalHeigh = 627;
+	  	  hltdc.Init.TotalHeigh = 624;
 	  } else if(VideoMode==2){ //640x400
 	  /* USER CODE END LTDC_Init 1 */
 		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
@@ -756,17 +791,17 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.TotalWidth = 1099;
 		  hltdc.Init.TotalHeigh = 1124;
 	  } else if(VideoMode==13){//400x300
-	  	  hltdc.Instance = LTDC; //60Hz 20.0MHz pixel clock
+	  	  hltdc.Instance = LTDC; //75Hz 24.75MHz pixel clock (mode 1's 800x600 at 75Hz, H halved: 400 + 8 + 40 + 80)
 	  	  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AH;
 	  	  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
-	  	  hltdc.Init.HorizontalSync = 63;
-	  	  hltdc.Init.VerticalSync = 3;
-	  	  hltdc.Init.AccumulatedHBP = 107 + Option.offsets[13];
-	  	  hltdc.Init.AccumulatedVBP = 26;
-	  	  hltdc.Init.AccumulatedActiveW = 507;
-	  	  hltdc.Init.AccumulatedActiveH = 626;
+	  	  hltdc.Init.HorizontalSync = 39;
+	  	  hltdc.Init.VerticalSync = 2;
+	  	  hltdc.Init.AccumulatedHBP = 119 + Option.offsets[13];
+	  	  hltdc.Init.AccumulatedVBP = 23;
+	  	  hltdc.Init.AccumulatedActiveW = 519;
+	  	  hltdc.Init.AccumulatedActiveH = 623;
 	  	  hltdc.Init.TotalWidth = 527;
-	  	  hltdc.Init.TotalHeigh = 627;
+	  	  hltdc.Init.TotalHeigh = 624;
 	  } else if(VideoMode==14){ //960x540
 	  /* USER CODE END LTDC_Init 1 */
 		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AH;
@@ -913,32 +948,35 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
     PI6     ------> LTDC_B6
     PI7     ------> LTDC_B7 
     */
+    /* The pins' edges are slowed (Peter, 23 Oct 2026, the G1 through a capture device: "line start timing varying"):
+       HSYNC and VSYNC LOW, the colours MEDIUM. At HIGH they rang and moved the ground under the syncs; Peter judged
+       MEDIUM for the colours the best on the monitor, LOW for them worse. */
     GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6;
     GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;
+    GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;                    // VSYNC and HSYNC: the slowest edges (45 kHz at most)
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_0;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
@@ -946,26 +984,29 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
                           |GPIO_PIN_10|GPIO_PIN_13|GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_1;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF9_LTDC;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_11|GPIO_PIN_12;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
+    // PG7, LTDC_CLK: only in mode 18, which is for driving an LCD panel (Peter, 23 Oct 2026). VGA has no use for the
+    // pixel clock, and driven it is a 12-150 MHz square wave beside the video lines: analog in every other mode (the
+    // pins are not deinitialised between modes: HAL_LTDC_MspDeInit1 is not the HAL's hook)
     GPIO_InitStruct.Pin = GPIO_PIN_7;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Mode = (VideoMode == 18 ? GPIO_MODE_AF_PP : GPIO_MODE_ANALOG);
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
@@ -975,21 +1016,21 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
                           |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     GPIO_InitStruct.Alternate = GPIO_AF9_LTDC;
     HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
@@ -1055,7 +1096,7 @@ void HAL_LTDC_MspDeInit1(LTDC_HandleTypeDef* ltdcHandle)
 
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_1);
 
-    HAL_GPIO_DeInit(GPIOG, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_10|GPIO_PIN_11 
+    HAL_GPIO_DeInit(GPIOG, GPIO_PIN_6|GPIO_PIN_10|GPIO_PIN_11 
                           |GPIO_PIN_12);
 
     HAL_GPIO_DeInit(GPIOD, GPIO_PIN_6);*/
