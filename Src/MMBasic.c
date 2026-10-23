@@ -1274,6 +1274,10 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
         // if the definition called for an array, special processing and checking will be required
        	if(DimIsEmptyParam(VREC(VarIndex)->dimtbl[0])) {
         	int j;
+            if(i >= argc1 || !*argv1[i]) error("Incompatible type: ");  // no argument for it (MM.END's, called with none):
+                                                                    // argVarIndex[i] and argv1[i] were never set (0, NULL), so
+                                                                    // variable 0 was read and the bytes at address 0 printed (so
+                                                                    // does the PicoMite: "stray argument text")
             if(DimIsScalar(VREC(argVarIndex[i])->dimtbl[0]))  { error("Expected an array");}
 
             if(TypeMask(VREC(VarIndex)->type) != TypeMask(argtype[i])){error("Incompatible type: $", argv1[i]);}
