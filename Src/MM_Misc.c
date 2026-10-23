@@ -3339,10 +3339,10 @@ void fun_info(void){
 	} else if(checkstring(ep, "HEAP")){
 	    int nbr = 0;
 	    unsigned char *addr;
-	    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE){
+	    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr >= (unsigned char *)RAMBASE; addr -= RAMPAGESIZE){
 	        if(!(MBitsGet(addr) & PUSED)) nbr++;
 	    }
-	    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){   // (GetMemory's part)
+	    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr >= (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){   // (GetMemory's part)
 	        if(!(SDBitsGet(addr) & PUSED)) nbr++;
 	    }
 		iret=(int64_t)nbr * RAMPAGESIZE;
@@ -3350,7 +3350,7 @@ void fun_info(void){
 	} else if(checkstring(ep, "IHEAP") || checkstring(ep, "HEAPI")){       // (HEAPI: Gerry's b14 name)
 	    int nbr = 0;
 	    unsigned char *addr;
-	    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE){
+	    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr >= (unsigned char *)RAMBASE; addr -= RAMPAGESIZE){
 	        if(!(MBitsGet(addr) & PUSED)) nbr++;
 	    }
 	   	iret=(int64_t)nbr * RAMPAGESIZE;
@@ -3358,7 +3358,7 @@ void fun_info(void){
 	} else if(checkstring(ep, "SHEAP") || checkstring(ep, "HEAPS")){       // (HEAPS: Gerry's b14 name)
 	    int nbr = 0;
 	    unsigned char *addr;
-	    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){   // (GetMemory's part)
+	    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr >= (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE){   // (GetMemory's part)
 	        if(!(SDBitsGet(addr) & PUSED)) nbr++;
 	    }
 		iret=(int64_t)nbr * RAMPAGESIZE;

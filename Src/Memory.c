@@ -153,6 +153,18 @@ uint32_t RAMBASE = 0x30008000;
 // every page of the on-chip heap below this is in use (or it is below RAMBASE): where the bottom-up searches start
 static unsigned char *RamLowFree = NULL;
 #define RAMLOWFREE() ((RamLowFree > (unsigned char *)RAMBASE) ? RamLowFree : (unsigned char *)RAMBASE)
+// and every page from this one up is in use (NULL: from RAMEND): where the top-down search for the variables' strings
+// and small arrays starts (GetStringMemoryBottom), so a LOCAL string no longer walks past every global's page (23 Oct
+// 2026: with 400 global strings, 20,000 LOCAL a$ took 44% longer, 90% compiled)
+static unsigned char *RamHighFree = NULL;
+#define RAMHIGHFREE() ((RamHighFree != NULL && RamHighFree < (unsigned char *)RAMEND) ? RamHighFree : (unsigned char *)RAMEND)
+// the on-chip heap that the variables' strings leave for what must be on-chip (GetInternalMemory: the audio buffers,
+// the files' descriptors, the temporaries): above the lowest free page by this much, or the strings go to SDRAM
+#define RAMSTRINGRESERVE (64 * 1024)
+// the SDRAM heap's: every page from this one up to SDRAMEXEC is in use (NULL: none), where GetMemory's top-down search
+// starts, so a new block no longer walks past every block made before it (the variables' strings and arrays there)
+static unsigned char *SdHighFree = NULL;
+#define SDHIGHFREE() ((SdHighFree != NULL && SdHighFree < (unsigned char *)SDRAMEXEC) ? SdHighFree : (unsigned char *)SDRAMEXEC)
 extern int CheckEmpty(char *p);
 /***********************************************************************************************************************
  MMBasic commands
@@ -1001,6 +1013,7 @@ void FreeSDMemory(void *addr) {
         SDBitsSet(addr, 0);
         addr += RAMPAGESIZE;
     } while(bits != (PUSED | PLAST));
+    if(SdHighFree != NULL && (unsigned char *)addr > SdHighFree) SdHighFree = (unsigned char *)addr;   // (one above it)
 }
 
 void FreeOMemory(void *addr) {
@@ -1011,6 +1024,7 @@ void FreeOMemory(void *addr) {
         MBitsSet(addr, 0);
         addr += RAMPAGESIZE;
     } while(bits != (PUSED | PLAST));
+    if(RamHighFree != NULL && (unsigned char *)addr > RamHighFree) RamHighFree = (unsigned char *)addr;   // (one above it)
 }
 
 void FreeMemory(void *addr) {
@@ -1065,7 +1079,7 @@ static void HeapWipe(void **keep, int *size, int n) {
     SDBitsSet((unsigned char *)SDRAMEND, PUSED | PLAST);
     StrTmpIndex = TempMemoryIsChanged = 0;
     minMMheap=(void *)SDRAMEND;
-    RamLowFree = NULL;                                              // (every page free: the searches start at RAMBASE)
+    RamLowFree = RamHighFree = SdHighFree = NULL;                   // (every page free: from RAMBASE up, from the tops down)
     for(i = 0; i < n; i++) HeapMark(keep[i], size[i]);
     for(i = 0; i < nslots; i++) HeapMark(slot[i], slotsize[i]);
     ProgramCachesForget();                                          // the tables made for the program were in the heap
@@ -1154,13 +1168,15 @@ void SDBitsSet(void *addr, int bits) {
 void *GetMemoryNull(size_t size){
     uint64_t *i;
     unsigned int j, n, k;
-    unsigned char *addr;
+    unsigned char *addr, *topfree = NULL;                           // (the first free page the search meets)
     if(!size)size=1;
     j = n = k = (size + RAMPAGESIZE - 1)/RAMPAGESIZE;                         // nbr of pages rounded up
-    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE) {   // (below the executable window)
+    for(addr = SDHIGHFREE() -  RAMPAGESIZE; addr >= (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE) {   // (below the executable window)
         if(!(SDBitsGet(addr) & PUSED)) {
+            if(topfree == NULL) topfree = addr;
             if(--n == 0) {                                          // found a free slot
                 j--;
+                SdHighFree = (topfree == addr + j * RAMPAGESIZE) ? addr : topfree + RAMPAGESIZE;   // (from it up all used now)
                 SDBitsSet(addr + (j * RAMPAGESIZE), PUSED | PLAST);     // show that this is used and the last in the chain of pages
                 while(j--) SDBitsSet(addr + (j * RAMPAGESIZE), PUSED);  // set the other pages to show that they are used
                 i=(uint64_t *)addr;
@@ -1238,14 +1254,18 @@ void *GetInternalMemory(size_t size){
 */
 
 // GetInternalMemory below, but NULL when the on-chip heap has no room (the variables' chunks then use SDRAM)
+// (from the bottom hint, as GetInternalMemory: it was from RAMBASE, past every used page, for each SUB and FUNCTION
+// call's arguments)
 void *GetInternalMemoryNull(size_t size) {
     int n=0, k;
-    unsigned char *addr;
+    unsigned char *addr, *lowfree = NULL;                           // (the first free page the search meets)
     k= (size + RAMPAGESIZE - 1)/RAMPAGESIZE;                         // nbr of pages rounded up
-    for(addr = (unsigned char *)RAMBASE; addr < (unsigned char *)RAMEND - RAMPAGESIZE; addr += RAMPAGESIZE) {
+    for(addr = RAMLOWFREE(); addr < (unsigned char *)RAMEND - RAMPAGESIZE; addr += RAMPAGESIZE) {
         if(!(MBitsGet(addr) & PUSED)) {
+            if(lowfree == NULL) lowfree = addr;
             if(++n == k) {                                          // found a free slot
                 k--;
+                RamLowFree = (lowfree == addr - k * RAMPAGESIZE) ? addr + RAMPAGESIZE : lowfree;   // (below it all used now)
                 MBitsSet(addr , PUSED | PLAST);                     // show that this is used and the last in the chain of pages
                 while(k--){
                     addr-=RAMPAGESIZE;
@@ -1366,17 +1386,19 @@ void *GetStringMemory(void) { //routine to get a single page of memory from Bott
             return (void *)addr;
         }
     }
-    error("Not enough String memory");
-    return NULL;                                                    // keep the compiler happy
+    return GetMemory(RAMPAGESIZE);                                  // (the on-chip heap full: SDRAM, zeroed)
 }
 
 //Performance enhancement from Picomites.
 // Put variable data at the Bottom of the heap,so GetInternalMemory search from Top does not need to jump over it.
+// From the top hint down to RAMSTRINGRESERVE above the lowest free page, and then from SDRAM: the variables' strings
+// and small arrays were on-chip only, so about 800 of them filled it ("Not enough String memory", 23 MB of SDRAM free)
 void *GetStringMemoryBottom(void) { //routine to get a single page of memory from Top - Used for Variables
     uint64_t *i;
-    unsigned char *addr;
-    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE) {
+    unsigned char *addr, *floor = RAMLOWFREE() + RAMSTRINGRESERVE;
+    for(addr = RAMHIGHFREE() -  RAMPAGESIZE; addr >= floor; addr -= RAMPAGESIZE) {
         if(!(MBitsGet(addr) & PUSED)) {
+            RamHighFree = addr;                                     // (every page from it up is in use now)
             MBitsSet(addr , PUSED | PLAST);     // show that this is used and the last in the chain of pages
             i=(uint64_t *)addr;
         	*i++ = 0;
@@ -1414,8 +1436,7 @@ void *GetStringMemoryBottom(void) { //routine to get a single page of memory fro
             return (void *)addr;
         }
     }
-    error("Not enough String memory");
-    return NULL;                                                    // keep the compiler happy
+    return GetMemory(RAMPAGESIZE);                                  // (SDRAM, zeroed)
 }
 
 uint32_t MinHeap(void){
@@ -1430,7 +1451,7 @@ int FreeSpaceOnHeap(void) {
     nbr = 0;
 //    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE)
 //        if(!(MBitsGet(addr) & PUSED)) nbr++;
-    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE)   // (GetMemory's part)
+    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr >= (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE)   // (GetMemory's part)
         if(!(SDBitsGet(addr) & PUSED)) nbr++;
     return nbr * RAMPAGESIZE;
 }
@@ -1442,7 +1463,7 @@ unsigned int UsedHeap(void) {
     nbr = 0;
 //    for(addr = (unsigned char *)RAMEND -  RAMPAGESIZE; addr > (unsigned char *)RAMBASE; addr -= RAMPAGESIZE)
 //        if((MBitsGet(addr) & PUSED)) nbr++;
-    for(addr = (unsigned char *)SDRAMEND -  RAMPAGESIZE; addr > (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE)
+    for(addr = (unsigned char *)SDRAMEND -  RAMPAGESIZE; addr >= (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE)
         if((SDBitsGet(addr) & PUSED)) nbr++;
     return nbr * RAMPAGESIZE;
 }
