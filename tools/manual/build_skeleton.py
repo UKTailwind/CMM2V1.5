@@ -170,7 +170,7 @@ def main():
         body.remove(el)
     # the title page (M-D3)
     title = {'PicoMite': 'Colour Maximite 2', 'Ver 7.0.00': 'MMBasic Ver 7.00.00',
-             'MMBasic BASIC Interpreter': '', 'For the': 'Matches firmware 7.00.00b2',
+             'MMBasic BASIC Interpreter': '', 'For the': 'Matches firmware 7.00.00b3',
              'Raspberry Pi Pico': '', 'Raspberry Pi Pico 2': '', 'Raspberry Pi Pico W': 'Geoff Graham',
              'http://geoffg.net/picomite.html': 'http://geoffg.net/maximite.html'}
     for el in front[:24]:

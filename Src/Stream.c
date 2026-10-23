@@ -1058,7 +1058,7 @@ static const struct
     {"BCOLOUR", T_INT}, {"BCOLOR", T_INT}, {"HEAP", T_INT}, {"HPOS", T_INT}, {"VPOS", T_INT},
     {"WRITEBUFF", T_INT}, {"TILE HEIGHT", T_INT}, {"STACK", T_INT}, {"FLASH ADDRESS", T_INT}, {"FILESIZE", T_INT},
     {"DISK SIZE", T_INT}, {"FREE SPACE", T_INT}, {"ERRNO", T_INT}, {"UPTIME", T_NBR}, {"CPUSPEED", T_INT},
-    {"PATH", T_STR}, {"SOUND", T_STR}, {"ERRMSG", T_STR}, {"SYSTEM I2C", T_STR}, {"LCDPANEL", T_STR},
+    {"PATH", T_STR}, {"SOUND", T_STR}, {"ERRMSG", T_STR}, {"SYSTEM I2C", T_STR}, {"LCDPANEL", T_STR}, {"DISPLAY", T_INT},
 }; // (the CMM2's fun_info: CPUSPEED is a number here; PINNO and MAX GP, OPTION PICOMITE's GPs, are not compiled; no PS2)
 static int RBInfoType(unsigned char *txt)
 {

@@ -1,7 +1,7 @@
-[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00b2 (beta) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
-[I]21 October 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b1, have notes of their own.[/I]
+[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00b3 (beta) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
+[I]23 October 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b2, have notes of their own.[/I]
 
-MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes, and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
+MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
@@ -22,6 +22,22 @@ You can go back to an earlier firmware the same way, should you need to.
 
 
 [SIZE=4][COLOR=BLUE][B]What is new[/B][/COLOR][/SIZE]
+[SIZE=3][B]OPTION PICOMITE[/B][/SIZE]
+• OPTION PICOMITE device [, resolution] makes the Colour Maximite 2 behave as the PicoMite named, by the name its MM.DEVICE$ gives: PicoMiteVGA, PicoMiteVGAUSB, PicoMiteHDMI, PicoMiteHDMIUSB, PicoMitePC3, PicoMiteHDMIBTH or PicoMiteHDMIWEB, with RP2350A or RP2350B where the PicoMite has it. VGA and HDMI are short for PicoMiteVGAUSB RP2350B and PicoMiteHDMIUSB RP2350B. OPTION PICOMITE NONE, the default, turns it off.
+• MM.DEVICE$ then returns that name, so a program that configures itself by it does so as on that PicoMite.
+• The display:
+    ◦ MODE n with no colour depth is the PicoMite's MODE n (1 to 3 for VGA, 1 to 5 for HDMI), at the PicoMite's size, with its fonts and, in MODE 2 and 3, its 16 colours (the HDMI version's greens for an HDMI device).
+    ◦ ‘resolution’ is the PicoMite's OPTION RESOLUTION: 640x480 (the default), 720x400, 800x600 or 848x480, and for HDMI also 800x480, 1024x600, 1280x720 or 1024x768. RESOLUTION changes it in a program, as on the PicoMite HDMI.
+    ◦ Each resolution keeps one monitor timing for all its modes, as on the PicoMite, and the smaller modes have pixels of 2 x 2 or 4 x 4.
+    ◦ A program starts in MODE 1, and the mode it leaves stays at the prompt.
+    ◦ POKE DISPLAY VRES sets the height that is drawn on.
+• The I/O pins:
+    ◦ The PicoMite's pin names (GP0 to GP22, GP26 to GP28, GP36 and GP37) stand for the pins of the rear connector with the same functions: COM1 on GP0 and GP1, PWM on GP2 to GP5, the counting inputs on GP6 to GP9, SPI, SPI2, I2C and I2C2 on their PicoMite pins, the analog inputs on GP26 to GP28. A name can be written as it is or as a string.
+    ◦ The PicoMite's SETPIN commands that give COM ports, I2C, SPI, PWM and IR their pins are accepted, checked as the PicoMite checks them.
+    ◦ MM.INFO(PINNO GPn) gives a name's pin, and MM.INFO(MAX GP) the PicoMite's highest GP.
+    ◦ PWM and SERVO take the PicoMite's arguments: PWM's fifth is its phase (centred pulses) and SERVO takes a position from -20 to 120.
+• The manual's Running PicoMite Programs (in Video Modes and Pages) and PicoMite Pin Names (in Using the I/O Pins) have the details.
+
 [SIZE=3][B]The language[/B][/SIZE]
 • [B]Structures[/B]: TYPE ... END TYPE, structure variables and arrays, members in every form ([FONT=Courier]p.x[/FONT], [FONT=Courier]pts(i).corner(2).y[/FONT]), structures as parameters and FUNCTION results, initial values in DIM, the STRUCT command and STRUCT() function, and LIST TYPE.
 • [B]Arrays[/B]: single element arrays (DIM a(0)), REDIM [PRESERVE], whole-array assignment [FONT=Courier]a() = b()[/FONT], FUNCTIONs that return an array, the ARRAY commands, and a member of every element of a structure array ([FONT=Courier]BOX b().x, b().y, ...[/FONT]) in the graphics commands and MATH.
@@ -48,7 +64,8 @@ CSUBs built for the PicoMite run unaltered when they use only its call table. Th
 
 [SIZE=3][B]The editor, the file manager and the console[/B][/SIZE]
 • [B]The editor[/B] is the PicoMite's full screen editor, with help on F11, a mouse, Print Screen, a clipboard of any size, and a save that cannot lose your edits (a failed save leaves the editor open with the text).
-• [B]FM[/B] is the PicoMite's two-panel file manager (F1 at the prompt types it). It copies between the SD card and a USB flash drive.
+• [B]FM[/B] is the PicoMite's two-panel file manager (F1 at the prompt types it). It copies between the SD card and a USB flash drive, and takes the mouse: a click selects, a double click opens, runs or shows, a right click marks, the wheel moves the selection, and the top line's labels can be clicked.
+• [B]The PS2 mouse[/B], with OPTION MOUSE 0, is the computer's mouse, as a USB mouse is: it starts with the computer, or when a mouse is first needed, and keeps running when a program ends.
 • [B]ZMODEM SEND and ZMODEM RECEIVE[/B] transfer files over the serial console, faster than XMODEM.
 • [B]HELP[/B] reads A:/help.txt when the card has one.
 • [B]OPTION F15, F16, F19 and F20[/B] set strings for Shift-F3, F4, F7 and F8; Shift-F5 clears the screen and Shift-F6 sets up the terminal.
@@ -67,6 +84,10 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 
 [SIZE=3][B]Graphics[/B][/SIZE]
 • MODE n,4: a 4-bit colour depth that gives the PicoMite's 16 colour display, with its FRAMEBUFFER, layers and PEEK/POKE addresses, so that PicoMite games run.
+• MODE n,1: a 1-bit colour depth, the PicoMite's MODE 1, with coloured tiles 8 pixels wide: TILE, TILE RESET, TILE HEIGHT and MM.INFO(TILE HEIGHT).
+• RAY and RAY(, the PicoMite's raycasting engine, in every colour depth and in full colour (Appendix P).
+• Fonts 8 and 9, the PicoMite's 4 x 6 and 8 x 10 fonts.
+• A steadier VGA picture (the pixel clock from the crystal undivided, slower sync edges), and OPTION VGA OUTPUT in every colour depth but 12 bits.
 • TILEMAP, image slots (FLASH LOAD IMAGE, FLASH DISK LOAD), BLIT FLASH and BLIT FRAMEBUFFER.
 • FILL (flood fill), BEZIER, a smoother ARC, and BOX with arrays of x and y and one size.
 • LOAD JPG with dithering, offsets and scaling; LOAD PNG of any size, a line at a time; LOAD BMP of every common kind (palette, RLE, 16-bit, top-down).
@@ -103,6 +124,18 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 • SETPIN CIN can count either edge or both, with a pull-up or a pull-down; TEMPR takes a conversion time.
 • OPEN COMn: takes a transmit interrupt, called when everything queued has been sent.
 
+[SIZE=3][B]Astronomy[/B][/SIZE]
+• STAR, ASTRO, LOCATION and SLEW, the PicoMite's: the positions of 83 named stars and other objects, the Moon and the planets, from a location and the time (Appendix Q).
+• GPS(SIDEREAL) and GPS(JULIAN).
+
+[SIZE=3][B]The PicoMite's other forms[/B][/SIZE]
+• DEVICE, the PicoMite's prefix for its device commands: DEVICE WII [CLASSIC], NUNCHUCK, MOUSE, GAMEPAD, HUMID, WS2812 and BITSTREAM, and DEVICE(WII …), DEVICE(CLASSIC …) and DEVICE(NUNCHUCK …).
+• CONTROLLER (WII) takes the PicoMite's WII OPEN, WII CLOSE and WII NUNCHUCK OPEN and CLOSE.
+• MM.INFO$(LCDPANEL) returns "MODE" and the mode's number, as the PicoMite's VGA and HDMI versions do.
+• MM.INFO(DISPLAY) returns the current mode's number, so that a program can tell a VGA or HDMI screen from an LCD panel.
+• OPTION NOCHECK ON or OFF is accepted and does nothing.
+• PWM channel, OFF and SERVO channel, OFF stop a channel, as STOP does.
+
 [SIZE=3][B]Flash and RAM slots[/B][/SIZE]
 • The PicoMite's flash slots 1 to 3, with FLASH SAVE, OVERWRITE, LOAD, RUN, CHAIN, LIST and ERASE, and LOAD IMAGE and DISK LOAD into them.
 • The flash slots are kept on the SD card (in the hidden directory A:/.flash), and a slot's program runs from RAM, so no flash memory is written.
@@ -125,7 +158,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 • DIM a(0) makes a one element array, and BOUND(a(), n) past the array's dimensions is an error.
 • UCASE$( and LCASE$( with a second argument are an error.
 • MATH:
-    ◦ MATH RANDOMIZE n now repeats MATH(RAND)'s sequence.
+    ◦ MATH RANDOMIZE n now repeats MATH(RAND)'s sequence, the PicoMite's for the same seed.
     ◦ Integer POWER, ADD and SCALE round once, after the arithmetic.
     ◦ SENSORFUSION and Q_CREATE follow OPTION ANGLE.
 • A program's OPTION EXPLICIT stays in force at the command prompt after the program ends, until NEW or RUN.
@@ -143,7 +176,12 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
     ◦ BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
     ◦ SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 • One mouse is used at a time.
-• MM.VER is 7.000001.
+• MM.VER is 7.000003.
+• Modes 1 and 13 are 800 x 600 at 75Hz (they were 60Hz), and most modes' pixel clocks moved by up to 0.42%.
+• In the 16 and 32-bit colour depths full white is 7/8 of the old level (3/4 with OPTION VGA OUTPUT LOW), as in the 8-bit depth.
+• STAR, ASTRO, LOCATION and SLEW are keywords, and cannot be names of variables.
+• OPTION PROFILING in a program is accepted and does nothing (it saved the option and restarted the computer). At the prompt it is still the line profiler.
+• An empty duty cycle or pulse width in PWM or SERVO (eg, PWM 1, 1000, , 50) leaves that output as it is.
 • A minus sign in front of a value now applies after a power that follows it, as in mathematics and most languages: -2^2 is -4 (it was 4), and -X^2 is -(X^2). Write (-2)^2 for the old result.
 
 
@@ -152,6 +190,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 • A line longer than the screen, or one that grew past 255 characters when substituted, could hang the board. The console now keeps a line of up to 255 characters.
 • [FONT=Courier]IF c THEN ERROR "x" ELSE ...[/FONT] stopped with "Invalid character".
 • A FUNCTION called as a statement, or a SUB used in an expression, ran part way and failed inside itself.
+• A keyword in lower case inside DATA, such as rgb(red), stopped with "Invalid colour".
 • Variables and names:
     ◦ STATIC variables of different SUBs could share one variable.
     ◦ Deep recursion ran out of local variables.
@@ -222,6 +261,8 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
     ◦ ON leaked memory, COLOR was refused, and OFF now unlinks the mouse.
     ◦ A linked cursor puts its point, not its corner, at the mouse.
 • DRAW3D CLOSE ALL, LIGHT, SET FLAGS and RESET.
+• The VGA picture jittered on some monitors and through video capture devices, most in mode 11 (1280 x 720).
+• Sound stopped while LOAD BMP decoded a large image.
 
 [SIZE=3][B]Sprites[/B][/SIZE]
 • SPRITE LOAD without an extension wrote into the program, and it read one sprite too many.
@@ -264,6 +305,11 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
     ◦ A duty change on output B or C went to output A.
     ◦ A duty change lost an inverted output's inversion.
     ◦ Controller 2 was disturbed by controller 1.
+    ◦ With no duty cycle for 1A, pin 12 was held high (PWM 1, 1000, , 50, and SERVO 1, 50).
+    ◦ Controller 2 could switch on other outputs of its timer and invert 2A.
+    ◦ SERVO's pulses were inverted after a PWM with a negative duty cycle on the same output.
+    ◦ A change between centred and ordinary pulses at the same frequency kept the old kind.
+• PULSE with a pin number out of range read past the end of a table.
 • Serial ports: opening COM3 disturbed COM2, and the COM1 to COM3 transmit interrupts never fired.
 • I2C:
     ◦ A transfer could fail while a Wii controller was being polled.
@@ -292,9 +338,10 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 
 [SIZE=4][COLOR=BLUE][B]Not there yet[/B][/COLOR][/SIZE]
-• The PicoMite's raycasting engine (RAY), which comes next.
-• The PicoMite compatibility switch (OPTION PICOMITE), which will let PicoMite programs with conflicting keywords run unchanged.
-• A mouse in the file manager.
+• The PicoMite's FRAMEBUFFER layers in the 8 and 16-bit colour depths (the PicoMite's MODE 4 and 5); they work in the 4-bit and 1-bit depths.
+• With OPTION PICOMITE: MM.INFO(CPUSPEED) as a string, RUN with a variable, KEYDOWN's shifted function keys and GETSCANLINE's scaling.
+• BITSTREAM's two-pin form, DEVICE SERIALRX and SERIALTX, ONESHOT and I2C SLAVE.
+• The PicoMite's ADC command.
 
 The PicoMite's FRAME command, YMODEM and OPTION DISK SAVE/LOAD are not planned for the Colour Maximite 2.
 
@@ -303,7 +350,7 @@ The PicoMite's FRAME command, YMODEM and OPTION DISK SAVE/LOAD are not planned f
 • SPI and I2C with real devices, and I2C option 1's repeated start.
 • I2C with a Wii controller on the same bus.
 • CAN on a bus (sending and receiving are tested in the internal loop back).
-• PWM channels 3 to 6.
+• PWM and SERVO with an instrument (their timers are checked by reading them back).
 • The ADC.
 • The serial ports COM1 to COM3.
 • RTC calibration.

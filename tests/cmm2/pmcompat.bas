@@ -1,6 +1,7 @@
 ' pmcompat.bas - the small PicoMite items from the parity re-check (22 Oct 2026): OPTION NOCHECK and OPTION PROFILING
-' in a program (accepted, nothing done: PROFILING restarted the board), MM.INFO$(LCDPANEL), the DEVICE prefix and the
-' PicoMite's WII forms (nothing on the Wii connector: the errors), DEVICE( for the Wii, and a variable called DEVICE
+' in a program (accepted, nothing done: PROFILING restarted the board), MM.INFO$(LCDPANEL) and MM.INFO(DISPLAY), the
+' DEVICE prefix and the PicoMite's WII forms (nothing on the Wii connector: the errors), DEVICE( for the Wii, and a
+' variable called DEVICE
 ' (an array cannot be: DEVICE( is a function).
 Option Explicit
 Dim integer n
@@ -14,6 +15,7 @@ On Error Skip 1
 Option NoCheck Maybe
 Print "OPTION NOCHECK MAYBE: "; MM.ErrMsg$
 Print "MM.INFO$(LCDPANEL): "; MM.Info$(LCDPANEL); ", has MODE:"; Instr(MM.Info(LCDPANEL), "MODE") > 0
+Print "MM.INFO(DISPLAY):"; MM.Info(DISPLAY)
 On Error Skip 1
 Device Wii Open
 Print "DEVICE WII OPEN: "; MM.ErrMsg$

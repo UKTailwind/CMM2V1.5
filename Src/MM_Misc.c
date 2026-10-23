@@ -2866,6 +2866,11 @@ void fun_info(void){
 		targ=T_INT;
 		return;
 	}
+	if(checkstring(ep, "DISPLAY")){                                 // the video mode's number, so a program can tell a VGA or HDMI
+		iret = PicoActive ? PicoModeNow : VideoMode;                // screen from an LCD panel (Peter, 23 Oct 2026); in a PicoMite
+		targ=T_INT;                                                 // mode (OPTION PICOMITE) the PicoMite's, as LCDPANEL's
+		return;
+	}
 	if(checkstring(ep, "TILE HEIGHT")){                             // MODE n,1's tiles (Mono.c): the PicoMite's
 		iret = MonoTileH;
 		targ=T_INT;

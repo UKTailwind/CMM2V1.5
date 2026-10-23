@@ -27,7 +27,7 @@ For r = 0 To 7
 Next
 Resolution 640
 Mode 2
-Print "LCDPANEL: "; MM.Info$(LCDPANEL); ", font"; MM.Info(FONT); MM.FontHeight
+Print "LCDPANEL: "; MM.Info$(LCDPANEL); ", font"; MM.Info(FONT); MM.FontHeight; ", DISPLAY"; MM.Info(DISPLAY)
 Pixel 0, 0, RGB(0, 128, 0) : Print "HDMI green 128: "; Hex$(Pixel(0, 0))
 Mode 2
 Print "MODE 2 again clears: "; Hex$(Pixel(0, 0))

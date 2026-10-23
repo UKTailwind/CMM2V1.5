@@ -2,6 +2,7 @@ OPTION NOCHECK: accepted
 OPTION PROFILING in a program: no restart
 OPTION NOCHECK MAYBE: Syntax
 MM.INFO$(LCDPANEL): MODE8, has MODE: 1
+MM.INFO(DISPLAY): 8
 DEVICE WII OPEN: Classic not connected
 DEVICE WII CLASSIC OPEN: Classic not connected
 WII OPEN: Classic not connected

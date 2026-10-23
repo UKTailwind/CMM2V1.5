@@ -8,7 +8,7 @@ MM.DEVICE$: PicoMiteHDMIUSB RP2350B, MM.INFO$(DEVICE): PicoMiteHDMIUSB RP2350B
 1024x600:  1= 9.1 1024x600  2= 9.4 256x150  3= 9.4 512x300 [4: Mode not available in this resolution]  5= 9.8 256x150
 1280x720:  1= 11.1 1280x720  2= 11.4 320x180  3= 11.4 640x360 [4: Mode not available in this resolution]  5= 11.8 320x180
 1024x768:  1= 9.1 1024x768  2= 9.4 256x192  3= 9.4 512x384 [4: Mode not available in this resolution]  5= 9.8 256x192
-LCDPANEL: MODE2, font 7 8
+LCDPANEL: MODE2, font 7 8, DISPLAY 2
 HDMI green 128: AA00
 MODE 2 again clears: 0
 4-bit rows  160 bytes: POKE FF 5500
