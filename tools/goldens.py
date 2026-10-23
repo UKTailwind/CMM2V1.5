@@ -323,8 +323,20 @@ PROBES = {"COM4": "0667FF575255878281071917",           # each test board's ST-L
 def fresh_slots(b, flash):
     """Empty the RAM slots, and the flash slots when the program uses them, before a run: a RAM slot is kept through
     every heap wipe (MEMORY counts it) and a flash slot is a file on the SD card, so either can be left by an earlier
-    program, where a fresh PicoMite has none."""
-    b.cmd("RAM ERASE ALL", 10)
+    program, where a fresh PicoMite has none.  A lost prompt is tried once more: on 23 Oct the G2 (460800, under OPTION
+    PICOMITE HDMI) echoed this as RMEAEAL every few minutes, every second character gone, its Enter too.  An Enter on its
+    own then tells which way they went: "Unknown command" if the board had only those characters, a bare prompt if it
+    had them all and the way back lost them."""
+    try:
+        b.cmd("RAM ERASE ALL", 10)
+    except TimeoutError as e:
+        b.s.write(b"\r")
+        time.sleep(1.5)
+        seen = ANSI.sub("", b.drain(0.5))
+        print("[%s %s: RAM ERASE ALL lost, after %r; an Enter gave %r]" % (time.strftime("%H:%M:%S"), Board.current,
+              str(e).splitlines()[-1][-40:], seen[-160:]), flush=True)
+        b.attention()
+        b.cmd("RAM ERASE ALL", 10)
     if flash:
         b.cmd("FLASH ERASE ALL", 20)
 

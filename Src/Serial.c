@@ -262,30 +262,34 @@ char *CdcInterrupt(void) {
 	return NULL;
 }
 
+// the console's UART at its baud rate, with its 16-byte receive FIFO: HAL_UART_DeInit clears CR1 (FIFOEN with it) and
+// HAL_UART_Init does not set it again, so the console had a one-byte receive register, 22 us at 460800, and lost a byte
+// whenever another interrupt held its handler off longer (the G2 under OPTION PICOMITE, 23 Oct 2026: every second
+// character of a line just after a program). The handler still takes a byte an interrupt (RXFNE: Size 1 is below
+// the threshold's two, so UART_Start_Receive_IT enables RXFNEIE, not only RXFTIE); sending is still by TC.
+static void ConsoleUartStart(UART_HandleTypeDef *huart){
+	HAL_UART_DeInit(huart);
+	huart->Init.BaudRate = Option.Baudrate;
+	HAL_UART_Init(huart);
+	HAL_UARTEx_SetTxFifoThreshold(huart, UART_TXFIFO_THRESHOLD_1_8);
+	HAL_UARTEx_SetRxFifoThreshold(huart, UART_RXFIFO_THRESHOLD_1_8);
+	HAL_UARTEx_EnableFifoMode(huart);
+	HAL_UART_Receive_IT(huart, &RxBuffer, 1);
+}
 void start_console(void){
 	  if(Option.ConsolePort==3){
 		  MX_USART1_UART_Init1();
-		  HAL_UART_DeInit(&huart1);
-		  huart1.Init.BaudRate = Option.Baudrate;
-		  HAL_UART_Init(&huart1);
-		  HAL_UART_Receive_IT(&huart1, &RxBuffer, 1);
+		  ConsoleUartStart(&huart1);
 	  } else if(Option.ConsolePort==1){
 	      ExtCfg(COM1_RX_PIN, EXT_BOOT_RESERVED, 0);
 	      ExtCfg(COM1_TX_PIN, EXT_BOOT_RESERVED, 0);
 		  MX_USART2_UART_Init2();
-		  HAL_UART_DeInit(&huart2);
-		  huart2.Init.BaudRate = Option.Baudrate;
-		  HAL_UART_Init(&huart2);
-		  HAL_UART_Receive_IT(&huart2, &RxBuffer, 1);
-
+		  ConsoleUartStart(&huart2);
 	  } else if(Option.ConsolePort==2){
 	      ExtCfg(COM2_RX_PIN, EXT_BOOT_RESERVED, 0);
 	      ExtCfg(COM2_TX_PIN, EXT_BOOT_RESERVED, 0);
 		  MX_UART4_Init4();
-		  HAL_UART_DeInit(&huart4);
-		  huart4.Init.BaudRate = Option.Baudrate;
-		  HAL_UART_Init(&huart4);
-		  HAL_UART_Receive_IT(&huart4, &RxBuffer, 1);
+		  ConsoleUartStart(&huart4);
 	  }
 }
 void stop_console(void){
