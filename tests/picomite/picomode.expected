@@ -5,7 +5,7 @@ MM.DEVICE$: PicoMiteHDMIUSB RP2350B, MM.INFO$(DEVICE): PicoMiteHDMIUSB RP2350B
 800x600:  1= 1.1 800x600  2= 1.4 400x300  3= 1.4 800x600 [4: Mode not available in this resolution]  5= 1.8 400x300
 848x480:  1= 10.1 848x480  2= 10.4 424x240  3= 10.4 848x480 [4: Mode not available in this resolution]  5= 10.8 424x240
 800x480:  1= 10.1 800x480  2= 10.4 400x240  3= 10.4 800x480 [4: Mode not available in this resolution]  5= 10.8 400x240
-1024x600:  1= 9.1 1024x600  2= 9.4 256x150  3= 9.4 512x300 [4: Mode not available in this resolution]  5= 9.8 256x150
+1024x600:  1= 18.1 1024x600  2= 18.4 256x150  3= 18.4 512x300 [4: Mode not available in this resolution]  5= 18.8 256x150
 1280x720:  1= 11.1 1280x720  2= 11.4 320x180  3= 11.4 640x360 [4: Mode not available in this resolution]  5= 11.8 320x180
 1024x768:  1= 9.1 1024x768  2= 9.4 256x192  3= 9.4 512x384 [4: Mode not available in this resolution]  5= 9.8 256x192
 LCDPANEL: MODE2, font 7 8, DISPLAY 2

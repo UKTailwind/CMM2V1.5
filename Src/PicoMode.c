@@ -11,7 +11,7 @@ its modes use, as on the PicoMite, where MODE never changes the monitor's timing
 as the CMM2 makes mode 7 from mode 8, the pixel clock divided by 2 or 4 and each row shown 2 or 4 times, so a pixel is
 2x2 or 4x4 as there (Peter, 23 Oct, on the monitor). The display's pages are the PicoMite's size exactly, so MM.HRES,
 MM.VRES, the clipping, the console and a program's PEEKs and POKEs are the PicoMite's. Where the timing is larger
-(720x400 and 800x480 on 848x480, 1024x600 on 1024x768) the LTDC shows them as a window at the top left, the rest of the
+(720x400 and 800x480 on 848x480) the LTDC shows them as a window at the top left, the rest of the
 screen the background (black), where nothing can be drawn (decisions 3 and 4). MODE with a colour depth is still the
 CMM2's MODE.
 
@@ -38,9 +38,10 @@ static const struct { short w, h; const char *name, *alias; } PicoRes[] = {
     {800, 480, "800x480", NULL}, {1024, 600, "1024x600", NULL}, {1280, 720, "1280x720", "1280"},
     {1024, 768, "1024x768", "1024"}};
 #define PICORES (int)(sizeof(PicoRes) / sizeof(PicoRes[0]))
-// the CMM2 timing each resolution is shown on (Peter, 23 Oct): its own where the CMM2 has it, 848x480 for 720x400 and
-// 800x480, and 1024x768 for 1024x600 (mode 18, the CMM2's 1024x600, is a timing monitors show poorly)
-static const unsigned char PicoBase[] = {8, 10, 1, 10, 10, 9, 11, 9};
+// the CMM2 timing each resolution is shown on (Peter, 23 Oct): its own where the CMM2 has it, and 848x480 for 720x400
+// and 800x480. 1024x600 is mode 18, which has the PicoMite's 1024x600 timing since 24 Oct (it was a window at the top
+// of 1024x768 while mode 18 was a panel's timing, which monitors showed poorly)
+static const unsigned char PicoBase[] = {8, 10, 1, 10, 10, 18, 11, 9};
 
 /* The PicoMite builds OPTION PICOMITE can name: their MM.DEVICE$ (core/MM_Misc.c, fun_device: the RP2350's with its
    " RP2350A" or " RP2350B"), which a program may test to configure itself (Peter, 23 Oct 2026). Option.Picomite is the
