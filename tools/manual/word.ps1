@@ -6,6 +6,11 @@
 param([Parameter(Mandatory = $true)][string]$Docx, [string]$Pdf)
 $Docx = (Resolve-Path $Docx).Path
 if ($Pdf) { $Pdf = [System.IO.Path]::GetFullPath($Pdf) }
+# a PDF open in a viewer cannot be written: say so before Word starts (24 Oct 2026)
+if ($Pdf -and (Test-Path $Pdf)) {
+    try { [System.IO.File]::Open($Pdf, 'Open', 'ReadWrite', 'None').Close() }
+    catch { Write-Error "$Pdf is in use (open in a viewer?): close it and run again"; exit 1 }
+}
 $work = Join-Path $env:TEMP ('cmm2manual_' + [guid]::NewGuid().ToString('N') + '.docx')
 Copy-Item $Docx $work
 $word = New-Object -ComObject Word.Application
@@ -22,9 +27,13 @@ try {
         "pdf: " + $Pdf
     }
     $doc.Close($false)
+    $doc = $null
     Copy-Item $work $Docx -Force
     "saved: " + $Docx
 } finally {
+    # a step that failed left the copy open: closed unsaved, or Quit asks "Save your changes to this file?" on the
+    # screen, hidden or not, and waits (24 Oct 2026)
+    if ($doc) { try { $doc.Close($false) } catch {} }
     $word.Quit()
     Remove-Item $work -ErrorAction SilentlyContinue
 }
