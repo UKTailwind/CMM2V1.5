@@ -1228,10 +1228,6 @@ void display3d(int n, FLOAT3D x, FLOAT3D y, FLOAT3D z, int clear, int nonormals,
 		ray.y=p1.y - camera[struct3d[n]->camera].y;
 		ray.z=p1.z - camera[struct3d[n]->camera].z;
 		normalise(&ray);
-		lighting.x=p1.x - struct3d[n]->light.x;
-		lighting.y=p1.y - struct3d[n]->light.y;
-		lighting.z=p1.z - struct3d[n]->light.z;
-		normalise(&lighting);
 		struct3d[n]->dots[f] = ray.x * struct3d[n]->normals[f].x + ray.y * struct3d[n]->normals[f].y + ray.z * struct3d[n]->normals[f].z;
         if (depthmode == 0)
         {
@@ -1304,6 +1300,11 @@ void display3d(int n, FLOAT3D x, FLOAT3D y, FLOAT3D z, int clear, int nonormals,
 					csave=struct3d[n]->line[sortindex];
 					if(struct3d[n]->flags[sortindex] & 2)struct3d[n]->fill[sortindex]=0xFF0000;
 					if(struct3d[n]->flags[sortindex] & 8){
+						int lv=struct3d[n]->face_x_vert[vp+1];	// from the light to this face (its normal's p1): the light
+						lighting.x=struct3d[n]->r_vertices[lv].x * struct3d[n]->r_vertices[lv].m + x - struct3d[n]->light.x;
+						lighting.y=struct3d[n]->r_vertices[lv].y * struct3d[n]->r_vertices[lv].m + y - struct3d[n]->light.y;
+						lighting.z=struct3d[n]->r_vertices[lv].z * struct3d[n]->r_vertices[lv].m + z - struct3d[n]->light.z;
+						normalise(&lighting);					// is a point (issue 3: it was the last face's for every face)
 						FLOAT3D lightratio=fabs3d(lighting.x * struct3d[n]->normals[sortindex].x + lighting.y * struct3d[n]->normals[sortindex].y + lighting.z * struct3d[n]->normals[sortindex].z);
 						lightratio=(lightratio*struct3d[n]->ambient)+struct3d[n]->ambient;
 						int red=(struct3d[n]->fill[sortindex] & 0xFF0000)>>16;
@@ -1565,6 +1566,10 @@ void cmd_3D(void){
 				Free3DMemory(n);
 				error("Vertex count less than 3 for face %",f+OptionBase);
 			}
+			if(struct3d[n]->facecount[f]>MAX_POLYGON_VERTICES){	// (display3d's xcoord and ycoord: issue 4)
+				Free3DMemory(n);
+				error("Vertex count more than % for face %",MAX_POLYGON_VERTICES,f+OptionBase);
+			}
 			if(struct3d[n]->facecount[f]>struct3d[n]->vmax)struct3d[n]->vmax=struct3d[n]->facecount[f];
 			struct3d[n]->facestart[f]=struct3d[n]->tot_face_x_vert;
 			struct3d[n]->tot_face_x_vert+=struct3d[n]->facecount[f];
@@ -1576,7 +1581,12 @@ void cmd_3D(void){
 			struct3d[n]->colours[c]=(uint32_t)*colours++;
 		}
 		for(f=0;f<struct3d[n]->tot_face_x_vert;f++){
-			struct3d[n]->face_x_vert[f]=*faces++;
+			long long int fv=*faces++;
+			if(fv<0 || fv>=struct3d[n]->nv){						// (display3d indexes r_vertices with it: issue 5)
+				Free3DMemory(n);
+				error("Vertex % does not exist (face/vertex array element %)",(int)fv,f+OptionBase);
+			}
+			struct3d[n]->face_x_vert[f]=fv;
 		}
 		for(f=0;f<struct3d[n]->nf;f++){
 			if(linecolour!=NULL){
@@ -1686,7 +1696,7 @@ void cmd_3D(void){
 		s_quaternion q1;
 		MMFLOAT *q=NULL;
 		getargs(&p, (MAX_ARG_COUNT * 2) - 1, ",");				// getargs macro must be the first executable stmt in a block
-		if((argc & 0x01 || argc<3) == 0) error("Argument count");
+		if(argc < 3) error("Argument count");					// the quaternion and an object at least
 		ptr1 = findvar(argv[0], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
 		CHECK_STRUCT_MEMBER_ARRAY();
 		if(VREC(VarIndex)->type & T_NBR) {
@@ -1729,7 +1739,7 @@ void cmd_3D(void){
 		int i, n;
 		int v, f;
 		getargs(&p, (MAX_ARG_COUNT * 2) - 1, ",");				// getargs macro must be the first executable stmt in a block
-		if((argc & 0x01 || argc<3) == 0) error("Argument count");
+		if(argc < 1) error("Argument count");
 		for(i = 0; i < argc; i += 2) {
 			n=getint(argv[i],1,MAX3D);
 			if(struct3d[n]==NULL)error("Object % does not exist",n);
@@ -1744,11 +1754,11 @@ void cmd_3D(void){
 	} else if((p=checkstring(cmdline, "HIDE"))) {
 		int i, n;
 		getargs(&p, (MAX_ARG_COUNT * 2) - 1, ",");				// getargs macro must be the first executable stmt in a block
-		if((argc & 0x01 || argc<3) == 0) error("Argument count");
+		if(argc < 1) error("Argument count");
 		for(i = 0; i < argc; i += 2) {
 			n=getint(argv[i],1,MAX3D);
 			if(struct3d[n]==NULL)error("Object % does not exist",n);
-			if(struct3d[n]->xmin==32767)return;
+			if(struct3d[n]->xmin==32767)continue;				// (already hidden: the next object, issue 2)
 			DrawRectangle(struct3d[n]->xmin,struct3d[n]->ymin,struct3d[n]->xmax,struct3d[n]->ymax,0);
 			struct3d[n]->xmin=32767;
 			struct3d[n]->ymin=32767;
@@ -1759,7 +1769,7 @@ void cmd_3D(void){
 	} else if((p=checkstring(cmdline, "RESTORE"))) {
 		int i, n;
 		getargs(&p, (MAX_ARG_COUNT * 2) - 1, ",");				// getargs macro must be the first executable stmt in a block
-		if((argc & 0x01 || argc<3) == 0) error("Argument count");
+		if(argc < 1) error("Argument count");
 		for(i = 0; i < argc; i += 2) {
 			n=getint(argv[i],1,MAX3D);
 			if(struct3d[n]==NULL)error("Object % does not exist",n);
@@ -1790,7 +1800,7 @@ void cmd_3D(void){
 	} else if((p=checkstring(cmdline, "CLOSE"))) {
 		int i, n;
 		getargs(&p, (MAX_ARG_COUNT * 2) - 1, ",");				// getargs macro must be the first executable stmt in a block
-		if((argc & 0x01 || argc<3) == 0) error("Argument count");
+		if(argc < 1) error("Argument count");
 		for(i = 0; i < argc; i += 2) {
 			n=getint(argv[i],1,MAX3D);
 			if(struct3d[n]==NULL)error("Object % does not exist",n);

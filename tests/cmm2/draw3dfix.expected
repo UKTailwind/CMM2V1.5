@@ -1,0 +1,18 @@
+ok  a lit face square on to the light is at full brightness
+ok  a lit face at an angle to it is darker (it had the other face's brightness)
+ok  HIDE 1, 2 with 1 hidden hides 2 (it returned at 1)
+ok  and RESTORE 2 then draws it again
+ok  a face of 129 vertices (it overran display3d's arrays)
+ok  vertex 3 of an object of three, 0 to 2 (it read outside the object)
+ok  vertex -1
+ok  the object refused is not left behind: the same number is created
+ok  ROTATE with no object (it did nothing)
+ok  RESET with no object
+ok  HIDE with no object
+ok  RESTORE with no object
+ok  CLOSE with no object
+ok  ROTATE with one object
+ok  RESET with one object
+ok  CLOSE with one object
+draw3dfix: 16 of 16 passed
+
