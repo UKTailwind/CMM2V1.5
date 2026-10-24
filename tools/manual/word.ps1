@@ -28,3 +28,6 @@ try {
     $word.Quit()
     Remove-Item $work -ErrorAction SilentlyContinue
 }
+# the reference sections' entries as bookmarks under their Detailed Listing headings, which Word's export does not make
+# (bookmarks.py, as the PicoMite's add_manual_bookmarks.py; 24 Oct 2026)
+if ($Pdf) { & python -I (Join-Path $PSScriptRoot 'bookmarks.py') $Docx $Pdf }

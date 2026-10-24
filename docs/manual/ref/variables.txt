@@ -262,6 +262,17 @@ The height of the tiles in the 1-bit colour depth (see TILE).
 --- keep
 The time since the Colour Maximite 2 was restarted, in seconds, as a floating point number.
 
+=+= MM.INFO(USB n)
+MM.INFO(USB VID n)
+MM.INFO(USB PID n)
+--- keep
+The device in USB slot 'n' (1 to 4): 0 for none, 1 a keyboard, 2 a mouse, or a game controller: 128 a PS4, 129 a PS3, 130 another controller, 131 an Xbox controller and 135 a Switch Pro Controller (the numbers are those of DEVICE(GAMEPAD n, T)).  With 'n' 0 it is the number of devices plugged in.  A program can find its mouse or controller this way.
+MM.INFO(USB VID n) and MM.INFO(USB PID n) are the vendor and product IDs of the device in slot 'n'.
+
+=+= MM.INFO$(USBDRIVE)
+--- keep
+The status of the USB flash drive, the C: drive: "Ready" (a drive is plugged in and can be used; it is mounted now if it was not) or "Not present".  The current drive is not changed.  See MM.INFO$(SDCARD) for the SD card.
+
 =+= MM.INFO(VARCNT)
 --- keep
 The number of variables in use: the global variables and the local variables of the subroutines and functions that are running.  ERASE, CLEAR and the end of a subroutine or function lower it.

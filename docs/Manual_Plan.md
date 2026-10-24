@@ -255,6 +255,10 @@ That is five to seven weeks of focused work. M4 is most of it.
 
 The PDF is made by Word through COM, as the `.doc` was converted. Pages are looked at as images to check the layout.
 
+**The PDF's entry bookmarks (24 Oct).** Word's export bookmarks only the headings, so the reference sections' entries had none. `tools/manual/bookmarks.py`, after the PicoMite's `docs/add_manual_bookmarks.py`, adds one for each entry under its section's Detailed Listing: the names from the docx's tables (the table after each Detailed Listing heading), each found in the PDF's left column in order. An MM.INFO row keeps its key (MM.INFO(HEAP)), where the PicoMite's has one MM.INFO for them all. `word.ps1` runs it after each export; run again, it replaces its bookmarks. The first run: 606 (54 variables, 53 options, 390 commands, 101 functions, 8 obsolete), all found.
+
+**The Options and read-only variables sweep (24 Oct).** Peter: "ensure the option and pre-defined variable sections are complete with no omissions and nothing included that doesn't exist". Against the build (firmware.json made again by `inventory.py`, and the literals of `cmd_option`, `OtherOptions` and `fun_info`): every option (55) and every value each takes is in its entry, and every entry's options and values exist (refcheck: 53 of 53 OK); every MM.INFO key has an entry but MM.INFO(USB n), (USB VID n), (USB PID n) and MM.INFO$(USBDRIVE), which were added (FCOLOR, BCOLOR, HEAPI, HEAPS and COLORCODE are named in their entries); every MM. variable has one (MM.END is a SUB). Every MM.INFO(OPTION ...) an entry names is one fun_info takes.
+
 ## Files
 
 - **`docs/Manual_Plan.md`:** this plan.
