@@ -1363,7 +1363,7 @@ void MIPS16 FlashRunSlot(int slot, int chain) {
 		ClearRuntime();
 	}
 	TraceOn = false;
-	sendCRLF = 3;
+	sendCRLF = CRLFDefault();
 	ProgMemory = slot ? SlotProgram(slot) : ProgFlash;
 	FlashLoad = slot;
 	executerun = 1;                                                 // (typed at the prompt: as RUN, a program without END ends

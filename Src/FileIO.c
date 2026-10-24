@@ -762,7 +762,7 @@ int FileLoadProgram(char *fname, int mode) {
 	if(mode & 2) {                                                  // as ClearProgram, but the globals stay
 		ClearRuntimeKeepGlobals();
 		TraceOn = false;
-		sendCRLF = 3;
+		sendCRLF = CRLFDefault();
 	} else
     ClearProgram();												    // clear any leftovers from the previous program
     if((buf = ProgramText(buff, name)) == NULL) return false;

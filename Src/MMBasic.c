@@ -5150,7 +5150,7 @@ void RestoreContext(int keep) {
 void MIPS16 ClearProgram(void) {
     ClearRuntime();
     TraceOn = false;
-    sendCRLF=3;
+    sendCRLF = CRLFDefault();
 }
 
 

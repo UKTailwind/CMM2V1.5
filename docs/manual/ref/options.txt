@@ -92,8 +92,9 @@ This command will cause a reboot.
 
 === OPTION CRLF CR | LF | CRLF
 --- keep roomy
-Defines what the USB keyboard will send when the Enter key is pressed: CR (a carriage return), LF (a line feed) or CRLF (both, the default).
-This command can only be used in a program.  The setting returns to CRLF when a program is loaded and when it ends.
+Defines what the USB keyboard will send when the Enter key is pressed: CR (a carriage return), LF (a line feed) or CRLF (both, the default).  With OPTION PICOMITE the default is CR, as on the PicoMite.
+With CRLF, a CR from a terminal on the serial console is also followed by an LF, as the keyboard's is; with CR or LF it is left alone.
+This command can only be used in a program.  The setting returns to the default when a program is loaded and when it ends.
 
 === OPTION DEFAULT FLOAT | INTEGER | STRING | NONE
 --- keep roomy
@@ -256,7 +257,7 @@ Makes the Colour Maximite 2 behave as the PicoMite ‘device’, so that program
 {l=720}VGA, the same as PicoMiteVGAUSB RP2350B, or HDMI, the same as PicoMiteHDMIUSB RP2350B
 MM.DEVICE$ then returns that name, so that a program which configures itself by it does so as on that PicoMite.  The VGA and HDMI versions' MODE numbers mean different displays, and the name says which the program's are; nothing else is limited by it.  For example: OPTION PICOMITE PicoMiteHDMIUSB RP2350B, 1280x720
 ‘resolution’ is the PicoMite's OPTION RESOLUTION: 640x480 (the default), 720x400, 800x600 or 848x480, and with an HDMI device also 800x480, 1024x600, 1280x720 or 1024x768.
-With it, MODE n with no colour depth is the PicoMite's MODE n, a program starts in MODE 1, and RESOLUTION can be used with HDMI.  See Running PicoMite Programs in the chapter Video Modes and Pages.  The I/O pins can also be referred to by the PicoMite's GP names, and the PicoMite's SETPIN commands that give COM ports, I2C, SPI, PWM and IR their pins are accepted: see PicoMite Pin Names in the chapter Using the I/O Pins.  PWM and SERVO take the PicoMite's arguments (see PWM and SERVO).  OPTION PICOMITE NONE, the default, makes MODE the Colour Maximite 2's.
+With it, MODE n with no colour depth is the PicoMite's MODE n, a program starts in MODE 1, and RESOLUTION can be used with HDMI.  See Running PicoMite Programs in the chapter Video Modes and Pages.  The I/O pins can also be referred to by the PicoMite's GP names, and the PicoMite's SETPIN commands that give COM ports, I2C, SPI, PWM and IR their pins are accepted: see PicoMite Pin Names in the chapter Using the I/O Pins.  PWM and SERVO take the PicoMite's arguments (see PWM and SERVO).  The Enter key gives a CR alone, as on the PicoMite (see OPTION CRLF).  OPTION PICOMITE NONE, the default, makes MODE the Colour Maximite 2's.
 This command can only be run from the command line.
 
 === OPTION PIN nbr

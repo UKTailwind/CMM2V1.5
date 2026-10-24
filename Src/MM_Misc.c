@@ -94,6 +94,11 @@ int CMM1=false;
 char EchoOption = true;
 unsigned long long int __attribute__((section(".my_section"))) saved_variable;  //  __attribute__ ((persistent));  // and this is the address
 int sendCRLF=3;
+// OPTION CRLF's default, which loading, running and ending a program and the prompt return to: CRLF, or CR under
+// OPTION PICOMITE, as the PicoMite's keyboard sends it (and MMInkey then adds no LF after a terminal's CR)
+int CRLFDefault(void) {
+	return PicoFlavour() != PICO_NONE ? 2 : 3;
+}
 unsigned int CurrentCpuSpeed;
 MMFLOAT optionangle=1.0;
 int optiony=0;

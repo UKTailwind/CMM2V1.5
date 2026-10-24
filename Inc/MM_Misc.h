@@ -154,6 +154,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern int MouseOptionStart(void);                              // OPTION MOUSE 0's started if not yet, quietly (UiMouse.c)
 	extern int CMM1;
 	extern int sendCRLF;
+	extern int CRLFDefault(void);                                   // OPTION CRLF's default: CRLF, CR under OPTION PICOMITE
 	extern void update_clock(void);
 	extern void copy_clock(void);
 	extern MMFLOAT optionangle;

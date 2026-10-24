@@ -448,7 +448,7 @@ void cleanend(void){
 //		CurrentY= maxH-(gui_font_height*2);
 //    		CurrentY=CurrentY-(gui_font_height);
 	}
-	sendCRLF = 3;
+	sendCRLF = CRLFDefault();
 	SCB_CleanInvalidateDCache();
 	CloseAudio(1);
 	CloseAllFiles();
@@ -853,7 +853,7 @@ if(setjmp(mark) != 0) {
 	  SerUSBPutS("\033[37m");
 	  SerUSBPutS("\033[m");
 //  	  SerUSBPutS("\033[20h");
-	  sendCRLF=3;
+	  sendCRLF = CRLFDefault();
 	  FontTable[0]=(unsigned char *)font1;
 	  FontTable[1]=(unsigned char *)Misc_12x20_LE;
 	  FontTable[2]=(unsigned char *)Hom_16x24_LE;
@@ -1132,7 +1132,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 		  CurrentY= maxH-(gui_font_height*2);
 		  ShortScroll=Option.showstatus;
   	  }
-  	  sendCRLF = 3;
+  	  sendCRLF = CRLFDefault();
       if(Option.showstatus)PrintStatus(1);
       mymemset(inpbuf,0,STRINGSIZE);
   }
@@ -3466,8 +3466,8 @@ void SerialConsolePutC(int c) {
 	    	crseen = 1;
 	    	InkeyTimer = 0;
 	    }
-	    if(c==-1 && InkeyTimer>2 && crseen){
-	    	c='\n';
+	    if(c==-1 && InkeyTimer>2 && crseen && sendCRLF == 3){    // a terminal's CR alone: Enter as the keyboard's CR LF
+	    	c='\n';                                                     // (not with OPTION CRLF CR or LF, nor OPTION PICOMITE's CR)
 	    }
 	    if(!(c==-1 || c=='\r'))crseen=0;
 	    if(c == 0x1b) {
