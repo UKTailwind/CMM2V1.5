@@ -514,11 +514,11 @@ void setmode(int mode, int colour, int bc, int force){
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==18){
-	  pll.PLL3M = 1; //60Hz 58.286MHz (58.5 -0.37%) pixel clock, VCO 816 MHz
-	  pll.PLL3N = 102;
-	  pll.PLL3P = 14;
-	  pll.PLL3Q = 14;
-	  pll.PLL3R = 14;
+	  pll.PLL3M = 1; //59.8Hz 50.5MHz (the PicoMite's 50.4 +0.2%) pixel clock, VCO 808 MHz (it was 58.286 MHz, 68 Hz)
+	  pll.PLL3N = 101;
+	  pll.PLL3P = 16;
+	  pll.PLL3Q = 16;
+	  pll.PLL3R = 16;
 	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
@@ -851,17 +851,20 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.TotalWidth = 503;
 		  hltdc.Init.TotalHeigh = 499;
 	  } else if((VideoMode==18)){//1024x600
+		  // the PicoMite's 1024x600 (graphics/Screens.h, MODE_H_X_ and MODE_V_X_: 1024x768's line, 800x600@60's frame),
+		  // which monitors take (Peter, 24 Oct 2026): H 1024 + 24 + 136 + 160, V 600 + 1 + 4 + 23, +H -V. It was a
+		  // panel's (H 1024 + 210 + 10 + 100, V 600 + 18 + 10 + 10, -H -V, 68 Hz), which a monitor showed poorly.
 		  hltdc.Instance = LTDC;
-		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
+		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AH;
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
-		  hltdc.Init.HorizontalSync = 9;
-		  hltdc.Init.VerticalSync = 9;
-		  hltdc.Init.AccumulatedHBP = 109 + Option.offsets[18];
-		  hltdc.Init.AccumulatedVBP = 19;
-		  hltdc.Init.AccumulatedActiveW = 1133;
-		  hltdc.Init.AccumulatedActiveH = 619;
+		  hltdc.Init.HorizontalSync = 135;
+		  hltdc.Init.VerticalSync = 3;
+		  hltdc.Init.AccumulatedHBP = 295 + Option.offsets[18];
+		  hltdc.Init.AccumulatedVBP = 26;
+		  hltdc.Init.AccumulatedActiveW = 1319;
+		  hltdc.Init.AccumulatedActiveH = 626;
 		  hltdc.Init.TotalWidth = 1343;
-		  hltdc.Init.TotalHeigh = 637;
+		  hltdc.Init.TotalHeigh = 627;
 	  }
 	  if(ModeHs > 1){                                                 // OPTION PICOMITE's smaller modes: the line's parts in
 		  hltdc.Init.HorizontalSync = (hltdc.Init.HorizontalSync + 1) / ModeHs - 1;   // pixels of the divided clock,
