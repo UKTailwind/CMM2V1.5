@@ -3340,7 +3340,7 @@ void SetColour(char *p, int DoVT100)
     // this is a list of common keywords that should be highlighted as such
     // the list must be terminated with a NULL
     char *specialkeywords[] = {
-        "SELECT", "INTEGER", "FLOAT", "STRING", "DISPLAY", "SDCARD", "OUTPUT", "APPEND", "WRITE", "SLAVE", "TARGET", "PROGRAM",
+        "SELECT", "INTEGER", "FLOAT", "STRING", "DISPLAY", "SDCARD", "USBDRIVE", "OUTPUT", "APPEND", "WRITE", "SLAVE", "TARGET", "PROGRAM",
         //        ".PROGRAM", ".END PROGRAM", ".SIDE", ".LABEL" , ".LINE",".WRAP", ".WRAP TARGET",
         NULL};
 

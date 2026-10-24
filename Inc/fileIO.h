@@ -78,6 +78,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void FilePutData(char *c, int fnbr, int n);
     extern char *ChangeToDir(char *p);
     extern int InitSDCard(void);
+    extern int USBDriveReady(void);                                  // MM.INFO$(USBDRIVE): the C: drive mounted (FileIO.c)
     extern int InitACard(void);
     extern char *ProgramFileImage(char *fname, int *len);
     extern void ErrorCheck(int fnbr);

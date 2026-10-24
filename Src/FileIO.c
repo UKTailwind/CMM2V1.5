@@ -2508,6 +2508,20 @@ int InitSDCard(void) {
     return r;
 }
 
+// MM.INFO$(USBDRIVE): the C: drive's state, as MM.INFO$(SDCARD) gives the SD card's (Peter, 24 Oct 2026): 1 if a USB
+// flash drive is there and its volume is mounted, mounting it now if it is not (the files open on C: before it was
+// unplugged are stale, as InitUSBDrive closes them). Only C: is touched: InitUSBDrive's f_mount of A: would make the
+// files open on the SD card invalid, and its f_chdrive change the current drive. MM.ERRNO is not set.
+int USBDriveReady(void) {
+    int i;
+    if(!usb_msc_is_mounted()) return 0;
+    if(!(USBDriveStat & STA_NOINIT)) return 1;
+    for(i = 0; i < MAXOPENFILES; i++)
+        if(FileTable[i].com > MAXCOMPORTS && FileTable[i].fptr != NULL && FileTable[i].fptr->obj.fs == &FatFs_USB)
+            ForceFileClose(i);
+    return f_mount(&FatFs_USB, "C:", 1) == FR_OK;
+}
+
 
 
 // finds the first available free file number.  Throws an error if no free file numbers

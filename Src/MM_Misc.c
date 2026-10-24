@@ -3428,6 +3428,8 @@ void fun_info(void){
 		else if((SDCardStat & (STA_NODISK | STA_NOINIT))==(STA_NODISK | STA_NOINIT)) strcpy(sret,"Not present");
 		else if(!(SDCardStat & STA_NOINIT)) strcpy(sret,"Ready");
 		else strcpy(sret,"Unused");
+	} else if(checkstring(ep, "USBDRIVE")){                         // the C: drive, a USB flash drive, as SDCARD the SD card
+		strcpy(sret, USBDriveReady() ? "Ready" : "Not present");   // (mounted now if it is there: FileIO.c)
 	} else error("Syntax");
 
     targ=T_INT;
