@@ -73,7 +73,7 @@ void PcsStart(void) {
     TIM15->EGR = TIM_EGR_UG;
     TIM15->SR = 0;
     TIM15->DIER = TIM_DIER_UIE;
-    NVIC_SetPriority(TIM15_IRQn, 1);
+    NVIC_SetPriority(TIM15_IRQn, IRQ_PRI(1));
     NVIC_EnableIRQ(TIM15_IRQn);
     TIM15->CR1 = TIM_CR1_CEN;
 }

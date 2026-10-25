@@ -93,7 +93,7 @@ void MouseKBDIntEnable(int status){
         mouse0=1;
 	    PinSetBit(MOUSE_CLOCK, TRISSET);                                         // same for data
 	    PinSetBit(MOUSE_DATA, TRISSET);                                          // data low
-        HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
+        HAL_NVIC_SetPriority(EXTI3_IRQn, IRQ_PRI(2), 0);
         HAL_NVIC_EnableIRQ(EXTI3_IRQn);
         GPIO_InitDef.Pull = GPIO_PULLUP; //set as input with pull up
         GPIO_InitDef.Pin = PinDef[MOUSE_CLOCK].bitnbr;

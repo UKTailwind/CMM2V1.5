@@ -520,7 +520,7 @@ void cmd_nunchuck(char *cmd){
 				nun1Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
 	            IntSignal();
 			}
-			HAL_NVIC_SetPriority(I2C1_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C1_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
 			nun1=1;
 		} else if(nchan==2){
@@ -582,7 +582,7 @@ void cmd_nunchuck(char *cmd){
 				nun2Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
 	            IntSignal();
 			}
-			HAL_NVIC_SetPriority(I2C4_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C4_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C4_EV_IRQn);
 			nun2=1;
 		} else { //nchan==3
@@ -644,7 +644,7 @@ void cmd_nunchuck(char *cmd){
 				nun3Interruptc = GetIntAddress(argv[4]);					// get the interrupt location
 	            IntSignal();
 			}
-			HAL_NVIC_SetPriority(I2C2_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C2_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C2_EV_IRQn);
 			nun3=1;
 		}
@@ -741,7 +741,7 @@ void cmd_classic(char *cmd){
 	            nunstruct[nchan].x1=0b111111111111111;
 	            if(argc==5)nunstruct[nchan].x1=getint(argv[4],0,0b111111111111111);
 			}
-			HAL_NVIC_SetPriority(I2C1_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C1_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
 			classic1=1;
 		} else if(nchan==2){
@@ -789,7 +789,7 @@ void cmd_classic(char *cmd){
 	            nunstruct[nchan].x1=0b111111111111111;
 	            if(argc==5)nunstruct[nchan].x1=getint(argv[4],0,0b111111111111111);
 			}
-			HAL_NVIC_SetPriority(I2C4_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C4_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C4_EV_IRQn);
 			classic2=1;
 		} else { //nchan==3
@@ -837,7 +837,7 @@ void cmd_classic(char *cmd){
 	            nunstruct[nchan].x1=0b111111111111111;
 	            if(argc==5)nunstruct[nchan].x1=getint(argv[4],0,0b111111111111111);
 			}
-			HAL_NVIC_SetPriority(I2C2_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C2_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C2_EV_IRQn);
 			classic3=1;
 		}
@@ -1000,7 +1000,7 @@ void cmd_mouse(char *cmd){
 				mouse1Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
 	            IntSignal();
 			}
-			HAL_NVIC_SetPriority(I2C1_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C1_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
 			mouse1=1;
 		} else if(nchan==2){
@@ -1075,7 +1075,7 @@ void cmd_mouse(char *cmd){
 				mouse2Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
 	            IntSignal();
 			}
-			HAL_NVIC_SetPriority(I2C4_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C4_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C4_EV_IRQn);
 			mouse2=1;
 		} else { //nchan==3
@@ -1151,7 +1151,7 @@ void cmd_mouse(char *cmd){
 				mouse3Interruptu = GetIntAddress(argv[8]);					// get the interrupt location
 	            IntSignal();
 			}
-			HAL_NVIC_SetPriority(I2C2_EV_IRQn,0,0);
+			HAL_NVIC_SetPriority(I2C2_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C2_EV_IRQn);
 			mouse3=1;
 		}

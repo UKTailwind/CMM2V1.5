@@ -161,7 +161,7 @@
   * @brief This is the HAL system configuration section
   */     
 #define  VDD_VALUE                    ((uint32_t)3300U) /*!< Value of VDD in mv */
-#define  TICK_INT_PRIORITY            ((uint32_t)0U) /*!< tick interrupt priority */
+#define  TICK_INT_PRIORITY            ((uint32_t)1U) /*!< tick interrupt priority: IRQ_PRI(0), Configuration.h (0 is the stepper's) */
 #define  USE_RTOS                     0U
 #define  USE_SD_TRANSCEIVER           0U               /*!< use uSD Transceiver */
 

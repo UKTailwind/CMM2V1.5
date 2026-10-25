@@ -540,7 +540,7 @@ void SerialOpen(char *spec) {
         	GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
         	HAL_GPIO_Init(COM1_DE_GPIO_Port, &GPIO_InitStruct);
         }
-        HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+        HAL_NVIC_SetPriority(USART2_IRQn, IRQ_PRI(0), 0);
         HAL_NVIC_EnableIRQ(USART2_IRQn);
         huart2.Instance->CR1 |= USART_CR1_RXNEIE;
         com1 = true;
@@ -589,7 +589,7 @@ void SerialOpen(char *spec) {
         	GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
         	HAL_GPIO_Init(COM2_RX_GPIO_Port, &GPIO_InitStruct);
         }
-        HAL_NVIC_SetPriority(UART4_IRQn, 0, 0);
+        HAL_NVIC_SetPriority(UART4_IRQn, IRQ_PRI(0), 0);
         HAL_NVIC_EnableIRQ(UART4_IRQn);
         huart4.Instance->CR1 |= USART_CR1_RXNEIE;
         com2 = true;
@@ -634,7 +634,7 @@ void SerialOpen(char *spec) {
         GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
         HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
     }
-    HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(USART1_IRQn, IRQ_PRI(0), 0);
     HAL_NVIC_EnableIRQ(USART1_IRQn);
     huart1.Instance->CR1 |= USART_CR1_RXNEIE;
     com3 = true;

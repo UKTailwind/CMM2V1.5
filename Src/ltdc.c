@@ -562,7 +562,7 @@ void setmode(int mode, int colour, int bc, int force){
 		BlitShowBuffer=BlitShowBuff;
 		DrawPixel=DrawPixel8;
 		if(DisplayMerged){                                          // (8-bit rows four times: the merge, Rgb121.c)
-			HAL_NVIC_SetPriority(CEC_IRQn, 6, 0);
+			HAL_NVIC_SetPriority(CEC_IRQn, IRQ_PRI(6), 0);
 			HAL_NVIC_EnableIRQ(CEC_IRQn);
 		}
 	} else {
@@ -897,7 +897,7 @@ if(VideoColour<=8){
 	HAL_LTDC_EnableCLUT(&hltdc, 0);
 }
 	HAL_LTDC_ProgramLineEvent(&hltdc, hltdc.Init.AccumulatedActiveH+1);
-	HAL_NVIC_SetPriority(LTDC_IRQn, 0, 0);
+	HAL_NVIC_SetPriority(LTDC_IRQn, IRQ_PRI(0), 0);
 	HAL_NVIC_EnableIRQ(LTDC_IRQn);
 }
 

@@ -482,7 +482,7 @@ void MonoPointers(void) {
     DrawBufferFast = DrawBufferFast1;
     ReadBufferFast = ReadBufferFast1;
     BlitShowBuffer = BlitShowBuff;                                  // (a byte a pixel, as the 8-bit modes' buffers)
-    HAL_NVIC_SetPriority(CEC_IRQn, 6, 0);                           // the merge: below everything (Rgb121.c)
+    HAL_NVIC_SetPriority(CEC_IRQn, IRQ_PRI(6), 0);                           // the merge: below everything (Rgb121.c)
     HAL_NVIC_EnableIRQ(CEC_IRQn);
 }
 

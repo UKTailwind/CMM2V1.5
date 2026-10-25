@@ -81,6 +81,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define false	0
 
 #define MIPS16
+/* NVIC priorities (0 the highest, 15 the lowest): 0 is kept for the stepper's 100 kHz tick, which must preempt every
+   other interrupt as it does on the PicoMite; every interrupt is at IRQ_PRI(n), one level below its old level n, so their
+   order is as it was (Peter, 25 Oct 2026). The system exceptions (the faults, SVCall, PendSV) keep 0. SysTick's is
+   TICK_INT_PRIORITY (stm32h7xx_hal_conf.h), which HAL_InitTick sets at each clock set-up. */
+#define IRQ_PRI(n) ((n) + 1)
 #define ITCM_CODE __attribute__((section(".itcm"), aligned(8)))   // run from ITCM (zero wait, no I-cache): the linker script's .ITCMSection;
                                             // each function on an 8-byte boundary (the M7 fetches 64 bits), so that code added
                                             // before it does not move its loops' alignment (worth up to 7% on a GOSUB, 17 Oct)

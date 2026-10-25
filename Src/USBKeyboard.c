@@ -197,7 +197,7 @@ void USBKeyboardInit(void)
 	__HAL_RCC_USB_OTG_FS_CLK_ENABLE();
 	__HAL_RCC_USB_OTG_FS_FORCE_RESET();
 	__HAL_RCC_USB_OTG_FS_RELEASE_RESET();
-	HAL_NVIC_SetPriority(OTG_FS_IRQn, 0, 0);                    /* TinyUSB enables it */
+	HAL_NVIC_SetPriority(OTG_FS_IRQn, IRQ_PRI(0), 0);                    /* TinyUSB enables it */
 
 	const tusb_rhport_init_t host_init = {.role = TUSB_ROLE_HOST, .speed = TUSB_SPEED_FULL};
 	TU_LOG1("USBKeyboardInit: tusb_init\r\n");

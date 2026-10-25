@@ -471,7 +471,7 @@ void Rgb121Pointers(void) {
     DrawBufferFast = DrawBufferFast4;
     ReadBufferFast = ReadBufferFast4;
     BlitShowBuffer = BlitShowBuff;                                  // (a byte a pixel, as the 8-bit modes' buffers)
-    HAL_NVIC_SetPriority(CEC_IRQn, 6, 0);                           // the merge: below everything
+    HAL_NVIC_SetPriority(CEC_IRQn, IRQ_PRI(6), 0);                           // the merge: below everything
     HAL_NVIC_EnableIRQ(CEC_IRQn);
 }
 

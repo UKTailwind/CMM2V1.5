@@ -1257,7 +1257,7 @@ void IrInit(void) {
 	IR_InitDef.Pin = PinDef[IRPIN].bitnbr;
 	IR_InitDef.Mode = GPIO_MODE_IT_RISING_FALLING;
 	IR_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 2, 0);
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, IRQ_PRI(2), 0);
 	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 	HAL_GPIO_Init(PinDef[IRPIN].sfr, &IR_InitDef);
     IrReset();
@@ -2155,7 +2155,7 @@ void ExtCfg(int pin, int cfg, int option) {
 									GPIO_InitDef.Pin = COUNT1_Pin;
 									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-									HAL_NVIC_SetPriority(EXTI1_IRQn, 2, 0);
+									HAL_NVIC_SetPriority(EXTI1_IRQn, IRQ_PRI(2), 0);
 									HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 									HAL_GPIO_Init(COUNT1_GPIO_Port, &GPIO_InitDef);
 									INT1Count = INT1Value = 0;
@@ -2167,7 +2167,7 @@ void ExtCfg(int pin, int cfg, int option) {
 									GPIO_InitDef.Pin = COUNT2_Pin;
 									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-									HAL_NVIC_SetPriority(EXTI2_IRQn, 2, 0);
+									HAL_NVIC_SetPriority(EXTI2_IRQn, IRQ_PRI(2), 0);
 									HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 									HAL_GPIO_Init(COUNT2_GPIO_Port, &GPIO_InitDef);
 									INT2Count = INT2Value = 0;
@@ -2179,7 +2179,7 @@ void ExtCfg(int pin, int cfg, int option) {
 									GPIO_InitDef.Pin = COUNT3_Pin;
 									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-									HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
+									HAL_NVIC_SetPriority(EXTI3_IRQn, IRQ_PRI(2), 0);
 									HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 									HAL_GPIO_Init(COUNT3_GPIO_Port, &GPIO_InitDef);
 									INT3Count = INT3Value = 0;
@@ -2191,7 +2191,7 @@ void ExtCfg(int pin, int cfg, int option) {
 									GPIO_InitDef.Pin = COUNT4_Pin;
 									GPIO_InitDef.Mode = edge;
 									GPIO_InitDef.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-									HAL_NVIC_SetPriority(EXTI4_IRQn, 2, 0);
+									HAL_NVIC_SetPriority(EXTI4_IRQn, IRQ_PRI(2), 0);
 									HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 									HAL_GPIO_Init(COUNT4_GPIO_Port, &GPIO_InitDef);
 									INT4Count = INT4Value = 0;
