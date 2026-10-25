@@ -943,7 +943,8 @@ void fun_pin(void) {
 void cmd_port(void) {
 	int pin, nbr;
 	uint64_t value;                                                 // (unsigned: beyond 32 pins a signed int repeated bit 31)
-    int i, gp;
+	uint64_t mask = 0, set = 0;                                     // the pins as GPs (gpio_put_masked64), and those set
+    int i, gp, g;
 	getargs(&cmdline, NBRPINS * 4, ",");
 
 	if((argc & 0b11) != 0b11) error("Invalid syntax");
@@ -961,23 +962,31 @@ void cmd_port(void) {
         while(nbr) {
             if(gp >= 0) pin = GPPinOf(gp++);
             if(IsInvalidPin(pin) || !(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Invalid output pin");
-            ExtSet(pin, value & 1);
+            if((g = PinGP(pin)) < 0) ExtSet(pin, value & 1);        // (a pin with no GP: at once)
+            else {
+                mask |= (uint64_t)1 << g;                           // (a pin given twice: the last value, as before)
+                set = (set & ~((uint64_t)1 << g)) | ((value & 1) << g);
+            }
             value >>= 1;
             nbr--;
             pin++;
         }
     }
-}
+    gpio_put_masked64(mask, set);                                   // all at once, a port's pins in one write (the
+}                                                                   // PicoMite's in one: gpio_xor_mask64)
 
 
 
 // this is invoked as a function (ie, x = port(10,8) )
 void fun_port(void) {
-	int pin, nbr, i, gp;
+	int pin, nbr, i, gp, g;
 	int64_t value = 0;                                              // (up to 64 pins)
+	uint64_t now;
 
 	getargs(&ep, NBRPINS * 4, ",");
 	if((argc & 0b11) != 0b11) error("Invalid syntax");
+	now = gpio_get_all64();                                         // every pin read at once (a port in one read), as the
+	                                                                // PicoMite reads them
 
     for(i = argc - 3; i >= 0; i -= 4) {
         gp = PinArgGP(argv[i], &pin);
@@ -992,7 +1001,7 @@ void fun_port(void) {
             if(IsInvalidPin(pin) || !(ExtCurrentConfig[pin] == EXT_DIG_IN || ExtCurrentConfig[pin] == EXT_INT_HI || ExtCurrentConfig[pin] == EXT_INT_LO || ExtCurrentConfig[pin] == EXT_INT_BOTH
                 || ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Invalid input pin");   // (an output's state too, as b14's and the PicoMite's)
             value <<= 1;
-            value |= PinRead(pin);
+            value |= (g = PinGP(pin)) < 0 ? PinRead(pin) : (int)((now >> g) & 1);
             nbr--;
             pin--;
         }
@@ -2547,6 +2556,92 @@ int GPPinOf(int gp) {
     if(gp < 0 || gp >= NBRGP) error("Invalid GPIO");
     if(GPPin[gp] == 0) error("GP% is not available on the Colour Maximite 2", gp);
     return GPPin[gp];
+}
+
+/* The PicoMite's GPIOs as one 64-bit word, bit n GPn, with the pico SDK's names (gpio_set_mask64 ...), so that code
+   written for its single GPIO register runs here: PORT and PORT() below, and the stepper's pulses and limit switches.
+   Each GP is the pin GPPin[] gives it, whatever OPTION PICOMITE is; a GP with no pin is left out. The pins of one
+   GPIO port change in one BSRR write and are read in one IDR read, so they change and are read together; the ports
+   follow each other a few cycles apart (on the PicoMite all the pins are in one register). Nothing is checked: the
+   callers check that the pins are set up (PORT: outputs, PORT(): inputs or outputs), as the PicoMite's do. BSRR
+   writes are atomic, so an interrupt that changes other pins of the same port is safe. (Peter, 25 Oct 2026.) */
+#define GPPORTS 11                                                  // GPIOA to GPIOK at most
+static GPIO_TypeDef *GPPortReg[GPPORTS];                            // the ports that have GPs
+static uint8_t GPPortN[GPPORTS], GPPortGP[GPPORTS][16];             // and each one's GPs
+static uint8_t GPPortOf[NBRGP];                                     // a GP's port (an index into GPPortReg)
+static uint16_t GPBit[NBRGP];                                       // and its bit there (PinDef's bitnbr), 0: no pin
+static int8_t PinGPOf[NBRPINS + 1];                                 // a pin's GP, -1: none
+static int GPPorts;                                                 // 0 until GPMaskInit
+
+static void GPMaskInit(void) {
+    int gp, i;
+    for(i = 0; i <= NBRPINS; i++) PinGPOf[i] = -1;
+    for(gp = 0; gp < NBRGP; gp++) {
+        int pin = GPPin[gp];
+        if(pin == 0) continue;
+        for(i = 0; i < GPPorts && GPPortReg[i] != PinDef[pin].sfr; i++);
+        if(i == GPPorts) GPPortReg[GPPorts++] = PinDef[pin].sfr;
+        GPPortOf[gp] = i;
+        GPBit[gp] = PinDef[pin].bitnbr;
+        GPPortGP[i][GPPortN[i]++] = gp;
+        PinGPOf[pin] = gp;
+    }
+}
+
+// a pin's GP number, -1 if it has none (every I/O pin of the connector has one)
+int PinGP(int pin) {
+    if(!GPPorts) GPMaskInit();
+    return (pin < 0 || pin > NBRPINS) ? -1 : PinGPOf[pin];
+}
+
+// the GPs in mask set to value's bits: a port's in one BSRR write
+void gpio_put_masked64(uint64_t mask, uint64_t value) {
+    uint32_t bsrr[GPPORTS] = {0};
+    int i;
+    if(!GPPorts) GPMaskInit();
+    while(mask) {
+        int gp = __builtin_ctzll(mask);
+        mask &= mask - 1;
+        if(gp >= NBRGP || !GPBit[gp]) continue;
+        bsrr[GPPortOf[gp]] |= ((value >> gp) & 1) ? GPBit[gp] : (uint32_t)GPBit[gp] << 16;
+    }
+    for(i = 0; i < GPPorts; i++)
+        if(bsrr[i]) GPPortReg[i]->BSRR = bsrr[i];
+}
+
+void gpio_set_mask64(uint64_t mask) {
+    gpio_put_masked64(mask, mask);
+}
+
+void gpio_clr_mask64(uint64_t mask) {
+    gpio_put_masked64(mask, 0);
+}
+
+void gpio_xor_mask64(uint64_t mask) {
+    gpio_put_masked64(mask, ~gpio_get_out_level_all64());
+}
+
+// the GPs' levels from the ports' IDR (or ODR: the output latches), a port in one read; 0 for a GP with no pin
+static uint64_t GPGather(int odr) {
+    uint64_t r = 0;
+    int i, k;
+    if(!GPPorts) GPMaskInit();
+    for(i = 0; i < GPPorts; i++) {
+        uint32_t v = odr ? GPPortReg[i]->ODR : GPPortReg[i]->IDR;
+        for(k = 0; k < GPPortN[i]; k++) {
+            int gp = GPPortGP[i][k];
+            if(v & GPBit[gp]) r |= (uint64_t)1 << gp;
+        }
+    }
+    return r;
+}
+
+uint64_t gpio_get_all64(void) {
+    return GPGather(0);
+}
+
+uint64_t gpio_get_out_level_all64(void) {
+    return GPGather(1);
 }
 
 /* A pin argument: a pin number, or with OPTION PICOMITE also a PicoMite GP name, unquoted as the PicoMite takes it or as

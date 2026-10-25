@@ -1,0 +1,11 @@
+ok  PORT(GP0, 2, GP3, 5) = v read back as PORT(GP8, 2, GP11, 5), v = 0 to 127: the values that differ
+ok  and as PORT(GP0, 2, GP3, 5), the outputs themselves
+ok  one bit at a time, each input by PIN(): the pins that differ
+ok  one group of five consecutive GPs: PORT(GP3, 5) and PORT(GP11, 5)
+ok  pin numbers: PORT(7, 2) = &B10 sets pin 8 (GP0) and clears pin 7 (GP6)
+ok  a pin given twice takes the last value
+ok  an input
+ok  a GP with no pin
+ok  10000 PORT writes in under a second
+portgp: 9 of 9 passed
+

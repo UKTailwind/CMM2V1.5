@@ -170,6 +170,14 @@ extern int IsInvalidPin(int pin);
 extern int GetPinArg(char *p);                  // a pin argument: a number, or with OPTION PICOMITE a GP name
 extern int GetPinArgN(char *p);                 // the same, checked as getint(p, 1, NBRPINS) checks a number
 extern int PinArgGP(char *p, int *pin);         // the same, giving the GP number (-1: a number) and the pin (0: none)
+extern int PinGP(int pin);                      // a pin's GP number (GPPin[]), -1 if it has none
+// the PicoMite's GPIOs as one 64-bit word, bit n GPn on the pin GPPin[] gives it (the pico SDK's names: External.c)
+extern void gpio_put_masked64(uint64_t mask, uint64_t value);
+extern void gpio_set_mask64(uint64_t mask);
+extern void gpio_clr_mask64(uint64_t mask);
+extern void gpio_xor_mask64(uint64_t mask);
+extern uint64_t gpio_get_all64(void);
+extern uint64_t gpio_get_out_level_all64(void);
 extern int GPPinOf(int gp);                     // a GP's pin
 extern int PinFnArg(char *p, MMFLOAT *f, long long int *i64, char **s);   // PIN('s argument, evaluated
 extern int p100interrupts[];
