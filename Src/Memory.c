@@ -1080,7 +1080,13 @@ void ProgramCachesForget(void) {
 uint32_t HeapGen = 0;                                               // HeapWipe's count: a block kept across statements (the
                                                                     // sprites' output buffer) knows when it has gone
 static void HeapWipe(void **keep, int *size, int n) {
+    extern void stepper_close_subsystem(void);
+    extern void StepperForgetRetired(void);
     HeapGen++;
+    stepper_close_subsystem();                                      // the stepper's buffers are in this heap and its 100 kHz
+    StepperForgetRetired();                                         // tick reads them: off and freed while the map is valid,
+                                                                    // so RUN, NEW, a load or CHAIN never leave it running on
+                                                                    // wiped memory (the PicoMite's InitHeap)
     void *slot[MAXIMAGESLOTS];
     int i, slotsize[MAXIMAGESLOTS], nslots = RamSlotBlocks(slot, slotsize);   // the RAM slots stay (ImageSlots.c): their sizes
     BBCSoundRelease();                                              // read now. PLAY BBC's state block is in this heap: freed while the map is valid

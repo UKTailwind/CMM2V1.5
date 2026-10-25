@@ -2864,13 +2864,13 @@ void fun_info(void){
 		targ=T_STR;
 		return;
 	}
-	tp=checkstring(ep, "PINNO");                                    // the pin a GP name is (OPTION PICOMITE: External.c)
+	tp=checkstring(ep, "PINNO");                                    // the pin a GP name is (External.c)
 	if(tp){
 		iret = GetPinArg(tp);
 		targ=T_INT;
 		return;
 	}
-	if(PicoFlavour() != PICO_NONE && checkstring(ep, "MAX GP")){    // OPTION PICOMITE's PicoMite's highest GP
+	if(checkstring(ep, "MAX GP")){                                  // the highest GP: OPTION PICOMITE's PicoMite's, else ours
 		iret = PicoMaxGP();
 		targ=T_INT;
 		return;
@@ -3660,6 +3660,28 @@ void fun_peek(void) {
         targ = T_INT;
         return;
         }
+
+    if((p = checkstring(argv[0], "STEPPER"))) {                     // PEEK(STEPPER X|Y|Z|A|ACTIVE|STATUS|BUFFER): the
+        extern bool stepper_query_position_mm(char axis, float *pos_mm);   // PicoMite's (stepper.c)
+        extern int stepper_query_active(void);
+        extern int stepper_query_status_bitmap(void);
+        extern int stepper_query_buffer_free(void);
+        float pos_mm = 0.0f;
+        char axis = 0;
+        if(argc != 1) error("Syntax");
+        if(checkstring(p, "ACTIVE")) { iret = stepper_query_active(); targ = T_INT; return; }
+        if(checkstring(p, "STATUS")) { iret = stepper_query_status_bitmap(); targ = T_INT; return; }
+        if(checkstring(p, "BUFFER")) { iret = stepper_query_buffer_free(); targ = T_INT; return; }
+        if(checkstring(p, "X")) axis = 'X';
+        else if(checkstring(p, "Y")) axis = 'Y';
+        else if(checkstring(p, "Z")) axis = 'Z';
+        else if(checkstring(p, "A")) axis = 'A';
+        else error("Expected X, Y, Z, A, ACTIVE, STATUS, or BUFFER");
+        if(!stepper_query_position_mm(axis, &pos_mm)) error("Stepper axis not configured");
+        fret = (MMFLOAT)pos_mm;
+        targ = T_NBR;
+        return;
+    }
 
     if((p = checkstring(argv[0], "VARADDR"))){
         if(argc != 1) error("Syntax");

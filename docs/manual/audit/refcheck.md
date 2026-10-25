@@ -2,11 +2,11 @@
 
 Made by `tools/manual/refcheck.py` from `docs/manual/ref/` and `firmware.json` (7.00.00b3). Suggestions for the reference pass: the pass decides.
 
-Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 681, PART 7.
+Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 685, PART 7.
 
 ## Predefined Read Only Variables (`variables.txt`)
 
-55 entries; not OK: 0
+56 entries; not OK: 0
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 681, PART 7.
 
 ## Commands (`commands.txt`)
 
-410 entries; not OK: 11
+412 entries; not OK: 11
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
@@ -38,7 +38,7 @@ Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 681, PART 7.
 
 ## Functions (`functions.txt`)
 
-172 entries; not OK: 6
+173 entries; not OK: 6
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|

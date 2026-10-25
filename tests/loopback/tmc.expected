@@ -1,0 +1,8 @@
+ok  TMC22xx: five datagrams, 40 bytes received
+ok    each starts with the sync byte 5 and slave 0
+ok    the registers written (bit 7 set: a write)
+ok    every CRC right
+ok  TMC22xx SGTHRS 0, 100: one datagram
+ok    register &H40 written, value 100, CRC right
+tmc: 6 of 6 passed
+

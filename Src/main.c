@@ -854,6 +854,10 @@ if(setjmp(mark) != 0) {
 	  SerUSBPutS("\033[m");
 //  	  SerUSBPutS("\033[20h");
 	  sendCRLF = CRLFDefault();
+	  if(MMerrno != 0) {                                            // a program stopped by an error: the stepper to a safe state
+		  extern void stepper_abort_to_safe_state_on_error(void);   // (motion stopped, drivers off, buffer cleared, position
+		  stepper_abort_to_safe_state_on_error();                   // unknown; the tick and the axes kept), as the PicoMite's
+	  }                                                             // do_end
 	  FontTable[0]=(unsigned char *)font1;
 	  FontTable[1]=(unsigned char *)Misc_12x20_LE;
 	  FontTable[2]=(unsigned char *)Hom_16x24_LE;
@@ -3349,6 +3353,8 @@ void SerialConsolePutC(int c) {
 	// will return immediately with -1 if there is no character waiting
 	int getConsole(void) {
 	    int c=-1;
+	    extern void stepper_poll_events(void);
+	    stepper_poll_events();                                          // the stepper's E-STOP and limit trips reported (stepper.c)
 	    CheckAbort();
 		if(Option.ConsolePort==3){
 			huart1.Instance->CR1 &= ~USART_CR1_RXNEIE;

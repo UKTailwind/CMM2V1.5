@@ -62,6 +62,7 @@ typedef enum {
     MMONEWIRE,
     MMFLAGS,
     MMERRLINE,                                                      // appended: the ~() codes above stay as they are
+    MMCODE,                                                         // MM.CODE: the stepper's free G-code slots (stepper.c)
     MMEND
 } Operation;
 extern const char* overlaid_functions[];extern volatile int vol_left, vol_right;
@@ -113,6 +114,8 @@ void cmd_tilemap(void);
 void cmd_tile(void);
 void cmd_device(void);
 void cmd_resolution(void);
+void cmd_stepper(void);                                             // STEPPER and TMC22xx: the PicoMite's (stepper.c, made by
+void cmd_TMC22xx(void);                                             // tools/port_stepper.py)
 void fun_tilemap(void);
 void cmd_ray(void);
 void cmd_star(void);
@@ -559,6 +562,8 @@ void op_inv(void);
 	{ "Tile",		    T_CMD,				0, cmd_tile		},      // TILE x, y [, fc] [, bc] [, w] [, h], TILE RESET, TILE HEIGHT h: MODE n,1's tiles (Mono.c)
 	{ "Device",		    T_CMD,				0, cmd_device	},      // DEVICE WII|NUNCHUCK|MOUSE|GAMEPAD|HUMID|WS2812|BITSTREAM ...: the PicoMite's prefix (MiscSTM32.c)
 	{ "Resolution",	    T_CMD,				0, cmd_resolution },    // RESOLUTION res [, speed]: OPTION PICOMITE HDMI's (PicoMode.c)
+	{ "Stepper",	    T_CMD,				0, cmd_stepper	},      // STEPPER ...: the PicoMite's motion control (stepper.c)
+	{ "TMC22xx",	    T_CMD,				0, cmd_TMC22xx	},      // TMC22xx ...: TMC2208/2209 drivers set up over their UART
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

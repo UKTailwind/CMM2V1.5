@@ -1018,7 +1018,7 @@ void cmd_setpin(void) {
 	int i, pin, value, option = 0;
 	getargs(&cmdline, 7, ",");
 	if(argc%2 == 0 || argc < 3) error("Argument count");
-    if(PicoFlavour() != PICO_NONE && PicoSetpin(argc, argv)) return;   // (OPTION PICOMITE: a port's pins, IR)
+    if(PicoSetpin(argc, argv)) return;                              // (the PicoMite's forms: a port's pins, PWM, IR)
 
     if(checkstring(argv[2], "OFF") || checkstring(argv[2], "0"))
         value = EXT_NOT_CONFIG;
@@ -2517,7 +2517,8 @@ int IsInvalidPin(int pin) {
     return false;
 }
 
-/* OPTION PICOMITE's GP names (Peter's map, 23 Oct 2026). Each PicoMite GPIO is the pin here that has its function, where
+/* The PicoMite's GP names (Peter's map, 23 Oct 2026; in every mode since 25 Oct, not only under OPTION PICOMITE). Each
+   PicoMite GPIO is the pin here that has its function, where
    one does, so that a PicoMite program's wiring carries over: COM1 on GP0 and GP1, PWM 1A, 1B, 2A and 2B on GP2-5, the
    counting inputs on GP6-9 (the PicoMite's INT1-4 pins), SPI2 on GP10-12, the fast counting pin on GP13, I2C2 on GP14
    and GP15, I2C on GP16 and GP17, SPI on GP18-20, the analog inputs on GP26-28, and COM2 on GP36 and GP37 (the
@@ -2609,6 +2610,24 @@ void gpio_put_masked64(uint64_t mask, uint64_t value) {
         if(bsrr[i]) GPPortReg[i]->BSRR = bsrr[i];
 }
 
+// one GP set to value (the pico SDK's gpio_put): its pin's BSRR
+void gpio_put(uint32_t gp, int value) {
+    if(!GPPorts) GPMaskInit();
+    if(gp >= NBRGP || !GPBit[gp]) return;
+    GPPortReg[GPPortOf[gp]]->BSRR = value ? GPBit[gp] : (uint32_t)GPBit[gp] << 16;
+}
+
+// one GP made an output or an input with no pull (the pico SDK's gpio_set_dir); ExtCfg sets a pin up for MMBasic
+void gpio_set_dir(uint32_t gp, int out) {
+    GPIO_InitTypeDef g = {0};
+    if(gp >= NBRGP || !GPPin[gp]) return;
+    g.Pin = PinDef[GPPin[gp]].bitnbr;
+    g.Mode = out ? GPIO_MODE_OUTPUT_PP : GPIO_MODE_INPUT;
+    g.Pull = GPIO_NOPULL;
+    g.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(PinDef[GPPin[gp]].sfr, &g);
+}
+
 void gpio_set_mask64(uint64_t mask) {
     gpio_put_masked64(mask, mask);
 }
@@ -2644,17 +2663,13 @@ uint64_t gpio_get_out_level_all64(void) {
     return GPGather(1);
 }
 
-/* A pin argument: a pin number, or with OPTION PICOMITE also a PicoMite GP name, unquoted as the PicoMite takes it or as
-   a string. Returns the GP number (-1 for a number) and puts the pin in *pin: a GP name's is GPPin[]'s (0: none). */
+/* A pin argument: a pin number, or a PicoMite GP name, unquoted as the PicoMite takes it or as a string. Returns the GP
+   number (-1 for a number) and puts the pin in *pin: a GP name's is GPPin[]'s (0: none). */
 int PinArgGP(char *p, int *pin) {
     MMFLOAT f;
     long long int i64;
     char *s;
     int gp, t = T_NOTYPE;
-    if(PicoFlavour() == PICO_NONE) {
-        *pin = getinteger(p);
-        return -1;
-    }
     skipspace(p);
     if((gp = GPName(p, ",)")) < 0) {
         evaluate(p, &f, &i64, &s, &t, false);
@@ -2684,16 +2699,14 @@ int GetPinArgN(char *p) {
 }
 
 /* PIN('s argument, which may be a string of its own (DAC1 and so on): evaluated, its type returned, as evaluate gives
-   them, except that with OPTION PICOMITE a GP name, unquoted or as a string, is its pin (T_INT) */
+   them, except that a GP name, unquoted or as a string, is its pin (T_INT) */
 int PinFnArg(char *p, MMFLOAT *f, long long int *i64, char **s) {
-    int t = T_NOTYPE, gp = -1;
-    if(PicoFlavour() != PICO_NONE) {
-        skipspace(p);
-        gp = GPName(p, ",)");
-    }
+    int t = T_NOTYPE, gp;
+    skipspace(p);
+    gp = GPName(p, ",)");
     if(gp < 0) {
         evaluate(p, f, i64, s, &t, false);
-        if(PicoFlavour() == PICO_NONE || !(t & T_STR) || (gp = GPString(*s)) < 0) return t;
+        if(!(t & T_STR) || (gp = GPString(*s)) < 0) return t;
     }
     *i64 = GPPinOf(gp);
     return T_INT;

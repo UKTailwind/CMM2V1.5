@@ -69,10 +69,12 @@ const char *PicoDeviceName(void) {
     return PicoFlavour() == PICO_NONE ? NULL : PicoNames[Option.Picomite];
 }
 
-// MM.INFO(MAX GP) under OPTION PICOMITE: the PicoMite's highest GP, 47 on an RP2350B and 29 on the others
+// MM.INFO(MAX GP): under OPTION PICOMITE the PicoMite's highest GP, 47 on an RP2350B and 29 on the others; without it
+// the highest GP with a pin here, 37
 int PicoMaxGP(void) {
     const char *n = PicoDeviceName();
-    return n && strstr(n, "RP2350B") ? 47 : 29;
+    if(n == NULL) return 37;                                        // (no OPTION PICOMITE: the highest GP with a pin here)
+    return strstr(n, "RP2350B") ? 47 : 29;
 }
 
 static int PicoResolution(void) {

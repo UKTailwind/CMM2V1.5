@@ -173,6 +173,8 @@ extern int PinArgGP(char *p, int *pin);         // the same, giving the GP numbe
 extern int PinGP(int pin);                      // a pin's GP number (GPPin[]), -1 if it has none
 // the PicoMite's GPIOs as one 64-bit word, bit n GPn on the pin GPPin[] gives it (the pico SDK's names: External.c)
 extern void gpio_put_masked64(uint64_t mask, uint64_t value);
+extern void gpio_put(uint32_t gp, int value);
+extern void gpio_set_dir(uint32_t gp, int out);
 extern void gpio_set_mask64(uint64_t mask);
 extern void gpio_clr_mask64(uint64_t mask);
 extern void gpio_xor_mask64(uint64_t mask);

@@ -117,33 +117,33 @@ These are the connector manufacturer's standard pin numbers. These numbers are u
 
 ### I/O Pin Capabilities
 
-The capabilities of each pin are (5V: the pin tolerates inputs up to 5.3V):
+The capabilities of each pin are (GP: the PicoMite's name for it, which can be used in place of its number; 5V: the pin tolerates inputs up to 5.3V):
 
-{widths: 6,38,6,6,38,6}
-| Pin | Features | 5V | Pin | Features | 5V |
-|---|---|---|---|---|---|
-| 1 | 3.3 Volt Power |  | 2 | 5.0 Volt Power |  |
-| 3 | I2C SDA / CAN1 Tx | 5V | 4 | 5.0 Volt Power |  |
-| 5 | I2C SCK / CAN1 Rx | 5V | 6 | Ground |  |
-| 7 | Analog Input or COUNT 1 |  | 8 | Analog Input or COM1: TX |  |
-| 9 | Ground |  | 10 | Analog Input or COM1: RX |  |
-| 11 | COM2: RX | 5V | 12 | Analog Input or PWM 1A |  |
-| 13 | Analog Input or COUNT 2 |  | 14 | Ground |  |
-| 15 | Analog Input or COUNT 3 |  | 16 | Analog Input or COM2: TX |  |
-| 17 | 3.3 Volt Power |  | 18 | FAST COUNT | 5V |
-| 19 | SPI MOSI / CAN2 Rx | 5V | 20 | Ground |  |
-| 21 | SPI MISO | 5V | 22 | Analog Input or PWM 1B |  |
-| 23 | SPI CLOCK | 5V | 24 | Analog Input or COUNT 4 |  |
-| 25 | Ground |  | 26 | Analog Input |  |
-| 27 | I2C2 SDA | 5V | 28 | I2C2 SCK | 5V |
-| 29 | Analog Input or PWM 1C |  | 30 | Ground |  |
-| 31 | PWM 2B | 5V | 32 | General I/O | 5V |
-| 33 | General I/O | 5V | 34 | Ground |  |
-| 35 | SPI2 MISO | 5V | 36 | PWM 2A | 5V |
-| 37 | Analog Input or COM1 DE |  | 38 | SPI2 MOSI | 5V |
-| 39 | Ground |  | 40 | SPI2 CLOCK / CAN2 Tx | 5V |
+{widths: 6,7,31,6,6,7,31,6}
+| Pin | GP | Features | 5V | Pin | GP | Features | 5V |
+|---|---|---|---|---|---|---|---|
+| 1 |  | 3.3 Volt Power |  | 2 |  | 5.0 Volt Power |  |
+| 3 | GP16 | I2C SDA / CAN1 Tx | 5V | 4 |  | 5.0 Volt Power |  |
+| 5 | GP17 | I2C SCK / CAN1 Rx | 5V | 6 |  | Ground |  |
+| 7 | GP6 | Analog Input or COUNT 1 |  | 8 | GP0 | Analog Input or COM1: TX |  |
+| 9 |  | Ground |  | 10 | GP1 | Analog Input or COM1: RX |  |
+| 11 | GP37 | COM2: RX | 5V | 12 | GP2 | Analog Input or PWM 1A |  |
+| 13 | GP7 | Analog Input or COUNT 2 |  | 14 |  | Ground |  |
+| 15 | GP8 | Analog Input or COUNT 3 |  | 16 | GP36 | Analog Input or COM2: TX |  |
+| 17 |  | 3.3 Volt Power |  | 18 | GP13 | FAST COUNT | 5V |
+| 19 | GP19 | SPI MOSI / CAN2 Rx | 5V | 20 |  | Ground |  |
+| 21 | GP20 | SPI MISO | 5V | 22 | GP3 | Analog Input or PWM 1B |  |
+| 23 | GP18 | SPI CLOCK | 5V | 24 | GP9 | Analog Input or COUNT 4 |  |
+| 25 |  | Ground |  | 26 | GP26 | Analog Input |  |
+| 27 | GP14 | I2C2 SDA | 5V | 28 | GP15 | I2C2 SCK | 5V |
+| 29 | GP27 | Analog Input or PWM 1C |  | 30 |  | Ground |  |
+| 31 | GP5 | PWM 2B | 5V | 32 | GP22 | General I/O | 5V |
+| 33 | GP21 | General I/O | 5V | 34 |  | Ground |  |
+| 35 | GP12 | SPI2 MISO | 5V | 36 | GP4 | PWM 2A | 5V |
+| 37 | GP28 | Analog Input or COM1 DE |  | 38 | GP11 | SPI2 MOSI | 5V |
+| 39 |  | Ground |  | 40 | GP10 | SPI2 CLOCK / CAN2 Tx | 5V |
 
-Except for the power and ground pins all pins can be used for digital I/O using the PIN() function and command and using the pin number as the reference. For example pin 3 can be set to an output using SETPIN 3, DOUT and then the pin set high (ie, to 3.3V) using the command PIN(3) = 1. With OPTION PICOMITE the pins can also be referred to by the PicoMite's GP names (see PicoMite Pin Names in the chapter Using the I/O Pins).
+Except for the power and ground pins all pins can be used for digital I/O using the PIN() function and command and using the pin number as the reference. For example pin 3 can be set to an output using SETPIN 3, DOUT and then the pin set high (ie, to 3.3V) using the command PIN(3) = 1. The pins can also be referred to by the PicoMite's GP names (see PicoMite Pin Names in the chapter Using the I/O Pins).
 
 All pins marked 5V can tolerate inputs up to 5.3V; all other pins can tolerate up to 3.6V.
 

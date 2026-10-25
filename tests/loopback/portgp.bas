@@ -1,6 +1,6 @@
 ' portgp.bas - PORT and PORT() through the 64-bit GPIO masks (gpio_put_masked64 and gpio_get_all64, External.c;
 ' 25 Oct 2026). Needs GP0, GP1 and GP3-GP7 wired to GP8, GP9 and GP11-GP15 (pin 8 to 15, 10 to 24, 22 to 38, 36 to 35,
-' 31 to 18, 7 to 27 and 13 to 28) and OPTION PICOMITE (any device) for the GP names. GP10 is pin 40, the factory reset
+' 31 to 18, 7 to 27 and 13 to 28). GP10 is pin 40, the factory reset
 ' pin (held low at power-up it erases the options and the program), so GP2 and GP10 are not wired or used.
 Option Explicit
 Dim integer tests, pass, i, v, bad, a, b

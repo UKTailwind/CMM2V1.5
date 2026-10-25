@@ -9,7 +9,7 @@
    ],
    "prec": 0,
    "handler": "cmd_play",
-   "line": 387,
+   "line": 390,
    "subkeywords": [
     {
      "kw": "STOP",
@@ -185,7 +185,7 @@
    ],
    "prec": 0,
    "handler": "cmd_call",
-   "line": 388,
+   "line": 391,
    "subkeywords": [
     {
      "kw": "INTEGER",
@@ -228,7 +228,7 @@
    ],
    "prec": 0,
    "handler": "cmd_clear",
-   "line": 389,
+   "line": 392,
    "subkeywords": [
     {
      "kw": "VARS",
@@ -248,7 +248,7 @@
    ],
    "prec": 0,
    "handler": "cmd_erase",
-   "line": 390,
+   "line": 393,
    "subkeywords": [],
    "where": "Commands.c:3785"
   },
@@ -260,7 +260,7 @@
    ],
    "prec": 0,
    "handler": "cmd_continue",
-   "line": 391,
+   "line": 394,
    "subkeywords": [
     {
      "kw": "DO",
@@ -280,7 +280,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 392,
+   "line": 395,
    "subkeywords": [],
    "where": "Commands.c:93"
   },
@@ -292,7 +292,7 @@
    ],
    "prec": 0,
    "handler": "cmd_debug",
-   "line": 393,
+   "line": 396,
    "subkeywords": [
     {
      "kw": "BREAK",
@@ -392,7 +392,7 @@
    ],
    "prec": 0,
    "handler": "cmd_dim",
-   "line": 394,
+   "line": 397,
    "subkeywords": [
     {
      "kw": "INTEGER",
@@ -432,7 +432,7 @@
    ],
    "prec": 0,
    "handler": "cmd_do",
-   "line": 395,
+   "line": 398,
    "subkeywords": [],
    "where": "Commands.c:2481"
   },
@@ -444,7 +444,7 @@
    ],
    "prec": 0,
    "handler": "cmd_else",
-   "line": 397,
+   "line": 400,
    "subkeywords": [],
    "where": "Commands.c:1816"
   },
@@ -456,7 +456,7 @@
    ],
    "prec": 0,
    "handler": "cmd_case",
-   "line": 398,
+   "line": 401,
    "subkeywords": [],
    "where": "Commands.c:2018"
   },
@@ -468,7 +468,7 @@
    ],
    "prec": 0,
    "handler": "cmd_else",
-   "line": 399,
+   "line": 402,
    "subkeywords": [],
    "where": "Commands.c:1816"
   },
@@ -480,7 +480,7 @@
    ],
    "prec": 0,
    "handler": "cmd_select",
-   "line": 401,
+   "line": 404,
    "subkeywords": [
     {
      "kw": "IS",
@@ -500,7 +500,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 402,
+   "line": 405,
    "subkeywords": [],
    "where": "Commands.c:93"
   },
@@ -512,7 +512,7 @@
    ],
    "prec": 0,
    "handler": "cmd_case",
-   "line": 403,
+   "line": 406,
    "subkeywords": [],
    "where": "Commands.c:2018"
   },
@@ -524,7 +524,7 @@
    ],
    "prec": 0,
    "handler": "cmd_endfun",
-   "line": 405,
+   "line": 408,
    "subkeywords": [],
    "where": "Commands.c:2831"
   },
@@ -536,7 +536,7 @@
    ],
    "prec": 0,
    "handler": "cmd_return",
-   "line": 406,
+   "line": 409,
    "subkeywords": [],
    "where": "Commands.c:2822"
   },
@@ -548,7 +548,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 407,
+   "line": 410,
    "subkeywords": [],
    "where": "Commands.c:93"
   },
@@ -560,7 +560,7 @@
    ],
    "prec": 0,
    "handler": "cmd_end",
-   "line": 408,
+   "line": 411,
    "subkeywords": [
     {
      "kw": "NOEND",
@@ -670,7 +670,7 @@
    ],
    "prec": 0,
    "handler": "cmd_exitfor",
-   "line": 410,
+   "line": 413,
    "subkeywords": [],
    "where": "Commands.c:2619"
   },
@@ -682,7 +682,7 @@
    ],
    "prec": 0,
    "handler": "cmd_return",
-   "line": 411,
+   "line": 414,
    "subkeywords": [],
    "where": "Commands.c:2822"
   },
@@ -694,7 +694,7 @@
    ],
    "prec": 0,
    "handler": "cmd_endfun",
-   "line": 412,
+   "line": 415,
    "subkeywords": [],
    "where": "Commands.c:2831"
   },
@@ -706,7 +706,7 @@
    ],
    "prec": 0,
    "handler": "cmd_exit",
-   "line": 413,
+   "line": 416,
    "subkeywords": [],
    "where": "Commands.c:2628"
   },
@@ -718,7 +718,7 @@
    ],
    "prec": 0,
    "handler": "cmd_error",
-   "line": 415,
+   "line": 418,
    "subkeywords": [],
    "where": "Commands.c:2637"
   },
@@ -730,7 +730,7 @@
    ],
    "prec": 0,
    "handler": "cmd_for",
-   "line": 416,
+   "line": 419,
    "subkeywords": [],
    "where": "Commands.c:2159"
   },
@@ -742,7 +742,7 @@
    ],
    "prec": 0,
    "handler": "cmd_subfun",
-   "line": 417,
+   "line": 420,
    "subkeywords": [],
    "where": "Commands.c:2654"
   },
@@ -754,7 +754,7 @@
    ],
    "prec": 0,
    "handler": "cmd_gosub",
-   "line": 418,
+   "line": 421,
    "subkeywords": [],
    "where": "Commands.c:2684"
   },
@@ -766,7 +766,7 @@
    ],
    "prec": 0,
    "handler": "cmd_goto",
-   "line": 419,
+   "line": 422,
    "subkeywords": [],
    "where": "Commands.c:1450"
   },
@@ -778,7 +778,7 @@
    ],
    "prec": 0,
    "handler": "cmd_help",
-   "line": 420,
+   "line": 423,
    "subkeywords": [],
    "where": "Commands.c:273"
   },
@@ -790,7 +790,7 @@
    ],
    "prec": 0,
    "handler": "cmd_if",
-   "line": 421,
+   "line": 424,
    "subkeywords": [],
    "where": "Commands.c:1641"
   },
@@ -802,7 +802,7 @@
    ],
    "prec": 0,
    "handler": "cmd_inc",
-   "line": 422,
+   "line": 425,
    "subkeywords": [],
    "where": "Commands.c:365"
   },
@@ -814,7 +814,7 @@
    ],
    "prec": 0,
    "handler": "cmd_lineinput",
-   "line": 423,
+   "line": 426,
    "subkeywords": [],
    "where": "Commands.c:3261"
   },
@@ -826,7 +826,7 @@
    ],
    "prec": 0,
    "handler": "cmd_input",
-   "line": 424,
+   "line": 427,
    "subkeywords": [],
    "where": "Commands.c:2043"
   },
@@ -838,7 +838,7 @@
    ],
    "prec": 0,
    "handler": "cmd_let",
-   "line": 425,
+   "line": 428,
    "subkeywords": [],
    "where": "Commands.c:642"
   },
@@ -850,7 +850,7 @@
    ],
    "prec": 0,
    "handler": "cmd_list",
-   "line": 426,
+   "line": 429,
    "subkeywords": [
     {
      "kw": "ALL",
@@ -1064,7 +1064,7 @@
    ],
    "prec": 0,
    "handler": "cmd_dim",
-   "line": 427,
+   "line": 430,
    "subkeywords": [
     {
      "kw": "INTEGER",
@@ -1104,7 +1104,7 @@
    ],
    "prec": 0,
    "handler": "cmd_loop",
-   "line": 428,
+   "line": 431,
    "subkeywords": [],
    "where": "Commands.c:2565"
   },
@@ -1116,7 +1116,7 @@
    ],
    "prec": 0,
    "handler": "cmd_new",
-   "line": 429,
+   "line": 432,
    "subkeywords": [],
    "where": "Commands.c:2254"
   },
@@ -1128,7 +1128,7 @@
    ],
    "prec": 0,
    "handler": "cmd_next",
-   "line": 430,
+   "line": 433,
    "subkeywords": [],
    "where": "Commands.c:2283"
   },
@@ -1140,7 +1140,7 @@
    ],
    "prec": 0,
    "handler": "cmd_on",
-   "line": 431,
+   "line": 434,
    "subkeywords": [
     {
      "kw": "KEY",
@@ -1202,7 +1202,7 @@
    ],
    "prec": 0,
    "handler": "cmd_print",
-   "line": 432,
+   "line": 435,
    "subkeywords": [],
    "where": "Commands.c:445"
   },
@@ -1214,7 +1214,7 @@
    ],
    "prec": 0,
    "handler": "cmd_read",
-   "line": 433,
+   "line": 436,
    "subkeywords": [
     {
      "kw": "SAVE",
@@ -1241,7 +1241,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 434,
+   "line": 437,
    "subkeywords": [],
    "where": "Commands.c:93"
   },
@@ -1253,7 +1253,7 @@
    ],
    "prec": 0,
    "handler": "cmd_restore",
-   "line": 435,
+   "line": 438,
    "subkeywords": [],
    "where": "Commands.c:3216"
   },
@@ -1265,7 +1265,7 @@
    ],
    "prec": 0,
    "handler": "cmd_return",
-   "line": 436,
+   "line": 439,
    "subkeywords": [],
    "where": "Commands.c:2822"
   },
@@ -1277,7 +1277,7 @@
    ],
    "prec": 0,
    "handler": "cmd_run",
-   "line": 437,
+   "line": 440,
    "subkeywords": [
     {
      "kw": "DEFINE",
@@ -1300,7 +1300,7 @@
    ],
    "prec": 0,
    "handler": "cmd_dim",
-   "line": 438,
+   "line": 441,
    "subkeywords": [
     {
      "kw": "INTEGER",
@@ -1340,7 +1340,7 @@
    ],
    "prec": 0,
    "handler": "cmd_subfun",
-   "line": 439,
+   "line": 442,
    "subkeywords": [],
    "where": "Commands.c:2654"
   },
@@ -1352,7 +1352,7 @@
    ],
    "prec": 0,
    "handler": "cmd_trace",
-   "line": 440,
+   "line": 443,
    "subkeywords": [
     {
      "kw": "ON",
@@ -1386,7 +1386,7 @@
    ],
    "prec": 0,
    "handler": "cmd_do",
-   "line": 441,
+   "line": 444,
    "subkeywords": [],
    "where": "Commands.c:2481"
   },
@@ -1398,7 +1398,7 @@
    ],
    "prec": 0,
    "handler": "cmd_const",
-   "line": 442,
+   "line": 445,
    "subkeywords": [],
    "where": "Commands.c:3600"
   },
@@ -1411,7 +1411,7 @@
    ],
    "prec": 0,
    "handler": "cmd_mid",
-   "line": 443,
+   "line": 446,
    "subkeywords": [],
    "where": "Commands.c:2767"
   },
@@ -1424,7 +1424,7 @@
    ],
    "prec": 0,
    "handler": "cmd_lmid",
-   "line": 444,
+   "line": 447,
    "subkeywords": [],
    "where": "Commands.c:2739"
   },
@@ -1436,7 +1436,7 @@
    ],
    "prec": 0,
    "handler": "cmd_execute",
-   "line": 445,
+   "line": 448,
    "subkeywords": [
     {
      "kw": "COLOR",
@@ -1529,7 +1529,7 @@
    ],
    "prec": 0,
    "handler": "cmd_triangle",
-   "line": 446,
+   "line": 449,
    "subkeywords": [],
    "where": "Draw.c:4921"
   },
@@ -1541,7 +1541,7 @@
    ],
    "prec": 0,
    "handler": "cmd_text",
-   "line": 447,
+   "line": 450,
    "subkeywords": [],
    "where": "Draw.c:3209"
   },
@@ -1553,7 +1553,7 @@
    ],
    "prec": 0,
    "handler": "cmd_pixel",
-   "line": 448,
+   "line": 451,
    "subkeywords": [
     {
      "kw": "FILL",
@@ -1573,7 +1573,7 @@
    ],
    "prec": 0,
    "handler": "cmd_circle",
-   "line": 449,
+   "line": 452,
    "subkeywords": [],
    "where": "Draw.c:4051"
   },
@@ -1585,7 +1585,7 @@
    ],
    "prec": 0,
    "handler": "cmd_line",
-   "line": 450,
+   "line": 453,
    "subkeywords": [
     {
      "kw": "PLOT",
@@ -1619,7 +1619,7 @@
    ],
    "prec": 0,
    "handler": "cmd_box",
-   "line": 451,
+   "line": 454,
    "subkeywords": [
     {
      "kw": "AND_PIXELS",
@@ -1660,7 +1660,7 @@
    ],
    "prec": 0,
    "handler": "cmd_rbox",
-   "line": 452,
+   "line": 455,
    "subkeywords": [],
    "where": "Draw.c:4795"
   },
@@ -1672,7 +1672,7 @@
    ],
    "prec": 0,
    "handler": "cmd_cls",
-   "line": 453,
+   "line": 456,
    "subkeywords": [],
    "where": "Draw.c:5013"
   },
@@ -1684,7 +1684,7 @@
    ],
    "prec": 0,
    "handler": "cmd_font",
-   "line": 454,
+   "line": 457,
    "subkeywords": [],
    "where": "Draw.c:5120"
   },
@@ -1696,7 +1696,7 @@
    ],
    "prec": 0,
    "handler": "cmd_colour",
-   "line": 455,
+   "line": 458,
    "subkeywords": [
     {
      "kw": "MAP",
@@ -1716,7 +1716,7 @@
    ],
    "prec": 0,
    "handler": "cmd_page",
-   "line": 456,
+   "line": 459,
    "subkeywords": [
     {
      "kw": "WRITE",
@@ -1806,7 +1806,7 @@
    ],
    "prec": 0,
    "handler": "cmd_arc",
-   "line": 457,
+   "line": 460,
    "subkeywords": [],
    "where": "Draw.c:3686"
   },
@@ -1818,7 +1818,7 @@
    ],
    "prec": 0,
    "handler": "cmd_polygon",
-   "line": 458,
+   "line": 461,
    "subkeywords": [],
    "where": "Draw.c:4047"
   },
@@ -1831,7 +1831,7 @@
    ],
    "prec": 0,
    "handler": "cmd_clut",
-   "line": 459,
+   "line": 462,
    "subkeywords": [
     {
      "kw": "SET",
@@ -1879,7 +1879,7 @@
    ],
    "prec": 0,
    "handler": "cmd_clut",
-   "line": 460,
+   "line": 463,
    "subkeywords": [
     {
      "kw": "SET",
@@ -1927,7 +1927,7 @@
    ],
    "prec": 0,
    "handler": "cmd_image",
-   "line": 461,
+   "line": 464,
    "subkeywords": [
     {
      "kw": "ROTATE_FAST",
@@ -1989,7 +1989,7 @@
    ],
    "prec": 0,
    "handler": "cmd_framebuffer",
-   "line": 462,
+   "line": 465,
    "subkeywords": [
     {
      "kw": "WINDOW",
@@ -2143,7 +2143,7 @@
    ],
    "prec": 0,
    "handler": "cmd_3D",
-   "line": 463,
+   "line": 466,
    "subkeywords": [
     {
      "kw": "CREATE",
@@ -2255,7 +2255,7 @@
    ],
    "prec": 0,
    "handler": "cmd_pin",
-   "line": 464,
+   "line": 467,
    "subkeywords": [],
    "where": "External.c:489"
   },
@@ -2267,118 +2267,118 @@
    ],
    "prec": 0,
    "handler": "cmd_setpin",
-   "line": 465,
+   "line": 468,
    "subkeywords": [
     {
      "kw": "OFF",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1014,
+     "line": 1023,
      "via": []
     },
     {
      "kw": "0",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1014,
+     "line": 1023,
      "via": []
     },
     {
      "kw": "AIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1016,
+     "line": 1025,
      "via": []
     },
     {
      "kw": "DIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1018,
+     "line": 1027,
      "via": []
     },
     {
      "kw": "FIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1020,
+     "line": 1029,
      "via": []
     },
     {
      "kw": "PIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1022,
+     "line": 1031,
      "via": []
     },
     {
      "kw": "CIN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1024,
+     "line": 1033,
      "via": []
     },
     {
      "kw": "INTH",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1026,
+     "line": 1035,
      "via": []
     },
     {
      "kw": "INTL",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1028,
+     "line": 1037,
      "via": []
     },
     {
      "kw": "DOUT",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1030,
+     "line": 1039,
      "via": []
     },
     {
      "kw": "OOUT",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1032,
+     "line": 1041,
      "via": []
     },
     {
      "kw": "INTB",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1034,
+     "line": 1043,
      "via": []
     },
     {
      "kw": "PULLUP",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1049,
+     "line": 1058,
      "via": []
     },
     {
      "kw": "PULLDOWN",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1050,
+     "line": 1059,
      "via": []
     },
     {
      "kw": "OC",
      "func": "cmd_setpin",
      "file": "External.c",
-     "line": 1081,
+     "line": 1090,
      "via": []
     },
     {
      "kw": "IR",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2639,
+     "line": 2752,
      "via": [
       "cmd_setpin"
      ]
@@ -2387,7 +2387,7 @@
      "kw": "PWM",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2644,
+     "line": 2757,
      "via": [
       "cmd_setpin"
      ]
@@ -2396,7 +2396,7 @@
      "kw": "PWM1A",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2647,
+     "line": 2760,
      "via": [
       "cmd_setpin"
      ]
@@ -2405,7 +2405,7 @@
      "kw": "PWM1B",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2647,
+     "line": 2760,
      "via": [
       "cmd_setpin"
      ]
@@ -2414,7 +2414,7 @@
      "kw": "PWM2A",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2647,
+     "line": 2760,
      "via": [
       "cmd_setpin"
      ]
@@ -2423,7 +2423,7 @@
      "kw": "PWM2B",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2647,
+     "line": 2760,
      "via": [
       "cmd_setpin"
      ]
@@ -2432,7 +2432,7 @@
      "kw": "FFIN",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2650,
+     "line": 2763,
      "via": [
       "cmd_setpin"
      ]
@@ -2441,7 +2441,7 @@
      "kw": "COM1",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2653,
+     "line": 2766,
      "via": [
       "cmd_setpin"
      ]
@@ -2450,7 +2450,7 @@
      "kw": "COM2",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2653,
+     "line": 2766,
      "via": [
       "cmd_setpin"
      ]
@@ -2459,7 +2459,7 @@
      "kw": "I2C",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2653,
+     "line": 2766,
      "via": [
       "cmd_setpin"
      ]
@@ -2468,7 +2468,7 @@
      "kw": "I2C2",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2653,
+     "line": 2766,
      "via": [
       "cmd_setpin"
      ]
@@ -2477,7 +2477,7 @@
      "kw": "SPI",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2653,
+     "line": 2766,
      "via": [
       "cmd_setpin"
      ]
@@ -2486,13 +2486,13 @@
      "kw": "SPI2",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2653,
+     "line": 2766,
      "via": [
       "cmd_setpin"
      ]
     }
    ],
-   "where": "External.c:1008"
+   "where": "External.c:1017"
   },
   {
    "table": "command",
@@ -2502,9 +2502,9 @@
    ],
    "prec": 0,
    "handler": "cmd_pulse",
-   "line": 466,
+   "line": 469,
    "subkeywords": [],
-   "where": "External.c:1115"
+   "where": "External.c:1124"
   },
   {
    "table": "command",
@@ -2515,7 +2515,7 @@
    ],
    "prec": 0,
    "handler": "cmd_port",
-   "line": 467,
+   "line": 470,
    "subkeywords": [],
    "where": "External.c:943"
   },
@@ -2527,24 +2527,24 @@
    ],
    "prec": 0,
    "handler": "cmd_ir",
-   "line": 468,
+   "line": 471,
    "subkeywords": [
     {
      "kw": "CLOSE",
      "func": "cmd_ir",
      "file": "External.c",
-     "line": 1202,
+     "line": 1211,
      "via": []
     },
     {
      "kw": "SEND",
      "func": "cmd_ir",
      "file": "External.c",
-     "line": 1206,
+     "line": 1215,
      "via": []
     }
    ],
-   "where": "External.c:1199"
+   "where": "External.c:1208"
   },
   {
    "table": "command",
@@ -2554,31 +2554,31 @@
    ],
    "prec": 0,
    "handler": "cmd_sync",
-   "line": 469,
+   "line": 472,
    "subkeywords": [
     {
      "kw": "U",
      "func": "cmd_sync",
      "file": "External.c",
-     "line": 1541,
+     "line": 1550,
      "via": []
     },
     {
      "kw": "M",
      "func": "cmd_sync",
      "file": "External.c",
-     "line": 1542,
+     "line": 1551,
      "via": []
     },
     {
      "kw": "S",
      "func": "cmd_sync",
      "file": "External.c",
-     "line": 1543,
+     "line": 1552,
      "via": []
     }
    ],
-   "where": "External.c:1527"
+   "where": "External.c:1536"
   },
   {
    "table": "command",
@@ -2588,31 +2588,31 @@
    ],
    "prec": 0,
    "handler": "cmd_bitbang",
-   "line": 470,
+   "line": 473,
    "subkeywords": [
     {
      "kw": "WS2812",
      "func": "cmd_bitbang",
      "file": "External.c",
-     "line": 1554,
+     "line": 1563,
      "via": []
     },
     {
      "kw": "DHT22",
      "func": "cmd_bitbang",
      "file": "External.c",
-     "line": 1559,
+     "line": 1568,
      "via": []
     },
     {
      "kw": "BITSTREAM",
      "func": "cmd_bitbang",
      "file": "External.c",
-     "line": 1564,
+     "line": 1573,
      "via": []
     }
    ],
-   "where": "External.c:1552"
+   "where": "External.c:1561"
   },
   {
    "table": "command",
@@ -2622,9 +2622,9 @@
    ],
    "prec": 0,
    "handler": "cmd_humid",
-   "line": 471,
+   "line": 474,
    "subkeywords": [],
-   "where": "External.c:1572"
+   "where": "External.c:1581"
   },
   {
    "table": "command",
@@ -2634,9 +2634,9 @@
    ],
    "prec": 0,
    "handler": "cmd_humid",
-   "line": 472,
+   "line": 475,
    "subkeywords": [],
-   "where": "External.c:1572"
+   "where": "External.c:1581"
   },
   {
    "table": "command",
@@ -2646,9 +2646,9 @@
    ],
    "prec": 0,
    "handler": "cmd_ws2812",
-   "line": 473,
+   "line": 476,
    "subkeywords": [],
-   "where": "External.c:1573"
+   "where": "External.c:1582"
   },
   {
    "table": "command",
@@ -2658,9 +2658,9 @@
    ],
    "prec": 0,
    "handler": "cmd_bitstream",
-   "line": 474,
+   "line": 477,
    "subkeywords": [],
-   "where": "External.c:1574"
+   "where": "External.c:1583"
   },
   {
    "table": "command",
@@ -2671,7 +2671,7 @@
    ],
    "prec": 0,
    "handler": "cmd_ctrlval",
-   "line": 475,
+   "line": 478,
    "subkeywords": [
     {
      "kw": "OPEN",
@@ -2704,7 +2704,7 @@
    ],
    "prec": 0,
    "handler": "cmd_i2c",
-   "line": 476,
+   "line": 479,
    "subkeywords": [
     {
      "kw": "OPEN",
@@ -2762,7 +2762,7 @@
    ],
    "prec": 0,
    "handler": "cmd_i2c_2",
-   "line": 477,
+   "line": 480,
    "subkeywords": [
     {
      "kw": "OPEN",
@@ -2820,7 +2820,7 @@
    ],
    "prec": 0,
    "handler": "cmd_i2c_3",
-   "line": 478,
+   "line": 481,
    "subkeywords": [
     {
      "kw": "OPEN",
@@ -2878,7 +2878,7 @@
    ],
    "prec": 0,
    "handler": "cmd_math",
-   "line": 479,
+   "line": 482,
    "subkeywords": [
     {
      "kw": "SET",
@@ -3286,7 +3286,7 @@
    ],
    "prec": 0,
    "handler": "cmd_save",
-   "line": 480,
+   "line": 483,
    "subkeywords": [
     {
      "kw": "CONTEXT",
@@ -3334,7 +3334,7 @@
    ],
    "prec": 0,
    "handler": "cmd_load",
-   "line": 481,
+   "line": 484,
    "subkeywords": [
     {
      "kw": "CONTEXT",
@@ -3410,7 +3410,7 @@
    ],
    "prec": 0,
    "handler": "cmd_mkdir",
-   "line": 482,
+   "line": 485,
    "subkeywords": [],
    "where": "FileIO.c:1196"
   },
@@ -3422,7 +3422,7 @@
    ],
    "prec": 0,
    "handler": "cmd_rmdir",
-   "line": 483,
+   "line": 486,
    "subkeywords": [],
    "where": "FileIO.c:1208"
   },
@@ -3434,7 +3434,7 @@
    ],
    "prec": 0,
    "handler": "cmd_chdir",
-   "line": 484,
+   "line": 487,
    "subkeywords": [],
    "where": "FileIO.c:1378"
   },
@@ -3446,7 +3446,7 @@
    ],
    "prec": 0,
    "handler": "cmd_kill",
-   "line": 485,
+   "line": 488,
    "subkeywords": [
     {
      "kw": "ALL",
@@ -3466,7 +3466,7 @@
    ],
    "prec": 0,
    "handler": "cmd_seek",
-   "line": 486,
+   "line": 489,
    "subkeywords": [],
    "where": "FileIO.c:1523"
   },
@@ -3478,7 +3478,7 @@
    ],
    "prec": 0,
    "handler": "cmd_listfiles",
-   "line": 487,
+   "line": 490,
    "subkeywords": [
     {
      "kw": "NAME",
@@ -3527,7 +3527,7 @@
    ],
    "prec": 0,
    "handler": "cmd_name",
-   "line": 488,
+   "line": 491,
    "subkeywords": [],
    "where": "FileIO.c:1540"
   },
@@ -3539,7 +3539,7 @@
    ],
    "prec": 0,
    "handler": "cmd_copy",
-   "line": 489,
+   "line": 492,
    "subkeywords": [],
    "where": "FileIO.c:1131"
   },
@@ -3551,7 +3551,7 @@
    ],
    "prec": 0,
    "handler": "cmd_DAC",
-   "line": 490,
+   "line": 493,
    "subkeywords": [
     {
      "kw": "STOP",
@@ -3578,7 +3578,7 @@
    ],
    "prec": 0,
    "handler": "cmd_ADC",
-   "line": 491,
+   "line": 494,
    "subkeywords": [
     {
      "kw": "OPEN",
@@ -3626,7 +3626,7 @@
    ],
    "prec": 0,
    "handler": "cmd_turtle",
-   "line": 492,
+   "line": 495,
    "subkeywords": [
     {
      "kw": "FORWARD",
@@ -4248,7 +4248,7 @@
    ],
    "prec": 0,
    "handler": "cmd_memory",
-   "line": 493,
+   "line": 496,
    "subkeywords": [
     {
      "kw": "PACK",
@@ -4338,13 +4338,13 @@
    ],
    "prec": 0,
    "handler": "cmd_autosave",
-   "line": 494,
+   "line": 497,
    "subkeywords": [
     {
      "kw": "N",
      "func": "cmd_autosave",
      "file": "MM_Misc.c",
-     "line": 3796,
+     "line": 3818,
      "via": []
     },
     {
@@ -4510,7 +4510,7 @@
      ]
     }
    ],
-   "where": "MM_Misc.c:3782"
+   "where": "MM_Misc.c:3804"
   },
   {
    "table": "command",
@@ -4520,7 +4520,7 @@
    ],
    "prec": 0,
    "handler": "cmd_option",
-   "line": 495,
+   "line": 498,
    "subkeywords": [
     {
      "kw": "LOCAL VARIABLES",
@@ -5553,7 +5553,7 @@
    ],
    "prec": 0,
    "handler": "cmd_pause",
-   "line": 496,
+   "line": 499,
    "subkeywords": [],
    "where": "MM_Misc.c:773"
   },
@@ -5566,7 +5566,7 @@
    ],
    "prec": 0,
    "handler": "cmd_date",
-   "line": 497,
+   "line": 500,
    "subkeywords": [],
    "where": "MM_Misc.c:2137"
   },
@@ -5579,7 +5579,7 @@
    ],
    "prec": 0,
    "handler": "cmd_time",
-   "line": 498,
+   "line": 501,
    "subkeywords": [],
    "where": "MM_Misc.c:2279"
   },
@@ -5591,7 +5591,7 @@
    ],
    "prec": 0,
    "handler": "cmd_ireturn",
-   "line": 499,
+   "line": 502,
    "subkeywords": [],
    "where": "MM_Misc.c:2385"
   },
@@ -5603,7 +5603,7 @@
    ],
    "prec": 0,
    "handler": "cmd_poke",
-   "line": 500,
+   "line": 503,
    "subkeywords": [
     {
      "kw": "DISPLAY",
@@ -5686,7 +5686,7 @@
    ],
    "prec": 0,
    "handler": "cmd_settick",
-   "line": 501,
+   "line": 504,
    "subkeywords": [
     {
      "kw": "FAST",
@@ -5720,7 +5720,7 @@
    ],
    "prec": 0,
    "handler": "cmd_watchdog",
-   "line": 502,
+   "line": 505,
    "subkeywords": [
     {
      "kw": "OFF",
@@ -5740,7 +5740,7 @@
    ],
    "prec": 0,
    "handler": "cmd_cpu",
-   "line": 503,
+   "line": 506,
    "subkeywords": [
     {
      "kw": "RESTART",
@@ -5760,7 +5760,7 @@
    ],
    "prec": 0,
    "handler": "cmd_sort",
-   "line": 504,
+   "line": 507,
    "subkeywords": [],
    "where": "MM_Misc.c:397"
   },
@@ -5772,7 +5772,7 @@
    ],
    "prec": 0,
    "handler": "cmd_cfunction",
-   "line": 505,
+   "line": 508,
    "subkeywords": [],
    "where": "MM_Misc.c:3500"
   },
@@ -5784,7 +5784,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 506,
+   "line": 509,
    "subkeywords": [],
    "where": "Commands.c:93"
   },
@@ -5796,7 +5796,7 @@
    ],
    "prec": 0,
    "handler": "cmd_longString",
-   "line": 507,
+   "line": 510,
    "subkeywords": [
     {
      "kw": "SETBYTE",
@@ -5984,7 +5984,7 @@
    ],
    "prec": 0,
    "handler": "cmd_mode",
-   "line": 508,
+   "line": 511,
    "subkeywords": [],
    "where": "MiscSTM32.c:1356"
   },
@@ -5996,7 +5996,7 @@
    ],
    "prec": 0,
    "handler": "cmd_Controller",
-   "line": 509,
+   "line": 512,
    "subkeywords": [
     {
      "kw": "NUNCHUK",
@@ -6052,7 +6052,7 @@
    ],
    "prec": 0,
    "handler": "cmd_uSec",
-   "line": 510,
+   "line": 513,
    "subkeywords": [],
    "where": "MM_Misc.c:713"
   },
@@ -6064,7 +6064,7 @@
    ],
    "prec": 0,
    "handler": "cmd_newedit",
-   "line": 511,
+   "line": 514,
    "subkeywords": [],
    "where": "Editor.c:963"
   },
@@ -6076,7 +6076,7 @@
    ],
    "prec": 0,
    "handler": "cmd_JumpToBootloader",
-   "line": 512,
+   "line": 515,
    "subkeywords": [],
    "where": "MM_Misc.c:2738"
   },
@@ -6088,7 +6088,7 @@
    ],
    "prec": 0,
    "handler": "cmd_cfunction",
-   "line": 513,
+   "line": 516,
    "subkeywords": [],
    "where": "MM_Misc.c:3500"
   },
@@ -6100,7 +6100,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 514,
+   "line": 517,
    "subkeywords": [],
    "where": "Commands.c:93"
   },
@@ -6112,7 +6112,7 @@
    ],
    "prec": 0,
    "handler": "cmd_gui",
-   "line": 515,
+   "line": 518,
    "subkeywords": [
     {
      "kw": "PAGE",
@@ -6463,7 +6463,7 @@
    ],
    "prec": 0,
    "handler": "cmd_onewire",
-   "line": 516,
+   "line": 519,
    "subkeywords": [
     {
      "kw": "RESET",
@@ -6497,7 +6497,7 @@
    ],
    "prec": 0,
    "handler": "cmd_ds18b20",
-   "line": 517,
+   "line": 520,
    "subkeywords": [],
    "where": "Onewire.c:169"
   },
@@ -6509,7 +6509,7 @@
    ],
    "prec": 0,
    "handler": "cmd_pwm",
-   "line": 518,
+   "line": 521,
    "subkeywords": [
     {
      "kw": "STOP",
@@ -6536,7 +6536,7 @@
    ],
    "prec": 0,
    "handler": "cmd_pwm",
-   "line": 519,
+   "line": 522,
    "subkeywords": [
     {
      "kw": "STOP",
@@ -6563,7 +6563,7 @@
    ],
    "prec": 0,
    "handler": "cmd_open",
-   "line": 520,
+   "line": 523,
    "subkeywords": [],
    "where": "SerialFileIO.c:76"
   },
@@ -6575,7 +6575,7 @@
    ],
    "prec": 0,
    "handler": "cmd_close",
-   "line": 521,
+   "line": 524,
    "subkeywords": [],
    "where": "SerialFileIO.c:126"
   },
@@ -6587,7 +6587,7 @@
    ],
    "prec": 0,
    "handler": "cmd_spi",
-   "line": 522,
+   "line": 525,
    "subkeywords": [
     {
      "kw": "CLOSE",
@@ -6636,7 +6636,7 @@
    ],
    "prec": 0,
    "handler": "cmd_spi_2",
-   "line": 523,
+   "line": 526,
    "subkeywords": [
     {
      "kw": "CLOSE",
@@ -6685,7 +6685,7 @@
    ],
    "prec": 0,
    "handler": "cmd_blit",
-   "line": 524,
+   "line": 527,
    "subkeywords": [
     {
      "kw": "SHOW SAFE",
@@ -6936,7 +6936,7 @@
    ],
    "prec": 0,
    "handler": "cmd_xmodem",
-   "line": 525,
+   "line": 528,
    "subkeywords": [],
    "where": "XModem.c:71"
   },
@@ -6948,7 +6948,7 @@
    ],
    "prec": 0,
    "handler": "cmd_zmodem",
-   "line": 526,
+   "line": 529,
    "subkeywords": [],
    "where": "ZModem.c:1249"
   },
@@ -6960,7 +6960,7 @@
    ],
    "prec": 0,
    "handler": "cmd_can",
-   "line": 527,
+   "line": 530,
    "subkeywords": [
     {
      "kw": "CLOSE",
@@ -7029,7 +7029,7 @@
    ],
    "prec": 0,
    "handler": "cmd_type",
-   "line": 528,
+   "line": 531,
    "subkeywords": [],
    "where": "Struct.c:342"
   },
@@ -7041,7 +7041,7 @@
    ],
    "prec": 0,
    "handler": "cmd_endtype",
-   "line": 529,
+   "line": 532,
    "subkeywords": [],
    "where": "Struct.c:358"
   },
@@ -7053,7 +7053,7 @@
    ],
    "prec": 0,
    "handler": "cmd_var",
-   "line": 530,
+   "line": 533,
    "subkeywords": [
     {
      "kw": "CLEAR",
@@ -7087,7 +7087,7 @@
    ],
    "prec": 0,
    "handler": "cmd_struct",
-   "line": 531,
+   "line": 534,
    "subkeywords": [
     {
      "kw": "COPY",
@@ -7163,7 +7163,7 @@
    ],
    "prec": 0,
    "handler": "cmd_arrayset",
-   "line": 532,
+   "line": 535,
    "subkeywords": [],
    "where": "Commands.c:3964"
   },
@@ -7175,7 +7175,7 @@
    ],
    "prec": 0,
    "handler": "cmd_arrayadd",
-   "line": 533,
+   "line": 536,
    "subkeywords": [],
    "where": "Commands.c:3965"
   },
@@ -7187,7 +7187,7 @@
    ],
    "prec": 0,
    "handler": "cmd_arrayinsert",
-   "line": 534,
+   "line": 537,
    "subkeywords": [],
    "where": "Commands.c:3966"
   },
@@ -7199,7 +7199,7 @@
    ],
    "prec": 0,
    "handler": "cmd_arrayslice",
-   "line": 535,
+   "line": 538,
    "subkeywords": [],
    "where": "Commands.c:3967"
   },
@@ -7212,7 +7212,7 @@
    ],
    "prec": 0,
    "handler": "cmd_bitbyteflag",
-   "line": 536,
+   "line": 539,
    "subkeywords": [],
    "where": "Commands.c:2703"
   },
@@ -7224,7 +7224,7 @@
    ],
    "prec": 0,
    "handler": "cmd_flags",
-   "line": 537,
+   "line": 540,
    "subkeywords": [],
    "where": "Commands.c:2732"
   },
@@ -7236,7 +7236,7 @@
    ],
    "prec": 0,
    "handler": "cmd_redim",
-   "line": 538,
+   "line": 541,
    "subkeywords": [
     {
      "kw": "PRESERVE",
@@ -7256,7 +7256,7 @@
    ],
    "prec": 0,
    "handler": "cmd_bezier",
-   "line": 539,
+   "line": 542,
    "subkeywords": [],
    "where": "Draw.c:3826"
   },
@@ -7268,7 +7268,7 @@
    ],
    "prec": 0,
    "handler": "cmd_fill",
-   "line": 540,
+   "line": 543,
    "subkeywords": [],
    "where": "Draw.c:3439"
   },
@@ -7280,7 +7280,7 @@
    ],
    "prec": 0,
    "handler": "cmd_csubinterrupt",
-   "line": 541,
+   "line": 544,
    "subkeywords": [
     {
      "kw": "0",
@@ -7300,7 +7300,7 @@
    ],
    "prec": 0,
    "handler": "cmd_chain",
-   "line": 542,
+   "line": 545,
    "subkeywords": [
     {
      "kw": "DEFINE",
@@ -7323,7 +7323,7 @@
    ],
    "prec": 0,
    "handler": "cmd_drive",
-   "line": 543,
+   "line": 546,
    "subkeywords": [],
    "where": "FileIO.c:1330"
   },
@@ -7335,7 +7335,7 @@
    ],
    "prec": 0,
    "handler": "cmd_library",
-   "line": 544,
+   "line": 547,
    "subkeywords": [
     {
      "kw": "LOAD",
@@ -7424,7 +7424,7 @@
    ],
    "prec": 0,
    "handler": "cmd_usbmouse",
-   "line": 545,
+   "line": 548,
    "subkeywords": [
     {
      "kw": "INTERRUPT ENABLE",
@@ -7458,7 +7458,7 @@
    ],
    "prec": 0,
    "handler": "cmd_tilemap",
-   "line": 546,
+   "line": 549,
    "subkeywords": [
     {
      "kw": "CREATE",
@@ -7548,7 +7548,7 @@
    ],
    "prec": 0,
    "handler": "cmd_flash",
-   "line": 547,
+   "line": 550,
    "subkeywords": [
     {
      "kw": "LOAD IMAGE",
@@ -7645,7 +7645,7 @@
    ],
    "prec": 0,
    "handler": "cmd_gamepad",
-   "line": 548,
+   "line": 551,
    "subkeywords": [
     {
      "kw": "INTERRUPT ENABLE",
@@ -7721,7 +7721,7 @@
    ],
    "prec": 0,
    "handler": "cmd_randomize",
-   "line": 549,
+   "line": 552,
    "subkeywords": [],
    "where": "Commands.c:4344"
   },
@@ -7733,7 +7733,7 @@
    ],
    "prec": 0,
    "handler": "cmd_flush",
-   "line": 550,
+   "line": 553,
    "subkeywords": [],
    "where": "SerialFileIO.c:414"
   },
@@ -7745,7 +7745,7 @@
    ],
    "prec": 0,
    "handler": "cmd_fm",
-   "line": 551,
+   "line": 554,
    "subkeywords": [
     {
      "kw": "ON",
@@ -7868,7 +7868,7 @@
    ],
    "prec": 0,
    "handler": "cmd_ram",
-   "line": 552,
+   "line": 555,
    "subkeywords": [
     {
      "kw": "ERASE ALL",
@@ -7968,7 +7968,7 @@
    ],
    "prec": 0,
    "handler": "cmd_blit",
-   "line": 553,
+   "line": 556,
    "subkeywords": [
     {
      "kw": "SHOW SAFE",
@@ -8219,7 +8219,7 @@
    ],
    "prec": 0,
    "handler": "cmd_ray",
-   "line": 554,
+   "line": 557,
    "subkeywords": [
     {
      "kw": "MAP",
@@ -8348,7 +8348,7 @@
    ],
    "prec": 0,
    "handler": "cmd_star",
-   "line": 555,
+   "line": 558,
    "subkeywords": [],
    "where": "Astro.c:1170"
   },
@@ -8360,7 +8360,7 @@
    ],
    "prec": 0,
    "handler": "cmd_star",
-   "line": 556,
+   "line": 559,
    "subkeywords": [],
    "where": "Astro.c:1170"
   },
@@ -8372,7 +8372,7 @@
    ],
    "prec": 0,
    "handler": "cmd_locate",
-   "line": 557,
+   "line": 560,
    "subkeywords": [],
    "where": "Astro.c:1287"
   },
@@ -8384,7 +8384,7 @@
    ],
    "prec": 0,
    "handler": "cmd_slew",
-   "line": 558,
+   "line": 561,
    "subkeywords": [],
    "where": "Astro.c:1206"
   },
@@ -8396,7 +8396,7 @@
    ],
    "prec": 0,
    "handler": "cmd_tile",
-   "line": 559,
+   "line": 562,
    "subkeywords": [
     {
      "kw": "RESET",
@@ -8423,7 +8423,7 @@
    ],
    "prec": 0,
    "handler": "cmd_device",
-   "line": 560,
+   "line": 563,
    "subkeywords": [
     {
      "kw": "WII CLASSIC",
@@ -8635,9 +8635,224 @@
    ],
    "prec": 0,
    "handler": "cmd_resolution",
-   "line": 561,
+   "line": 564,
    "subkeywords": [],
    "where": "PicoMode.c:191"
+  },
+  {
+   "table": "command",
+   "name": "Stepper",
+   "flags": [
+    "T_CMD"
+   ],
+   "prec": 0,
+   "handler": "cmd_stepper",
+   "line": 565,
+   "subkeywords": [
+    {
+     "kw": "INIT",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 3949,
+     "via": []
+    },
+    {
+     "kw": "CLOSE",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4115,
+     "via": []
+    },
+    {
+     "kw": "ESTOP",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4126,
+     "via": []
+    },
+    {
+     "kw": "RECOVER",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4192,
+     "via": []
+    },
+    {
+     "kw": "AXIS",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4203,
+     "via": []
+    },
+    {
+     "kw": "TUNE",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4362,
+     "via": []
+    },
+    {
+     "kw": "JERK",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4515,
+     "via": []
+    },
+    {
+     "kw": "SCURVE",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4563,
+     "via": []
+    },
+    {
+     "kw": "ARC",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4576,
+     "via": []
+    },
+    {
+     "kw": "RESET",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4635,
+     "via": []
+    },
+    {
+     "kw": "SPINDLE",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4667,
+     "via": []
+    },
+    {
+     "kw": "HWLIMITS",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4717,
+     "via": []
+    },
+    {
+     "kw": "LIMITS",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4885,
+     "via": []
+    },
+    {
+     "kw": "ENABLE",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4927,
+     "via": []
+    },
+    {
+     "kw": "INVERT",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4970,
+     "via": []
+    },
+    {
+     "kw": "POSITION",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4991,
+     "via": []
+    },
+    {
+     "kw": "HOME",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 4996,
+     "via": []
+    },
+    {
+     "kw": "GC",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 5770,
+     "via": []
+    },
+    {
+     "kw": "GS",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 5775,
+     "via": []
+    },
+    {
+     "kw": "GCODE",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 5784,
+     "via": []
+    },
+    {
+     "kw": "BUFFER",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 6442,
+     "via": []
+    },
+    {
+     "kw": "CLEAR",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 6472,
+     "via": []
+    },
+    {
+     "kw": "RUN",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 6488,
+     "via": []
+    },
+    {
+     "kw": "STATUS",
+     "func": "cmd_stepper",
+     "file": "stepper.c",
+     "line": 6549,
+     "via": []
+    }
+   ],
+   "where": "stepper.c:3940"
+  },
+  {
+   "table": "command",
+   "name": "TMC22xx",
+   "flags": [
+    "T_CMD"
+   ],
+   "prec": 0,
+   "handler": "cmd_TMC22xx",
+   "line": 566,
+   "subkeywords": [
+    {
+     "kw": "CLOSE",
+     "func": "cmd_TMC22xx",
+     "file": "stepper.c",
+     "line": 6990,
+     "via": []
+    },
+    {
+     "kw": "SGTHRS",
+     "func": "cmd_TMC22xx",
+     "file": "stepper.c",
+     "line": 7001,
+     "via": []
+    },
+    {
+     "kw": "TCOOLTHRS",
+     "func": "cmd_TMC22xx",
+     "file": "stepper.c",
+     "line": 7015,
+     "via": []
+    }
+   ],
+   "where": "stepper.c:6986"
   },
   {
    "table": "command",
@@ -8647,7 +8862,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 562,
+   "line": 567,
    "subkeywords": [],
    "where": "Commands.c:93"
   },
@@ -8661,7 +8876,7 @@
    ],
    "prec": 3,
    "handler": "op_not",
-   "line": 571,
+   "line": 576,
    "subkeywords": [],
    "where": "Operators.c:249"
   },
@@ -8675,7 +8890,7 @@
    ],
    "prec": 3,
    "handler": "op_inv",
-   "line": 572,
+   "line": 577,
    "subkeywords": [],
    "where": "Operators.c:254"
   },
@@ -8690,7 +8905,7 @@
    ],
    "prec": 2,
    "handler": "op_add",
-   "line": 573,
+   "line": 578,
    "subkeywords": [],
    "where": "Operators.c:127"
   },
@@ -8704,7 +8919,7 @@
    ],
    "prec": 2,
    "handler": "op_subtract",
-   "line": 574,
+   "line": 579,
    "subkeywords": [],
    "where": "Operators.c:142"
   },
@@ -8718,7 +8933,7 @@
    ],
    "prec": 0,
    "handler": "op_exp",
-   "line": 576,
+   "line": 581,
    "subkeywords": [],
    "where": "Operators.c:81"
   },
@@ -8732,7 +8947,7 @@
    ],
    "prec": 1,
    "handler": "op_mul",
-   "line": 577,
+   "line": 582,
    "subkeywords": [],
    "where": "Operators.c:105"
   },
@@ -8745,7 +8960,7 @@
    ],
    "prec": 1,
    "handler": "op_div",
-   "line": 578,
+   "line": 583,
    "subkeywords": [],
    "where": "Operators.c:114"
   },
@@ -8758,7 +8973,7 @@
    ],
    "prec": 1,
    "handler": "op_divint",
-   "line": 579,
+   "line": 584,
    "subkeywords": [],
    "where": "Operators.c:121"
   },
@@ -8771,7 +8986,7 @@
    ],
    "prec": 1,
    "handler": "op_mod",
-   "line": 580,
+   "line": 585,
    "subkeywords": [],
    "where": "Operators.c:150"
   },
@@ -8784,7 +8999,7 @@
    ],
    "prec": 4,
    "handler": "op_shiftleft",
-   "line": 581,
+   "line": 586,
    "subkeywords": [],
    "where": "Operators.c:216"
   },
@@ -8797,7 +9012,7 @@
    ],
    "prec": 4,
    "handler": "op_shiftright",
-   "line": 582,
+   "line": 587,
    "subkeywords": [],
    "where": "Operators.c:222"
   },
@@ -8810,7 +9025,7 @@
    ],
    "prec": 4,
    "handler": "op_shiftright_unsigned",
-   "line": 583,
+   "line": 588,
    "subkeywords": [],
    "where": "Operators.c:227"
   },
@@ -8825,7 +9040,7 @@
    ],
    "prec": 5,
    "handler": "op_ne",
-   "line": 584,
+   "line": 589,
    "subkeywords": [],
    "where": "Operators.c:179"
   },
@@ -8840,7 +9055,7 @@
    ],
    "prec": 5,
    "handler": "op_gte",
-   "line": 585,
+   "line": 590,
    "subkeywords": [],
    "where": "Operators.c:188"
   },
@@ -8855,7 +9070,7 @@
    ],
    "prec": 5,
    "handler": "op_lte",
-   "line": 586,
+   "line": 591,
    "subkeywords": [],
    "where": "Operators.c:193"
   },
@@ -8870,7 +9085,7 @@
    ],
    "prec": 5,
    "handler": "op_lt",
-   "line": 587,
+   "line": 592,
    "subkeywords": [],
    "where": "Operators.c:198"
   },
@@ -8885,7 +9100,7 @@
    ],
    "prec": 5,
    "handler": "op_gt",
-   "line": 588,
+   "line": 593,
    "subkeywords": [],
    "where": "Operators.c:203"
   },
@@ -8900,7 +9115,7 @@
    ],
    "prec": 6,
    "handler": "op_equal",
-   "line": 589,
+   "line": 594,
    "subkeywords": [],
    "where": "Operators.c:208"
   },
@@ -8913,7 +9128,7 @@
    ],
    "prec": 7,
    "handler": "op_and",
-   "line": 590,
+   "line": 595,
    "subkeywords": [],
    "where": "Operators.c:233"
   },
@@ -8926,7 +9141,7 @@
    ],
    "prec": 7,
    "handler": "op_or",
-   "line": 591,
+   "line": 596,
    "subkeywords": [],
    "where": "Operators.c:238"
   },
@@ -8939,7 +9154,7 @@
    ],
    "prec": 7,
    "handler": "op_xor",
-   "line": 592,
+   "line": 597,
    "subkeywords": [],
    "where": "Operators.c:243"
   },
@@ -8951,7 +9166,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 593,
+   "line": 598,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -8963,7 +9178,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 594,
+   "line": 599,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -8975,7 +9190,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 595,
+   "line": 600,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -8987,7 +9202,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 596,
+   "line": 601,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -8999,7 +9214,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 597,
+   "line": 602,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -9011,7 +9226,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 598,
+   "line": 603,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -9023,7 +9238,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 599,
+   "line": 604,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -9035,7 +9250,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 600,
+   "line": 605,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -9047,7 +9262,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 601,
+   "line": 606,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -9060,7 +9275,7 @@
    ],
    "prec": 0,
    "handler": "fun_rgb",
-   "line": 602,
+   "line": 607,
    "subkeywords": [
     {
      "kw": "WHITE",
@@ -9256,7 +9471,7 @@
    ],
    "prec": 0,
    "handler": "fun_pixel",
-   "line": 605,
+   "line": 610,
    "subkeywords": [
     {
      "kw": "FRAMEBUFFER",
@@ -9277,7 +9492,7 @@
    ],
    "prec": 0,
    "handler": "fun_3D",
-   "line": 606,
+   "line": 611,
    "subkeywords": [
     {
      "kw": "XMIN",
@@ -9347,7 +9562,7 @@
    ],
    "prec": 0,
    "handler": "fun_clut",
-   "line": 607,
+   "line": 612,
    "subkeywords": [],
    "where": "Draw.c:2599"
   },
@@ -9360,7 +9575,7 @@
    ],
    "prec": 0,
    "handler": "fun_getscanline",
-   "line": 608,
+   "line": 613,
    "subkeywords": [],
    "where": "Draw.c:2586"
   },
@@ -9373,7 +9588,7 @@
    ],
    "prec": 0,
    "handler": "fun_at",
-   "line": 609,
+   "line": 614,
    "subkeywords": [],
    "where": "Draw.c:1081"
   },
@@ -9387,7 +9602,7 @@
    ],
    "prec": 0,
    "handler": "fun_pin",
-   "line": 610,
+   "line": 615,
    "subkeywords": [],
    "where": "External.c:524"
   },
@@ -9400,9 +9615,9 @@
    ],
    "prec": 0,
    "handler": "fun_port",
-   "line": 611,
+   "line": 616,
    "subkeywords": [],
-   "where": "External.c:975"
+   "where": "External.c:981"
   },
   {
    "table": "token",
@@ -9413,9 +9628,9 @@
    ],
    "prec": 0,
    "handler": "fun_distance",
-   "line": 612,
+   "line": 617,
    "subkeywords": [],
-   "where": "External.c:1839"
+   "where": "External.c:1848"
   },
   {
    "table": "token",
@@ -9426,9 +9641,9 @@
    ],
    "prec": 0,
    "handler": "fun_pulsin",
-   "line": 613,
+   "line": 618,
    "subkeywords": [],
-   "where": "External.c:1161"
+   "where": "External.c:1170"
   },
   {
    "table": "token",
@@ -9439,7 +9654,7 @@
    ],
    "prec": 0,
    "handler": "fun_cwd",
-   "line": 614,
+   "line": 619,
    "subkeywords": [],
    "where": "FileIO.c:1424"
   },
@@ -9452,7 +9667,7 @@
    ],
    "prec": 0,
    "handler": "fun_dir",
-   "line": 615,
+   "line": 620,
    "subkeywords": [
     {
      "kw": "DIR",
@@ -9487,9 +9702,9 @@
    ],
    "prec": 0,
    "handler": "fun_acos",
-   "line": 616,
+   "line": 621,
    "subkeywords": [],
-   "where": "Functions.c:1474"
+   "where": "Functions.c:1480"
   },
   {
    "table": "token",
@@ -9501,9 +9716,9 @@
    ],
    "prec": 0,
    "handler": "fun_abs",
-   "line": 617,
+   "line": 622,
    "subkeywords": [],
-   "where": "Functions.c:531"
+   "where": "Functions.c:537"
   },
   {
    "table": "token",
@@ -9514,9 +9729,9 @@
    ],
    "prec": 0,
    "handler": "fun_asc",
-   "line": 618,
+   "line": 623,
    "subkeywords": [],
-   "where": "Functions.c:643"
+   "where": "Functions.c:649"
   },
   {
    "table": "token",
@@ -9527,9 +9742,9 @@
    ],
    "prec": 0,
    "handler": "fun_asin",
-   "line": 619,
+   "line": 624,
    "subkeywords": [],
-   "where": "Functions.c:1457"
+   "where": "Functions.c:1463"
   },
   {
    "table": "token",
@@ -9540,9 +9755,9 @@
    ],
    "prec": 0,
    "handler": "fun_atn",
-   "line": 620,
+   "line": 625,
    "subkeywords": [],
-   "where": "Functions.c:662"
+   "where": "Functions.c:668"
   },
   {
    "table": "token",
@@ -9553,9 +9768,9 @@
    ],
    "prec": 0,
    "handler": "fun_atan2",
-   "line": 621,
+   "line": 626,
    "subkeywords": [],
-   "where": "Functions.c:667"
+   "where": "Functions.c:673"
   },
   {
    "table": "token",
@@ -9566,9 +9781,9 @@
    ],
    "prec": 0,
    "handler": "fun_base",
-   "line": 622,
+   "line": 627,
    "subkeywords": [],
-   "where": "Functions.c:734"
+   "where": "Functions.c:740"
   },
   {
    "table": "token",
@@ -9579,9 +9794,9 @@
    ],
    "prec": 0,
    "handler": "fun_bound",
-   "line": 623,
+   "line": 628,
    "subkeywords": [],
-   "where": "Functions.c:289"
+   "where": "Functions.c:295"
   },
   {
    "table": "token",
@@ -9592,9 +9807,9 @@
    ],
    "prec": 0,
    "handler": "fun_chr",
-   "line": 624,
+   "line": 629,
    "subkeywords": [],
-   "where": "Functions.c:680"
+   "where": "Functions.c:686"
   },
   {
    "table": "token",
@@ -9607,9 +9822,9 @@
    ],
    "prec": 0,
    "handler": "fun_ternary",
-   "line": 625,
+   "line": 630,
    "subkeywords": [],
-   "where": "Functions.c:1508"
+   "where": "Functions.c:1514"
   },
   {
    "table": "token",
@@ -9620,9 +9835,9 @@
    ],
    "prec": 0,
    "handler": "fun_cint",
-   "line": 626,
+   "line": 631,
    "subkeywords": [],
-   "where": "Functions.c:691"
+   "where": "Functions.c:697"
   },
   {
    "table": "token",
@@ -9633,9 +9848,9 @@
    ],
    "prec": 0,
    "handler": "fun_cos",
-   "line": 627,
+   "line": 632,
    "subkeywords": [],
-   "where": "Functions.c:703"
+   "where": "Functions.c:709"
   },
   {
    "table": "token",
@@ -9646,9 +9861,9 @@
    ],
    "prec": 0,
    "handler": "fun_deg",
-   "line": 628,
+   "line": 633,
    "subkeywords": [],
-   "where": "Functions.c:714"
+   "where": "Functions.c:720"
   },
   {
    "table": "token",
@@ -9659,9 +9874,9 @@
    ],
    "prec": 0,
    "handler": "fun_exp",
-   "line": 629,
+   "line": 634,
    "subkeywords": [],
-   "where": "Functions.c:726"
+   "where": "Functions.c:732"
   },
   {
    "table": "token",
@@ -9672,9 +9887,9 @@
    ],
    "prec": 0,
    "handler": "fun_fix",
-   "line": 630,
+   "line": 635,
    "subkeywords": [],
-   "where": "Functions.c:938"
+   "where": "Functions.c:944"
   },
   {
    "table": "token",
@@ -9685,9 +9900,9 @@
    ],
    "prec": 0,
    "handler": "fun_field",
-   "line": 631,
+   "line": 636,
    "subkeywords": [],
-   "where": "Functions.c:343"
+   "where": "Functions.c:349"
   },
   {
    "table": "token",
@@ -9698,9 +9913,9 @@
    ],
    "prec": 0,
    "handler": "fun_inkey",
-   "line": 632,
+   "line": 637,
    "subkeywords": [],
-   "where": "Functions.c:1434"
+   "where": "Functions.c:1440"
   },
   {
    "table": "token",
@@ -9711,9 +9926,9 @@
    ],
    "prec": 0,
    "handler": "fun_instr",
-   "line": 633,
+   "line": 638,
    "subkeywords": [],
-   "where": "Functions.c:778"
+   "where": "Functions.c:784"
   },
   {
    "table": "token",
@@ -9724,9 +9939,9 @@
    ],
    "prec": 0,
    "handler": "fun_int",
-   "line": 634,
+   "line": 639,
    "subkeywords": [],
-   "where": "Functions.c:926"
+   "where": "Functions.c:932"
   },
   {
    "table": "token",
@@ -9737,9 +9952,9 @@
    ],
    "prec": 0,
    "handler": "fun_len",
-   "line": 635,
+   "line": 640,
    "subkeywords": [],
-   "where": "Functions.c:1131"
+   "where": "Functions.c:1137"
   },
   {
    "table": "token",
@@ -9750,9 +9965,9 @@
    ],
    "prec": 0,
    "handler": "fun_log",
-   "line": 636,
+   "line": 641,
    "subkeywords": [],
-   "where": "Functions.c:1146"
+   "where": "Functions.c:1152"
   },
   {
    "table": "token",
@@ -9763,9 +9978,9 @@
    ],
    "prec": 0,
    "handler": "fun_mid",
-   "line": 637,
+   "line": 642,
    "subkeywords": [],
-   "where": "Functions.c:1155"
+   "where": "Functions.c:1161"
   },
   {
    "table": "token",
@@ -9776,9 +9991,9 @@
    ],
    "prec": 0,
    "handler": "fun_pi",
-   "line": 638,
+   "line": 643,
    "subkeywords": [],
-   "where": "Functions.c:1179"
+   "where": "Functions.c:1185"
   },
   {
    "table": "token",
@@ -9789,9 +10004,9 @@
    ],
    "prec": 0,
    "handler": "fun_pos",
-   "line": 639,
+   "line": 644,
    "subkeywords": [],
-   "where": "Functions.c:1402"
+   "where": "Functions.c:1408"
   },
   {
    "table": "token",
@@ -9802,9 +10017,9 @@
    ],
    "prec": 0,
    "handler": "fun_rad",
-   "line": 640,
+   "line": 645,
    "subkeywords": [],
-   "where": "Functions.c:1192"
+   "where": "Functions.c:1198"
   },
   {
    "table": "token",
@@ -9815,9 +10030,9 @@
    ],
    "prec": 0,
    "handler": "fun_schange",
-   "line": 641,
+   "line": 646,
    "subkeywords": [],
-   "where": "Functions.c:1103"
+   "where": "Functions.c:1109"
   },
   {
    "table": "token",
@@ -9828,9 +10043,9 @@
    ],
    "prec": 0,
    "handler": "fun_rnd",
-   "line": 642,
+   "line": 647,
    "subkeywords": [],
-   "where": "Functions.c:1200"
+   "where": "Functions.c:1206"
   },
   {
    "table": "token",
@@ -9841,9 +10056,9 @@
    ],
    "prec": 0,
    "handler": "fun_rnd",
-   "line": 643,
+   "line": 648,
    "subkeywords": [],
-   "where": "Functions.c:1200"
+   "where": "Functions.c:1206"
   },
   {
    "table": "token",
@@ -9854,9 +10069,9 @@
    ],
    "prec": 0,
    "handler": "fun_sgn",
-   "line": 644,
+   "line": 649,
    "subkeywords": [],
-   "where": "Functions.c:1216"
+   "where": "Functions.c:1222"
   },
   {
    "table": "token",
@@ -9867,9 +10082,9 @@
    ],
    "prec": 0,
    "handler": "fun_sin",
-   "line": 645,
+   "line": 650,
    "subkeywords": [],
-   "where": "Functions.c:1229"
+   "where": "Functions.c:1235"
   },
   {
    "table": "token",
@@ -9880,9 +10095,9 @@
    ],
    "prec": 0,
    "handler": "fun_space",
-   "line": 646,
+   "line": 651,
    "subkeywords": [],
-   "where": "Functions.c:1321"
+   "where": "Functions.c:1327"
   },
   {
    "table": "token",
@@ -9893,9 +10108,9 @@
    ],
    "prec": 0,
    "handler": "fun_sqr",
-   "line": 647,
+   "line": 652,
    "subkeywords": [],
-   "where": "Functions.c:1243"
+   "where": "Functions.c:1249"
   },
   {
    "table": "token",
@@ -9906,9 +10121,9 @@
    ],
    "prec": 0,
    "handler": "fun_str",
-   "line": 648,
+   "line": 653,
    "subkeywords": [],
-   "where": "Functions.c:1333"
+   "where": "Functions.c:1339"
   },
   {
    "table": "token",
@@ -9919,9 +10134,9 @@
    ],
    "prec": 0,
    "handler": "fun_string",
-   "line": 649,
+   "line": 654,
    "subkeywords": [],
-   "where": "Functions.c:1364"
+   "where": "Functions.c:1370"
   },
   {
    "table": "token",
@@ -9932,9 +10147,9 @@
    ],
    "prec": 0,
    "handler": "fun_tab",
-   "line": 650,
+   "line": 655,
    "subkeywords": [],
-   "where": "Functions.c:1411"
+   "where": "Functions.c:1417"
   },
   {
    "table": "token",
@@ -9945,9 +10160,9 @@
    ],
    "prec": 0,
    "handler": "fun_tan",
-   "line": 651,
+   "line": 656,
    "subkeywords": [],
-   "where": "Functions.c:1256"
+   "where": "Functions.c:1262"
   },
   {
    "table": "token",
@@ -9959,9 +10174,9 @@
    ],
    "prec": 0,
    "handler": "fun_val",
-   "line": 652,
+   "line": 657,
    "subkeywords": [],
-   "where": "Functions.c:1265"
+   "where": "Functions.c:1271"
   },
   {
    "table": "token",
@@ -9974,7 +10189,7 @@
    ],
    "prec": 0,
    "handler": "fun_eval",
-   "line": 653,
+   "line": 658,
    "subkeywords": [
     {
      "kw": "COLOR",
@@ -10049,7 +10264,7 @@
      ]
     }
    ],
-   "where": "Functions.c:1271"
+   "where": "Functions.c:1277"
   },
   {
    "table": "token",
@@ -10060,9 +10275,9 @@
    ],
    "prec": 0,
    "handler": "fun_max_min",
-   "line": 654,
+   "line": 659,
    "subkeywords": [],
-   "where": "Functions.c:1491"
+   "where": "Functions.c:1497"
   },
   {
    "table": "token",
@@ -10073,87 +10288,87 @@
    ],
    "prec": 0,
    "handler": "fun_bin2str",
-   "line": 655,
+   "line": 660,
    "subkeywords": [
     {
      "kw": "BIG",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 463,
+     "line": 469,
      "via": []
     },
     {
      "kw": "DOUBLE",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 465,
+     "line": 471,
      "via": []
     },
     {
      "kw": "SINGLE",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 468,
+     "line": 474,
      "via": []
     },
     {
      "kw": "INT64",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 473,
+     "line": 479,
      "via": []
     },
     {
      "kw": "INT32",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 476,
+     "line": 482,
      "via": []
     },
     {
      "kw": "INT16",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 480,
+     "line": 486,
      "via": []
     },
     {
      "kw": "INT8",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 484,
+     "line": 490,
      "via": []
     },
     {
      "kw": "UINT64",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 488,
+     "line": 494,
      "via": []
     },
     {
      "kw": "UINT32",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 491,
+     "line": 497,
      "via": []
     },
     {
      "kw": "UINT16",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 495,
+     "line": 501,
      "via": []
     },
     {
      "kw": "UINT8",
      "func": "fun_bin2str",
      "file": "Functions.c",
-     "line": 499,
+     "line": 505,
      "via": []
     }
    ],
-   "where": "Functions.c:446"
+   "where": "Functions.c:452"
   },
   {
    "table": "token",
@@ -10165,87 +10380,87 @@
    ],
    "prec": 0,
    "handler": "fun_str2bin",
-   "line": 656,
+   "line": 661,
    "subkeywords": [
     {
      "kw": "BIG",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 384,
+     "line": 390,
      "via": []
     },
     {
      "kw": "DOUBLE",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 401,
+     "line": 407,
      "via": []
     },
     {
      "kw": "SINGLE",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 405,
+     "line": 411,
      "via": []
     },
     {
      "kw": "INT64",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 409,
+     "line": 415,
      "via": []
     },
     {
      "kw": "INT32",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 413,
+     "line": 419,
      "via": []
     },
     {
      "kw": "INT16",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 417,
+     "line": 423,
      "via": []
     },
     {
      "kw": "INT8",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 421,
+     "line": 427,
      "via": []
     },
     {
      "kw": "UINT64",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 425,
+     "line": 431,
      "via": []
     },
     {
      "kw": "UINT32",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 429,
+     "line": 435,
      "via": []
     },
     {
      "kw": "UINT16",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 433,
+     "line": 439,
      "via": []
     },
     {
      "kw": "UINT8",
      "func": "fun_str2bin",
      "file": "Functions.c",
-     "line": 437,
+     "line": 443,
      "via": []
     }
    ],
-   "where": "Functions.c:368"
+   "where": "Functions.c:374"
   },
   {
    "table": "token",
@@ -10258,7 +10473,7 @@
    ],
    "prec": 0,
    "handler": "fun_call",
-   "line": 658,
+   "line": 663,
    "subkeywords": [
     {
      "kw": "INTEGER",
@@ -10291,7 +10506,7 @@
      ]
     }
    ],
-   "where": "Functions.c:306"
+   "where": "Functions.c:312"
   },
   {
    "table": "token",
@@ -10302,7 +10517,7 @@
    ],
    "prec": 0,
    "handler": "fun_msgbox",
-   "line": 659,
+   "line": 664,
    "subkeywords": [
     {
      "kw": "OPEN",
@@ -10337,7 +10552,7 @@
    ],
    "prec": 0,
    "handler": "fun_ctrlval",
-   "line": 660,
+   "line": 665,
    "subkeywords": [
     {
      "kw": "OPEN",
@@ -10371,7 +10586,7 @@
    ],
    "prec": 0,
    "handler": "fun_touch",
-   "line": 661,
+   "line": 666,
    "subkeywords": [
     {
      "kw": "X",
@@ -10442,7 +10657,7 @@
    ],
    "prec": 0,
    "handler": "fun_math",
-   "line": 662,
+   "line": 667,
    "subkeywords": [
     {
      "kw": "PID",
@@ -10841,9 +11056,9 @@
    ],
    "prec": 0,
    "handler": "fun_json",
-   "line": 663,
+   "line": 668,
    "subkeywords": [],
-   "where": "MM_Misc.c:4382"
+   "where": "MM_Misc.c:4404"
   },
   {
    "table": "token",
@@ -10854,7 +11069,7 @@
    ],
    "prec": 0,
    "handler": "fun_LInstr",
-   "line": 664,
+   "line": 669,
    "subkeywords": [],
    "where": "MM_Misc.c:1342"
   },
@@ -10867,7 +11082,7 @@
    ],
    "prec": 0,
    "handler": "fun_LCompare",
-   "line": 665,
+   "line": 670,
    "subkeywords": [],
    "where": "MM_Misc.c:1409"
   },
@@ -10880,7 +11095,7 @@
    ],
    "prec": 0,
    "handler": "fun_LLen",
-   "line": 666,
+   "line": 671,
    "subkeywords": [],
    "where": "MM_Misc.c:1433"
   },
@@ -10893,7 +11108,7 @@
    ],
    "prec": 0,
    "handler": "fun_nunchuck",
-   "line": 667,
+   "line": 672,
    "subkeywords": [],
    "where": "MiscSTM32.c:1294"
   },
@@ -10906,7 +11121,7 @@
    ],
    "prec": 0,
    "handler": "fun_classic",
-   "line": 668,
+   "line": 673,
    "subkeywords": [
     {
      "kw": "LX",
@@ -10976,7 +11191,7 @@
    ],
    "prec": 0,
    "handler": "fun_LGetByte",
-   "line": 669,
+   "line": 674,
    "subkeywords": [],
    "where": "MM_Misc.c:1325"
   },
@@ -10989,7 +11204,7 @@
    ],
    "prec": 0,
    "handler": "fun_LGetStr",
-   "line": 670,
+   "line": 675,
    "subkeywords": [],
    "where": "MM_Misc.c:1302"
   },
@@ -11001,7 +11216,7 @@
    ],
    "prec": 0,
    "handler": "op_invalid",
-   "line": 671,
+   "line": 676,
    "subkeywords": [],
    "where": "Operators.c:76"
   },
@@ -11014,7 +11229,7 @@
    ],
    "prec": 0,
    "handler": "fun_date",
-   "line": 672,
+   "line": 677,
    "subkeywords": [],
    "where": "MM_Misc.c:2210"
   },
@@ -11027,7 +11242,7 @@
    ],
    "prec": 0,
    "handler": "fun_day",
-   "line": 673,
+   "line": 678,
    "subkeywords": [
     {
      "kw": "NOW",
@@ -11050,7 +11265,7 @@
    ],
    "prec": 0,
    "handler": "fun_peek",
-   "line": 674,
+   "line": 679,
    "subkeywords": [
     {
      "kw": "BYTE",
@@ -11067,73 +11282,129 @@
      "via": []
     },
     {
-     "kw": "VARADDR",
+     "kw": "STEPPER",
      "func": "fun_peek",
      "file": "MM_Misc.c",
      "line": 3664,
      "via": []
     },
     {
-     "kw": "VARHEADER",
+     "kw": "ACTIVE",
      "func": "fun_peek",
      "file": "MM_Misc.c",
      "line": 3672,
      "via": []
     },
     {
+     "kw": "STATUS",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3673,
+     "via": []
+    },
+    {
+     "kw": "BUFFER",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3674,
+     "via": []
+    },
+    {
+     "kw": "X",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3675,
+     "via": []
+    },
+    {
+     "kw": "Y",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3676,
+     "via": []
+    },
+    {
+     "kw": "Z",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3677,
+     "via": []
+    },
+    {
+     "kw": "A",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3678,
+     "via": []
+    },
+    {
+     "kw": "VARADDR",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3686,
+     "via": []
+    },
+    {
+     "kw": "VARHEADER",
+     "func": "fun_peek",
+     "file": "MM_Misc.c",
+     "line": 3694,
+     "via": []
+    },
+    {
      "kw": "CFUNADDR",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3680,
+     "line": 3702,
      "via": []
     },
     {
      "kw": "WORD",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3699,
+     "line": 3721,
      "via": []
     },
     {
      "kw": "SHORT",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3705,
+     "line": 3727,
      "via": []
     },
     {
      "kw": "INTEGER",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3711,
+     "line": 3733,
      "via": []
     },
     {
      "kw": "FLOAT",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3718,
+     "line": 3740,
      "via": []
     },
     {
      "kw": "VARTBL",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3728,
+     "line": 3750,
      "via": []
     },
     {
      "kw": "PROGMEM",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3729,
+     "line": 3751,
      "via": []
     },
     {
      "kw": "VAR",
      "func": "fun_peek",
      "file": "MM_Misc.c",
-     "line": 3736,
+     "line": 3758,
      "via": []
     }
    ],
@@ -11148,7 +11419,7 @@
    ],
    "prec": 0,
    "handler": "fun_time",
-   "line": 675,
+   "line": 680,
    "subkeywords": [],
    "where": "MM_Misc.c:2359"
   },
@@ -11161,7 +11432,7 @@
    ],
    "prec": 0,
    "handler": "fun_epoch",
-   "line": 677,
+   "line": 682,
    "subkeywords": [
     {
      "kw": "NOW",
@@ -11182,7 +11453,7 @@
    ],
    "prec": 0,
    "handler": "fun_datetime",
-   "line": 678,
+   "line": 683,
    "subkeywords": [
     {
      "kw": "NOW",
@@ -11205,7 +11476,7 @@
    ],
    "prec": 0,
    "handler": "fun_info",
-   "line": 679,
+   "line": 684,
    "subkeywords": [
     {
      "kw": "PIN",
@@ -11863,7 +12134,7 @@
    ],
    "prec": 0,
    "handler": "fun_keydown",
-   "line": 680,
+   "line": 685,
    "subkeywords": [],
    "where": "MM_Misc.c:520"
   },
@@ -11876,7 +12147,7 @@
    ],
    "prec": 0,
    "handler": "fun_uSec",
-   "line": 681,
+   "line": 686,
    "subkeywords": [],
    "where": "MM_Misc.c:709"
   },
@@ -11889,7 +12160,7 @@
    ],
    "prec": 0,
    "handler": "fun_mouse",
-   "line": 682,
+   "line": 687,
    "subkeywords": [],
    "where": "MM_Misc.c:537"
   },
@@ -11902,7 +12173,7 @@
    ],
    "prec": 0,
    "handler": "fun_format",
-   "line": 683,
+   "line": 688,
    "subkeywords": [],
    "where": "MM_Misc.c:565"
   },
@@ -11915,7 +12186,7 @@
    ],
    "prec": 0,
    "handler": "fun_ds18b20",
-   "line": 684,
+   "line": 689,
    "subkeywords": [],
    "where": "Onewire.c:184"
   },
@@ -11928,7 +12199,7 @@
    ],
    "prec": 0,
    "handler": "fun_baudrate",
-   "line": 685,
+   "line": 690,
    "subkeywords": [],
    "where": "Serial.c:357"
   },
@@ -11941,7 +12212,7 @@
    ],
    "prec": 0,
    "handler": "fun_eof",
-   "line": 686,
+   "line": 691,
    "subkeywords": [],
    "where": "SerialFileIO.c:204"
   },
@@ -11954,7 +12225,7 @@
    ],
    "prec": 0,
    "handler": "fun_loc",
-   "line": 687,
+   "line": 692,
    "subkeywords": [],
    "where": "SerialFileIO.c:217"
   },
@@ -11967,7 +12238,7 @@
    ],
    "prec": 0,
    "handler": "fun_lof",
-   "line": 688,
+   "line": 693,
    "subkeywords": [],
    "where": "SerialFileIO.c:241"
   },
@@ -11980,7 +12251,7 @@
    ],
    "prec": 0,
    "handler": "fun_inputstr",
-   "line": 689,
+   "line": 694,
    "subkeywords": [],
    "where": "SerialFileIO.c:168"
   },
@@ -11993,7 +12264,7 @@
    ],
    "prec": 0,
    "handler": "fun_spi",
-   "line": 690,
+   "line": 695,
    "subkeywords": [],
    "where": "SPI.c:160"
   },
@@ -12006,7 +12277,7 @@
    ],
    "prec": 0,
    "handler": "fun_spi2",
-   "line": 691,
+   "line": 696,
    "subkeywords": [],
    "where": "SPI.c:282"
   },
@@ -12020,7 +12291,7 @@
    ],
    "prec": 0,
    "handler": "fun_sprite",
-   "line": 692,
+   "line": 697,
    "subkeywords": [
     {
      "kw": "RAY",
@@ -12324,9 +12595,9 @@
    ],
    "prec": 0,
    "handler": "fun_tilde",
-   "line": 693,
+   "line": 698,
    "subkeywords": [],
-   "where": "Functions.c:203"
+   "where": "Functions.c:204"
   },
   {
    "table": "token",
@@ -12337,9 +12608,9 @@
    ],
    "prec": 0,
    "handler": "fun_trim",
-   "line": 694,
+   "line": 699,
    "subkeywords": [],
-   "where": "Functions.c:610"
+   "where": "Functions.c:616"
   },
   {
    "table": "token",
@@ -12350,7 +12621,7 @@
    ],
    "prec": 0,
    "handler": "fun_linputstr",
-   "line": 695,
+   "line": 700,
    "subkeywords": [],
    "where": "MM_Misc.c:688"
   },
@@ -12365,7 +12636,7 @@
    ],
    "prec": 0,
    "handler": "fun_GPS",
-   "line": 696,
+   "line": 701,
    "subkeywords": [
     {
      "kw": "LATITUDE",
@@ -12477,7 +12748,7 @@
    ],
    "prec": 0,
    "handler": "fun_struct",
-   "line": 697,
+   "line": 702,
    "subkeywords": [
     {
      "kw": "FIND",
@@ -12519,9 +12790,9 @@
    ],
    "prec": 0,
    "handler": "fun_bitbyteflag",
-   "line": 698,
+   "line": 703,
    "subkeywords": [],
-   "where": "Functions.c:1076"
+   "where": "Functions.c:1082"
   },
   {
    "table": "token",
@@ -12534,7 +12805,7 @@
    ],
    "prec": 0,
    "handler": "fun_device_fn",
-   "line": 699,
+   "line": 704,
    "subkeywords": [
     {
      "kw": "MOUSE",
@@ -12754,7 +13025,7 @@
    ],
    "prec": 0,
    "handler": "fun_tilemap",
-   "line": 700,
+   "line": 705,
    "subkeywords": [
     {
      "kw": "TILE",
@@ -12858,7 +13129,7 @@
    ],
    "prec": 0,
    "handler": "cmd_null",
-   "line": 701,
+   "line": 706,
    "subkeywords": [],
    "where": "Commands.c:93"
   }
@@ -12882,6 +13153,7 @@
   "MM.ONEWIRE",
   "MM.FLAGS",
   "MM.ERRLINE",
+  "MM.CODE",
   "MM.END"
  ],
  "folded_functions": [

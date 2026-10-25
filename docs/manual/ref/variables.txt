@@ -5,6 +5,10 @@
 A string holding the command line arguments passed to the program: the text after the file name and its comma in the RUN command (eg, RUN "myprog", -f 3), the text after the file name in the \* shortcut (eg, \*myprog -f 3) or the ‘cmdline$’ of CHAIN.  The text given to RUN is not processed by MMBasic, so it can contain numbers, commas, quoted strings, etc: it is for the program to decode.
 It is an empty string when the program was run without arguments, from the editor (F2) or by OPTION AUTORUN.
 
+=== MM.CODE
+--- keep
+The number of free slots in the G-code buffer of the STEPPER command.  A program can check it before STEPPER GCODE to avoid the error "G-code buffer full".  See the STEPPER command.
+
 === MM.DEVICE$
 --- keep
 A string identifying the computer that MMBasic is running on: "Colour Maximite 2" on a Generation 1 and "Colour Maximite 2 G2" on a Generation 2.  Other versions of MMBasic return their own name (eg, a PicoMite's), so a program can use it to tell which computer it is running on.
@@ -166,7 +170,7 @@ The number of lines of source code in the program in program memory: the lines r
 
 =+= MM.INFO(MAX GP)
 --- keep
-With OPTION PICOMITE: the highest GP number of the PicoMite that the option gives, 47 for an RP2350B and 29 for the others (see PicoMite Pin Names in the chapter Using the I/O Pins).
+The highest GP number: with OPTION PICOMITE that of the PicoMite the option gives, 47 for an RP2350B and 29 for the others, and without it 37, the highest that has a pin on the Colour Maximite 2 (see PicoMite Pin Names in the chapter Using the I/O Pins).
 
 =+= MM.INFO(MAX PAGES)
 MM.INFO(PAGE ADDRESS n)
@@ -203,11 +207,11 @@ The number of samples that the last ADC START could not take because the next on
 
 =+= MM.INFO$(PIN pinno)
 --- keep
-The status of I/O pin ‘pinno’ of the rear connector: "Unused", "In Use", "Reserved" (used by the Colour Maximite 2 itself) or "Invalid" (not an I/O pin).  With OPTION PICOMITE ‘pinno’ can also be a PicoMite GP name; one with no pin here is "Invalid".
+The status of I/O pin ‘pinno’ of the rear connector: "Unused", "In Use", "Reserved" (used by the Colour Maximite 2 itself) or "Invalid" (not an I/O pin).  ‘pinno’ can also be a PicoMite GP name; one with no pin here is "Invalid".
 
 =+= MM.INFO(PINNO GPn)
 --- keep
-With OPTION PICOMITE: the number of the pin of the rear connector that the PicoMite's name GPn stands for (see PicoMite Pin Names in the chapter Using the I/O Pins).  ‘GPn’ can also be a string (eg, MM.INFO(PINNO "GP" + STR$(n))).
+The number of the pin of the rear connector that the PicoMite's name GPn stands for (see PicoMite Pin Names in the chapter Using the I/O Pins).  ‘GPn’ can also be a string (eg, MM.INFO(PINNO "GP" + STR$(n))).
 
 =+= MM.INFO$(LCDPANEL)
 --- keep

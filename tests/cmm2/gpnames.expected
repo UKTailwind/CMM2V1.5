@@ -1,0 +1,12 @@
+ok  MM.DEVICE$ is the CMM2's (no OPTION PICOMITE)
+ok  MM.INFO(PINNO GP16)
+ok  MM.INFO(PINNO with GP2 as a string)
+ok  MM.INFO(MAX GP): 37, the highest GP with a pin here
+ok  SETPIN GP16, DOUT and PIN(GP16) = 1: pin 3 high
+ok  PIN() = 0 with GP16 as a string: low
+ok  PORT(GP16, 2) = &B10: GP17 (pin 5) high, GP16 low
+ok  MM.INFO$(PIN GP16)
+ok  a GP with no pin
+ok  past GP47
+gpnames: 10 of 10 passed
+

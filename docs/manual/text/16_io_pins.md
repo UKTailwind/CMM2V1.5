@@ -1,6 +1,6 @@
 # Using the I/O Pins
 
-The 40-pin ribbon connector on the rear panel provides 28 input/output pins which can be controlled from within the BASIC program with 12 of these supporting the measurement of voltage. An I/O pin is referred to by its pin number and these, and their capabilities, are listed in the section External I/O Connector of the chapter Hardware Features. With OPTION PICOMITE a pin can also be referred to by the PicoMite's name for it (see PicoMite Pin Names below).
+The 40-pin ribbon connector on the rear panel provides 28 input/output pins which can be controlled from within the BASIC program with 12 of these supporting the measurement of voltage. An I/O pin is referred to by its pin number and these, and their capabilities, are listed in the section External I/O Connector of the chapter Hardware Features. A pin can also be referred to by the PicoMite's name for it, in every mode (see PicoMite Pin Names below).
 
 ## Digital Inputs
 
@@ -126,7 +126,7 @@ As an example: if an ON KEY interrupt (for any key) occurred at the same time as
 
 ## PicoMite Pin Names
 
-PicoMite programs refer to the I/O pins by their GP numbers (GP0 to GP28, and up to GP47 on an RP2350B). With OPTION PICOMITE (see the chapter Options) a GP name stands for the pin of the rear connector that has the same function, so that a PicoMite program, and the way it is wired, carry over: COM1 is on GP0 and GP1 on both, I2C on GP16 and GP17, and so on.
+PicoMite programs refer to the I/O pins by their GP numbers (GP0 to GP28, and up to GP47 on an RP2350B). On the Colour Maximite 2 a GP name stands for the pin of the rear connector that has the same function, so that a PicoMite program, and the way it is wired, carry over: COM1 is on GP0 and GP1 on both, I2C on GP16 and GP17, and so on. The GP names can be used in every program, with or without OPTION PICOMITE.
 
 {widths: 8,8,34,8,8,34}
 | GP | Pin | Function | GP | Pin | Function |
@@ -151,8 +151,8 @@ COM2 is on GP36 and GP37, which are COM2 pins on a PicoMite with an RP2350B too,
 - A GP name can be used wherever a pin number can (SETPIN, PIN(), PIN() =, PORT, PULSE, PULSIN(), DISTANCE(), IR SEND, HUMID, WS2812, BITBANG, DEVICE, ONEWIRE, TEMPR START, TEMPR() and MM.INFO$(PIN)). As on the PicoMite it can be written as it is (SETPIN GP2, DOUT) or as a string (PIN("GP2"), or SETPIN "GP" + STR$(n), DIN).
 - A pin number is still the Colour Maximite 2's (SETPIN 1 on a PicoMite is GP0; here pin 1 is 3.3V).
 - PORT() with a GP name takes consecutive GP numbers, as the PicoMite does: PORT(GP6, 4) is the pins 7, 13, 15 and 24.
-- MM.INFO(PINNO GPn) gives the pin that GPn stands for, and MM.INFO(MAX GP) the highest GP number of the PicoMite that OPTION PICOMITE names.
+- MM.INFO(PINNO GPn) gives the pin that GPn stands for, and MM.INFO(MAX GP) the highest GP number: that of the PicoMite that OPTION PICOMITE names, or without the option 37, the highest with a pin here.
 - The PicoMite's SETPIN commands that give a COM port, I2C or SPI its pins (eg, SETPIN GP0, GP1, COM1 or SETPIN GP20, GP19, GP18, SPI) are accepted. The pins are checked as the PicoMite checks them, so any of the pins it allows for that port can be given, and the port is then opened on the Colour Maximite 2's own pins (those in the table above).
-- SETPIN pin, PWM (or PWM1A, PWM1B, PWM2A or PWM2B) is accepted for GP2 to GP5, which are PWM 1A, 1B, 2A and 2B on both. The PWM and SERVO commands take the PicoMite's arguments, and set the pins up as they always do here (see PWM and SERVO in the chapter Commands).
+- SETPIN pin, PWM (or PWM1A, PWM1B, PWM2A or PWM2B) is accepted for GP2 to GP5, which are PWM 1A, 1B, 2A and 2B on both. With OPTION PICOMITE the PWM and SERVO commands take the PicoMite's arguments, and set the pins up as they always do here (see PWM and SERVO in the chapter Commands).
 - SETPIN pin, IR is accepted for any pin, and the IR receiver of the Colour Maximite 2 is used.
 - The RP2350's fast frequency input, SETPIN GP1, FFIN, is not available, as GP1 is COM1 here. Use SETPIN GP13, FIN: the fast counting pin measures a frequency the same way, up to 40MHz.

@@ -1,0 +1,24 @@
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Stepper armed - executing buffered commands
+ok  step pulse high time 4 to 7 us (one 5 us tick; PULSIN's 1 us resolution)
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Warning: X axis max speed limited to 75000.0 mm/min by the 100kHz step-rate cap
+Stepper armed - executing buffered commands
+ok  low time between pulses at the top rate: at least 4 us
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Warning: X axis max speed limited to 75000.0 mm/min by the 100kHz step-rate cap
+Stepper armed - executing buffered commands
+ok  the top step rate: 95000 to 101000 steps/s (one step every two 200 kHz ticks)
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Warning: X axis max speed limited to 75000.0 mm/min by the 100kHz step-rate cap
+Stepper armed - executing buffered commands
+ok  the tick idle takes under 10% of the CPU
+ok  stepping at 100 kHz, under 35%
+steptime: 5 of 5 passed
+

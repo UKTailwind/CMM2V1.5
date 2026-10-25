@@ -73,6 +73,7 @@ const char* overlaid_functions[]={
 	"MM.ONEWIRE",
 	"MM.FLAGS",
 	"MM.ERRLINE",
+	"MM.CODE",                                                      // (before MM.END, which ends the table: the ~() codes stay)
 	"MM.END"
 };
 
@@ -223,6 +224,11 @@ typedef enum {
 } Operation;
 */
 	switch(*ep-'A'){
+		case MMCODE: {                                              // the stepper's G-code buffer's free slots (stepper.c)
+			extern volatile uint16_t stepper_gcode_buffer_space;
+			iret = (int64_t)stepper_gcode_buffer_space;
+			break;
+		}
 		case MMONEWIRE:
 			iret = mmOWvalue;
 			break;

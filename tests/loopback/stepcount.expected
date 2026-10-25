@@ -1,0 +1,23 @@
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Stepper armed - executing buffered commands
+ok  G1 X 50 to 60: X pulses
+ok    Y pulses
+ok    X DIR high (positive)
+ok  G1 X 60 to 40: X pulses in all
+ok    X DIR low (negative)
+ok  G1 X 40 to 50 and Y 60 to 50: X pulses in all
+ok    Y pulses
+ok    Y DIR low
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Stepper armed - executing buffered commands
+ok  the PicoMite's test 2 (lines and four semicircles): X pulses
+ok    back at X 50
+ok    and Y 60
+Stepper initialized - 200KHz timer active
+Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
+Stepper armed - executing buffered commands
+ok  ten G91 moves of 0.4358 mm: X pulses (4.358 mm: 348.64, on the nearest step)
+stepcount: 12 of 12 passed
+

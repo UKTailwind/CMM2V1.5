@@ -793,6 +793,12 @@ Returns a string giving the octal (base 8) representation of 'number'.
 {t=l2592}FLOAT will return the floating point number (64-bits) located at 'addr%'
 {t=l2592}
 
+=+= {b=0 a=0}PEEK(STEPPER X | Y | Z | A | ACTIVE | STATUS | BUFFER)
+{b=0 a=0}or
+--- tight
+{t=l2592}STEPPER will return the position of an axis of the STEPPER command in mm (degrees for A), 1 if it is armed and working through queued moves (ACTIVE), a bitmap of its limit switches, its E-STOP and whether its position is known (STATUS: see *Stepper_Reference.pdf*), or the free slots in its G-code buffer (BUFFER)
+{t=l2592}
+
 =+= {b=0 a=0}PEEK(VARADDR var)
 {b=0 a=0}or
 --- tight
