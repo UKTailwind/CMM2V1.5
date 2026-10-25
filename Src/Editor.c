@@ -261,7 +261,7 @@ static void EdDisplayRestore(void)
    - Enter is '\n', whatever the terminal sends: a CR is Enter, and the LF just after it (a terminal's CR LF, or the
      one MMInkey makes 2 ms after a CR when nothing else has come) is dropped, as MMgetchar drops it. Waiting for that
      LF alone would lose the Enters of a CR typed ahead or pasted with more after it.
-   - Print Screen (0x9D) saves the display (ScreenShot, Console.c) and is not a key. */
+   - Print Screen (0x9D) and Ctrl-\ (0x1C) save the display (ScreenShot, Console.c) and are not keys. */
 /* keys looked at and given back: to MMInkey (main.c), which returns them before any other, so that those typed after
    an Esc that leaves the editor reach the prompt (as kilo's did, through MMInkey's own look-ahead). A queue of the
    editor's own kept them for its next session instead, where they were typed into the file. */
@@ -273,7 +273,7 @@ static int EdInkey(void)
     int c = MMInkey();
     if (c == -1)
         return -1;
-    if (c == 0x9D)
+    if (KEY_IS_PRTSCR(c))
     {
         ScreenShot();
         return -1;

@@ -4044,8 +4044,8 @@ fm_relaunch:
             else
                 UiPointer(1);                           // CMM2: the pointer where the mouse is
             c = MMInkey();
-            if (c == 0x9D)
-            {                                           // CMM2: Print Screen saves the display (Console.c)
+            if (KEY_IS_PRTSCR(c))
+            {                                           // CMM2: Print Screen or Ctrl-\ saves the display (Console.c)
                 ScreenShot();
                 c = -1;
             }

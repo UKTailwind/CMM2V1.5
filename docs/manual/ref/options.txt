@@ -267,6 +267,15 @@ Whenever a running program tries to exit to the command prompt for whatever reas
 A permanent lock can be applied by using 99999999 for the PIN number: the console then only offers a restart.
 If a permanent lock is applied or the PIN number is lost the only way to recover is to reset MMBasic to its original configuration, which erases the program (see Resetting MMBasic in the chapter Using MMBasic).
 
+=== OPTION PRINTSCREEN ON | OFF
+--- keep
+While a program is running the Print Screen key and Ctrl-\\ normally reach it as ordinary keys (codes 9D and 1C hex).  With OPTION PRINTSCREEN ON they save the display instead, as they do at the command prompt (see Appendix I): after the statement that is running when the key is pressed, or at once during PAUSE and INPUT.  While it is on the program does not receive those two keys.
+The option must be set in the program: RUN and the end of the program turn it off, as does OPTION PRINTSCREEN OFF.  Saving the display does not change MM.ERRNO or MM.ERRMSG$.
+
+=== OPTION PRINTSCREEN FORMAT PNG | BMP
+--- P keep
+Sets the file that the Print Screen key and Ctrl-\\ save (see Appendix I and OPTION PRINTSCREEN ON): PNG, the default, saves it as SAVE PNG does, and BMP as SAVE IMAGE does.  The file is named A:/SCREEN_yyyymmdd_hhmmss.PNG or A:/SCREEN_yyyymmdd_hhmmss.BMP.  A PNG file is typically ten to fifty times smaller.
+
 === OPTION PROFILING ON
 or
 OPTION PROFILING OFF

@@ -4944,6 +4944,7 @@ static void MIPS16 ClearRuntimeAll(int keep) {
     cursorsave=NULL;
     loadcursordata=NULL;
 	optionangle=1.0;
+	PrintScreenOn = PrintScreenPending = 0;                         // OPTION PRINTSCREEN is set by the program itself
 	optiony=0;
 	cursoron=0;
 	cursorenable=0;

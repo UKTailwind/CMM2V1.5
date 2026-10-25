@@ -362,6 +362,7 @@ extern volatile int MMAbort;
 extern jmp_buf mark;                            // longjump to recover from an error
 extern char BreakKey;                           // console break key (defaults to CTRL-C)
 extern jmp_buf run;                            // longjump to recover from an error
+extern jmp_buf ErrNext;                        // and ON ERROR SKIP's landing (FileTry: FileIO.c)
 
 extern int ProgMemSize;
 

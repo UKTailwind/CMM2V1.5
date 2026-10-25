@@ -2566,6 +2566,25 @@ void cmd_option(void) {
 		return;
 	}
 
+	tp = checkstring(cmdline, "PRINTSCREEN");
+	if(tp) {                                                        // the PicoMite's (25 Oct 2026)
+		char *fp = checkstring(tp, "FORMAT");
+		if(fp) {                                                    // permanent: the file Print Screen and Ctrl-\ save, a PNG
+			int bmp = checkstring(fp, "BMP") != NULL;               // (SAVE PNG, the CMM2's default) or a BMP (SAVE IMAGE)
+			if(!bmp && !checkstring(fp, "PNG")) error("Syntax");
+			if((Option.PrintScreenFormat == 1) != bmp) {
+				Option.PrintScreenFormat = bmp ? 1 : 0;
+				SaveOptions(1);
+			}
+			return;
+		}
+		// temporary: while a program runs, Print Screen and Ctrl-\ save the screen too (Console.c); off at RUN and at the prompt
+		if(checkstring(tp, "ON")) PrintScreenOn = 1;
+		else if(checkstring(tp, "OFF")) PrintScreenOn = PrintScreenPending = 0;
+		else error("Syntax");
+		return;
+	}
+
 	tp = checkstring(cmdline, "CRLF");
 	if(tp) {
 	   	if(CurrentLinePtr==NULL) error("Only valid in a program");
@@ -3992,6 +4011,8 @@ int check_interrupt(void) {
     if(CheckGuiFlag) CheckGui();                                // This implements a LED flash
 
     if(!IntReady.any) return 0;                                     // quick exit: nothing signalled and nothing to poll (S1c)
+    if(PrintScreenPending) PrintScreenNow();                        // OPTION PRINTSCREEN: Print Screen or Ctrl-\ while the
+                                                                    // program runs (Console.c)
 	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
     if(IntReady.count) {                                            // consume one signal (sources only ever add)
         uint32_t primask = __get_PRIMASK();

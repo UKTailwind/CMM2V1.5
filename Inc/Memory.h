@@ -67,6 +67,8 @@ extern void *GetInternalMemoryNull(size_t size);
 //extern void *GetSystemMemory(int  msize);
 extern void ClearTempMemory(void);
 extern void ClearSpecificTempMemory(void *addr);
+extern int TempMemoryMark(void);                                    // the temporary memory got since a mark freed (Memory.c)
+extern void ClearTempMemoryTo(int mark);
 extern void FreeMemory(void *addr);
 extern void *GetFastTempMemory(size_t size);//extern void *GetSMemory(size_t msize);
 extern void InitHeap(void);

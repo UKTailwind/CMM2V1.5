@@ -2,7 +2,8 @@
 E1's gate), on the board on COM4, photographed with Print Screen.
 
 Each config runs its set-up at the prompt, opens A:/e/p.bas (a colour sample, 60 short lines and a long one),
-photographs the display (the Print Screen key, 0x9D, which saves A:/SCREENnnn.BMP) when open, after 30 lines down,
+photographs the display (the Print Screen key, 0x9D, which saves A:/SCREEN_yyyymmdd_hhmmss.PNG) when open, after 30
+lines down,
 and in mark mode, leaves, puts the option back, and fetches the pictures by ZMODEM as OUTDIR/CONFIG_NN_LABEL.png.
 For each picture it prints the bands of light rows (the status bar: there should be one). On the terminal it checks
 the status bar and the size the editor asked for. A full-screen Print Screen takes 5-6 s and a picture about 35 s to
@@ -11,7 +12,7 @@ fetch, so the eight configs take about 20 minutes. Needs Pillow.
 The screen-only console cannot be driven from here: with OPTION CONSOLE SCREEN the console UART takes no input. (Its
 receive interrupt ignores bytes while OptionConsole has no serial bit; setting OptionConsole 2 with POKE, with the
 UART left running, hung the board on the next byte.) It is checked by hand, with the USB keyboard."""
-import contextlib, io, os, sys, tempfile, time
+import contextlib, io, os, re, sys, tempfile, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vt100drive, zmodem_pc
 from PIL import Image
@@ -71,11 +72,26 @@ def put(t, name, lines):
     t.settle(0.5)
 
 
+SHOTS = 'A:/SCREEN_*.*'                                 # Print Screen's pictures (Console.c), for clean
+
+
+def shots(t):
+    """the names of Print Screen's pictures on the card, oldest first: SCREEN_yyyymmdd_hhmmss.PNG (or .BMP), from the
+    board's clock, with _1, _2 ... for more in the same second (which sort after it)"""
+    t.cmd('f$ = Dir$("A:/SCREEN_*", FILE) : Do While f$ <> "" : Print "<<" + f$ + ">>" : f$ = Dir$() : Loop')
+    t.prompt(30)
+    return sorted(set(re.findall(r'<<(SCREEN_[0-9_]+\.(?:PNG|BMP))>>', t.text())))
+
+
 def fetch(t, n, out):
+    """the n-th picture Print Screen took (0 the first), fetched and saved as out; None if there is none"""
+    names = shots(t)
+    if n >= len(names):
+        return None
     for attempt in range(2):
         dd = tempfile.mkdtemp()
         t.settle(0.5)
-        t.b.s.write(('ZMODEM SEND "A:/SCREEN%03d.BMP"\r' % n).encode())
+        t.b.s.write(('ZMODEM SEND "A:/%s"\r' % names[n]).encode())
         t0, seen = time.time(), b''
         while time.time() - t0 < 10 and b'**\x18B' not in seen:
             seen += t.b.s.read(64)
@@ -112,7 +128,7 @@ def run(name, outdir):
     t.read = logged
     t.cmd('chdir "A:/e"', settle=True)
     put(t, 'p.bas', SAMPLE)
-    clean(t, 'A:/SCREEN*.BMP')
+    clean(t, SHOTS)
     for c in setup:
         t.cmd(c, settle=True)
     t.mark()
@@ -177,7 +193,7 @@ def run(name, outdir):
             print('      %-15s %s: no picture' % (name, label))
             continue
         print('      %-15s %02d %-8s bars %s' % (name, n, label, bars(img)))
-    clean(t, 'A:/SCREEN*.BMP')
+    clean(t, SHOTS)
     t.close()
 
 

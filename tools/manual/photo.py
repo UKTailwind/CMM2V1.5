@@ -1,5 +1,6 @@
 """photo.py OUT.png STEP...: a picture of the Colour Maximite 2's screen for the manual (docs/Manual_Plan.md), taken on
-the board on COM4 with the Print Screen key (0x9D, which saves A:/SCREENnnn.BMP), fetched by ZMODEM and saved as PNG.
+the board on COM4 with the Print Screen key (0x9D, which saves A:/SCREEN_yyyymmdd_hhmmss.PNG), fetched by ZMODEM and
+saved as PNG.
 
     put:LOCAL[=NAME]    send a local file to the card's current directory (as NAME)
     cmd:TEXT            a line at the prompt (waits for the prompt to come back)
@@ -14,14 +15,14 @@ import os, re, sys, time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'tools'))
 import vt100drive
-from edit_photos import put, fetch, clean
+from edit_photos import put, fetch, clean, SHOTS
 
 
 def main():
     out, steps = sys.argv[1], sys.argv[2:]
     t = vt100drive.Term()
     t.cmd('', settle=True)
-    clean(t, 'A:/SCREEN*.BMP')
+    clean(t, SHOTS)
     snaps = 0
     for step in steps:
         kind, _, arg = step.partition(':')
@@ -54,7 +55,7 @@ def main():
         name = out if n == 0 else re.sub(r'(\.\w+)$', r'_%d\1' % (n + 1), out)
         img = fetch(t, n, name)
         print(name, img.size if img else 'NOT FETCHED')
-    clean(t, 'A:/SCREEN*.BMP')
+    clean(t, SHOTS)
     t.close()
 
 

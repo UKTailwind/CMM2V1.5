@@ -531,6 +531,7 @@ void ResetAllOptions(void) {
     Option.Compile = RB_OFF;                                        // (OPTION COMPILE: Stream.c)
     Option.Picomite = 0;                                            // (OPTION PICOMITE NONE: PicoMode.c)
     Option.PicoRes = 0;
+    Option.PrintScreenFormat = 0;                                   // (OPTION PRINTSCREEN FORMAT PNG: Console.c)
     Option.Baudrate = CONSOLE_BAUDRATE;
     Option.Autorun = false;
     Option.Listcase = CONFIG_TITLE;

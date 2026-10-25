@@ -2,25 +2,25 @@
 
 Made by `tools/manual/refcheck.py` from `docs/manual/ref/` and `firmware.json` (7.00.00b3). Suggestions for the reference pass: the pass decides.
 
-Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 676, PART 7.
+Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 681, PART 7.
 
 ## Predefined Read Only Variables (`variables.txt`)
 
-53 entries; not OK: 0
+55 entries; not OK: 0
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
 
 ## Options (`options.txt`)
 
-53 entries; not OK: 0
+55 entries; not OK: 0
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
 
 ## Commands (`commands.txt`)
 
-409 entries; not OK: 11
+410 entries; not OK: 11
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
@@ -34,7 +34,7 @@ Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 676, PART 7.
 | 1545 | NO KEYWORD | Matrix arithmetic | Matrix arithmetic (NO KEYWORD) |
 | 1572 | NO KEYWORD | Vector arithmetic | Vector arithmetic (NO KEYWORD) |
 | 1604 | NO KEYWORD | Quaternion arithmetic | Quaternion arithmetic (NO KEYWORD) |
-| 2769 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
+| 2774 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
 
 ## Functions (`functions.txt`)
 

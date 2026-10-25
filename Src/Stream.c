@@ -80,8 +80,9 @@ static int RBInPsram(void)
     return 1;
 }
 
-// CRC-32, reflected 0xEDB88320 with no final inversion: littlefs's lfs_crc, which the PicoMite's stamps use
-static uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size)
+// CRC-32, reflected 0xEDB88320 with no final inversion: littlefs's lfs_crc, which the PicoMite's stamps use (and SAVE
+// PNG's chunks: PngEncoder.c)
+uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size)
 {
     static const uint32_t rtable[16] = {
         0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac, 0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,

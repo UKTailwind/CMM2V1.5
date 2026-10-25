@@ -108,7 +108,9 @@ The current image on the screen can be saved to a file using the following comma
 SAVE IMAGE filename$ [, StartX, StartY, width, height]
 ```
 
-This will save the image, or part of the image, as a 24-bit true colour BMP file (the extension .BMP will be added if an extension is not supplied). The Print Screen key does this at the command prompt, in the editor and in the file manager, saving the screen as A:/SCREENnnn.BMP.
+This will save the image, or part of the image, as a 24-bit true colour BMP file (the extension .BMP will be added if an extension is not supplied). SAVE PNG takes the same arguments and saves the same picture as a PNG file, which is compressed: a screen of text and graphics is typically ten to fifty times smaller. LOAD PNG loads it back.
+
+The Print Screen key and Ctrl-\ save the whole screen at the command prompt, in the editor and in the file manager, as A:/SCREEN_yyyymmdd_hhmmss.PNG (see Appendix I).
 
 ## Sequential File Access
 

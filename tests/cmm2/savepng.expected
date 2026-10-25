@@ -1,0 +1,12 @@
+ok  the screen saved and loaded back: a grid of 1200 pixels, the ones that differ
+ok  the name gets .PNG
+ok  and the file is compressed: under a tenth of a BMP's 3 bytes a pixel
+ok  a 101 x 57 window saved and loaded back where it was: 80 pixels, the ones that differ
+ok  nothing outside the window
+ok  a width of 0
+ok  OPTION PRINTSCREEN ON
+ok  OPTION PRINTSCREEN OFF
+ok  OPTION PRINTSCREEN FORMAT JPG
+ok  OPTION PRINTSCREEN alone
+savepng: 10 of 10 passed
+

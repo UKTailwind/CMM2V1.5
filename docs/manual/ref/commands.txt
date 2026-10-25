@@ -2441,7 +2441,12 @@ Writes ‘nbytes’ bytes of memory, starting at ‘address’, to the file ‘f
 --- keep
 Saves the image on the screen, or a part of it, as a 24-bit true colour BMP file: the page being written to, which is the display unless PAGE WRITE or FRAMEBUFFER WRITE has selected another.  ‘file$’ is the name of the file; ".BMP" is added if it has no extension.
 ‘x’, ‘y’, ‘w’ and ‘h’ are optional and are the coordinates (‘x’ and ‘y’ are the top left coordinate) and dimensions (width and height) of the area to be saved.  If they are not specified the whole screen is saved.
-The Print Screen key saves the screen in the same way at the command prompt, in the editor and in the file manager, as A:/SCREENnnn.BMP.
+The Print Screen key and Ctrl-\\ save the screen at the command prompt, in the editor and in the file manager (and in a program under OPTION PRINTSCREEN ON), as a PNG file (SAVE PNG) or under OPTION PRINTSCREEN FORMAT BMP as a BMP file: see Appendix I.
+
+=+= SAVE PNG file$ [, x, y, w, h]
+--- keep
+Saves the image on the screen, or a part of it, as a PNG file: the same picture as SAVE IMAGE, in true colour (8 bits each of red, green and blue) and compressed, so that a screen of text and graphics is typically ten to fifty times smaller than the BMP file.  ‘file$’ is the name of the file; ".PNG" is added if it has no extension.
+‘x’, ‘y’, ‘w’ and ‘h’ are optional and are as for SAVE IMAGE: the top left coordinate and the width and height of the area to be saved, which can be any number of pixels.  If they are not specified the whole screen is saved.  LOAD PNG loads the file back.
 
 === SEEK [#]fnbr, pos
 --- keep

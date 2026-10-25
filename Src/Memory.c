@@ -969,6 +969,19 @@ void ClearTempMemory(void) {
 
 
 
+/* the temporary memory got since TempMemoryMark() freed: what a piece of C code took for itself, where nothing clears
+   it for a while (the editor's and the file manager's Print Screen: ScreenShot) or nothing may (a running program's,
+   whose statement's temporary memory is still in use) */
+int TempMemoryMark(void) {
+    return StrTmpIndex;
+}
+void ClearTempMemoryTo(int mark) {
+    while(StrTmpIndex > mark) {
+        StrTmpIndex--;
+        FreeMemorySafe((void *)&StrTmp[StrTmpIndex]);
+    }
+}
+
 void ClearSpecificTempMemory(void *addr) {
     int i;
     for(i = 0; i < StrTmpIndex; i++) {

@@ -1133,6 +1133,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 		  ShortScroll=Option.showstatus;
   	  }
   	  sendCRLF = CRLFDefault();
+  	  PrintScreenOn = PrintScreenPending = 0;                         // OPTION PRINTSCREEN ends with the program
       if(Option.showstatus)PrintStatus(1);
       mymemset(inpbuf,0,STRINGSIZE);
   }
@@ -3619,6 +3620,7 @@ void SerialConsolePutC(int c) {
 //		       ProcessTouch();
 		       ShowCursor(1);
 		       CursorFollowMouse();                                   // (a linked GUI cursor follows the mouse here too)
+		       if(PrintScreenPending) PrintScreenNow();               // OPTION PRINTSCREEN: Print Screen or Ctrl-\ in INPUT
 		       c = MMInkey();
 		       if(update && Option.showstatus)PrintStatus(0);
 		    } while(c == -1);
@@ -4541,9 +4543,9 @@ void EditInputLine(void) {
     BufEdited = false; //(CharIndex != 0);
     while(1) {
         c = MMgetchar(1);
-        if(c == 0x9D) {                                                                // Print Screen: the display saved as
-            ScreenShot();                                                              // A:/SCREENnnn.BMP (Console.c), as in
-            continue;                                                                  // the editor and FM (Peter, 19 Oct)
+        if(KEY_IS_PRTSCR(c)) {                                                         // Print Screen or Ctrl-\: the display
+            ScreenShot();                                                              // saved (Console.c), as in the editor
+            continue;                                                                  // and FM (Peter, 19 and 25 Oct)
         }
         if(c == TAB) {
             strcpy(buf, "        ");

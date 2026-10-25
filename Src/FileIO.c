@@ -268,6 +268,42 @@ void cmd_save(void) {
            }
         }
         optiony=savey;
+    } else if((p = checkstring(cmdline, "PNG")) !=NULL){            // SAVE PNG file$ [, x, y, w, h]: the area as SAVE IMAGE takes
+    	getargs(&p,9,",");                                          // it, as an 8-bit RGB PNG (the PicoMite's: PngEncoder.c)
+        if((void *)ReadBuffer == (void *)DisplayNotSet) error("SAVE PNG not available on this display");
+        pp = getFstring(argv[0]);
+        if(argc!=1 && argc!=9)error("Syntax");
+        if(strchr(pp, '.') == NULL) strcat(pp, ".PNG");
+        if(argc==1){
+        	x=0; y=0; h=maxH; w=maxW;
+        } else {
+        	x=getint(argv[2],0,maxW-1);
+        	y=getint(argv[4],0,maxH-1);
+        	w=getint(argv[6],1,maxW-x);
+        	h=getint(argv[8],1,maxH-y);
+    		if(optiony) y=maxH-y-h;                                 // (Y axis up: the area from y up, as SAVE IMAGE)
+        }
+        if(!BasicFileOpen(pp, fnbr, FA_WRITE | FA_CREATE_ALWAYS)) return;
+    	int savey=optiony;
+    	optiony=0;
+        flinebuf = GetTempMemory(maxW * 4);
+        PngBegin(fnbr, w, h);
+        for(i = y; i < y+h; i++){                                   // (from the top: a BMP's rows are from the bottom)
+           ReadBuffer(x, i, x+w-1, i, flinebuf);
+           if(VideoColour==12){                                     // (4 bytes a pixel in 12-bit colour: 3 kept, as SAVE IMAGE)
+        	   pp=flinebuf;
+        	   for(j=0;j<w*4;j++){
+        		   if(j % 4 != 3)*pp++=flinebuf[j];
+        	   }
+           }
+           PngRow((uint8_t *)flinebuf);
+           if(CurrentlyPlaying != P_NOTHING){
+			   f_sync(FileTable[fnbr].fptr);
+			   MM_Delay(1);
+           }
+        }
+        PngEnd();
+        optiony=savey;
     } else if((p = checkstring(cmdline, "DATA")) !=NULL){
 		getargs(&p,5,",");
 		if(argc!=5)error("Syntax");
@@ -2403,6 +2439,32 @@ void FileClose(int fnbr) {
     ErrorThrow(FSerror);
 }
 
+
+/* fn(arg) with MMBasic's errors caught, for C code that must not leave the editor, the file manager or a running
+   program for one (Print Screen: Console.c), as the PicoMite's FileTry: 1 if it ran to its end with no file error, else
+   0, with MM.ERRNO and MM.ERRMSG$ as the error left them. A file error is recorded, not thrown (OPTION FILE ERROR
+   ABORT off), any other error comes back here on the ON ERROR SKIP path, and the files fn opened are closed. */
+int FileTry(int (*fn)(void *), void *arg) {
+    jmp_buf errnext;
+    int wasopen[MAXOPENFILES + 1];
+    int skip = OptionErrorSkip, abort = OptionFileErrorAbort;
+    char *savecmdline = cmdline;
+    volatile int ok = 0;
+    for(int i = 1; i <= MAXOPENFILES; i++) wasopen[i] = FileTable[i].com != 0;
+    memcpy(errnext, ErrNext, sizeof(jmp_buf));
+    MMerrno = 0;
+    MMErrMsg = "";
+    OptionFileErrorAbort = 0;
+    OptionErrorSkip = 1;
+    if(setjmp(ErrNext) == 0) ok = fn(arg) && MMerrno == 0;
+    for(int i = 1; i <= MAXOPENFILES; i++)
+        if(!wasopen[i] && FileTable[i].com != 0) ForceFileClose(i);
+    memcpy(ErrNext, errnext, sizeof(jmp_buf));
+    OptionErrorSkip = skip;
+    OptionFileErrorAbort = abort;
+    cmdline = savecmdline;
+    return ok;
+}
 
 //close the file and free up the file handle
 // it will NOT generate an error

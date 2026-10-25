@@ -84,26 +84,67 @@ char *fstrstr (const char *s1, const char *s2)
   return (0);
 }
 
-/* Print Screen in the editor and the file manager (the key gives 0x9D: KeyboardMap.c; Peter, 19 Oct 2026): the
-   display saved as A:/SCREENnnn.BMP, with the first number not used yet. The editor's tests send the same code over
-   the serial console to photograph the display (tools/edit_test.py). */
-void ScreenShot(void) {
-    char name[24], cmd[40], *saved_cmdline = cmdline;
+/* Print Screen (the key gives 0x9D: KeyboardMap.c; Peter, 19 Oct 2026) and Ctrl-\ (0x1C, from any keyboard or
+   terminal), as the PicoMite's (its FileIO.c; Peter, 25 Oct 2026): at the command prompt, in the editor and in the
+   file manager, and in a program under OPTION PRINTSCREEN ON (below), the display saved in the root of the SD card as
+   A:/SCREEN_yyyymmdd_hhmmss.PNG by SAVE PNG, or as .BMP by SAVE IMAGE under OPTION PRINTSCREEN FORMAT BMP. The name is
+   from the clock, not searched for (A:/SCREENnnn.BMP was up to 1000 lookups first): one already taken, by two saves in
+   one second or a clock set back, gets _1, _2 ... _99 rather than being overwritten. Nothing is printed, and an error
+   (no card, no room, no memory) is caught (FileTry), so the editor and the file manager keep their screens and their
+   text; the save's temporary memory is freed at once (the editor never clears it, and a program's statement may still
+   be using its own). The editor's tests send the code over the serial console to photograph the display
+   (tools/edit_test.py). */
+static int ScreenShotSave(void *arg) {
+    char name[48], *cmd = arg;
     FILINFO fno;
-    int n;
-    if(!MDD_SDSPI_CardDetectState()) return;
-    for(n = 0; n < 1000; n++) {
-        sprintf(name, "A:/SCREEN%03d.BMP", n);
+    int len, n, png = Option.PrintScreenFormat != 1;                // (1 BMP; erased flash and 0 PNG, the CMM2's default)
+    RtcGetTime();
+    len = sprintf(name, "A:/SCREEN_%04d%02d%02d_%02d%02d%02d", year, month, day, hour, minute, second);
+    for(n = 0; n < 100; n++) {
+        if(n == 0) strcpy(name + len, png ? ".PNG" : ".BMP");
+        else sprintf(name + len, png ? "_%d.PNG" : "_%d.BMP", n);
         if(f_stat(name, &fno) != FR_OK) break;
     }
-    if(n == 1000) return;
-    sprintf(cmd, "IMAGE \"%s\"", name);
-    int oldabort = OptionFileErrorAbort;                // a file error not thrown (FM's way): from the editor it
-    OptionFileErrorAbort = 0;                           // would leave it and lose the edits (E3)
+    if(n == 100) return 0;
+    sprintf(cmd, "%s \"%s\"", png ? "PNG" : "IMAGE", name);
     cmdline = cmd;
     cmd_save();
-    cmdline = saved_cmdline;
-    OptionFileErrorAbort = oldabort;
+    return 1;
+}
+
+void ScreenShot(void) {
+    char cmd[64];
+    int mark = TempMemoryMark();
+    if((void *)ReadBuffer == (void *)DisplayNotSet || !MDD_SDSPI_CardDetectState()) return;
+    FileTry(ScreenShotSave, cmd);
+    ClearTempMemoryTo(mark);
+}
+
+/* OPTION PRINTSCREEN ON, a temporary option (off at RUN and at the prompt): while a program runs, Print Screen and
+   Ctrl-\ save the screen too. Each console producer takes the key where it arrives (PrtScrTake: the USB keyboard,
+   KeyboardMap.c, and the serial consoles' interrupts, stm32h7xx_it.c), so the program never reads it, and the screen is
+   saved where the program can stop for it: after a statement and in a PAUSE (check_interrupt), and in INPUT's wait
+   (MMgetchar). */
+volatile int PrintScreenOn, PrintScreenPending;
+int PrtScrTakeKey(int c) {
+    if(!KEY_IS_PRTSCR(c)) return 0;
+    PrintScreenPending = 1;
+    IntSignal();                                                    // so that check_interrupt looks after this statement
+    return 1;
+}
+
+// the save, keeping the program's MM.ERRNO and MM.ERRMSG$ (FileTry clears them)
+void PrintScreenNow(void) {
+    static char msg[256];
+    int e = MMerrno;
+    PrintScreenPending = 0;
+    if(MMErrMsg != msg) {
+        strncpy(msg, MMErrMsg, sizeof(msg) - 1);
+        msg[sizeof(msg) - 1] = 0;
+    }
+    ScreenShot();
+    MMerrno = e;
+    MMErrMsg = msg;
 }
 
 // the serial terminal asked to be the console's size (xterm's resize: ESC [ 8 ; rows ; cols t)

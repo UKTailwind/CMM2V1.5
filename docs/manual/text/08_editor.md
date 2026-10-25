@@ -42,7 +42,7 @@ These keys are particular to the Colour Maximite 2's editor:
 >> Shift-Del	At the start of a line, delete its leading spaces; elsewhere the same as Delete.
 >> Shift-arrow	Start mark mode, with the arrow as its first move (Shift and the arrows also work in mark mode).
 >> Page Up/Down	The first press moves the cursor to the top (or bottom) row of the screen, the next moves a page.
->> Print Screen	Save a picture of the screen to the SD card as A:/SCREENnnn.BMP (the next free number). It takes a few seconds.
+>> Print Screen	Save a picture of the screen to the SD card as A:/SCREEN_yyyymmdd_hhmmss.PNG (Ctrl-\ does the same: see Appendix I).
 
 The Tab key inserts spaces up to the next tab stop (see OPTION TAB).
 

@@ -76,6 +76,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void decodeBMPheader(int *width, int *height);
     extern int ReadAndDisplayBMP(int fnbr, int dither_mode, int img_x_offset, int img_y_offset, int x_display, int y_display);
     extern void FilePutData(char *c, int fnbr, int n);
+    extern int FileTry(int (*fn)(void *), void *arg);               // fn(arg) with MMBasic's errors caught (FileIO.c)
+    // SAVE PNG (PngEncoder.c): the file's start, each row (3 bytes a pixel, blue, green, red, as ReadBuffer gives them),
+    // and its end
+    extern void PngBegin(int fnbr, int width, int height);
+    extern void PngRow(const uint8_t *bgr);
+    extern void PngEnd(void);
+#include "PrintScreen.h"                                            // (Print Screen and Ctrl-\: Console.c)
     extern char *ChangeToDir(char *p);
     extern int InitSDCard(void);
     extern int USBDriveReady(void);                                  // MM.INFO$(USBDRIVE): the C: drive mounted (FileIO.c)

@@ -35,6 +35,7 @@
 #include "Flash.h"
 #include "IOPorts.h"
 #include "External.h"
+#include "PrintScreen.h"                                // (PrtScrTake: OPTION PRINTSCREEN ON, Console.c)
 /* USER CODE END Includes */
 
 
@@ -429,6 +430,8 @@ void USART1_IRQHandler(void)
   			if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
   				MMAbort = true;                                        // set the flag for the interpreter to see
   				ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
+  			} else if(PrtScrTake(ConsoleRxBuf[ConsoleRxBufHead])) {   // OPTION PRINTSCREEN ON: the running program's
+  				;                                                       // screenshot (Console.c), not a key
   			} else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
   					Keycomplete=1;
   					IntSignal();
@@ -522,6 +525,8 @@ void USART2_IRQHandler(void)
   			if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
   				MMAbort = true;                                        // set the flag for the interpreter to see
   				ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
+  			} else if(PrtScrTake(ConsoleRxBuf[ConsoleRxBufHead])) {   // OPTION PRINTSCREEN ON: the running program's
+  				;                                                       // screenshot (Console.c), not a key
   			} else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
   					Keycomplete=1;
   					IntSignal();
@@ -613,6 +618,8 @@ void UART4_IRQHandler(void)
   			if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
   				MMAbort = true;                                        // set the flag for the interpreter to see
   				ConsoleRxBufHead = ConsoleRxBufTail;                    // empty the buffer
+  			} else if(PrtScrTake(ConsoleRxBuf[ConsoleRxBufHead])) {   // OPTION PRINTSCREEN ON: the running program's
+  				;                                                       // screenshot (Console.c), not a key
   			} else if(ConsoleRxBuf[ConsoleRxBufHead] ==keyselect && KeyInterrupt!=NULL){
   					Keycomplete=1;
   					IntSignal();

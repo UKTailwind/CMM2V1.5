@@ -307,6 +307,7 @@ void printoptions(void){
     if(Option.ProgramStartCode<0)PO2Str("RAM","ON",1);
     else if(Option.ProgramStartCode>PROGRAMSTARTCODE)PO2Int("FLASH",Option.ProgramStartCode);
     if(Option.Compile == RB_ON || Option.Compile == RB_SHADOW) PO2Str("COMPILE", Option.Compile == RB_ON ? "ON" : "SHADOW", 1);
+    if(Option.PrintScreenFormat == 1) PO2Str("PRINTSCREEN FORMAT", "BMP", 1);
     if(Option.SDspeed==1)PO2Str("SD TIMING","FAST",1);
     if(Option.RTC_Calibrate){
     	char buff[30]={0};
