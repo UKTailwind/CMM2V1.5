@@ -241,7 +241,7 @@ pdf.cell(0, 10, '3.2 Corner Blending (G61 / G64)', 0, 1)
 pdf.set_font('Helvetica', '', 11)
 pdf.multi_cell(0, 5,
     "G61 selects exact-stop mode: every move comes to a stop before the next one starts.\n"
-    "G64 selects continuous mode: consecutive moves are blended at their junctions, so that a path of short "
+    "G64, the default, selects continuous mode: consecutive moves are blended at their junctions, so that a path of short "
     "moves runs near the requested feed instead of stopping at every corner. Lines (G0/G1) and arcs (G2/G3) "
     "blend with each other: an arc records the directions it starts and ends in. The speed through a "
     "junction follows Grbl's junction-deviation formula (deviation 0.05 mm, which takes cos of half the turn: "
