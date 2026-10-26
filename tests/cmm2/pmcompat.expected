@@ -12,7 +12,7 @@ DEVICE WII CLOSE: Not open
 DEVICE(WII B): Not open
 DEVICE(NUNCHUCK Z): Not open
 DEVICE KEYPAD: Not available on the Colour Maximite 2
-DEVICE SERIALTX: Not available on the Colour Maximite 2
+DEVICE CAMERA: Not available on the Colour Maximite 2
 DEVICE TOASTER: Syntax
 a variable called device: 4
 done

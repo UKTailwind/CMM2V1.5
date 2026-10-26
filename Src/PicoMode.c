@@ -2,8 +2,9 @@
 OPTION PICOMITE: the PicoMite's MODE and RESOLUTION on the CMM2 (22 Oct 2026, docs/PicoMite_CMM2_Mode_Map.md)
 
 OPTION PICOMITE VGA | HDMI [, resolution] says which PicoMite a program was written for (its MODE numbers mean other
-displays on the two), and at which of its resolutions (OPTION RESOLUTION there, 640x480 by default). OPTION PICOMITE
-NONE, the default, leaves MODE the CMM2's.
+displays on the two), and at which of its resolutions (OPTION RESOLUTION there, which sets it here too). With none
+given it is the one OPTION DEFAULT MODE's monitor timing is (PicoResFromMode), so that the prompt, EDIT, FM and the
+programs keep one timing (26 Oct 2026). OPTION PICOMITE NONE, the default, leaves MODE the CMM2's.
 
 Under it, MODE n (a number alone) is the PicoMite's mode n: its size, its colours and its framebuffers, as MODE
 n,1 (MODE 1), n,4 (2 and 3), n,16 (4) and n,8 (5). Each PicoMite resolution has one CMM2 timing (PicoBase), which all
@@ -77,9 +78,20 @@ int PicoMaxGP(void) {
     return strstr(n, "RP2350B") ? 47 : 29;
 }
 
+/* the PicoMite resolution OPTION DEFAULT MODE's monitor timing is, for OPTION PICOMITE with none given: 640x480 for a
+   mode with no PicoMite resolution, and on VGA for one that is HDMI's only. (A user's report, 26 Oct 2026: with
+   DEFAULT MODE 9 and the programs at 640x480 the monitor changed timing at every RUN and every EDIT.) */
+static int PicoResFromMode(void) {
+    static const unsigned char m[][2] = {{8, 0}, {1, 2}, {10, 3}, {18, 5}, {11, 6}, {9, 7}};   // DEFAULT MODE, PicoRes[]
+    int r = 0;
+    for(int i = 0; i < (int)(sizeof(m) / sizeof(m[0])); i++) if(Option.mode == m[i][0]) r = m[i][1];
+    if(PicoFlavour() == PICO_VGA && r > 3) r = 0;
+    return r;
+}
+
 static int PicoResolution(void) {
     if(PicoResNow >= 0) return PicoResNow;
-    return Option.PicoRes < PICORES ? Option.PicoRes : 0;
+    return Option.PicoRes < PICORES ? Option.PicoRes : PicoResFromMode();   // (PICORES_AUTO, as erased flash)
 }
 
 // a resolution as the PicoMite's OPTION RESOLUTION and RESOLUTION take it, for this flavour
@@ -88,6 +100,29 @@ static int PicoResArg(char *p, int flavour) {
         if(checkstring(p, (char *)PicoRes[i].name) || (PicoRes[i].alias && checkstring(p, (char *)PicoRes[i].alias))) return i;
     error("Invalid resolution");
     return 0;
+}
+
+// a speed after 640x480 (OPTION RESOLUTION and RESOLUTION): 252000, 315000 or 378000, checked; nothing to change here
+static void PicoSpeedArg(int res, char *p) {
+    int s;
+    if(res != 0) error("Syntax");                                   // (the speed only for 640x480)
+    s = getint(p, 252000, 378000);
+    if(!(s == 252000 || s == 315000 || s == 378000)) error("Invalid speed");
+}
+
+/* argv is the word w and nothing more. A resolution after it with no comma was taken as the word alone, and so as
+   640x480 (a user's report, 26 Oct 2026): it is said to want the comma. */
+static int PicoWord(char *arg, const char *w) {
+    char *p = checkstring(arg, (char *)w);
+    if(p == NULL) return 0;
+    skipspace(p);
+    if(*p) {
+        for(int i = 0; i < PICORES; i++)
+            if(checkstring(p, (char *)PicoRes[i].name) || (PicoRes[i].alias && checkstring(p, (char *)PicoRes[i].alias)))
+                error("A comma is needed before the resolution");
+        error("Syntax");
+    }
+    return 1;
 }
 
 /* MODE n under OPTION PICOMITE: the PicoMite's mode n at the current resolution (its setmode() and ResetDisplay(),
@@ -139,23 +174,23 @@ void PicoModeEnd(void) {
     Rgb121CloseAll();
     WritePage = ReadPage = 0;
     for(int i = 0; i <= LastPage; i++) if(PageTable[i].address) PageTable[i].ymax = ModeYres(VideoMode);
-    gui_fcolour = PromptFC = Option.DefaultFC = WHITE;
-    gui_bcolour = PromptBC = Option.DefaultBC = BLACK;
+    gui_fcolour = PromptFC = Option.DefaultFC;                     // (OPTION DEFAULT COLOURS', white on black unless set)
+    gui_bcolour = PromptBC = Option.DefaultBC;
     SetFont(PicoFontNow);
     Option.DefaultFont = gui_font;
     if(VideoColour == 1) MonoTilesReset();
 }
 
-/* OPTION PICOMITE VGA | HDMI | NONE [, resolution]: saved, at the prompt only */
+/* OPTION PICOMITE VGA | HDMI | NONE [, resolution]: saved, at the prompt only; no resolution: OPTION DEFAULT MODE's */
 void PicoOption(char *tp) {
-    int d = -1, res = 0;
+    int d = -1, res = PICORES_AUTO;
     char *p;
     if(CurrentLinePtr) error("Invalid in a program");
     getargs(&tp, 3, ",");
     if(argc < 1) error("Syntax");
-    if(checkstring(argv[0], "NONE")) d = 0;
-    else if(checkstring(argv[0], "VGA")) d = PICO_DEFVGA;
-    else if(checkstring(argv[0], "HDMI")) d = PICO_DEFHDMI;
+    if(PicoWord(argv[0], "NONE")) d = 0;
+    else if(PicoWord(argv[0], "VGA")) d = PICO_DEFVGA;
+    else if(PicoWord(argv[0], "HDMI")) d = PICO_DEFHDMI;
     else if(*argv[0] == '"') {                                      // a name as a string
         char *s = getCstring(argv[0]);
         for(int i = 1; i < PICONAMES; i++) if(strcasecmp(s, PicoNames[i]) == 0) d = i;
@@ -177,14 +212,47 @@ void PicoOption(char *tp) {
     SaveOptions(1);
 }
 
+/* OPTION RESOLUTION res [, speed]: the PicoMite's (VGA and HDMI versions), OPTION PICOMITE's resolution, saved; at the
+   prompt only. The PicoMite restarts; nothing needs to here. */
+void PicoOptionResolution(char *tp) {
+    int f = PicoFlavour(), res;
+    if(CurrentLinePtr) error("Invalid in a program");
+    if(f == PICO_NONE) error("Needs OPTION PICOMITE");
+    getargs(&tp, 3, ",");
+    if(argc != 1 && argc != 3) error("Syntax");
+    res = PicoResArg(argv[0], f);
+    if(argc == 3) PicoSpeedArg(res, argv[2]);
+    Option.PicoRes = res;
+    PicoResNow = -1;
+    SaveOptions(1);
+}
+
+// OPTION LIST: the option as it is entered (its resolution only when one was given)
 void PicoOptionList(void) {
-    int f = PicoFlavour(), res = Option.PicoRes < PICORES ? Option.PicoRes : 0;
-    if(f == PICO_NONE) return;
+    if(PicoFlavour() == PICO_NONE) return;
     MMPrintString("OPTION PICOMITE ");
     MMPrintString((char *)PicoNames[Option.Picomite]);
-    MMPrintString(", ");
-    MMPrintString((char *)PicoRes[res].name);
+    if(Option.PicoRes < PICORES) {
+        MMPrintString(", ");
+        MMPrintString((char *)PicoRes[Option.PicoRes].name);
+    }
     MMPrintString("\r\n");
+}
+
+// OPTION LIST's CURRENT lines: the resolution OPTION PICOMITE's modes use and where it comes from, and the PicoMite mode
+// on the display, if one is
+void PicoCurrentList(void) {
+    char b[64];
+    int res = PicoResolution();
+    if(PicoFlavour() == PICO_NONE) return;
+    if(PicoResNow >= 0) sprintf(b, "%s (RESOLUTION)", PicoRes[res].name);
+    else if(Option.PicoRes < PICORES) sprintf(b, "%s", PicoRes[res].name);
+    else sprintf(b, "%s (from DEFAULT MODE %d)", PicoRes[res].name, Option.mode);
+    PO2Str("PICOMITE resolution", b, 3);
+    if(PicoActive) {
+        sprintf(b, "%d, %dx%d", PicoModeNow, HRes, VRes);
+        PO2Str("PICOMITE MODE", b, 3);
+    }
 }
 
 /* RESOLUTION res [, speed]: the PicoMite HDMI's (graphics/Draw.c, cmd_resolution), here the resolution OPTION PICOMITE's
@@ -196,12 +264,7 @@ void cmd_resolution(void) {
     getargs(&cmdline, 3, ",");
     if(argc != 1 && argc != 3) error("Syntax");
     res = PicoResArg(argv[0], PICO_HDMI);
-    if(argc == 3) {
-        int s;
-        if(res != 0) error("Syntax");                              // (the speed only for 640x480)
-        s = getint(argv[2], 252000, 378000);
-        if(!(s == 252000 || s == 315000 || s == 378000)) error("Invalid speed");
-    }
+    if(argc == 3) PicoSpeedArg(res, argv[2]);
     PicoResNow = res;
     PicoModeSet(1);
 }

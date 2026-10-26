@@ -1,0 +1,24 @@
+ok  BLIT COMPRESSED draws as BLIT MEMORY with bit 15 set: the pixels that differ
+ok    two rows of different colours
+ok  BLIT MEMORY of the same data without the flag reads it uncompressed
+ok  BLIT RESIZE 2 x 2 to 4 x 4: each pixel twice as wide and high (8 checked)
+ok    with 8 (red) transparent: the red left black, the green drawn
+ok    4 x 4 to 2 x 2: the four colours again
+ok    onto itself, overlapping: from the source as it was (6 checked)
+ok    a source past the buffer's edge
+ok    in an 8-bit mode
+ok  SAVE IMAGE, 12 colours: bits a pixel
+ok    compression (2 RLE4, 1 RLE8, 0 none)
+ok    smaller than 24-bit
+ok    loaded back: the pixels of 3000 that differ
+ok  SAVE IMAGE, 200 colours: bits a pixel
+ok    compression (2 RLE4, 1 RLE8, 0 none)
+ok    smaller than 24-bit
+ok    loaded back: the pixels of 3000 that differ
+ok  SAVE COMPRESSED IMAGE: the same file as SAVE IMAGE
+ok  SAVE IMAGE, more than 256 colours: bits a pixel
+ok    compression (2 RLE4, 1 RLE8, 0 none)
+ok    loaded back: the pixels of 3000 that differ
+ok  MODE 7,1: a 4-bit BMP
+gfxsave: 22 of 22 passed
+

@@ -1174,7 +1174,14 @@ int blitother(void){
         Rgb121BlitFramebuffer(p);
         return 1;
     }
-    if ((p = checkstring(cmdline, "MEMORY"))) {
+    if ((p = checkstring(cmdline, "RESIZE"))) {                    // the PicoMite's, scaling between them (Rgb121.c)
+        Rgb121BlitResize(p);
+        return 1;
+    }
+    int compressed = 0;                                             // BLIT COMPRESSED: BLIT MEMORY's code with bit 15 taken as
+    if ((p = checkstring(cmdline, "COMPRESSED"))) compressed = 1; // set, so the data is always compressed (the PicoMite's,
+    else p = checkstring(cmdline, "MEMORY");                       // whose width and height have no flag)
+    if (p) {
         int8_t blank=-1;
         getargs(&p, 7, ",");
         if(argc<5)error("Syntax");
@@ -1186,7 +1193,7 @@ int blitother(void){
         h=(size[1] & 0x7FFF);
         from+=4;
         if(argc==7)blank=getint(argv[6],-1,15);
-        if(size[0] & 0x8000 || size[1] &  0x8000) {
+        if(compressed || size[0] & 0x8000 || size[1] &  0x8000) {
             docompressed(from, x1, y1, w, h, blank);
         } else {
             if(blank==-1){

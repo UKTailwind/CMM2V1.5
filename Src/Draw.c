@@ -6228,6 +6228,22 @@ void SetFont(int fnt) {
 }
 
 
+// the PicoMite's 16 colours by name, as OPTION DEFAULT COLOURS takes them: its RGB121 colours at their VGA values (its
+// BROWN and MAGENTA are not the CMM2's, Draw.h)
+const char *const DefColourName[16] = {"BLACK", "BLUE", "MYRTLE", "COBALT", "MIDGREEN", "CERULEAN", "GREEN", "CYAN",
+                                       "RED", "MAGENTA", "RUST", "FUCHSIA", "BROWN", "LILAC", "YELLOW", "WHITE"};
+static const int DefColourRGB[16] = {0x000000, 0x0000FF, 0x004000, 0x0040FF, 0x008000, 0x0080FF, 0x00FF00, 0x00FFFF,
+                                     0xFF0000, 0xFF00FF, 0xFF4000, 0xFF40FF, 0xFF8000, 0xFF80FF, 0xFFFF00, 0xFFFFFF};
+// colour n of them (0-15) as the drawing takes a colour: black as BLACK (no alpha), the others opaque
+int DefColour(int n) {
+    return n == 0 ? BLACK : (int)(0x0F000000u | (uint32_t)DefColourRGB[n]);
+}
+// the index of colour c among them, -1 when it is none of them (OPTION LIST)
+int DefColourIndex(int c) {
+    for(int n = 0; n < 16; n++) if(((c ^ DefColourRGB[n]) & 0xFFFFFF) == 0) return n;
+    return -1;
+}
+
 void ResetDisplay(void) {
 //    if(!(OptionConsole & 2)) {
         SetFont(Option.DefaultFont);

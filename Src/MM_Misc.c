@@ -2505,6 +2505,30 @@ void cmd_option(void) {
 		return;
 	}
 
+    // OPTION DEFAULT COLOURS fc [, bc]: the PicoMite's, a name of its 16 colours each (bc black if it is left out), kept
+    // with the options and used at once; MODE keeps them (ltdc.c)
+    if((tp = checkstring(cmdline, "DEFAULT COLOURS")) != NULL || (tp = checkstring(cmdline, "DEFAULT COLORS")) != NULL) {
+        int c[2] = {15, 0};
+        getargs(&tp, 3, ",");
+        if(argc != 1 && argc != 3) error("Syntax");
+        for(int a = 0; a < argc; a += 2) {
+            int n = 0;
+            while(n < 16 && !checkstring(argv[a], (char *)DefColourName[n])) n++;
+            if(n == 16) error("Invalid colour: $", argv[a]);
+            c[a / 2] = n;
+        }
+        if(c[0] == c[1]) error("Foreground and Background colours are the same");
+        Option.DefaultFC = DefColour(c[0]);
+        Option.DefaultBC = DefColour(c[1]);
+        SaveOptions(1);
+        PromptFC = Option.DefaultFC;
+        PromptBC = Option.DefaultBC;
+        ResetDisplay();
+        ClearScreen(gui_bcolour);
+        CurrentX = CurrentY = 0;
+        return;
+    }
+
     tp = checkstring(cmdline, "DEFAULT");
 	if(tp) {
 		SymBindGlobalsChanged();                                    // what an unsuffixed name may bind to (Symbols.h)
@@ -3805,7 +3829,7 @@ void MIPS16 cmd_autosave(void) {
     char *buf, *p, *r=NULL;
     char fname[256];
     int c,count=0,prevc = 0;
-    int noecho = 0;
+    int noecho = 0, append = false;
     uint64_t timeout;
     sendCRLF=3;
     int changemode=VideoMode;
@@ -3815,14 +3839,14 @@ void MIPS16 cmd_autosave(void) {
     	error("Syntax");
     } else {
       	if(!InitSDCard()) return;
-    	p = checkstring(cmdline, "N");  //G.A.
-    	if(p){
+    	if((p = checkstring(cmdline, "APPEND"))) append = true;    // AUTOSAVE APPEND [N] file$: the text added to the file's
+    	else p = cmdline;                                           // end (the PicoMite's adds it to the program in memory)
+    	if((r = checkstring(p, "N"))) {  //G.A.
     	  noecho=true;
-    	  skipspace(p);
-    	  r = getFstring(p);
-       	}else{
-           r = getFstring(cmdline);
-    	}
+    	  p = r;
+       	}
+    	skipspace(p);
+    	r = getFstring(p);
     	// open the file
 
     	if(strchr(r, '.') == NULL) strcat(r, ".BAS");
@@ -3925,7 +3949,15 @@ void MIPS16 cmd_autosave(void) {
     	char *pm=buf;
     	if(!InitSDCard()) return;
     	fnbr = FindFreeFileNbr();
-    	if(!BasicFileOpen(fname, fnbr, FA_WRITE | FA_CREATE_ALWAYS)) return;
+    	if(!BasicFileOpen(fname, fnbr, append ? FA_READ | FA_WRITE | FA_OPEN_APPEND : FA_WRITE | FA_CREATE_ALWAYS)) return;
+    	if(append && f_size(FileTable[fnbr].fptr)) {                // (a last line with no ending is given one first)
+    		char last = '\n';
+    		FSIZE_t n = f_size(FileTable[fnbr].fptr);
+    		f_lseek(FileTable[fnbr].fptr, n - 1);
+    		f_read(FileTable[fnbr].fptr, &last, 1, &nbr);
+    		f_lseek(FileTable[fnbr].fptr, n);
+    		if(last != '\n') f_write(FileTable[fnbr].fptr, "\r\n", 2, &nbr);
+    	}
     	while(*pm){
     		routinechecks(1);
     		f_write(FileTable[fnbr].fptr, pm, 1, &nbr);

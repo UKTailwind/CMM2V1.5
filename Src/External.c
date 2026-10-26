@@ -137,6 +137,15 @@ static void MX_TIM17_Init(int scale)
 }
 
 const MMFLOAT ADCdiv[17]={0,0,0,0,0,0,0,0,(MMFLOAT)0xFF00,0,(MMFLOAT)0xFFC0,0,(MMFLOAT)0xFFF0,0,(MMFLOAT)0xFFFC,0,(MMFLOAT)0xFFFF};
+static unsigned char ADCraw[NBRPINS+1];                             // SETPIN pin, ARAW: PIN() is the count, not the voltage
+#define ADC_RAW 0x100                                               // (ExtCfg's option for ARAW: the bits, and this)
+
+// an analog pin's conversion (left-aligned in 16 bits): its voltage, or for SETPIN ARAW the count itself, the PicoMite's
+// (one conversion, no averaging): 0 to 4095 under OPTION PICOMITE (12 bits), 0 to 65535 without it (16)
+static void PinAdcValue(int pin, uint32_t v) {
+    if(ADCraw[pin]) iret = v >> (16 - ADCbits[pin]);
+    else fret = (double)v / ADCdiv[ADCbits[pin]] * VCC;
+}
 int ADC_init(int32_t pin, int fast){
 	int ADCinuse;
 	  /*##-1- Configure the ADC peripheral #######################################*/
@@ -835,7 +844,7 @@ void fun_pin(void) {
 	    	{
 	    		/* ADC conversion completed */
 	    		/*##-5- Get the converted value of regular channel  ########################*/
-				fret=(double)(HAL_ADC_GetValue(&hadc1))/ADCdiv[ADCbits[pin]] * VCC;
+				PinAdcValue(pin, HAL_ADC_GetValue(&hadc1));
 	    	}
 	    	if (HAL_ADC_DeInit(&hadc1) != HAL_OK)
 	    	{
@@ -843,7 +852,7 @@ void fun_pin(void) {
 	    		error("HAL_ADC_DeInit");
 	    	}
 
-	    	targ = T_NBR;
+	    	targ = ADCraw[pin] ? T_INT : T_NBR;
 	    	return;
 	    } else if(ADCinuse==2){
 	    	sConfig.Channel      = PinDef[pin].ADCchannel;                /* Sampled channel number */
@@ -878,7 +887,7 @@ void fun_pin(void) {
 	    	{
 	    		/* ADC conversion completed */
 	    		/*##-5- Get the converted value of regular channel  ########################*/
-				fret=(double)(HAL_ADC_GetValue(&hadc2))/ADCdiv[ADCbits[pin]] * VCC;
+				PinAdcValue(pin, HAL_ADC_GetValue(&hadc2));
 	    	}
 	    	if (HAL_ADC_DeInit(&hadc2) != HAL_OK)
 	    	{
@@ -886,7 +895,7 @@ void fun_pin(void) {
 	    		error("HAL_ADC_DeInit");
 	    	}
 
-	    	targ = T_NBR;
+	    	targ = ADCraw[pin] ? T_INT : T_NBR;
 	    	return;
     	} else {
     		sConfig.Channel      = PinDef[pin].ADCchannel;                /* Sampled channel number */
@@ -921,7 +930,7 @@ void fun_pin(void) {
     		{
     			/* ADC conversion completed */
     			/*##-5- Get the converted value of regular channel  ########################*/
-    			fret=(double)(HAL_ADC_GetValue(&hadc3))/ADCdiv[ADCbits[pin]] * VCC;
+    			PinAdcValue(pin, HAL_ADC_GetValue(&hadc3));
     		}
     		if (HAL_ADC_DeInit(&hadc3) != HAL_OK)
     		{
@@ -929,7 +938,7 @@ void fun_pin(void) {
     			error("HAL_ADC_DeInit");
     		}
 
-    		targ = T_NBR;
+    		targ = ADCraw[pin] ? T_INT : T_NBR;
     		return;
     	}
 	}
@@ -1024,6 +1033,11 @@ void cmd_setpin(void) {
         value = EXT_NOT_CONFIG;
     else if(checkstring(argv[2], "AIN"))
         value = EXT_ANA_IN;
+    else if(checkstring(argv[2], "ARAW")) {                        // (the PicoMite's: AIN's, its PIN() the count)
+        if(argc == 5) error("Syntax");
+        value = EXT_ANA_IN;
+        option = ADC_RAW | (PicoFlavour() != PICO_NONE ? 12 : 16);
+    }
     else if(checkstring(argv[2], "DIN"))
         value = EXT_DIG_IN;
     else if(checkstring(argv[2], "FIN"))
@@ -1047,7 +1061,8 @@ void cmd_setpin(void) {
 
     // check for any options
     switch(value) {
-    	case EXT_ANA_IN:if(argc == 5) {
+    	case EXT_ANA_IN:if(option & ADC_RAW) break;                // (ARAW: its bits set above)
+    					if(argc == 5) {
     						option = getint((argv[4]), 8, 16);
     						if(option & 1)error("Invalid bit count");
         					} else
@@ -1480,53 +1495,207 @@ normal_exit:
     PinSetBit(pin, LATCLR);
 }
 
-//Updated to use parsenumberarray G.A. 02/11/2025
-// BITSTREAM pin, count, array: the array's values are the times in microseconds between the pin's changes
-void Bitstream(char *tp){
-	//	void *ptr1 = NULL;
-	int i,num,size;
-	//int i,num;
-	uint32_t pin;
+/* BITSTREAM pin, count, array() [, mode]: the array's values are the times in microseconds between the pin's changes,
+   0 to 65535 (TIM17 counts microseconds in 16 bits; the PicoMite's go to 67108). Mode 0, push-pull, changes the pin and
+   then waits each time, as it always did here and as the PicoMite's bitstream() does; mode 1, open-collector, drives
+   the pin low or lets it go (pulled up, high) and waits first, as the PicoMite's bitstream2() does, and needs an even
+   count so that the pin ends released.
+   BITSTREAM pin1, count1, array1(), mode1, pin2, count2, array2() [, mode2 [, logic]]: two streams at once, each pin
+   changing at its own times (the PicoMite's dual-pin form, 26 Oct 2026). When the pins are the same pin, 'logic'
+   says how the two streams make its level: 0 XOR (a change on either), 1 AND, 2 OR. A pin not set up is made an
+   output, open-drain and pulled up for mode 1. Interrupts are off while the streams run. */
+static unsigned short *BitstreamTimes(char *arg, int num, int argn, const char *small) {
 	MMFLOAT *a1float=NULL;
 	int64_t *a1int=NULL;
-	unsigned short *data, now;
-	getargs(&tp, 5,",");
-	if(!(argc == 5)) error("Argument count");
-	num=getint(argv[2],1,250000);
-	pin=GetPinArg(argv[0]);
-	if(IsInvalidPin(pin)) error("Invalid pin");
-	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT)) error("Pin is not an output");
-	   /*
-	ptr1 = findvar(argv[4], V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
-	if(VREC(VarIndex)->type & T_NBR) {
-		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-			error("Argument 2 must be an array");
-		}
-		if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
-		a1float = (MMFLOAT *)ptr1;
-	} else if(VREC(VarIndex)->type & T_INT) {
-		if(!DimIsEnd(VREC(VarIndex)->dimtbl[1])) error("Invalid variable");
-		if(!DimIsRealArray(VREC(VarIndex)->dimtbl[0])) {		// Not an array
-			error("Argument 2 must be an array");
-		}
-		if((DimUpper(VREC(VarIndex)->dimtbl[0]) - OptionBase) < num-1)error("Array too small");
-		a1int = (int64_t *)ptr1;
-	} else error("Argument 2 must be an array");
-	*/
-	size=parsenumberarray(argv[4],&a1float, &a1int, 3, 1, NULL, false, NULL);
-	if(size < num)error("Array too small");
+	unsigned short *data;
+	if(parsenumberarray(arg, &a1float, &a1int, argn, 1, NULL, false, NULL) < num) error((char *)small);
 	data=GetTempMemory(num * sizeof(unsigned short));
-	if(a1float!=NULL){
-		for(i=0; i< num;i++)data[i]= FloatToUint16(*a1float++);
-	} else {
-		for(i=0; i< num;i++){
-			if(*a1int <0 || *a1int>65535)error("Number range");
-			data[i]= *a1int++ ;
+	for(int i = 0; i < num; i++) {
+		if(a1float!=NULL) data[i] = FloatToUint16(*a1float++);
+		else {
+			if(*a1int <0 || *a1int>65535) error("Number range");
+			data[i] = *a1int++;
 		}
+	}
+	return data;
+}
+
+static int BitstreamPin(char *arg, int mode, int num, const char *odd) {
+	int pin=GetPinArg(arg);
+	if(IsInvalidPin(pin)) error("Invalid pin");
+	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_OC_OUT || ExtCurrentConfig[pin] == EXT_NOT_CONFIG))
+		error("Pin is not an output");
+	if(mode) {                                                      // open-collector: open-drain, pulled up, released
+		if(num & 1) error((char *)odd);
+		if(ExtCurrentConfig[pin] != EXT_OC_OUT) ExtCfg(pin, EXT_OC_OUT, 0);
+		PinSetBit(pin, CNPUSET);
+		PinDef[pin].sfr->BSRR = PinDef[pin].bitnbr;
+	} else if(ExtCurrentConfig[pin] == EXT_NOT_CONFIG) ExtCfg(pin, EXT_DIG_OUT, 0);
+	return pin;
+}
+
+// the two streams (n2 0 for one): wait each change's time since the last, then change (the PicoMite's bitstream2)
+static void Bitstream2(int pin1, int mode1, unsigned short *d1, int n1, int pin2, int mode2, unsigned short *d2, int n2, int samepin, int logic) {
+	int i1 = 0, i2 = 0, s1 = mode1, s2 = mode2, prev, do1, do2;   // (open-collector starts released: high, 1)
+	unsigned int r1 = n1 ? d1[0] : 0, r2 = n2 ? d2[0] : 0, wait;
+	prev = logic == 1 ? (s1 & s2) : logic == 2 ? (s1 | s2) : (s1 ^ s2);
+	__disable_irq();
+	MX_TIM17_Init(20);
+	__HAL_TIM_SET_AUTORELOAD(&htim17, 0xFFFF);
+	__HAL_TIM_SET_COUNTER(&htim17, 0);
+	__HAL_TIM_ENABLE(&htim17);
+	while(i1 < n1 || i2 < n2) {
+		do1 = i1 < n1 && (i2 >= n2 || r1 <= r2);
+		do2 = i2 < n2 && (i1 >= n1 || r2 <= r1);
+		wait = do1 ? r1 : r2;
+		while(__HAL_TIM_GET_COUNTER(&htim17) < wait);
+		__HAL_TIM_SET_COUNTER(&htim17, 0);
+		if(i1 < n1 && !do1) r1 -= wait;
+		if(i2 < n2 && !do2) r2 -= wait;
+		if(do1) { s1 ^= 1; if(++i1 < n1) r1 = d1[i1]; }
+		if(do2) { s2 ^= 1; if(++i2 < n2) r2 = d2[i2]; }
+		if(samepin) {                                               // one pin: the streams' levels combined, the pin
+			int c = logic == 1 ? (s1 & s2) : logic == 2 ? (s1 | s2) : (s1 ^ s2);   // changed when that changes (XOR: two
+			if(c != prev) { PinDef[pin1].sfr->ODR ^= PinDef[pin1].bitnbr; prev = c; }   // changes at once cancel)
+		} else {
+			if(do1) PinDef[pin1].sfr->ODR ^= PinDef[pin1].bitnbr;   // (open-drain: low, or released)
+			if(do2) PinDef[pin2].sfr->ODR ^= PinDef[pin2].bitnbr;
+		}
+	}
+	HAL_TIM_Base_Stop(&htim17);
+	__enable_irq();
+}
+
+extern void serialtx(uint64_t gpmask, unsigned char *string, int baud);   // (Src/stepper_cmm2.c)
+
+/* DEVICE SERIALTX pin, baudrate, ostring$: the string sent on the pin as serial data, 8N1, the line high when idle (the
+   PicoMite's). The pin is made an output if it is not set up. Interrupts are off while it is sent: serialtx, the
+   stepper's TMC22xx transmitter, times the bits by the cycle counter. */
+void SerialTX(char *tp) {
+	int pin, baud;
+	char *s;
+	getargs(&tp, 5, ",");
+	if(argc != 5) error("Argument count");
+	pin = GetPinArg(argv[0]);
+	if(IsInvalidPin(pin)) error("Invalid pin");
+	baud = getint(argv[2], 110, 230400);
+	s = getstring(argv[4]);
+	if(!(ExtCurrentConfig[pin] == EXT_DIG_OUT || ExtCurrentConfig[pin] == EXT_NOT_CONFIG)) error("Pin | is in use", pin);
+	if(ExtCurrentConfig[pin] == EXT_NOT_CONFIG) ExtCfg(pin, EXT_DIG_OUT, 0);
+	PinDef[pin].sfr->BSRR = PinDef[pin].bitnbr;                     // (idle, high, before the start bit)
+	serialtx(1ULL << PinGP(pin), (unsigned char *)s, baud);
+}
+
+/* DEVICE SERIALRX pin, baudrate, istring$, timeout, status [, nbr] [, terminators$]: serial data from the pin, 8N1,
+   into istring$ (the PicoMite's). It returns when nbr characters have come (status 2), when one of terminators$ has
+   (3), or after timeout milliseconds (-1, with what had come in istring$). nbr is at most what istring$ holds (255
+   unless its LENGTH says less), and that if it is left out. A character whose stop bit is low is dropped. The pin is
+   made an input, pulled up, if it is not set up, and must be high (idle) at the start: "Framing error". Interrupts are
+   off while it waits; the bits are timed by the cycle counter, made 64 bits for a timeout of up to 100 s. */
+static uint64_t RxCyc64;
+static uint32_t RxCycLast;
+static uint64_t RxCycles(void) {
+	uint32_t c = DWT->CYCCNT;
+	RxCyc64 += (uint32_t)(c - RxCycLast);
+	RxCycLast = c;
+	return RxCyc64;
+}
+static int RxUntil(uint64_t t, uint64_t deadline) {                // 0 if the deadline comes first
+	uint64_t n;
+	while((n = RxCycles()) < t) if(n >= deadline) return 0;
+	return 1;
+}
+void SerialRX(char *tp) {
+	int pin, baud, maxchars = 255, size, stype, istat = -1, count = 0;
+	unsigned char *buf, *term = NULL;
+	void *status;
+	uint64_t deadline, t;
+	uint32_t bit;
+	getargs(&tp, 13, ",");
+	if(argc < 9) error("Argument count");
+	pin = GetPinArg(argv[0]);
+	if(IsInvalidPin(pin)) error("Invalid pin");
+	if(!(ExtCurrentConfig[pin] == EXT_DIG_IN || ExtCurrentConfig[pin] == EXT_NOT_CONFIG)) error("Pin | is not off or an input", pin);
+	if(ExtCurrentConfig[pin] == EXT_NOT_CONFIG) ExtCfg(pin, EXT_DIG_IN, CNPUSET);
+	baud = getint(argv[2], 110, 230400);
+	buf = findvar(argv[4], V_FIND);
+	if(!(VREC(VarIndex)->type & T_STR)) StandardError(6);
+	size = VREC(VarIndex)->size;                                    // (its LENGTH, 255 unless it said less)
+	deadline = (uint64_t)getint(argv[6], 1, 100000) * (SystemCoreClock / 1000);
+	status = findvar(argv[8], V_FIND);
+	stype = VREC(VarIndex)->type;
+	if(!(stype & (T_NBR | T_INT))) StandardError(6);
+	if(argc > 9 && *argv[10]) maxchars = getint(argv[10], 1, 255);
+	if(maxchars > size) maxchars = size;
+	if(argc == 13) term = (unsigned char *)getstring(argv[12]);
+	if(!(PinDef[pin].sfr->IDR & PinDef[pin].bitnbr)) error("Framing error");
+	bit = SystemCoreClock / baud;
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->LAR = 0xC5ACCE55;                                          // (the M7's DWT is locked until this is written)
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+	buf[0] = 0;
+	__disable_irq();
+	RxCycLast = DWT->CYCCNT;
+	RxCyc64 = 0;
+	for(;;) {
+		unsigned int c = 0;
+		while(PinDef[pin].sfr->IDR & PinDef[pin].bitnbr) if(RxCycles() >= deadline) goto done;   // a start bit
+		t = RxCycles() + bit / 2;                                   // its middle
+		if(!RxUntil(t, deadline)) goto done;
+		if(PinDef[pin].sfr->IDR & PinDef[pin].bitnbr) continue;    // (high again: a glitch)
+		for(int i = 0; i < 8; i++) {                                // the 8 bits, LSB first, each at its middle
+			t += bit;
+			if(!RxUntil(t, deadline)) goto done;
+			if(PinDef[pin].sfr->IDR & PinDef[pin].bitnbr) c |= 1 << i;
+		}
+		t += bit;
+		if(!RxUntil(t, deadline)) goto done;
+		if(!(PinDef[pin].sfr->IDR & PinDef[pin].bitnbr)) continue; // (the stop bit low: dropped)
+		buf[++count] = c;
+		buf[0] = count;
+		if(count == maxchars) { istat = 2; break; }
+		if(term) for(int i = 0; i < term[0]; i++) if(c == term[i + 1]) { istat = 3; goto done; }
+	}
+done:
+	__enable_irq();
+	if(stype & T_INT) *(int64_t *)status = istat;
+	else *(MMFLOAT *)status = istat;
+}
+
+void Bitstream(char *tp){
+	int i,num,pin,mode = 0;
+	unsigned short *data, now;
+	getargs(&tp, 17,",");
+	if(argc == 13 || argc == 15 || argc == 17) {                    // two pins
+		int mode2 = 0, logic = 0, num2, pin2;
+		unsigned short *data2;
+		num=getint(argv[2],1,250000);
+		if(*argv[6]) mode=getint(argv[6],0,1);
+		num2=getint(argv[10],1,250000);
+		if(argc >= 15 && *argv[14]) mode2=getint(argv[14],0,1);
+		if(argc == 17) logic=getint(argv[16],0,2);
+		pin=BitstreamPin(argv[0], mode, num, "Open-collector mode requires even number of transitions for pin1");
+		pin2=GetPinArg(argv[8]);
+		if(pin2 != pin) pin2=BitstreamPin(argv[8], mode2, num2, "Open-collector mode requires even number of transitions for pin2");
+		else if(mode2 && (num2 & 1)) error("Open-collector mode requires even number of transitions for pin2");
+		if(pin2 != pin && logic) error("Logic parameter only valid when both pins are the same");
+		data=BitstreamTimes(argv[4], num, 3, "Array 1 too small");
+		data2=BitstreamTimes(argv[12], num2, 7, "Array 2 too small");
+		Bitstream2(pin, mode, data, num, pin2, mode2, data2, num2, pin2 == pin, logic);
+		return;
+	}
+	if(!(argc == 5 || argc == 7)) error("Argument count");
+	num=getint(argv[2],1,250000);
+	if(argc == 7 && *argv[6]) mode=getint(argv[6],0,1);
+	pin=BitstreamPin(argv[0], mode, num, "Open-collector mode requires even number of transitions");
+	data=BitstreamTimes(argv[4], num, 3, "Array too small");
+	if(mode) {                                                      // (the PicoMite's: one stream through bitstream2)
+		Bitstream2(pin, mode, data, num, pin, mode, NULL, 0, 1, 0);
+		return;
 	}
 	__disable_irq();
 	MX_TIM17_Init(20);
+	__HAL_TIM_SET_AUTORELOAD(&htim17, 0xFFFF);                      // (its 50000 never ended a time above that)
 	for(i=0;i<num;i++){
 		__HAL_TIM_SET_COUNTER(&htim17,0);
 	    if(i==0)__HAL_TIM_ENABLE(&htim17);
@@ -2144,7 +2313,8 @@ void ExtCfg(int pin, int cfg, int option) {
 
 
 		case EXT_ANA_IN:        if(!(PinDef[pin].mode & ANALOG_IN)) error("Invalid configuration");
-								ADCbits[pin]=option;
+								ADCbits[pin]=option & 0xFF;
+								ADCraw[pin]=(option & ADC_RAW) != 0;    // (SETPIN ARAW)
 								break;
 
 		case EXT_PER_IN:		// same as counting, so fall through unless high speed

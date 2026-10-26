@@ -530,8 +530,9 @@ void ResetAllOptions(void) {
     Option.PIN = 0;
     Option.Compile = RB_OFF;                                        // (OPTION COMPILE: Stream.c)
     Option.Picomite = 0;                                            // (OPTION PICOMITE NONE: PicoMode.c)
-    Option.PicoRes = 0;
+    Option.PicoRes = PICORES_AUTO;                              // (OPTION DEFAULT MODE's)
     Option.PrintScreenFormat = 0;                                   // (OPTION PRINTSCREEN FORMAT PNG: Console.c)
+    Option.KeyLocks = 0xFF;                                         // (OPTION KEYBOARD's locks: both off)
     Option.Baudrate = CONSOLE_BAUDRATE;
     Option.Autorun = false;
     Option.Listcase = CONFIG_TITLE;

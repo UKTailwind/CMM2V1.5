@@ -5,6 +5,7 @@
 #define PICO_NONE 0
 #define PICO_VGA  1
 #define PICO_HDMI 2
+#define PICORES_AUTO 0xFF                       // Option.PicoRes: none given, OPTION DEFAULT MODE's (PicoMode.c)
 
 extern int PicoActive;                          // a PicoMite mode is on the display (MODE under OPTION PICOMITE, or RUN)
 extern int PicoModeNow;                         // its number, 1 to 5
@@ -23,4 +24,6 @@ void PicoModeSet(int mode);
 void PicoModeEnd(void);
 void PicoOption(char *tp);
 void PicoOptionList(void);
+void PicoOptionResolution(char *tp);            // OPTION RESOLUTION
+void PicoCurrentList(void);                     // OPTION LIST's CURRENT lines for it
 #endif

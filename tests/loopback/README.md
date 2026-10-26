@@ -11,6 +11,7 @@ The wiring they all use: GP0, GP1, GP3-GP7 to GP8, GP9, GP11-GP15, that is pin 8
 
 | Test | What it checks | Run with |
 |---|---|---|
+| ioserial.bas | SETPIN ARAW (pin 8 to 15); BITSTREAM's modes and two-pin forms timed by TIMER (22 to 38, 36 to 35); DEVICE SERIALTX read by COM1 (24 to 10); DEVICE SERIALRX from PWM 1B (22 to 38). Not with OPTION PICOMITE: its MODE 1 adds about 3 ms to each stream's time | |
 | portgp.bas | PORT and PORT() through the 64-bit GPIO masks: every value, each bit, pin numbers, the errors | |
 | stepcount.bas | STEPPER's step pulses counted on COUNT3/COUNT4 (pins 15, 24): lines, the PicoMite's 9600-pulse arcs, DIR, positions, G91 rounding | |
 | stepio.bas | STEPPER's pulls and first output levels (read from the GPIO registers), the spindle, an E-STOP (pin 7 to 27) and a limit (pin 13 to 28) tripped part way, G28 with no switch | |

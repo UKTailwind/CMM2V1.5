@@ -51,14 +51,12 @@ PicoMite lines at 506500f):**
   - With OPTION PICOMITE (the dialect switch, gap 2), each as the PicoMite has it, and the CMM2's own without it:
     MM.INFO(CPUSPEED) a string; KEYDOWN's shifted F-keys adding &H40 (&H20 here); LOAD PNG's fourth argument the
     alpha cut-off (here the transparent colour's index).
-  - **GETSCANLINE rescaled so that 0 is the first visible line** (gap 2; Peter: "yes", in every mode, where the items
-    beside it were made to depend on OPTION PICOMITE). Today it is 0 to 525 whatever the mode, above 479 the blanking.
+  - **GETSCANLINE rescaled so that 0 is the first visible line, with OPTION PICOMITE** (gap 2; Peter: "getscanline
+    should apply only under picomite mode"). Without it, 0 to 525 whatever the mode, above 479 the blanking, as now.
   - **MM.INFO(RESET) gives the brown-out reset too, and MM.INFO(BOOT) is another name for it** (gap 18, behaviour
-    item 6). To settle when it is written: the words differ. MM.INFO(RESET) says "Switch", "Power-On" or "Software"
-    (`Src/main.c:792-794`, and it is emptied once read, `Src/MM_Misc.c:3392`); the PicoMite's BOOT says "Reset Switch",
-    "Power On", "Brown Out", "Restart", "S/W Watchdog", "H/W Watchdog", "Firmware update" or "Debug" (P
-    `core/MM_Misc.c`, fun_info BOOT), and a PicoMite program compares them. Suggested: BOOT gives the PicoMite's
-    words for the same causes and is not emptied; RESET keeps the CMM2's and gains "Brown-Out".
+    item 6), in the CMM2's words (Peter: "mm.info(boot) can follow cmm2"): "Switch", "Power-On", "Software" and now
+    "Brown-Out" (`Src/main.c:792-797`), emptied once read as RESET is (`Src/MM_Misc.c:3392`). The PicoMite's BOOT words
+    ("Reset Switch", "Power On", "Brown Out", "Restart", the watchdogs, "Firmware update", "Debug") are not used.
   - **OPTION KEYBOARD nn [, capslock] [, numlock] [, repeatstart] [, repeatrate]** as the PicoMite has it (Peter:
     "change to picomite standard and allow the same additional parameters"; the CMM2's is OPTION USBKEYBOARD) (gap
     22).

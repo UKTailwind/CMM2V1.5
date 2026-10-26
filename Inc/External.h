@@ -235,6 +235,8 @@ extern volatile char IrVarType, IrState, IrGotMsg;
 extern int IrBits, IrCount;
 extern char *IrInterrupt;
 void IrClose(void);
+void SerialTX(char *tp);                       // DEVICE SERIALTX and SERIALRX (External.c)
+void SerialRX(char *tp);
 void IrInit(void);
 void IrReset(void);
 void IRSendSignal(int pin, int half_cycles);

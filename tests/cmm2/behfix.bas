@@ -46,7 +46,7 @@ Open "bf_ok.bmp" For Input As #1
 s$ = Input$(Lof(#1), #1)
 Close #1
 Open "bf_bad.bmp" For Output As #2
-Print #2, Left$(s$, 28) + Chr$(7) + Mid$(s$, 30);                ' its bit depth 7
+Print #2, Left$(s$, 28) + Chr$(7) + Mid$(s$, 30, 1) + Chr$(0) + Mid$(s$, 32);   ' bit depth 7, not compressed
 Close #2
 Flash Load Image 6, "bf_ok.bmp", O
 Check "FLASH LOAD IMAGE 6: an 8 pixel wide image", Peek(Word MM.Info(Flash Address 6)), 8

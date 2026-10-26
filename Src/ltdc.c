@@ -281,8 +281,8 @@ void setmode(int mode, int colour, int bc, int force){
 	static int DisplayH=0, DisplayV=0;                                       // the physical characteristics of the display
 	int oldmode=VideoMode;
 	RCC_PLL3InitTypeDef pll;
-	gui_fcolour = PromptFC = Option.DefaultFC = WHITE;
-	gui_bcolour = PromptBC = Option.DefaultBC = BLACK;
+	gui_fcolour = PromptFC = Option.DefaultFC;                     // (the defaults: OPTION DEFAULT COLOURS, white on black
+	gui_bcolour = PromptBC = Option.DefaultBC;                     // unless it is set; they were set back to those here)
    // turtle_init_not_done=1;
 	if(VideoColour!=colour && PageTable[WPN].address!=NULL)error("Colour mismatch with framebuffer ");
 	{                                                                // the display's size asked for (OPTION PICOMITE), or the

@@ -22,7 +22,7 @@ The keyboard's layout is set with the command:
 OPTION USBKEYBOARD layout
 ```
 
-Where 'layout' is US, UK, DE (German), FR (French), ES (Spanish) or BE (Belgian). OPTION KEYBOARD REPEAT start, rate sets the time before a held key starts to repeat and the time between its repeats (in milliseconds).
+Where 'layout' is US, UK, DE (German), FR (French), ES (Spanish) or BE (Belgian). OPTION KEYBOARD REPEAT start, rate sets the time before a held key starts to repeat and the time between its repeats (in milliseconds). The PicoMite's OPTION KEYBOARD layout [, capslock] [, numlock] [, start] [, rate] sets them in one command, and whether Caps Lock and Num Lock are on when a keyboard is connected.
 
 Note that the non US layouts map some of the special keys present on these keyboards but the corresponding special character may not display if it is not in the font used. Instead a standard ASCII character will be used.
 

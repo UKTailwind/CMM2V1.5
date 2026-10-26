@@ -1,0 +1,25 @@
+ok  ARAW: the pin high gives near the top count (65535)
+ok    low, near 0
+ok    an integer, not volts
+ok  AIN still gives volts (3.0 to 3.4)
+ok  ARAW takes no bit count
+ok  one pin, 10 changes of 1000us: 10ms (+-2%)
+ok    an even count leaves it low
+ok    9 with mode 0 given: high
+ok  mode 1 (open-collector): 10 waits of 1000us (+-2%)
+ok    released and pulled up at the end: high
+ok    an odd count
+ok  two pins: 10 x 1000us and 7 x 2000us take 14ms (+-2%)
+ok    pin 22 changed 10 times (low), pin 36 7 (high)
+ok  one pin, high 1-2ms and from 3ms in one, from 3ms in the other: XOR, AND, OR end 1, 0, 1
+ok    the logic with two pins
+ok  times above 50000us (they never ended) end: 2 x 60000us, low again
+ok  SERIALTX at 9600 to COM1
+ok    at 115200
+ok  nothing sent: timeout, status -1, empty
+ok  SERIALRX at 9600, 4 characters from a square wave: UUUU, status 2
+ok    at 115200: UUUUUU, status 2
+ok    to a terminator (&HFF): one character, status 3
+ok    into a LENGTH 3 string, no count given: UUU, status 2
+ioserial: 23 of 23 passed
+

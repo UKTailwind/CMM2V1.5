@@ -34,6 +34,8 @@ The measurement uses the 3.3V power supply to the CPU as its reference and it is
 
 The ADC command can capture up to three channels of analog data in the background at up to 500KHz per channel, into arrays (see the ADC command).
 
+SETPIN pin, ARAW configures an analog input that PIN() reads as the converter's count, an integer from a single conversion: 0 to 65535, or 0 to 4095 (the PicoMite's 12 bits) with OPTION PICOMITE.
+
 ## Counting Inputs
 
 The pins marked as COUNT can be configured as counting inputs to measure frequency, period or just count pulses on the input. For example, the following will print the frequency of the signal on pin 7:

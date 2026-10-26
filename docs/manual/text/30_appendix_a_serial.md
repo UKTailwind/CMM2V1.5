@@ -107,6 +107,10 @@ The interrupt subroutine (if specified) will operate the same as a general inter
 
 When using interrupts you need to be aware that it will take some time for MMBasic to respond to the interrupt and more characters could have arrived in the meantime, especially at high baud rates. For example, if you have specified the interrupt level as 250 characters and a buffer of 256 characters then quite easily the buffer will have overflowed by the time the interrupt subroutine can read the data. In this case the buffer should be increased to 512 characters or more.
 
+## Serial Data on Any Pin
+
+DEVICE SERIALTX and DEVICE SERIALRX send and receive serial data (8 data bits, no parity and one stop bit) on any I/O pin, at 110 to 230400 baud. They time the bits with interrupts disabled and do not work in the background, so a serial port is better when one is free. See those commands.
+
 ## Low Cost RS-232 Interface
 
 The RS-232 signalling system is used by modems, hardwired serial ports on a PC, test equipment, etc. It is the same as the serial TTL system used on the Colour Maximite 2 with two exceptions:

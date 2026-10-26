@@ -44,8 +44,8 @@ On Error Skip 1
 Device Keypad k, 1, 2, 3, 4, 5, 6, 7, 8
 Print "DEVICE KEYPAD: "; MM.ErrMsg$
 On Error Skip 1
-Device SerialTx 1, 9600, "x"
-Print "DEVICE SERIALTX: "; MM.ErrMsg$
+Device Camera Open
+Print "DEVICE CAMERA: "; MM.ErrMsg$
 On Error Skip 1
 Device Toaster
 Print "DEVICE TOASTER: "; MM.ErrMsg$

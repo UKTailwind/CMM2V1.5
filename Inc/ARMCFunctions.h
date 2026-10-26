@@ -251,6 +251,7 @@ struct option_s {
 	unsigned char Picomite;
 	unsigned char PicoRes;
 	unsigned char PrintScreenFormat;
+	unsigned char KeyLocks;
 	unsigned char end;
 // 128
 };

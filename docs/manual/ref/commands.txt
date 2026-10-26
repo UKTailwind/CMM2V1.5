@@ -139,6 +139,8 @@ Gives the position of the Sun, the Moon, a planet, a star or galaxy of the catal
 === AUTOSAVE file$
 or
 AUTOSAVE N file$
+or
+AUTOSAVE APPEND [N] file$
 --- keep
 Enters automatic program entry mode: the lines of text sent to the console are saved to the file ‘file$’ on the SD card or USB flash drive (".BAS" is added if it has no extension).  This is one way of transferring a BASIC program from a computer: the program is pasted into a terminal emulator and this command captures the text.  It can also be used for typing a small program at the console.  The text is echoed back as it arrives, and a tab becomes a space.
 The mode is ended with a function key:
@@ -147,6 +149,7 @@ The mode is ended with a function key:
 {l=720}F6 saves the file without loading it
 At any time Control-C abandons the command and nothing is saved.  The text is held in memory until it is saved, up to 512KB: a longer text stops the command with the error "Not enough memory".
 AUTOSAVE N does not echo the text.  After the first character, when there is a pause of more than 100 milliseconds between characters it shows the message "Enter F1 ,F2 or F6 to exit" and echoes what follows.
+AUTOSAVE APPEND adds the text to the end of the file instead of replacing it, so that a program can be sent in parts; a file whose last line has no line ending is given one first, and the file is made if there is none.  N may follow APPEND.
 The command can only be used at the command prompt.
 
 === BEZIER x%(), y%() [,n] [,colour]
@@ -167,19 +170,22 @@ or
 BITBANG BITSTREAM pin, n, array()
 --- keep
 The older names of the commands WS2812, HUMID and BITSTREAM, still accepted for compatibility with earlier versions of MMBasic for the Colour Maximite 2.  See those commands.
-The PicoMite's command DEVICE, which replaced BITBANG there, is not available.
+The PicoMite's command DEVICE, which replaced BITBANG there, is accepted too (see DEVICE).
 
-=== BITSTREAM pin, n, array()
+=== BITSTREAM pin, n, array() [, mode]
+or
+BITSTREAM pin1, n1, array1(), mode1, pin2, n2, array2() [, mode2 [, logic]]
 ---
-This command is used to generate an extremely accurate bit sequence on the pin specified.  The pin must have previously been set up as an output (SETPIN pin, DOUT, with or without OC) and set to the required starting level.
+This command is used to generate an extremely accurate bit sequence on the pin specified.  A pin that has been set up must be an output (SETPIN pin, DOUT, with or without OC), set to the required starting level; one that has not is made an output.
 ‘n’ is the number of transitions (1 to 250000) and ‘array()’ is a numeric array (integer or floating point) with at least ‘n’ elements.
+‘mode’ is 0 (the default) for a normal output or 1 for an open collector one: the pin is made an open drain output with its pullup, released (high) at the start and then driven low or let go at each transition.  In mode 1 ‘n’ must be even, so that the pin ends released.
 Notes:
 {n=39 v=0}The array contains the length of each level in the bitstream in microseconds (0 to 65535, so the maximum period is 65.5 ms).
-{n=39 v=0}The first transition will occur immediately on executing the command.
-{n=39 v=0}The last period in the array is ignored other than defining the time before control returns to the program or command line.
+{n=39 v=0}In mode 0 the first transition will occur immediately on executing the command, and the last period in the array is ignored other than defining the time before control returns to the program or command line.  In mode 1 each period comes before its transition: the first transition comes after the first period and the command returns at the last.
 {n=39 v=0}The pin is left in the starting state if the number of transitions is even and the opposite state if the number of transitions is odd.
 {n=39 v=0}Interrupts are disabled while the sequence is generated, so everything else (sound, the USB devices, the timers) waits until it is finished.
-The PicoMite's second pin, output modes and logic functions are not available.  BITBANG BITSTREAM, the older name, is still accepted.
+The second form, the PicoMite's, generates two sequences at once, each pin changing at its own times, with each period coming before its transition as in mode 1.  ‘mode1’ can be left empty (0).  When ‘pin1’ and ‘pin2’ are the same pin, ‘logic’ sets how the levels of the two sequences, each starting low (high in mode 1), give its level: 0 (the default) exclusive OR, so that a transition in either changes it, 1 AND and 2 OR.  ‘logic’ cannot be used with two different pins.
+BITBANG BITSTREAM, the older name, and DEVICE BITSTREAM, the PicoMite's, are still accepted.
 
 === BLIT READ [#]b, x, y, w, h [,page]
 or
@@ -234,6 +240,10 @@ Draws an image held in memory as a packed array of colour nibbles on the current
 The first word of the area of memory starting at ‘address’ must contain the width and height of the image as 16-bit integers with the width as the bottom 16 bits.  The pixels follow, two to a byte with the left pixel in the low nibble, each row following on from the one before.
 If the optional parameter ‘colour’ is specified then pixels of that colour are not drawn (-1 draws them all).
 If the top bit of either the width or height is set to 1 then the colour data is treated as compressed (the remaining 15 bits are used as the width and/or height).  The compression algorithm is simple: each byte contains a count in the bottom nibble (1-15) and a colour in the top nibble (0-15).  In the event that more than 15 pixels are the same colour additional bytes are used for that colour.
+
+=+= BLIT COMPRESSED address, x, y [,colour]
+---
+As BLIT MEMORY, but the colour data is always treated as compressed, whatever the top bits of the width and height.  This is the PicoMite's form for compressed data whose width and height have no flag.
 
 === BOX x, y, w, h [,lw] [,c] [,fill]
 --- keep
@@ -500,7 +510,19 @@ The PicoMite's prefix for its device commands, so that its programs run unchange
 {l=720}WII or WII CLASSIC: a Wii Classic on the Wii connector (DEVICE WII OPEN [interrupt [, bitmask]], DEVICE WII CLOSE: see CONTROLLER CLASSIC)
 {l=720}NUNCHUCK: a Wii Nunchuk on the Wii connector (DEVICE NUNCHUCK OPEN [interrupt], DEVICE NUNCHUCK CLOSE: see CONTROLLER NUNCHUK)
 {l=720}MOUSE, GAMEPAD, HUMID, WS2812 and BITSTREAM: the same as those commands
-DEVICE KEYPAD, LCD, CAMERA, SERIALRX and SERIALTX give the error "Not available on the Colour Maximite 2".  DEVICE(WII funct), DEVICE(CLASSIC funct) and DEVICE(NUNCHUCK funct) read the Wii controllers (see the DEVICE() function).
+{l=720}SERIALTX and SERIALRX: serial data sent or received on any I/O pin (see below)
+DEVICE KEYPAD, LCD and CAMERA give the error "Not available on the Colour Maximite 2".  DEVICE(WII funct), DEVICE(CLASSIC funct) and DEVICE(NUNCHUCK funct) read the Wii controllers (see the DEVICE() function).
+
+=+= DEVICE SERIALTX pin, baudrate, string$
+--- keep
+Sends ‘string$’ as serial data on ‘pin’, which can be any I/O pin: 8 data bits, no parity and one stop bit, the line high when it is idle (the PicoMite's command).  ‘baudrate’ can be 110 to 230400.  A pin that has been set up must be a digital output; one that has not is made one.
+Interrupts are disabled while the string is sent.  The serial ports (see Appendix A) send and receive in the background.
+
+=+= DEVICE SERIALRX pin, baudrate, string$, timeout, status [, nbr] [, terminators$]
+--- keep
+Receives serial data on ‘pin’, which can be any I/O pin, into the string variable ‘string$’: 8 data bits, no parity and one stop bit (the PicoMite's command).  ‘baudrate’ can be 110 to 230400 and ‘timeout’ is in milliseconds, 1 to 100000.  ‘status’ is a numeric variable.
+The command returns when ‘nbr’ characters have been received (‘status’ is set to 2), when one of the characters of ‘terminators$’ has been received (it is kept in ‘string$’, and ‘status’ is 3), or after ‘timeout’ (‘status’ is -1, and ‘string$’ holds what had been received).  ‘nbr’ is at most what ‘string$’ can hold (255 characters, or its LENGTH), and that if it is left out.
+A pin that has been set up must be a digital input; one that has not is made one, with its pullup.  The line must be high (idle) when the command starts, otherwise the error is "Framing error", and a character whose stop bit is low is dropped.  Interrupts are disabled while the command waits, so everything else (sound, the USB devices, the timers) waits too.
 
 === DEFINEFONT #Nbr
     hex [[ hex[…]
@@ -2438,14 +2460,17 @@ See also LOAD CONTEXT.
 Writes ‘nbytes’ bytes of memory, starting at ‘address’, to the file ‘file$’ (".DAT" is added if it has no extension), for LOAD DATA to read back.  ‘address’ is rounded down to a multiple of 4, and the whole range must be memory that PEEK can read (otherwise the error is "Address").
 
 =+= SAVE IMAGE file$ [, x, y, w, h]
+or
+SAVE COMPRESSED IMAGE file$ [, x, y, w, h]
 --- keep
-Saves the image on the screen, or a part of it, as a 24-bit true colour BMP file: the page being written to, which is the display unless PAGE WRITE or FRAMEBUFFER WRITE has selected another.  ‘file$’ is the name of the file; ".BMP" is added if it has no extension.
+Saves the image on the screen, or a part of it, as a BMP file: the page being written to, which is the display unless PAGE WRITE or FRAMEBUFFER WRITE has selected another.  ‘file$’ is the name of the file; ".BMP" is added if it has no extension.
+The file is made as small as it can be without losing anything: an area of 16 or fewer colours is saved as a 4-bit BMP and one of up to 256 colours as an 8-bit BMP, each with its palette and RLE compression, and an area of more colours as a 24-bit true colour BMP.  The colours are the ones the screen shows (in MODE n,4 after MAP and MAP SET).  SAVE COMPRESSED IMAGE, the PicoMite's name, is the same command.
 ‘x’, ‘y’, ‘w’ and ‘h’ are optional and are the coordinates (‘x’ and ‘y’ are the top left coordinate) and dimensions (width and height) of the area to be saved.  If they are not specified the whole screen is saved.
 The Print Screen key and Ctrl-\\ save the screen at the command prompt, in the editor and in the file manager (and in a program under OPTION PRINTSCREEN ON), as a PNG file (SAVE PNG) or under OPTION PRINTSCREEN FORMAT BMP as a BMP file: see Appendix I.
 
 =+= SAVE PNG file$ [, x, y, w, h]
 --- keep
-Saves the image on the screen, or a part of it, as a PNG file: the same picture as SAVE IMAGE, in true colour (8 bits each of red, green and blue) and compressed, so that a screen of text and graphics is typically ten to fifty times smaller than the BMP file.  ‘file$’ is the name of the file; ".PNG" is added if it has no extension.
+Saves the image on the screen, or a part of it, as a PNG file: the same picture as SAVE IMAGE, in true colour (8 bits each of red, green and blue) and compressed, so that a screen of text and graphics is typically ten to fifty times smaller than a 24-bit BMP file.  ‘file$’ is the name of the file; ".PNG" is added if it has no extension.
 ‘x’, ‘y’, ‘w’ and ‘h’ are optional and are as for SAVE IMAGE: the top left coordinate and the width and height of the area to be saved, which can be any number of pixels.  If they are not specified the whole screen is saved.  LOAD PNG loads the file back.
 
 === SEEK [#]fnbr, pos
@@ -2498,6 +2523,7 @@ With OPTION PICOMITE the arguments are the PicoMite's: SERVO channel, [A] [, B],
 {t=l2592}‘pin’ is the I/O pin to configure (its number in that table), ‘cfg’ is the mode that the pin is to be set to and ‘option’ is an optional parameter.  ‘cfg’ is a keyword and can be any one of the following:
 {t=l1260 b=0 l=1258 h=1009}OFF	Not configured or inactive (0 can also be used).
 {t=l1260 b=0 l=1258 h=1009}AIN	Analog input (i.e. measure the voltage on the input).  Only the pins marked Analog Input can be used.\n‘option’ can be used to specify the number of bits in the conversion.  Valid values are 8, 10, 12, 14 and 16.  The default (if not specified) is 16 bits.  The more bits the longer the conversion will take.
+{t=l1260 b=0 l=1258 h=1009}ARAW	Analog input read as a count (the PicoMite's).  Only the pins marked Analog Input can be used, and there is no ‘option’.\nThe PIN() function returns the reading as an integer, from a single conversion with no averaging: 0 to 65535 (16 bits), or 0 to 4095 (12 bits, the PicoMite's) with OPTION PICOMITE.
 {t=l1260 b=0 l=1258 h=1009}DIN	Digital input.\nIf ‘option’ is omitted the input will be high impedance.\nIf ‘option’ is the keyword PULLUP or PULLDOWN an internal resistor will pull the input up to 3.3V or down to zero volts.
 {t=l1260 b=0 l=1258 h=1009}FIN	Frequency input, on one of the counting pins 7, 13, 15 and 24 or the fast counting pin 18 (see below).\n‘option’ can be used to specify the gate time (the length of time used to count the input cycles).  It can be any number between 10 ms and 100000 ms.  The PIN() function will always return the frequency correctly scaled in Hz regardless of the gate time used.  If ‘option’ is omitted the gate time will be 1 second.
 {t=l1260 b=0 l=1258 h=1009}PIN	Period input, on one of the counting pins 7, 13, 15 and 24.\n‘option’ can be used to specify the number of input cycles to average the period measurement over.  It can be any number between 1 and 10000.  The PIN() function will always return the average period of one cycle correctly scaled in ms regardless of the number of cycles used for the average.  If ‘option’ is omitted the period of just one cycle will be used.

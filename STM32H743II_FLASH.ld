@@ -119,8 +119,12 @@ SECTIONS
     *libm.a:libm_a-ef_rem_pio2.o(.text .text* .rodata .rodata*)
     *libm.a:libm_a-kf_rem_pio2.o(.text .text* .rodata .rodata*)
     *libm.a:libm_a-sf_floor.o(.text .text* .rodata .rodata*)
-    *stepper.o(.text .text* .rodata .rodata*)            /* STEPPER and TMC22xx (its 100 kHz tick is in ITCM: .itcm) */
+    *stepper.o(.text .text* .rodata .rodata*)            /* STEPPER and TMC22xx (its 200 kHz tick is in ITCM: .itcm) */
     *stepper.c.obj(.text .text* .rodata .rodata*)
+    *BmpDecoder.o(.text .text* .rodata .rodata*)         /* LOAD BMP's decoder (26 Oct 2026: bank 1 was full) */
+    *BmpDecoder.c.obj(.text .text* .rodata .rodata*)
+    *PngEncoder.o(.text .text* .rodata .rodata*)
+    *PngEncoder.c.obj(.text .text* .rodata .rodata*)
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
     . = ALIGN(4);
     _ebank2 = .;

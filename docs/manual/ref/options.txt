@@ -96,6 +96,11 @@ Defines what the USB keyboard will send when the Enter key is pressed: CR (a car
 With CRLF, a CR from a terminal on the serial console is also followed by an LF, as the keyboard's is; with CR or LF it is left alone.
 This command can only be used in a program.  The setting returns to the default when a program is loaded and when it ends.
 
+=== OPTION DEFAULT COLOURS foreground [,background]
+--- P roomy
+Sets the default foreground and background colours: those of the command prompt, and those MODE and the start of a program set.  Each must be one of the PicoMite's 16 colours, given by its name: WHITE, YELLOW, LILAC, BROWN, FUCHSIA, RUST, MAGENTA, RED, CYAN, GREEN, CERULEAN, MIDGREEN, COBALT, MYRTLE, BLUE or BLACK; a number cannot be used.  If ‘background’ is left out it is BLACK, and the two cannot be the same.  The default is WHITE, BLACK.  OPTION DEFAULT COLORS is the same command.
+These are the PicoMite's colours: its BROWN is RGB(255, 128, 0) and its MAGENTA RGB(255, 0, 255), where the Colour Maximite 2's BROWN and MAGENTA (in RGB()) are other shades.  The screen is cleared in the new colours, and the setting is saved.
+
 === OPTION DEFAULT FLOAT | INTEGER | STRING | NONE
 --- keep roomy
 Used to set the default type for a variable which is not explicitly defined.
@@ -178,6 +183,13 @@ Since different VGA monitors and HDMI converters interpret the analog sync signa
 For each ‘mode’ (1 to 18), ‘offset’ is an adjustment in pixels to the start of the horizontal lines on the VGA display.  The default is 0 and the allowed range is -128 to 127.
 This command will cause a reboot.
 
+=== OPTION KEYBOARD nn [, capslock] [, numlock] [, repeatstart] [, repeatrate]
+--- P keep roomy
+The PicoMite's form of OPTION USBKEYBOARD and OPTION KEYBOARD REPEAT.  ‘nn’ is the layout, as for OPTION USBKEYBOARD (GR, the PicoMite's code for Germany, is accepted for DE).
+‘capslock’ and ‘numlock’ set whether Caps Lock and Num Lock are on (1) or off (0) when a keyboard is connected.  If they are left out Caps Lock is off and Num Lock on, as on the PicoMite (OPTION USBKEYBOARD sets both off again).  A keyboard with a numeric keypad built into its letter keys, such as the Raspberry Pi keyboard, needs ‘numlock’ set to 0 or keys such as U, I and O will type 4, 5 and 6.
+‘repeatstart’ and ‘repeatrate’ are the times of OPTION KEYBOARD REPEAT, in milliseconds; if they are left out the times are kept.
+This command can only be run from the command line and will cause a reboot.
+
 === OPTION KEYBOARD REPEAT firstchar, nextchar
 --- P keep roomy
 Define the repeat characteristics of the USB keyboard when a key is held down.
@@ -256,8 +268,9 @@ Makes the Colour Maximite 2 behave as the PicoMite ‘device’, so that program
 {l=720}PicoMiteHDMI, PicoMiteHDMIUSB, PicoMitePC3, PicoMiteHDMIBTH or PicoMiteHDMIWEB, followed by RP2350A or RP2350B
 {l=720}VGA, the same as PicoMiteVGAUSB RP2350B, or HDMI, the same as PicoMiteHDMIUSB RP2350B
 MM.DEVICE$ then returns that name, so that a program which configures itself by it does so as on that PicoMite.  The VGA and HDMI versions' MODE numbers mean different displays, and the name says which the program's are; nothing else is limited by it.  For example: OPTION PICOMITE PicoMiteHDMIUSB RP2350B, 1280x720
-‘resolution’ is the PicoMite's OPTION RESOLUTION: 640x480 (the default), 720x400, 800x600 or 848x480, and with an HDMI device also 800x480, 1024x600, 1280x720 or 1024x768.
-With it, MODE n with no colour depth is the PicoMite's MODE n, a program starts in MODE 1, and RESOLUTION can be used with HDMI.  See Running PicoMite Programs in the chapter Video Modes and Pages.  PWM and SERVO take the PicoMite's arguments (see PWM and SERVO), and MM.INFO(MAX GP) gives the PicoMite's highest GP.  (The PicoMite's GP pin names can be used with or without it: see PicoMite Pin Names in the chapter Using the I/O Pins.)  The Enter key gives a CR alone, as on the PicoMite (see OPTION CRLF).  OPTION PICOMITE NONE, the default, makes MODE the Colour Maximite 2's.
+‘resolution’ is the PicoMite's OPTION RESOLUTION: 640x480, 720x400, 800x600 or 848x480, and with an HDMI device also 800x480, 1024x600, 1280x720 or 1024x768.  A comma comes before it: OPTION PICOMITE HDMI 1024x768 gives the error "A comma is needed before the resolution".  OPTION RESOLUTION sets it as well.
+If no resolution is given it is the one OPTION DEFAULT MODE gives the monitor: 640x480 with DEFAULT MODE 8, 800x600 with 1 and 848x480 with 10, and with an HDMI device also 1024x768 with 9, 1280x720 with 11 and 1024x600 with 18 (640x480 with any other).  Then the command prompt, the editor, the file manager and the programs all use the monitor's one resolution, and it does not change when a program is run.  OPTION LIST shows the resolution in use as CURRENT PICOMITE resolution.
+With it, MODE n with no colour depth is the PicoMite's MODE n, and RESOLUTION can be used with HDMI.  Every program that does not set a mode starts in the PicoMite's MODE 1, which has two colours a character cell (see TILE), and so does a Colour Maximite 2 program: set OPTION PICOMITE NONE to run those.  See Running PicoMite Programs in the chapter Video Modes and Pages.  PWM and SERVO take the PicoMite's arguments (see PWM and SERVO), and MM.INFO(MAX GP) gives the PicoMite's highest GP.  (The PicoMite's GP pin names can be used with or without it: see PicoMite Pin Names in the chapter Using the I/O Pins.)  The Enter key gives a CR alone, as on the PicoMite (see OPTION CRLF).  OPTION PICOMITE NONE, the default, makes MODE the Colour Maximite 2's.
 This command can only be run from the command line.
 
 === OPTION PIN nbr
@@ -295,6 +308,11 @@ This command can only be run from the command line and will cause a reboot.
 --- P keep roomy
 Reset all saved options to their default values (those kept through a firmware upgrade too).  The program in program memory and the saved variables are not erased.
 This command can only be run from the command line and will cause a reboot.
+
+=== OPTION RESOLUTION resolution [, speed]
+--- P roomy
+The PicoMite's command, which here sets the resolution of OPTION PICOMITE (see that option): 640x480, 720x400, 800x600 or 848x480, and with OPTION PICOMITE HDMI also 800x480, 1024x600, 1280x720 or 1024x768.  ‘speed’, the PicoMite's processor speed in kHz, can follow 640x480 (252000, 315000 or 378000) and has no effect here.  The setting is saved; unlike the PicoMite's, it does not restart the computer.  OPTION PICOMITE without a resolution makes it OPTION DEFAULT MODE's again.
+It gives the error "Needs OPTION PICOMITE" without that option, and can only be used at the command prompt.
 
 === OPTION RTC CALIBRATE n
 --- P keep roomy

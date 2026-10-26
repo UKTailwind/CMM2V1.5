@@ -93,6 +93,16 @@ void execute(char *mycmd);
 void cmd_null(void) {
 	// do nothing (this is just a placeholder for commands that have no action)
 }
+// 1 if what is typed (buff) begins the topic name help[i], ignoring case: past the name's end, only spaces match (the
+// names had spaces to 25 characters for that; 26 Oct 2026, without them, 12 KB less)
+static int HelpIs(int i, const char *buff){
+	const char *s = help[i];
+	for(; *buff; buff++) {
+		if(toupper(*buff) != (*s ? *s : ' ')) return 0;
+		if(*s) s++;
+	}
+	return 1;
+}
 void display_help(int current, char *buff){
 	   MMPrintString("\r\n");
 	   CurrentX=3;
@@ -100,18 +110,14 @@ void display_help(int current, char *buff){
 	   for(k=0;k<Option.Width-1;k++)putConsole(k<strlen(help[current+1])? help[current+1][k] : ' ');
 	   PRet();
 	   CurrentX=3;
-	   k=0;
-	   for(int j=0;j<strlen(buff);j++)if(toupper(buff[j])!=help[current+2][j])k=1;
-	   if(k==0){
+	   if(HelpIs(current+2, buff)){
 		   for(k=0;k<Option.Width-1;k++)putConsole(k<strlen(help[current+3])? help[current+3][k] : ' ');
 	   } else {
 		 for(k=0;k<Option.Width-1;k++)putConsole(' ');
 	   }
 	   PRet();
 	   CurrentX=3;
-	   k=0;
-	   for(int j=0;j<strlen(buff);j++)if(toupper(buff[j])!=help[current+4][j])k=1;
-	   if(k==0){
+	   if(HelpIs(current+4, buff)){
 		   for(k=0;k<Option.Width-1;k++)putConsole(k<strlen(help[current+5])? help[current+5][k] : ' ');
 	   } else {
 		 for(k=0;k<Option.Width-1;k++)putConsole(' ');
@@ -156,12 +162,9 @@ void do_help(char *p){
     		DisplayPutC(' ');
     		putConsole('\r');
     	} else if(c==UP){
-    		int k;
     	    current-=2;
     	    if(current==-2)current=0;
-		    k=0;
-		    for(int j=0;j<strlen(buff);j++)if(toupper(buff[j])!=help[current][j])k=1;
-		    if(k==0){
+		    if(HelpIs(current, buff)){
 			   display_help(current, buff);
 			   up=1;
 			   continue;
@@ -169,12 +172,9 @@ void do_help(char *p){
 			   current+=2;
 		    }
     	} else if(c==DOWN){
-    		int k;
     	    current+=2;
     	    if(*help[current]=='Z')current-=2;
- 		    k=0;
- 		    for(int j=0;j<strlen(buff);j++)if(toupper(buff[j])!=help[current][j])k=1;
- 		    if(k==0){
+ 		    if(HelpIs(current, buff)){
  			   display_help(current, buff);
  			   up=1;
  			   continue;
@@ -189,9 +189,7 @@ void do_help(char *p){
     	routinechecks(1);
 		ShowCursor(false);
     	for(i=0;*help[i]!='Z';i+=2){
-    	   int k=0;
-    	   for(int j=0;j<strlen(buff);j++)if(toupper(buff[j])!=help[i][j])k=1;
-  	       if(k==0 && strlen(buff)){
+  	       if(*buff && HelpIs(i, buff)){
   	    	   current=i;
   	    	   display_help(current, buff);
   	    	   up=1;

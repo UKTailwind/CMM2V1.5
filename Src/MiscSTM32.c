@@ -206,6 +206,18 @@ void PFltComma(MMFLOAT n) {
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
+// the display's colour depth as OPTION LIST names it (MODE n,1 and n,4, the PicoMite's, showed as ARGB8888)
+static const char *DepthName(void) {
+    switch(VideoColour) {
+        case 1: return "1-bit";
+        case 4: return "RGB121";
+        case 8: return "RGB332";
+        case 12: return "ARGB444";
+        case 16: return "RGB565";
+        default: return "ARGB8888";
+    }
+}
+
 void printoptions(void){
 	LoadOptions();
 
@@ -221,24 +233,25 @@ void printoptions(void){
     else if(Option.mode==15)	PO2Str("Default mode 15","1280x1024",3);
     else if(Option.mode==16)	PO2Str("Default mode 16","1920x1080",3);
     else if(Option.mode==18)	PO2Str("Default mode 18","1024x600",3);
-	if(VideoMode==1) 	PO2Str("VGA mode 800x600",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==2) 	PO2Str("VGA mode 640x400",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==3) 	PO2Str("VGA mode 320x200",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==4) 	PO2Str("VGA mode 480x432",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==5) 	PO2Str("VGA mode 240x216",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==6) 	PO2Str("VGA mode 256x240",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==7) 	PO2Str("VGA mode 320x240",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==8) 	PO2Str("VGA mode 640x480",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==9) 	PO2Str("VGA mode 1024x768",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==10) 	PO2Str("VGA mode 848x480",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==11) 	PO2Str("VGA mode 1280x720",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==12) 	PO2Str("VGA mode 960x540",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==13) 	PO2Str("VGA mode 400x300",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==14) 	PO2Str("VGA mode 960x540",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==15) 	PO2Str("VGA mode 1280x1024",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==16) 	PO2Str("VGA mode 1920x1080",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==17) 	PO2Str("VGA mode 1384x240",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
-    else if(VideoMode==18) 	PO2Str("VGA mode 1024x600",(VideoColour==8 ? "RGB332" : (VideoColour==12 ? "ARGB444" : (VideoColour==16 ? "RGB565" : "ARGB8888"))),3);
+	if(VideoMode==1) 	PO2Str("VGA mode 800x600",DepthName(),3);
+    else if(VideoMode==2) 	PO2Str("VGA mode 640x400",DepthName(),3);
+    else if(VideoMode==3) 	PO2Str("VGA mode 320x200",DepthName(),3);
+    else if(VideoMode==4) 	PO2Str("VGA mode 480x432",DepthName(),3);
+    else if(VideoMode==5) 	PO2Str("VGA mode 240x216",DepthName(),3);
+    else if(VideoMode==6) 	PO2Str("VGA mode 256x240",DepthName(),3);
+    else if(VideoMode==7) 	PO2Str("VGA mode 320x240",DepthName(),3);
+    else if(VideoMode==8) 	PO2Str("VGA mode 640x480",DepthName(),3);
+    else if(VideoMode==9) 	PO2Str("VGA mode 1024x768",DepthName(),3);
+    else if(VideoMode==10) 	PO2Str("VGA mode 848x480",DepthName(),3);
+    else if(VideoMode==11) 	PO2Str("VGA mode 1280x720",DepthName(),3);
+    else if(VideoMode==12) 	PO2Str("VGA mode 960x540",DepthName(),3);
+    else if(VideoMode==13) 	PO2Str("VGA mode 400x300",DepthName(),3);
+    else if(VideoMode==14) 	PO2Str("VGA mode 960x540",DepthName(),3);
+    else if(VideoMode==15) 	PO2Str("VGA mode 1280x1024",DepthName(),3);
+    else if(VideoMode==16) 	PO2Str("VGA mode 1920x1080",DepthName(),3);
+    else if(VideoMode==17) 	PO2Str("VGA mode 1384x240",DepthName(),3);
+    else if(VideoMode==18) 	PO2Str("VGA mode 1024x600",DepthName(),3);
+    PicoCurrentList();                                              // (OPTION PICOMITE's resolution and mode)
 //    if(Option.Height != 24 || Option.Width != 80){
     	char buff[30]={0};
     	sprintf(buff,"CURRENT DISPLAY %d,%d\r\n",Option.Height, Option.Width);
@@ -267,6 +280,16 @@ void printoptions(void){
     if(OptionConsole == 0) PO2Str("CONSOLE","NONE",1);
     else if(OptionConsole == 1) PO2Str("CONSOLE","SERIAL",1);
     else if(OptionConsole == 2) PO2Str("CONSOLE","SCREEN",1);
+    if((Option.DefaultFC & 0xFFFFFF) != 0xFFFFFF || (Option.DefaultBC & 0xFFFFFF) != 0) {
+        int f = DefColourIndex(Option.DefaultFC), b = DefColourIndex(Option.DefaultBC);
+        if(f >= 0 && b >= 0) {                                      // (OPTION DEFAULT COLOURS: the PicoMite's names)
+            PO("DEFAULT COLOURS", 1);
+            MMPrintString((char *)DefColourName[f]);
+            MMPrintString(", ");
+            MMPrintString((char *)DefColourName[b]);
+            MMPrintString("\r\n");
+        }
+    }
     if(!Option.SerialPullup) PO2Str("SERIAL PULLUP", "DISABLE",1);
     if(!Option.showstatus) PO2Str("STATUS", "OFF",1);
     if(Option.colourmap == 1) PO2Str("VGA OUTPUT", "MEDIUM",1);
@@ -279,10 +302,19 @@ void printoptions(void){
     if(Option.USBPolling != 2) PO2Int("USB POLLING", Option.USBPolling);
     if(Option.USBKeyboard == NO_KEYBOARD) PO2Str("USBKEYBOARD", "DISABLE",1);
     else {
-    	PO("USBKEYBOARD",1);
-    	MMPrintString((char *)KBrdList[(int)Option.USBKeyboard]);
-    	if(Option.noLED)PIntComma(Option.noLED);
-        MMPrintString("\r\n");
+    	if(Option.KeyLocks != 0xFF) {                                    // (OPTION KEYBOARD's form: the locks set)
+    		PO("KEYBOARD",1);
+    		MMPrintString((char *)KBrdList[(int)Option.USBKeyboard]);
+    		PIntComma(Option.KeyLocks & 1);
+    		PIntComma((Option.KeyLocks >> 1) & 1);
+    		MMPrintString("\r\n");
+    	}
+    	if(Option.KeyLocks == 0xFF || Option.noLED) {                    // (that line has the layout too)
+    		PO("USBKEYBOARD",1);
+    		MMPrintString((char *)KBrdList[(int)Option.USBKeyboard]);
+    		if(Option.noLED)PIntComma(Option.noLED);
+    		MMPrintString("\r\n");
+    	}
 
     }
     if(Option.CPUmode & 2)PO2Str("BASELINE", "ON",1);
@@ -1233,8 +1265,9 @@ void cmd_device(void){
 	else if((tp = checkstring(cmdline, "HUMID"))) DHT22(tp);
 	else if((tp = checkstring(cmdline, "WS2812"))) WS2812(tp);
 	else if((tp = checkstring(cmdline, "BITSTREAM"))) Bitstream(tp);
-	else if(checkstring(cmdline, "KEYPAD") || checkstring(cmdline, "LCD") || checkstring(cmdline, "CAMERA") ||
-	        checkstring(cmdline, "SERIALRX") || checkstring(cmdline, "SERIALTX"))
+	else if((tp = checkstring(cmdline, "SERIALTX"))) SerialTX(tp);         // (bit-banged serial on any pin: External.c)
+	else if((tp = checkstring(cmdline, "SERIALRX"))) SerialRX(tp);
+	else if(checkstring(cmdline, "KEYPAD") || checkstring(cmdline, "LCD") || checkstring(cmdline, "CAMERA"))
 		error("Not available on the Colour Maximite 2");
 	else error("Syntax");
 }
@@ -1423,6 +1456,7 @@ void MIPS16 OtherOptions(void) {
         }
         if(argc==3)Option.noLED=getint(argv[2],0,1);
         else Option.noLED=0;
+        Option.KeyLocks = 0xFF;                                         // (both locks off again, as before OPTION KEYBOARD)
         goto saveandreset;
 	}
 
@@ -1458,6 +1492,31 @@ void MIPS16 OtherOptions(void) {
 		Option.RepeatRate=getint(argv[2],25,2000);
 		SaveOptions(1);
 		return;
+	}
+	// OPTION KEYBOARD nn [, capslock] [, numlock] [, repeatstart] [, repeatrate]: the PicoMite's (its USB versions) for
+	// OPTION USBKEYBOARD and KEYBOARD REPEAT (after that, which this would take): its GR is DE here, IT has no map; the
+	// locks' state when a keyboard is connected, left out Caps Lock off and Num Lock on as there; the repeat in ms, left
+	// out kept. (After KEYBOARD REPEAT.)
+	tp = checkstring(cmdline, "KEYBOARD");
+	if(tp) {
+		int locks;
+	    if(CurrentLinePtr) error("Invalid in a program");
+		getargs(&tp, 9, ",");
+		if(argc < 1) error("Argument count");
+		if(checkstring(argv[0], "US")) Option.USBKeyboard = CONFIG_US;
+		else if(checkstring(argv[0], "UK")) Option.USBKeyboard = CONFIG_UK;
+		else if(checkstring(argv[0], "GR") || checkstring(argv[0], "DE")) Option.USBKeyboard = CONFIG_DE;
+		else if(checkstring(argv[0], "FR")) Option.USBKeyboard = CONFIG_FR;
+		else if(checkstring(argv[0], "ES")) Option.USBKeyboard = CONFIG_ES;
+		else if(checkstring(argv[0], "BE")) Option.USBKeyboard = CONFIG_BE;
+		else error("Layout not supported");
+		locks = 2;
+		if(argc >= 3 && *argv[2]) locks = (locks & ~1) | getint(argv[2], 0, 1);
+		if(argc >= 5 && *argv[4]) locks = (locks & ~2) | getint(argv[4], 0, 1) << 1;
+		Option.KeyLocks = locks;
+		if(argc >= 7 && *argv[6]) Option.RepeatStart = getint(argv[6], 100, 2000);
+		if(argc >= 9 && *argv[8]) Option.RepeatRate = getint(argv[8], 25, 2000);
+		goto saveandreset;
 	}
 
     tp = checkstring(cmdline, "SLEEP");
@@ -1572,6 +1631,11 @@ void MIPS16 OtherOptions(void) {
         } else error("Invalid Command");
         goto saveandreset;
 
+	}
+	tp=checkstring(cmdline, "RESOLUTION");                          // OPTION RESOLUTION res [, speed]: the PicoMite's, for
+	if(tp) {                                                        // OPTION PICOMITE (PicoMode.c)
+		PicoOptionResolution(tp);
+		return;
 	}
 	tp=checkstring(cmdline, "PICOMITE");                            // OPTION PICOMITE VGA | HDMI | NONE [, resolution]
 	if(tp) {                                                        // (PicoMode.c)

@@ -507,8 +507,8 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 	HID[slot].Device_address = dev_addr;
 	HID[slot].Device_instance = instance;
 	HID[slot].Device_type = HID_ITF_PROTOCOL_KEYBOARD;
-	caps_lock = 0; /* as the CMM2 always started: no OPTION CAPSLOCK/NUMLOCK yet */
-	num_lock = 0;
+	caps_lock = Option.KeyLocks != 0xFF && (Option.KeyLocks & 1); /* OPTION KEYBOARD's; unset, both off as always */
+	num_lock = Option.KeyLocks != 0xFF && (Option.KeyLocks & 2);
 	scroll_lock = 0;
 	HID[slot].sendlights = kbd_lock_leds();
 	HID[slot].report_rate = 20; // mSec between report

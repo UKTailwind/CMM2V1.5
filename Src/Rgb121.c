@@ -722,3 +722,53 @@ void Rgb121BlitFramebuffer(char *p) {
     if(y2 + h > PageTable[d].ymax) h = PageTable[d].ymax - y2;
     for(int y = 0; y < h; y++) Rgb121Row(Row(d, y2 + y), x2, Row(s, y1 + y), x1, w, blank);
 }
+
+/* BLIT RESIZE src, dst, sx, sy, sw, sh, dx, dy, dw, dh [, transparent]: the source rectangle scaled into the
+   destination's by nearest neighbour, as the PicoMite's (its Blit.c, MODE 2 and 3: here MODE n,4). The source must be
+   inside its buffer (error 21); the destination is clipped; a pixel of the transparent colour (0-15) is not drawn. When
+   one buffer is both and the rectangles overlap the source is copied first. */
+void Rgb121BlitResize(char *p) {
+    int s, d = RGB121_N, sx, sy, sw, sh, dx, dy, dw, dh, t = -1, x0, y0, x1, y1, ss, ox = 0;
+    uint8_t *copy = NULL;
+    if(VideoColour != 4) error("Invalid for this screen mode");     // (as BLIT FRAMEBUFFER: the PicoMite's is 4-bit only)
+    getargs(&p, 21, ",");
+    if(!(argc == 19 || argc == 21)) error("Syntax");
+    if((s = Rgb121Letter(argv[0])) < 0 || (d = Rgb121Letter(argv[2])) < 0) error("Syntax");
+    sx = getinteger(argv[4]);
+    sy = getinteger(argv[6]);
+    sw = getinteger(argv[8]);
+    sh = getinteger(argv[10]);
+    dx = getinteger(argv[12]);
+    dy = getinteger(argv[14]);
+    dw = getinteger(argv[16]);
+    dh = getinteger(argv[18]);
+    if(argc == 21) t = getint(argv[20], -1, 15);
+    if(sw < 1 || sh < 1 || dw < 1 || dh < 1) return;
+    if(sx < 0 || sy < 0 || sx + sw > PageTable[s].xmax || sy + sh > PageTable[s].ymax) StandardError(21);
+    x0 = dx < 0 ? 0 : dx;
+    y0 = dy < 0 ? 0 : dy;
+    x1 = dx + dw > PageTable[d].xmax ? PageTable[d].xmax : dx + dw;
+    y1 = dy + dh > PageTable[d].ymax ? PageTable[d].ymax : dy + dh;
+    if(x0 >= x1 || y0 >= y1) return;
+    ss = (sw + 1) >> 1;
+    if(s == d && x0 < sx + sw && x1 > sx && y0 < sy + sh && y1 > sy) {
+        copy = GetTempMemory(ss * sh);
+        for(int y = 0; y < sh; y++)
+            for(int x = 0; x < sw; x++) Put4(copy + y * ss, x, Get4(Row(s, sy + y), sx + x));
+    } else ox = sx;
+    int64_t ystep = ((int64_t)sh << 16) / dh, yfp = (((int64_t)(y0 - dy) * sh) << 16) / dh;
+    int64_t xstep = ((int64_t)sw << 16) / dw, xfp0 = (((int64_t)(x0 - dx) * sw) << 16) / dw;
+    for(int y = y0; y < y1; y++, yfp += ystep) {
+        int py = (int)(yfp >> 16);
+        if(py >= sh) py = sh - 1;
+        const uint8_t *srow = copy ? copy + py * ss : Row(s, sy + py);
+        uint8_t *drow = Row(d, y);
+        int64_t xfp = xfp0;
+        for(int x = x0; x < x1; x++, xfp += xstep) {
+            int px = (int)(xfp >> 16), v;
+            if(px >= sw) px = sw - 1;
+            v = Get4(srow, ox + px);
+            if(v != t) Put4(drow, x, v);
+        }
+    }
+}

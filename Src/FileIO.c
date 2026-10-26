@@ -197,6 +197,144 @@ const char *FErrorMsg[] = {	"",
 
 
 
+/* SAVE IMAGE (and SAVE COMPRESSED IMAGE, the PicoMite's name for it) compressed where that loses nothing (Peter, 26 Oct
+   2026): the area's colours are counted first, and 16 or fewer make a 4-bit BMP and up to 256 an 8-bit one, each with
+   its palette and RLE compression (RLE4 is what the PicoMite's SAVE COMPRESSED IMAGE writes for its 16 colours; LOAD
+   BMP reads both). An area of more colours is saved 24 bits a pixel, as it always was. The colours are the ones the
+   screen shows (MODE n,4 after MAP), in any mode. */
+#define SAVEPAL_SLOTS 512
+typedef struct {
+    uint32_t pal[256];                                              // the colours, 0xRRGGBB
+    int16_t slot[SAVEPAL_SLOTS];                                    // their hash table: an index into pal, -1 for none
+    int n;
+} savepal_t;
+
+// colour c's index in the palette, added if it is new (add); -1 when it is not there and cannot be (256 already)
+static int SavePalIndex(savepal_t *sp, uint32_t c, int add) {
+    unsigned h = (c * 2654435761u) >> 23;
+    while(sp->slot[h] >= 0) {
+        if(sp->pal[sp->slot[h]] == c) return sp->slot[h];
+        h = (h + 1) & (SAVEPAL_SLOTS - 1);
+    }
+    if(!add || sp->n == 256) return -1;
+    sp->pal[sp->n] = c;
+    sp->slot[h] = sp->n;
+    return sp->n++;
+}
+
+// row i of the area as w colours, three bytes each (blue, green, red), as the screen shows them
+static void SaveImageRow(int x, int i, int w, char *buf) {
+    ReadBuffer(x, i, x + w - 1, i, buf);
+    if(VideoColour == 4) Rgb121Shown(buf, w);                      // (MODE n,4: after MAP)
+    if(VideoColour == 12) {                                         // (four bytes a pixel in 12-bit colour: three kept)
+        char *pp = buf;
+        for(int j = 0; j < w * 4; j++) if(j % 4 != 3) *pp++ = buf[j];
+    }
+}
+
+/* a row of palette indices as BMP RLE: a run of one index as its count and the index (RLE4: the index in both nibbles),
+   three or more that are not a run as 0, n and the indices (absolute mode, padded to a word), and 0, 0 at the end.
+   RLE4's absolute runs are an even number of pixels, so whole bytes (Pillow before 13.0 read an odd one a byte short:
+   CMM2V1.5 issue 7) */
+static int SaveRleRow(const uint8_t *ix, int w, uint8_t *o, int bits) {
+    int i = 0, n = 0;
+    while(i < w) {
+        int run = 1, s = i, k = 0;
+        while(i + run < w && run < 255 && ix[i + run] == ix[i]) run++;
+        if(run >= 2) {
+            o[n++] = run;
+            o[n++] = bits == 4 ? (ix[i] << 4 | ix[i]) : ix[i];
+            i += run;
+            continue;
+        }
+        while(i < w && k < 255 && !(i + 2 < w && ix[i] == ix[i + 1] && ix[i] == ix[i + 2])) { i++; k++; }   // up to a run of 3
+        if(bits == 4 && k >= 3 && (k & 1)) { i--; k--; }           // (RLE4: an even number, the last pixel then a run)
+        if(k < 3) {                                                 // (too few for absolute mode: a run of one each)
+            while(s < i) { o[n++] = 1; o[n++] = bits == 4 ? ix[s] << 4 : ix[s]; s++; }
+            continue;
+        }
+        o[n++] = 0;
+        o[n++] = k;
+        if(bits == 4) {
+            for(int b = 0; b < k / 2; b++) o[n++] = ix[s + 2 * b] << 4 | ix[s + 2 * b + 1];
+            if((k / 2) & 1) o[n++] = 0;
+        } else {
+            while(s < i) o[n++] = ix[s++];
+            if(k & 1) o[n++] = 0;
+        }
+    }
+    o[n++] = 0;
+    o[n++] = 0;
+    return n;
+}
+
+static void SaveImageWrite(int fnbr, const void *p, int n) {
+    unsigned int nbr;
+    FSerror = f_write(FileTable[fnbr].fptr, p, n, &nbr);
+    ErrorCheck(fnbr);
+    if((int)nbr != n) error("Not enough space on the SD card");
+}
+
+/* the area x, y, w, h (rows from y down the screen) as a BMP with a palette and RLE, when it has 256 colours or fewer;
+   0, with nothing written, when it has more */
+static int SaveImageRLE(int fnbr, int x, int y, int w, int h, char *line) {
+    savepal_t *sp = GetTempMemory(sizeof(savepal_t));
+    uint8_t *ix, *o, hdr[54], q[4];
+    int i, k, bits, size;
+    memset(sp->slot, 0xFF, sizeof(sp->slot));
+    sp->n = 0;
+    for(i = y; i < y + h; i++) {                                    // the colours: given up at the 257th
+        SaveImageRow(x, i, w, line);
+        for(k = 0; k < w * 3; k += 3)
+            if(SavePalIndex(sp, (uint8_t)line[k] | (uint8_t)line[k + 1] << 8 | (uint32_t)(uint8_t)line[k + 2] << 16, 1) < 0)
+                return 0;
+    }
+    bits = sp->n <= 16 ? 4 : 8;
+    ix = GetTempMemory(w);
+    o = GetTempMemory(w * 2 + 16);
+    memset(hdr, 0, sizeof(hdr));
+    hdr[0] = 'B'; hdr[1] = 'M';
+    k = 54 + 4 * sp->n;                                             // where the pixels start
+    hdr[10] = k; hdr[11] = k >> 8;
+    hdr[14] = 40;
+    for(i = 0; i < 4; i++) { hdr[18 + i] = w >> (8 * i); hdr[22 + i] = h >> (8 * i); }
+    hdr[26] = 1;                                                    // planes
+    hdr[28] = bits;
+    hdr[30] = bits == 4 ? 2 : 1;                                    // BI_RLE4, BI_RLE8
+    hdr[38] = hdr[42] = 0x13; hdr[39] = hdr[43] = 0x0B;             // 2835 pixels a metre (72 dpi), as the PicoMite's
+    hdr[46] = sp->n; hdr[47] = sp->n >> 8;                          // the colours used
+    SaveImageWrite(fnbr, hdr, 54);                                  // (the sizes are written at the end)
+    for(i = 0; i < sp->n; i++) {
+        q[0] = sp->pal[i]; q[1] = sp->pal[i] >> 8; q[2] = sp->pal[i] >> 16; q[3] = 0;
+        SaveImageWrite(fnbr, q, 4);
+    }
+    size = 0;
+    for(i = y + h - 1; i >= y; i--) {                               // a BMP's rows from the bottom
+        int n, c;
+        SaveImageRow(x, i, w, line);
+        for(k = 0; k < w; k++) {
+            c = SavePalIndex(sp, (uint8_t)line[3 * k] | (uint8_t)line[3 * k + 1] << 8 | (uint32_t)(uint8_t)line[3 * k + 2] << 16, 0);
+            ix[k] = c < 0 ? 0 : c;                                  // (a colour drawn since it was counted: the first)
+        }
+        n = SaveRleRow(ix, w, o, bits);
+        if(i == y) o[n++] = 0, o[n++] = 1;                          // the end of the picture
+        SaveImageWrite(fnbr, o, n);
+        size += n;
+        if(CurrentlyPlaying != P_NOTHING) {
+            f_sync(FileTable[fnbr].fptr);
+            MM_Delay(1);
+        }
+    }
+    k = 54 + 4 * sp->n + size;                                      // the file's size and the pixels'
+    f_lseek(FileTable[fnbr].fptr, 2);
+    q[0] = k; q[1] = k >> 8; q[2] = k >> 16; q[3] = k >> 24;
+    SaveImageWrite(fnbr, q, 4);
+    f_lseek(FileTable[fnbr].fptr, 34);
+    q[0] = size; q[1] = size >> 8; q[2] = size >> 16; q[3] = size >> 24;
+    SaveImageWrite(fnbr, q, 4);
+    return 1;
+}
+
 void cmd_save(void) {
     int fnbr;
     unsigned int nbr;
@@ -216,7 +354,7 @@ void cmd_save(void) {
         return;
     }
     fnbr = FindFreeFileNbr();
-    if((p = checkstring(cmdline, "IMAGE")) !=NULL){
+    if((p = checkstring(cmdline, "IMAGE")) != NULL || (p = checkstring(cmdline, "COMPRESSED IMAGE")) != NULL){
     	getargs(&p,9,",");
         if((void *)ReadBuffer == (void *)DisplayNotSet) error("SAVE IMAGE not available on this display");
         pp = getFstring(argv[0]);
@@ -235,6 +373,12 @@ void cmd_save(void) {
         }
     	int savey=optiony;
     	optiony=0;
+        flinebuf = GetTempMemory(maxW * 4);
+        if(SaveImageRLE(fnbr, x, y, w, h, flinebuf)) {              // 256 colours or fewer: a palette and RLE
+            optiony=savey;
+            FileClose(fnbr);
+            return;
+        }
         filesize=54 + 3*w*h;
         bmpfileheader[ 2] = (unsigned char)(filesize    );
         bmpfileheader[ 3] = (unsigned char)(filesize>> 8);
@@ -251,16 +395,8 @@ void cmd_save(void) {
         bmpinfoheader[11] = (unsigned char)(       h>>24);
 		f_write(FileTable[fnbr].fptr, bmpfileheader, 14, &nbr);
 		f_write(FileTable[fnbr].fptr, bmpinfoheader, 40, &nbr);
-        flinebuf = GetTempMemory(maxW * 4);
         for(i = y+h-1; i >= y; i--){
-           ReadBuffer(x, i, x+w-1, i, flinebuf);
-           if(VideoColour==4) Rgb121Shown(flinebuf, w);                // (MODE n,4: the colours shown, after MAP)
-           pp=flinebuf;
-           if(VideoColour==12){
-        	   for(j=0;j<maxW*4;j++){
-        		   if(j % 4 != 3)*pp++=flinebuf[j];
-        	   }
-           }
+           SaveImageRow(x, i, w, flinebuf);
            f_write(FileTable[fnbr].fptr, flinebuf, w*3, &nbr);
            if((w*3) % 4 !=0) f_write(FileTable[fnbr].fptr, bmppad, 4-((w*3) % 4) , &nbr);
            if(CurrentlyPlaying != P_NOTHING){

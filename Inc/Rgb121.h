@@ -47,6 +47,7 @@ void Rgb121HLine(int x1, int x2, int y, int c);
 void Rgb121PageCopy(int from, int to, int transparent);
 void Rgb121Blit(int x1, int y1, int x2, int y2, int w, int h, int flip);
 void Rgb121BlitFramebuffer(char *p);
+void Rgb121BlitResize(char *p);
 void Rgb121Row(uint8_t *d, int dx, const uint8_t *s, int sx, int w, int t);
 void Rgb121MergeRequest(void);
 #endif

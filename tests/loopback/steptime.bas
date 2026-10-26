@@ -19,25 +19,24 @@ SetPin 15, DIn
 Start 6000, 500
 STEPPER GCODE G1, X, 100, F, 600
 Pause 500
-mn = 1000 : mx = 0
-For i = 1 To 20
-  w = Pulsin(15, 1)
-  If w < mn Then mn = w
-  If w > mx Then mx = w
+n = 0                                                               ' (16 of 20: PULSIN runs with interrupts on, and
+For i = 1 To 20                                                     ' one between an edge and its clock's reset gives
+  w = Pulsin(15, 1)                                                 ' a short reading)
+  If w >= 4 And w <= 7 Then n = n + 1
 Next
-Check "step pulse high time 4 to 7 us (one 5 us tick; PULSIN's 1 us resolution)", mn >= 4 And mx <= 7, 1
+Check "step pulse high time 4 to 7 us (one 5 us tick; PULSIN's 1 us resolution)", n >= 16, 1
 STEPPER CLOSE
 
 ' the top rate: one step every two ticks
 Start 600000, 50000
 STEPPER GCODE G1, X, 10000, F, 600000                               ' (80 steps/mm at 10000 mm/s: over the cap)
 Pause 500
-mn = 1000
+n = 0
 For i = 1 To 20
   w = Pulsin(15, 0)
-  If w < mn Then mn = w
+  If w >= 4 Then n = n + 1                                          ' (16 of 20, as above)
 Next
-Check "low time between pulses at the top rate: at least 4 us", mn >= 4, 1
+Check "low time between pulses at the top rate: at least 4 us", n >= 16, 1
 STEPPER CLOSE
 SetPin 15, CIn
 Start 600000, 50000

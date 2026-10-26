@@ -84,6 +84,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void DrawBitmapUser(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
     extern void  getargaddress (volatile char *p, long long int **ip, MMFLOAT **fp, volatile int *n);
     void DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fill);
+    extern const char *const DefColourName[16];                    // OPTION DEFAULT COLOURS' names (Draw.c)
+    int DefColour(int n);
+    int DefColourIndex(int c);
     #define RGB(red, green, blue, trans) (unsigned int) (((trans & 0b1111) << 24) | ((red & 0b11111111) << 16) | ((green  & 0b11111111) << 8) | (blue & 0b11111111))
     #define swap(a, b) {int t = a; a = b; b = t;}
 
