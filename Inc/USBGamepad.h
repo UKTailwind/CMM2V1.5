@@ -9,8 +9,12 @@
 #define GAMEPAD_PS3  129
 #define GAMEPAD_SNES 130                            // a generic gamepad, decoded by its table entry
 #define GAMEPAD_XBOX 131
-#define GAMEPAD_SWITCH 133                          // the CMM2's: a Switch Pro Controller, or a pad in its mode (132 is the PicoMite's UNKNOWN)
-#define GAMEPAD_XINPUT 134                          // the CMM2's: an Xbox 360 or Xbox One/Series pad (USBXInput.c); T gives XBOX
+#define GAMEPAD_SWITCH 135                          // a Switch Pro Controller, or a pad in its mode: the PicoMite's SWITCHPRO
+#define GAMEPAD_XINPUT 200                          // the CMM2's own: an Xbox 360 or Xbox One/Series pad (USBXInput.c), never
+                                                    // given out (T and MM.INFO(USB n) say XBOX), so kept clear of the PicoMite's
+#define USB_TOUCH      133                          // the PicoMite's USB touch screen and its standalone absolute pointer
+#define USB_TOUCHMOUSE 134                          // (TOUCH, TOUCHMOUSE in its input/USBKeyboard.c): HID types, not gamepads
+#define IsGamepadType(t) ((t) >= GAMEPAD_PS4 && (t) != USB_TOUCH && (t) != USB_TOUCHMOUSE)
 
 bool USBGamepadMount(uint8_t dev_addr, uint8_t instance, int slot);    // claims the slot if it is a known gamepad
 void USBGamepadReport(uint8_t const *report, uint16_t len, int slot);

@@ -10,7 +10,172 @@ on 22 Oct. The report itself, below the status, is as it was written.
 - MANDELBROT was an Easter egg in the PicoMite: not needed.
 - The order: the small confirmed items and the document corrections first, then OPTION PICOMITE.
 
-**Done the same day:**
+**Peter's decisions on the remaining gaps (26 Oct 2026, going through them for the first release candidate;
+PicoMite lines at 506500f):**
+- To implement:
+  - **SAVE IMAGE compresses, losslessly, wherever it can** (gap 13), and **SAVE COMPRESSED IMAGE is another name for
+    SAVE IMAGE**. The PicoMite's SAVE COMPRESSED IMAGE writes a 4-bit BMP with RLE4 compression (P
+    `misc/FileIO.c:3162`, biCompression 2, an even width) on its 16-colour displays. BMP can compress only its 4- and
+    8-bit forms (RLE4 and RLE8), so here that means RLE4 in the 1- and 4-bit modes (n,1 and n,4) and RLE8 in the 8-bit
+    modes (n,8), with the 16- and 32-bit modes saved as they are now. LOAD BMP already reads both (C
+    `Src/BmpDecoder.c:101-102`).
+  - **BLIT COMPRESSED uses BLIT MEMORY's code with bit 15 taken as set** (gap 12; Peter: "it isn't quite a synonym but
+    needs to use the same code just assume the bit 15"). BLIT MEMORY decodes the compressed form only when bit 15 of the
+    header's width or height is set (C `Src/sprites.c:1189`, as the PicoMite's own BLIT MEMORY, P
+    `graphics/Blit.c:307`); the PicoMite's BLIT COMPRESSED always decodes it as compressed (P
+    `graphics/Blit.c:625-645`).
+  - **BLIT RESIZE** (gap 12, P `graphics/Blit.c:1400`).
+  - **AUTOSAVE APPEND** (gap 27, P `misc/FileIO.c:7407`).
+  - **BITSTREAM's 4th argument (mode) and its dual-pin form** (gap 4).
+  - **DEVICE SERIALRX and DEVICE SERIALTX** (gap 3). SERIALTX can use the cycle-timed transmitter the stepper's
+    TMC22xx added (`serialtx`, `Src/stepper_cmm2.c`).
+  - **LIST VARIABLES [array], LIST OPTIONS, LIST PINS and LIST COLLISIONS** (gap 16), and **PEEK(BP var), PEEK(WP
+    var) and PEEK(SP var)** (gap 17).
+  - **MM.USB** (gap 19): the last USB key's code, which the CMM2 keeps in `USBcode` (`Src/KeyboardMap.c:74`).
+  - **MM.DISPLAY returns 1, always** (gap 19).
+  - **CPU SLEEP s becomes a PAUSE** of the same time when it is met (gap 20; the PicoMite's s is in seconds, P
+    `core/MM_Misc.c`, `sleep_us(totalseconds * 1000000)`).
+  - **SETPIN pin, ARAW** (gap 24). Peter: an immediate sample with no averaging, and PIN() returns the absolute count.
+    The resolution (Peter: "In Picomite mode the adc should be locked to 12-bit and ARAW will then match. In normal
+    mode use the maximum adc resolution"):
+    - with OPTION PICOMITE, ARAW converts at 12 bits, so it counts 0-4095 as on the PicoMite;
+    - without it, ARAW converts at 16 bits (0-65535), the ADC's maximum;
+    - the lock is for ARAW only (Peter: "In AIN it returns the voltage so may as well use full resolution"): SETPIN
+      pin, AIN [, bits] keeps its 8 to 16 bits, 16 by default, in both modes (`ADCbits[]`,
+      `Src/External.c:147-172`).
+  - **OPTION DEFAULT COLOURS fc [, bc]**, "yes if easy" (gap 22). It is: `Option.DefaultFC` and `DefaultBC` already
+    exist, are saved, and are used by ResetDisplay (`Src/Draw.c:6230`), the console and MODE n,1 (`Src/Mono.c`);
+    OPTION CONSOLE BOTH sets them (`Src/MiscSTM32.c:1715-1716`). What is missing is the option, with the PicoMite's 16
+    colour names (P `core/MM_Misc.c:6320`), and every MODE (`Src/ltdc.c:284`) and leaving OPTION PICOMITE
+    (`Src/PicoMode.c:142`) set them back to white on black.
+  - With OPTION PICOMITE (the dialect switch, gap 2), each as the PicoMite has it, and the CMM2's own without it:
+    MM.INFO(CPUSPEED) a string; KEYDOWN's shifted F-keys adding &H40 (&H20 here); LOAD PNG's fourth argument the
+    alpha cut-off (here the transparent colour's index).
+  - **GETSCANLINE rescaled so that 0 is the first visible line** (gap 2; Peter: "yes", in every mode, where the items
+    beside it were made to depend on OPTION PICOMITE). Today it is 0 to 525 whatever the mode, above 479 the blanking.
+  - **MM.INFO(RESET) gives the brown-out reset too, and MM.INFO(BOOT) is another name for it** (gap 18, behaviour
+    item 6). To settle when it is written: the words differ. MM.INFO(RESET) says "Switch", "Power-On" or "Software"
+    (`Src/main.c:792-794`, and it is emptied once read, `Src/MM_Misc.c:3392`); the PicoMite's BOOT says "Reset Switch",
+    "Power On", "Brown Out", "Restart", "S/W Watchdog", "H/W Watchdog", "Firmware update" or "Debug" (P
+    `core/MM_Misc.c`, fun_info BOOT), and a PicoMite program compares them. Suggested: BOOT gives the PicoMite's
+    words for the same causes and is not emptied; RESET keeps the CMM2's and gains "Brown-Out".
+  - **OPTION KEYBOARD nn [, capslock] [, numlock] [, repeatstart] [, repeatrate]** as the PicoMite has it (Peter:
+    "change to picomite standard and allow the same additional parameters"; the CMM2's is OPTION USBKEYBOARD) (gap
+    22).
+  - **MM.INFO$(PLATFORM) returns "CMM2"** (gap 22; on the PicoMite OPTION PLATFORM name$ sets it).
+  - **OPTION F1 and OPTION F5 to F9** as the PicoMite's: a key's string, kept with the options (the CMM2 has F11,
+    F12, F15, F16, F19 and F20, `Src/MiscSTM32.c:324`) (gap 22).
+  - **OPTION LOGGING ON | OFF** as the PicoMite's: every error message appended to A:/log.txt; cleared when a program
+    starts, as OPTION EXPLICIT is, and not saved (gap 22).
+  - **OPTION AUTORUN n [, NORESET]** as the PicoMite's: slot n's program run at power-up; NORESET keeps AUTORUN after
+    a system error (here ON and OFF only, `Src/MM_Misc.c:2635`) (gap 22).
+  - **OPTION SCREEN KEYBOARD** accepted and ignored (gap 25).
+- Deferred, nice to have: ONESHOT (gap 14); ADC RUN (gap 24).
+- Decision deferred:
+  - **WATCHDOG HW timeout | OFF** (gap 20), "a definite nice to have", but Peter: "defer decision on HW watchdog
+    if it can't be cancelled", and the IWDG cannot be. The current status, reviewed:
+    - The CMM2 has the software watchdog only: WATCHDOG n | OFF counts `WDTimer` down in the 1 ms timer and does a
+      SoftReset with WATCHDOG_TIMEOUT (`Src/MM_Misc.c:3467`, `Src/Timers.c:302-308`); the next start prints "Watchdog
+      timeout" and sets MM.WATCHDOG (`Src/main.c:836`). WATCHDOG HW gives an error, and the STM32's IWDG is not used.
+    - On the PicoMite, WATCHDOG HW n (1 to 8331 ms) starts the RP2's watchdog (P `core/MM_Misc.c:9740-9752`,
+      `watchdog_enable(n, 1)`, paused under a debugger). Nothing feeds it but the program giving the command again. It
+      keeps running after the program ends, so a program that stops with an error restarts the board (and so the
+      program, with OPTION AUTORUN). WATCHDOG HW OFF turns it off, and a restart it caused is reported as a watchdog
+      timeout.
+    - On the CMM2 it would be IWDG1 on the 32 kHz LSI: a prescaler of 128 gives 4 ms steps up to 16.4 s, so 1 to
+      8331 ms fits with room to spare (LSI is only roughly 32 kHz, so the time is approximate). The restart is told
+      from RCC->RSR's IWDG1RSTF. Once started the IWDG cannot be stopped, so HW OFF has to be emulated by feeding it
+      from the 1 ms timer interrupt from then on; a reset stops it (to be checked on the board). DBGMCU can freeze
+      it under the debugger, as the PicoMite does. Size: small.
+- Deferred: TRIANGLE SAVE / TRIANGLE RESTORE (gap 11); BLIT MEMORY332 (gap 12); the PicoMite's FRAMEBUFFER forms in
+  the 8, 16 and 32-bit modes, its MODE 4 and 5 (gap 1).
+- Out of scope:
+  - OPTION CONTINUATION LINES and the joining of lines that end " _" (gap 10). They were made because the PicoMite's
+    editor could not handle long lines, and it now can. They stay in the PicoMite for users who are used to them.
+    Programs stored on disk on the PicoMite do not include them.
+  - SAVE PERSISTENT, MM.PERSISTENT and MM.INFO(PERSISTENT) (gap 13).
+  - MANDELBROT (gap 8), as decided on 22 Oct.
+  - COPY A2A, A2B, B2A and B2B (gap 21): they belong to the PicoMite's LittleFS drive.
+  - I2C SLAVE (gap 15).
+  - MM.INFO(BOOT COUNT) (gap 18). (MM.INFO(BOOT) is to be MM.INFO(RESET), above.)
+  - OPTION DISPLAY rows, cols (gap 22): on the PicoMite's VGA and HDMI versions it cannot be changed either.
+  - OPTION CDC POLL RATE (gap 22): the console here is a CH340, not USB CDC.
+  - OPTION PROFILING ON, SAMPLE, the PicoMite's run-time profiler (gap 22): left accepted in a program and doing
+    nothing, as since 22 Oct.
+  - CALC and MM.ANSWER (gap 23).
+  - OPTION GUI CONTROLS (gap 22): not needed, the CMM2 has a fixed allocation.
+  - PWM SYNC (gap 24): not possible with the STM32's hardware.
+  - KEYBOARD ON|OFF, the on-screen keyboard (gap 25).
+  - MOUSE OPEN with its own pins (gap 26).
+- Awaiting a decision:
+  - **OPTION RTC AUTO ENABLE | DISABLE** (gap 22). Peter: it is not OPTION DS3231: "That says to read the RTC to
+    answer time$ function. RTC AUTO turns on and off the automatic update of the internal clock from the DS3231.
+    Review further existing code and recommend approach". The review:
+    - On the PicoMite (help: "auto-load time$ & date$ from RTC on boot & every 24 hours") its software clock is set
+      from the RTC at start-up and every 24 hours (P `PicoMite.c:1166`); TIME$ reads the software clock. If the RTC
+      does not answer at start-up the option is turned off ("RTC not found, OPTION RTC AUTO disabled").
+    - Here the G2's own clock is the STM32's RTC on its 32.768 kHz crystal and the battery, so it keeps the time
+      through power-off itself; the DS3231 is the more accurate one. OPTION DS3231 ON (`Src/MiscSTM32.c:1565`, a
+      restart) makes TIME$ and DATE$ read the DS3231 over I2C at every call (`Src/MM_Misc.c:2213`, `:2362`; with
+      OPTION MILLISECONDS ON TIME$ reads the internal clock), TIME$ = and DATE$ = set both, and `copy_clock` sets the
+      internal clock from the DS3231 at start-up (`Src/main.c:961`), at every PrepareProgram, which is every RUN and
+      every line typed at the prompt (`Src/MMBasic.c:733`), and from the 1 ms timer when `mSecTimer % 360000000 ==
+      2000` (`Src/Timers.c:168`): every 100 hours, perhaps meant as hourly (3600000).
+    - Recommended: OPTION RTC AUTO ENABLE | DISABLE as its own saved option, G2 only, with the PicoMite's meaning:
+      the internal clock set from the DS3231 at start-up and every 24 hours, and TIME$, DATE$ and the rest reading the
+      internal clock (fast, and with its milliseconds). TIME$ = and DATE$ = set both clocks, as with DS3231 ON (on
+      the PicoMite they set only its software clock until RTC SETTIME). A DS3231 that does not answer at start-up
+      turns it off with the PicoMite's message. OPTION DS3231 ON stays as it is for the CMM2's programs; the two are
+      alternatives, so setting one turns the other off. No restart needed for RTC AUTO. The 100-hour timer copy
+      becomes the 24-hour one when RTC AUTO is on, and is looked at for DS3231 ON.
+  - Not yet decided: RUN f$ with a variable or an expression (gap 2); the MM.INFO keys LINE, AUTORUN at the top level,
+    CALLTABLE, MAX VARS, SYSTEM HEAP and OPTION AUDIO | WIDTH | HEIGHT | KEYBOARD (gap 18).
+
+**Behaviour fixes done on 26 Oct 2026** (Peter: "Do the behavious fixes while I consider the rest"; table 5.1 and
+behaviour items 5-6, numbered as in the list given to him that day). tests/cmm2/behfix.bas checks 7-10, 12, 16, 17, 22
+and 24b; the others were checked at the prompt on the G2 where they can be:
+- 6. The Switch Pro Controller is gamepad type 135 (the PicoMite's SWITCHPRO) in DEVICE(GAMEPAD n, T) as in
+  MM.INFO(USB n). 133 and 134 are kept for the PicoMite's USB touch screens (USB_TOUCH, USB_TOUCHMOUSE in
+  `Inc/USBGamepad.h`), which `IsGamepadType` leaves out of the gamepad paths; the CMM2's own X-input pad type is 200,
+  never given out (reported as 131, XBOX).
+- 7. Out of heap: "Not enough memory for n bytes" (the PicoMite's error 48) in place of "Not enough heap memory".
+- 8. RESTORE of a bare name that is a label is the label, even when a plain variable has the name too (`LabelFind`,
+  split from `findlabel`, as the PicoMite's).
+- 9. SAVE IMAGE, SAVE PNG and Print Screen in MODE n,4 save the colours shown: MAP n = c is staged and MAP SET shows
+  it (`SetMapRGB`, `CommitMapRGB`, `Rgb121Shown` in `Src/Rgb121.c`, the PicoMite's MapRGB). ReadBuffer4 still gives
+  the colour before MAP, which BLIT READ and PIXEL( need.
+- 10. MATH(C_ADD ...) to C_POLAR and the four FFTs with one argument say "Argument count" (the PicoMite's c1a5645).
+- 11. A line that a #DEFINE makes too long: the file reader has said "Line n is too long" since 22 Oct (its check
+  after the substitutions). The loaders' own check of a line now says "Line is too long", not "Not enough memory".
+  Found while testing: the reader counts the CMM2's line marker ('|n), so the longest line it takes is 251 characters
+  (248 from line 1000 on), where the PicoMite takes 254. Not changed.
+- 12. FLASH LOAD IMAGE and FLASH DISK LOAD into a RAM slot let the slot's old contents go only once the new are read
+  and decoded, so a file that fails leaves the slot as it was.
+- 13. FLASH LOAD n or RAM LOAD n followed by LIST on the same line lists the new program's names
+  (`ProgramImageToFlash` points the symbol table at it, as the PicoMite's FLASH LOAD does).
+- 14. EDIT and FM turn IR off (`IrClose`) before they clear the variables it writes to.
+- 15. A RAM library ends with the program: END, or running off the last line, after MM.END (`RamLibEnd`; the index
+  of names is let go and made again at the prompt, `NameIndexFree`). The manual's LIBRARY LOAD says so.
+- 16. "#COMMENT  END" with any number of spaces ends the block (`IsCommentEnd`, the PicoMite's).
+- 17. A global is counted only once it is made (`VarCounted`, the PicoMite's), so a DIM whose memory ran out leaves
+  MM.INFO(VARCNT) as it was. ERASE already lowered it.
+- 18. EDIT: the keys queued during a redraw are dropped only when every one is the key that caused it, a held key
+  repeating (`EdDropHeldRepeats`, the PicoMite's), so a held arrow stops when let go and typing and pastes are kept;
+  an import cut short by memory says how many characters went in; an empty text is saved as an empty file.
+- 19. A USB device whose endpoint finds no free entry is reported as "[USB EP_FULL n @a]" (`tuh_dwc2_ep_full_cb`,
+  `Src/USBKeyboard.c`; the TinyUSB change is in its README).
+- 20. A program that cannot be written whole (a line too long, out of memory) leaves no program, not part of one
+  (`ProgramEmpty`): reached under OPTION RAM, as OPTION FLASH tokenises to the heap first.
+- 21. MATH(C_DIV) divides in double and rounds, as the PicoMite does.
+- 22. LONGSTRING MID with a count near 2^31 is cut to the string (`nbr > src[0] - start + 1`, the PicoMite's).
+- 23. READ with no program in memory goes on to the library's DATA (the PicoMite's DataFallToLibrary).
+- 24. A program's font left selected when the font table is made again: the default font (PrepareProgram). OPTION
+  MILLISECONDS: TIME$'s milliseconds start at 0 when the time is set (checked: below 100 just after).
+- A LIBRARY LOAD may come before OPTION SYMBOLS OFF at the top of a program (SymFindOff steps over it, as the
+  PicoMite's; LIBRARY LOAD's own test already stepped over OPTION SYMBOLS OFF).
+Already fixed before 26 Oct: mounting a drive closes file #10.
+
+**Done on 22 Oct, the day of the check:**
 - Gap 3 (DEVICE prefix) and gap 5 (the Wii spellings):
   - DEVICE WII [CLASSIC], DEVICE NUNCHUCK, MOUSE, GAMEPAD, HUMID, WS2812 and BITSTREAM;
   - WII OPEN/CLOSE and WII NUNCHUCK OPEN/CLOSE (the Wii connector, channel 3);
@@ -52,7 +217,8 @@ becomes pin 33"). This settles decision 6 of the audit's 7.2 and the GPn item of
 - ONESHOT (gap 14).
 - I2C SLAVE (gap 15).
 
-**Open, small:** gaps 10-13 and 16-27, and behaviour items 5-6 and the rest of table 5.1.
+**Open, small:** gaps 16-20 and 22-26, and behaviour items 5-6 and the rest of table 5.1 (gaps 10-13, 21 and 27: see
+Peter's decisions of 26 Oct above).
 
 **Not changed:** the 7.00.00b2 release notes' "Not there yet" (RAY, the file manager's mouse). That was true of b2.
 The next beta's notes cover them.

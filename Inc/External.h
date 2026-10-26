@@ -234,6 +234,7 @@ extern void *IrDev, *IrCmd;
 extern volatile char IrVarType, IrState, IrGotMsg;
 extern int IrBits, IrCount;
 extern char *IrInterrupt;
+void IrClose(void);
 void IrInit(void);
 void IrReset(void);
 void IRSendSignal(int pin, int half_cycles);

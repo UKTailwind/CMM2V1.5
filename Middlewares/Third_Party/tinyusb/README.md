@@ -32,6 +32,9 @@ disconnect, slave-mode periodic scheduling).
   (below), and in slave mode an abort that retires its channel on the halt,
   keeping the PID it reached (b8cc9c3): the halt handler re-armed a NAKed IN, so
   an abort never ended a transfer to a device with nothing to send.
+- `src/portable/synopsys/dwc2/hcd_dwc2.c`: an endpoint that finds no free entry
+  in the table calls `tuh_dwc2_ep_full_cb()` (weak) instead of a debug assert,
+  and the CMM2 reports it as `[USB EP_FULL n @a]`, as the PicoMite does.
 - `src/host/usbh.c`: the reset recovery is `CFG_TUH_ENUM_RESET_RECOVERY_MS`
   (100 ms in `Inc/tusb_config.h`, 29f6c2c).
 

@@ -1209,9 +1209,8 @@ void cmd_ir(void) {
     char *p;
     int i, pin, dev, cmd;
     if(checkstring(cmdline, "CLOSE")) {
-        IrState = IR_CLOSED;
+        IrClose();
     	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
-        IrInterrupt = NULL;
     } else if((p = checkstring(cmdline, "SEND"))) {
         getargs(&p, 5, ",");
         pin = GetPinArg(argv[0]);
@@ -1263,6 +1262,14 @@ void IrInit(void) {
     IrReset();
 }
 
+
+// IR off: the timer no longer decodes a message, so nothing more is written to the variables IR OPEN gave it (ClearExternalIO,
+// and EDIT and FM before they clear the variables and the heap: the PicoMite's ClearRuntime does it there)
+void IrClose(void) {
+    IrState = IR_CLOSED;
+    IrInterrupt = NULL;
+    IrGotMsg = false;
+}
 
 void IrReset(void) {
 	IrState = IR_WAIT_START;
@@ -2002,9 +2009,7 @@ void ClearExternalIO(void) {
     i2c2_disable();                                                  // close I2C
     i2c3_disable();                                                  // close I2C
     mouse0release();                                                // (OPTION MOUSE 0's mouse goes on running)
-    IrState = IR_CLOSED;
-    IrInterrupt = NULL;
-    IrGotMsg = false;
+    IrClose();
 //    KeypadInterrupt = NULL;
     FrameInterrupt=NULL;
     nun1=0; nun2=0; nun3=0;

@@ -116,11 +116,33 @@ void Rgb121Palette(void) {
     for(int i = 0; i < 16; i++) Rgb121Colours[i] = pal[i];
 }
 
+// the 16 colours a 4-bit mode shows, as the program gave them (the PicoMite's MapRGB): MAP n = c stages one, MAP SET
+// shows them, MAP RESET, GREYSCALE and the mode's set-up show them all. SAVE IMAGE, SAVE PNG and Print Screen save
+// these (Rgb121Shown); the CLUT has them at OPTION VGA OUTPUT's levels, and ReadBuffer4 the colour before MAP
+static uint32_t MapRGB[16], RemapRGB[16];
+void SetMapRGB(int slot, uint32_t colour) {                         // MAP n = colour: staged only
+    if(slot >= 0 && slot < 16) RemapRGB[slot] = colour & 0xFFFFFF;
+}
+void CommitMapRGB(void) {                                           // MAP SET
+    for(int i = 0; i < 16; i++) MapRGB[i] = RemapRGB[i];
+}
+// a row of n colours from ReadBuffer4 (blue, green, red) in the colours the screen shows them
+void Rgb121Shown(char *p, int n) {
+    for(int k = 0; k < n * 3; k += 3) {
+        uint32_t c = MapRGB[RGB121((uint32_t)(uint8_t)p[k + 2] << 16 | (uint32_t)(uint8_t)p[k + 1] << 8 | (uint8_t)p[k])];
+        p[k] = c;
+        p[k + 1] = c >> 8;
+        p[k + 2] = c >> 16;
+    }
+}
+
 // the CLUT: entries 0 to 15 the PicoMite's colours at OPTION VGA OUTPUT's levels (VgaLevel: COLOUR MAP and PIXEL( give
 // Rgb121Colours'), the others black (MODE n,4 and MAP RESET)
 void Rgb121Clut(void) {
     Rgb121Palette();
     for(int i = 0; i < 256; i++) CLUT[i] = i < 16 ? VgaLevel((uint32_t)Rgb121Colours[i]) : 0;
+    for(int i = 0; i < 16; i++) SetMapRGB(i, (uint32_t)Rgb121Colours[i]);
+    CommitMapRGB();
 }
 
 // a program's end with a PicoMite mode showing (PicoMode.c): its framebuffers closed, as the PicoMite's do_end does

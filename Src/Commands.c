@@ -1869,6 +1869,7 @@ void cmd_end(void) {
 		strcpy(EndLine, s);
 	}
 	InMMEND = false;
+	RamLibEnd();                                                    // (a RAM library ends with the program: after MM.END)
 	cleanend();
 }
 
@@ -1880,6 +1881,7 @@ void ImpliedEnd(void) {
 		ExecuteProgram("MM.END\0");
 	}
 	InMMEND = false;
+	RamLibEnd();
 	cleanend();
 }
 
@@ -2906,7 +2908,10 @@ void cmd_read(void) {
     vidx = 0;
     datatoken = GetCommandValue("Data");
     p = lineptr = NextDataLine;
-    if(*p == 0xff) error("No DATA to read");                        // error if there is no program
+    if(*p == 0xff) {                                                // no program: the library's DATA if there is a library
+        if(LibPresent() && !InLibrary(p)) p = lineptr = LibMemory;  // (the PicoMite's DataFallToLibrary)
+        else error("No DATA to read");
+    }
 
   // search looking for a DATA statement.  We keep returning to this point until all the data is found
 search_again:
@@ -3229,14 +3234,18 @@ void cmd_restore(void) {
 		} else {
 			// by the text's shape, not a probe with findvar (the PicoMite's #103: it raised "Variable name" on CHOICE( and
 			// MID$(, took a FUNCTION's call for a label, refused an array's element, and found an array where a label of
-			// its name was meant). A bare name is a label unless it is a variable that is not an array, or a FUNCTION;
+			// its name was meant). A bare name that is a label is the label, as on the PicoMite, even when a variable has
+			// the name too; otherwise it is a label unless it is a variable that is not an array, or a FUNCTION, and
 			// anything else is an expression: a string is a label, a number a line.
-			char *e = skipvar(cmdline, true);
+			char *e = skipvar(cmdline, true), *lp;
 			int v, bare = isnamestart(*cmdline) && e[-1] != ')';
 			skipspace(e);
-			if(bare && (*e == 0 || *e == '\'') && FindSubFun(cmdline, 1) < 0 &&
+			bare = bare && (*e == 0 || *e == '\'');
+			if(bare && (lp = LabelFind(cmdline)) != NULL)
+				NextDataLine = lp;
+			else if(bare && FindSubFun(cmdline, 1) < 0 &&
 			   ((v = FindVarSlot(cmdline)) < 0 || DimIsRealArray(VREC(v)->dimtbl[0])))
-				NextDataLine = findlabel(cmdline);
+				NextDataLine = findlabel(cmdline);                      // ("Cannot find label")
 			else {
 				MMFLOAT f;
 				long long int i64;

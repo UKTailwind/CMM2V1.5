@@ -4,6 +4,8 @@
 #ifndef EDITOR_CMM2_H
 #define EDITOR_CMM2_H
 #include "FileManager.h"
+extern volatile char ConsoleRxBuf[];                    // the console's queue, read ahead by EdDropHeldRepeats (main.c)
+extern volatile int ConsoleRxBufHead, ConsoleRxBufTail;
 // the PicoMite's isdigit(*p) and the like on a char: safe here, where char is unsigned (the ARM's), so the source stays
 // as the PicoMite has it
 #pragma GCC diagnostic ignored "-Wchar-subscripts"

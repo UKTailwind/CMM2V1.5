@@ -325,18 +325,24 @@ int SymIsOffStatement(const char *p) {
 }
 
 // Called by PrepareProgram with the program's first line.  OPTION SYMBOLS OFF on a line of its own at the top
-// of the program - after nothing but the name lines, blank and comment lines - is where the PicoMite accepts it,
+// of the program - after nothing but the name lines, blank and comment lines and a LIBRARY LOAD, in either order -
+// is where the PicoMite accepts it,
 // and cmd_option checks that it is there.  On the PicoMite it runs the program without the bindings, to save their
 // 3-5 KB of RAM on an RP2040; here it changes nothing (Peter, 17 Oct): the RAM is no concern, and without the
 // bindings a program runs a third slower.  Returns that line, or NULL.
 char *SymFindOff(char *q) {
+    static int lib = -2;
+    if(lib == -2) lib = SymCommandIndex("Library");
     while(*q == T_NEWLINE) {
         char *line = q, *body = q + T_NEWLINE_HDR;
         if(*body == T_LINENBR) body += 3;
         while(*body == ' ') body++;
         if(*body != 0 && *body != 39) {                             // (39: a comment, and the name lines)
+            char *a = body + sizeof(CommandToken);
             if(SymIsOffStatement(body)) return line;
-            return NULL;                                            // real code first
+            skipspace(a);
+            if(!(lib >= 0 && commandtbl_at(body) == lib && checkstring(a, "LOAD")))
+                return NULL;                                        // real code first (a LIBRARY LOAD is stepped over)
         }
         q = NextLine(line);
     }

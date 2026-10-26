@@ -3,7 +3,7 @@ USB gamepads (the PicoMite's, 18 Oct: Peter). A gamepad takes a HID slot as on t
 then any), and its channel is the slot + 1: DEVICE(GAMEPAD n, funct) reads it, GAMEPAD INTERRUPT ENABLE n, sub [, mask]
 calls sub when a button in the mask changes. Recognised by VID and PID: the Sony DualShock 4 and its clones (PS4), the
 DualShock 3 (PS3), three XBox-style pads (XBOX), and the generic pads of the table below, or of GAMEPAD CONFIGURE (SNES).
-The CMM2 adds the Nintendo Switch Pro Controller (SWITCH, 133), as which many third-party pads present themselves in
+The CMM2 adds the Nintendo Switch Pro Controller (SWITCH, 135 as the PicoMite's SWITCHPRO), as which many third-party pads present themselves in
 their Switch mode (an EasySMX 9013 Pro, 18 Oct): see process_switch_pro(); and Xbox controllers, the Xbox 360 and the
 Xbox One/Series protocols, which are not HID devices (USBXInput.c; their T is XBOX, 131).
 GAMEPAD MONITOR claims any other HID interface as a generic pad and prints its reports as they change (SILENT: prints

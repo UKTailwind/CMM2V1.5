@@ -137,11 +137,11 @@ Check "MM.INFO(OPTION CONSOLE PORT) (CONSOLE was matched first)", MM.Info(Option
 Dim integer z%(1)
 On Error Skip 1
 x = Math(C_Add z%())
-CheckS "MATH(C_ADD) with one argument (it read an unset one)", ErrText$(), "Invalid syntax"
+CheckS "MATH(C_ADD) with one argument (it read an unset one)", ErrText$(), "Argument count"   ' (the PicoMite's, 26 Oct)
 Dim float fs(15)
 On Error Skip 1
 Math FFT fs()
-CheckS "MATH FFT with one argument", ErrText$(), "Invalid syntax"
+CheckS "MATH FFT with one argument", ErrText$(), "Argument count"
 CheckT "MATH(C_ARG), b14's name for C_CARG", Math(C_Arg Math(C_Cplx 0, 1)), Pi / 2, 1e-6
 Math Randomize 0
 x = 0

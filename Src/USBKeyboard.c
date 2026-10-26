@@ -253,6 +253,36 @@ static void hid_app_task(void)
 	USBGamepadTask(); /* a PS4's light bar and motors */
 }
 
+/* The dwc2 driver found no free endpoint entry for a device's endpoint (CFG_TUH_DWC2_ENDPOINT_MAX), so that
+   device's driver did not start. Said as the PicoMite says it: "[USB EP_FULL n @a]", n the running count and a the
+   last one's endpoint (ep_addr | dev_addr << 8, in hex), printed by CheckKeyboard outside tuh_task(), the first five
+   times only. */
+static volatile uint16_t ep_full_n, ep_full_at;
+void tuh_dwc2_ep_full_cb(uint8_t dev_addr, uint8_t ep_addr)
+{
+	ep_full_n++;
+	ep_full_at = ep_addr | (dev_addr << 8);
+}
+static void EpFullService(void)
+{
+	static uint16_t reported = 0;
+	static int lines = 0;
+	char b[12];
+	if (ep_full_n == reported)
+		return;
+	reported = ep_full_n;
+	if (lines >= 5)
+		return;
+	lines++;
+	MMPrintString("\r\n[USB EP_FULL ");
+	IntToStr(b, reported, 10);
+	MMPrintString(b);
+	MMPrintString(" @");
+	IntToStr(b, ep_full_at, 16);
+	MMPrintString(b);
+	MMPrintString("]\r\n");
+}
+
 /* tuh_task() must not run inside itself; the guard is a second line of
    defence behind the callbacks not printing (USBMessage). */
 void CheckKeyboard(void)
@@ -273,6 +303,7 @@ void CheckKeyboard(void)
 		usbmsg[0] = 0;
 		MMPrintString(m);
 	}
+	EpFullService();     /* [USB EP_FULL ...] */
 	USBGamepadService(); /* GAMEPAD MONITOR's lines */
 }
 
@@ -515,7 +546,7 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 			USBMessage("USB Mouse Disconnected\r\n> ");
 			break;
 		}
-		if (HID[i].active && instance == HID[i].Device_instance && dev_addr == HID[i].Device_address && HID[i].Device_type >= GAMEPAD_PS4)
+		if (HID[i].active && instance == HID[i].Device_instance && dev_addr == HID[i].Device_address && IsGamepadType(HID[i].Device_type))
 		{
 			USBGamepadDetached(i);
 			break;
@@ -558,7 +589,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 		process_kbd_report((hid_keyboard_report_t const *)report, n);
 	else if (HID[n].Device_type == HID_ITF_PROTOCOL_MOUSE)
 		USBMouseReport(report, len, n);
-	else if (HID[n].Device_type >= GAMEPAD_PS4)
+	else if (IsGamepadType(HID[n].Device_type))
 		USBGamepadReport(report, len, n);
 	HID[n].report_requested = false;
 	HID[n].report_timer = 0;

@@ -391,6 +391,7 @@ int InLibrary(const char *p);
 char *LineFileNameAt(char *p);
 void LibAttach(void);
 void RamLibRelease(void);
+void RamLibEnd(void);
 int RamLibBlock(void **blk, int *size);
 void LibBoot(void);
 void LibCheckProgramFlash(int size);
@@ -433,6 +434,7 @@ long long int FnSgnF(MMFLOAT f);
 void ProgramFlashErase(int size);               // program memory erased for an image of size bytes (main.c)
 void ProgramImageToFlash(const char *img, int len);   // and made that image (FLASH LOAD)
 void SubLayoutForget(void);                     // the SUBs' parameter layouts are gone with the heap (P6 F1)
+void NameIndexFree(void);                       // let go without a heap wipe (RamLibEnd)
 void NameIndexForget(void);                     // the index of SUBs, FUNCTIONs and labels is gone with the heap
 char *ProgName(void);                           // the program's file name from the image, or NULL
 char *LineFileName(int file);                   // the name of source file 'file' (1 = the program)
@@ -561,6 +563,7 @@ void ExecuteProgram(char *);
 //void AddProgramLine(int append);
 char *findline(int, int);
 char *findlabel(char *labelptr);
+char *LabelFind(char *labelptr);                                    // NULL when there is no such label
 char *skipvar(char *p, int noerror);
 char *skipexpression(char *p);
 char *GetNextCommand(char *p, char **CLine, char *EOFMsg);

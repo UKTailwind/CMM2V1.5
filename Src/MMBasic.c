@@ -570,6 +570,12 @@ void NameIndexForget(void) {
     NameBuilt = 0;
 }
 
+// the index let go with no heap wipe (END has freed a RAM library whose SUBs it held): PrepareProgram makes it again
+void NameIndexFree(void) {
+    if(NameIndex != NameNone) FreeMemorySafe((void **)&NameIndex);
+    NameIndexForget();
+}
+
 static inline uint32_t NameHash(const char *nm, int nl) {
     uint32_t hash = FNV_offset_basis;
     while(nl--) {
@@ -714,6 +720,11 @@ void MIPS16 PrepareProgram(int ErrAbort) {
     NbrFuncts = 0;                                                  // the library's SUBs first, then the program's (the PicoMite's)
     if(LibPresent()) NbrFuncts = PrepareProgramExt(LibMemory, 0, &CFunctionLibrary, ErrAbort);
     NbrFuncts = PrepareProgramExt((char *)ProgMemory, NbrFuncts, &CFunctionFlash, ErrAbort);
+    // a font of the last program's (its DEFINEFONT or LOAD FONT) may be left selected, and for the prompt, when the
+    // table has been made again without it: the default font then, or the next SetFont fails with "Invalid font number"
+    // and the LOAD or RUN after it is lost (the PicoMite's ClearProgram)
+    if(FontTable[gui_font >> 4] == NULL) SetFont(Option.DefaultFont);
+    if(FontTable[PromptFont >> 4] == NULL) PromptFont = Option.DefaultFont;
     // the index of every SUB, FUNCTION, CSUB and label by name, which also finds a name defined twice: made
     // once for a heap (RUN and loading a program wipe it), not before every line typed at the prompt
     if(!NameBuilt) NameIndexBuild(NbrFuncts, ErrAbort);
@@ -3158,7 +3169,8 @@ char *findline(int nbr, int mustfind) {
         error("Line number");
     return p;
 }
-char *findlabel(char *labelptr) {
+// the line of the label at labelptr, or NULL when there is none (the PicoMite's LabelFind: RESTORE tries a name as a label)
+char *LabelFind(char *labelptr) {
     char name[MAXVARLEN + 1];
     int nl = 0;
     struct s_nameslot *n;
@@ -3171,8 +3183,8 @@ char *findlabel(char *labelptr) {
         NameView(labelptr, &s, &nl);
         if(nl > MAXVARLEN) error("Label too long");
         memcpy(name, s, nl);
-        if((n = NameFind(name, nl, 1 << NK_LABEL)) == NULL) error("Cannot find label");
-        if(k >= 0) SymCold[k].labind = (char *)n->target;           // (a miss is an error, never cached)
+        if((n = NameFind(name, nl, 1 << NK_LABEL)) == NULL) return NULL;
+        if(k >= 0) SymCold[k].labind = (char *)n->target;           // (a miss is never cached)
         return (char *)n->target;
     } else {
         // this assumes that the first character has already been verified as a valid label character
@@ -3182,8 +3194,14 @@ char *findlabel(char *labelptr) {
             name[nl++] = *labelptr++;
         }
     }
-    if((n = NameFind(name, nl, 1 << NK_LABEL)) == NULL) error("Cannot find label");
+    if((n = NameFind(name, nl, 1 << NK_LABEL)) == NULL) return NULL;
     return (char *)n->target;
+}
+char *findlabel(char *labelptr) {
+    char *p;
+    if(labelptr == NULL) return NULL;
+    if((p = LabelFind(labelptr)) == NULL) error("Cannot find label");
+    return p;
 
 /*
 
@@ -3651,6 +3669,13 @@ slow:
     }
 }
 
+// a variable made: a global counted now (the PicoMite's VarCounted), so that one whose memory ran out is not; a local
+// was counted as it was pushed, and its SUB's return drops it, made or not
+static inline void VarCounted(int slot) {
+    if(slot >= MAXLOCALVARS) Globalvarcnt++;
+    varcnt = Globalvarcnt + Localvarcnt;
+}
+
 static void __attribute__((noinline)) *findvar_body(char *p, int action, char **endp) {
     char name[MAXVARLEN + 1];
     int i=0, j, size, ifree, globalifree, localifree, nbr, vtype, vindex, namelen, tmp;
@@ -3992,8 +4017,7 @@ findvar_found:
 	if(ifree>=MAXLOCALVARS){                                        // the limit is tested before counting: a refused variable is not counted
 		if(Globalvarcnt+1>=MAXGLOBALVARS)error("Not enough Global variable memory");
 		VarRecordTake(ifree);                                       // its record, before anything is counted or allocated
-		Globalvarcnt++;
-	} else {
+	} else {                                                        // (a global is counted once it is made: VarCounted)
 		if(Localvarcnt+1>=MAXLOCALVARS)error("Not enough Local variable memory");
 		Localvarcnt++;
 	}
@@ -4023,13 +4047,16 @@ findvar_found:
     if(dnbr == 0) {
         if(vtype & T_NBR) {
             VREC(ifree)->val.f = 0;
+            VarCounted(ifree);
             return &(VREC(ifree)->val.f);
         } else if(vtype & T_INT) {
             VREC(ifree)->val.i = 0;
+            VarCounted(ifree);
             return &(VREC(ifree)->val.i);
         } else if(vtype & T_STRUCT) {
             VREC(ifree)->size = structarg;                          // a structure's size is its type
             VREC(ifree)->val.s = mptr;
+            VarCounted(ifree);
             return mptr;
         }
     }
@@ -4038,6 +4065,7 @@ findvar_found:
     if(dnbr == -1) {
         VREC(vindex)->dimtbl[0] = -1;                                // let the caller know that this is an empty array and needs more work
         if(vtype & T_STRUCT) VREC(vindex)->size = structarg;        // an array of structures as a parameter: its type
+        VarCounted(ifree);
         return VREC(vindex)->val.s;                                // just return a pointer to the data element as it will be replaced in the sub/fun with a pointer
     }
 
@@ -4087,6 +4115,7 @@ findvar_found:
     VREC(ifree)->dimtbl[0] = j;
     VREC(ifree)->size = size;
     VREC(ifree)->val.s = mptr;
+    VarCounted(ifree);
     return mptr;
 }
 

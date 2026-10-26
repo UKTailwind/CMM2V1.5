@@ -489,7 +489,6 @@ void cmd_flash(void) {
             FileClose(BMPfnbr);
             error("Invalid BMP file");
         }
-        if(slot > MAXFLASHSLOTS) SlotDrop(slot);                    // (a flash slot keeps its image until the new one is saved)
         len = 8 + ((width + 1) / 2) * height;
         SlotLoading = GetTempMemory(len);                           // (temporary: the decoder's errors are raised inside
         memset(SlotLoading, 0, len);                                // decodeBMP, and it is freed after the statement)
@@ -511,7 +510,8 @@ void cmd_flash(void) {
         linecallback = NULL;
         FileClose(BMPfnbr);
         if(!r.success) error(r.errorMsg);
-        uint8_t *kept = GetMemory(len);
+        if(slot > MAXFLASHSLOTS) SlotDrop(slot);                    // (only now: a file that fails leaves the slot as it was,
+        uint8_t *kept = GetMemory(len);                             // as on the PicoMite; a flash slot's is kept until saved)
         memcpy(kept, SlotLoading, len);
         if(slot <= MAXFLASHSLOTS) SlotWrite(slot, kept, len);
         ImageSlot[slot] = kept;
@@ -539,7 +539,6 @@ void cmd_flash(void) {
             FileClose(fnbr);
             error("Empty file");
         }
-        if(slot > MAXFLASHSLOTS) SlotDrop(slot);
         SlotLoading = GetMemory(size);
         FileGetData(fnbr, SlotLoading, size, &got);
         FileClose(fnbr);
@@ -547,6 +546,7 @@ void cmd_flash(void) {
             FreeMemorySafe((void *)&SlotLoading);
             error("File read error");
         }
+        if(slot > MAXFLASHSLOTS) SlotDrop(slot);                    // (only now: a file that fails leaves the slot as it was)
         if(slot <= MAXFLASHSLOTS) {                                 // a flash slot: its file, read again when it is wanted
             SlotWrite(slot, SlotLoading, size);                     // (a program's image is made ready to run then: SlotGet)
             FreeMemorySafe((void *)&SlotLoading);

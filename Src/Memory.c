@@ -1214,8 +1214,8 @@ void *GetMemoryNull(size_t size){
 void *GetMemory(size_t size){
     void *addr = GetMemoryNull(size);
     if(addr != NULL) return addr;
-    // out of memory
-    error("Not enough heap memory");
+    // out of memory: the PicoMite's message, with the size (its standard error 48)
+    StandardErrorParam(48, (int)size);
     return NULL;                                                    // keep the compiler happy
 }
 

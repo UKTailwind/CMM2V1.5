@@ -3749,6 +3749,7 @@ static void fm_display_setup(void)
     i2c2_disable();
     i2c3_disable();
     mouse0release();                                    // (OPTION MOUSE 0's mouse goes on running)
+    IrClose();                                          // (IR writes into a variable: off before they are cleared)
     ClearVars(0);
     closeallsprites();
     closeall3d();

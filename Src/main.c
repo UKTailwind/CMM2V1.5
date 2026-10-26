@@ -3818,6 +3818,15 @@ void ProgramFlashErase(int size) {
     }
 }
 
+// a program that could not be written whole is not left part written: program memory an empty program, as the
+// PicoMite's loader leaves it, before the error is reported (SaveProgramToFlash)
+static void ProgramEmpty(void) {
+    ProgramFlashErase(0);
+    FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);        // an empty program
+    FlashWriteClose();
+    SymTabProg = NULL;
+}
+
 // program memory made the len bytes of the image at img, whose CSUB records hold their addresses there already
 // (FLASH LOAD, ImageSlots.c)
 void ProgramImageToFlash(const char *img, int len) {
@@ -3827,12 +3836,13 @@ void ProgramImageToFlash(const char *img, int len) {
     for(int k = 0; k < len; k++) FlashWriteByte(img[k]);
     FlashWriteClose();
     SCB_CleanInvalidateDCache();
+    SymSetProgram(ProgMemory);                                      // its own table: LIST or EDIT may follow on the line
 }
 
 void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
     CommandToken endtoken;
-    int nbr, i, n, SaveSizeAddr;
+    int nbr, i, n, SaveSizeAddr, linelong = 0;                  // (linelong: a line that #DEFINEs made MAXSTRLEN long)
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realflashsave;
     char *SavedLinePtr = CurrentLinePtr;                            // (the scan below points it at each line, for its errors)
 	SCB_CleanInvalidateDCache();
@@ -3869,12 +3879,12 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         while(!(*pm == 0 || *pm == '\r' || (*pm == '\n' && prevchar != '\r'))) {
             if(*pm == TAB) {
                 do {*p++ = ' ';
-                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
+                    if((p - inpbuf) >= MAXSTRLEN) { linelong = 1; goto exiterror1; }
                 } while((p - inpbuf) % 2);
             } else {
                 if(IsPrint(*pm)) {
                     *p++ = *pm;
-                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
+                    if((p - inpbuf) >= MAXSTRLEN) { linelong = 1; goto exiterror1; }
                 }
             }
             prevchar = *pm++;
@@ -4135,6 +4145,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         SymEnd();
         FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
         FlashWriteClose();
+        ProgramEmpty();                                             // (no part of a program left: the PicoMite's)
         error("$", tknerrmsg);
 
     // we only get here in an error situation while writing the program to flash
@@ -4142,14 +4153,15 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
         SymEnd();
         FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
         FlashWriteClose();
-        error("Not enough memory");
+        ProgramEmpty();
+        error(linelong ? "Line is too long" : "Not enough memory");  // (the PicoMite's: a line, or the program, too long)
 }
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to memory in tokenised format
 uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
     char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
     CommandToken endtoken;
-    int nbr, i, n, SaveSizeAddr;
+    int nbr, i, n, SaveSizeAddr, linelong = 0;                  // (linelong: a line that #DEFINEs made MAXSTRLEN long)
 	SCB_CleanInvalidateDCache();
     uint32_t storedupdates[MAXCFUNCTION], updatecount=0, realmemsave, retvalue;
     char *SavedLinePtr = CurrentLinePtr;                            // (the scan below points it at each line, for its errors)
@@ -4187,12 +4199,12 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
         while(!(*pm == 0 || *pm == '\r' || (*pm == '\n' && prevchar != '\r'))) {
             if(*pm == TAB) {
                 do {*p++ = ' ';
-                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
+                    if((p - inpbuf) >= MAXSTRLEN) { linelong = 1; goto exiterror1; }
                 } while((p - inpbuf) % 2);
             } else {
                 if(IsPrint(*pm)) {
                     *p++ = *pm;
-                    if((p - inpbuf) >= MAXSTRLEN) goto exiterror1;
+                    if((p - inpbuf) >= MAXSTRLEN) { linelong = 1; goto exiterror1; }
                 }
             }
             prevchar = *pm++;
@@ -4474,7 +4486,7 @@ uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
         MemWriteByte(0); MemWriteByte(0); MemWriteByte(0);    // terminate the program in flash
         MemWriteClose();
 		FreeMemory(SDMemory);
-        error("Not enough memory");
+        error(linelong ? "Line is too long" : "Not enough memory");  // (the PicoMite's: a line, or the program, too long)
         return 0;
 }
 // insert a string into the start of the lastcmd buffer.

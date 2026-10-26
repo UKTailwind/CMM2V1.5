@@ -2905,7 +2905,7 @@ void fun_math(void)
 			{
 				getargs(&tp, 3, ",");
 				if (argc != 3)
-					SyntaxError();
+					StandardError(2);                                   // "Argument count", as the PicoMite (its c1a5645, #62)
 				fcplx x = getComplex(argv[0]) + getComplex(argv[2]);
 				retComplex(x);
 			}
@@ -2913,7 +2913,7 @@ void fun_math(void)
 			{
 				getargs(&tp, 3, ",");
 				if (argc != 3)
-					SyntaxError();
+					StandardError(2);
 				fcplx x = getComplex(argv[0]) * getComplex(argv[2]);
 				retComplex(x);
 			}
@@ -2921,7 +2921,7 @@ void fun_math(void)
 			{
 				getargs(&tp, 3, ",");
 				if (argc != 3)
-					SyntaxError();
+					StandardError(2);
 				fcplx x = getComplex(argv[0]) - getComplex(argv[2]);
 				retComplex(x);
 			}
@@ -2929,15 +2929,16 @@ void fun_math(void)
 			{
 				getargs(&tp, 3, ",");
 				if (argc != 3)
-					SyntaxError();
-				fcplx x = getComplex(argv[0]) / getComplex(argv[2]);
+					StandardError(2);
+				// in double, then rounded (the PicoMite's): a float complex division can be 1 ulp out
+				fcplx x = (fcplx)((cplx)getComplex(argv[0]) / (cplx)getComplex(argv[2]));
 				retComplex(x);
 			}
 			else if ((tp = checkstring(&ep[2], "POW")))
 			{
 				getargs(&tp, 3, ",");
 				if (argc != 3)
-					SyntaxError();
+					StandardError(2);
 				fcplx x = cpowf(getComplex(argv[0]), getComplex(argv[2]));
 				retComplex(x);
 			}
@@ -3035,7 +3036,7 @@ void fun_math(void)
 			{
 				getargs(&tp, 3, ",");
 				if (argc != 3)
-					SyntaxError();
+					StandardError(2);
 				fcplx x = (float)(getnumber(argv[0])) + (float)(getnumber(argv[2])) * I;
 				retComplex(x);
 			}
@@ -3043,7 +3044,7 @@ void fun_math(void)
 			{
 				getargs(&tp, 3, ",");
 				if (argc != 3)
-					SyntaxError();
+					StandardError(2);
 				MMFLOAT r = getnumber(argv[0]);
 				MMFLOAT theta = getnumber(argv[2]) / optionangle;
 				MMFLOAT stheta = sin(theta) * r;
@@ -4015,7 +4016,7 @@ void cmd_FFT(char *pp)
 	{
 		getargs(&tp, 3, ",");
 		if (argc != 3)
-			SyntaxError();
+			StandardError(2);
 		card1 = parsefloatarray(argv[0], &a3float, 1, 1, dims, false, NULL);
 		card2 = parsefloatarray(argv[2], &a4float, 2, 1, dims, true, NULL);
 		if (card1 != card2)
@@ -4045,7 +4046,7 @@ void cmd_FFT(char *pp)
 	{
 		getargs(&tp, 3, ",");
 		if (argc != 3)
-			SyntaxError();
+			StandardError(2);
 		card1 = parsefloatarray(argv[0], &a3float, 1, 1, dims, false, NULL);
 		card2 = parsefloatarray(argv[2], &a4float, 2, 1, dims, true, NULL);
 		if (card1 != card2)
@@ -4075,7 +4076,7 @@ void cmd_FFT(char *pp)
 	{
 		getargs(&tp, 3, ",");
 		if (argc != 3)
-			SyntaxError();
+			StandardError(2);
 		card1 = parsefloatarray(argv[0], &a4float, 1, 2, dims, false, NULL);
 		if (DimElements(dims[0]) != 2)
 			error("Argument 1 must be a 2 x n array"); // real and imaginary per element
@@ -4105,7 +4106,7 @@ void cmd_FFT(char *pp)
 	}
 	getargs(&pp, 3, ",");
 	if (argc != 3)
-		SyntaxError();
+		StandardError(2);
 	card1 = parsefloatarray(argv[0], &a3float, 1, 1, dims, false, NULL);
 	card2 = parsefloatarray(argv[2], &a4float, 2, 2, dims, true, NULL);
 	if (DimElements(dims[0]) != 2)

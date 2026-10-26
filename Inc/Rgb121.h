@@ -31,6 +31,9 @@ int Rgb121SizeFits(int w, int h, int scale);
 void Rgb121CloseAll(void);
 uint32_t Rgb121Layout(int mode, uint32_t start);
 void Rgb121Clut(void);
+void SetMapRGB(int slot, uint32_t colour);      // the colours a 4-bit mode shows (MAP n = c, MAP SET): Rgb121.c
+void CommitMapRGB(void);
+void Rgb121Shown(char *p, int n);               // ReadBuffer4's colours as shown, after MAP (SAVE IMAGE and PNG)
 void CursorOverlaySet(int on);                  // GUI CURSOR in a 4 or 1-bit mode: over the merge's display
 void CursorOverlayColour(int c);
 void Rgb121Palette(void);

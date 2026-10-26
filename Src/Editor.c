@@ -217,6 +217,7 @@ static void EdDisplaySetup(void)
     i2c2_disable();
     i2c3_disable();
     mouse0release();                                    // (OPTION MOUSE 0's mouse goes on running)
+    IrClose();                                          // (IR writes into a variable: off before they are cleared)
     ClearVars(0);
     closeallsprites();
     closeall3d();
@@ -266,6 +267,63 @@ static void EdDisplayRestore(void)
    an Esc that leaves the editor reach the prompt (as kilo's did, through MMInkey's own look-ahead). A queue of the
    editor's own kept them for its next session instead, where they were typed into the file. */
 #define EdUnget(c) MMInkeyUnget(c)
+
+static int EdKeyNow = -1;                               // the key being handled (-1 until the first: EdDropHeldRepeats)
+// the byte at *pos in the console queue, left there; -1 at the end
+static int EdQueueByte(int *pos, int head)
+{
+    if (*pos == head)
+        return -1;
+    int c = (unsigned char)ConsoleRxBuf[*pos];
+    *pos = (*pos + 1) % CONSOLE_RX_BUF_SIZE;
+    return c;
+}
+/* The key at *pos in the console queue, decoded as MMInkey decodes it but left in the queue; *pos moves past it. -2 for
+   an escape sequence this does not decode, or one that has not all arrived (the PicoMite's EdPeekKey). */
+static int EdPeekKey(int *pos, int head)
+{
+    int c = EdQueueByte(pos, head);
+    if (c != ESC)
+        return c;
+    c = EdQueueByte(pos, head);
+    if (c == 'O')
+    {
+        c = EdQueueByte(pos, head);
+        return (c >= 'P' && c <= 'T') ? F1 + (c - 'P') : -2;
+    }
+    if (c != '[')
+        return -2;
+    c = EdQueueByte(pos, head);
+    if (c >= 'A' && c <= 'D')
+    {
+        static const int arrow_keys[] = {UP, DOWN, RIGHT, LEFT};
+        return arrow_keys[c - 'A'];
+    }
+    if (c >= '1' && c <= '6' && EdQueueByte(pos, head) == '~')
+    {
+        static const int four_char_keys[] = {HOME, INSERT, DEL, END, PUP, PDOWN};
+        return four_char_keys[c - '1'];
+    }
+    return -2;
+}
+/* After a redraw: the keys that arrived meanwhile are dropped only when every one of them is the key that caused it, a
+   held key repeating, which would otherwise run on after it is let go. Anything else, typing after Enter or a paste, is
+   kept (the PicoMite's EdDropHeldRepeats). Before the first key EDIT's start has emptied the queue already. */
+static void EdDropHeldRepeats(void)
+{
+    int head = ConsoleRxBufHead, pos = ConsoleRxBufTail, n = 0;
+    if (EdKeyNow == -1)
+        return;
+    while (pos != head)
+    {
+        int start = pos;
+        if (EdPeekKey(&pos, head) != EdKeyNow)
+            return;
+        n += (pos - start + CONSOLE_RX_BUF_SIZE) % CONSOLE_RX_BUF_SIZE;
+    }
+    while (n--)
+        getConsole();
+}
 
 static int EdInkey(void)
 {
@@ -607,7 +665,7 @@ static FRESULT EdSave(char *fname)
         return FR_INVALID_NAME;
     sprintf(tmp, "%s.$$$", fname);
     sprintf(bak, "%s.bak", fname);
-    if ((r = EdWriteFile(tmp, EdBuff, EdBuff + strlen(EdBuff), 1)) != FR_OK)
+    if ((r = EdWriteFile(tmp, EdBuff, EdBuff + strlen(EdBuff), *EdBuff != 0)) != FR_OK)   // (an empty text is an empty file)
         return r;
     if (EdFileExists(fname, NULL))
     {
@@ -1616,6 +1674,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
     buf[0] = 0;
     insert = true;
     TextChanged = false;
+    EdKeyNow = -1;                                      // (no key yet: EdDropHeldRepeats)
     BreakKeySave = BreakKey;
     BreakKey = 0;
     while (1)
@@ -1641,6 +1700,7 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
         } while (c == -1);
         ShowCursor(false);
         UiPointer(0);
+        EdKeyNow = c;
 
         if (drawstatusline)
             PrintFunctKeys(EDIT);
@@ -2426,11 +2486,14 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 PositionCursor(txtp);
 
                 // Display success message (CMM2: or why it stopped short, the characters before it inserted)
-                char msg[40];
+                char msg[48];
                 if (r != FR_OK)
                     EdFileMsg("READ FAILED", r, importfile);
                 else if (full)
-                    editDisplayMsg(" OUT OF MEMORY ");
+                {
+                    sprintf(msg, " OUT OF MEMORY: %d CHARS IMPORTED ", insert_count);   // (the PicoMite's)
+                    editDisplayMsg((char *)msg);
+                }
                 else
                 {
                     sprintf(msg, " IMPORTED %d CHARS ", insert_count);
@@ -3779,9 +3842,7 @@ void printScreen(void)
         curx = 0;
         cury = i + 1;
     }
-    // CMM2: the keys typed while the screen was redrawn are kept, as kilo keeps them: the PicoMite's editor throws
-    // them away here (to stop a held arrow key running on), which loses typing after Enter at the bottom of the
-    // screen, and text pasted into a terminal
+    EdDropHeldRepeats();                                // (a held key's repeats queued while redrawing the screen)
 }
 
 // position the cursor on the screen

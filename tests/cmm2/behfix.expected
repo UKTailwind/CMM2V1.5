@@ -1,0 +1,15 @@
+ok  DIM out of memory gives the size
+ok  and MM.INFO(VARCNT) is as it was
+ok  RESTORE label that is also a variable: the label's DATA
+ok  MATH(C_ADD) with one argument
+ok  MATH FFT with one argument
+ok  #COMMENT  END with two spaces ends the block
+ok  LONGSTRING MID with count &H7FFFFFFF
+ok  FLASH LOAD IMAGE 6: an 8 pixel wide image
+ok  a BMP of bit depth 7 is refused
+ok  and the slot still holds the 8 pixel image
+ok  n,4: MAP n = c not yet set: blue is saved (B, G, R)
+ok  after MAP SET: the mapped colour is saved
+ok  TIME$ set: its milliseconds start again below 100
+behfix: 13 of 13 passed
+

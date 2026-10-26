@@ -46,6 +46,13 @@ TU_ATTR_WEAK void tuh_dwc2_ls_hub_refused_cb(uint8_t hub_addr, uint8_t hub_port)
 }
 #endif
 
+// CMM2: invoked when an endpoint finds no free entry (CFG_TUH_DWC2_ENDPOINT_MAX), so its device's driver does not
+// start (see hcd_edpt_open), from the host task
+TU_ATTR_WEAK void tuh_dwc2_ep_full_cb(uint8_t dev_addr, uint8_t ep_addr) {
+  (void) dev_addr;
+  (void) ep_addr;
+}
+
 enum {
   HPRT_W1_MASK = HPRT_CONN_DETECT | HPRT_ENABLE | HPRT_ENABLE_CHANGE | HPRT_OVER_CURRENT_CHANGE | HPRT_SUSPEND
 };
@@ -632,7 +639,10 @@ bool hcd_edpt_open(uint8_t rhport, uint8_t dev_addr, const tusb_desc_endpoint_t*
 
   // find a free endpoint
   const uint8_t ep_id = edpt_alloc();
-  TU_ASSERT(ep_id < CFG_TUH_DWC2_ENDPOINT_MAX);
+  if (ep_id >= CFG_TUH_DWC2_ENDPOINT_MAX) {          // CMM2: none free, said (the PicoMite's [USB EP_FULL])
+    tuh_dwc2_ep_full_cb(dev_addr, desc_ep->bEndpointAddress);
+    return false;
+  }
   hcd_endpoint_t* edpt = &_hcd_data.edpt[ep_id];
 
   dwc2_channel_char_t* hcchar_bm = &edpt->hcchar_bm;

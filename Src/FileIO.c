@@ -254,6 +254,7 @@ void cmd_save(void) {
         flinebuf = GetTempMemory(maxW * 4);
         for(i = y+h-1; i >= y; i--){
            ReadBuffer(x, i, x+w-1, i, flinebuf);
+           if(VideoColour==4) Rgb121Shown(flinebuf, w);                // (MODE n,4: the colours shown, after MAP)
            pp=flinebuf;
            if(VideoColour==12){
         	   for(j=0;j<maxW*4;j++){
@@ -290,6 +291,7 @@ void cmd_save(void) {
         PngBegin(fnbr, w, h);
         for(i = y; i < y+h; i++){                                   // (from the top: a BMP's rows are from the bottom)
            ReadBuffer(x, i, x+w-1, i, flinebuf);
+           if(VideoColour==4) Rgb121Shown(flinebuf, w);                // (MODE n,4: the colours shown, after MAP)
            if(VideoColour==12){                                     // (4 bytes a pixel in 12-bit colour: 3 kept, as SAVE IMAGE)
         	   pp=flinebuf;
         	   for(j=0;j<w*4;j++){
@@ -437,6 +439,14 @@ static int BlockComment(char *s, int *block, int *insub, int line, const char **
     return 0;
 }
 
+// "#COMMENT END" in any case and with any number of spaces between the words (the PicoMite's IsCommentEnd): checked
+// before the line's spaces are collapsed, where "#COMMENT  END" ended no block
+static int IsCommentEnd(const char *s) {
+    if(*s++ != '#' || strncasecmp(s, "COMMENT", 7) != 0 || s[7] != ' ') return 0;
+    for(s += 7; *s == ' '; s++);
+    return strncasecmp(s, "END", 3) == 0;
+}
+
 void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
     int blockcomment = 0;                                           // within /* ... */ (a block comment): its /* line
     int insub = 0;                                                  // within a SUB or FUNCTION (BlockComment)
@@ -486,7 +496,7 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 			if(c < 0) error("Line % of $: $", importlines, fname, bm);
 			if(c) continue;
 		}
-		if(ignore && !(sbuff[0]=='#' && cmpstr("COMMENT END",&sbuff[1])==0))*sbuff='\'';   // (# lines too, but its END)
+		if(ignore && !IsCommentEnd(sbuff))*sbuff='\'';                  // (# lines too, but its END)
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
 			sbuff+=2;
 			*sbuff='\'';
@@ -661,7 +671,7 @@ static char *ProgramText(char *fname, char *name) {
 			}
 			if(c) continue;
 		}
-		if(ignore && !(sbuff[0]=='#' && cmpstr("COMMENT END",&sbuff[1])==0))*sbuff='\'';   // (# lines too, but its END)
+		if(ignore && !IsCommentEnd(sbuff))*sbuff='\'';                  // (# lines too, but its END)
 		if(strncasecmp(sbuff,"rem ",4)==0 || (len==3 && strncasecmp(sbuff,"rem",3)==0 )){
 			sbuff+=2;
 			*sbuff='\'';

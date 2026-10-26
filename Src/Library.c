@@ -14,7 +14,7 @@ Where it is.  The flash library is bank 2 sector 6, 128 KB, the last program slo
 is its last flash slot.  Option.libflash says it holds a library and Option.libhash which files LIBRARY LOAD made it
 from, so loading the same files again touches nothing (the hash is 0 after LIBRARY SAVE or DISK LOAD, which come from
 no files).  A RAM library (LIBRARY LOAD ..., RAM) is a heap block (Peter, 17 Oct: no fixed SDRAM area).  It shadows the
-flash library until the next RUN, NEW or program load, which release it, as the PicoMite's RAM slot is released;
+flash library until END or the next RUN, NEW or program load, which release it, as the PicoMite's RAM slot is released;
 LIBRARY LOAD's own restart keeps it (RamLibKeep).  So a program loads it at every start.  The PicoMite keeps its RAM
 library across a RUN and only re-attaches it; here it is read and tokenised again.
 
@@ -78,6 +78,15 @@ void RamLibRelease(void) {
     RamLibHash = 0;
     CFunctionLibrary = NULL;
     LibAttach();
+}
+
+// END, actual or implied: a RAM library is the program's, so its block goes and the flash library is the one in use
+// again, as on the PicoMite (its cmd_end); the index of names, which had its SUBs, is made again at the prompt
+void RamLibEnd(void) {
+    if(RamLibMemory == NULL) return;
+    FreeMemorySafe((void **)&RamLibMemory);
+    RamLibRelease();
+    NameIndexFree();
 }
 
 // the RAM library's block, for a heap wipe that keeps it (ClearRuntimeAll)

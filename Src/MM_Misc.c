@@ -976,7 +976,7 @@ void cmd_longString(void){
         if(argc==7)nbr=getint(argv[6], 0, 0x7FFFFFFF);
         else nbr=src[0];
         p+=start-1;
-        if(nbr+start>src[0]){
+        if(nbr > src[0] - start + 1){                               // (nbr+start could overflow: the PicoMite's #72)
             nbr=src[0]-start+1;
         }
         i=nbr;
@@ -2907,11 +2907,11 @@ void fun_info(void){
 	if(tp){                                                         // keyboard, 2 a mouse, 128 up a gamepad, 0 none), and n = 0
 		int n = getint(tp, 0, HID_SLOTS), t;                        // the number of devices: the PicoMite's, which programs use to
 		if(n == 0) {                                                // find the mouse (MMbg). The CMM2's own pad types are given as
-			iret = 0;                                               // the PicoMite's: its Switch pad (133) as SWITCHPRO, 135, its
-			for(int i = 0; i < HID_SLOTS; i++) if(HID[i].Device_type) iret++;   // X-input pad (134) as XBOX, 131
+			iret = 0;                                               // the PicoMite's: its X-input pad (134) as
+			for(int i = 0; i < HID_SLOTS; i++) if(HID[i].Device_type) iret++;   // XBOX, 131
 		} else {
 			t = HID[n - 1].Device_type;
-			iret = t == GAMEPAD_SWITCH ? 135 : t == GAMEPAD_XINPUT ? 131 : t;
+			iret = t == GAMEPAD_XINPUT ? GAMEPAD_XBOX : t;
 		}
 		targ=T_INT;
 		return;

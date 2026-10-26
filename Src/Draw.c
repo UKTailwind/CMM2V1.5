@@ -2614,6 +2614,7 @@ void cmd_clut(void){
 		pagesetdone=0;
 		while(!pagesetdone)CheckAbort();
 		HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+		if(VideoColour==4) CommitMapRGB();                          // (the colours shown now: SAVE IMAGE's, Rgb121.c)
     } else if((p=checkstring(cmdline, "RESET"))){
     	reset_CLUT();
     } else if(checkstring(cmdline, "GREYSCALE") || checkstring(cmdline, "GRAYSCALE")) {
@@ -2636,7 +2637,9 @@ void cmd_clut(void){
             for(int i = 1; i <= 16; i++) {
                 int j = i * 16 - (16 - i + 1);
                 CLUT[i - 1] = j * 65536 + j * 256 + j;
+                SetMapRGB(i - 1, CLUT[i - 1]);
             }
+            CommitMapRGB();                                         // (shown at once, below)
         } else error("Set 8-bit or 4-bit mode");
     	pagesetdone=0;
     	while(!pagesetdone)CheckAbort();
@@ -2677,6 +2680,7 @@ void cmd_clut(void){
 			if(cl>15)error("Mode has 16 colours - 0 to 15");
 		} else if(!(VideoColour==8))error("8-bit video mode only");
 		CLUT[cl]=(VideoColour==4 ? VgaLevel(col) : col);              // (4-bit: OPTION VGA OUTPUT's levels, as Rgb121Clut's)
+		if(VideoColour==4) SetMapRGB(cl, col);                      // (shown from MAP SET)
     }
 }
 void cmd_page(void){

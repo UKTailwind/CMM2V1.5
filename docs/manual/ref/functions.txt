@@ -209,7 +209,7 @@ Returns data from a USB gamepad: a PS3 or PS4 controller, a Nintendo Switch Pro 
 {b=20 a=20 l=941 h=567}R 	the position of the analog right button (0 to 255)
 {b=20 a=20 l=941 h=567}B 	a bitmap of the state of all the buttons. A bit will be set to 1 if the button is pressed.
 {b=20 a=20 l=941 h=567}H 	the direction of the d-pad: 0 for up, then clockwise in steps of 45 degrees to 7 for up and left, or 255 when it is not pressed (where supported: other gamepads always give 255)
-{b=20 a=20 l=941 h=567}T 	the type of the controller: 128 for a PS4, 129 for a PS3, 130 for a generic gamepad, 131 for an Xbox controller and 133 for a Switch Pro Controller (0 if there is none)
+{b=20 a=20 l=941 h=567}T 	the type of the controller: 128 for a PS4, 129 for a PS3, 130 for a generic gamepad, 131 for an Xbox controller and 135 for a Switch Pro Controller (0 if there is none)
 {b=20 a=20 l=941 h=567}RAW 	the last report that the gamepad sent, as a string of its bytes (for working out a GAMEPAD CONFIGURE with GAMEPAD MONITOR SILENT)
 The button bitmap is as follows:
 {t=l1083 b=20 a=20 l=1225 h=851}BIT 0	 Button R/R1
