@@ -97,8 +97,9 @@ Check "  no more pulses after it", Pin(15), n
 Check "  PEEK(STEPPER STATUS) has E-STOP (bit 6)", (Peek(STEPPER STATUS) >> 6) And 1, 1
 Check "  and nothing active", Peek(STEPPER ACTIVE), 0
 Pin(7) = 1
-STEPPER STATUS                                                      ' (the first STEPPER command after a trip only reports it:
-STEPPER CLOSE                                                       ' cmd_stepper's stepper_report_latched_trips, the PicoMite's)
+STEPPER POSITION X, 5                                               ' (the trip is reported, then the command runs: the
+Check "  the command after the trip runs: X is 5", Peek(STEPPER X), 5   ' PicoMite's #137, 27b13db)
+STEPPER CLOSE
 
 SetPin 13, DOut : Pin(13) = 1
 STEPPER INIT

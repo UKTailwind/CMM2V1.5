@@ -33,6 +33,7 @@ ok    PEEK(STEPPER STATUS) has E-STOP (bit 6)
 ok    and nothing active
 Hardware E-STOP trip - emergency stop
 Clear E-STOP switch, re-home (G28), then STEPPER RUN
+ok    the command after the trip runs: X is 5
 Stepper initialized - 200KHz timer active
 Warning: Soft limits not configured. Use STEPPER LIMITS to set working area.
 Hardware limit switches configured
@@ -62,5 +63,5 @@ Hardware limit switches configured
 Homing axes...
 ok  G28 runs to its end and stops with an error
   (Homing failed - limit not reached)
-stepio: 20 of 20 passed
+stepio: 21 of 21 passed
 
