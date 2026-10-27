@@ -68,7 +68,7 @@ extern int errpos;
 #define MMgetchar()         MMgetchar(1)
 #define routinechecks()     routinechecks(1)
 #define mytoupper(c)        toupper(c)
-#define time_us_64()        ((uint64_t)GetuSec())
+#define time_us_64()        ((uint64_t)Getuptime())     // the uptime clock: GetuSec() is TIMER, which a program moves
 
 // the cursor to column x, row y on both consoles (the PicoMite's Editor.c has it)
 static void SCursor(int x, int y) {

@@ -106,8 +106,6 @@ SECTIONS
     *FileManager.c.obj(.text .text* .rodata .rodata*)
     *Editor.o(.text .text* .rodata .rodata*)             /* the editor (the PicoMite's: EDIT) */
     *Editor.c.obj(.text .text* .rodata .rodata*)
-    *UiMouse.o(.text .text* .rodata .rodata*)            /* the mouse of EDIT and FM */
-    *UiMouse.c.obj(.text .text* .rodata .rodata*)
     *Mono.o(.text .text* .rodata .rodata*)               /* MODE n,1's drawing and TILE (its merge is in ITCM: Rgb121.c) */
     *Mono.c.obj(.text .text* .rodata .rodata*)
     *Ray.o(.text .text* .rodata .rodata*)                /* RAY, the raycaster */
@@ -125,6 +123,9 @@ SECTIONS
     *BmpDecoder.c.obj(.text .text* .rodata .rodata*)
     *PngEncoder.o(.text .text* .rodata .rodata*)
     *PngEncoder.c.obj(.text .text* .rodata .rodata*)
+    *OSK.o(.text .text* .rodata .rodata*)                /* the on-screen keyboard (the PicoMite's: OSK.c); the 1 mS tick */
+    *OSK.c.obj(.text .text* .rodata .rodata*)            /* reads only its osk_state, which is in RAM (27 Oct 2026: for its
+                                                            room UiMouse.c, EDIT's and FM's mouse, went back to bank 1) */
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
     . = ALIGN(4);
     _ebank2 = .;

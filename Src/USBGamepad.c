@@ -120,6 +120,7 @@ static void SetButtons(volatile gamepad_t *g, uint16_t b) {
 static uint8_t ds3_feature[20];
 void tuh_hid_get_report_complete_cb(uint8_t dev_addr, uint8_t idx, uint8_t report_id, uint8_t report_type, uint16_t len) {
     (void)report_type; (void)len;
+    USBTouchGetReportComplete(dev_addr, idx, report_id, report_type, len);   // (a touch screen's handshake: USBTouch.c)
     if(report_id != 0xF2) return;
     for(int i = 0; i < HID_SLOTS; i++)
         if(HID[i].active && HID[i].Device_address == dev_addr && HID[i].Device_instance == idx && HID[i].Device_type == GAMEPAD_PS3)

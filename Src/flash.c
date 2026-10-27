@@ -514,13 +514,24 @@ void SaveOptions(int check) {
 
 void LoadOptions(void) {
     memcpy((struct option_s *)&Option, (struct option_s *)FLASH_SAVED_OPTION_ADDR, sizeof(struct option_s));
-    if(Option.layout != OPTION_LAYOUT) {                            // saved before OPTION F15-F20: those bytes are erased flash,
-        mymemset((char *)Option.F15Key, 0, sizeof(Option.F15Key)); // so they are emptied (the other options are kept; the
-        mymemset((char *)Option.F16Key, 0, sizeof(Option.F16Key)); // next SaveOptions writes the record whole)
-        mymemset((char *)Option.F19Key, 0, sizeof(Option.F19Key));
-        mymemset((char *)Option.F20Key, 0, sizeof(Option.F20Key));
+    if(Option.layout != OPTION_LAYOUT) {                            // saved before OPTION F15-F20 (layout 1), F1 and F5-F9 (2) or
+        if(Option.layout != 1 && Option.layout != 2) {             // SCREEN KEYBOARD (3): those bytes are erased flash, so they are
+            mymemset((char *)Option.F15Key, 0, sizeof(Option.F15Key)); // emptied (the other options are kept; the next SaveOptions
+            mymemset((char *)Option.F16Key, 0, sizeof(Option.F16Key)); // writes the record whole)
+            mymemset((char *)Option.F19Key, 0, sizeof(Option.F19Key));
+            mymemset((char *)Option.F20Key, 0, sizeof(Option.F20Key));
+        }
+        if(Option.layout != 2) {
+            mymemset((char *)Option.F1Key, 0, sizeof(Option.F1Key));
+            mymemset((char *)Option.F5Key, 0, 5 * sizeof(Option.F5Key));  // (F5 to F9, one after another)
+        }
+        Option.VRes_reserved = Option.Multi = 0;
         Option.layout = OPTION_LAYOUT;
     }
+    OptionVResreserved = VideoColour == 1 ? 0 : Option.VRes_reserved;   // the on-screen keyboard's strip (the PicoMite's FileIO.c;
+                                                                    // none in MODE n,1):
+    if (OSK_IsUserDisabled())                                       // KEYBOARD OFF at the prompt keeps it off across the reloads
+        OptionVResreserved = 0;                                     // an error or a soft reset makes
 }
 
 
@@ -577,6 +588,8 @@ void ResetAllOptions(void) {
 	mymemset((char *)Option.F16Key,0,sizeof(Option.F16Key));
 	mymemset((char *)Option.F19Key,0,sizeof(Option.F19Key));
 	mymemset((char *)Option.F20Key,0,sizeof(Option.F20Key));
+	mymemset((char *)Option.F1Key,0,sizeof(Option.F1Key));
+	mymemset((char *)Option.F5Key,0,5 * sizeof(Option.F5Key));     // (F5 to F9)
 	Option.layout = OPTION_LAYOUT;
 	mymemset((char *)Option.path,0,sizeof(Option.path));
 	mymemset((char *)Option.offsets,0,sizeof(Option.offsets));

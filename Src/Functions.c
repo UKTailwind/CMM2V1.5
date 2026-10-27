@@ -74,6 +74,8 @@ const char* overlaid_functions[]={
 	"MM.FLAGS",
 	"MM.ERRLINE",
 	"MM.CODE",                                                      // (before MM.END, which ends the table: the ~() codes stay)
+	"MM.USB",
+	"MM.DISPLAY",
 	"MM.END"
 };
 
@@ -201,6 +203,7 @@ void fun_version(void){
 	targ = T_NBR;
 }
 
+extern int USBcode;                                                 // (KeyboardMap.c)
 void fun_tilde(void){
 	targ=T_INT;
 /*
@@ -231,6 +234,12 @@ typedef enum {
 		}
 		case MMONEWIRE:
 			iret = mmOWvalue;
+			break;
+		case MMUSB:                                                 // the HID code of the last key pressed on a USB keyboard, -1
+			iret = USBcode;                                         // before the first
+			break;
+		case MMDISPLAY:                                             // the PicoMite's: 1 if it has a display (Peter, 26 Oct: 1,
+			iret = 1;                                               // always)
 			break;
 		case MMFLAGS:
 			iret = g_flag;

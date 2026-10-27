@@ -219,8 +219,7 @@ static void MouseInput(int dx, int dy, int8_t wheel, uint8_t buttons, float scal
         leftpress = now;
         leftstate = 3;
         m->Z = 1;
-        MouseIntAnyFound = 1;
-        if(MouseIntAny != NULL) IntSignal();
+        if(MouseIntAny != NULL) { MouseIntAnyFound = 1; IntSignal(); }   // (only while it is armed: one from before called it)
     }
     m->L = (buttons & 1) ? 1 : 0;
     m->R = (buttons & 2) ? 1 : 0;
@@ -238,14 +237,14 @@ static void MouseInput(int dx, int dy, int8_t wheel, uint8_t buttons, float scal
     if(m->ay >= ymax) { m->ay = ymax - 1; RemY = 0.0f; }
     if(m->ay < 0) { m->ay = 0; RemY = 0.0f; }
     m->az += wheel;
-    if(m->x0 != buttons) {                                          // any button changed: MOUSE INTERRUPT ENABLE's interrupt
+    if(m->x0 != buttons && MouseIntAny != NULL) {                  // any button changed: MOUSE INTERRUPT ENABLE's interrupt
         MouseIntAnyFound = 1;
-        if(MouseIntAny != NULL) IntSignal();
+        IntSignal();
     }
     m->x0 = buttons;
-    if(!oldL && m->L) { mouse2foundz = 1; if(mouse2Interruptz != NULL) IntSignal(); }   // CONTROLLER MOUSE OPEN 2's left,
-    if(!oldR && m->R) { mouse2foundc = 1; if(mouse2Interruptc != NULL) IntSignal(); }   // right and left-up interrupts
-    if(oldL && !m->L) { mouse2leftup = 1; if(mouse2Interruptu != NULL) IntSignal(); }
+    if(!oldL && m->L && mouse2Interruptz != NULL) { mouse2foundz = 1; IntSignal(); }   // CONTROLLER MOUSE OPEN 2's left,
+    if(!oldR && m->R && mouse2Interruptc != NULL) { mouse2foundc = 1; IntSignal(); }   // right and left-up interrupts, while
+    if(oldL && !m->L && mouse2Interruptu != NULL) { mouse2leftup = 1; IntSignal(); }   // armed
     int cw = FontTable[gui_font >> 4][0] * (gui_font & 0b1111), ch = FontTable[gui_font >> 4][1] * (gui_font & 0b1111);
     if(cw > 0) m->x1 = m->ax / cw;                                  // the character cell (the PicoMite's editor reads it)
     if(ch > 0) m->y1 = m->ay / ch;

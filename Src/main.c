@@ -369,6 +369,7 @@ void cleanend(void){
 	PcsReport();                                                    // the "Sampler" build: where the program's time went
 #endif
 	int maxH=PageTable[WritePage].ymax;
+	maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
     mymemset(inpbuf,0,STRINGSIZE);
     int lastgui=gui_font_height;
 	SetFont(Option.DefaultFont);
@@ -795,6 +796,7 @@ if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET)strcpy(bootcause,"Software");
 uint32_t resetflags = RCC->RSR;                                  // every reset since the flags were last cleared
 int probereset = ((resetflags & RCC_RSR_SFTRSTF) && _reset_magic != SOFTRESET_MAGIC);   // e.g. SYSRESETREQ from the debug probe
 int brownout = ((resetflags & RCC_RSR_BORRSTF) && !(resetflags & RCC_RSR_PORRSTF));     // supply dip without a power cycle
+if(brownout) strcpy(bootcause,"Brown-Out");                      // (it sets the pin's flag too: MM.INFO(RESET))
 _reset_magic = 0;
 if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_code == SCREWUP_TIMEOUT|| _excep_code == WATCHDOG_TIMEOUT|| _excep_code == RESTART_HEAP)){
 	  if(Option.Autorun==0 ){
@@ -923,7 +925,15 @@ if(setjmp(mark) != 0) {
 	ExecuteProgram("MM.STARTUP\0");
 	}
 	_excep_cause = CAUSE_NOTHING;
-	if(Option.Autorun && ImageIsCurrent() && _excep_code != RESTART_NOAUTORUN) {
+	if(AutorunSlot() && _excep_code != RESTART_NOAUTORUN) {          // OPTION AUTORUN n: flash slot n's program (the PicoMite's)
+	  strcpy(inpbuf,"FLASH RUN ");
+	  IntToStr(inpbuf + strlen(inpbuf), AutorunSlot(), 10);
+	  strcat(inpbuf,"\r\n");
+	  tokenise(true);
+	  executerun=1;
+	  ExecuteProgram(tknbuf);
+	  if(executerun)ImpliedEnd();
+	} else if(Option.Autorun && ImageIsCurrent() && _excep_code != RESTART_NOAUTORUN) {
 	  strcpy(inpbuf,"RUN\r\n");
 	  tokenise(true);                                             // turn into executable code
 	  executerun=1;
@@ -939,7 +949,7 @@ if(setjmp(mark) != 0) {
 	  ExecuteProgram(tknbuf);                                     // execute the line straight away
 	  if(executerun)ImpliedEnd();
 	}
-	if(Option.Autorun && Option.ProgramStartCode < 0 && _excep_code != RESTART_NOAUTORUN) {
+	if(Option.Autorun && !AutorunSlot() && Option.ProgramStartCode < 0 && _excep_code != RESTART_NOAUTORUN) {
 	  FRESULT fr;
 	  FILINFO fno;
 	  OptionFileErrorAbort = 0;
@@ -1012,6 +1022,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
           fm_program_launched_from_fm = 0;                        // stopped with an error): FM again (FileManager.c, the
           strcpy(EndLine, "FM");                                  // PicoMite's). (FM's RUN "file" is EndLine until it runs.)
       }
+      OSK_OnPromptIdle();                                         // the on-screen keyboard at the prompt (OSK.c, the PicoMite's)
       if(*EndLine) {                                              // END cmd$: the command the program ended with, as if typed
           strcpy(inpbuf, EndLine);
           *EndLine = 0;
@@ -1122,7 +1133,8 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 		  tokenise(true); // turn into executable code
 	  }
 	  if(ShortScroll){
-		DrawRectangle(0, maxH-gui_font_height, maxW - 1, maxH - 1, gui_bcolour);
+		int ch = ConsoleVRes();                                     // (the status line: above the on-screen keyboard)
+		DrawRectangle(0, ch-gui_font_height, maxW - 1, ch - 1, gui_bcolour);
 	  }
 	  if(setjmp(run) != 0) {
 		  executerun=1;
@@ -3224,7 +3236,7 @@ void routinechecks(int all){
 		SleepCheck();
 		if(all){
 			CheckSDCard();
-			if(Option.MaxCtrls)ProcessTouch();
+			if(Option.MaxCtrls || osk_state)ProcessTouch();          // (the on-screen keyboard's taps too: OSK.c)
 			if(GPSchannel)processgps();
 		}
 		USBtime=0;
@@ -3235,7 +3247,7 @@ void PrintStatus(int now){
 	char *c;
 	static int lastsecond=-1, len;
     int maxW=PageTable[WritePage].xmax;
-	int maxH=PageTable[WritePage].ymax;
+	int maxH=ConsoleVRes();                                         // (its last row: above the on-screen keyboard)
 	int lastx=CurrentX,lasty=CurrentY;
 	RtcGetTime();									// disable the timer interrupt to prevent any conflicts while updating
 	if(second==lastsecond && !now)return;
@@ -3469,6 +3481,16 @@ void SerialConsolePutC(int c) {
 	    }
 
 	    c = getConsole();                                               // do discarded chars so get the char
+        /* OSK taps should always reach the console RX queue while the
+           keyboard is visible - including during PRESS-ANY-KEY prompts and
+           any other input poll that calls MMInkey directly (cmd_list,
+           INPUT, etc). Only run when nothing arrived this poll so we don't
+           add work to the hot path. (The PicoMite's.) */
+        if (c == (unsigned int)-1 && osk_state && OSK_IsActive())
+        {
+            ProcessTouch();
+            c = getConsole();
+        }
 	    if(c == '\r'){
 	    	crseen = 1;
 	    	InkeyTimer = 0;
@@ -4650,15 +4672,22 @@ void EditInputLine(void) {
                                 MMputchar(inpbuf[CharIndex++]);
                             break;
 
-                case 0x91:
+                case 0x91:                                                                  // F1, F5 to F9: OPTION F1, F5 to F9's
+                case 0x95:                                                                  // string when one is set (the
+                case 0x96:                                                                  // PicoMite's), else the key's own
+                case 0x97:
+                case 0x98:
+                case 0x99:  {
+                                volatile uint8_t *k = buf[0] == 0x91 ? Option.F1Key : Option.F5Key + (buf[0] - 0x95) * sizeof(Option.F5Key);
+                                if(*k) {
+                                    strcpy(&buf[1], (char *)k);
+                                    break;
+                                }
+                            }
+                            // fall through
                 case 0x92:
                 case 0x93:
                 case 0x94:
-                case 0x95:
-                case 0x96:
-                case 0x97:
-                case 0x98:
-                case 0x99:
                 case 0x9a:
                 case 0x9b:
                 case 0x9c:  if(*FunKey[buf[0] - 0x91])

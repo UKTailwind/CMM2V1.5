@@ -8,8 +8,11 @@ This is a temporary option that is reset to the default (RADIANS) when a program
 === OPTION AUTORUN ON
 or
 OPTION AUTORUN OFF
+or
+OPTION AUTORUN n [, NORESET]
 --- P keep roomy
 Instructs MMBasic to automatically run the program in program memory on power up or restart (for example, by the WATCHDOG timer).  OFF is the default.  The program is not run after the restart that an OPTION command causes.
+With ‘n’, 1 to 3 (the PicoMite's), the program saved in flash slot ‘n’ (FLASH SAVE n) is run instead, as FLASH RUN n runs it; 0 is the same as OFF.  NORESET, the PicoMite's, is kept and listed by OPTION LIST: on the PicoMite it keeps the option on after a restart caused by a system error, which the Colour Maximite 2 does in any case.  MM.INFO$(OPTION AUTORUN) returns "On", "Off" or the slot's number.
 If the Colour Maximite 2 is set to run programs from RAM (OPTION RAM) MMBasic instead looks for the file AUTORUN.BAS on the SD card on power up or restart and runs it if it is found.
 Entering the break key (default CTRL-C) at the console will interrupt the running program and return to the command prompt.
 The NEW command turns this option off, and so does a firmware upgrade.
@@ -153,7 +156,11 @@ OPTION ESCAPE OFF will disable it.  It is turned off when a program is run, so O
 Placing this command at the start of a program will require that every variable be explicitly declared using the DIM, LOCAL or STATIC commands before it can be used in the program.
 This option is disabled by default when a program is run.  If it is used it should be placed before any variables are used.  MM.INFO(OPTION EXPLICIT) returns the current setting.
 
-=== OPTION F11 string$
+=== OPTION F1 string$
+or
+OPTION F5 string$ (and F6, F7, F8, F9)
+or
+OPTION F11 string$
 or
 OPTION F12 string$
 or
@@ -165,10 +172,10 @@ OPTION F19 string$
 or
 OPTION F20 string$
 --- P keep roomy
-Define the string that will be generated when a function key is pressed at the command prompt: F11, F12, F15 (Shift-F3), F16 (Shift-F4), F19 (Shift-F7) or F20 (Shift-F8).  The maximum string length is 63 characters.  Setting the string to "" removes it.
+Define the string that will be generated when a function key is pressed at the command prompt: F1, F5 to F9, F11, F12, F15 (Shift-F3), F16 (Shift-F4), F19 (Shift-F7) or F20 (Shift-F8).  The maximum string length is 63 characters.  Setting the string to "" removes it.  F1 and F5 to F9 (the PicoMite's) have their own strings (F1 runs FM, F5 enters AUTOSAVE "" and so on: see Shortcut Keys in the chapter Using MMBasic), which a string set here replaces and "" gives back.
 If the string ends with a carriage return and line feed the command is run at once.  Example:
 `OPTION F11 "RUN " + CHR$(34) + "myprog" + CHR$(34) + CHR$(13) + CHR$(10)`
-The other function keys are fixed (see Shortcut Keys in the chapter Using MMBasic).
+The other function keys (F2 to F4, F10) are fixed.
 
 === OPTION FLASH [n]
 --- P keep roomy
@@ -209,6 +216,12 @@ This command can only be used in a program.  The option is not saved: it is turn
 === OPTION LIST
 --- keep roomy
 This will list the processor's speed and the firmware's version, the video mode in use (and the default mode, when OPTION DEFAULT MODE has set one other than mode 1), the size of the console in lines and characters, and then the settings of the permanent options that have been changed from their default setting and the current console setting.
+
+=== OPTION LOGGING ON
+or
+OPTION LOGGING OFF
+--- keep roomy
+The PicoMite's: with ON every error message (as MM.ERRMSG$ gives it, without "Error in line n:") is added to the file A:/log.txt, a line each, errors that ON ERROR SKIP or IGNORE pass over included.  Nothing is written when there is no SD card.  The option is not saved: it is turned off when a program is run.
 
 === OPTION LOCAL VARIABLES n
 --- keep roomy
@@ -332,6 +345,12 @@ OPTION SD TIMING FAST
 The fast option will speed up the timing for SD card access.  This results in read/write speeds being about 20% faster where cards can accommodate the higher speed access.  The default is NORMAL.
 This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
+=== OPTION SCREEN KEYBOARD n [, M]
+--- P keep roomy
+Keeps ‘n’ percent of the screen's height (0 to 50) at the bottom for an on-screen keyboard, which a USB touch screen types on, as on the PicoMite (see the chapter Keyboard, Mouse and Gamepad).  The keyboard is shown at the command prompt and in the editor and the file manager, which keep above it, and taken away while a program runs (a program shows it with KEYBOARD ON).  OPTION SCREEN KEYBOARD 0 removes it.
+Without M the Sh, Ctl, Sym and Fn keys latch: tap one, then the key it changes.  With M they are held like a keyboard's: hold one with a finger and tap keys with another (a multi-touch screen is needed).
+The keyboard is not available in MODE n,1.  At the command prompt the status line (OPTION STATUS) is shown above it, and the text above the keyboard is a whole number of lines of the current font (any pixels left over are blank).  LIST OPTIONS shows the setting.
+
 === OPTION SEARCH PATH pathname$
 or
 OPTION SEARCH PATH DISABLE
@@ -352,7 +371,7 @@ Turns the monitor off (the VGA sync signals are stopped, so that the monitor goe
 
 === OPTION STATUS ON | OFF
 --- P keep roomy
-Enable or disable the status line at the bottom of the VGA screen at the command prompt.  The status line shows the current directory, the "current program filename" used by the commands RUN, LIST and EDIT when a file name is not specified, and the time and date.  The default is ON.
+Enable or disable the status line at the bottom of the VGA screen at the command prompt (above the on-screen keyboard if there is one: OPTION SCREEN KEYBOARD).  The status line shows the current directory, the "current program filename" used by the commands RUN, LIST and EDIT when a file name is not specified, and the time and date.  The default is ON.
 This command can only be run from the command line.
 
 === OPTION SYMBOLS OFF

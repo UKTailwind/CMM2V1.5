@@ -258,7 +258,13 @@ void printoptions(void){
     	MMPrintString(buff);
 //    }
 
-    if(Option.Autorun == true) PO2Str("AUTORUN", "ON",1);
+    if(Option.Autorun) {                                            // ON, or the PicoMite's slot; NORESET as it lists it
+        PO("AUTORUN", 1);
+        if(AutorunSlot()) PInt(AutorunSlot());
+        else MMPrintString("ON");
+        if(Option.Autorun & AUTORUN_NORESET) MMPrintString(",NORESET");
+        MMPrintString("\r\n");
+    }
     if(Option.Baudrate != CONSOLE_BAUDRATE) PO2Int("BAUDRATE", Option.Baudrate);
     if(!Option.colourmode) PO2Str("COLOURCODE", "OFF",1);
     if(Option.colourmode==-1) PO2Str("COLOURCODE", "REVERSE",1);
@@ -353,9 +359,10 @@ void printoptions(void){
     }
     if(strlen((char *)Option.path))PO2Str("SEARCH PATH",(char *)Option.path,1);
     {
-        static const char *const fkn[] = {"F11", "F12", "F15", "F16", "F19", "F20"};
-        volatile uint8_t *fkk[] = {Option.F11Key, Option.F12Key, Option.F15Key, Option.F16Key, Option.F19Key, Option.F20Key};
-        for(int k = 0; k < 6; k++) {
+        static const char *const fkn[] = {"F1", "F5", "F6", "F7", "F8", "F9", "F11", "F12", "F15", "F16", "F19", "F20"};
+        volatile uint8_t *fkk[] = {Option.F1Key, Option.F5Key, Option.F6Key, Option.F7Key, Option.F8Key, Option.F9Key,
+                                   Option.F11Key, Option.F12Key, Option.F15Key, Option.F16Key, Option.F19Key, Option.F20Key};
+        for(int k = 0; k < 12; k++) {
             int n = strlen((char *)fkk[k]);
             char cc[sizeof(Option.F11Key) + 8];                     // the key string and <crlf>
             if(n == 0) continue;
@@ -363,6 +370,11 @@ void printoptions(void){
             if(n >= 2 && cc[n - 2] == '\r' && cc[n - 1] == '\n') strcpy(&cc[n - 2], "<crlf>");
             PO2Str((char *)fkn[k], cc, 1);
         }
+    }
+    if(Option.VRes_reserved) {                                      // the PicoMite's: round-trips to OPTION SCREEN KEYBOARD
+        PO("SCREEN KEYBOARD", 1); PInt(Option.VRes_reserved);
+        if(Option.Multi) MMPrintString(", M");
+        MMPrintString("\r\n");
     }
     if(Option.MaxCtrls)PO2Int("MAXCTRLS", Option.MaxCtrls);
     return;
@@ -380,18 +392,18 @@ void nunproc(int chan){
 	nunstruct[chan].ax += ((nunbuff[5]>>2) & 3);
 	nunstruct[chan].ay += ((nunbuff[5]>>4) & 3);
 	nunstruct[chan].az += ((nunbuff[5]>>6) & 3);
-	if(lastc[chan]==0 && nunstruct[chan].C){
-		lastc[chan]=1;
-		if(chan==1)nun1foundc=1;
-		if(chan==2)nun2foundc=1;
-		if(chan==3)nun3foundc=1;
+	if(lastc[chan]==0 && nunstruct[chan].C){                      // (each event recorded only while its interrupt is armed:
+		lastc[chan]=1;                                              // one from before would call it at once)
+		if(chan==1 && nun1Interruptc)nun1foundc=1;
+		if(chan==2 && nun2Interruptc)nun2foundc=1;
+		if(chan==3 && nun3Interruptc)nun3foundc=1;
 		IntSignal();
 	}
 	if(lastz[chan]==0 && nunstruct[chan].Z){
 		lastz[chan]=1;
-		if(chan==1)nun1foundz=1;
-		if(chan==2)nun2foundz=1;
-		if(chan==3)nun3foundz=1;
+		if(chan==1 && nun1Interruptz)nun1foundz=1;
+		if(chan==2 && nun2Interruptz)nun2foundz=1;
+		if(chan==3 && nun3Interruptz)nun3foundz=1;
 		IntSignal();
 	}
 	if(nunstruct[chan].C==0)lastc[chan]=0;
@@ -415,9 +427,9 @@ void classicproc(int chan){
 	nunstruct[chan].classic[4]=nunbuff[4];
 	nunstruct[chan].classic[5]=nunbuff[5];
 	if(inttest>buttonlast[chan]){
-		if(chan==1)nun1foundz=1;
-		if(chan==2)nun2foundz=1;
-		if(chan==3)nun3foundz=1;
+		if(chan==1 && nun1Interruptz)nun1foundz=1;
+		if(chan==2 && nun2Interruptz)nun2foundz=1;
+		if(chan==3 && nun3Interruptz)nun3foundz=1;
 		IntSignal();
 	}
 	buttonlast[chan]=inttest;
@@ -452,9 +464,9 @@ void mouseproc(int chan){
 		else if (mousebuff[9]==0x01)mousestruct[chan].az--;
 		if(lastc[chan]==0 && mousestruct[chan].R){
 			lastc[chan]=1;
-			if(chan==1)mouse1foundc=1;
-			if(chan==2)mouse2foundc=1;
-			if(chan==3)mouse3foundc=1;
+			if(chan==1 && mouse1Interruptc)mouse1foundc=1;
+			if(chan==2 && mouse2Interruptc)mouse2foundc=1;
+			if(chan==3 && mouse3Interruptc)mouse3foundc=1;
 			IntSignal();
 		}
 		if(lastz[chan]==0 && mousestruct[chan].L){
@@ -466,17 +478,17 @@ void mouseproc(int chan){
 				mousestruct[chan].Z=1;
 				mousestruct[chan].type=500 ;
 			}
-			if(chan==1)mouse1foundz=1;
-			if(chan==2)mouse2foundz=1;
-			if(chan==3)mouse3foundz=1;
+			if(chan==1 && mouse1Interruptz)mouse1foundz=1;
+			if(chan==2 && mouse2Interruptz)mouse2foundz=1;
+			if(chan==3 && mouse3Interruptz)mouse3foundz=1;
 			IntSignal();
 			lastxclick=mousestruct[chan].ax;
 			lastyclick=mousestruct[chan].ay;
 		}
 		if(lastz[chan]==1 && !mousestruct[chan].L){
-			if(chan==1)mouse1leftup=1;
-			if(chan==2)mouse2leftup=1;
-			if(chan==3)mouse3leftup=1;
+			if(chan==1 && mouse1Interruptu)mouse1leftup=1;
+			if(chan==2 && mouse2Interruptu)mouse2leftup=1;
+			if(chan==3 && mouse3Interruptu)mouse3leftup=1;
 			IntSignal();
 		}
 		if(mousestruct[chan].R==0)lastc[chan]=0;
@@ -1419,6 +1431,7 @@ void cmd_mode(void){
 	}
 	if(argc > 5 && *argv[6]){
         FrameInterrupt = GetIntAddress(argv[6]);					// get the interrupt location
+        Framecomplete = 0;                                          // (from the next frame: not one an earlier interrupt left)
         IntSignal();
 	} else FrameInterrupt=NULL;
 	setmode(mode,colour,bc,0);

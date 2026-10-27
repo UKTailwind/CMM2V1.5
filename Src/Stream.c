@@ -3997,7 +3997,7 @@ static const uint16_t *RBRAM(RBFind)(unsigned char *p)
 // are three loads, so the PicoMite's 100 us cadence, which its housekeeping's
 // cost asked for, is not needed: compiled and text take an interrupt or a
 // Ctrl-C after the same statement.
-#define RB_HOUSE_DUE() ((USBtime | deferredcopy | MMAbort) || IntReady.any || autocursor || GUIactive)
+#define RB_HOUSE_DUE() ((USBtime | deferredcopy | MMAbort) || IntReady.any || autocursor || GUI_INPUT_ON)
 static int RBRAM(RBTail)(unsigned char *here)
 {
     nextstmt = here;
@@ -4010,7 +4010,7 @@ static int RBRAM(RBTail)(unsigned char *here)
         ClearTempMemory();
     if (USBtime | deferredcopy | MMAbort)
         CheckAbort();
-    if (IntReady.any || autocursor || GUIactive)
+    if (IntReady.any || autocursor || GUI_INPUT_ON)
         check_interrupt();
     return (unsigned char *)nextstmt != here;
 }

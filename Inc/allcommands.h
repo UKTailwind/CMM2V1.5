@@ -63,6 +63,8 @@ typedef enum {
     MMFLAGS,
     MMERRLINE,                                                      // appended: the ~() codes above stay as they are
     MMCODE,                                                         // MM.CODE: the stepper's free G-code slots (stepper.c)
+    MMUSB,                                                          // MM.USB: the last USB key's HID code (the PicoMite's)
+    MMDISPLAY,                                                      // MM.DISPLAY: 1, a display is always there (the PicoMite's)
     MMEND
 } Operation;
 extern const char* overlaid_functions[];extern volatile int vol_left, vol_right;
@@ -103,6 +105,7 @@ void cmd_dim(void);
 void cmd_redim(void);
 void cmd_csubinterrupt(void);
 void cmd_chain(void);
+void cmd_keyboard(void);
 void cmd_drive(void);
 void cmd_library(void);
 void cmd_usbmouse(void);
@@ -318,6 +321,7 @@ void fun_ctrlval(void);
 void fun_mmhpos(void);
 void fun_mmvpos(void);
 void fun_touch(void);
+void fun_click(void);
 void fun_math(void);
 void fun_timer(void);
 void fun_date(void);
@@ -564,6 +568,7 @@ void op_inv(void);
 	{ "Resolution",	    T_CMD,				0, cmd_resolution },    // RESOLUTION res [, speed]: OPTION PICOMITE HDMI's (PicoMode.c)
 	{ "Stepper",	    T_CMD,				0, cmd_stepper	},      // STEPPER ...: the PicoMite's motion control (stepper.c)
 	{ "TMC22xx",	    T_CMD,				0, cmd_TMC22xx	},      // TMC22xx ...: TMC2208/2209 drivers set up over their UART
+	{ "Keyboard",	    T_CMD,				0, cmd_keyboard	},      // KEYBOARD ON|OFF: the on-screen keyboard (MM_Misc.c, OSK.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
@@ -663,7 +668,7 @@ void op_inv(void);
 	{ "Call(",		T_FUN | T_STR | T_INT | T_NBR,		0, fun_call	},
   	{ "MsgBox(",        T_FUN | T_INT,              0, fun_msgbox     },
   	{ "CtrlVal(",       T_FUN | T_NBR | T_STR,      0, fun_ctrlval    },
-  	{ "Click(",       T_FUN | T_INT,        0, fun_touch  },
+  	{ "Click(",       T_FUN | T_INT,        0, fun_click  },     // the PicoMite's CLICK( (GUI.c); TOUCH( is fun_touch
 	{ "Math(",	    T_FUN | T_NBR | T_INT,		0, fun_math	},
 	{ "JSON$(",		T_FUN | T_STR,          0, fun_json		},
 	{ "LInStr(",		T_FUN | T_INT,		0, fun_LInstr		},
@@ -703,6 +708,7 @@ void op_inv(void);
 	{ "BitByteFlag(",      T_FUN | T_INT,		0, fun_bitbyteflag },      // BIT( BYTE( FLAG(: one token, the selector 1, 2 or 3 first
 	{ "Device(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_device_fn	},      // DEVICE(MOUSE n, k), DEVICE(GAMEPAD n, k): the PicoMite's (RAW is a string)
 	{ "Tilemap(",	    T_FUN | T_INT,		0, fun_tilemap	},      // TILEMAP(TILE|COLLISION|ATTR|VIEWX|VIEWY|COLS|ROWS|SPRITE ...) (TileMap.c)
+	{ "Touch(",	    T_FUN | T_INT,		0, fun_touch	},      // the PicoMite's TOUCH(: a USB touch screen, the mouse and GUI CLICK (GUI.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

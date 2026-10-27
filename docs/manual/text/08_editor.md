@@ -98,6 +98,15 @@ The editor can be used with a mouse: a USB mouse (which needs no configuration),
 
 The buttons work only inside the editing area: on the status line they do nothing.
 
+## Using a Touch Screen
+
+With a USB touch screen (see the chapter Keyboard, Mouse and Gamepad), as on the PicoMite:
+
+- A tap in the text moves the edit cursor there.
+- A swipe up or down is Page Up or Page Down, and a swipe left or right is Home or End.
+
+With OPTION SCREEN KEYBOARD set, the on-screen keyboard is shown below the text and types into the editor; taps on it are its keys, not moves of the cursor.
+
 ## Colour Coded Editor Display
 
 The editor can colour code the edited program with keywords, numbers, strings and comments displayed in different colours. This feature can be turned on or off at the command prompt with the commands:

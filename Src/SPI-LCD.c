@@ -131,6 +131,7 @@ void DisplayPutC(char c) {
 
     if(!BasicRunning || !(OptionConsole & 2)) return;
 	int maxH=PageTable[WritePage].ymax;
+	maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
     int maxW=PageTable[WritePage].xmax;
     // if it is printable and it is going to take us off the right hand end of the screen do a CRLF
     if(c >= FontTable[gui_font >> 4][2] && c < FontTable[gui_font >> 4][2] + FontTable[gui_font >> 4][3]) {

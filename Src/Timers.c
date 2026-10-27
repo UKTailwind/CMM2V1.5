@@ -332,20 +332,10 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 	    TouchTimer++;
 	    if(CheckGuiFlag) CheckGuiTimeouts();                            // are blinking LEDs in use?  If so count down their timers
 
-	    if(GUIactive && Option.MaxCtrls>0){                             // the GUI's touch: any mouse's left button (TOUCH_DOWN), a
-	                                                                    // USB one without OPTION MOUSE too, while the GUI is active,
-	        if(GuiButtonDown()) {                                       // or GUI CLICK's (the program's, a pin's)
-	            if(!TouchState) {                                       // yes, it is.  If we have not reported this before
-	                TouchState = TouchDown = true;                      // set the flags
-	                TouchUp = false;
-	            }
-	        } else {
-	            if(TouchState) {                                        // the pen is not down.  If we have not reported this before
-	                TouchState = TouchDown = false;                     // set the flags
-	                TouchUp = true;
-	            }
-	        }
-	    }
+	    if (usb_touch_present && usb_touch_active && (int64_t)((uint64_t)Getuptime() - usb_touch_last_us) > 100000)
+	        usb_touch_active = false;                                   // (the PicoMite's no-report watchdog: PicoMite.c; signed,
+	                                                                    // as a read here can be 50 mS behind while TIM16 wraps)
+	    GuiPressTick();                                                 // the GUI's press: a finger, a mouse, GUI CLICK (GUI.c)
 
 		// Handle any IR remote control activity
 		ElapsedMicroSec = readusclock();

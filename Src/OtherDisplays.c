@@ -1793,6 +1793,7 @@ void __attribute__((section(".extra"))) ScrollBuff32V(int lines, int blank){
 	uint32_t wpa=(uint32_t)PageTable[WritePage].address;
 	int y, yy,cursorhidden=0;
 	int maxH=PageTable[WritePage].ymax;
+	maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
     int maxW=PageTable[WritePage].xmax;
 	int Scale=(PageTable[WritePage].expand ? 2 : 1);
 	int n=(maxW * Scale  * 4);
@@ -1830,6 +1831,7 @@ void __attribute__((section(".extra"))) ScrollBuff16V(int lines, int blank){
 	uint32_t wpa=(uint32_t)PageTable[WritePage].address;
 	int y, yy,cursorhidden=0;
 	int maxH=PageTable[WritePage].ymax;
+	maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
     int maxW=PageTable[WritePage].xmax;
 	int Scale=(PageTable[WritePage].expand ? 2 : 1);
 	int n=(maxW * Scale  * 2);
@@ -1867,6 +1869,7 @@ void __attribute__((section(".extra"))) ScrollBuff8V(int lines, int blank){
 	uint32_t wpa=(uint32_t)PageTable[WritePage].address;
     int maxW=PageTable[WritePage].xmax;
 	int maxH=PageTable[WritePage].ymax;
+	maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
 	int Scale=(PageTable[WritePage].expand ? 2 : 1);
     int n=(maxW * Scale),cursorhidden=0;
     if(cursoron && WritePage==(VideoColour==12 ? 1 : 0)){

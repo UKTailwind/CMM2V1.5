@@ -49,6 +49,8 @@ PicoMite lines at 506500f):**
     colour names (P `core/MM_Misc.c:6320`), and every MODE (`Src/ltdc.c:284`) and leaving OPTION PICOMITE
     (`Src/PicoMode.c:142`) set them back to white on black.
   - With OPTION PICOMITE (the dialect switch, gap 2), each as the PicoMite has it, and the CMM2's own without it:
+    (26 Oct, on doing them: KEYDOWN and GETSCANLINE already act as the PicoMite's, and LOAD PNG's arguments are the
+    other way round, the PicoMite's t a colour: docs/PicoMite_Parity_ToDo.md)
     MM.INFO(CPUSPEED) a string; KEYDOWN's shifted F-keys adding &H40 (&H20 here); LOAD PNG's fourth argument the
     alpha cut-off (here the transparent colour's index).
   - **GETSCANLINE rescaled so that 0 is the first visible line, with OPTION PICOMITE** (gap 2; Peter: "getscanline

@@ -1182,6 +1182,29 @@ void cmd_pulse(void) {
 }
 
 
+// LIST PINS (the PicoMite's): each I/O pin of the connector, its GP name (the PicoMite's pin it is, where it is one) and
+// what it is set to now: SETPIN's word, or Reserved (a COM port, I2C, SPI, PWM, the stepper and the like) or DS18B20
+extern void ListNewLine(int *ListCnt, int all);                     // (Commands.c: LIST's lines, with its pause)
+void ListPins(void) {
+	static const char *const cfg[] = {"OFF", "AIN", "DIN", "FIN", "PIN", "CIN", "INTH", "INTL", "DOUT", "DOUT OC", "INTB"};
+	int listcnt = 1;
+	char b[48], gp[16];
+	for(int pin = 1; pin <= NBRPINS; pin++) {
+		int c = ExtCurrentConfig[pin], g = PinGP(pin);
+		const char *s;
+		if(IsInvalidPin(pin)) continue;
+		if(c == EXT_ANA_IN && ADCraw[pin]) s = "ARAW";
+		else if(c >= 0 && c <= EXT_INT_BOTH) s = cfg[c];
+		else if(c == EXT_DS18B20_RESERVED) s = "DS18B20";
+		else s = "Reserved";
+		if(g >= 0) sprintf(gp, "GP%d", g);
+		else strcpy(gp, "-");
+		sprintf(b, "Pin %-3d %-5s %s", pin, gp, s);
+		MMPrintString(b);
+		ListNewLine(&listcnt, 0);
+	}
+}
+
 void fun_pulsin(void) { //allowas timeouts up to 10 seconds
     int pin, polarity;
     unsigned int t1, t2;
@@ -2202,6 +2225,11 @@ void ClearExternalIO(void) {
     mouse1Interruptu=NULL;
     mouse2Interruptu=NULL;
     MouseIntAny=NULL; MouseIntAnyFound=0;                          // MOUSE INTERRUPT ENABLE's (USBMouse.c)
+    nun1foundz = nun2foundz = nun3foundz = nun1foundc = nun2foundc = nun3foundc = 0;   // and the events they had not
+    mouse0foundz = mouse1foundz = mouse2foundz = mouse3foundz = 0;  // taken: none carries into the next program
+    mouse0foundc = mouse1foundc = mouse2foundc = mouse3foundc = 0;
+    mouse0leftup = mouse1leftup = mouse2leftup = mouse3leftup = 0;
+    Framecomplete = 0;
     GamepadInterruptsOff();                                         // GAMEPAD INTERRUPT ENABLE's (USBGamepad.c)
     mouse3Interruptu=NULL;
 //    *lcd_pins = 0;                                                  // close the LCD
@@ -2238,6 +2266,8 @@ void ClearExternalIO(void) {
 		giffnbr=0;
 	}
 	autocursor=0;
+	if(GuiClickPin) GuiClickPin = GuiClickPinInv = 0;              // GUI CLICK PIN's pin goes with the rest (the PicoMite's)
+	GuiClickEmulated = 0;                                           // (a programmed click's MsgBox refusal, the PicoMite's)
 }
 
 

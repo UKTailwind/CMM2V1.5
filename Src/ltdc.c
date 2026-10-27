@@ -137,8 +137,10 @@ int pagegen(int Vmode, int Vcol){
 
 void __attribute__ ((optimize("-O2"))) HAL_LTDC_LineEventCallback(LTDC_HandleTypeDef *ltdc){
 		pagesetdone=1;
-		Framecomplete=1;
-		if(FrameInterrupt != NULL) IntSignal();
+		if(FrameInterrupt != NULL) {                                // (a frame is recorded only for MODE's interrupt: one from
+			Framecomplete=1;                                        // before it called it at once, not at a frame's start)
+			IntSignal();
+		}
 		if(Rgb121Active) NVIC_SetPendingIRQ(CEC_IRQn);                // a 4 or 1-bit mode: the merge, at a low priority (Rgb121.c)
 		HAL_LTDC_ProgramLineEvent(&hltdc, hltdc.Init.AccumulatedActiveH+1);
 }
@@ -587,6 +589,8 @@ void setmode(int mode, int colour, int bc, int force){
 	clearrepeat();
 	if(VideoColour==1)MonoStart();                                   // the tiles the font's height (Mono.c)
 	Rgb121Active=DisplayMerged;                                       // a 4 or 1-bit mode: the merge at each frame (Rgb121.c)
+	if(VideoColour==1)OSK_DropState();                               // the on-screen keyboard: none in MODE n,1 (Peter, 27 Oct)
+	else OSK_Invalidate();                                           // (redrawn at the prompt: OSK.c)
 }
 
 /* LTDC init function */

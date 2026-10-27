@@ -1692,6 +1692,66 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                 EdClick(EdMouseX, EdMouseY);
                 c = -1;
             }
+            /* (the PicoMite's: a USB touch screen's swipes and taps) */
+            ProcessTouch();
+            if (touch_swipe_dir == 1 && c == -1)
+            {
+                c = HOME;
+                touch_swipe_dir = 0;
+            }
+            if (touch_swipe_dir == 2 && c == -1)
+            {
+                c = END;
+                touch_swipe_dir = 0;
+            }
+            if (touch_swipe_dir == 4 && c == -1)
+            {
+                c = PDOWN;
+                touch_swipe_dir = 0;
+            }
+            if (touch_swipe_dir == 3 && c == -1)
+            {
+                c = PUP;
+                touch_swipe_dir = 0;
+            }
+            /* Tap-to-position. Move the edit caret to the character cell the
+               user tapped. Ignore taps that landed inside the reserved OSK
+               strip (those are owned by the on-screen keyboard). Consume
+               touch_tap unconditionally so a tap concurrent with a key
+               press doesn't reposition the cursor on a later iteration. */
+            if (touch_tap)
+            {
+                touch_tap = 0;
+                int reservedTop = VResEdit;
+                if (c == -1 && TouchY < reservedTop && gui_font_width > 0 && gui_font_height > 0)
+                {
+                    int tap_col = TouchX / gui_font_width;
+                    int tap_row = TouchY / gui_font_height;
+                    if (tap_col >= 0 && tap_col < VWidth &&
+                        tap_row >= 0 && tap_row < VHeight)
+                    {
+                        ShowCursor(false);
+                        while (*txtp != 0 && tap_row > cury)
+                            if (*txtp++ == '\n')
+                                cury++;
+                        while (txtp != EdBuff && tap_row < cury)
+                            if (*--txtp == '\n')
+                                cury--;
+                        while (txtp != EdBuff && *(txtp - 1) != '\n')
+                            txtp--;
+                        // tap_col is a screen column; the character under it is at
+                        // absolute column edx+tap_col once the line has scrolled.
+                        for (curx = 0; curx < edx + tap_col && *txtp && *txtp != '\n'; curx++)
+                            txtp++; // now position on the x axis (absolute column)
+                        curx -= edx; // convert back to a screen-relative column
+                        if (curx < 0)
+                            curx = 0;
+                        PositionCursor(txtp);
+                        EdPrintStatus();
+                        ShowCursor(true);
+                    }
+                }
+            }
             if (statuscount++ == 5000)
             {
                 UiPointer(0);

@@ -770,14 +770,14 @@ void fun_epoch(void){
 	    iret=timestamp;
 	    targ = T_INT;
 }
-void cmd_pause(void) {
-	static int interrupted = false;
-    char *pausetoken = CmdTokenPtr;                                 // this statement, to re-run if an interrupt cuts the pause
-                                                                    // short (taken now: a FUNCTION in the argument moves it)
-    MMFLOAT f;
+// a pause of f milliseconds, for PAUSE and the PicoMite's CPU SLEEP (cmd_cpu): an interrupt that cuts it short runs,
+// then the statement (pausetoken) runs again and carries on with what was left (PauseInterrupted). ClearStack drops
+// that at RUN: an interrupt that ended in an error never came back to it (Gerry, 27 Oct 2026: the next run's first
+// PAUSE took the old one's count and timer and ended at once, so its SETTICK interrupt was not called)
+int PauseInterrupted = false;
+static void PauseFor(MMFLOAT f, char *pausetoken) {
     static int64_t end,count;
     int64_t start, stop, tick;
-    f = getnumber(cmdline);                                         // get the pulse width
     if(f < 0) error("Number out of bounds");
     if(f < 0.05) return;
 
@@ -785,7 +785,7 @@ void cmd_pause(void) {
 		uSec(f * 1000);                                             // if less than 1.5mS do the pause right now
 		return;                                                     // and exit straight away
     }
-	if(!interrupted){
+	if(!PauseInterrupted){
 		count=(int64_t)(f*1000);
 		start=GetuSec();
 		tick=PauseTimer;
@@ -801,8 +801,8 @@ void cmd_pause(void) {
 			// we are running pause in a normal program
 			// first check if we have reentered (from an interrupt) and only zero the timer if we have NOT been interrupted.
 			// This means an interrupted pause will resume from where it was when interrupted
-			if(!interrupted) PauseTimer = 0;
-			interrupted = false;
+			if(!PauseInterrupted) PauseTimer = 0;
+			PauseInterrupted = false;
 
 			while(PauseTimer < count) {
 				CheckAbort();
@@ -810,14 +810,14 @@ void cmd_pause(void) {
 					// if there is an interrupt fake the return point to the start of this stmt
 					// and return immediately to the program processor so that it can send us off
 					// to the interrupt routine.  When the interrupt routine finishes we should reexecute
-					// this stmt and because the variable interrupted is static we can see that we need to
+					// this stmt and because PauseInterrupted is kept we can see that we need to
 					// resume pausing rather than start a new pause time.
 					InterruptReturn = pausetoken;						// point to this command's token
-					interrupted = true;								    // show that this stmt was interrupted
+					PauseInterrupted = true;								    // show that this stmt was interrupted
 					return;											    // and let the interrupt run
 				}
 			}
-			interrupted = false;
+			PauseInterrupted = false;
 		}
 		else {
 			// we are running pause in an interrupt, this is much simpler but note that
@@ -827,6 +827,11 @@ void cmd_pause(void) {
 		}
     }
 	uSec(end);
+}
+void cmd_pause(void) {
+    char *pausetoken = CmdTokenPtr;                                 // this statement, to re-run if an interrupt cuts the pause
+                                                                    // short (taken now: a FUNCTION in the argument moves it)
+    PauseFor(getnumber(cmdline), pausetoken);
 }
 
 void cmd_longString(void){
@@ -2451,12 +2456,33 @@ bool usb_msc_is_mounted(void);
 void DriveCurrent(void);
 void cmd_option(void) {
 	char *tp;
-	int maxH=PageTable[WritePage].ymax;
 
 	tp = checkstring(cmdline, "LOCAL VARIABLES");                  // the PicoMite's local region size: a no-op here, where the
 	if(tp) {                                                        // region is larger than any it sets (Peter, 17 Oct)
 		getint(tp, 1, 100000);
 		return;
+	}
+	tp = checkstring(cmdline, "SCREEN KEYBOARD");                  // the PicoMite's on-screen keyboard (OSK.c): n % of the screen,
+	if(tp) {                                                        // 0 none, [, M] its modifiers held by a finger (Peter, 27 Oct)
+        /* Option.VRes_reserved is the stored value; OptionVResreserved is
+           the runtime working copy used by the editor / prompt. Keep both
+           in sync so the new value takes effect immediately and survives
+           a reboot. */
+		getargs(&tp, 3, ",");
+		if(argc < 1) error("Argument count");
+        Option.VRes_reserved = getint(argv[0], 0, 50);
+        OptionVResreserved = VideoColour == 1 ? 0 : Option.VRes_reserved;   // (none in MODE n,1: Peter, 27 Oct 2026)
+        Option.Multi = 0;
+        if (argc == 3 && toupper(*argv[2]) == 'M')
+            Option.Multi = true;
+        SaveOptions(1);
+		return;
+	}
+	tp = checkstring(cmdline, "LOGGING");                          // the PicoMite's: each error message added to A:/log.txt
+	if(tp) {                                                        // (error(), LogError in FileIO.c); off when a program runs, and
+		if(checkstring(tp, "ON")) { OptionLogging = 1; return; }    // not saved
+		if(checkstring(tp, "OFF")) { OptionLogging = 0; return; }
+		error("Syntax");
 	}
 	tp = checkstring(cmdline, "NOCHECK");                          // the PicoMite's: no Ctrl-C or interrupt checks between
 	if(tp) {                                                        // statements, for speed. Here those checks run only when
@@ -2558,10 +2584,11 @@ void cmd_option(void) {
 		strcpy(FunKey[11],(char *)Option.F12Key);
 		return;
 	}
-	{                                                               // F15, F16, F19, F20: Shift-F3, F4, F7, F8 (Gerry's b14)
-		static const char *const fkn[] = {"F15", "F16", "F19", "F20"};
-		volatile uint8_t *fkk[] = {Option.F15Key, Option.F16Key, Option.F19Key, Option.F20Key};
-		for(int k = 0; k < 4; k++) {
+	{                                                               // F15, F16, F19, F20: Shift-F3, F4, F7, F8 (Gerry's b14); F1
+		static const char *const fkn[] = {"F15", "F16", "F19", "F20", "F1", "F5", "F6", "F7", "F8", "F9"};   // and F5 to F9,
+		volatile uint8_t *fkk[] = {Option.F15Key, Option.F16Key, Option.F19Key, Option.F20Key,              // the PicoMite's
+		                           Option.F1Key, Option.F5Key, Option.F6Key, Option.F7Key, Option.F8Key, Option.F9Key};
+		for(int k = 0; k < 10; k++) {
 			if((tp = checkstring(cmdline, (char *)fkn[k]))) {
 				char p[STRINGSIZE];
 				strcpy(p,getCstring(tp));
@@ -2656,10 +2683,21 @@ void cmd_option(void) {
 		}
 	}
 
-	tp = checkstring(cmdline, "AUTORUN");
-	if(tp) {
-		if(checkstring(tp, "ON"))		{ Option.Autorun = true; SaveOptions(1); return; }
-		if(checkstring(tp, "OFF"))		{ Option.Autorun = false; SaveOptions(1); return;  }
+	tp = checkstring(cmdline, "AUTORUN");                           // OPTION AUTORUN ON | OFF | n [, NORESET]: n, the PicoMite's, is
+	if(tp) {                                                        // flash slot n's program (FLASH RUN n at power-up: main.c), 0
+		int a;                                                      // OFF; NORESET is kept and listed (flash.h)
+		getargs(&tp, 3, ",");
+		if(argc != 1 && argc != 3) error("Argument count");
+		if(checkstring(argv[0], "ON")) a = 1;
+		else if(checkstring(argv[0], "OFF")) a = 0;
+		else if((a = getint(argv[0], 0, MAXFLASHSLOTS))) a += AUTORUN_SLOT;
+		if(argc == 3) {
+			if(!checkstring(argv[2], "NORESET")) error("Syntax");
+			if(a) a |= AUTORUN_NORESET;
+		}
+		Option.Autorun = a;
+		SaveOptions(1);
+		return;
 	}
 	tp = checkstring(cmdline, "STATUS");
 	if(tp) {
@@ -2679,7 +2717,7 @@ void cmd_option(void) {
 		    	char buff[255];
 		    	int i;
 		    	for(i=0;i<Option.Width;i++)buff[i]=' ';
-		    	GUIPrintString(0, maxH-gui_font_height-1, gui_font, JUSTIFY_LEFT, JUSTIFY_TOP, ORIENT_NORMAL, BROWN, BLACK, buff);
+		    	GUIPrintString(0, ConsoleVRes()-gui_font_height-1, gui_font, JUSTIFY_LEFT, JUSTIFY_TOP, ORIENT_NORMAL, BROWN, BLACK, buff);
 		    	CurrentY=lasty;
 		    	CurrentX=lastx;
 		    }
@@ -2881,7 +2919,8 @@ void fun_info(void){
 		int pin;
 		if(PinArgGP(tp, &pin) < 0 && (pin < 1 || pin > NBRPINS)) error("% is invalid (valid is % to %)", pin, 1, NBRPINS);
 		if(IsInvalidPin(pin))strcpy(sret,"Invalid");                // (and a GP name with no pin here)
-		else if(ExtCurrentConfig[pin] & CP_IGNORE_RESERVED)strcpy(sret,"Reserved");
+		else if(ExtCurrentConfig[pin] >= EXT_COM_RESERVED)strcpy(sret,"Reserved");   // (100 up: a bit test took a period,
+		                                                            // counting or interrupt input for one)
 		else if(ExtCurrentConfig[pin]) strcpy(sret,"In Use");
 		else strcpy(sret,"Unused");
 		CtoM(sret);
@@ -3175,6 +3214,7 @@ void fun_info(void){
 			else strcpy(sret,"DOWN");
 		} else if(checkstring(tp, "AUTORUN")){
 			if(Option.Autorun == false)strcpy(sret,"Off");
+			else if(AutorunSlot()) IntToStr(sret, AutorunSlot(), 10);   // (the slot, as the PicoMite means to)
 			else strcpy(sret,"On");
 		} else if(checkstring(tp, "CONSOLE PORT")){				// (before CONSOLE, which matched it)
 			iret=Option.ConsolePort;
@@ -3220,8 +3260,11 @@ void fun_info(void){
 		return;
 	}
 	if(checkstring(ep, "CPUSPEED")){
-		iret=SystemCoreClock;
-		rettype='I';
+		if(PicoFlavour() != PICO_NONE) IntToStr(sret, SystemCoreClock, 10);   // OPTION PICOMITE: a string, as the PicoMite's
+		else {
+			iret=SystemCoreClock;
+			rettype='I';
+		}
 	} else if(checkstring(ep, "MODE")){
 		fret = VideoMode+(VideoColour==1? 0.1: VideoColour==4? 0.4: (VideoColour==8? 0.8: (VideoColour==12? 0.12: (VideoColour==16 ? 0.16 : 0.32))));
 	    rettype='N';
@@ -3237,8 +3280,10 @@ void fun_info(void){
 	    strcpy(sret, "MODE");                                       // which programs test for "MODE" (a VGA or HDMI screen, not an
 	    IntToStr(sret + 4, PicoActive ? PicoModeNow : VideoMode, 10);   // LCD panel: the chess programs). Here the CMM2's mode
 	                                                                // number, or the PicoMite's under OPTION PICOMITE
-	} else if(checkstring(ep, "PLATFORM") || checkstring(ep, "SYSTEM I2C")){   // the PicoMite's: what a PicoMite with no OPTION
-	    sret[0] = 0;                                                // PLATFORM and no OPTION SYSTEM I2C says (18 Oct: Picofrog)
+	} else if(checkstring(ep, "PLATFORM")){                        // the PicoMite's OPTION PLATFORM name: "CMM2" here (Peter, 26
+	    strcpy(sret, "CMM2");                                       // Oct)
+	} else if(checkstring(ep, "SYSTEM I2C")){                      // the PicoMite's: what a PicoMite with no OPTION SYSTEM I2C says
+	    sret[0] = 0;                                                // (18 Oct: Picofrog)
 	} else if(checkstring(ep, "VERSION")){
 		//char *p;
 	    //fret = (MMFLOAT)strtol(VERSION, &p, 10);
@@ -3411,8 +3456,9 @@ void fun_info(void){
 	    }
 		iret=(int64_t)nbr * RAMPAGESIZE;
 		rettype='I';
-	} else if(checkstring(ep, "RESET")){
-		strcpy(sret,bootcause);
+	} else if(checkstring(ep, "RESET") || ((tp = checkstring(ep, "BOOT")) && !*tp)){   // what started the board: "Switch",
+		strcpy(sret,bootcause);                                     // "Power-On", "Software" or "Brown-Out" (main.c); BOOT is the
+		                                                            // PicoMite's name (its words are not used: Peter, 26 Oct)
 		mymemset(bootcause,0,sizeof(bootcause));
 	} else if((tp = checkstring(ep, "BBC BUFFER"))){                   // free slots in a PLAY BBC SOUND queue: of channel n, or the
 		iret = BBCSoundFree(*tp ? getint(tp, 0, 3) : -1);           // emptiest of the four (the PicoMite's)
@@ -3446,8 +3492,9 @@ void fun_info(void){
 		case P_PAUSE_BBC:strcpy(sret,"PAUSED BBC");break;
 		default:strcpy(sret,"OFF");break;
 		}
-	} else if(checkstring(ep, "KEYBOARD")){
-		strcpy(sret,(keyboardseen? "Connected":"Not Connected"));
+	} else if(checkstring(ep, "KEYBOARD")){                         // a USB keyboard; under OPTION PICOMITE the PicoMite's: the
+		if(PicoFlavour() != PICO_NONE) strcpy(sret, OSK_IsProgramActive() ? "On" : "Off");   // on-screen keyboard's KEYBOARD ON
+		else strcpy(sret,(keyboardseen? "Connected":"Not Connected"));
 
 	} else if(checkstring(ep, "ID")){  //Unique ID 12 bytes
      	int i;
@@ -3517,6 +3564,11 @@ void cmd_cpu(void) {
     	while(ConsoleTxBufTail != ConsoleTxBufHead);
     	MM_Delay(10);
         SoftReset();                                                // this will restart the processor ? only works when not in debug
+    } else if((p = checkstring(cmdline, "SLEEP"))) {                // the PicoMite's CPU SLEEP s: a PAUSE of s seconds here (Peter,
+        char *pausetoken = CmdTokenPtr;                             // 26 Oct), interrupts and Ctrl-C as in a PAUSE
+        MMFLOAT s = getnumber(p);
+        if(s <= 0) error("Invalid period");
+        PauseFor(s * 1000, pausetoken);
     } else error("Syntax");
 }
 
@@ -3673,6 +3725,23 @@ unsigned int GetPeekAddr(char *p) {
 }
 
 
+// PEEK(BP var), PEEK(SP var) and PEEK(WP var), the PicoMite's: the byte, short or word at the address in the integer
+// variable var (or an element of an integer array), which then steps on by that size: a pointer walked through memory
+static void PeekStep(char *p, int size, int argc) {
+    int64_t *a;
+    unsigned int addr;
+    if(argc != 1) error("Syntax");
+    a = findvar(p, V_FIND | V_NOFIND_ERR);
+    if(!(VREC(VarIndex)->type & T_INT)) error("Not integer variable");
+    if(VREC(VarIndex)->type & T_CONST) StandardError(22);
+    addr = (unsigned int)*a;
+    if(addr & (size - 1)) error(size == 4 ? "Not on word boundary" : "Not on short boundary");
+    if(!PEEKRANGE(addr) || !PEEKRANGE(addr + size - 1)) error("Address");
+    iret = size == 1 ? *(unsigned char *)addr : size == 2 ? *(unsigned short *)addr : *(unsigned int *)addr;
+    *a += size;
+    targ = T_INT;
+}
+
 // Will return a byte within the PIC32 virtual memory space.
 void fun_peek(void) {
     char *p;
@@ -3684,6 +3753,9 @@ void fun_peek(void) {
         targ = T_INT;
         return;
         }
+    if((p = checkstring(argv[0], "BP"))) { PeekStep(p, 1, argc); return; }
+    if((p = checkstring(argv[0], "SP"))) { PeekStep(p, 2, argc); return; }
+    if((p = checkstring(argv[0], "WP"))) { PeekStep(p, 4, argc); return; }
 
     if((p = checkstring(argv[0], "STEPPER"))) {                     // PEEK(STEPPER X|Y|Z|A|ACTIVE|STATUS|BUFFER): the
         extern bool stepper_query_position_mm(char axis, float *pos_mm);   // PicoMite's (stepper.c)
@@ -4033,8 +4105,8 @@ static int PolledSourceArmed(void) {
 // console waits for a key (MMgetchar: at the prompt and in INPUT), where no statement runs: the PicoMite's follows
 // the mouse at the prompt too (Peter, 18 Oct)
 void CursorFollowMouse(void) {
-	if(autocursor && mouseupdated){
-		mouseupdated=0;
+	if(autocursor){                                                 // (wherever the mouse was moved, MOUSE SET too: the PicoMite's
+		mouseupdated=0;                                             // CursorRefresh reads its position each time)
 		int mouse=MouseOpenChannel();                               // (the mouse in use: a USB one is channel 2)
 		if(mouse<0) mouse=3;
 		int x=mousestruct[mouse].ax-xoffcursor, y=mousestruct[mouse].ay-yoffcursor;   // (the cursor's point at the mouse, as GUI CURSOR x, y puts it)
@@ -4045,19 +4117,40 @@ void CursorFollowMouse(void) {
 	}
 }
 
+/* KEYBOARD ON  - draws the on-screen keyboard in the bottom reserved strip
+                  and routes taps to the console RX path.
+   KEYBOARD OFF - erases the OSK and stops routing.
+   Requires OptionVResreserved > 0 (set via OPTION SCREEN KEYBOARD).
+   Outside a running program the OSK is managed automatically by the prompt,
+   so this command is intended for use inside RUNning code. (The PicoMite's, OSK.c.) */
+void cmd_keyboard(void)
+{
+    char *tp;
+    tp = checkstring(cmdline, "ON");
+    if (tp)
+    {
+        checkend(tp);
+        if (VideoColour == 1) error("Invalid for this screen mode");   // (no keyboard in MODE n,1: Peter, 27 Oct 2026)
+        OSK_SetProgramActive(true);
+        return;
+    }
+    tp = checkstring(cmdline, "OFF");
+    if (tp)
+    {
+        checkend(tp);
+        OSK_SetProgramActive(false);
+        return;
+    }
+    error("Syntax");
+}
+
 int check_interrupt(void) {
 	int i, v;
 	char *intaddr;
 	static char rti[4];		// a dummy IRETURN statement: the token (up to two bytes) and zeros to end it
 	if(GUIactive && GUITimer1>=16){
-		GuiPointer();                                               // (the pointer, once there is a mouse)
-		int gm=GuiMouse();                                           // (a USB mouse, or OPTION MOUSE's)
-		int x=mousestruct[gm<0 ? 0 : gm].ax-xoffcursor, y=mousestruct[gm<0 ? 0 : gm].ay-yoffcursor;
-		if(gm>=0 && (x!=xcursor || y!=ycursor)){
-			hidecursor(0);
-			showcursor(0, x, y);
-		}
-		GUITimer1=0;
+		GuiPointer();                                               // (the pointer, once there is a mouse: linked to it, it follows
+		GUITimer1=0;                                                // it as GUI CURSOR LINK MOUSE's does, below)
 	}
 	CursorFollowMouse();
 

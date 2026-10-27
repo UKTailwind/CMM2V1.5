@@ -457,6 +457,7 @@ void DrawBufferFast4(int x1, int y1, int x2, int y2, char *p) {
 // the page moved up (lines > 0) or down, as ScrollBuff8V
 void ScrollBuff4V(int lines, int blank) {
     int maxW = PageTable[WritePage].xmax, maxH = PageTable[WritePage].ymax, n = Stride(WritePage), y;
+    maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
     if(lines > 0) {
         for(y = 0; y < maxH - lines - (ShortScroll ? gui_font_height : 0); y++) mycopy(Row(WritePage, y), Row(WritePage, y + lines), n);
         if(blank) {

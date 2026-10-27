@@ -503,7 +503,7 @@ void ITCM_CODE ExecuteProgram(char *p) {
 				}
                 if(TempMemoryIsChanged) ClearTempMemory();          // at the end of each command we need to clear any temporary string vars
                 if(USBtime | deferredcopy | MMAbort) CheckAbort();      // (it does nothing unless one is set: the 1 ms tick sets USBtime)
-                if(IntReady.any || autocursor || GUIactive)check_interrupt();                                  // check for an MMBasic interrupt and handle it
+                if(IntReady.any || autocursor || GUI_INPUT_ON)check_interrupt();                                  // check for an MMBasic interrupt and handle it
             }
             p = nextstmt;
         }
@@ -1957,7 +1957,6 @@ int MIPS16 tokenise(int console) {
                 str_replace(inpbuf,overlaid_functions[i],buff, false);
             }
             str_replace(inpbuf,"MM.INFO$","MM.INFO",0);
-            str_replace(inpbuf,"TOUCH(","CLICK(",2);                // the PicoMite's name for CLICK( (its GUI controls')
             SubstFold(inpbuf);                                      // BIN$( LEFT$( MAX( and the rest, one token a family
             str_replace(inpbuf,"=>",">=", 3);
             str_replace(inpbuf,"=<","<=", 3);
@@ -4388,6 +4387,7 @@ void error(char *msg, ...) {
         memcpy(errmsg, s, n);
         errmsg[n] = 0;
         MMErrMsg = errmsg;
+        if(OptionLogging) LogError(errmsg);                         // OPTION LOGGING: added to A:/log.txt (FileIO.c)
     }
     // Clean up after and error in DefindedSubFun, or in a call the compiler made (DefinedSubFunMem 2: no argument
     // block, Stream.c)
@@ -4414,7 +4414,7 @@ void error(char *msg, ...) {
     	errpos=0;
         longjmp(ErrNext, 1);
     }
-	int maxH=PageTable[WritePage].ymax;
+	int maxH=ConsoleVRes();                                         // (the status line: above the on-screen keyboard)
     deferredcopy=0;
 	if(Option.showstatus && CurrentY > maxH-(gui_font_height<<1)){
 		MX470PutS("\r\n",WHITE,BLACK);
@@ -4908,6 +4908,9 @@ void MIPS16 ClearStack(void) {
     LocalIndex = 0;
     TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
     InterruptReturn = NULL;
+    PauseInterrupted = false;                                       // and no PAUSE an interrupt cut short is carried on: the
+                                                                    // interrupt may have ended in an error (GUI CLICK's phase:
+                                                                    // ResetGUI)
 }
 
 extern int VideoColour;
@@ -4945,6 +4948,7 @@ static void MIPS16 ClearRuntimeAll(int keep) {
     }
     OptionExplicit = false;
     OptionEscape = false;
+    OptionLogging = 0;                                              // (OPTION LOGGING, the PicoMite's: off when a program runs)
     DefaultType = T_NBR;
     SymBindGlobalsChanged();                                        // what an unsuffixed name may bind to (Symbols.h)
     ds18b20Timers = NULL;                                           // InitHeap() will recover the memory allocated to this array
@@ -4977,6 +4981,7 @@ static void MIPS16 ClearRuntimeAll(int keep) {
 	optiony=0;
 	cursoron=0;
 	cursorenable=0;
+	CursorRunReset();                                               // (its shape, point and colour: the PicoMite's at RUN)
 //	GuiCall=0;
 	CMM1 = false;
 	hashlistpointer=0;

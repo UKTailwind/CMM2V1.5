@@ -424,6 +424,7 @@ void DrawBufferFast1(int x1, int y1, int x2, int y2, char *p) {
 // the page moved up (lines > 0) or down, what is uncovered cleared if blank (PAGE SCROLL, SPRITE SCROLL)
 void ScrollBuff1V(int lines, int blank) {
     int maxW = PageTable[WritePage].xmax, maxH = PageTable[WritePage].ymax, n = Stride(WritePage), y;
+    maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
     if(lines > 0) {
         for(y = 0; y < maxH - lines - (ShortScroll ? gui_font_height : 0); y++) mycopy(Row(WritePage, y), Row(WritePage, y + lines), n);
         if(blank) {
@@ -441,6 +442,7 @@ void ScrollBuff1V(int lines, int blank) {
 // the console's scroll (ScrollLCD): the pixels, and the tiles' colours with them by whole tiles (the PicoMite's ScrollLCD2)
 void ScrollLCD1(int lines, int blank) {
     int n = MonoTilesX, rows = MonoTilesY;
+    rows -= (PageTable[WritePage].ymax * OptionVResreserved / 100) / MonoTileH;   // (the on-screen keyboard's tiles stay)
     if(lines != 0 && lines % MonoTileH == 0) {
         int offset = (lines > 0 ? lines : -lines) / MonoTileH;
         if(lines > 0) {

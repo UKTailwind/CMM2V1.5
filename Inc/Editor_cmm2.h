@@ -12,11 +12,11 @@ extern volatile int ConsoleRxBufHead, ConsoleRxBufTail;
 
 /* ---- the display ---------------------------------------------------------------------------------------------------
    The editing area is the write page, in the editor's font (EDIT sets the mode and the font as kilo did, so that
-   Option.Width and Option.Height are the display's columns and rows when it is a console). The PicoMite keeps a part of
-   its screen for an on-screen keyboard (VResEdit); the CMM2 has none. */
+   Option.Width and Option.Height are the display's columns and rows when it is a console). The editor stops above the
+   on-screen keyboard's strip (VResEdit, the PicoMite's; OSK.c). */
 #define EdHRes              (PageTable[WritePage].xmax)
 #define EdVRes              (PageTable[WritePage].ymax)
-#define VResEdit            EdVRes
+#define VResEdit            (EdVRes - (EdVRes * OptionVResreserved / 100))
 #define SCROLLCHARS         3
 #define MX470Scroll(n)      if((OptionConsole & 2)) ScrollLCD(n, 1)    // (kilo's: the display's own scroll)
 

@@ -457,6 +457,10 @@ The firmware will block copying a file to itself, and a wildcard copy into the d
 --- keep
 Forces a restart of the processor.  This clears all variables and resets everything (eg, timers, COM ports, I2C, etc) as at power up, but without the power up banner.  If OPTION AUTORUN is set the program is run again.  MM.INFO$(RESET) then returns "Software".
 
+=+= CPU SLEEP s
+--- keep
+The PicoMite's command, which puts it in a low power state for ‘s’ seconds.  On the Colour Maximite 2 it is a PAUSE of ‘s’ seconds: ‘s’ can have a fraction and must be more than zero, and interrupts and the break key work as in a PAUSE.
+
 === CSUB name [type  [, type]  …]
   hex [[ hex[…] 
   hex [[ hex[…] 
@@ -949,8 +953,8 @@ Branches program execution to the target, which can be a line number or a label.
 === GUI
 ---
 The GUI commands create the GUI controls and manage them: GUI BUTTON, SWITCH, CHECKBOX, RADIO, LED, FRAME, NUMBERBOX, TEXTBOX, FORMATBOX, SPINBOX, DISPLAYBOX, CAPTION, GAUGE, BARGAUGE, AREA, LISTBOX and SLIDER create a control and GUI PAGE, SETUP, DELETE, DISABLE, ENABLE, HIDE, SHOW, RESTORE, REDRAW, FCOLOUR, BCOLOUR and INTERRUPT manage them.  GUI CLICK clicks them from a program or a pin.  See the chapter *GUI Controls*; the commands are described in full in the document GUI Controls and Programming.pdf (see Appendix O), and GUI LISTBOX, SLIDER and CLICK below.
-The controls need memory reserved for them with OPTION MAXCTRLS (otherwise the error is "No memory allocated for GUI controls").  They are clicked with the left button of a USB mouse, which is used as soon as it is plugged in, or of a PS2 or I^^2^^C mouse set with OPTION MOUSE.  The first GUI command opens that mouse and displays the cursor, which then follows it; a USB mouse plugged in after that is used at once, and the cursor is then displayed.  In the 4-bit colour depth there is no cursor (see GUI CURSOR) and the controls are used without one.
-The controls are those of the Micromite Plus with the mouse in place of its touch screen: its TOUCH() function is CLICK() here (TOUCH() is accepted as another name, as on the PicoMite), and GUI BEEP is not provided (use PLAY TONE in the interrupt routine if a click is wanted).
+The controls need memory reserved for them with OPTION MAXCTRLS (otherwise the error is "No memory allocated for GUI controls").  They are touched on a USB touch screen, where a finger acts where it touches, or clicked with the left button of a USB mouse, which is used as soon as it is plugged in, or of a PS2 or I^^2^^C mouse set with OPTION MOUSE.  The first GUI command opens that mouse and displays the GUI's pointer at it, linked to it as GUI CURSOR ON : GUI CURSOR LINK MOUSE would, so the GUI CURSOR commands work on it; a USB mouse plugged in after that is used at once, and the pointer is then displayed.  The pointer goes at the end of the program.
+The controls are those of the Micromite Plus: its TOUCH() function reads a USB touch screen here, as on the PicoMite, and CLICK() reads the mouse and GUI CLICK.  GUI BEEP is not provided (use PLAY TONE in the interrupt routine if a click is wanted).  GUI TEST checks a touch screen and the display.
 
 === GUI BITMAP  x,  y,  bits  [, width]  [, height]  [, scale]  [, c]  [, bc]
 ---
@@ -972,42 +976,44 @@ or
 GUI CLICK PIN OFF
 ---
 Clicks the GUI controls without a mouse, as on the PicoMite: from a program (a joystick read by it, say, or a test), or with a button on a pin.  The clicks act as the left mouse button, for the controls and for CLICK(DOWN), CLICK(X) and the others.
-GUI CLICK presses and releases the button where the pointer is: the cursor's active point, or without the cursor the mouse, or without a mouse the last ‘x’, ‘y’ given.  With ‘x’ and ‘y’ it moves the pointer (and the mouse) there first.  It returns when the controls have taken the press and the release (in 130 mS to one second), and a GUI interrupt routine that the click calls has run by then.
-GUI CLICK DOWN presses the button where the pointer is and holds it until GUI CLICK UP: a slider then follows the pointer (moved by the mouse, or by MOUSE SET), and a spin box repeats.
-GUI CLICK PIN makes a button on ‘pin’ click where the pointer is: pressed when the pin is low, the pin set as a digital input with a pull-up, or with INV pressed when it is high, with a pull-down.  The pin must not be in use.  GUI CLICK PIN OFF releases it.
-GUI CLICK, DOWN and UP cannot be used in an interrupt routine.
+GUI CLICK presses and releases the button at the cursor's active point (see GUI CURSOR), whether the cursor is shown or not, and moves the mouse there, as the PicoMite does: GUI CURSOR x, y sets that point without a click, and a cursor linked to the mouse (the GUI's pointer is) has it where the mouse is.  With ‘x’ and ‘y’ it moves the point (and the mouse) there first.  It returns when the controls have taken the press and the release (in 130 mS to one second), and a GUI interrupt routine that the click calls has run by then.
+GUI CLICK DOWN presses the button at the cursor's active point and holds it until GUI CLICK UP: a slider then follows the pointer (moved by the mouse, or by MOUSE SET), and a spin box repeats.
+GUI CLICK PIN makes a button on ‘pin’ click at the cursor's active point: pressed when the pin is low, the pin set as a digital input with a pull-up, or with INV pressed when it is high, with a pull-down.  The pin must not be in use.  GUI CLICK PIN OFF releases it.
+GUI CLICK, DOWN and UP cannot be used in an interrupt routine, and GUI CLICK PIN's pin is released at RUN.
+A press belongs to what made it, a finger on a USB touch screen or the mouse's button (or GUI CLICK), until that is released: while a finger is down a click is not taken, and the other way round.  A message box (MSGBOX()) cannot be opened by a click made with GUI CLICK or GUI CLICK PIN.
 
 === GUI CURSOR ON [n [,x, y [,colour]]]
 --- keep tight
-Displays and manipulates a cursor (eg, a mouse pointer) on the screen.  The cursor sits above all other graphics and nothing can overwrite it.  It is drawn on page 0 (page 1 in the 12-bit colour depth) and it is not available in the 4 and 1-bit colour depths ("Invalid for this screen mode").
-GUI CURSOR ON enables and displays the cursor.  ‘n’ is the cursor number: 0 is a mouse type pointer (the default), 1 is a cross hair and 2 is a user defined cursor previously loaded with GUI CURSOR LOAD.  ‘x’ and ‘y’ specify the initial position of the cursor's active point (the top left corner of the screen if omitted) and ‘colour’ can be used to override the default white colour of cursors 0 and 1.  If the cursor is already on the command does nothing.
+Displays and manipulates a cursor (eg, a mouse pointer) on the screen, as the PicoMite's GUI CURSOR does.  The cursor sits above all other graphics and nothing can overwrite it.  It is drawn on page 0 (page 1 in the 12-bit colour depth); in the 4 and 1-bit colour depths it is drawn over the display, and a loaded cursor (2) cannot be used there ("Invalid for this screen mode").
+GUI CURSOR ON enables and displays the cursor.  ‘n’ is the cursor number: 0 is a mouse type pointer, 1 is a cross hair and 2 is a user defined cursor previously loaded with GUI CURSOR LOAD; without ‘n’ it is the one last chosen.  ‘x’ and ‘y’ specify the position of the cursor's active point: without them it is the centre of the screen, and the mouse is moved there too.  ‘colour’ sets the colour of cursors 0 and 1, as GUI CURSOR COLOUR does.  If the cursor is already on, the command applies its arguments again: a new shape, position or colour.
+The cursor's shape, active point and colour are kept by GUI CURSOR OFF; RUN sets them back to cursor 0, the top left corner and white.
 
 =+= GUI CURSOR x, y
 --- keep tight
-GUI CURSOR x, y moves the cursor to ‘x’, ‘y’.  If the cursor is hidden it is not displayed, just its stored location is updated.
+GUI CURSOR x, y moves the cursor's active point to ‘x’, ‘y’.  If the cursor is hidden or off it is not displayed, just its stored location is updated: GUI CLICK presses there.  A cursor linked to the mouse moves the mouse there too.
 
 =+= GUI CURSOR OFF
 --- keep tight
-GUI CURSOR OFF turns off the cursor.
+GUI CURSOR OFF turns off the cursor and breaks its link to the mouse.
 
 =+= GUI CURSOR HIDE
 {}
 GUI CURSOR SHOW
 --- keep tight
-GUI CURSOR HIDE hides the cursor but maintains its position and GUI CURSOR SHOW will show a hidden cursor again at its stored position.
+GUI CURSOR HIDE hides the cursor but maintains its position and GUI CURSOR SHOW will show a hidden cursor again at its stored position.  Neither does anything while the cursor is off.
 
 =+= GUI CURSOR COLOUR colour
 --- keep tight
-GUI CURSOR COLOUR changes the colour of cursor numbers 0 and 1.  It does not affect a loaded cursor which has its colours specified by the cursor designer.
+GUI CURSOR COLOUR changes the colour of cursor numbers 0 and 1, and is kept while the cursor is off.  It does not affect a loaded cursor which has its colours specified by the cursor designer.
 
 =+= GUI CURSOR LOAD fname$
 --- keep tight
-GUI CURSOR LOAD loads cursor number 2 from the file ‘fname$’ (".CUR" is added if it has no extension), and GUI CURSOR ON 2 then displays it.  The cursor must be off when it is loaded ("Cursor On").  The file uses the same layout and colour coding as a sprite file (see SPRITE LOAD) except that the header line is: width, height, xoffset, yoffset.  The two offsets define the position of the cursor’s active point within the image - the mouse pointer (cursor 0) has offsets 0,0 (the tip of the arrow) and the cross hair (cursor 1) has 7,7 (its centre).  The cursor is held in the pixel format of the colour depth in use when it is loaded, so it should be loaded after the MODE command.
+GUI CURSOR LOAD loads cursor number 2 from the file ‘fname$’ (".CUR" is added if it has no extension) and makes it the cursor: displayed at once in the same place if the cursor is on, or by the next GUI CURSOR ON.  The file uses the same layout and colour coding as a sprite file (see SPRITE LOAD) except that the header line is: width, height, xoffset, yoffset.  The two offsets define the position of the cursor’s active point within the image - the mouse pointer (cursor 0) has offsets 0,0 (the tip of the arrow) and the cross hair (cursor 1) has 7,7 (its centre).  The cursor is held in the pixel format of the colour depth in use when it is loaded, so it should be loaded after the MODE command.
 
 =+= GUI CURSOR LINK MOUSE
 GUI CURSOR UNLINK MOUSE
 --- keep tight
-GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, a PS2 mouse set with OPTION MOUSE 0, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "Not open").  The cursor cannot be linked while the GUI controls are using the mouse ("Mouse in use for GUI").  The cursor's active point (see GUI CURSOR LOAD) follows the mouse, and GUI CURSOR OFF also breaks the link.
+GUI CURSOR LINK MOUSE links the cursor to the mouse so that it automatically tracks the mouse movement (MOUSE SET too), moving the mouse to the cursor first so that the cursor does not jump.  GUI CURSOR UNLINK MOUSE breaks the link.  A USB mouse must be connected, a PS2 mouse set with OPTION MOUSE 0, or a PS2 or I^^2^^C mouse opened with CONTROLLER MOUSE OPEN, before the cursor can be linked (otherwise the error is "No mouse connected").  The cursor's active point (see GUI CURSOR LOAD) follows the mouse, and GUI CURSOR OFF also breaks the link.  The GUI's pointer (see GUI) is a cursor linked in this way.
 
 === GUI LISTBOX [#]ref, array$(), x, y, w, h [,fc] [,bc] [,maxrows]
 or
@@ -1023,6 +1029,13 @@ The control reads the array's items each time it is drawn, so an item changed an
 Creates a slider, as on the PicoMite: a thumb on a track, ‘w’ by ‘h’ pixels with its top left at ‘x’, ‘y’, for a value from ‘min’ to ‘max’ (by default 0 to 100).  It is horizontal if it is wider than it is tall, with ‘min’ at the left, and vertical otherwise, with ‘min’ at the bottom.  ‘fc’ is the colour of the thumb and of the track up to it, and ‘bc’ is the background colour (by default the last ones used).
 Clicking the track moves the thumb there, and while the button is held the thumb follows the mouse, past the ends of the track too.  If ‘inc’ is more than 0 (the default is 0) the value is a whole number of steps of ‘inc’ from ‘min’.
 CTRLVAL(#ref) returns the value, ‘min’ when the control is created, and CTRLVAL(#ref) = v sets it (kept within ‘min’ and ‘max’).  The GUI down interrupt is called every 50 mS while the thumb is being dragged, and the up interrupt when the button is released.
+
+=== GUI TEST LCDPANEL
+or
+GUI TEST TOUCH
+---
+Tests the display and a USB touch screen, as on the PicoMite.  GUI TEST LCDPANEL draws circles of random sizes and colours over the screen until a key is pressed, and then prints how many it drew a second.  GUI TEST TOUCH clears the screen and draws a dot wherever the screen is touched, white for the first finger and cyan for a second, until a key is pressed.
+While the on-screen keyboard is set (OPTION SCREEN KEYBOARD) a double tap also ends either test: two taps 100 to 500 mS apart and within 50 pixels of each other, for when the keyboard is the only one.
 
 === HELP [searchtext]
 ---
@@ -1185,6 +1198,13 @@ The IR signal is modulated at about 38KHz and sending the signal takes about 25m
 --- keep
 Returns from an interrupt routine.  An interrupt routine is normally a defined subroutine which is terminated with END SUB, however an interrupt can also be specified as a line number or a label and in that case the interrupt code must be terminated with IRETURN.
 
+=== KEYBOARD ON
+or
+KEYBOARD OFF
+---
+Shows or hides the on-screen keyboard (see OPTION SCREEN KEYBOARD and the chapter Keyboard, Mouse and Gamepad), as on the PicoMite.  The keyboard is shown at the command prompt and in the editor and the file manager, and taken away while a program runs.  In a program KEYBOARD ON shows it, so that a USB touch screen types into INKEY$, INPUT and the like, and KEYBOARD OFF takes it away again; when the program ends the keyboard is as it was at RUN.  At the command prompt KEYBOARD OFF keeps it away until KEYBOARD ON or a restart.
+OPTION SCREEN KEYBOARD must have been set first ("Set OPTION SCREEN KEYBOARD first"), and the keyboard is not available in MODE n,1 ("Invalid for this screen mode").  Under OPTION PICOMITE, MM.INFO(KEYBOARD) returns "On" while a program has it on.
+
 === KILL file$ [, ALL]
 --- keep
 Deletes the file (or empty directory) specified by ‘file$’ on the SD card or USB flash drive. Any extension must be specified.  
@@ -1307,6 +1327,22 @@ LIST FUNCTIONS [V]
 --- keep
 Lists all the commands, or all the functions and operators, that MMBasic recognises, in columns, and how many there are.  With V it also gives the number of tokens they use.
 
+=+= LIST VARIABLES [array%()]
+--- keep
+The PicoMite's: lists the program's variables, each as the DIM (a global) or LOCAL (a local of the SUB or FUNCTION running) that would make it, with its type and its array dimensions, in alphabetical order (eg, DIM FLOAT DATA(99,2), DIM INTEGER COUNT, LOCAL STRING NAME).  With ‘array%()’ the list goes into that LONGSTRING array, each line ended by a carriage return and line feed, in place of the console.
+
+=+= LIST OPTIONS
+--- keep
+The same as OPTION LIST (the PicoMite's name).
+
+=+= LIST PINS
+--- keep
+The PicoMite's: lists each I/O pin of the rear connector with its PicoMite GP name (- for none: see PicoMite Pin Names in the chapter Using the I/O Pins) and what it is set to: the SETPIN mode (OFF, AIN, ARAW, DIN, FIN, PIN, CIN, INTH, INTL, INTB, DOUT or DOUT OC), DS18B20, or Reserved (in use by a COM port, I2C, SPI, PWM, the stepper or another function).
+
+=+= LIST COLLISIONS
+--- keep
+The PicoMite's: lists the global variables whose names start their search at the same place in the variable table (a hash collision, which makes them a little slower to find), a group for each place.  Local variables are not hashed.
+
 === LMID(array%(),start [,num])=string$
 --- keep
 inserts ‘string$’ into the longstring ‘array%()’ at position ‘start’ replacing ‘num’ existing characters. If ‘num’ isn't specified then it is calculated from the length of ‘string$’. \n‘num’ can be 0 in which case ‘string$’ is inserted at the position specified.
@@ -1361,7 +1397,7 @@ Loads a PNG image from ‘file$’ and draws it on the current write page with i
 The file can be an 8-bit RGB, RGBA (ARGB8888), grey or grey with alpha PNG, or an indexed (palette) one; interlaced files are not supported.
 ‘ximage’ and ‘yimage’ specify the pixel of the image that is drawn at ‘x’, ‘y’ (0, 0 if they are not specified), so that a part of a large image can be shown.  They must be within the image.
 If ‘t’ is omitted or zero every pixel is drawn as a solid colour, as with any other image load.  If ‘t’ (1 to 15) is specified the transparency of the file decides which pixels are drawn: MMBasic compares the 4 most significant bits of each pixel's alpha value with ‘t’, a pixel below it is not drawn (so that what is under it shows through) and the others are drawn as solid colours.  This allows RGB(0,0,0) to be a valid solid colour.  ‘cutoff’ (1 to 254) sets the alpha value below which a pixel is not drawn directly, rounded down to a multiple of 16, in place of ‘t’.  A file without transparency (RGB or grey) is drawn with every pixel solid.
-‘t’ is the Colour Maximite 2's transparency cut off, not the PicoMite's (which gives the transparent pixels a colour).
+With OPTION PICOMITE ‘t’ and ‘cutoff’ are the PicoMite's: a pixel whose alpha is ‘cutoff’ or less (20 if it is not given) is drawn in colour ‘t’, one of the 16 colours of the 4-bit modes (0 to 15, 0 if it is not given), or is not drawn when ‘t’ is -1, and the other pixels are drawn as solid colours.
 
 === LOCAL variable [, variables]
 See DIM for the full syntax.

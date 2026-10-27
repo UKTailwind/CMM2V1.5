@@ -69,6 +69,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 extern char *InterruptReturn;
+extern int PauseInterrupted;                    // a PAUSE an interrupt cut short, to carry on with (MM_Misc.c; ClearStack)
 extern int check_interrupt(void);
 extern void ClearExternalIO(void);
 
@@ -237,6 +238,7 @@ extern char *IrInterrupt;
 void IrClose(void);
 void SerialTX(char *tp);                       // DEVICE SERIALTX and SERIALRX (External.c)
 void SerialRX(char *tp);
+void ListPins(void);                            // LIST PINS (External.c)
 void IrInit(void);
 void IrReset(void);
 void IRSendSignal(int pin, int half_cycles);

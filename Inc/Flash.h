@@ -150,10 +150,22 @@ struct option_s {
 	uint8_t PrintScreenFormat;          // OPTION PRINTSCREEN FORMAT: 1 BMP, else PNG (Console.c; erased: PNG)
 	uint8_t KeyLocks;                   // OPTION KEYBOARD's Caps Lock (bit 0) and Num Lock (bit 1) at a keyboard's
 	                                    // connection (USBKeyboard.c; erased flash, 0xFF: both off, as always here)
+	uint8_t F1Key[64];                  // OPTION F1 and F5 to F9 (the PicoMite's): the key's string at the prompt in
+	uint8_t F5Key[64];                  // place of its own (main.c); layout 2, emptied in a record saved before it
+	uint8_t F6Key[64];
+	uint8_t F7Key[64];
+	uint8_t F8Key[64];
+	uint8_t F9Key[64];
+	uint8_t VRes_reserved;              // OPTION SCREEN KEYBOARD n (the PicoMite's): the screen's % for the on-screen
+	uint8_t Multi;                      // keyboard (OSK.c), 0 none; and its , M (the modifiers held by a finger); layout 3
 	uint8_t end;
 // 128
 };
-#define OPTION_LAYOUT 1                 // Option.layout: the record has the F15-F20 keys (LoadOptions)
+#define AUTORUN_SLOT 0x10               // Option.Autorun: 0 OFF, 1 ON (program memory's), AUTORUN_SLOT + n flash slot n's
+#define AUTORUN_NORESET 0x80            // (OPTION AUTORUN n, the PicoMite's), and AUTORUN_NORESET with NORESET (MM_Misc.c)
+#define AutorunSlot() ((Option.Autorun & 0x70) == AUTORUN_SLOT ? Option.Autorun & 0x0F : 0)
+#define OPTION_LAYOUT 3                 // Option.layout: 1 the record has the F15-F20 keys, 2 F1 and F5-F9 too, 3 SCREEN
+                                        // KEYBOARD's (LoadOptions)
 
 extern volatile struct option_s Option, SOption;
 extern unsigned char *CFunctionFlash;

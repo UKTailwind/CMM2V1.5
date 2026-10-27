@@ -128,4 +128,6 @@ typedef struct ss_flist {
     int ft; //file time
 } s_flist;
 
+extern int OptionLogging;                       // OPTION LOGGING ON: error() adds each message to A:/log.txt
+void LogError(const char *msg);
 #endif

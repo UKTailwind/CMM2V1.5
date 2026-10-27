@@ -74,9 +74,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern volatile int TouchDown;
     extern volatile int TouchUp;
     extern volatile int TouchState;
+    extern int TouchX, TouchY;                          // where the last press was taken (GUI.c)
     extern int gui_fcolour, gui_bcolour;
     extern int last_fcolour, last_bcolour;
     extern int GUIactive;
+    #include "OSK.h"                                   // the on-screen keyboard (OSK.c, the PicoMite's)
+    extern volatile bool usb_touch_present;            // a USB touch screen is plugged in (USBTouch.c)
+    // the GUI's input is taken: once a GUI command has started the GUI, or while a USB touch screen is plugged in and
+    // controls are allocated (the PicoMite takes a touch screen's presses whenever it has controls: Ctrl != NULL)
+    #define GUI_INPUT_ON (GUIactive || (usb_touch_present && Option.MaxCtrls > 0) || osk_state)   // (the on-screen keyboard
+                                                       // up too: its taps, the PicoMite's OSK_IsActive(), OSK.c)
+    extern int GuiClickPin, GuiClickPinInv;            // GUI CLICK PIN's pin, 0 for none, and active high (GUI.c)
+    extern void CursorSyncMouse(void);                 // the mouse moved to the cursor's point (GUI.c)
+    extern void GuiPressTick(void);                    // the 1 mS tick's GUI press (GUI.c)
+    extern volatile int GuiClickFromMouse;             // the press is a mouse's, GUI CLICK's or GUI CLICK PIN's, not a finger's
+    extern volatile int GuiClickEmulated;              // and it was GUI CLICK's or GUI CLICK PIN's: no mouse to steer MsgBox
     extern int GuiMouse(void);                          // the GUI controls' mouse channel, -1 for none (GUI.c)
     extern int InvokingCtrl;
     extern int gui_click_pin;                  // the sound pin

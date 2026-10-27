@@ -14,6 +14,10 @@ The number of free slots in the G-code buffer of the STEPPER command.  A program
 A string identifying the computer that MMBasic is running on: "Colour Maximite 2" on a Generation 1 and "Colour Maximite 2 G2" on a Generation 2.  Other versions of MMBasic return their own name (eg, a PicoMite's), so a program can use it to tell which computer it is running on.
 With OPTION PICOMITE it returns the name of the PicoMite that the option gives (eg, "PicoMiteHDMIUSB RP2350B"), so that a program written for the PicoMite configures itself as it would there.
 
+=== MM.DISPLAY
+--- keep
+The PicoMite's: 1 if it has a display.  On the Colour Maximite 2 it is always 1.
+
 === MM.ERRNO
 MM.ERRMSG$
 MM.ERRLINE
@@ -91,7 +95,7 @@ What OPTION COMPILE did at the last RUN: OFF; "TEXT: " and why the program ran a
 
 =+= MM.INFO(CPUSPEED)
 --- keep
-The speed of the processor's clock in Hz, as a number: 400000000 for the Rev Y version of the STM32H743 and 480000000 for the Rev V (see the chapter Hardware Features), or 504000000 with OPTION OVERCLOCK ON.  (The PicoMite returns the speed as a string: a PicoMite program that reads MM.INFO$(CPUSPEED) into a string needs STR$() here.)
+The speed of the processor's clock in Hz, as a number: 400000000 for the Rev Y version of the STM32H743 and 480000000 for the Rev V (see the chapter Hardware Features), or 504000000 with OPTION OVERCLOCK ON.  With OPTION PICOMITE it is a string, as the PicoMite gives it (eg, "480000000"), so that a PicoMite program that reads it into a string runs unchanged.
 
 =+= MM.INFO$(CURRENT)
 MM.INFO$(PATH)
@@ -162,7 +166,7 @@ The unique 12 byte ID of the processor as a string of 24 hexadecimal digits, and
 
 =+= MM.INFO$(KEYBOARD)
 --- keep
-"Connected" if a USB keyboard is connected and working, otherwise "Not Connected".
+"Connected" if a USB keyboard is connected and working, otherwise "Not Connected".  Under OPTION PICOMITE it is the PicoMite's: "On" while a program has the on-screen keyboard on (KEYBOARD ON), otherwise "Off".
 
 =+= MM.INFO(LINES)
 --- keep
@@ -188,7 +192,7 @@ The current video mode and colour depth as a number: the mode, then the depth as
 ---
 The current setting of one of the options that affect how a program runs.  ‘option’ is one of:
 {l=720}ANGLE: "RADIANS" or "DEGREES" (see OPTION ANGLE)
-{l=720}AUTORUN: "On" or "Off"
+{l=720}AUTORUN: "On" or "Off", or the flash slot's number ("1" to "3") with OPTION AUTORUN n
 {l=720}BASE: 0 or 1 (a number)
 {l=720}BREAK: the character code of the break key (a number: 3 for Ctrl-C, 0 when it is disabled)
 {l=720}CONSOLE: "Serial", "Screen", "Both" or "None"
@@ -220,7 +224,7 @@ The PicoMite's: the display.  On its VGA and HDMI versions it is "MODE" and the 
 =+= MM.INFO$(PLATFORM)
 MM.INFO$(SYSTEM I2C)
 --- keep
-These are the PicoMite's.  On the Colour Maximite 2 both return an empty string, as a PicoMite with no OPTION PLATFORM and no OPTION SYSTEM I2C does, so that PicoMite programs that check them run.
+These are the PicoMite's (OPTION PLATFORM names the board there).  On the Colour Maximite 2 MM.INFO$(PLATFORM) returns "CMM2", and MM.INFO$(SYSTEM I2C) an empty string, as a PicoMite with no OPTION SYSTEM I2C does, so that PicoMite programs that check them run.
 
 =+= MM.INFO(PROGRAM)
 MM.INFO(STACK)
@@ -233,8 +237,9 @@ The address in memory of the start of program memory (in the flash memory, or in
 The size of the SDRAM in bytes: 8388608 (8MB) on a Generation 1 and 33554432 (32MB) on a Generation 2.  This is the PicoMite's key for its PSRAM, which PicoMite programs read to see whether they can use the image slots 4 to 8 and the RAM commands: on the Colour Maximite 2 they can (see FLASH LOAD IMAGE and RAM SAVE).
 
 =+= MM.INFO$(RESET)
+MM.INFO$(BOOT)
 --- keep
-The cause of the last restart: "Power-On" (the power was applied), "Switch" (the reset switch was pressed) or "Software" (a restart by MMBasic: CPU RESTART, a WATCHDOG timeout, or an OPTION command that restarts the Colour Maximite 2).  It can be read once: afterwards it is an empty string.
+The cause of the last restart: "Power-On" (the power was applied), "Switch" (the reset switch was pressed), "Software" (a restart by MMBasic: CPU RESTART, a WATCHDOG timeout, or an OPTION command that restarts the Colour Maximite 2) or "Brown-Out" (the supply fell too low without being switched off).  It can be read once: afterwards it is an empty string.  BOOT is the PicoMite's name for it; its words for the causes are not used.
 
 =+= MM.INFO(RTC)
 --- keep
@@ -270,7 +275,7 @@ The time since the Colour Maximite 2 was restarted, in seconds, as a floating po
 MM.INFO(USB VID n)
 MM.INFO(USB PID n)
 --- keep
-The device in USB slot 'n' (1 to 4): 0 for none, 1 a keyboard, 2 a mouse, or a game controller: 128 a PS4, 129 a PS3, 130 another controller, 131 an Xbox controller and 135 a Switch Pro Controller (the numbers are those of DEVICE(GAMEPAD n, T)).  With 'n' 0 it is the number of devices plugged in.  A program can find its mouse or controller this way.
+The device in USB slot 'n' (1 to 4): 0 for none, 1 a keyboard, 2 a mouse, 133 a multi-touch screen, 134 a single-touch screen, or a game controller: 128 a PS4, 129 a PS3, 130 another controller, 131 an Xbox controller and 135 a Switch Pro Controller (the numbers are those of DEVICE(GAMEPAD n, T)).  With 'n' 0 it is the number of devices plugged in.  A program can find its mouse or controller this way.
 MM.INFO(USB VID n) and MM.INFO(USB PID n) are the vendor and product IDs of the device in slot 'n'.
 
 =+= MM.INFO$(USBDRIVE)
@@ -284,6 +289,10 @@ The number of variables in use: the global variables and the local variables of 
 === MM.ONEWIRE
 --- keep
 Following a 1-Wire reset (ONEWIRE RESET, or ONEWIRE READ or WRITE with a reset) this integer variable is set to 1 if a device responded and to 0 if none did.  See Appendix C.
+
+=== MM.USB
+--- keep
+The PicoMite's: the code of the last key pressed on a USB keyboard, its HID usage code whatever the layout (eg, 4 for A, 40 for Enter), or -1 before the first.
 
 === MM.VER
 --- keep

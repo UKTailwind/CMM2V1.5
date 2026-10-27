@@ -150,9 +150,9 @@ CLICK(LASTX)
 or
 CLICK(LASTY)
 ---
-Reports the clicks of the left mouse button, for the GUI controls (see the chapter GUI Controls): a USB mouse's as soon as it is plugged in, or a mouse's set with OPTION MOUSE.  A click made with GUI CLICK counts as the button too.  TOUCH() is another name for CLICK(), the PicoMite's.
-CLICK(DOWN) returns 1 (true) if the left mouse button is currently down.  CLICK(UP) returns 1 (true) if it is not.
-CLICK(X) and CLICK(Y) return the coordinates of the mouse while the button is down, or -1 if it is not.
+Reports the clicks for the GUI controls (see the chapter GUI Controls), as the PicoMite's CLICK() does: the left button of the mouse (a USB mouse as soon as it is plugged in, or a mouse set with OPTION MOUSE), a click made with GUI CLICK, or a button set with GUI CLICK PIN.  A USB touch screen is read with TOUCH(), which takes these keywords too; the touch screen's own keywords and the gestures (CLICK(SWIPE) and the others) are a syntax error here.
+CLICK(DOWN) returns 1 (true) if the button is currently down.  CLICK(UP) returns 1 (true) if it is not.
+CLICK(X) and CLICK(Y) return the cursor's active point while the button is down (see GUI CURSOR): where the mouse is when the cursor is linked to it, which the GUI's own pointer is, and where GUI CLICK presses.  They return -1 when the button is not down.
 CLICK(LASTX) and CLICK(LASTY) return the coordinates of the last location that was clicked on.
 CLICK(REF) returns the reference number of the GUI control that is currently being clicked on, or zero if none.  CLICK(LASTREF) returns the reference number of the last control that was clicked on.
 LASTX, LASTY, REF and LASTREF are kept by the GUI controls: they change only when OPTION MAXCTRLS is set and the program has used the GUI commands (for example, created a control or set GUI INTERRUPT).  The controls are described in the document GUI Controls and Programming.pdf (see Appendix O).
@@ -725,8 +725,9 @@ A USB mouse can also be read with the PicoMite's DEVICE(MOUSE 2, funct) function
 
 === MSGBOX( message$, button$ [, button$ [, button$ [, button$]]] )
 ---
-Displays a message box in the centre of the screen with one to four buttons and waits for one of them to be clicked with the mouse.  It returns the number of the button that was clicked (1 for the first).  A ~ character in ‘message$’ starts a new line.
-The message box is one of the GUI controls, which need OPTION MAXCTRLS and OPTION MOUSE.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
+Displays a message box in the centre of the screen with one to four buttons and waits for one of them to be clicked with the mouse or touched on a USB touch screen.  It returns the number of the button that was clicked (1 for the first).  A ~ character in ‘message$’ starts a new line.
+The message box is one of the GUI controls, which need OPTION MAXCTRLS.  They are described in the chapter GUI Controls and in the document GUI Controls and Programming.pdf (see Appendix O).
+As on the PicoMite, a message box cannot be opened by a click made with GUI CLICK or GUI CLICK PIN (in its interrupt routine, say): nothing could move the pointer to its buttons while it waits, so it stops with the error "MsgBox needs a real touch or mouse - cursor cannot be steered while MsgBox is open".
 
 === NUNCHUK(funct [, channel])
 ---
@@ -791,6 +792,14 @@ Returns a string giving the octal (base 8) representation of 'number'.
 {b=0 a=0}or
 --- tight
 {t=l2592}FLOAT will return the floating point number (64-bits) located at 'addr%'
+{t=l2592}
+
+=+= {b=0 a=0}PEEK(BP var)
+{b=0 a=0}PEEK(SP var)
+{b=0 a=0}PEEK(WP var)
+{b=0 a=0}or
+--- tight
+{t=l2592}BP, SP and WP (the PicoMite's) will return the byte, the short integer (16-bits) or the word (32-bits) at the address held in the integer variable 'var' (or an element of an integer array), and then add 1, 2 or 4 to 'var', so that a loop can step through memory.  For SP the address must be even and for WP a multiple of 4.
 {t=l2592}
 
 =+= {b=0 a=0}PEEK(STEPPER X | Y | Z | A | ACTIVE | STATUS | BUFFER)
@@ -1125,6 +1134,48 @@ To set the current time use the command TIME$ = .
 ---
 Returns the elapsed time in milliseconds (eg, 1/1000 of a second) since reset.  This is a fractional floating point number with a resolution of 1µs.
 The timer is reset to zero on power up or a CPU restart and you can also reset it (or set it to any value) by using TIMER as a command.  If not specifically reset it will continue to count up forever (it counts microseconds in a 64-bit number and therefore will only roll over after more than 500,000 years).
+
+=== TOUCH(X)
+or
+TOUCH(Y)
+or
+TOUCH(DOWN)
+or
+TOUCH(UP)
+or
+TOUCH(REF)
+or
+TOUCH(LASTREF)
+or
+TOUCH(LASTX)
+or
+TOUCH(LASTY)
+or
+TOUCH(X2)
+or
+TOUCH(Y2)
+or
+TOUCH(XN n)
+or
+TOUCH(YN n)
+or
+TOUCH(gesture)
+---
+Reports a USB touch screen (see the chapter Keyboard, Mouse and Gamepad), as the PicoMite's TOUCH() does, and the mouse and GUI CLICK as CLICK() does.  A press belongs to what made it, a finger or the mouse's button (or GUI CLICK), until that is released.
+TOUCH(X) and TOUCH(Y) return where the press is (the first finger, the mouse while its button is down, or the cursor's active point for GUI CLICK), or -1 if nothing is pressed.  TOUCH(DOWN) returns 1 (true) if the screen is touched or the button is down, and TOUCH(UP) returns 1 if not.  TOUCH(REF), TOUCH(LASTREF), TOUCH(LASTX) and TOUCH(LASTY) are as for CLICK().
+TOUCH(X2) and TOUCH(Y2) return the position of a second finger, or -1 if there is none.  TOUCH(XN n) and TOUCH(YN n) return the position of finger ‘n’ (1 to 10), or -1 if fewer fingers are down, and TOUCH(XN 0) returns how many fingers are down.  The first two fingers keep their numbers while they stay down.
+The gestures are recognised from the touches (a swipe, tap or hold also from the mouse's presses).  Each returns 1, or a code, once and is then cleared, so a loop that polls it does not lose one.  Reading SWL after a right swipe returns 0 and leaves the swipe for SWR, and so for the others of a group.  'gesture' is:
+{t=l1300 b=20 a=20 l=1440 h=1066}SWIPE	0 for none, 1 left, 2 right, 3 up, 4 down
+{t=l1300 b=20 a=20 l=1440 h=1066}SWL	1 on a swipe to the left (SWR to the right, SWU up, SWD down): a finger moved at least a sixth of the screen's shorter side (and at least 30 pixels) within 600 mS
+{t=l1300 b=20 a=20 l=1440 h=1066}TAP	1 on a tap: a touch of 250 mS or less that moved no more than 15 pixels
+{t=l1300 b=20 a=20 l=1440 h=1066}DTAP	1 on a double tap: two taps within 500 mS and 30 pixels of each other
+{t=l1300 b=20 a=20 l=1440 h=1066}HOLD	1 on a long press: a finger held still for 500 mS (it is reported while the finger is still down)
+{t=l1300 b=20 a=20 l=1440 h=1066}PINCH	0 for none, 1 expand, 2 contract
+{t=l1300 b=20 a=20 l=1440 h=1066}EXPAND	1 when two fingers move apart by 30% or more (CONTRACT: together)
+{t=l1300 b=20 a=20 l=1440 h=1066}ROTATE	0 for none, 1 clockwise, 2 anticlockwise
+{t=l1300 b=20 a=20 l=1440 h=1066}CW	1 when two fingers turn clockwise by about 15 degrees (CCW: anticlockwise)
+{t=l1300 b=20 a=20 l=1440 h=1066}TTAP	1 on a two-finger tap: both fingers down for less than 300 mS, moving no more than 15 pixels
+SWIPE, SWL to SWD, TAP, DTAP and HOLD are recognised by the GUI controls' processing, so they need OPTION MAXCTRLS (but no GUI command); PINCH, ROTATE, TTAP and their keywords do not.  A single-touch screen (MM.INFO(USB n) 134) has no second finger.
 
 === TRIM$(source$ [,mask$] [,where/where$])
 ---

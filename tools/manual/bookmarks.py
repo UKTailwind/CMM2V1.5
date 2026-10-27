@@ -44,7 +44,7 @@ def clean_name(tc, use_full):
     if r0 is None:
         return None
     s = ((full if use_full else r0) or full).replace("\xa0", " ").strip()
-    m = re.match(r"(MM\.INFO\$?)\(\s*([A-Z][A-Z0-9 ]*?)(\s*)(?=[)a-z'0-9]|$)", s)
+    m = re.match(r"(MM\.INFO\$?)\(\s*([A-Z][A-Z0-9 ]*?)(\s*)(?=[)a-z'0-9\[]|$)", s)   # ([: BBC BUFFER [n])
     if m and m.group(2).strip():                                     # an MM.INFO key: its own bookmark
         key = m.group(2).strip()
         if not m.group(3) and s[m.end():m.end() + 1].islower() and " " in key:

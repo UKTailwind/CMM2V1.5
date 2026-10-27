@@ -67,3 +67,5 @@ The file manager can be used with a mouse: a USB mouse, or a PS2 mouse set with 
 | Return from an image, the help screen or the end of a listing | Click anywhere |
 
 The mouse is ignored while the file manager asks a question (a name, a path or Y/N) and during type-select. On the serial console a terminal emulator that reports mouse clicks (such as Tera Term) can be used in the same way.
+
+With OPTION SCREEN KEYBOARD set, the on-screen keyboard is shown below the file manager and types into it (see the chapter Keyboard, Mouse and Gamepad).

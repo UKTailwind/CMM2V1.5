@@ -2,43 +2,43 @@
 
 Made by `tools/manual/refcheck.py` from `docs/manual/ref/` and `firmware.json` (7.00.00b3). Suggestions for the reference pass: the pass decides.
 
-Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 691, PART 7.
+Entries: NO KEYWORD 9, NO SUB-KEYWORD 1, OK 704, PART 7.
 
 ## Predefined Read Only Variables (`variables.txt`)
-
-56 entries; not OK: 0
-
-| Line | Verdict | First syntax line | What is missing |
-|---|---|---|---|
-
-## Options (`options.txt`)
 
 58 entries; not OK: 0
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
 
+## Options (`options.txt`)
+
+60 entries; not OK: 0
+
+| Line | Verdict | First syntax line | What is missing |
+|---|---|---|---|
+
 ## Commands (`commands.txt`)
 
-415 entries; not OK: 11
+422 entries; not OK: 11
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|
 | 51 | NO KEYWORD | A: , B: or C: | A: , B: or C: (NO KEYWORD) |
 | 390 | PART | CONTINUE DO | CONTINUE FOR (no CONTINUE FOR) |
-| 460 | PART | CSUB name [type  [, type]  …] | hex [[ hex[…] (NO KEYWORD); hex [[ hex[…] (NO KEYWORD) |
-| 527 | PART | DEFINEFONT #Nbr | hex [[ hex[…] (NO KEYWORD); hex [[ hex[…] (NO KEYWORD) |
-| 539 | PART | DIM [type] decl [,decl].. | where 'decl' is: (NO KEYWORD); Examples: (NO KEYWORD) |
-| 1366 | PART | LOCAL variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
-| 1496 | NO KEYWORD | Simple array arithmetic | Simple array arithmetic (NO KEYWORD) |
-| 1567 | NO KEYWORD | Matrix arithmetic | Matrix arithmetic (NO KEYWORD) |
-| 1594 | NO KEYWORD | Vector arithmetic | Vector arithmetic (NO KEYWORD) |
-| 1626 | NO KEYWORD | Quaternion arithmetic | Quaternion arithmetic (NO KEYWORD) |
-| 2800 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
+| 464 | PART | CSUB name [type  [, type]  …] | hex [[ hex[…] (NO KEYWORD); hex [[ hex[…] (NO KEYWORD) |
+| 531 | PART | DEFINEFONT #Nbr | hex [[ hex[…] (NO KEYWORD); hex [[ hex[…] (NO KEYWORD) |
+| 543 | PART | DIM [type] decl [,decl].. | where 'decl' is: (NO KEYWORD); Examples: (NO KEYWORD) |
+| 1402 | PART | LOCAL variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
+| 1532 | NO KEYWORD | Simple array arithmetic | Simple array arithmetic (NO KEYWORD) |
+| 1603 | NO KEYWORD | Matrix arithmetic | Matrix arithmetic (NO KEYWORD) |
+| 1630 | NO KEYWORD | Vector arithmetic | Vector arithmetic (NO KEYWORD) |
+| 1662 | NO KEYWORD | Quaternion arithmetic | Quaternion arithmetic (NO KEYWORD) |
+| 2836 | PART | STATIC variable [, variables] | See DIM for the full syntax. (NO KEYWORD) |
 
 ## Functions (`functions.txt`)
 
-173 entries; not OK: 6
+175 entries; not OK: 6
 
 | Line | Verdict | First syntax line | What is missing |
 |---|---|---|---|

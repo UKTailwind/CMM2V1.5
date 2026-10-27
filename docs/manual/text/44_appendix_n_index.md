@@ -163,6 +163,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | IR | Commands |
 | IRETURN | Commands, Obsolete Commands and Functions |
 | JSON$( | Functions |
+| KEYBOARD | Commands |
 | KEYDOWN( | Functions |
 | KILL | Commands |
 | LCASE$( | Functions |
@@ -198,7 +199,9 @@ Every keyword of the language, and the section of this manual where it is descri
 | MIN( | Functions |
 | MKDIR | Commands |
 | MM.CMDLINE$ | Predefined Read Only Variables |
+| MM.CODE | Predefined Read Only Variables |
 | MM.DEVICE$ | Predefined Read Only Variables |
+| MM.DISPLAY | Predefined Read Only Variables |
 | MM.END | the chapter Using MMBasic, and Commands, with END |
 | MM.ERRLINE | Predefined Read Only Variables |
 | MM.ERRMSG$ | Predefined Read Only Variables |
@@ -213,6 +216,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | MM.INFO$ | another name for MM.INFO (Predefined Read Only Variables) |
 | MM.INFO( | Predefined Read Only Variables |
 | MM.ONEWIRE | Predefined Read Only Variables |
+| MM.USB | Predefined Read Only Variables |
 | MM.VER | Predefined Read Only Variables |
 | MM.VPOS | Predefined Read Only Variables |
 | MM.VRES | Predefined Read Only Variables |
@@ -291,6 +295,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | STAR | Commands; Appendix Q |
 | STATIC | Commands |
 | STEP | Commands, with FOR |
+| STEPPER | Commands |
 | STR$( | Functions |
 | STR2BIN( | Functions |
 | STRING$( | Functions |
@@ -309,7 +314,9 @@ Every keyword of the language, and the section of this manual where it is descri
 | TILEMAP( | Functions; TILEMAP_User_Manual.pdf |
 | TIME$ | Commands, Functions |
 | TIMER | Commands, Functions |
+| TMC22XX | Commands |
 | TO | Commands, with FOR |
+| TOUCH( | Functions |
 | TRACE | Commands |
 | TRIANGLE | Commands |
 | TRIM$( | Functions |

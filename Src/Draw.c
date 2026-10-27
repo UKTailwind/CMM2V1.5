@@ -254,6 +254,8 @@ void (*DrawPixel)(int x1, int y1, int c) = (void (*)(int , int , int ))DisplayNo
 void (*DrawRectangle)(int x1, int y1, int x2, int y2, int c) = (void (*)(int , int , int , int , int ))DisplayNotSet;
 void (*DrawBitmap)(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap) = (void (*)(int , int , int , int , int , int , int , unsigned char *))DisplayNotSet;
 void (*ScrollLCD) (int lines, int blank) = (void (*)(int, int ))DisplayNotSet;
+uint8_t OptionVResreserved;                                         // the on-screen keyboard's strip, % of the screen: the console
+                                                                    // and its scroll stop above it (the PicoMite's Draw.c's)
 void (*DrawBuffer)(int x1, int y1, int x2, int y2, char *c, int skip) = (void (*)(int , int , int , int , char * , int))DisplayNotSet;
 void (*DrawBufferFast)(int x1, int y1, int x2, int y2, char *c) = (void (*)(int , int , int , int , char * ))DisplayNotSet;
 void (*ReadBuffer)(int x1, int y1, int x2, int y2, char *c) = (void (*)(int , int , int , int , char * ))DisplayNotSet;
@@ -473,13 +475,10 @@ void hidecursor(int override){
     ReadPage=readsave;
     WritePage=writesave;
 }
-void closecursor(void){
+void closecursor(void){                                            // (its shape and point are kept until RUN: CursorRunReset)
 	if(!cursorenable)return;
 	hidecursor(1);
-	xcursor=0;
-	ycursor=0;
 	cursorenable=0;
-	cursor=0;
 	autocursor=0;												// (the link to the mouse ends with the cursor)
 	FreeMemorySafe((void *)&cursorsave);
 	cursorsave=NULL;
@@ -554,155 +553,180 @@ void showcursor(int override, int x, int y){
     WritePage=writesave;
     FreeMemorySafe((void *)&modify);
 }
-void cmd_cursor(char *p){
-	char *tp=NULL;
-	int x,y,c;
-    int maxW=PageTable[WritePage].xmax;
-	int maxH=PageTable[WritePage].ymax;
-    tp = checkstring(p, "ON");
-    if(tp) {
-    	int x=0,y=0;
-    	getargs(&tp,7,",");
-    	if(cursorenable)return;
+static int cursorhidden = 0;                                        // GUI CURSOR HIDE: on, not shown until SHOW
+static int cursorrgb = -1;                                          // GUI CURSOR COLOUR's, kept while off (-1: white)
+// the cursor's colour in the current depth: GUI CURSOR COLOUR's, else white
+static void CursorColour(void){
+	int c = cursorrgb;
+	if(c < 0){
 		cursorcolour32=0xFFFEFEFE;
 		cursorcolour16=0xFFFF;
 		cursorcolour8=0xFF;
-    	wcursor=13;
-    	hcursor=19;
-    	xoffcursor=0;
-    	yoffcursor=0;
-    	cursor=0;                                               // (the block for the final size is taken below; one for the default size here leaked: Gerry's b14)
+		if(VideoColour<8)CursorOverlayColour(0xFFFFFF);
+		return;
+	}
+	if(VideoColour==32){
+		cursorcolour32=c;
+	} else if(VideoColour==16){
+        uint16_t red, green, blue;
+    	red=BIT_5[((c & 0xFF0000)>>19)]<<11;
+        green=BIT_6[((c & 0xFF00)>>10)]<<5;
+        blue=BIT_5[((c & 0xFF)>>3)];
+        cursorcolour16=red|green|blue;
+    } else if(VideoColour==12){
+        uint16_t red, green, blue, trans;
+    	red=BIT_4[((c & 0xFF0000)>>20)]<<8;
+        green=BIT_4[((c & 0xFF00)>>12)]<<4;
+        blue=BIT_4[((c & 0xFF)>>4)];
+        trans=((c & 0xF000000)>>12);
+        cursorcolour16=red|green|blue|trans;
+    } else if(VideoColour<8){
+    	CursorOverlayColour(c);
+    } else {
+    	cursorcolour8 = ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
+    }
+}
+// the cursor on, shape no with its point at x, y: again if it is on (its shape's size may change)
+void CursorOn(int no, int x, int y){
+	if(VideoColour<8 && no==2)error("Invalid for this screen mode");      // (a loaded cursor is in an 8-bit or wider depth's pixels)
+	if(cursorenable){
+		hidecursor(1);
+		FreeMemorySafe((void *)&cursorsave);
+		cursorenable=0;
+	}
+	cursor=no;
+	if(no==1){
+		wcursor=15;
+		hcursor=15;
+		xoffcursor=7;
+		yoffcursor=7;
+	} else if(no==2){
+		wcursor=wlcursor;
+		hcursor=hlcursor;
+		xoffcursor=xloffcursor;
+		yoffcursor=yloffcursor;
+	} else {
+		wcursor=13;
+		hcursor=19;
+		xoffcursor=0;
+		yoffcursor=0;
+	}
+	CursorColour();
+	cursorsave=GetInternalMemory(wcursor * hcursor * (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
+	cursorenable=1;
+	xcursor=x-xoffcursor;
+	ycursor=y-yoffcursor;
+	if(!cursorhidden)showcursor(1, xcursor, ycursor);
+}
+// the editor's and File Manager's pointer (UiMouse.c): the white arrow, the program's colour left as it was
+void CursorPlain(void){
+	int c=cursorrgb;
+	cursorrgb=-1;
+	cursorhidden=0;
+	CursorOn(0, 0, 0);
+	cursorrgb=c;
+}
+// RUN: the cursor's shape, point and colour forgotten (the PicoMite's CursorOnHeapWipe; GUI CURSOR OFF keeps them)
+void CursorRunReset(void){
+	cursor=0;
+	xcursor=ycursor=0;
+	xoffcursor=yoffcursor=0;
+	cursorhidden=0;
+	cursorrgb=-1;
+}
+// GUI CURSOR, the PicoMite's (graphics/Pointer.c) on the CMM2's drawing. ON [n [, x, y [, colour]]] | OFF | HIDE | SHOW |
+// COLOUR c | LOAD f$ | LINK MOUSE | UNLINK MOUSE | x, y
+void cmd_cursor(char *p){
+	char *tp=NULL;
+	int x,y;
+    int maxW=PageTable[WritePage].xmax;
+	int maxH=PageTable[WritePage].ymax;
+    tp = checkstring(p, "ON");
+    if(tp) {                                                        // again when on; the shape and colour as last set, the centre
+    	int no=cursor, centre=1;                                    // by default, where the mouse goes too
+    	x=maxW/2;
+    	y=maxH/2;
+    	getargs(&tp,7,",");
     	if(argc){
     		if(argc==3)error("Argument count");
-    		if(*argv[0])cursor=(getint(argv[0],0,(loadcursordata==NULL? 1 : 2)));
+    		if(*argv[0])no=getint(argv[0],0,(loadcursordata==NULL? 1 : 2));
     		if(argc>=5){
 				x=getint(argv[2],0,maxW-1);
 				y=getint(argv[4],0,maxH-1);
+				centre=0;
     		}
-    		if(argc==7){
-    			c=getColour(argv[6], 0);
-    			if(VideoColour==32){
-    				cursorcolour32=c;
-    			} else if(VideoColour==16){
-    	            uint16_t red, green, blue;
-    	        	red=BIT_5[((c & 0xFF0000)>>19)]<<11;
-    	            green=BIT_6[((c & 0xFF00)>>10)]<<5;
-    	            blue=BIT_5[((c & 0xFF)>>3)];
-    	            cursorcolour16=red|green|blue;
-    	        } else if(VideoColour==12){
-    	            uint16_t red, green, blue, trans;
-    	        	red=BIT_4[((c & 0xFF0000)>>20)]<<8;
-    	            green=BIT_4[((c & 0xFF00)>>12)]<<4;
-    	            blue=BIT_4[((c & 0xFF)>>4)];
-    	            trans=((c & 0xF000000)>>12);
-    	            cursorcolour16=red|green|blue|trans;
-    	        } else if(VideoColour<8){
-    	        	CursorOverlayColour(c);
-    	        } else {
-    	        	cursorcolour8 = ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
-    	        }
-    		}
+    		if(argc==7)cursorrgb=getColour(argv[6], 0);
     	}
-    	if(VideoColour<8){
-    		if(cursor==2)error("Invalid for this screen mode");      // (a loaded cursor is in an 8-bit or wider depth's pixels)
-    		if(argc<7)CursorOverlayColour(0xFFFFFF);
-    	}
-    	if(cursor==1){
-    		wcursor=15;
-    		hcursor=15;
-    		xoffcursor=7;
-    		yoffcursor=7;
-    	} else if(cursor==2){
-    		wcursor=wlcursor;
-    		hcursor=hlcursor;
-    		xoffcursor=xloffcursor;
-    		yoffcursor=yloffcursor;
-    	}
-    	cursorsave=GetInternalMemory(wcursor * hcursor * (VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4)));
-    	cursorenable=1;
-    	showcursor(1, x-xoffcursor,y-yoffcursor);
+    	if(no==2 && loadcursordata==NULL)no=0;                      // (a loaded cursor goes when the depth changes)
+    	cursorhidden=0;
+    	CursorOn(no, x, y);
+    	if(centre)CursorSyncMouse();
     	return;
     }
     tp = checkstring(p, "COLOUR");
     if(!tp) tp = checkstring(p, "COLOR");
-    if(tp) {
+    if(tp) {                                                        // kept while the cursor is off
+		cursorrgb=getColour(tp, 0);
     	if(!cursorenable)return;
-		c=getColour(tp, 0);
-		if(VideoColour==32){
-			cursorcolour32=c;
-		} else if(VideoColour==16){
-            uint16_t red, green, blue;
-        	red=BIT_5[((c & 0xFF0000)>>19)]<<11;
-            green=BIT_6[((c & 0xFF00)>>10)]<<5;
-            blue=BIT_5[((c & 0xFF)>>3)];
-            cursorcolour16=red|green|blue;
-        } else if(VideoColour==12){
-            uint16_t red, green, blue, trans;
-        	red=BIT_4[((c & 0xFF0000)>>20)]<<8;
-            green=BIT_4[((c & 0xFF00)>>12)]<<4;
-            blue=BIT_4[((c & 0xFF)>>4)];
-            trans=((c & 0xF000000)>>12);
-            cursorcolour16=red|green|blue|trans;
-        } else if(VideoColour<8){
-        	CursorOverlayColour(c);
-        } else {
-        	cursorcolour8 = ((c & 0b111000000000000000000000)>>16) | ((c & 0b1110000000000000)>>11) | ((c & 0b11000000)>>6);
-        }
-    	hidecursor(1);
-    	showcursor(1, xcursor, ycursor);
+    	CursorColour();
+    	if(cursoron){
+    		hidecursor(1);
+    		showcursor(1, xcursor, ycursor);
+    	}
     	return;
     }
     tp = checkstring(p, "OFF");
     if(tp) {
     	closecursor();
+    	cursorhidden=0;
     	return;
     }
     tp = checkstring(p, "HIDE");
     if(tp) {
     	if(!cursorenable)return;
+    	cursorhidden=1;
     	hidecursor(1);
     	return;
     }
     tp = checkstring(p, "LOAD");
-    if(tp){
-    	if(cursorenable)error("Cursor On");
+    if(tp){                                                         // the loaded cursor is the cursor, at once if it is on
+    	int on=cursorenable, px=xcursor+xoffcursor, py=ycursor+yoffcursor;
+    	if(on && VideoColour<8)error("Invalid for this screen mode");
+    	if(on)hidecursor(1);
     	loadcursor(tp);
+    	cursor=2;
+    	if(on)CursorOn(2, px, py);
     	return;
     }
     tp = checkstring(p, "SHOW");
     if(tp) {
-    	if(!cursorenable)error("Cursor Off");
-    	if(cursoron)return;
+    	cursorhidden=0;
+    	if(!cursorenable || cursoron)return;
     	showcursor(1, xcursor, ycursor);
     	return;
     }
     tp = checkstring(p, "LINK MOUSE");
-    if(tp) {
-    	if(!cursorenable)error("Cursor Off");
-    	if(autocursor!=0)error("Already linked");
-    	if(GUIactive)error("Mouse in use for GUI");
-    	if(MouseOpenChannel() < 0 && !MouseOptionStart())error("Not open");   // (a USB mouse too; OPTION MOUSE 0's started if not yet)
+    if(tp) {                                                        // the mouse moved to the cursor, which then follows it
+    	if(MouseOpenChannel() < 0 && !MouseOptionStart())error("No mouse connected");   // (a USB mouse too; OPTION MOUSE 0's started)
+    	CursorSyncMouse();
     	autocursor=1;
     	return;
     }
     tp = checkstring(p, "UNLINK MOUSE");
     if(tp) {
-    	if(autocursor==0)error("Not Linked");
     	autocursor=0;
     	return;
     }
-    getargs(&p,3,",");
-    if(!cursorenable)error("Cursor Off");
-    x=getint(argv[0],0,maxW-1);
+    getargs(&p,3,",");                                              // x, y: the point kept when the cursor is off or hidden (GUI
+    x=getint(argv[0],0,maxW-1);                                     // CLICK lands there); linked, the mouse goes there too
     y=getint(argv[2],0,maxH-1);
-    if(x-xoffcursor==xcursor && y-yoffcursor==ycursor &&cursoron)return;
-    if(cursoron){
+    if(cursoron && (x-xoffcursor!=xcursor || y-yoffcursor!=ycursor)){
     	hidecursor(1);
     	showcursor(1, x-xoffcursor,y-yoffcursor);
-    } else {
-        xcursor=x-xoffcursor;
-        ycursor=y-yoffcursor;
     }
+    xcursor=x-xoffcursor;
+    ycursor=y-yoffcursor;
+    if(autocursor)CursorSyncMouse();
 }
 void fill_set_pen_color(int red, int green, int blue, int trans)
 {
@@ -5124,6 +5148,7 @@ void fun_mmvres(void) {
 void cmd_font(void) {
     getargs(&cmdline, 3, ",");
 	int maxH=PageTable[WritePage].ymax;
+	maxH = ConsoleVRes();                                       // (the whole rows above the on-screen keyboard)
     if(argc < 1) error("Argument count");
     if((OptionConsole & 2) && !CurrentLinePtr && Option.showstatus) {                 // if we are at the command prompt on the LCD
     	ClearScreen(gui_bcolour);
@@ -5220,11 +5245,21 @@ void fun_mmcharheight(void) {
 void ClearScreen(int c) {
 	int maxH=PageTable[WritePage].ymax;
     int maxW=PageTable[WritePage].xmax;
-	if(VideoColour==1){                                            // N: the tiles too (Mono.c)
+	if(VideoColour==1)                                              // N: the tiles too (Mono.c)
 		MonoClearScreen(c);
-		return;
-	}
-	DrawRectangle(0, 0, maxW - 1, maxH - 1, c);
+	else
+		DrawRectangle(0, 0, maxW - 1, maxH - 1, c);
+    /* The reserved strip just got wiped. In system mode we own the strip
+       and must restore the OSK so the prompt and editor remain usable.
+       Program mode is the BASIC program's responsibility - drop our state
+       so taps don't keep firing on now-invisible buttons. (The PicoMite's.) */
+    if (osk_state)
+    {
+        if (OSK_IsProgramActive())
+            OSK_DropState();
+        else if (OSK_IsActive())
+            OSK_DrawAll();
+    }
 }
 
 
@@ -5447,13 +5482,51 @@ Draw a box with rounded corners
      c      - the colour to use for sides
      fill   - the colour to fill the box (-1 for no fill)
 ***********************************************************************************************/
-void DrawRBox(int x1, int y1, int x2, int y2, int radius, int c, int fill) {
-    int f, ddF_x, ddF_y, xx, yy;
-    int t;
+// the console's height: the display's, or with the on-screen keyboard's strip reserved the whole text rows above it (the
+// text is printed in rows from the top, the scrolls clear and OPTION STATUS's line is drawn from the console's bottom: they
+// meet in whole rows; the pixels left over, less than a row, are blank above the keyboard)
+int ConsoleVRes(void) {
+	int h = PageTable[WritePage].ymax;
+	if(!OptionVResreserved || gui_font_height <= 0) return h;
+	return ((h - h * OptionVResreserved / 100) / gui_font_height) * gui_font_height;
+}
+// the PicoMite's (graphics/Draw.c): the radius at most half the shorter side, and a filled box's outline drawn after the fill
+void MIPS16 DrawRBox(int x1, int y1, int x2, int y2, int radius, int c, int fill)
+{
+    int f, ddF_x, ddF_y, xx, yy, maxr, t;
 
-    // make sure the coordinates are in the right sequence
-    if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
-    if(y2 <= y1) { t = y1; y1 = y2; y2 = t; }
+    // normalise the corners so x1,y1 is top-left and x2,y2 is bottom-right
+    if (x2 < x1)
+    {
+        t = x1;
+        x1 = x2;
+        x2 = t;
+    }
+    if (y2 < y1)
+    {
+        t = y1;
+        y1 = y2;
+        y2 = t;
+    }
+    // the radius cannot exceed half of the shorter side, otherwise the arcs
+    // do not meet the straight sides and the outline/fill is left with gaps
+    if (radius < 0)
+        radius = 0;
+    maxr = (x2 - x1) / 2;
+    if ((y2 - y1) / 2 < maxr)
+        maxr = (y2 - y1) / 2;
+    if (radius > maxr)
+        radius = maxr;
+    if (radius < 1)
+    { // degenerate to an ordinary rectangle (no rounding possible)
+        if (fill >= 0)
+            DrawRectangle(x1 + 1, y1 + 1, x2 - 1, y2 - 1, fill);
+        DrawRectangle(x1, y1, x2, y1, c); // top side
+        DrawRectangle(x1, y2, x2, y2, c); // bottom side
+        DrawRectangle(x1, y1, x1, y2, c); // left side
+        DrawRectangle(x2, y1, x2, y2, c); // right side
+        return;
+    }
 
     f = 1 - radius;
     ddF_x = 1;
@@ -5461,36 +5534,49 @@ void DrawRBox(int x1, int y1, int x2, int y2, int radius, int c, int fill) {
     xx = 0;
     yy = radius;
 
-    while(xx < yy) {
-        if(f >= 0) {
-            yy-=1;
+    while (xx < yy)
+    {
+        if (f >= 0)
+        {
+            yy -= 1;
             ddF_y += 2;
             f += ddF_y;
         }
-        xx+=1;
+        xx += 1;
         ddF_x += 2;
-        f += ddF_x  ;
-        DrawPixel(x2 + xx - radius, y2 + yy - radius, c);           // Bottom Right Corner
-        DrawPixel(x2 + yy - radius, y2 + xx - radius, c);           // ^^^
-        DrawPixel(x1 - xx + radius, y2 + yy - radius, c);           // Bottom Left Corner
-        DrawPixel(x1 - yy + radius, y2 + xx - radius, c);           // ^^^
+        f += ddF_x;
+        if (fill >= 0)
+        {
+            DrawRectangle(x2 + xx - radius - 1, y2 + yy - radius, x1 - xx + radius + 1, y2 + yy - radius, fill);
+            DrawRectangle(x2 + yy - radius - 1, y2 + xx - radius, x1 - yy + radius + 1, y2 + xx - radius, fill);
+            DrawRectangle(x2 + xx - radius - 1, y1 - yy + radius, x1 - xx + radius + 1, y1 - yy + radius, fill);
+            DrawRectangle(x2 + yy - radius - 1, y1 - xx + radius, x1 - yy + radius + 1, y1 - xx + radius, fill);
+        }
+        else
+        {
+            DrawPixel(x2 + xx - radius, y2 + yy - radius, c); // Bottom Right Corner
+            DrawPixel(x2 + yy - radius, y2 + xx - radius, c); // ^^^
+            DrawPixel(x1 - xx + radius, y2 + yy - radius, c); // Bottom Left Corner
+            DrawPixel(x1 - yy + radius, y2 + xx - radius, c); // ^^^
 
-        DrawPixel(x2 + xx - radius, y1 - yy + radius, c);           // Top Right Corner
-        DrawPixel(x2 + yy - radius, y1 - xx + radius, c);           // ^^^
-        DrawPixel(x1 - xx + radius, y1 - yy + radius, c);           // Top Left Corner
-        DrawPixel(x1 - yy + radius, y1 - xx + radius, c);           // ^^^
-        if(fill >= 0) {
-            DrawLine(x2 + xx - radius - 1, y2 + yy - radius, x1 - xx + radius + 1, y2 + yy - radius, 1, fill);
-            DrawLine(x2 + yy - radius - 1, y2 + xx - radius, x1 - yy + radius + 1, y2 + xx - radius, 1, fill);
-            DrawLine(x2 + xx - radius - 1, y1 - yy + radius, x1 - xx + radius + 1, y1 - yy + radius, 1, fill);
-            DrawLine(x2 + yy - radius - 1, y1 - xx + radius, x1 - yy + radius + 1, y1 - xx + radius, 1, fill);
+            DrawPixel(x2 + xx - radius, y1 - yy + radius, c); // Top Right Corner
+            DrawPixel(x2 + yy - radius, y1 - xx + radius, c); // ^^^
+            DrawPixel(x1 - xx + radius, y1 - yy + radius, c); // Top Left Corner
+            DrawPixel(x1 - yy + radius, y1 - xx + radius, c); // ^^^
         }
     }
-    if(fill >= 0) DrawRectangle(x1 + 1, y1 + radius, x2 - 1, y2 - radius, fill);
-    DrawRectangle(x1 + radius - 1, y1, x2 - radius + 1, y1, c);     // top side
-    DrawRectangle(x1 + radius - 1, y2,  x2 - radius + 1, y2, c);    // botom side
-    DrawRectangle(x1, y1 + radius, x1, y2 - radius, c);             // left side
-    DrawRectangle(x2, y1 + radius, x2, y2 - radius, c);             // right side
+    if (fill >= 0)
+    {
+        DrawRectangle(x1 + 1, y1 + radius, x2 - 1, y2 - radius, fill);
+        DrawRBox(x1, y1, x2, y2, radius, c, -1);
+    }
+    else
+    {
+        DrawRectangle(x1 + radius - 1, y1, x2 - radius + 1, y1, c); // top side
+        DrawRectangle(x1 + radius - 1, y2, x2 - radius + 1, y2, c); // botom side
+        DrawRectangle(x1, y1 + radius, x1, y2 - radius, c);         // left side
+        DrawRectangle(x2, y1 + radius, x2, y2 - radius, c);         // right side
+    }
 }
 
 
@@ -6214,14 +6300,13 @@ int GetFontHeight(int fnt) {
 
 void SetFont(int fnt) {
     int maxW=PageTable[WritePage].xmax;
-	int maxH=PageTable[WritePage].ymax;
     if(FontTable[fnt >> 4] == NULL) error("Invalid font number #%", (fnt >> 4)+1);
 	ShowCursor(false);
     gui_font_width = FontTable[fnt >> 4][0] * (fnt & 0b1111);
     gui_font_height = FontTable[fnt >> 4][1] * (fnt & 0b1111);
     if(((fnt >> 4)+1)==7 && !PicoActive)gui_font_height=10 * (fnt & 0b1111);   // (font 7's lines 10 apart; the PicoMite's 8)
     if((OptionConsole & 2)) {
-        Option.Height = maxH/gui_font_height;
+        Option.Height = ConsoleVRes()/gui_font_height;               // (above the on-screen keyboard)
         Option.Width = maxW/gui_font_width;
     }
     gui_font = fnt;

@@ -44,7 +44,7 @@ Function keys F5 to F10 will insert the text then position the cursor between th
 >> F9	LIST ""
 >> F10	RUN ""
 
-Function keys F11 and F12, and Shift-F3, Shift-F4, Shift-F7 and Shift-F8, can be programmed with custom text: see the commands OPTION F11, OPTION F12, OPTION F15, OPTION F16, OPTION F19 and OPTION F20 (F15 is Shift-F3 and so on). Shift-F5 clears the console and the connected VT100 screen, and Shift-F6 sets the size of the terminal emulator's window to that of the screen.
+Function keys F11 and F12, and Shift-F3, Shift-F4, Shift-F7 and Shift-F8, can be programmed with custom text: see the commands OPTION F11, OPTION F12, OPTION F15, OPTION F16, OPTION F19 and OPTION F20 (F15 is Shift-F3 and so on). So can F1 and F5 to F9, as on the PicoMite (OPTION F1, OPTION F5 to OPTION F9): the text set replaces the key's own above, and setting it to "" gives that back. Shift-F5 clears the console and the connected VT100 screen, and Shift-F6 sets the size of the terminal emulator's window to that of the screen.
 
 ## Line Numbers and Program Structure
 

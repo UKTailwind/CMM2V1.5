@@ -231,6 +231,7 @@ static void hid_app_task(void)
 	{
 		if (HID[i].active == false)
 			continue;
+		USBTouchTask(i); /* a touch screen's switch to multi-touch, beside its reports (USBTouch.c: the PicoMite's) */
 		if (HID[i].report_requested)
 			continue;
 		if (HID[i].report_timer >= HID[i].report_rate)
@@ -466,10 +467,14 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 		return;
 	}
 	if (itf_protocol == HID_ITF_PROTOCOL_NONE)
-	{ /* a gamepad (USBGamepad.c); any other interface stays unclaimed and its slot free */
+	{ /* a touch screen (USBTouch.c: before the gamepads, which a monitor could take one for), or a gamepad (USBGamepad.c);
+		 any other interface stays unclaimed and its slot free */
 		int slot = FindFreeSlot(itf_protocol);
-		if (slot != -1 && Current_USB_devices < HID_SLOTS && USBGamepadMount(dev_addr, instance, slot))
+		if (slot != -1 && Current_USB_devices < HID_SLOTS &&
+			(USBTouchMount(dev_addr, instance, desc_report, desc_len, slot) || USBGamepadMount(dev_addr, instance, slot)))
 			Current_USB_devices++;
+		else if (slot != -1 && !HID[slot].active)
+			HID[slot].vid = HID[slot].pid = 0; /* an interface not taken leaves no IDs on the empty channel (PicoMite #142) */
 		return;
 	}
 	if (itf_protocol != HID_ITF_PROTOCOL_KEYBOARD)
@@ -551,6 +556,12 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 			USBGamepadDetached(i);
 			break;
 		}
+		if (HID[i].active && instance == HID[i].Device_instance && dev_addr == HID[i].Device_address &&
+			(HID[i].Device_type == USB_TOUCH || HID[i].Device_type == USB_TOUCHMOUSE))
+		{
+			USBTouchUnmount(dev_addr, instance, i);
+			break;
+		}
 	}
 	if (i < HID_SLOTS)
 	{
@@ -591,6 +602,8 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 		USBMouseReport(report, len, n);
 	else if (IsGamepadType(HID[n].Device_type))
 		USBGamepadReport(report, len, n);
+	else if (HID[n].Device_type == USB_TOUCH || HID[n].Device_type == USB_TOUCHMOUSE)
+		USBTouchReport(dev_addr, instance, report, len, n);
 	HID[n].report_requested = false;
 	HID[n].report_timer = 0;
 }

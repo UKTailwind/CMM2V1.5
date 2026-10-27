@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "USBMouse.h"
+#include "USBTouch.h"
 
 /* One HID interface the host is servicing (the PicoMite's struct s_HID,
    keyboard fields only for now).  report_timer counts milliseconds since
@@ -38,6 +39,19 @@ typedef struct s_HID
 	uint8_t mouse_type;             /* a mouse: its report layout (USBMouse.c) */
 	mouse_info_t mouse_info;
 	uint8_t report[65];             /* the last report: length, then its bytes */
+	/* Touch digitizer-init handshake state (dual-mode panels only). Some
+	   controllers — e.g. ILITEK ILI2132 — power up emitting the mouse-compat
+	   report and only switch to the multi-touch digitizer report once the
+	   host performs the Windows touch GET_FEATURE bring-up reads. Driven by
+	   hid_app_task() + tuh_hid_get_report_complete_cb(). 0 = idle/done. */
+	uint8_t touch_init_step;
+	/* Wall-clock (us) the touch init handshake was last (re)started. Some
+	   controllers (ILI2132) only stay in digitizer mode for a few seconds
+	   after the bring-up reads, then revert — so the handshake is re-asserted
+	   periodically as a keep-alive. */
+	uint64_t touch_init_us;
+	touch_info_t touch_info;
+	touch_report_t touch_report; /* most-recently decoded report */
 } a_HID;
 
 #define HID_SLOTS 4

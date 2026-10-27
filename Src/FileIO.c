@@ -82,6 +82,24 @@ char FilePutChar(char c, int fnbr);
 int FileEOF(int fnbr);
 void File_CloseAll(void);
 int InitSDCard(void);
+
+/* OPTION LOGGING (the PicoMite's): an error message added to A:/log.txt with its CR-LF. It is called inside error(), so
+   it uses FatFs alone and gives no error of its own: nothing is written when the card is not there, and an error
+   while it writes is not logged. (The FIL is static: the error may be that the heap is full.) */
+int OptionLogging = 0;
+void LogError(const char *msg) {
+    static FIL f;
+    static int busy;
+    UINT n;
+    if(busy || (disk_status(0) & STA_NOINIT)) return;
+    busy = 1;
+    if(f_open(&f, "0:/log.txt", FA_WRITE | FA_OPEN_APPEND) == FR_OK) {
+        f_write(&f, msg, strlen(msg), &n);
+        f_write(&f, "\r\n", 2, &n);
+        f_close(&f);
+    }
+    busy = 0;
+}
 char *ChangeToDir(char *p);
 void LoadImage(char *p);
 void LoadPNG(char *p);
@@ -1740,8 +1758,12 @@ void LoadImage(char *p) {
 // decoder) and drawn through DrawBuffer as RGBA, so the 12-bit pages get the alpha. t is the CMM2's: 0 opaque, 1 the
 // default cut, 2-15 the cut t * 16 (pixels with less alpha are not drawn); cutoff, 1-254, sets the cut itself; ximage
 // and yimage are the first column and row of the image shown (both the PicoMite's). The image is clipped to the page.
+// With OPTION PICOMITE t and cutoff are the PicoMite's: a pixel whose alpha is cutoff (20) or less is drawn in colour t
+// (0 to 15, the 4-bit depth's colours; 0 if left out), or with t -1 not drawn; the others are drawn opaque.
 typedef struct {
 	int x, y, x0, x1, yOffset, maxH, flags;
+	int pico, cut, tcol;                                            // (OPTION PICOMITE's t and cutoff: tcol RGB, or -1)
+	unsigned char *out;                                             // (its row, made from the decoder's)
 } s_pngdraw;
 static int pngdrawrow(void *v, unsigned y, const unsigned char *rgba)
 {
@@ -1752,7 +1774,17 @@ static int pngdrawrow(void *v, unsigned y, const unsigned char *rgba)
 		return 0;                                                   // below the page: stop decoding
 	if ((int)y < c->yOffset || sy < 0)
 		return 1;
-	DrawBuffer(c->x, sy, c->x + c->x1 - c->x0 - 1, sy, (char *)rgba + c->x0 * 4, c->flags);
+	rgba += c->x0 * 4;
+	if(c->pico) {                                                   // (into a row of its own: the decoder reads this one again,
+		unsigned char *o = c->out;                                  // for the next row's filter)
+		for(int x = c->x0; x < c->x1; x++, rgba += 4, o += 4) {
+			if(rgba[3] > c->cut) { o[0] = rgba[0]; o[1] = rgba[1]; o[2] = rgba[2]; o[3] = 255; }
+			else if(c->tcol < 0) o[3] = 0;
+			else { o[0] = c->tcol >> 16; o[1] = c->tcol >> 8; o[2] = c->tcol; o[3] = 255; }
+		}
+		rgba = c->out;
+	}
+	DrawBuffer(c->x, sy, c->x + c->x1 - c->x0 - 1, sy, (char *)rgba, c->flags);
 	return 1;
 }
 void LoadPNG(char *p) {
@@ -1774,12 +1806,22 @@ void LoadPNG(char *p) {
 		yOrigin = getinteger(argv[4]);                              // get the y origin (optional) argument
 		if(optiony) yOrigin=maxH-1-yOrigin;
 	}
-	if(argc >= 7 && *argv[6]) transparent=getint(argv[6],0,15);
-	if(transparent){
-		force=transparent<<4;                                       // (t = 1 too: an alpha below 16 is cut; it cut nothing)
-		transparent=4;
+	c.pico = PicoFlavour() != PICO_NONE;
+	if(c.pico) {                                                    // OPTION PICOMITE: the PicoMite's t and cutoff (above); every
+		int t = 0;                                                  // pixel is then opaque or alpha 0, which the cut leaves out
+		if(argc >= 7 && *argv[6]) t = getint(argv[6], -1, 15);
+		c.tcol = t < 0 ? -1 : (Rgb121Colours[t] & 0xFFFFFF);
+		c.cut = (argc >= 9 && *argv[8]) ? getint(argv[8], 1, 254) : 20;
+		transparent = 4;
+		force = 0x80;
+	} else {
+		if(argc >= 7 && *argv[6]) transparent=getint(argv[6],0,15);
+		if(transparent){
+			force=transparent<<4;                                   // (t = 1 too: an alpha below 16 is cut; it cut nothing)
+			transparent=4;
+		}
+		if(argc >= 9 && *argv[8]) { force = getint(argv[8], 1, 254) & 0xF0; transparent = 4; }   // the cut itself (DrawBuffer takes its top four bits)
 	}
-	if(argc >= 9 && *argv[8]) { force = getint(argv[8], 1, 254) & 0xF0; transparent = 4; }   // the cut itself (DrawBuffer takes its top four bits)
 	if(argc >= 11 && *argv[10]) xOffset = getinteger(argv[10]);      // the first image column shown
 	if(argc >= 13 && *argv[12]) yOffset = getinteger(argv[12]);      // the first image row shown
 	if(xOffset < 0 || yOffset < 0) error("Offset below 0");
@@ -1803,6 +1845,7 @@ void LoadPNG(char *p) {
 	c.yOffset = yOffset;
 	c.maxH = maxH;
 	c.flags = 3 | transparent | force;
+	c.out = c.pico ? GetTempMemory((c.x1 > c.x0 ? c.x1 - c.x0 : 1) * 4) : NULL;
 	int savey=optiony;
 	optiony=0;
 	if(c.x1 > c.x0 && c.x < maxW) {

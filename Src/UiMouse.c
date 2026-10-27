@@ -51,7 +51,7 @@ void UiMouseOpen(void)
     if ((Option.Mouse < 0 && !UsbMouse) || !(OptionConsole & 2) || VideoColour < 8)
         return;                                         // (a USB mouse needs no OPTION MOUSE; EDIT and FM are in 8 bits)
     sprintf(open, "OPEN %d,,,%d", UsbMouse ? USBMOUSE_CHANNEL : Option.Mouse, Option.Sensitivity);
-    cmd_cursor("ON");
+    CursorPlain();                                      // (the white arrow, whatever the program left)
     if (!UiTry(cmd_mouse, open)) {                      // (kilo's GUI CURSOR ON:CONTROLLER MOUSE OPEN n,,,s)
         cmd_cursor("OFF");                              // no mouse: the program without one
         UiFailedSlot = UsbMouse;

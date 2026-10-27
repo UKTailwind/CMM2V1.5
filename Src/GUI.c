@@ -238,27 +238,69 @@ int GUIactive=0;
 // GUI CLICK (the PicoMite's): a click the program makes, or a button on a pin makes, where the pointer is. The timer
 // (Timers.c) takes these with the mouse's left button.
 volatile int GuiClickDown = 0;                                      // GUI CLICK DOWN, or a momentary click's down half
-int GuiClickX = 0, GuiClickY = 0;                                   // where the last GUI CLICK x, y was (with no pointer)
 int GuiClickPin = 0, GuiClickPinInv = 0;                            // GUI CLICK PIN: its pin (0 none), and active high
 int GuiClickPhase = 0;                                              // a momentary GUI CLICK: 1 its down half, 2 its up half
 // is GUI CLICK PIN's button pressed (from the timer interrupt too)
 int ClickPinDown(void){
 	return GuiClickPin && (PinRead(GuiClickPin) ? GuiClickPinInv : !GuiClickPinInv);
 }
-// is the GUI's button down: a mouse's left button, GUI CLICK's, or GUI CLICK PIN's (the timer's touch events, a held
-// control's repeat in ProcessTouch, and CLICK(DOWN) all read this)
+// is the GUI's button down: a mouse's left button, GUI CLICK's, GUI CLICK PIN's, or a USB touch screen touched (the timer's
+// touch events, a held control's repeat in ProcessTouch, and CLICK(DOWN) all read this); a press ends when none holds it
 int GuiButtonDown(void){
-	return TOUCH_DOWN || GuiClickDown || ClickPinDown();
+	return TOUCH_DOWN || GuiClickDown || ClickPinDown() || usb_touch_active;
 }
-// where the pointer is: the cursor's point, else the mouse, else the last GUI CLICK x, y
+volatile int GuiClickFromMouse = 0;                                 // the PicoMite's gui_click_from_mouse and gui_click_emulated
+volatile int GuiClickEmulated = 0;
+static void GuiPointerAt(int *x, int *y);
+// the 1 mS tick's GUI press, the PicoMite's two detectors (PicoMite.c): a press is owned by what made it, a finger on the
+// USB touch screen, or a mouse's left button, GUI CLICK or GUI CLICK PIN, and only its release ends it. A mouse's press
+// is taken where it was made (GUI CLICK's and GUI CLICK PIN's at the cursor's point); a finger's is read by ProcessTouch.
+void GuiPressTick(void){
+    if(usb_touch_present){
+        if(usb_touch_active && !TouchState){
+            TouchState = TouchDown = true;
+            GuiClickFromMouse = GuiClickEmulated = 0;               // (a real pointing device)
+        } else if(!usb_touch_active && TouchState && !GuiClickFromMouse){
+            TouchState = false;
+            TouchUp = true;
+        }
+    }
+    if((GUI_INPUT_ON && Option.MaxCtrls>0) || osk_state){           // (the on-screen keyboard is usable with no controls)
+        int pin = ClickPinDown(), m = GuiMouse();
+        int btn = (TOUCH_DOWN && m >= 0) || GuiClickDown || pin;
+        if(btn && !TouchState){
+            if(TOUCH_DOWN && m >= 0){ TouchX = mousestruct[m].ax; TouchY = mousestruct[m].ay; }
+            else GuiPointerAt(&TouchX, &TouchY);
+            TouchState = TouchDown = true;
+            GuiClickFromMouse = 1;
+            GuiClickEmulated = !(TOUCH_DOWN && m >= 0);
+        } else if(!btn && TouchState && GuiClickFromMouse){
+            TouchState = false;
+            TouchUp = true;
+        }
+    }
+}
+// where GUI CLICK and GUI CLICK PIN press: the cursor's point, shown or not (the PicoMite's cursor_x, cursor_y: GUI CURSOR
+// x, y and GUI CLICK x, y set it, and a linked cursor's follows the mouse)
 static void GuiPointerAt(int *x, int *y){
-	int m = GuiMouse();
-	if(cursorenable){ *x = xcursor + xoffcursor; *y = ycursor + yoffcursor; }
-	else if(m >= 0){ *x = mousestruct[m].ax; *y = mousestruct[m].ay; }
-	else { *x = GuiClickX; *y = GuiClickY; }
+	if(autocursor){                                                 // linked: the mouse's position, where the cursor is shown
+		int m = MouseOpenChannel();                                 // (it is drawn there between statements; this is read in a
+		if(m < 0) m = GuiMouse();                                   // PAUSE too: the PicoMite's linked cursor_x is the mouse's)
+		if(m >= 0){ *x = mousestruct[m].ax; *y = mousestruct[m].ay; return; }
+	}
+	*x = xcursor + xoffcursor;
+	*y = ycursor + yoffcursor;
 }
 int GetTouch(int axis){
 	int m = GuiMouse(), x, y;
+    if (usb_touch_active && !GuiClickFromMouse)                     // a USB touch screen (the PicoMite's VGA/HDMI GetTouch; a press
+                                                                    // a mouse owns is the mouse's: its fun_touch)
+    {
+        if (axis == GET_X_AXIS)
+            return usb_touch_x;
+        if (axis == GET_Y_AXIS)
+            return usb_touch_y;
+    }
 	if(TOUCH_DOWN && m >= 0){ x = mousestruct[m].ax; y = mousestruct[m].ay; }
 	else if(GuiClickDown || ClickPinDown()) GuiPointerAt(&x, &y);
 	else return TOUCH_ERROR;
@@ -266,6 +308,7 @@ int GetTouch(int axis){
 }
 // the MMBasic TOUCH() function
 void fun_touch(void) {
+    char *tp;
     if(checkstring(ep, "X"))
         iret = GetTouch(GET_X_AXIS);
     else if(checkstring(ep, "Y"))
@@ -282,9 +325,254 @@ void fun_touch(void) {
         iret = GuiButtonDown();
     else if(checkstring(ep, "UP"))
         iret = !GuiButtonDown();
+    /* a USB touch screen's: the PicoMite's X2, Y2, XN, YN and gestures (graphics/Pointer.c; the gestures USBTouch.c) */
+    else if (checkstring(ep, "X2"))
+    {
+        int x2 = TOUCH_ERROR;
+        if (x2 == TOUCH_ERROR && usb_touch_active2)
+            x2 = usb_touch_x2;
+        iret = x2;
+    }
+    else if (checkstring(ep, "Y2"))
+    {
+        int y2 = TOUCH_ERROR;
+        if (y2 == TOUCH_ERROR && usb_touch_active2)
+            y2 = usb_touch_y2;
+        iret = y2;
+    }
+    /* nth contact - TOUCH(XN n) / TOUCH(YN n), n = 1..MAX_TOUCH_CONTACTS.
+       Same two-source merge as X2/Y2 (hardware panel first, then USB
+       multi-touch), but generalised to every contact: n=1 matches X/Y,
+       n=2 matches X2/Y2, and a GT911 or USB panel can carry more. Returns
+       TOUCH_ERROR for any contact that isn't currently touching, so a BASIC
+       loop can count fingers by walking n until it sees -1. */
+    else if ((tp = checkstring(ep, "XN")))
+    {
+        int n = getint(tp, 0, MAX_TOUCH_CONTACTS);
+        if (n == 0)
+        {
+            /* Contact count - hardware panel first, USB as fallback, the
+               same source precedence used per-contact below. */
+            int cnt = 0;
+            if (cnt == 0)
+                cnt = usb_touch_count;
+            iret = cnt;
+        }
+        else
+        {
+            int xn = TOUCH_ERROR;
+            if (xn == TOUCH_ERROR && (n - 1) < usb_touch_count)
+                xn = usb_touch_xn[n - 1];
+            iret = xn;
+        }
+    }
+    else if ((tp = checkstring(ep, "YN")))
+    {
+        int n = getint(tp, 0, MAX_TOUCH_CONTACTS);
+        if (n == 0)
+        {
+            int cnt = 0;
+            if (cnt == 0)
+                cnt = usb_touch_count;
+            iret = cnt;
+        }
+        else
+        {
+            int yn = TOUCH_ERROR;
+            if (yn == TOUCH_ERROR && (n - 1) < usb_touch_count)
+                yn = usb_touch_yn[n - 1];
+            iret = yn;
+        }
+    }
+    /* Single-finger swipe gestures. Latched at the touch-up edge by
+       touch_gesture_on_up() (see gesture section above). Each one-shot
+       accessor consumes its matching direction on read (mirroring the
+       mouse double-click flag): reading TOUCH(SWL) on a left swipe
+       returns 1 and clears; reading TOUCH(SWR) on the same left swipe
+       returns 0 without clearing, so a polling loop that tests SWL
+       first then SWR doesn't accidentally lose the event.
+       TOUCH(SWIPE) returns the code (0/1/2/3/4) AND clears, so it's
+       the natural form for a SELECT CASE dispatch. */
+    else if (checkstring(ep, "SWL"))
+    {
+        if (touch_swipe_dir == 1)
+        {
+            iret = 1;
+            touch_swipe_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "SWR"))
+    {
+        if (touch_swipe_dir == 2)
+        {
+            iret = 1;
+            touch_swipe_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "SWU"))
+    {
+        if (touch_swipe_dir == 3)
+        {
+            iret = 1;
+            touch_swipe_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "SWD"))
+    {
+        if (touch_swipe_dir == 4)
+        {
+            iret = 1;
+            touch_swipe_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "SWIPE"))
+    {
+        iret = touch_swipe_dir;
+        touch_swipe_dir = 0;
+    }
+    /* Two-finger pinch gestures. Latched when the second contact
+       lifts (or the first does, whichever ends the dual-touch).
+       Same clear-on-matching-read semantics as the swipes. */
+    else if (checkstring(ep, "EXPAND"))
+    {
+        if (touch_pinch_dir == 1)
+        {
+            iret = 1;
+            touch_pinch_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "CONTRACT"))
+    {
+        if (touch_pinch_dir == 2)
+        {
+            iret = 1;
+            touch_pinch_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "PINCH"))
+    {
+        iret = touch_pinch_dir; /* 0=none, 1=expand, 2=contract */
+        touch_pinch_dir = 0;
+    }
+    /* Single-finger tap / long-press / double-tap. All clear-on-read. */
+    else if (checkstring(ep, "TAP"))
+    {
+        iret = touch_tap;
+        touch_tap = 0;
+    }
+    else if (checkstring(ep, "HOLD"))
+    {
+        iret = touch_longpress;
+        touch_longpress = 0;
+    }
+    else if (checkstring(ep, "DTAP"))
+    {
+        iret = touch_doubletap;
+        touch_doubletap = 0;
+    }
+    /* Two-finger rotate / two-finger tap. Same clear-on-read pattern. */
+    else if (checkstring(ep, "CW"))
+    {
+        if (touch_rotate_dir == 1)
+        {
+            iret = 1;
+            touch_rotate_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "CCW"))
+    {
+        if (touch_rotate_dir == 2)
+        {
+            iret = 1;
+            touch_rotate_dir = 0;
+        }
+        else
+            iret = 0;
+    }
+    else if (checkstring(ep, "ROTATE"))
+    {
+        iret = touch_rotate_dir; /* 0=none, 1=CW, 2=CCW */
+        touch_rotate_dir = 0;
+    }
+    else if (checkstring(ep, "TTAP"))
+    {
+        iret = touch_twotap;
+        touch_twotap = 0;
+    }
     else
         error("Invalid argument");
 
+    targ = T_INT;
+}
+// CLICK(), the PicoMite's (graphics/Pointer.c): whether anything is clicking, a mouse's left button, GUI CLICK or GUI CLICK
+// PIN (a USB touch screen is TOUCH()'s), and where: the cursor's point, which a linked cursor's mouse and GUI CLICK set
+#define GUI_TEST_DOUBLETAP_MIN_US 100000ull
+#define GUI_TEST_DOUBLETAP_MAX_US 500000ull
+#define GUI_TEST_DOUBLETAP_RADIUS 50
+// GUI TEST's way out with the on-screen keyboard configured: a double tap (the PicoMite's graphics/Draw.c)
+static bool GuiTestDoubleTap(bool *wasdown, uint64_t *lastdown)
+{
+    static int lastx, lasty; // position of the previous down edge
+    bool down, tapped = false;
+    if (Option.VRes_reserved == 0)
+        return false; // no OSK configured: keypress remains the only exit
+    int x = GetTouch(GET_X_AXIS);
+    down = (x != TOUCH_ERROR);
+    if (down && !*wasdown)
+    {
+        int y = GetTouch(GET_Y_AXIS);
+        uint64_t gap = Getuptime() - *lastdown;
+        tapped = (gap >= GUI_TEST_DOUBLETAP_MIN_US && gap <= GUI_TEST_DOUBLETAP_MAX_US &&
+                  abs(x - lastx) <= GUI_TEST_DOUBLETAP_RADIUS && abs(y - lasty) <= GUI_TEST_DOUBLETAP_RADIUS);
+        *lastdown = Getuptime();
+        lastx = x;
+        lasty = y;
+    }
+    *wasdown = down;
+    if (!tapped)
+        return false;
+    /* Wait for the finger to lift before returning so the still-held second
+       tap can't register as a key press on the OSK that the post-test
+       ClearScreen() is about to redraw. */
+    while (GetTouch(GET_X_AXIS) != TOUCH_ERROR)
+        CheckAbort();
+    return true;
+}
+void fun_click(void) {
+    int btn = ((TOUCH_DOWN && GuiMouse() >= 0) || GuiClickDown || ClickPinDown()) ? 1 : 0;
+    if(checkstring(ep, "DOWN"))
+        iret = btn;
+    else if(checkstring(ep, "UP"))
+        iret = !btn;
+    else if(checkstring(ep, "X") || checkstring(ep, "Y")) {
+        int x, y;
+        GuiPointerAt(&x, &y);                                       // (the cursor's point)
+        iret = btn ? (checkstring(ep, "X") ? x : y) : TOUCH_ERROR;
+    }
+    else if(checkstring(ep, "REF"))
+        iret = CurrentRef;
+    else if(checkstring(ep, "LASTREF"))
+        iret = LastRef;
+    else if(checkstring(ep, "LASTX"))
+        iret = LastX;
+    else if(checkstring(ep, "LASTY"))
+        iret = LastY;
+    else
+        SyntaxError();
     targ = T_INT;
 }
 /*********************************************************************************************
@@ -300,12 +588,17 @@ int GuiMouse(void){
 	return Option.Mouse >= 0 ? Option.Mouse : MouseOpenChannel();
 }
 // the GUI's pointer, shown once there is a mouse (one plugged in after the GUI started too: check_interrupt calls this),
-// in every depth (in a 4 or 1-bit one over the display: Rgb121.c)
+// in every depth (in a 4 or 1-bit one over the display: Rgb121.c). It is GUI CURSOR ON : GUI CURSOR LINK MOUSE, at the
+// mouse (Peter, 27 Oct 2026), so GUI CURSOR's commands work on it; one the program put on is left as it is
 static int GuiPointerWanted = 0;
 void GuiPointer(void){
 	if(!GuiPointerWanted || GuiMouse() < 0) return;
 	GuiPointerWanted = 0;
-	if(!cursorenable) cmd_cursor("ON");
+	if(!cursorenable){
+		int m = GuiMouse();
+		CursorOn(cursor == 2 && VideoColour < 8 ? 0 : cursor, mousestruct[m].ax, mousestruct[m].ay);
+		autocursor = 1;
+	}
 }
 // the GUI started by its first command: OPTION MOUSE's mouse opened if it is not (a USB one needs nothing), and the
 // touch events taken from then on. A mouse need not be there yet: a USB mouse plugged in later is used at once, and
@@ -567,13 +860,18 @@ int GetCtrlParams(int type, char *p) {
 }
 
 
-// the pointer (and the mouse, which it follows) moved to x, y, for GUI CLICK x, y
+// the mouse moved to the cursor's point (the PicoMite's cursor_sync_mouse_to_cursor): the mouse the cursor follows
+void CursorSyncMouse(void){
+    int m = MouseOpenChannel();
+    if(m < 0) m = GuiMouse();
+    if(m >= 0){ mousestruct[m].ax = xcursor + xoffcursor; mousestruct[m].ay = ycursor + yoffcursor; }
+}
+// the cursor's point, shown or not, and the mouse moved to x, y, for GUI CLICK x, y
 static void GuiClickAt(int x, int y){
-    int m = GuiMouse();
-    GuiClickX = x;
-    GuiClickY = y;
-    if(m >= 0){ mousestruct[m].ax = x; mousestruct[m].ay = y; }
-    if(cursorenable){ hidecursor(0); showcursor(0, x - xoffcursor, y - yoffcursor); }
+    if(cursoron){ hidecursor(1); showcursor(1, x - xoffcursor, y - yoffcursor); }
+    xcursor = x - xoffcursor;
+    ycursor = y - yoffcursor;
+    CursorSyncMouse();
 }
 
 // GUI CLICK PIN pin [, INV] | PIN OFF | DOWN | UP | [x, y], the PicoMite's. The momentary click is PAUSE's re-entry:
@@ -633,8 +931,10 @@ static void GuiClick(char *p){
             int x = getint(argv[0], 0, HRes - 1), y = getint(argv[2], 0, VRes - 1);
             mouseon();
             GuiClickAt(x, y);
-        } else
+        } else {
             mouseon();
+            CursorSyncMouse();                                          // (the PicoMite's: the mouse goes to the cursor's point)
+        }
         GuiClickDown = 1;
         until = mSecTimer + 50;
         cap = mSecTimer + 500;
@@ -1050,6 +1350,68 @@ void cmd_gui(void) {
     if((p = checkstring(cmdline, "CLICK"))) {
         GuiClick(p);
         return;
+    }
+    /* GUI TEST LCDPANEL / GUI TEST TOUCH run until a console keypress. When the
+       on-screen keyboard is the only keyboard (OPTION SCREEN KEYBOARD set, no
+       external console) there is no key to press - the test pattern owns the
+       panel - so the tests would be inescapable. While the OSK is configured a
+       double tap (two pen-down edges 100..500 ms apart, landing within 50
+       pixels of each other) exits instead (GuiTestDoubleTap, above). */
+    /* GUI TEST LCDPANEL | TOUCH, the PicoMite's (its graphics/Draw.c): circles until a key, then how many a second;
+       or each touch drawn where it lands (a second finger in cyan) until a key */
+    if ((p = checkstring(cmdline, "TEST")))
+    {
+        if ((checkstring(p, "LCDPANEL")))
+        {
+            int t, count = 0;
+            bool tapdown = false;
+            uint64_t taptime = 0;
+            uint64_t start = Getuptime();
+            t = ((HRes > VRes) ? HRes : VRes) / 7;
+            while (getConsole() < '\r')
+            {
+                if (GuiTestDoubleTap(&tapdown, &taptime))
+                    break;
+                routinechecks(1);
+                DrawCircle(rand() % HRes, rand() % VRes, (rand() % t) + t / 5, 1, 1, rgb((rand() % 8) * 256 / 8, (rand() % 8) * 256 / 8, (rand() % 8) * 256 / 8, 15), 1);
+                count++;
+            }
+            ClearScreen(gui_bcolour);
+            PFlt(((MMFLOAT)count) / (((MMFLOAT)(Getuptime() - start)) / 1000000.0));
+            MMPrintString(" Circles per Second");
+            return;
+        }
+        if ((checkstring(p, "TOUCH")))
+        {
+            int x, y, x2, y2;
+            bool tapdown = false;
+            uint64_t taptime = 0;
+            ClearScreen(gui_bcolour);
+            while (getConsole() < '\r')
+            {
+                if (GuiTestDoubleTap(&tapdown, &taptime))
+                    break;
+                x = GetTouch(GET_X_AXIS);
+                y = GetTouch(GET_Y_AXIS);
+                if (x != TOUCH_ERROR && y != TOUCH_ERROR)
+                    DrawBox(x - 1, y - 1, x + 1, y + 1, 0, WHITE, WHITE);
+                /* Second contact, so two-finger panels can be exercised.
+                   Sources mirror TOUCH(X2)/TOUCH(Y2): USB multi-touch contact 1.
+                   Drawn in a distinct colour so the two fingers are distinguishable. */
+                x2 = TOUCH_ERROR;
+                y2 = TOUCH_ERROR;
+                if (x2 == TOUCH_ERROR && usb_touch_active2)
+                {
+                    x2 = usb_touch_x2;
+                    y2 = usb_touch_y2;
+                }
+                if (x2 != TOUCH_ERROR && y2 != TOUCH_ERROR)
+                    DrawBox(x2 - 1, y2 - 1, x2 + 1, y2 + 1, 0, CYAN, CYAN);
+            }
+            ClearScreen(gui_bcolour);
+            return;
+        }
+        error("Syntax");
     }
 
     // the final few commands are common to the MX170 and MX470 so execute them in Draw.c
@@ -2513,22 +2875,29 @@ void ProcessTouch(void) {
     static int repeat = 0;
     static int waiting = false;
     int r, spinup;
-    if(!GUIactive)return;
+    if(!GUI_INPUT_ON)return;
     if(DelayedDrawKeyboard || DelayedDrawFmtBox || DelayedDrawListbox) return;   // a pop-up is drawn after the pen-down
                                                                     // interrupt: its touches wait until then (the PicoMite
                                                                     // guards check_interrupt's call; here every caller)
 
+    /* Multi-touch poll. Must run on every ProcessTouch entry - including
+       cycles with no TouchDown/TouchUp edge - because a finger-2 contact
+       on a USB touch panel doesn't toggle the primary TouchDown/Up state
+       (those follow contact 0 only). (The PicoMite's.) */
+    if(osk_state) OSK_PollFinger2();
+    int again = 0;                                                  // a held press's repeat, not a new press
     if(repeat) {
-        if(GuiButtonDown())
+        if(GuiClickFromMouse ? (TOUCH_DOWN || GuiClickDown || ClickPinDown()) : usb_touch_active)   // (held: by the press's owner)
             if(TouchTimer < repeat)
                 return;
             else
-                TouchDown = true;
+                TouchDown = again = true;
         else
             repeat = 0;
     } else {
         if(waiting) {
-            if(TouchTimer < 50)                                     // wait 50mS before a processing touch (allows the touch to settle)
+            if(TouchTimer < 50 && !GuiClickFromMouse)               // wait 50mS before a processing touch (allows the touch to settle;
+                                                                    // a mouse and GUI CLICK do not bounce: the PicoMite's)
                 return;
             else
                 waiting = false;
@@ -2541,11 +2910,15 @@ void ProcessTouch(void) {
     if(!(TouchUp || TouchDown)) return;                             // quick exit if there is nothing to do
     if(TouchDown) {
         // touch has just occurred
-        TouchX = GetTouch(GET_X_AXIS);
-        TouchY = GetTouch(GET_Y_AXIS);
-        LastRef = CurrentRef = 0;
+        if(!GuiClickFromMouse || again) {                           // (a mouse's press was taken where it was made: GuiPressTick;
+                                                                    // its repeat is where the pointer is now: a slider dragged)
+            TouchX = GetTouch(GET_X_AXIS);
+            TouchY = GetTouch(GET_Y_AXIS);
+        }
+        touch_gesture_on_down(TouchX, TouchY);                      // (the PicoMite's, for a mouse, GUI CLICK or the USB touch
+        LastRef = CurrentRef = 0;                                   // screen: each press here is one of those)
         TouchUp = TouchDown = false;
-        if(TouchX == TOUCH_ERROR) return;                           // abort if the pen was lifted
+        if(!GuiClickFromMouse && TouchX == TOUCH_ERROR) return;     // abort if the pen was lifted
         if(InvokingCtrl) {                                          // the keyboard/keypad takes complete control when activated
             if(Ctrl[InvokingCtrl].type == CTRL_FMTBOX)
                 DrawFmtBox(KEY_KEY_DWN);
@@ -2562,6 +2935,12 @@ void ProcessTouch(void) {
             return;
         }
 
+        if (OSK_IsActive() && OptionVResreserved && TouchY >= (VRes - (VRes * OptionVResreserved / 100)))
+        {                                                           // a tap on the on-screen keyboard's strip is its (the PicoMite's)
+            OSK_HandleTouchDown(TouchX, TouchY);
+            gui_int_down = false;
+            return;
+        }
         gui_int_down = true;                                        // signal that a MMBasic interrupt is valid
         if(GuiIntDownVector) IntSignal();
         if(SliderDrag) {                                            // a slider being dragged follows the mouse while the
@@ -2687,6 +3066,21 @@ void ProcessTouch(void) {
         TouchUp = TouchDown = false;
         LastX=TouchX;
         LastY=TouchY;
+        {                                                           // a swipe: from the USB touch screen's last position, else
+            int16_t end_x = TouchX, end_y = TouchY;                 // the mouse's (the PicoMite's)
+            int gm = GuiMouse();
+            if (usb_touch_present)
+            {
+                end_x = usb_touch_x;
+                end_y = usb_touch_y;
+            }
+            else if (gm >= 0)
+            {
+                end_x = mousestruct[gm].ax;
+                end_y = mousestruct[gm].ay;
+            }
+            touch_gesture_on_up(end_x, end_y);
+        }
         SliderDrag = 0;
         if(InvokingCtrl) {                                          // the keyboard/keypad takes complete control when activated
             if(Ctrl[InvokingCtrl].type == CTRL_FMTBOX)
@@ -2705,6 +3099,11 @@ void ProcessTouch(void) {
             return;
         }
 
+        if (OSK_IsActive() && OSK_HandleTouchUp())                  // (the on-screen keyboard's key released: the PicoMite's)
+        {
+            gui_int_down = false;
+            return;
+        }
         gui_int_up = true;
         if(GuiIntUpVector) IntSignal();
         if(CurrentRef) {
@@ -2803,6 +3202,8 @@ void fun_msgbox(void) {
     int btnx1[4], btny1, btnx2[4], btny2;
     long long int timeout;
     if(!Option.MaxCtrls)error("No memory allocated for GUI controls");
+    if(GuiClickEmulated)                                            // (the PicoMite's: nothing could steer the pointer to its buttons)
+        error("MsgBox needs a real touch or mouse - cursor cannot be steered while MsgBox is open");
     getargs(&ep, 9, ",");
     if(argc < 3) error("Argument count");
     mouseon();

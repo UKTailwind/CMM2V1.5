@@ -1,12 +1,12 @@
 # Keyboard, Mouse and Gamepad
 
-The USB connector on the front panel of the Colour Maximite 2 is a USB host. It takes a keyboard and, through a USB hub, a mouse, up to two gamepads, up to four USB serial devices and a USB flash drive, all at the same time. A PS2 mouse can also be connected (see Mouse Support in the chapter Hardware Features), and the Wii Nunchuk and Wii Classic controllers plug into the connectors on the front panel.
+The USB connector on the front panel of the Colour Maximite 2 is a USB host. It takes a keyboard and, through a USB hub, a mouse, a touch screen, up to two gamepads, up to four USB serial devices and a USB flash drive, all at the same time. A PS2 mouse can also be connected (see Mouse Support in the chapter Hardware Features), and the Wii Nunchuk and Wii Classic controllers plug into the connectors on the front panel.
 
 The USB support is the PicoMite's, so programs written for the PicoMite read these devices the same way here.
 
 ## USB Hub
 
-A USB hub can be plugged into the USB connector so that several devices can be used at once. The keyboard, the mouse and the gamepads are given a channel number: by default a keyboard is channel 1, a mouse channel 2 and the first and second gamepads channels 3 and 4. USB serial devices are numbered separately, as the serial ports COM4 to COM7.
+A USB hub can be plugged into the USB connector so that several devices can be used at once. The keyboard, the mouse and the gamepads are given a channel number: by default a keyboard is channel 1, a mouse channel 2, the first and second gamepads channels 3 and 4, and a touch screen channel 4 (or a free channel when 4 is in use). USB serial devices are numbered separately, as the serial ports COM4 to COM7.
 
 The processor's USB controller cannot work with a low-speed USB device through a hub. Many inexpensive keyboards, mice and gamepads are low-speed devices. Such a device works when it is plugged straight into the USB connector; through a hub MMBasic refuses it with the message "USB low-speed device behind a hub is not supported: plug it in directly". Full-speed devices work through a hub.
 
@@ -51,6 +51,39 @@ A program can also display a cursor on the screen and link it to the mouse using
 ## PS2 and I2C Mice
 
 A PS2 mouse (connected to the rear I/O connector on the Generation 1, or to the lower USB socket on the Generation 2) is mouse channel 0. Set with OPTION MOUSE 0 it is the computer's mouse, as a USB mouse is: programs read it with the MOUSE() function and link the GUI cursor to it without CONTROLLER MOUSE OPEN, which then only sets its interrupts. A Hobbytronic USB mouse interface is opened on an I2C channel with CONTROLLER MOUSE OPEN; the G2 V2.0 does not support it. See Mouse Support in the chapter Hardware Features.
+
+## USB Touch Screen
+
+A USB touch screen (a touch monitor, or a touch panel with a USB controller) is recognised as soon as it is plugged in, as on the PicoMite. Touch screens made for Windows work: a multi-touch screen reports up to ten fingers, and one with only single touch works as a pointer. It is given channel 4 (a free channel when 4 is in use), and the console shows its size, for example "Multi-touch Connected on channel 4 (10 contacts, 16383x9599)". MM.INFO(USB n) returns 133 for a multi-touch screen and 134 for a single-touch one.
+
+A program reads it with the TOUCH() function: where the fingers are, whether the screen is touched, and the gestures (a swipe, a tap, a double tap, a long press, a pinch, a twist and a two-finger tap). The GUI controls respond to it as they do to the mouse (see the chapter GUI Controls), it types on the on-screen keyboard (below), and the editor uses it (see the chapter Full Screen Editor). GUI TEST TOUCH draws a dot wherever the screen is touched, to check one.
+
+A touch monitor that is also the Colour Maximite 2's display may reset its touch controller when the screen's resolution changes (MODE): it disconnects and connects again, and touches are not seen for a moment.
+
+The touch controller of some monitors (the WingCoolTouch/WCH controller, USB ID 27C0:0859, in the Corsair Xeneon Edge, the Verbatim HD14T and others) gives its multi-touch reports only to a computer it takes for one running Windows; MMBasic reads it as Windows does, so all ten fingers are seen.
+
+## On-Screen Keyboard
+
+With a USB touch screen MMBasic can show a keyboard at the bottom of the screen and type with it, as the PicoMite does. What is tapped arrives as it would from a USB keyboard: at the command prompt, in the editor and the file manager, and for INKEY$, INPUT and the like.
+
+```
+OPTION SCREEN KEYBOARD n [, M]
+```
+
+'n' is the percentage of the screen's height that the keyboard takes (0 to 50; 30 is a good size), and OPTION SCREEN KEYBOARD 0 removes it. The setting is kept in flash. The keyboard is shown at the command prompt and in the editor and the file manager, which keep above it; at the prompt the status line (OPTION STATUS) sits just above it. The text above the keyboard is a whole number of lines of the current font; any pixels left over are blank. While a program runs the keyboard is taken away and the program has the whole screen. A program shows it with KEYBOARD ON (the screen scrolls up to make room) and takes it away with KEYBOARD OFF, and when the program ends the keyboard is as it was at RUN. KEYBOARD OFF at the command prompt keeps it away until KEYBOARD ON or a restart. The keyboard is not available in MODE n,1.
+
+It has four rows of twelve keys:
+
+```
+q   w   e   r   t   y   u   i   o   p   "   Bsp
+a   s   d   f   g   h   j   k   l   ;   '   Ent
+Sh  z   x   c   v   b   n   m   ,   .   /   Del
+Sym Fn  Ctl Esc Tab   Space   <-  v   ^   ->
+```
+
+Sh gives capitals and the shifted punctuation, and Ctl a control key: Ctl then C stops a running program as Ctrl-C does. Sym changes the keys to digits and symbols, and Fn to the function keys (F1 to F12, Home, End, Page Up, Page Down, Insert and Delete) and more symbols. The arrows are the cursor keys.
+
+Without M the modifiers latch: tap Sh, then 'a', to get 'A'; Sym and Fn stay until they are tapped again. With M (OPTION SCREEN KEYBOARD 30, M) they work as a keyboard's do: hold Sh with one finger and tap keys with another, and a modifier tapped on its own does nothing. This needs a multi-touch screen.
 
 ## USB Gamepads
 

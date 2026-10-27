@@ -37,6 +37,13 @@ disconnect, slave-mode periodic scheduling).
   and the CMM2 reports it as `[USB EP_FULL n @a]`, as the PicoMite does.
 - `src/host/usbh.c`: the reset recovery is `CFG_TUH_ENUM_RESET_RECOVERY_MS`
   (100 ms in `Inc/tusb_config.h`, 29f6c2c).
+- `src/host/usbh.c`: enumeration reads each string descriptor (langid,
+  manufacturer, product, serial) once with wLength 255, not 2 bytes and then
+  the rest (27 Oct 2026). The WingCoolTouch/WCH touch controller of some
+  monitors (27C0:0859) takes a host that reads them length-first for one that
+  is not Windows and sends its touches only as a mouse's. The strings are still
+  read: master added them for 8BitDo pads. Raised as PicoMite issue #141, which
+  carries the same patch for its tree, and upstream as TinyUSB issue 4346.
 
 ## The low-speed patch
 

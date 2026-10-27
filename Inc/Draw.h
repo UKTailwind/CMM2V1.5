@@ -60,6 +60,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void DrawBox(int x1, int y1, int x2, int y2, int w, int c, int fill);
     extern void DrawRBox(int x1, int y1, int x2, int y2, int radius, int c, int fill);
     extern void DrawCircle(int x, int y, int radius, int w, int c, int fill, MMFLOAT aspect);
+    extern void CursorOn(int no, int x, int y);         // the cursor on, its point at x, y (Draw.c)
+    extern int ConsoleVRes(void);                       // the console's height, above the on-screen keyboard (Draw.c)
+    extern void CursorPlain(void);                      // the editor's and File Manager's pointer
+    extern void CursorRunReset(void);                   // RUN: its shape, point and colour forgotten
 //    extern void DrawPixel(int x, int y, int c);
     extern void ClearScreen(int c);
     extern void SetFont(int fnt);
@@ -73,6 +77,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void (*DrawRectangle)(int x1, int y1, int x2, int y2, int c);
     extern void (*DrawBitmap)(int x1, int y1, int width, int height, int scale, int fc, int bc, unsigned char *bitmap);
     extern void (*ScrollLCD) (int lines, int blank);
+    extern uint8_t OptionVResreserved;                  // the on-screen keyboard's strip, % of the screen (OSK.c), 0 none
     extern void (*DrawBuffer)(int x1, int y1, int x2, int y2, char *c, int skip);
     extern void (*ReadBuffer)(int x1, int y1, int x2, int y2, char *c);
     extern void (*DrawBufferFast)(int x1, int y1, int x2, int y2, char *c);

@@ -1,0 +1,10 @@
+ok  MM.INFO(CPUSPEED) is a string, the clock in Hz
+ok  LOAD PNG with no t: alpha 20 or less drawn in colour 0
+ok    t -1: the screen behind kept
+ok    t 15 (white), cutoff 30: the blue's 25 cut too
+ok    t 1 (&H0000FF), cutoff 5: only the white's 0 cut
+ok    t 16: an error
+ok  GETSCANLINE in MODE 2 (240 lines shown twice): the screen's lines, the most 480 to 499
+ok    in MODE 1 (480 lines): the most 480 to 499
+pmdialect: 8 of 8 passed
+

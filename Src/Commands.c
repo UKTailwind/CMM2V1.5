@@ -733,8 +733,8 @@ int as_strcmpi (const char *s1, const char *s2)
 
 void sortStrings(char **arr, int n)
 {
-    char temp[16];
-    int i,j;
+    char *temp;                                                     // (the pointers are swapped: LIST VARIABLES' lines are longer
+    int i,j;                                                        // than a buffer here)
     // Sorting strings using bubble sort
     for (j=0; j<n-1; j++)
     {
@@ -742,9 +742,9 @@ void sortStrings(char **arr, int n)
         {
             if (as_strcmpi(arr[j], arr[i]) > 0)
             {
-                strcpy(temp, arr[j]);
-                strcpy(arr[j], arr[i]);
-                strcpy(arr[i], temp);
+                temp = arr[j];
+                arr[j] = arr[i];
+                arr[i] = temp;
             }
         }
     }
@@ -972,6 +972,116 @@ void PFltFixedFile(MMFLOAT flt, int fnbr){
 }
 
 
+#define LV_LINE (MAXVARLEN + 48)                                    // a LIST VARIABLES line: DIM INTEGER name(d,d,d,d,d)
+static int IsListedVar(struct s_vartbl *v) { return (v->type & (T_INT | T_STR | T_NBR | T_STRUCT)) != 0; }
+
+// LIST VARIABLES [array%()] (the PicoMite's): every variable as the DIM or LOCAL that makes it, sorted, on the console
+// or into a LONGSTRING array (each line ended by CR-LF). The records here do not keep whether a name had its type's
+// suffix, so the type is always a word (DIM INTEGER N: the PicoMite's form for a name without one).
+static void ListVariables(char *p) {
+	int count = 0, room = 0, listcnt = 1;
+	int64_t *dest = NULL;
+	char **c;
+	getargs(&p, 1, ",");
+	if(argc) {
+		room = (parseintegerarray(argv[0], &dest, 1, 1, NULL, true, NULL) - 1) * 8;
+		dest[0] = 0;
+	}
+	for(int i = 0; i < MAXVARS; i++) if(IsListedVar(VREC(i))) count++;
+	if(!count) return;
+	c = GetTempMemory(count * (sizeof(*c) + LV_LINE));
+	for(int i = 0, j = 0; i < MAXVARS && j < count; i++) {
+		struct s_vartbl *v = VREC(i);
+		char *out;
+		if(!IsListedVar(v)) continue;
+		out = c[j] = (char *)(c + count) + j * LV_LINE;
+		j++;
+		strcpy(out, v->level == 0 ? "DIM " : "LOCAL ");
+		if(!(v->type & T_STRUCT)) strcat(out, (v->type & T_INT) ? "INTEGER " : (v->type & T_STR) ? "STRING " : "FLOAT ");
+		strncat(out, v->name, MAXVARLEN);                           // (a 32-character name has no zero)
+		if(DimIsRealArray(RAW_DIM(*v, 0))) {
+			strcat(out, "(");
+			for(int k = 0; k < MAXDIM && DimIsRealArray(RAW_DIM(*v, k)); k++) {
+				if(k) strcat(out, ",");
+				IntToStr(out + strlen(out), (int64_t)DimUpper(RAW_DIM(*v, k)), 10);
+			}
+			strcat(out, ")");
+		}
+		if(v->type & T_STRUCT) {
+			strcat(out, " AS ");
+			strcat(out, v->size < g_structcnt ? g_structtbl[v->size]->name : "<invalid>");
+		}
+	}
+	sortStrings(c, count);
+	if(dest == NULL) {
+		for(int i = 0; i < count; i++) {
+			MMPrintString(c[i]);
+			ListNewLine(&listcnt, 0);
+		}
+	} else {
+		char *buff = (char *)&dest[1];
+		int ol = 0;
+		for(int i = 0; i < count; i++) {
+			int n = strlen(c[i]);
+			if(ol + n + 2 > room) StandardError(23);
+			memcpy(buff + ol, c[i], n);
+			memcpy(buff + ol + n, "\r\n", 2);
+			ol += n + 2;
+		}
+		dest[0] = ol;
+	}
+}
+
+// the hash slot a global's name starts its probe from (findvar: FNV-1a of the name, in MAXGLOBALVARS slots)
+static int GlobalBucket(const char *name) {
+	uint32_t hash = FNV_offset_basis;
+	for(int i = 0; i < MAXVARLEN && name[i]; i++) {
+		hash ^= name[i];
+		hash *= FNV_prime;
+	}
+	return hash & (MAXGLOBALVARS - 1);
+}
+
+// LIST COLLISIONS (the PicoMite's): the globals whose names start from the same hash slot, a group each; the locals
+// are a stack, not hashed (as there now)
+static void ListCollisions(void) {
+	int listcnt = 1, groups = 0;
+	char name[MAXVARLEN + 1], line[80];
+	unsigned char *done = GetTempMemory(MAXGLOBALVARS);
+	memset(done, 0, MAXGLOBALVARS);
+	MMPrintString("LOCAL: none");
+	ListNewLine(&listcnt, 0);
+	for(int i = MAXLOCALVARS; i < MAXVARS; i++) {
+		int b, n = 0;
+		if(!IsListedVar(VREC(i)) || VREC(i)->level) continue;
+		b = GlobalBucket(VREC(i)->name);
+		if(done[b]) continue;
+		done[b] = 1;
+		for(int j = MAXLOCALVARS; j < MAXVARS; j++)
+			if(IsListedVar(VREC(j)) && !VREC(j)->level && GlobalBucket(VREC(j)->name) == b) n++;
+		if(n < 2) continue;
+		groups++;
+		sprintf(line, "GLOBAL bucket %d:", b);
+		MMPrintString(line);
+		ListNewLine(&listcnt, 0);
+		for(int j = MAXLOCALVARS; j < MAXVARS; j++)
+			if(IsListedVar(VREC(j)) && !VREC(j)->level && GlobalBucket(VREC(j)->name) == b) {
+				memcpy(name, VREC(j)->name, MAXVARLEN);
+				name[MAXVARLEN] = 0;
+				MMPrintString("  ");
+				MMPrintString(name);
+				ListNewLine(&listcnt, 0);
+			}
+	}
+	if(groups == 0) {
+		MMPrintString("GLOBAL: none");
+		ListNewLine(&listcnt, 0);
+		MMPrintString("No hash collisions found");
+		ListNewLine(&listcnt, 0);
+	}
+}
+
+extern void printoptions(void);
 void MIPS16 cmd_list(void) {
 	char *p, *tp;
 	int i,j,k,m, step=5;
@@ -996,6 +1106,17 @@ void MIPS16 cmd_list(void) {
     } else if((p = checkstring(cmdline, "FLASH ALL"))) {
         ListProgramFlash((char *)ProgMemory, true);
         checkend(p);
+    } else if((p = checkstring(cmdline, "OPTIONS"))) {              // the PicoMite's: OPTION LIST
+        checkend(p);
+        printoptions();
+    } else if((p = checkstring(cmdline, "VARIABLES"))) {            // the PicoMite's LIST VARIABLES, COLLISIONS and PINS
+        ListVariables(p);
+    } else if((p = checkstring(cmdline, "COLLISIONS"))) {
+        checkend(p);
+        ListCollisions();
+    } else if((p = checkstring(cmdline, "PINS"))) {
+        checkend(p);
+        ListPins();                                                 // (External.c)
     } else if(checkstring(cmdline, "PROFILE CSV")) {
     	if(Option.profile==0)error("Profiling not enabled");
     	if(ProfileTable==NULL)error("Nothing profiled: RUN the program first");
@@ -1301,7 +1422,7 @@ static void MIPS16 RunStart(int runlib);
 
 // RUN and FLASH RUN: the console, the keyboard and the status line made ready for a program
 static void MIPS16 RunPrelude(void) {
-	int maxH=PageTable[WritePage].ymax;
+	int maxH=ConsoleVRes();                                         // (the status line: above the on-screen keyboard)
     int maxW=PageTable[WritePage].xmax;
 	SerUSBPutS("\033[?25h");
 	SerUSBPutS("\033[37m");
@@ -1321,6 +1442,11 @@ static void MIPS16 RunPrelude(void) {
 
 void MIPS16 cmd_run(void) {
 	char *c;
+	/* Erase the OSK and surrender the reserved strip up front. Calling
+	   this AFTER the conditional ClearScreen / library run below would let
+	   those paths trigger an OSK redraw via the ClearScreen hook, leaving
+	   the keyboard visible after the program starts. (The PicoMite's.) */
+	OSK_OnRunStart();
 	skipspace(cmdline);
 	mymemset(runcmd,0,STRINGSIZE);
 	{                                                               // MM.CMDLINE$'s text: the statement's, to a comment
@@ -1400,6 +1526,9 @@ static void MIPS16 RunStart(int runlib) {
 // TYPEs in the same order.
 void MIPS16 cmd_chain(void) {
 	char fn[STRINGSIZE], args[STRINGSIZE];
+	/* Erase OSK and surrender the strip before anything else runs. Mirrors
+	   do_run - see comment there for the rationale. (The PicoMite's.) */
+	OSK_OnRunStart();
 	getargs(&cmdline, 3, ",");
 	if(!(argc == 1 || argc == 3)) error("Argument count");
 	strcpy(fn, getCstring(argv[0]));                                // (copied: the heap goes before the program is loaded)
@@ -3324,7 +3453,8 @@ void cmd_on(void) {
 					KeyInterrupt = NULL;                                      // the program wants to turn the interrupt off
 				} else {
 					KeyInterrupt = GetIntAddress(argv[2]);						    // get a pointer to the interrupt routine
-					IntSignal();
+					Keycomplete = 0;                                        // (the key's arrival from now on: not one a program before
+					IntSignal();                                            // got and never took)
 				}
 			}
 			return;

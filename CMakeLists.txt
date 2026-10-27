@@ -106,10 +106,12 @@ endif()
 # These come after -Os on the command line, so they win.
 set(RELEASE_O2_FILES
     Commands.c Draw.c FileIO.c Functions.c MATHS.c MMBasic.c MM_Misc.c
-    Memory.c MiscSTM32.c Operators.c OtherDisplays.c Serial.c SerialFileIO.c
-    Timers.c flash.c ltdc.c main.c mmc_stm32.c stm32h7xx_it.c
+    Memory.c Operators.c OtherDisplays.c Serial.c
+    Timers.c ltdc.c main.c mmc_stm32.c stm32h7xx_it.c
     Symbols.c Struct.c                                      # (on every variable reference: 17 Oct, measured)
 )
+# MiscSTM32.c (OPTION, LIST OPTIONS), flash.c (flash writes) and SerialFileIO.c (serial file transfer) are -Os, as
+# every other file is: their speed is the hardware's, and -O2 cost 5.6 KB of bank 1 (27 Oct 2026, Peter agreed)
 set(RELEASE_OZ_FILES FileManager.c Editor.c)
 list(TRANSFORM RELEASE_O2_FILES PREPEND Src/)
 list(TRANSFORM RELEASE_OZ_FILES PREPEND Src/)

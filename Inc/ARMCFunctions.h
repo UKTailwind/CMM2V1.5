@@ -252,6 +252,14 @@ struct option_s {
 	unsigned char PicoRes;
 	unsigned char PrintScreenFormat;
 	unsigned char KeyLocks;
+	unsigned char F1Key[64];
+	unsigned char F5Key[64];
+	unsigned char F6Key[64];
+	unsigned char F7Key[64];
+	unsigned char F8Key[64];
+	unsigned char F9Key[64];
+	unsigned char VRes_reserved;
+	unsigned char Multi;
 	unsigned char end;
 // 128
 };
