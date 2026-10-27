@@ -127,26 +127,26 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
     flash room.
   - **Checked on the G2** with Peter's three touch screens and a mouse.
 
-## Awaiting a decision
-- [ ] **GETSCANLINE in the 4-bit doubled modes**: found 26 Oct. In the CMM2's modes whose lines are drawn twice it
+## After the beta (Peter's decisions, 27 Oct, for 7.00.00b4)
+- [ ] **GETSCANLINE in the 4-bit doubled modes** (decided: report as the PicoMite does, after the beta): found 26 Oct. In the CMM2's modes whose lines are drawn twice it
       counts the mode's lines (MODE 7 and 7,16 to 249, as the manual says), except in the 4-bit depth, which counts the
       screen's (MODE 7,4 and 3,4 to 499). Under OPTION PICOMITE that is what the PicoMite's HDMI versions do in their
       MODE 2. Either make the 4-bit depth count the mode's lines without OPTION PICOMITE, or say in the manual that it
       counts the screen's. (A loop also never sees the lines while the 4-bit merge runs, about 25 to 130 lines.)
-- [ ] **OPTION AUTORUN's NORESET**: on the PicoMite a system error (a fault, its restart) turns AUTORUN off unless
+- [ ] **OPTION AUTORUN's NORESET** (decided: the CMM2 to behave as the PicoMite, after the beta): on the PicoMite a system error (a fault, its restart) turns AUTORUN off unless
       NORESET is given. Here a fault stops the board (HardFault_Handler loops) and the restarts after a command timeout
       or a watchdog timeout keep AUTORUN, so NORESET changes nothing yet. Either leave it so, or turn AUTORUN off after
       a command-timeout restart without NORESET (a change for programs that rely on it now).
-- [ ] **OPTION RTC AUTO ENABLE | DISABLE**: recommended as its own option (G2), the PicoMite's meaning: the internal
+- [ ] **OPTION RTC AUTO ENABLE | DISABLE** (after the beta; the DS3231 copy made hourly for b4, from the routinechecks): recommended as its own option (G2), the PicoMite's meaning: the internal
       clock set from the DS3231 at start-up and every 24 hours, TIME$ and DATE$ read from the internal clock, TIME$ =
       and DATE$ = setting both; OPTION DS3231 ON kept as it is, the two excluding each other. Also: the DS3231 timer copy
       runs every 100 hours (`Src/Timers.c:168`), probably meant hourly.
-- [ ] **RUN f$** with a variable or an expression (gap 2).
-- [ ] **MM.INFO keys**: LINE, AUTORUN on its own, CALLTABLE, MAX VARS, SYSTEM HEAP, OPTION AUDIO | WIDTH | HEIGHT |
+- [ ] **RUN f$** with a variable or an expression (gap 2). After the beta.
+- [ ] **MM.INFO keys** (after the beta): LINE, AUTORUN on its own, CALLTABLE, MAX VARS, SYSTEM HEAP, OPTION AUDIO | WIDTH | HEIGHT |
       KEYBOARD (gap 18).
-- [ ] **Line length**: found on 26 Oct, the CMM2 takes program lines up to 251 characters (248 from line 1000 on),
+- [ ] **Line length** (to be reviewed in more detail after the beta): found on 26 Oct, the CMM2 takes program lines up to 251 characters (248 from line 1000 on),
       the PicoMite up to 254: the file reader counts the CMM2's longer line marker. Leave, or lengthen the buffer?
-- [ ] **WATCHDOG HW**: decision deferred, as the STM32's watchdog cannot be stopped once started (OFF would have to be
+- [x] **WATCHDOG HW**: not needed (Peter, 27 Oct), as the STM32's watchdog cannot be stopped once started (OFF would have to be
       the firmware feeding it every millisecond).
 
 ## Deferred
@@ -154,7 +154,7 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
 - TRIANGLE SAVE / RESTORE (gap 11); BLIT MEMORY332 (gap 12).
 - The PicoMite's FRAMEBUFFER forms in the 8, 16 and 32-bit modes (gap 1).
 
-## Checks still wanting hardware (fixes made on 26 Oct)
+## Checks still wanting hardware (fixes made on 26 Oct; deferred to after the beta)
 - [ ] The Switch Pro Controller reports 135 in DEVICE(GAMEPAD n, T).
 - [ ] An IR remote left running into EDIT or FM.
 - [ ] EDIT: a held arrow stops when let go; a paste is kept whole; an import cut short by memory gives its count.
@@ -162,7 +162,7 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
 - [ ] OPTION RAM: a program too big for memory leaves no program.
 
 ## Before the release candidate
-- [ ] Release notes for the next beta: the stepper, GP names in every mode, SAVE PNG and Print Screen, the 64-bit
+- [x] Release notes for the next beta (7.00.00b4, 27 Oct): the stepper, GP names in every mode, SAVE PNG and Print Screen, the 64-bit
       GPIO masks, the behaviour fixes (and the full notes from 5.07.02); no repository references.
-- [ ] Stepper_Reference.pdf in the download with the manual and the binary.
+- [x] Stepper_Reference.pdf in the download with the manual and the binary.
 - [ ] The repository made public.

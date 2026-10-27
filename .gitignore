@@ -5,3 +5,5 @@ __pycache__/
 tests/*/*/rows.jsonl
 # The manual project's sources, made from Peter's files (docs/Manual_Plan.md)
 docs/manual/sources/
+# The game ports: under OPTION PICOMITE the PicoMite's own copies run unchanged (Peter, 27 Oct 2026); kept locally
+games/

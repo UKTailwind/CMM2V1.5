@@ -20,10 +20,6 @@ The CMM2 environment's changes, and only these:
     as the PicoMite compiles them out
   - Peter, 27 Oct: a touch monitor is enumerated once, as its multi-touch screen: its absolute pointer interface is not
     taken when its device has the multi-touch one (the PicoMite enumerates only that on this monitor, 27C0:0859)
-  - until the PicoMite fixes its issue #144 (skipped once its touch_publish has prev_id): the contacts kept in a stable
-    order by their IDs, as the issue proposes. 27C0:0859 puts a newly landed finger in its first slot, so contact 0
-    became the new finger (the on-screen keyboard's chords did nothing); a panel that keeps the order, or reports no
-    IDs, is unchanged
 """
 import os
 import re
@@ -40,6 +36,16 @@ def section(text, start, end, what, include_end=False):
     if b < 0:
         sys.exit('%s: end not found' % what)
     return text[a:b + (len(end) if include_end else 0)]
+
+
+def licence(text, what):
+    """the PicoMite source file's licence block (its first /*** ... ***/ comment): its clause 1 has the copyright notice
+    go with the code copied from it"""
+    a = text.find('/******')
+    b = text.find('*****/', a)
+    if a < 0 or b < 0 or 'Redistribution' not in text[a:b]:
+        sys.exit('%s: licence block not found' % what)
+    return text[a:b + 6] + '\n'
 
 
 def once(d, old, new, what):
@@ -80,26 +86,6 @@ variables = section(kb, '/* USB multi-touch -> generic "touch panel" integration
                     'volatile int16_t usb_touch_yn[MAX_TOUCH_CONTACTS] = {0};\n', 'variables', True)
 parser = section(kb, '/* ============================================================================\n * USB multi-touch HID — descriptor parser',
                  '/**\n * Print touch_info for debugging at enumeration.', 'parser')
-if 'prev_id' not in parser:
-    parser = once(parser, '\tusb_touch_last_us = time_us_64();\n\tif (out->count > 0 && out->contacts[0].tip)\n',
-                  '\tusb_touch_last_us = time_us_64();\n'
-                  '\t/* (the CMM2, until PicoMite #144: the contacts in a stable order, followed by their IDs. A panel that\n'
-                  '\t   puts a newly landed finger in its first slot (27C0:0859) made contact 0 the new finger; one that keeps\n'
-                  '\t   the order, or reports no IDs, is unchanged) */\n'
-                  '\t{\n'
-                  '\t\tstatic uint8_t prev_id[2] = {0xFF, 0xFF};\n'
-                  '\t\tfor (int p = 0; p < 2; p++)\n'
-                  '\t\t\tfor (int k = p + 1; k < out->count; k++)\n'
-                  '\t\t\t\tif (out->contacts[k].id == prev_id[p] && out->contacts[p].id != prev_id[p])\n'
-                  '\t\t\t\t{\n'
-                  '\t\t\t\t\ttouch_contact_t t = out->contacts[p];\n'
-                  '\t\t\t\t\tout->contacts[p] = out->contacts[k];\n'
-                  '\t\t\t\t\tout->contacts[k] = t;\n'
-                  '\t\t\t\t}\n'
-                  '\t\tprev_id[0] = out->count > 0 ? out->contacts[0].id : 0xFF;\n'
-                  '\t\tprev_id[1] = out->count > 1 ? out->contacts[1].id : 0xFF;\n'
-                  '\t}\n'
-                  '\tif (out->count > 0 && out->contacts[0].tip)\n', 'stable contact order (PicoMite #144)')
 dumps = section(kb, '#else /* !TOUCH_DEBUG — compile the dump calls out entirely */\n', '#endif /* TOUCH_DEBUG */', 'dumps')
 dumps = dumps.split('\n', 1)[1]
 reassembler = section(kb, '/**\n * Expected total length', "/* USB_TOUCH: a multi-touch screen's Device_type", 'reassembler')
@@ -206,6 +192,7 @@ void USBTouchReport(uint8_t dev_addr, uint8_t instance, uint8_t const *report, u
 
 ''' + gestures
 
-open(os.path.join(cmm2, 'Inc', 'USBTouch.h'), 'w', encoding='utf-8', newline='\n').write(h)
-open(os.path.join(cmm2, 'Src', 'USBTouch.c'), 'w', encoding='utf-8', newline='\n').write(c)
+lic = licence(kb, 'input/USBKeyboard.c')   # (the gestures, graphics/Pointer.c's, are under the same licence and holders)
+open(os.path.join(cmm2, 'Inc', 'USBTouch.h'), 'w', encoding='utf-8', newline='\n').write(lic + h)
+open(os.path.join(cmm2, 'Src', 'USBTouch.c'), 'w', encoding='utf-8', newline='\n').write(lic + c)
 print('Src/USBTouch.c %d lines, Inc/USBTouch.h %d lines' % (c.count('\n'), h.count('\n')))

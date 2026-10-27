@@ -1,8 +1,10 @@
-# Colour Maximite 2: MMBasic 7.00.00b3 (beta) release notes, from 5.07.02
+# Colour Maximite 2: MMBasic 7.00.00b4 (beta) release notes, from 5.07.02
 
-*23 October 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b2, have notes of their own.*
+*27 October 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b3, have notes of their own.*
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
+
+This beta adds USB touch screens, with the GUI controls, gestures and an on-screen keyboard, and the PicoMite's STEPPER command for stepper motors driven by G-code.
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
@@ -38,6 +40,13 @@ You can go back to an earlier firmware the same way, should you need to.
   - The PicoMite's SETPIN commands that give COM ports, I2C, SPI, PWM and IR their pins are accepted, checked as the PicoMite checks them.
   - MM.INFO(PINNO GPn) gives a name's pin, and MM.INFO(MAX GP) the PicoMite's highest GP.
   - PWM and SERVO take the PicoMite's arguments: PWM's fifth is its phase (centred pulses) and SERVO takes a position from -20 to 120.
+- MM.INFO(CPUSPEED) is a string.
+- KEYDOWN's shifted function keys add &H40.
+- LOAD PNG's fourth argument is the alpha cut-off.
+- GETSCANLINE counts from the first visible line.
+- MM.INFO(KEYBOARD) reports the on-screen keyboard ("On" or "Off").
+- With no resolution given, OPTION PICOMITE uses OPTION DEFAULT MODE's, and OPTION LIST shows the PicoMite's resolution and mode.
+- Enter is a carriage return alone, as on the PicoMite.
 - The manual's Running PicoMite Programs (in Video Modes and Pages) and PicoMite Pin Names (in Using the I/O Pins) have the details.
 
 ### The language
@@ -162,6 +171,81 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 
 FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_flac (with their fixes for damaged files), cJSON 1.7.19, and ST's STM32H7 drivers 1.11.6.
 
+### USB touch screens
+
+- **Connecting one:** a USB touch screen is recognised as soon as it is plugged in, as on the PicoMite. It can be a touch monitor, or a touch panel with a USB controller.
+  - Touch screens made for Windows work.
+  - A multi-touch screen reports up to ten fingers, and a single-touch one works as a pointer.
+  - It is given channel 4, and MM.INFO(USB n) returns 133 for a multi-touch screen and 134 for a single-touch one.
+- **The TOUCH() function** reads it, as on the PicoMite:
+  - where the fingers are: X, Y, X2, Y2, and XN n and YN n (XN 0 gives how many fingers are down);
+  - whether the screen is touched: DOWN and UP;
+  - the GUI's REF, LASTREF, LASTX and LASTY;
+  - the gestures: the swipes (SWL, SWR, SWU, SWD and SWIPE), TAP, DTAP, HOLD, a pinch (EXPAND, CONTRACT and PINCH), a twist (CW, CCW and ROTATE) and a two-finger tap (TTAP).
+- **The GUI controls** respond to a touch as they do to a mouse click. GUI TEST TOUCH draws a dot wherever the screen is touched, and GUI TEST LCDPANEL draws circles and reports how many a second.
+- **The full screen editor:** a swipe left, right, down or up is Home, End, Page Down or Page Up, and a tap moves the cursor there.
+- **The WCH touch controller:** some monitors use the WingCoolTouch/WCH controller (USB ID 27C0:0859), such as the Corsair Xeneon Edge and the Verbatim HD14T. It gives its multi-touch reports only to a computer it takes for a Windows one. MMBasic now reads it as Windows does, so all ten fingers are seen.
+
+### The on-screen keyboard
+
+- **OPTION SCREEN KEYBOARD n [, M]** shows a keyboard on a touch screen, as on the PicoMite.
+  - ‘n’ is the percentage of the screen's height it takes, from 0 to 50; 30 is a good size.
+  - It types at the command prompt and in the editor and the file manager, and for INKEY$ and INPUT.
+  - It has letter, symbol and function-key pages, and arrow keys.
+- **Its modifier keys:** without M, Sh, Ctl, Sym and Fn latch for the next key. With M they are held: hold Sh with one finger and tap a key with another.
+- **When it is shown:** automatically at the command prompt and in the editor and file manager, with the status line just above it. While a program runs it is removed. A program shows it with KEYBOARD ON and removes it with KEYBOARD OFF.
+- It is not available in MODE n,1.
+
+### The mouse, GUI CURSOR and GUI CLICK
+
+- **GUI CURSOR** works as on the PicoMite:
+  - GUI CURSOR x, y sets the cursor's point even while it is off or hidden, and GUI CLICK presses there.
+  - GUI CURSOR ON with new arguments changes the shape, point or colour while the cursor is already on.
+  - GUI CURSOR COLOUR is kept while the cursor is off.
+  - GUI CURSOR LINK MOUSE moves the mouse to the cursor.
+  - GUI CURSOR LOAD makes the loaded cursor the current one at once.
+- **The GUI controls' pointer:** it is shown while a mouse is plugged in, as if the program had used GUI CURSOR ON and GUI CURSOR LINK MOUSE. So GUI CURSOR's commands work on it.
+- **GUI CLICK** presses at the cursor's point and moves the mouse there.
+- **CLICK()** is the PicoMite's: DOWN, UP, X, Y, REF, LASTREF, LASTX and LASTY, for a mouse, GUI CLICK or GUI CLICK PIN.
+
+### STEPPER
+
+- **The PicoMite's STEPPER command** drives up to three stepper motor axes (X, Y and Z) and a rotary A axis from G-code: acceleration planning, arcs, corner blending, homing, limit switches and an emergency stop.
+- **TMC2209 and TMC2208 drivers** can be set up and read over a serial line (the TMC22xx command).
+- PEEK(STEPPER ...) and MM.CODE report its state.
+- **It is described in full in Stepper_Reference.pdf,** posted with this release.
+
+### Screen captures
+
+- **SAVE PNG** saves the screen as a PNG file.
+- **Print Screen and Ctrl-\\** save the screen as A:/SCREEN_date_time.PNG at the command prompt and in the editor and file manager.
+- In a running program they are ordinary keys unless the program sets OPTION PRINTSCREEN ON. OPTION PRINTSCREEN FORMAT PNG | BMP chooses the file type.
+- In MODE n,4 a capture saves the colours shown, after MAP and MAP SET.
+
+### The I/O pins
+
+- **The PicoMite's pin names** (GP0 and up) work in every mode, not only with OPTION PICOMITE.
+- **The PicoMite's 64-bit GPIO masks** work on GP numbers, and PORT and PORT() go through them.
+- **BITSTREAM** takes the PicoMite's fourth argument (its mode) and its two-pin form.
+- **DEVICE SERIALRX and DEVICE SERIALTX** are serial ports on any pins.
+- **SETPIN pin, ARAW** takes a single raw reading.
+
+### The PicoMite's other commands, functions and options
+
+- BLIT COMPRESSED, BLIT RESIZE, SAVE COMPRESSED IMAGE and AUTOSAVE APPEND.
+- LIST VARIABLES, LIST OPTIONS, LIST PINS and LIST COLLISIONS.
+- PEEK(BP var), PEEK(WP var) and PEEK(SP var), which step through memory.
+- MM.USB (the last USB key's code), MM.DISPLAY, MM.INFO$(PLATFORM) ("CMM2") and MM.INFO$(USBDRIVE).
+- MM.INFO(RESET) names a brown-out, and MM.INFO(BOOT) is another name for it.
+- CPU SLEEP s.
+- **Options:**
+  - OPTION DEFAULT COLOURS fc [, bc];
+  - OPTION KEYBOARD nn [, capslock] [, numlock] [, repeatstart] [, repeatrate];
+  - OPTION F1 and OPTION F5 to F9;
+  - OPTION LOGGING ON | OFF, which appends each error to A:/log.txt;
+  - OPTION AUTORUN n [, NORESET], which runs program slot n at power-up.
+- **Mode 18** (1024x600) uses the PicoMite's 1024x600 timing.
+
 ## What behaves differently
 
 - FILES lists the files, as LIST FILES does; FM is the file manager.
@@ -199,6 +283,13 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - OPTION PROFILING in a program is accepted and does nothing (it saved the option and restarted the computer). At the prompt it is still the line profiler.
 - An empty duty cycle or pulse width in PWM or SERVO (eg, PWM 1, 1000, , 50) leaves that output as it is.
 - A minus sign in front of a value now applies after a power that follows it, as in mathematics and most languages: -2^2 is -4 (it was 4), and -X^2 is -(X^2). Write (-2)^2 for the old result.
+- **GUI CURSOR's errors:** SHOW, UNLINK MOUSE, and x, y with the cursor off no longer give an error. LINK MOUSE gives "No mouse connected" when there is no mouse.
+- **RBOX's radius** is limited to half the shorter side, and a filled box keeps its whole outline.
+- **Running out of memory** gives "Not enough memory for n bytes".
+- **The MATH complex functions and the FFTs** with one argument give "Argument count".
+- **MsgBox** cannot be opened by a click from GUI CLICK or GUI CLICK PIN. Nothing could move the pointer to its buttons, so it gives an error instead of waiting.
+- **Interrupt events** that happened before their interrupt was set up are no longer reported to it: Nunchuk and Classic buttons, mouse buttons and the frame interrupt.
+- **The DS3231 clock** is copied to the internal clock every hour; before, it was every 100 hours.
 
 ## Fixed from 5.07.02
 
@@ -242,6 +333,8 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - RUN resets MM.ERRNO, and MM.INFO$(RESET) has no CR LF.
   - CONTINUE after Ctrl-C or an error inside a SUB lost the SUB's local variables, and its END SUB then cleared every variable.
   - GOSUB to a label or line that does not exist left a return behind it.
+- RESTORE of a name that is both a label and a variable goes to the label.
+- A DIM that ran out of memory still counted the variable in MM.INFO(VARCNT).
 
 ### Strings, numbers and MATH
 
@@ -260,6 +353,8 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - AES128 and BASE64 could overrun a short string.
   - The complex functions and FFT check their arguments.
   - CRC8 and CRC32 apply the endmask after reverseOut.
+- LONGSTRING MID with a very large count is cut to the string.
+- MATH(C_DIV) is accurate to the last digit.
 
 ### Graphics
 
@@ -282,6 +377,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - DRAW3D CLOSE ALL, LIGHT, SET FLAGS and RESET.
 - The VGA picture jittered on some monitors and through video capture devices, most in mode 11 (1280 x 720).
 - Sound stopped while LOAD BMP decoded a large image.
+- DRAW3D: HIDE after a hidden object, each face's lighting, CREATE's checks of the faces, and the argument counts.
 
 ### Sprites
 
@@ -362,12 +458,14 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 ## Not there yet
 
-- The PicoMite's FRAMEBUFFER layers in the 8 and 16-bit colour depths (the PicoMite's MODE 4 and 5); they work in the 4-bit and 1-bit depths.
-- With OPTION PICOMITE: MM.INFO(CPUSPEED) as a string, RUN with a variable, KEYDOWN's shifted function keys and GETSCANLINE's scaling.
-- BITSTREAM's two-pin form, DEVICE SERIALRX and SERIALTX, ONESHOT and I2C SLAVE.
-- The PicoMite's ADC command.
+- The PicoMite's FRAMEBUFFER layers in the 8, 16 and 32-bit colour depths.
+- GETSCANLINE in the 4-bit doubled modes counting as the PicoMite does.
+- OPTION AUTORUN's NORESET as the PicoMite has it, and OPTION RTC AUTO.
+- RUN with a variable or an expression.
+- Some MM.INFO keys: LINE, AUTORUN, CALLTABLE, MAX VARS, SYSTEM HEAP, and OPTION AUDIO, WIDTH, HEIGHT and KEYBOARD.
+- ONESHOT, ADC RUN, TRIANGLE SAVE and RESTORE, and BLIT MEMORY332.
 
-The PicoMite's FRAME command, YMODEM and OPTION DISK SAVE/LOAD are not planned for the Colour Maximite 2.
+The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PERSISTENT, OPTION CONTINUATION LINES, MANDELBROT and WATCHDOG HW are not planned for the Colour Maximite 2.
 
 ## Not yet tested with real hardware
 
@@ -376,16 +474,27 @@ The PicoMite's FRAME command, YMODEM and OPTION DISK SAVE/LOAD are not planned f
 - CAN on a bus (sending and receiving are tested in the internal loop back).
 - PWM and SERVO with an instrument (their timers are checked by reading them back).
 - The ADC.
-- The serial ports COM1 to COM3.
+- The serial ports COM1 to COM3, and DEVICE SERIALRX and SERIALTX.
 - RTC calibration.
 - The COUNT, ADC, DAC and IR interrupts.
-- Xbox controllers.
+- STEPPER with motors (its timing and pins are tested on the loop-back wiring).
+- The Switch Pro Controller, Xbox controllers, and an IR remote left running into the editor or the file manager.
+- More USB devices than the USB host's endpoint table holds.
 
 ## Known problems
 
+- A touch monitor that is also the Colour Maximite 2's display may reset its touch controller when the screen's resolution changes (MODE). Touches are not seen for a moment while it reconnects.
 - An armed interrupt pin slows the program down, because the pin is polled after every statement.
 - The keyboard layout list names IT, but it cannot be selected.
 
 ## The manual
 
 The Colour Maximite 2 User Manual for this release is posted with it. Its chapters and its reference sections (the commands, functions, options and read-only variables) have been checked against this firmware. Appendix N lists where each keyword is described.
+
+This beta's manual also describes:
+
+- the touch screens and the on-screen keyboard, in the chapter Keyboard, Mouse and Gamepad;
+- TOUCH(), CLICK(), GUI CURSOR, GUI CLICK, GUI TEST, KEYBOARD and OPTION SCREEN KEYBOARD, in the reference sections;
+- the editor's swipes and taps, in the chapter Full Screen Editor.
+
+STEPPER is described in Stepper_Reference.pdf, posted with the manual.

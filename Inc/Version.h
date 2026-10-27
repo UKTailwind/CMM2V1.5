@@ -42,7 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //#define DEBUGMODE
 
-#define VERSION         "7.00.00b3"
+#define VERSION         "7.00.00b4"
 #define MES_SIGNON400  "400MHz Colour Maximite 2\r\n"
 #define MES_SIGNON480  "480MHz Colour Maximite 2\r\n"
 #define MES_SIGNON504  "504MHz Colour Maximite 2\r\n"

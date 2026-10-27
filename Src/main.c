@@ -3236,6 +3236,8 @@ void routinechecks(int all){
 		SleepCheck();
 		if(all){
 			CheckSDCard();
+			extern volatile int CopyClockDue;
+			if(CopyClockDue){ CopyClockDue = 0; copy_clock(); }      // (the hour's DS3231 copy, between statements: Timers.c)
 			if(Option.MaxCtrls || osk_state)ProcessTouch();          // (the on-screen keyboard's taps too: OSK.c)
 			if(GPSchannel)processgps();
 		}

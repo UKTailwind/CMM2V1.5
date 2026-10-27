@@ -15,8 +15,6 @@ The CMM2 environment's changes, and only these:
     MODE 1 (DISPLAY_TYPE == SCREENMODE1) is the CMM2's MODE n,1 (VideoColour 1)
   - GUI.c's SpecialDrawRBox, SpecialPrintString and CLICK_DURATION are declared here
   - Peter, 27 Oct 2026: no keyboard in MODE n,1 (GUI controls don't really work there): its strip is restored as 0
-  - until the PicoMite fixes its issue #143: KEYBOARD ON's error names OPTION SCREEN KEYBOARD, not the OPTION SCREEN
-    OFFSET that does not exist
 OptionVResreserved, the strip's runtime height, is the CMM2's Draw.c's, as the PicoMite's is its Draw.c's.
 """
 import os
@@ -33,6 +31,16 @@ def section(text, start, end, what, include_end=False):
     if b < 0:
         sys.exit('%s: end not found' % what)
     return text[a:b + (len(end) if include_end else 0)]
+
+
+def licence(text, what):
+    """the PicoMite source file's licence block (its first /*** ... ***/ comment): its clause 1 has the copyright notice
+    go with the code copied from it"""
+    a = text.find('/******')
+    b = text.find('*****/', a)
+    if a < 0 or b < 0 or 'Redistribution' not in text[a:b]:
+        sys.exit('%s: licence block not found' % what)
+    return text[a:b + 6] + '\n'
 
 
 def once(d, old, new, what):
@@ -68,8 +76,6 @@ osk = every(osk, '    CursorSuspend = false;\n', '    OSK_CursorBack();\n', 'cur
 osk = every(osk, '    if (Option.Refresh)\n        Display_Refresh();\n', '', 'refresh', 2)
 osk = once(osk, '        ScrollLCD(scroll_amount);', '        ScrollLCD(scroll_amount, 1);', 'scroll')
 osk = once(osk, 'DISPLAY_TYPE == SCREENMODE1 ? 0 : gui_bcolour', 'VideoColour == 1 ? 0 : gui_bcolour', 'mode 1')
-if 'Set OPTION SCREEN OFFSET first' in osk:
-    osk = once(osk, 'Set OPTION SCREEN OFFSET first', 'Set OPTION SCREEN KEYBOARD first', 'PicoMite #143')
 osk = once(osk, '    OptionVResreserved = Option.VRes_reserved;\n    OSK_RefreshOptionHeight();',
            '    OptionVResreserved = VideoColour == 1 ? 0 : Option.VRes_reserved; /* (none in MODE n,1: Peter) */\n'
            '    OSK_RefreshOptionHeight();', 'no keyboard in MODE n,1')
@@ -122,6 +128,7 @@ static void OSK_CursorBack(void)
 
 ''' + osk
 
-open(os.path.join(cmm2, 'Inc', 'OSK.h'), 'w', encoding='utf-8', newline='\n').write(h)
-open(os.path.join(cmm2, 'Src', 'OSK.c'), 'w', encoding='utf-8', newline='\n').write(c)
+lic = licence(gui, 'graphics/GUI.c')
+open(os.path.join(cmm2, 'Inc', 'OSK.h'), 'w', encoding='utf-8', newline='\n').write(lic + h)
+open(os.path.join(cmm2, 'Src', 'OSK.c'), 'w', encoding='utf-8', newline='\n').write(lic + c)
 print('Src/OSK.c %d lines, Inc/OSK.h %d lines' % (c.count('\n'), h.count('\n')))

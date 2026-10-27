@@ -28,6 +28,7 @@ On Error Skip 1 : Option Screen Keyboard 10, M
 CheckS "OPTION SCREEN KEYBOARD 10, M accepted", MM.ErrMsg$, ""
 On Error Skip 1 : Option Screen Keyboard 60
 CheckS "  60 rows: an error", MM.ErrMsg$, "60 is invalid (valid is 0 to 50)"
+Option Screen Keyboard 0                ' (off again: the other tests expect no keyboard, Peter 27 Oct 2026)
 
 Option Autorun 2
 CheckS "OPTION AUTORUN 2: MM.INFO(OPTION AUTORUN)", MM.Info(Option Autorun), "2"

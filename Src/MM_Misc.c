@@ -2471,7 +2471,10 @@ void cmd_option(void) {
 		getargs(&tp, 3, ",");
 		if(argc < 1) error("Argument count");
         Option.VRes_reserved = getint(argv[0], 0, 50);
-        OptionVResreserved = VideoColour == 1 ? 0 : Option.VRes_reserved;   // (none in MODE n,1: Peter, 27 Oct 2026)
+        if(!CurrentLinePtr) {                                       // at the prompt the strip at once (none in MODE n,1: Peter, 27
+            OptionVResreserved = VideoColour == 1 ? 0 : Option.VRes_reserved;   // Oct 2026), and the console's rows; in a
+            if(gui_font) SetFont(gui_font);                         // program the keyboard and its strip come with KEYBOARD ON
+        }
         Option.Multi = 0;
         if (argc == 3 && toupper(*argv[2]) == 'M')
             Option.Multi = true;

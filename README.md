@@ -92,3 +92,17 @@ The VS Code task **Flash (ST-Link)** runs the same command.
 | [docs/PicoMite_Parity_Audit_and_Plan.md](docs/PicoMite_Parity_Audit_and_Plan.md) | The plan, and where it stands (section 7.1). |
 | [docs/Notes_for_Gerry_b14.md](docs/Notes_for_Gerry_b14.md) | How 6.00.00b14 compared with this tree, and the plan for merging it. The merge is done (P1 step 8 in the plan). |
 | [docs/Gerry_b14_Review_and_Merge_Plan.md](docs/Gerry_b14_Review_and_Merge_Plan.md) | The full review of b14 that the merge followed. |
+
+## Licence
+
+MMBasic for the Colour Maximite 2 is distributed under the licence in [LICENSE](LICENSE), the one at the head of every
+MMBasic source file (Geoff Graham, Peter Mather and Gerry Allardice). The code brought across from the PicoMite keeps
+the PicoMite's licence block, which has the same terms. The third-party components keep their own licences:
+
+| Component | Licence |
+|---|---|
+| STM32H7 HAL (`Drivers/STM32H7xx_HAL_Driver`) | BSD-3-Clause, [LICENSE.md](Drivers/STM32H7xx_HAL_Driver/LICENSE.md) |
+| CMSIS (`Drivers/CMSIS`) | Apache-2.0, [LICENSE.txt](Drivers/CMSIS/LICENSE.txt) and [the device files' LICENSE.md](Drivers/CMSIS/Device/ST/STM32H7xx/LICENSE.md) |
+| STMicroelectronics' generated sources | SLA0044, as LICENSE and their headers state |
+| TinyUSB (`Middlewares/Third_Party/tinyusb`) | MIT, [LICENSE](Middlewares/Third_Party/tinyusb/LICENSE) |
+| FatFs (`Src/ff.c` and its files) | ChaN's FatFs licence, in its source files |

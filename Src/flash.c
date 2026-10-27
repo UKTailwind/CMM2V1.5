@@ -528,10 +528,12 @@ void LoadOptions(void) {
         Option.VRes_reserved = Option.Multi = 0;
         Option.layout = OPTION_LAYOUT;
     }
-    OptionVResreserved = VideoColour == 1 ? 0 : Option.VRes_reserved;   // the on-screen keyboard's strip (the PicoMite's FileIO.c;
-                                                                    // none in MODE n,1):
-    if (OSK_IsUserDisabled())                                       // KEYBOARD OFF at the prompt keeps it off across the reloads
-        OptionVResreserved = 0;                                     // an error or a soft reset makes
+    // (the on-screen keyboard's strip, OptionVResreserved, is not set here as the PicoMite's LoadOptions sets it: the
+    // CMM2 reloads the options at OPTION LIST, NEW, an error and the prompt, which brought the strip back inside a
+    // running program. The keyboard keeps it: the prompt reserves it, RUN gives it up, KEYBOARD ON takes it: OSK.c)
+    if((OptionConsole & 2) && gui_font_height > 0 && PageTable[WritePage].ymax > 0)
+        Option.Height = ConsoleVRes() / gui_font_height;            // the console on the screen: its rows now (SetFont's), not as
+                                                                    // saved, which may be with the on-screen keyboard's strip
 }
 
 

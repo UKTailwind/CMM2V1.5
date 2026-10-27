@@ -1,3 +1,27 @@
+/***********************************************************************************************************************
+PicoMite MMBasic
+
+USBKeyboard.c
+
+<COPYRIGHT HOLDERS>  Geoff Graham, Peter Mather
+Copyright (c) 2021, <COPYRIGHT HOLDERS> All rights reserved.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+1.	Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+2.	Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer
+	in the documentation and/or other materials provided with the distribution.
+3.	The name MMBasic be used when referring to the interpreter in any documentation and promotional material and the original copyright message be displayed
+	on the console at startup (additional copyright messages may be added).
+4.	All advertising materials mentioning features or use of this software must display the following acknowledgement: This product includes software developed
+	by the <copyright holder>.
+5.	Neither the name of the <copyright holder> nor the names of its contributors may be used to endorse or promote products derived from this software
+	without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY <COPYRIGHT HOLDERS> AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDERS> BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+************************************************************************************************************************/
 /* USBTouch.c - the PicoMite's USB touch screen (input/USBKeyboard.c, graphics/Pointer.c's gestures), copied by
    tools/port_usbtouch.py: do not edit, run it again. What the CMM2 changes is listed there. */
 #include "MMBasic_Includes.h"
@@ -453,9 +477,13 @@ static void touch_publish(touch_report_t *out)
 	   Stamp the timestamp on EVERY report (including count=0 releases) so
 	   the watchdog only fires when reports actually stop arriving. */
 	usb_touch_last_us = time_us_64();
-	/* (the CMM2, until PicoMite #144: the contacts in a stable order, followed by their IDs. A panel that
-	   puts a newly landed finger in its first slot (27C0:0859) made contact 0 the new finger; one that keeps
-	   the order, or reports no IDs, is unchanged) */
+	/* Keep contacts 0 and 1 on the same fingers while they stay down (issue
+	   #144). The contacts arrive in the panel's slot order, and some panels
+	   (WingCoolTouch/WCH 27C0:0859) put a newly landed finger in the first
+	   slot, so contact 0 jumped to it. A finger that was contact 0 or 1 in the
+	   last report is moved back to its place by its contact ID; new fingers
+	   fill the places left. With no Contact ID field every id is 0 and the
+	   slot order is kept. */
 	{
 		static uint8_t prev_id[2] = {0xFF, 0xFF};
 		for (int p = 0; p < 2; p++)

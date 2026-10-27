@@ -296,7 +296,7 @@ The PicoMite's: the code of the last key pressed on a USB keyboard, its HID usag
 
 === MM.VER
 --- keep
-The version number of the firmware as a floating point number in the form aa.bbccdd, where aa is the major version number, bb the minor version number, cc the revision number and dd the beta number (none for a release).  For example version 6.03.01 returns 6.0301 and version 7.00.00b3 returns 7.000003.  A release candidate's dd is its number plus 50 (6.04.00RC1 returns 6.040051), so it is above every beta of the same version.
+The version number of the firmware as a floating point number in the form aa.bbccdd, where aa is the major version number, bb the minor version number, cc the revision number and dd the beta number (none for a release).  For example version 6.03.01 returns 6.0301 and version 7.00.00b4 returns 7.000004.  A release candidate's dd is its number plus 50 (6.04.00RC1 returns 6.040051), so it is above every beta of the same version.
 
 === MM.WATCHDOG
 --- keep

@@ -95,6 +95,7 @@ volatile unsigned int AHRSTimer = 0;
 volatile int keytimer=0;
 volatile int DoTouch=0;
 volatile int TOUCH_DOWN=0;
+volatile int CopyClockDue = 0;                                      // the hour's DS3231 copy, for routinechecks (main.c)
 const char DaysInMonth[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 unsigned char PulsePin[NBR_PULSE_SLOTS];
 int PulseCnt[NBR_PULSE_SLOTS];
@@ -165,7 +166,8 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 		if(Timer1)Timer1--;
 		if(GUIactive)GUITimer1++;
 		if(GifTimer)GifTimer--;
-		if((mSecTimer % 360000000) == 2000)copy_clock();
+		if((mSecTimer % 3600000) == 2000)CopyClockDue = 1;            // the DS3231's time copied in hourly (it was every 100 hours),
+		                                                                // by routinechecks: an I2C read here could fall inside a program's
 		if(classic3){
 			if(nunTimer % 20 ==0){
 				HAL_I2C_Master_Transmit_IT(&hi2c2, (uint16_t)nunaddr,  (uint8_t*)readcontroller, 1);
