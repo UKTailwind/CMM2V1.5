@@ -1,10 +1,10 @@
-# Colour Maximite 2: MMBasic 7.00.00b4 (beta) release notes, from 5.07.02
+# Colour Maximite 2: MMBasic 7.00.00b5 (beta) release notes, from 5.07.02
 
-*27 October 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b3, have notes of their own.*
+*1 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b4, have notes of their own.*
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
-This beta adds USB touch screens, with the GUI controls, gestures and an on-screen keyboard, and the PicoMite's STEPPER command for stepper motors driven by G-code.
+The fourth beta added USB touch screens, with the GUI controls, gestures and an on-screen keyboard, and the PicoMite's STEPPER command for stepper motors driven by G-code. This beta comes from running published Colour Maximite 2 programs (Wolf3D, Gauntlet, Into the Darkness, Z-MIM, NOMIS, BoxDot, Cuno, the Welcome Tape and SP Tools), and fixes the problems they found.
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
@@ -43,7 +43,9 @@ You can go back to an earlier firmware the same way, should you need to.
 - MM.INFO(CPUSPEED) is a string.
 - KEYDOWN's shifted function keys add &H40.
 - LOAD PNG's fourth argument is the alpha cut-off.
-- GETSCANLINE counts from the first visible line.
+- GETSCANLINE counts from the first visible line, and in the doubled modes it counts the monitor's lines.
+- MM.INFO(SOUND) gives the PicoMite's strings ("MOD", "PAUSED WAV" and so on), and MM.INFO(OPTION AUDIO) is "PWM".
+- MM.INFO(FONTHEIGHT) of font 7 is 8, its characters' height (10, its line spacing, without OPTION PICOMITE).
 - MM.INFO(KEYBOARD) reports the on-screen keyboard ("On" or "Off").
 - With no resolution given, OPTION PICOMITE uses OPTION DEFAULT MODE's, and OPTION LIST shows the PicoMite's resolution and mode.
 - Enter is a carriage return alone, as on the PicoMite.
@@ -53,7 +55,7 @@ You can go back to an earlier firmware the same way, should you need to.
 
 - **Structures**: TYPE ... END TYPE, structure variables and arrays, members in every form (`p.x`, `pts(i).corner(2).y`), structures as parameters and FUNCTION results, initial values in DIM, the STRUCT command and STRUCT() function, and LIST TYPE.
 - **Arrays**: single element arrays (DIM a(0)), REDIM [PRESERVE], whole-array assignment `a() = b()`, FUNCTIONs that return an array, the ARRAY commands, and a member of every element of a structure array (`BOX b().x, b().y, ...`) in the graphics commands and MATH.
-- **Program structure**: LIBRARY (a library of SUBs and FUNCTIONs in flash or RAM), CHAIN (run another program, keeping the global variables), SAVE CONTEXT and LOAD CONTEXT, `/* */` block comments, and up to 1024 global variables.
+- **Program structure**: LIBRARY (a library of SUBs and FUNCTIONs in flash or RAM), CHAIN (run another program, keeping the global variables), SAVE CONTEXT and LOAD CONTEXT, `/* */` block comments, up to 1024 global variables, and RUN with a string expression for the program's name (RUN f$).
 - **Errors and endings**: MM.ERRLINE, ON ERROR RESTART, SUB MM.END (run when the program ends), END NOEND and END cmd$.
 - **Strings and bits**: MID$ insertion (`MID$(s$, n, 0) = x$`) and replacements of another length, LMID and LINPUT( for long strings, and BIT, BYTE and FLAG with FLAGS and MM.FLAGS.
 - **MATH** is the PicoMite's complete command and function, with CLAMP, SINC and the reworked CROSSING and SENSORFUSION, on integer, float and string arrays.
@@ -85,7 +87,7 @@ CSUBs built for the PicoMite run unaltered when they use only its call table. Th
 - **ZMODEM SEND and ZMODEM RECEIVE** transfer files over the serial console, faster than XMODEM.
 - **HELP** reads A:/help.txt when the card has one.
 - **OPTION F15, F16, F19 and F20** set strings for Shift-F3, F4, F7 and F8; Shift-F5 clears the screen and Shift-F6 sets up the terminal.
-- **Print Screen** saves the screen as A:/SCREENnnn.BMP, at the prompt, in the editor and in FM.
+- **Print Screen** saves the screen at the prompt, in the editor and in FM (see Screen captures, below).
 
 ### USB
 
@@ -135,6 +137,7 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 - PLAY ARRAY, PLAY SAMPLE (with envelopes), PLAY RELEASE and PLAY LOAD SOUND.
 - BBC Micro sound: PLAY BBC SOUND and PLAY BBC ENVELOPE.
 - PLAY MODFILE can play once and call an interrupt at its end, and PLAY EFFECT has its own interrupt.
+- MM.INFO(SOUND) also reports ARRAY, SAMPLE and BBC sound.
 - Volume changes, stops and pauses are smooth (no clicks), and PLAY SOUND's square and sawtooth are band-limited.
 
 ### Communications and I/O
@@ -207,6 +210,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - **The GUI controls' pointer:** it is shown while a mouse is plugged in, as if the program had used GUI CURSOR ON and GUI CURSOR LINK MOUSE. So GUI CURSOR's commands work on it.
 - **GUI CLICK** presses at the cursor's point and moves the mouse there.
 - **CLICK()** is the PicoMite's: DOWN, UP, X, Y, REF, LASTREF, LASTX and LASTY, for a mouse, GUI CLICK or GUI CLICK PIN.
+- **MM.MOUSE** gives the channel of the mouse to use: 2 for a USB mouse, otherwise a mouse already open or the channel set with OPTION MOUSE, and -1 if there is none. DEVICE(MOUSE n, ...), MOUSE INTERRUPT and MOUSE SET take any channel from 0 to 4 and act on the mouse in use.
 
 ### STEPPER
 
@@ -220,7 +224,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - **SAVE PNG** saves the screen as a PNG file.
 - **Print Screen and Ctrl-\\** save the screen as A:/SCREEN_date_time.PNG at the command prompt and in the editor and file manager.
 - In a running program they are ordinary keys unless the program sets OPTION PRINTSCREEN ON. OPTION PRINTSCREEN FORMAT PNG | BMP chooses the file type.
-- In MODE n,4 a capture saves the colours shown, after MAP and MAP SET.
+- A capture saves the screen as it is shown: the page on display, and in the 12-bit depth both layers over the background colour. In MODE n,4 it saves the colours shown, after MAP and MAP SET.
 
 ### The I/O pins
 
@@ -237,6 +241,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - PEEK(BP var), PEEK(WP var) and PEEK(SP var), which step through memory.
 - MM.USB (the last USB key's code), MM.DISPLAY, MM.INFO$(PLATFORM) ("CMM2") and MM.INFO$(USBDRIVE).
 - MM.INFO(RESET) names a brown-out, and MM.INFO(BOOT) is another name for it.
+- MM.INFO(LINE), MM.INFO(CALLTABLE), MM.INFO(MAX VARS), MM.INFO(SYSTEM HEAP), and MM.INFO(OPTION WIDTH), (OPTION HEIGHT), (OPTION AUDIO) and (OPTION KEYBOARD).
 - CPU SLEEP s.
 - **Options:**
   - OPTION DEFAULT COLOURS fc [, bc];
@@ -276,10 +281,11 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
   - SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 - One mouse is used at a time.
-- MM.VER is 7.000003.
+- MM.VER is 7.000005.
 - Modes 1 and 13 are 800 x 600 at 75Hz (they were 60Hz), and most modes' pixel clocks moved by up to 0.42%.
 - In the 16 and 32-bit colour depths full white is 7/8 of the old level (3/4 with OPTION VGA OUTPUT LOW), as in the 8-bit depth.
-- STAR, ASTRO, LOCATION and SLEW are keywords, and cannot be names of variables.
+- A variable can have the name of a command, so a program that used a name before it became a command (FLASH, STAR, LOCATION) runs as it did: at the start of a statement, `name = value` (or `name$`, `name%` or `name!`) assigns to the variable. The exceptions are TIMER, TIME$, DATE$, FLAGS and CASE, where `NAME =` is the command itself, and REM, RUN and DATA. An array cannot have a command's name, and a name that is also a keyword or a function (FOR, GOTO, SIN) is still not allowed.
+- A mode change puts the mouse, and the GUI cursor's position, at the centre of the new screen. An I2C mouse is told the new screen's size.
 - OPTION PROFILING in a program is accepted and does nothing (it saved the option and restarted the computer). At the prompt it is still the line profiler.
 - An empty duty cycle or pulse width in PWM or SERVO (eg, PWM 1, 1000, , 50) leaves that output as it is.
 - A minus sign in front of a value now applies after a power that follows it, as in mathematics and most languages: -2^2 is -4 (it was 4), and -X^2 is -(X^2). Write (-2)^2 for the old result.
@@ -455,14 +461,13 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 - EDIT stopped with "Mouse not connected" when the mouse that OPTION MOUSE names was not plugged in; it now works without the mouse.
 - AUTORUN of a program without END did not tidy up after it.
 - With OPTION FLASH 6, loading a program of more than 128 KB erased the saved options (and more than 256 KB with OPTION FLASH 5).
+- A Ctrl-C that arrived while the computer restarted in a new video mode (after OPTION DEFAULT MODE, for example) could leave it hung, with no display and no console.
 
 ## Not there yet
 
 - The PicoMite's FRAMEBUFFER layers in the 8, 16 and 32-bit colour depths.
-- GETSCANLINE in the 4-bit doubled modes counting as the PicoMite does.
 - OPTION AUTORUN's NORESET as the PicoMite has it, and OPTION RTC AUTO.
-- RUN with a variable or an expression.
-- Some MM.INFO keys: LINE, AUTORUN, CALLTABLE, MAX VARS, SYSTEM HEAP, and OPTION AUDIO, WIDTH, HEIGHT and KEYBOARD.
+- MM.INFO(AUTORUN), the PicoMite's, on its own (MM.INFO(OPTION AUTORUN) is there).
 - ONESHOT, ADC RUN, TRIANGLE SAVE and RESTORE, and BLIT MEMORY332.
 
 The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PERSISTENT, OPTION CONTINUATION LINES, MANDELBROT and WATCHDOG HW are not planned for the Colour Maximite 2.
@@ -495,6 +500,9 @@ This beta's manual also describes:
 
 - the touch screens and the on-screen keyboard, in the chapter Keyboard, Mouse and Gamepad;
 - TOUCH(), CLICK(), GUI CURSOR, GUI CLICK, GUI TEST, KEYBOARD and OPTION SCREEN KEYBOARD, in the reference sections;
-- the editor's swipes and taps, in the chapter Full Screen Editor.
+- the editor's swipes and taps, in the chapter Full Screen Editor;
+- RUN with a string expression, MM.MOUSE and the new MM.INFO keys, in the reference sections;
+- variables with a command's name, in the chapters Variables and Expressions and MMBasic Characteristics;
+- MM.MOUSE and the mouse's centring on a mode change, in the chapter Keyboard, Mouse and Gamepad.
 
 STEPPER is described in Stepper_Reference.pdf, posted with the manual.

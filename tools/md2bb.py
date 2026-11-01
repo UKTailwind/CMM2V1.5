@@ -1,12 +1,14 @@
 """md2bb.py IN.md OUT.txt: a release note's Markdown as the Back Shed forum's BBCode (the docs/Release_Notes_*.backshed.txt
 copies). Headings: the title centred, size 5, blue; ## size 4, blue, after two blank lines; ### size 3. A line that is
 all *italic* is [I]. List items are bullets; items indented two spaces are hollow bullets after four non-breaking spaces,
-which the forum keeps. **bold** is [B], `code` is Courier. The blank line after a heading is dropped."""
+which the forum keeps. **bold** is [B], `code` is Courier. A ``` block (indented or not) is [CODE], its lines as they
+are less the fence's indent. The blank line after a heading is dropped."""
 import re
 import sys
 
 
 def inline(s):
+    s = s.replace('\\\\', '\\')                                     # (Markdown's escaped backslash: Ctrl-\\ is Ctrl-\)
     s = re.sub(r'\*\*(.+?)\*\*', r'[B]\1[/B]', s)
     s = re.sub(r'`([^`]+)`', r'[FONT=Courier]\1[/FONT]', s)
     return s
@@ -16,7 +18,18 @@ def convert(md):
     out = []
     lines = md.replace('\r\n', '\n').split('\n')
     skip_blank = False
+    fence, block = None, []                                         # the open ``` block's indent, and its lines
     for line in lines:
+        if fence is not None:
+            if line.strip() == '```':
+                out.append('[CODE]' + '\n'.join(block) + '[/CODE]')
+                fence = None
+            else:
+                block.append(line[fence:] if line[:fence].strip() == '' else line)
+            continue
+        if line.strip() == '```':
+            fence, block = len(line) - len(line.lstrip()), []
+            continue
         if skip_blank and line.strip() == '':
             skip_blank = False
             continue

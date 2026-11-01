@@ -52,6 +52,17 @@ A program can also display a cursor on the screen and link it to the mouse using
 
 A PS2 mouse (connected to the rear I/O connector on the Generation 1, or to the lower USB socket on the Generation 2) is mouse channel 0. Set with OPTION MOUSE 0 it is the computer's mouse, as a USB mouse is: programs read it with the MOUSE() function and link the GUI cursor to it without CONTROLLER MOUSE OPEN, which then only sets its interrupts. A Hobbytronic USB mouse interface is opened on an I2C channel with CONTROLLER MOUSE OPEN; the G2 V2.0 does not support it. See Mouse Support in the chapter Hardware Features.
 
+MM.MOUSE gives the channel of the mouse to use: 2 for a USB mouse, otherwise the channel of a mouse already open or the one set by OPTION MOUSE, and -1 when there is no mouse. A program that uses it works with any kind of mouse:
+
+```
+m = MM.MOUSE
+IF m < 0 THEN PRINT "This program needs a mouse" : END
+CONTROLLER MOUSE OPEN m, LeftClick
+x = MOUSE(X, m) : y = MOUSE(Y, m)
+```
+
+A change of video mode (MODE) puts the mouse, and the position of the GUI cursor, at the centre of the new screen.
+
 ## USB Touch Screen
 
 A USB touch screen (a touch monitor, or a touch panel with a USB controller) is recognised as soon as it is plugged in, as on the PicoMite. Touch screens made for Windows work: a multi-touch screen reports up to ten fingers, and one with only single touch works as a pointer. It is given channel 4 (a free channel when 4 is in use), and the console shows its size, for example "Multi-touch Connected on channel 4 (10 contacts, 16383x9599)". MM.INFO(USB n) returns 133 for a multi-touch screen and 134 for a single-touch one.

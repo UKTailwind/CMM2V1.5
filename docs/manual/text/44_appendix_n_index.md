@@ -215,6 +215,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | MM.I2C | Predefined Read Only Variables |
 | MM.INFO$ | another name for MM.INFO (Predefined Read Only Variables) |
 | MM.INFO( | Predefined Read Only Variables |
+| MM.MOUSE | Predefined Read Only Variables |
 | MM.ONEWIRE | Predefined Read Only Variables |
 | MM.USB | Predefined Read Only Variables |
 | MM.VER | Predefined Read Only Variables |
