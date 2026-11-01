@@ -139,6 +139,15 @@ caddr_t _sbrk(int incr)
 	return (caddr_t) prev_heap_end;
 }
 
+// MM.INFO(SYSTEM HEAP), the PicoMite's getFreeHeap(): what malloc (the audio, JSON and FAT code's) can still have.
+// Its arena grows up from SDRAMBASE to MMBasic's heap (minMMheap), so the room above it and the arena's free blocks
+#include <malloc.h>
+uint32_t SystemHeapFree(void)
+{
+	struct mallinfo m = mallinfo();
+	return (uint32_t)minMMheap - (uint32_t)_sbrk(0) + m.fordblks;
+}
+
 int _close(int file)
 {
 	return -1;

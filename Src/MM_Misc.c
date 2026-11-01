@@ -2454,7 +2454,7 @@ void cmd_settick(void){
 char PathDrive(const char *p);
 bool usb_msc_is_mounted(void);
 void DriveCurrent(void);
-void cmd_option(void) {
+void OPTSIZE cmd_option(void) {
 	char *tp;
 
 	tp = checkstring(cmdline, "LOCAL VARIABLES");                  // the PicoMite's local region size: a no-op here, where the
@@ -2913,7 +2913,7 @@ void fun_device(void){
 
 extern char WAVfilename[];
 extern volatile int audiofinished;
-void fun_info(void){
+void OPTSIZE fun_info(void){
 	char *tp;
 	sret = GetTempStrMemory();									// this will last for the life of the command
 	char rettype='S';
@@ -3239,6 +3239,19 @@ void fun_info(void){
 			else strcpy(sret,"Off");
 		} else if(checkstring(tp, "USBKEYBOARD")){
 			strcpy(sret,(Option.USBKeyboard == NO_KEYBOARD ? "Disabled" : (char *)KBrdList[(int)Option.USBKeyboard]));
+		} else if(checkstring(tp, "KEYBOARD")){                    // the PicoMite's: its name for the layout ("" for none, GR
+			strcpy(sret, (char *)KBrdList[(int)Option.USBKeyboard]);   // for our DE)
+			if(strcmp(sret, "DE") == 0) strcpy(sret, "GR");
+		} else if(checkstring(tp, "AUDIO")){                       // the PicoMite's: how its audio is wired.  Here the DAC, which
+			strcpy(sret, PicoFlavour() != PICO_NONE ? "PWM" : "DAC");   // does what the PicoMite's PWM audio does
+		} else if(checkstring(tp, "WIDTH")){                       // the PicoMite's: the console's columns and rows
+			iret=Option.Width;
+			targ=T_INT;
+			return;
+		} else if(checkstring(tp, "HEIGHT")){
+			iret=Option.Height;
+			targ=T_INT;
+			return;
 		} else if(checkstring(tp, "DEFAULT")){
 			if(DefaultType == T_INT)strcpy(sret,"Integer");
 			else if(DefaultType == T_NBR)strcpy(sret,"Float");
@@ -3315,8 +3328,8 @@ void fun_info(void){
 	} else if(checkstring(ep, "FONTWIDTH")){
 	    iret = FontTable[gui_font >> 4][0] * (gui_font & 0b1111);
 		rettype='I';
-	} else if(checkstring(ep, "FONTHEIGHT")){
-	    iret = FontTable[gui_font >> 4][1] * (gui_font & 0b1111);
+	} else if(checkstring(ep, "FONTHEIGHT")){                     // the console's line spacing (SetFont), which programs place
+	    iret = gui_font_height;                                     // lines by: font 7's is 10 here, its glyphs 8 (Z-MIM's *font small)
 		rettype='I';
 	} else if(checkstring(ep, "HPOS")){
 	    iret = CurrentX;
@@ -3351,21 +3364,26 @@ void fun_info(void){
 	} else if(checkstring(ep, "LINES")){
 	    iret = LineCount;
 		rettype='I';
-
-	//}else if (checkstring(ep, "LINE")) {
-		    //if (!CurrentLinePtr) {
-		    //    strcpy(sret, "UNKNOWN");
-		    //} else  {
-		    //} else if(CurrentLinePtr < ProgMemory + Option.ProgFlashSize) {
-		    //	sprintf(sret, "%d", CountLines(CurrentLinePtr));
-		    //}// else {
-		    //	strcpy(sret, "LIBRARY");
-		  //  }
-		  //  CtoM(sret);
-		   // targ=T_STR;
-		  //  return;
-		  //  rettype='S';
-
+	} else if(checkstring(ep, "LINE")){                            // the PicoMite's: the line running, as the number an error
+		char *p = CurrentLinePtr;                                   // there would give, "LIBRARY" in the library, and "UNKNOWN"
+		if(p && InLibrary(p)) strcpy(sret, "LIBRARY");              // at the prompt
+		else if(p && InProgMemory(p)) {
+			if(*p != T_NEWLINE)                                     // (inside a line: find its start, as error() does)
+				for(char *line = (char *)ProgMemory; *line == T_NEWLINE; line = NextLine(line))
+					if(p < NextLine(line)) { p = line; break; }
+			IntToStr(sret, LHDR_LINE(p), 10);
+		} else strcpy(sret, "UNKNOWN");
+	} else if(checkstring(ep, "CALLTABLE")){                       // the PicoMite's: the CSUB call table, in its layout: under
+		extern const void * const CallTableP[], * const CallTablePS[];   // OPTION PICOMITE in its soft-float convention, the one
+		iret = (int64_t)(uint32_t)(PicoFlavour() != PICO_NONE ? CallTablePS : CallTableP);   // its CSUBs get (CFunctions.c)
+		rettype='I';
+	} else if(checkstring(ep, "MAX VARS")){                        // the PicoMite's
+		iret = MAXVARS;
+		rettype='I';
+	} else if(checkstring(ep, "SYSTEM HEAP")){                     // the PicoMite's: what malloc can still have (syscalls.c)
+		extern uint32_t SystemHeapFree(void);
+		iret = SystemHeapFree();
+		rettype='I';
 	} else if(checkstring(ep, "HARDWARE")){
 	    iret = G1Hardware;
 		rettype='I';

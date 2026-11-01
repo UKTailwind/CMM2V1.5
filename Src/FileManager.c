@@ -3016,7 +3016,7 @@ static void fm_copy_progress(const char *item, int files, int dirs)
    being FatFs here; the PicoMite copies through its A2A, A2B, B2A and B2B. 0, with the reason in status, if it was
    not copied. */
 #define FM_COPY_BUFSIZE 4096
-extern const int ErrorMap[];
+extern int FileErrorNo(int fr);                                     // (FileIO.c: "USB drive not present" for C:)
 extern const char *FErrorMsg[];
 
 static int fm_copy_one(const char *srcfile, const char *dstfile, char *status, int statuslen)
@@ -3031,11 +3031,11 @@ static int fm_copy_one(const char *srcfile, const char *dstfile, char *status, i
     if (in == NULL || out == NULL || buf == NULL)
         snprintf(status, statuslen, "Not enough memory to copy");
     else if ((fr = f_open(in, srcfile, FA_READ)) != FR_OK)
-        snprintf(status, statuslen, "%s: %s", srcfile, FErrorMsg[ErrorMap[fr]]);
+        snprintf(status, statuslen, "%s: %s", srcfile, FErrorMsg[FileErrorNo(fr)]);
     else
     {
         if ((fr = f_open(out, dstfile, FA_WRITE | FA_CREATE_ALWAYS)) != FR_OK)
-            snprintf(status, statuslen, "%s: %s", dstfile, FErrorMsg[ErrorMap[fr]]);
+            snprintf(status, statuslen, "%s: %s", dstfile, FErrorMsg[FileErrorNo(fr)]);
         else
         {
             while ((fr = f_read(in, buf, FM_COPY_BUFSIZE, &nr)) == FR_OK && nr > 0)
@@ -3055,7 +3055,7 @@ static int fm_copy_one(const char *srcfile, const char *dstfile, char *status, i
             if (fr == FR_OK)
                 fr = fc;
             if (fr != FR_OK)
-                snprintf(status, statuslen, "%s: %s", dstfile, FErrorMsg[ErrorMap[fr]]);
+                snprintf(status, statuslen, "%s: %s", dstfile, FErrorMsg[FileErrorNo(fr)]);
             else if (full)
                 snprintf(status, statuslen, "%s: disk full", dstfile);
             else

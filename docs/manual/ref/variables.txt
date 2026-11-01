@@ -33,7 +33,7 @@ The value of the system flag register, which the FLAG and FLAGS commands set (se
 === MM.FONTHEIGHT
 MM.FONTWIDTH
 --- keep
-Integers holding the height and the width, in pixels, of the characters of the current font, including its scaling (see FONT).
+Integers holding the height and the width, in pixels, of the characters of the current font, including its scaling (see FONT).  The height is the spacing of the lines that PRINT writes on the screen: for font 7, whose characters are 8 pixels high, it is 10, as its lines are 10 apart (8 with OPTION PICOMITE, as on the PicoMite).
 
 === MM.HEIGHT
 MM.WIDTH
@@ -84,6 +84,10 @@ The number of free slots in the PLAY BBC SOUND queue of channel ‘n’ (0 to 3)
 MM.INFO(FCOLOUR)
 --- keep
 The current background and foreground colours (see COLOUR).  BCOLOR and FCOLOR are accepted too.
+
+=+= MM.INFO(CALLTABLE)
+--- keep
+The address of the table of firmware routines that a CSUB calls, in the PicoMite's layout (PicoCFunctions.h): with OPTION PICOMITE the one a CSUB built for the PicoMite uses, with its floating point values passed as the PicoMite passes them, and without it the one a CSUB built for the Colour Maximite 2 with PicoCFunctions.h uses.  See CSUB, and the chapter *Porting Programs*.
 
 =+= MM.INFO(CODE SIZE)
 --- keep
@@ -168,6 +172,10 @@ The unique 12 byte ID of the processor as a string of 24 hexadecimal digits, and
 --- keep
 "Connected" if a USB keyboard is connected and working, otherwise "Not Connected".  Under OPTION PICOMITE it is the PicoMite's: "On" while a program has the on-screen keyboard on (KEYBOARD ON), otherwise "Off".
 
+=+= MM.INFO$(LINE)
+--- keep
+The number of the program line being run, as a string: the number an error in it would give (in an #INCLUDE file, its line in that file).  "LIBRARY" in the library's code and "UNKNOWN" at the command prompt.
+
 =+= MM.INFO(LINES)
 --- keep
 The number of lines of source code in the program in program memory: the lines read from its file and its #INCLUDE files when it was loaded.
@@ -175,6 +183,10 @@ The number of lines of source code in the program in program memory: the lines r
 =+= MM.INFO(MAX GP)
 --- keep
 The highest GP number: with OPTION PICOMITE that of the PicoMite the option gives, 47 for an RP2350B and 29 for the others, and without it 37, the highest that has a pin on the Colour Maximite 2 (see PicoMite Pin Names in the chapter Using the I/O Pins).
+
+=+= MM.INFO(MAX VARS)
+--- keep
+The most variables a program can have, global and local together.  See also MM.INFO(VARCNT).
 
 =+= MM.INFO(MAX PAGES)
 MM.INFO(PAGE ADDRESS n)
@@ -192,6 +204,7 @@ The current video mode and colour depth as a number: the mode, then the depth as
 ---
 The current setting of one of the options that affect how a program runs.  ‘option’ is one of:
 {l=720}ANGLE: "RADIANS" or "DEGREES" (see OPTION ANGLE)
+{l=720}AUDIO: "DAC", the audio output (with OPTION PICOMITE "PWM", the PicoMite's name for the audio that does what the Colour Maximite 2's does)
 {l=720}AUTORUN: "On" or "Off", or the flash slot's number ("1" to "3") with OPTION AUTORUN n
 {l=720}BASE: 0 or 1 (a number)
 {l=720}BREAK: the character code of the break key (a number: 3 for Ctrl-C, 0 when it is disabled)
@@ -199,10 +212,13 @@ The current setting of one of the options that affect how a program runs.  ‘op
 {l=720}CONSOLE PORT: the serial port the console uses, 1 to 3 (a number: see OPTION CONSOLE PORT)
 {l=720}DEFAULT: "Integer", "Float", "String" or "None"
 {l=720}EXPLICIT: "On" or "Off"
+{l=720}HEIGHT: the console's number of rows (a number)
+{l=720}KEYBOARD: the PicoMite's name for the keyboard layout: as USBKEYBOARD, but "GR" for "DE" and "" when it is disabled
 {l=720}LEGACY: "On" or "Off"
 {l=720}MOUSE: the channel set by OPTION MOUSE (a number), or -1 when none is set
 {l=720}PROFILING: "On" or "Off"
 {l=720}USBKEYBOARD: the layout of the USB keyboard: "UK", "US", "DE", "FR", "ES", "BE" or "IT", or "Disabled" (OPTION USBKEYBOARD DISABLE)
+{l=720}WIDTH: the console's number of columns (a number)
 {l=720}Y_AXIS: "UP" or "DOWN"
 
 =+= MM.INFO(OVERRUN)
@@ -262,6 +278,10 @@ MM.INFO$(TRACK)
 --- keep
 What the audio output is doing: "OFF", "TONE", "WAV", "FLAC", "MP3", "MOD", "SOUND", "TTS", "ARRAY", "SAMPLE", "BBC" or "DAC" (the DAC command), or "PAUSED" followed by a space and what is paused (eg, "PAUSED WAV").
 The name of the WAV, FLAC, MP3 or MOD file that is playing (or paused), or "OFF".
+
+=+= MM.INFO(SYSTEM HEAP)
+--- keep
+The free space, in bytes, of the firmware's own heap, which the audio, the JSON functions and the file system use.  It grows up from the bottom of the SDRAM towards the MMBasic heap, so it shrinks as MMBasic's heap in the SDRAM grows (see MM.INFO(MINHEAP)).
 
 =+= MM.INFO(TILE HEIGHT)
 --- keep

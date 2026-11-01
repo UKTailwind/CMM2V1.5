@@ -503,7 +503,7 @@ void rtcChangeSet(void){
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
+int OPTSIZE main(void)
 {
   /* USER CODE BEGIN 1 */
 	int i, firsttime=0;
@@ -865,6 +865,7 @@ if(setjmp(mark) != 0) {
 	  FontTable[2]=(unsigned char *)Hom_16x24_LE;
 	  LoadOptions();
 	  OptionErrorSkip = 0;                                          // the prompt has no ON ERROR (IGNORE or RESTART) of the program's
+	  RunStarting = 0;                                              // (a RUN that stopped before its program's first line)
 	  ExecDepth = 0;                                                // (left by the ExecuteProgram calls the jump came out of)
 	  CMM1 = false;
 	  optionangle=1.0;
@@ -3259,7 +3260,10 @@ void PrintStatus(int now){
 	buff[255]=0;
 	len=maxW/gui_font_width;
 	OptionFileErrorAbort = 0;
+	int e = MMerrno, fse = FSerror;                                 // (InitSDCard sets MM.ERRNO and MM.ERRMSG$: the status line,
+	char *em = MMErrMsg;                                            // drawn each second at the prompt, cleared a program's error)
 	int sdok=InitSDCard(); //returns 2 if it has done an initialise
+	MMerrno = e; FSerror = fse; MMErrMsg = em;
 	pagesetdone=0;
 	while(!pagesetdone){};
 	int cursorhidden=0;
@@ -3863,7 +3867,7 @@ void ProgramImageToFlash(const char *img, int len) {
     SymSetProgram(ProgMemory);                                      // its own table: LIST or EDIT may follow on the line
 }
 
-void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
+void OPTSIZE SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
     char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
     CommandToken endtoken;
     int nbr, i, n, SaveSizeAddr, linelong = 0;                  // (linelong: a line that #DEFINEs made MAXSTRLEN long)
@@ -4182,7 +4186,7 @@ void SaveProgramToFlash(char *pm, int msg, char *fname, int size) {
 }
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to memory in tokenised format
-uint32_t SaveProgramToMemory(char *pm, int msg, char *fname) {
+uint32_t OPTSIZE SaveProgramToMemory(char *pm, int msg, char *fname) {
     char *p, fontnbr, prevchar = 0, buf[TKNBUFSIZE];
     CommandToken endtoken;
     int nbr, i, n, SaveSizeAddr, linelong = 0;                  // (linelong: a line that #DEFINEs made MAXSTRLEN long)
@@ -4562,7 +4566,7 @@ static void GetLineTail(int n) {
     }
 }
 
-void EditInputLine(void) {
+void OPTSIZE EditInputLine(void) {
     char *p = NULL;
     char buf[MAXKEYLEN + 3];
     int lastcmd_idx, lastcmd_edit;

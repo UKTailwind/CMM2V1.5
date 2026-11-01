@@ -84,7 +84,7 @@ def board_sizes(b, bdir):
 
 def upload(b, src, force):
     sent = 0
-    for here, dirs, files in sorted(os.walk(src)):
+    for here, dirs, files in os.walk(src):              # (not sorted(os.walk()), which walks .git before dirs[:] can drop it)
         dirs[:] = sorted(d for d in dirs if d != ".git")
         rel = os.path.relpath(here, src).replace("\\", "/")
         bdir = ROOT if rel == "." else ROOT + "/" + rel

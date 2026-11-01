@@ -155,11 +155,23 @@ class Board:
         return self.wait_prompt(30)
 
 
+USBNOTE = re.compile(r"^(?:> ?)*(?:Multi-touch|USB [\w ]+?) (?:Connected|Disconnected)\b")
+
+
 def norm(text, inputs=()):
     """What the corpus Makefile compares: no CR, no 'Time taken' lines.  A board also echoes
     what is typed at an INPUT, which the translator's stdin does not, so the echoed answers
-    (and the blank line after each) come out too; so do leading and trailing blank lines."""
-    lines = [l.rstrip() for l in text.replace("\r", "").split("\n")]
+    (and the blank line after each) come out too; so do leading and trailing blank lines.
+    A USB device's connect or disconnect note goes too, with the blank line it starts with: a
+    touch monitor that is the board's display drops off the bus for a moment when MODE changes
+    the resolution, and its note lands in the run's output."""
+    lines = []
+    for l in text.replace("\r", "").split("\n"):
+        if USBNOTE.match(l):
+            if lines and lines[-1] == "":
+                lines.pop()
+            continue
+        lines.append(l.rstrip())
     if inputs:
         out, want = [], list(inputs)
         i = 0

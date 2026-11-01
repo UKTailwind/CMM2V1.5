@@ -128,22 +128,35 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
   - **Checked on the G2** with Peter's three touch screens and a mouse.
 
 ## After the beta (Peter's decisions, 27 Oct, for 7.00.00b4)
-- [ ] **GETSCANLINE in the 4-bit doubled modes** (decided: report as the PicoMite does, after the beta): found 26 Oct. In the CMM2's modes whose lines are drawn twice it
+- [x] **GETSCANLINE in the 4-bit doubled modes** (decided: report as the PicoMite does, after the beta): found 26 Oct. In the CMM2's modes whose lines are drawn twice it
       counts the mode's lines (MODE 7 and 7,16 to 249, as the manual says), except in the 4-bit depth, which counts the
       screen's (MODE 7,4 and 3,4 to 499). Under OPTION PICOMITE that is what the PicoMite's HDMI versions do in their
       MODE 2. Either make the 4-bit depth count the mode's lines without OPTION PICOMITE, or say in the manual that it
       counts the screen's. (A loop also never sees the lines while the 4-bit merge runs, about 25 to 130 lines.)
+      Done 1 Nov: Peter's "getscanline should report the same as Picomite in the doubled modes" and "should apply
+      only under picomite mode" together: under OPTION PICOMITE the doubled modes count the screen's lines, as the
+      PicoMite's do (MODE 2 and 5 to 499); without it every depth counts the mode's (ModeRowScale, not page 0's
+      expand, which the merged 4 and 1-bit modes leave 0), so MODE 7,4 and 3,4 to 249 as 7,8. Measured on the G2:
+      7,8 / 7,16 / 3,4 249, 7,4 240 (the merge), 8,8 499; under OPTION PICOMITE HDMI MODE 1 499, 2 480, 5 499.
 - [ ] **OPTION AUTORUN's NORESET** (decided: the CMM2 to behave as the PicoMite, after the beta): on the PicoMite a system error (a fault, its restart) turns AUTORUN off unless
       NORESET is given. Here a fault stops the board (HardFault_Handler loops) and the restarts after a command timeout
       or a watchdog timeout keep AUTORUN, so NORESET changes nothing yet. Either leave it so, or turn AUTORUN off after
       a command-timeout restart without NORESET (a change for programs that rely on it now).
 - [ ] **OPTION RTC AUTO ENABLE | DISABLE** (after the beta; the DS3231 copy made hourly for b4, from the routinechecks): recommended as its own option (G2), the PicoMite's meaning: the internal
       clock set from the DS3231 at start-up and every 24 hours, TIME$ and DATE$ read from the internal clock, TIME$ =
-      and DATE$ = setting both; OPTION DS3231 ON kept as it is, the two excluding each other. Also: the DS3231 timer copy
-      runs every 100 hours (`Src/Timers.c:168`), probably meant hourly.
-- [ ] **RUN f$** with a variable or an expression (gap 2). After the beta.
-- [ ] **MM.INFO keys** (after the beta): LINE, AUTORUN on its own, CALLTABLE, MAX VARS, SYSTEM HEAP, OPTION AUDIO | WIDTH | HEIGHT |
-      KEYBOARD (gap 18).
+      and DATE$ = setting both; OPTION DS3231 ON kept as it is, the two excluding each other. (The DS3231 timer copy
+      has been hourly since b4, `Src/Timers.c:169`; it was every 100 hours.)
+- [x] **RUN f$** with a variable or an expression (gap 2). After the beta. Done 1 Nov: the name is an expression when
+      it has a string name in it (RUN f$, RUN "GAME" + STR$(n), RUN MID$(a$, 3), text) or a quoted name with more
+      than a comma after it; anything else unquoted is still MM.CMDLINE$'s text alone (RUN -f), where the PicoMite
+      reads every argument as an expression. The text after the comma is still taken as it is, not evaluated.
+      Tested on the G2 with six programs and at the prompt.
+- [x] **MM.INFO keys** (after the beta): LINE, AUTORUN on its own, CALLTABLE, MAX VARS, SYSTEM HEAP, OPTION AUDIO | WIDTH | HEIGHT |
+      KEYBOARD (gap 18). Done 1 Nov: LINE gives the number an error there would give ("LIBRARY", "UNKNOWN" at the
+      prompt); CALLTABLE the table in the PicoMite's layout (CallTablePS under OPTION PICOMITE, else CallTableP);
+      MAX VARS; SYSTEM HEAP what malloc can still have (syscalls.c); OPTION WIDTH and HEIGHT the console's; OPTION
+      AUDIO "DAC" ("PWM" under OPTION PICOMITE); OPTION KEYBOARD the PicoMite's layout name ("GR" for DE, "" for
+      none). OPTION AUTORUN and KEYBOARD already matched. Checked on the G2.
 - [ ] **Line length** (to be reviewed in more detail after the beta): found on 26 Oct, the CMM2 takes program lines up to 251 characters (248 from line 1000 on),
       the PicoMite up to 254: the file reader counts the CMM2's longer line marker. Leave, or lengthen the buffer?
 - [x] **WATCHDOG HW**: not needed (Peter, 27 Oct), as the STM32's watchdog cannot be stopped once started (OFF would have to be
@@ -165,4 +178,38 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
 - [x] Release notes for the next beta (7.00.00b4, 27 Oct): the stepper, GP names in every mode, SAVE PNG and Print Screen, the 64-bit
       GPIO masks, the behaviour fixes (and the full notes from 5.07.02); no repository references.
 - [x] Stepper_Reference.pdf in the download with the manual and the binary.
-- [ ] The repository made public.
+- [x] The repository made public (27 Oct, with b4).
+
+## Found on 1 Nov 2026 (the cmm2-welcome, Wolf3D and Gauntlet reviews)
+- [x] **A FOR or DO right after a single-line IF's THEN or ELSE**, inside another loop: the outer loop took the inner
+      NEXT or LOOP for its own, and stopped with "Cannot find a matching FOR" when the IF was false (Gauntlet's status
+      panel). ForFindNext and DoFindLoop now count it. 9a168da; tests/cmm2/forif; PicoMite #147.
+- [x] **FM's auto-repeat for Up and Down** with a USB keyboard (a user's report): the redraw's drain reset the repeat
+      at every step. PgUp and PgDn still do not repeat. 9a168da; PicoMite #148.
+- [x] **MM.ERRNO and MM.ERRMSG$ at the prompt**: the status line, drawn each second, called InitSDCard, which cleared
+      them, so a program's error was gone a second later. PrintStatus keeps them.
+- [x] **Print Screen saves the screen as shown**: the page each LTDC layer shows (PAGE DISPLAY, double buffering),
+      not the read page, and in the 12-bit depth both layers blended over the background as the LTDC blends them.
+- [x] **USB connect and disconnect notes printed between programs**: a program's RUN loads the next one with no line
+      running, so a touch monitor's reconnect after the MODE change was printed into the program's output.
+      With RunStarting, set from the RUN until the program starts, they are left out, as while a program runs.
+- [x] **tools/goldens.py** ignores those notes in a capture.
+- [ ] **FM: sound left running after a program crashes** (the same user's report): not reproduced; waiting for the
+      details.
+- [x] **A file command on C: with no USB flash drive says "SD Card not found"** (MKDIR "C:", found by SP Tools'
+      tst_file): FR_NOT_READY's message is the SD card's. It should say "USB drive not present", as DRIVE "C:" does.
+      Done 1 Nov: disk_initialize notes the drive that was not ready (mmc_stm32.c) and FileErrorNo (FileIO.c) gives
+      error 21 for C:, for ErrorCheck, InitACard, InitUSBDrive and FM's copy. MKDIR, OPEN and DRIVE on C: checked.
+- [x] **Flash room** (Peter: "change some functions to Os"): bank 1 had 16 bytes left. OPTSIZE (Configuration.h) makes
+      11 large functions whose speed does not matter -Os in their -O2 files: main, SaveProgramToFlash and
+      SaveProgramToMemory, EditInputLine, cmd_option, fun_info, cmd_list, do_listfiles, cmd_save, SerialOpen and
+      setmode. Bank 1 now has about 6 KB; bank 2 has 216 bytes.
+- [x] **MM.INFO(FONTHEIGHT) and MM.FONTHEIGHT for font 7** (found with Z-MIM, whose README lists "*FONT SMALL on the
+      Colour Maximite 2 causes the prompt to glitch"): the CMM2 spaces font 7's lines 10 apart (SetFont, as 6.00.00b7
+      did) but reported the font's 8, so a program placing lines by it (Print @(x * w, row * h)) drew them off its rows.
+      Both now give gui_font_height, the spacing (8 under OPTION PICOMITE, as on the PicoMite, which has no such case).
+      Z-MIM's small font checked on the G2; fonts89, datakw, libcsub and picomode still match.
+- [x] **RUN f$ against SP Tools and the Welcome Tape** (Peter's check): every RUN either uses is a quoted name and a comma,
+      the old path, or RUN prog$ (sys.run_shell), which now runs prog$. Checked on the G2: SP Tools matches its baseline
+      but for tst_file, which needs a USB flash drive on C:; sptest's own chain in spflow, sptrans and splib; the menu's
+      launch and return with its label.

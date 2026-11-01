@@ -2607,10 +2607,13 @@ void getcoord(char *p, int *x, int *y) {
 	}
 }
 
+// The line in the mode's own lines where they are drawn twice (or four times), in every depth: page 0's expand left
+// out the 4 and 1-bit modes, whose merge doubles them, so MODE 7,4 counted to 499.  Under OPTION PICOMITE the screen's
+// lines, as the PicoMite's doubled modes count them (its HDMI versions, MODE 2 to 499)
 void fun_getscanline(void){
 	iret=((int)(hltdc.Instance->CPSR & 0xFFFF)- (int)PageTable[0].startactive);
 	if(iret<0)iret+=((int)PageTable[0].maxlines+1);
-	iret/=(PageTable[0].expand ? 2 : 1);
+	if(PicoFlavour() == PICO_NONE) iret/=ModeRowScale(VideoMode);
 	if(iret>PageTable[0].maxlines || iret<0)iret=0;
 	targ=T_INT;
 }

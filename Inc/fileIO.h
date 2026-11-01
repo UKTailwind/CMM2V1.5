@@ -90,6 +90,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern char *ProgramFileImage(char *fname, int *len);
     extern void ErrorCheck(int fnbr);
     extern void ErrorThrow(int e);
+    extern int FileErrorNo(int fr);                       // FErrorMsg's number for a FatFs result (FileIO.c)
     extern void CheckSDCard(void);
     extern int FileLoadProgram(char *fname,int mode);
     extern int FindFreeFileNbr(void);

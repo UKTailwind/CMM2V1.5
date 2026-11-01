@@ -750,7 +750,7 @@ void sortStrings(char **arr, int n)
     }
 }
 
-void do_listfiles(char *ccmdline){
+void OPTSIZE do_listfiles(char *ccmdline){
 	int i, j, dirs, ListCnt, currentsize;
 	uint32_t currentdate;
 	char *p, /**q,*/ extension[8];
@@ -1082,7 +1082,7 @@ static void ListCollisions(void) {
 }
 
 extern void printoptions(void);
-void MIPS16 cmd_list(void) {
+void MIPS16 OPTSIZE cmd_list(void) {
 	char *p, *tp;
 	int i,j,k,m, step=5;
 	hidecursor(0);
@@ -1420,10 +1420,16 @@ void MIPS16 ListFile(char *pp, int all) {
 
 static void MIPS16 RunStart(int runlib);
 
+// set from the start of a RUN, FLASH RUN or CHAIN until the program's first line (RunStart) or the prompt: CurrentLinePtr is
+// NULL while the program loads, and a USB device's note then (USBMessage) landed on the new program's screen (a touch
+// monitor drops off the bus for a moment after the last program's MODE)
+volatile int RunStarting;
+
 // RUN and FLASH RUN: the console, the keyboard and the status line made ready for a program
 static void MIPS16 RunPrelude(void) {
 	int maxH=ConsoleVRes();                                         // (the status line: above the on-screen keyboard)
     int maxW=PageTable[WritePage].xmax;
+	RunStarting = 1;
 	SerUSBPutS("\033[?25h");
 	SerUSBPutS("\033[37m");
 	SerUSBPutS("\033[m");
@@ -1438,6 +1444,69 @@ static void MIPS16 RunPrelude(void) {
 		CurrentY=lasty;
 		CurrentX=lastx;
 	}
+}
+
+/* RUN's argument is the line's text (a RUN line is kept untokenised, as a file name must not be tokenised: main.c and
+   EXECUTE), so a name that is an expression, not a quoted name alone (RUN f$, RUN "dir/" + n$), is not RUN "name".
+   RunNameIsExpr tells them apart: a quoted name with more than a comma after it, or a string name (f$, MID$() before
+   the comma.  Anything else unquoted is MM.CMDLINE$'s text, as before (RUN -f); the PicoMite reads every RUN argument
+   as an expression.  RunNameExpr reads the part before the comma outside quotes and brackets as EVAL does
+   (tokenised, as an assignment's right-hand side, the token buffer kept) and leaves runcmd as "name",text, so that
+   MM.CMDLINE$ is the text after the comma as for RUN "name",text. 0 when the name is "". */
+static int RunNameIsExpr(char *p) {
+	char *s = p;
+	int q = 0;
+	if(*p == '"') {
+		for(p++; *p && *p != '"'; p++) ;
+		if(*p) p++;
+		skipspace(p);
+		return !(*p == 0 || *p == ',' || *p == '\'');
+	}
+	for(; *p && (q || (*p != ',' && *p != '\'')); p++) {
+		if(*p == '"') q = !q;
+		else if(!q && *p == '$' && p > s && isnamechar(p[-1])) return true;
+	}
+	return false;
+}
+
+static int RunNameExpr(char *p, char *name) {
+	char expr[STRINGSIZE], text[STRINGSIZE], *e = p, *s;
+	int q = 0, b = 0, i;
+	while(*e && (q || b || *e != ',')) {
+		if(*e == '"') q = !q;
+		else if(!q && *e == '\'') break;
+		else if(!q && *e == '(') b++;
+		else if(!q && *e == ')') b--;
+		e++;
+	}
+	if(e - p > STRINGSIZE - 3) error("Line is too long");
+	expr[0] = 'R'; expr[1] = '=';                                   // (EVAL's dummy assignment keeps the tokeniser happy)
+	memcpy(expr + 2, p, e - p);
+	expr[e - p + 2] = 0;
+	*text = 0;
+	if(*e == ',') {
+		e++;
+		skipspace(e);
+		strcpy(text, runcmd + (e - p));                             // (runcmd: the statement's text to a comment)
+	}
+	for(i = 2, q = 0; expr[i]; i++) {
+		if(expr[i] == '"') q = !q;
+		else if(!q) expr[i] = toupper(expr[i]);
+	}
+	s = GetTempMemory(TKNBUFSIZE);
+	memcpy(s, tknbuf, TKNBUFSIZE);                                  // (at the prompt cmdline is in it)
+	strcpy(inpbuf, expr);
+	tokenise(true);
+	strcpy(expr, tknbuf + sizeof(CommandToken) + 2);                // after the LET token, the R and the = token
+	memcpy(tknbuf, s, TKNBUFSIZE);
+	strcpy(name, getCstring(expr));
+	if(strlen(name) + strlen(text) + 4 > STRINGSIZE - 1) error("Line is too long");
+	mymemset(runcmd, 0, STRINGSIZE);
+	strcpy(runcmd, "\"");
+	strcat(runcmd, name);
+	strcat(runcmd, "\",");
+	strcat(runcmd, text);
+	return *name != 0;
 }
 
 void MIPS16 cmd_run(void) {
@@ -1458,12 +1527,17 @@ void MIPS16 cmd_run(void) {
 		while(n && cmdline[n - 1] == ' ') n--;
 		memcpy(runcmd, cmdline, n);
 	}
-	if(*cmdline != 34 && FlashLoad) {                               // in a flash slot's program: it runs again (the PicoMite's)
-		FlashRunSlot(FlashLoad, 0);
+	char name[STRINGSIZE];
+	int expr = RunNameIsExpr(cmdline);
+	if(expr && !RunNameExpr(cmdline, name)) expr = 0;               // RUN f$ [, text]: the name a string expression (the PicoMite's);
+	if(!expr && *cmdline != 34 && FlashLoad) {                      // "" runs the program in memory, as RUN alone. In a flash
+		FlashRunSlot(FlashLoad, 0);                                 // slot's program RUN alone runs it again (the PicoMite's)
 		return;
 	}
 	RunPrelude();
-	if(*cmdline == 34){
+	if(expr){
+		if(!FileLoadProgram(name,0)) return;
+	} else if(*cmdline == 34){
 		if(!FileLoadProgram(cmdline,1)) return;
 	} else if(ProgFromSlot) {                                       // FLASH LOAD's program, as it is (not its file again)
 		ClearProgram();
@@ -1481,6 +1555,7 @@ extern int executerun;
 // runcmd's.
 void MIPS16 FlashRunSlot(int slot, int chain) {
 	SlotProgramCheck(slot);                                         // (before anything is cleared)
+	RunStarting = 1;
 	if(chain) ClearRuntimeKeepGlobals();
 	else {
 		RunPrelude();
@@ -1498,7 +1573,7 @@ void MIPS16 FlashRunSlot(int slot, int chain) {
 static void MIPS16 RunStart(int runlib) {
 	PrepareProgram(true);                                           // (MM.WATCHDOG is kept for the program: cleanend clears it)
     IgnorePIN = false;
-    if(*ProgMemory != T_NEWLINE) return;                             // no program to run
+    if(*ProgMemory != T_NEWLINE) { RunStarting = 0; return; }        // no program to run
     setmode(Option.mode,DEFCOLOUR,0,Option.mode==12?1:0);
     if((uint32_t)PageTable[0].address==0xD0000000){
     	mymemset((char *)0x24000000,0,512*1024);
@@ -1514,6 +1589,7 @@ static void MIPS16 RunStart(int runlib) {
     if(runlib && LibPresent()) ExecuteProgram(LibMemory);          // the library's top level, its CONSTs and DIMs (the PicoMite's;
     firststmt= (char *)ProgMemory;                                  // not for CHAIN, whose globals are kept)
     nextstmt = (char *)ProgMemory;
+    RunStarting = 0;
 #ifdef PCSAMPLER
     PcsStart();                                                     // (the "Sampler" build: Src/PcSampler.c)
 #endif
@@ -1529,6 +1605,7 @@ void MIPS16 cmd_chain(void) {
 	/* Erase OSK and surrender the strip before anything else runs. Mirrors
 	   do_run - see comment there for the rationale. (The PicoMite's.) */
 	OSK_OnRunStart();
+	RunStarting = 1;
 	getargs(&cmdline, 3, ",");
 	if(!(argc == 1 || argc == 3)) error("Argument count");
 	strcpy(fn, getCstring(argv[0]));                                // (copied: the heap goes before the program is loaded)

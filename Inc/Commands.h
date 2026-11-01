@@ -112,6 +112,7 @@ extern char *ForFindNext(char *p, char *vname, int vlen, char *errmsg);  // FOR'
 extern void StaticVarName(char *VarName, char *arg);                    // STATIC's hidden global's name (VarName: STRINGSIZE)
 extern void StaticLink(char *arg, int typeSave, int VIndexSave);        // and its local pointed at it
 extern char *IfFindToken(char *p, int tok);                             // THEN or ELSE outside quotes (cmd_if, Stream.c)
+extern volatile int RunStarting;                                        // a RUN, FLASH RUN or CHAIN loading its program (USBMessage)
 // the IF/ELSEIF/ELSE/ENDIF jump table (Commands.c, the PicoMite's): for each multi-line IF, ELSEIF and ELSE token, the
 // next arm (ELSEIF, ELSE or ENDIF) and the ENDIF
 struct iftab_entry {

@@ -81,6 +81,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define false	0
 
 #define MIPS16
+// a large function whose speed does not matter (start-up, loading, listing, MM.INFO, OPTION) compiled for size in a
+// file that is otherwise -O2 (CMakeLists.txt), for bank 1's room (1 Nov 2026: 16 bytes were left)
+#define OPTSIZE __attribute__((optimize("Os")))
 /* NVIC priorities (0 the highest, 15 the lowest): 0 is kept for the stepper's 100 kHz tick, which must preempt every
    other interrupt as it does on the PicoMite; every interrupt is at IRQ_PRI(n), one level below its old level n, so their
    order is as it was (Peter, 25 Oct 2026). The system exceptions (the faults, SVCall, PendSV) keep 0. SysTick's is

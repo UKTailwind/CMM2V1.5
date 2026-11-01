@@ -420,7 +420,7 @@ void setupuart(UART_HandleTypeDef * huartx, USART_TypeDef  * USART_ID, int de, i
 /***************************************************************************************************
 Initialise the serial function including the timer and interrupts.
 ****************************************************************************************************/
-void SerialOpen(char *spec) {
+void OPTSIZE SerialOpen(char *spec) {
 	int baud, i, inv, oc, s2, de, parity, b7, bufsize, ilevel;
 	char *interrupt, *TXinterrupt;
 	GPIO_InitTypeDef GPIO_InitStruct;

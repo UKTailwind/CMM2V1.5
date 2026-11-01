@@ -83,8 +83,8 @@ extern const char *KBrdList[];
 static char usbmsg[160];
 void USBMessage(const char *m)
 {
-	if (CurrentLinePtr || fm_active)
-		return; /* not while a program runs, nor in FM (its screen; FM finds a drive when it is asked for) */
+	if (CurrentLinePtr || fm_active || RunStarting)
+		return; /* not while a program runs or starts (RUN from a program), nor in FM (its screen; FM finds a drive when it is asked for) */
 	if (strlen(usbmsg) + strlen(m) < sizeof(usbmsg))
 		strcat(usbmsg, m);
 }

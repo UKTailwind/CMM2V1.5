@@ -861,8 +861,14 @@ DSTATUS usb_disk_initialize(void);
 DRESULT usb_disk_read(BYTE *buff, LBA_t sector, UINT count);
 DRESULT usb_disk_write(const BYTE *buff, LBA_t sector, UINT count);
 DRESULT usb_disk_ioctl(BYTE cmd, void *buff);
+BYTE NotReadyDrive;                                                 // the drive disk_initialize last found not ready: FatFs's
+                                                                    // FR_NOT_READY is its (FileErrorNo, FileIO.c)
 DSTATUS disk_status(BYTE pdrv) { return pdrv == 1 ? usb_disk_status() : sd_disk_status(pdrv); }
-DSTATUS disk_initialize(BYTE pdrv) { return pdrv == 1 ? usb_disk_initialize() : sd_disk_initialize(pdrv); }
+DSTATUS disk_initialize(BYTE pdrv) {
+    DSTATUS s = pdrv == 1 ? usb_disk_initialize() : sd_disk_initialize(pdrv);
+    if(s & STA_NOINIT) NotReadyDrive = pdrv;
+    return s;
+}
 DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count) { return pdrv == 1 ? usb_disk_read(buff, sector, count) : sd_disk_read(pdrv, buff, sector, count); }
 DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count) { return pdrv == 1 ? usb_disk_write(buff, sector, count) : sd_disk_write(pdrv, buff, sector, count); }
 DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff) { return pdrv == 1 ? usb_disk_ioctl(cmd, buff) : sd_disk_ioctl(pdrv, cmd, buff); }

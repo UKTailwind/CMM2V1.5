@@ -240,12 +240,27 @@ static int SavePalIndex(savepal_t *sp, uint32_t c, int add) {
     return sp->n++;
 }
 
+// a screen capture's top layer in 12-bit colour (Console.c's ScreenShot): the page the LTDC's second layer shows and a
+// row's room for it; -1 and NULL for SAVE IMAGE and SAVE PNG in a program, which save the page as it is
+int SaveTopLayer = -1;
+char *SaveTopRow = NULL;
+
 // row i of the area as w colours, three bytes each (blue, green, red), as the screen shows them
 static void SaveImageRow(int x, int i, int w, char *buf) {
     ReadBuffer(x, i, x + w - 1, i, buf);
     if(VideoColour == 4) Rgb121Shown(buf, w);                      // (MODE n,4: after MAP)
     if(VideoColour == 12) {                                         // (four bytes a pixel in 12-bit colour: three kept)
         char *pp = buf;
+        if(SaveTopLayer >= 0 && SaveTopRow) {                       // a capture: as the LTDC blends them, the page over the
+            unsigned char *b = (unsigned char *)buf, *t = (unsigned char *)SaveTopRow;   // background colour by its alpha
+            int rp = ReadPage, bg[3] = {VideoBackground & 0xFF, (VideoBackground >> 8) & 0xFF, (VideoBackground >> 16) & 0xFF};
+            ReadPage = SaveTopLayer;                                // (0 to 15), and the top layer's page over that by its own
+            ReadBuffer(x, i, x + w - 1, i, SaveTopRow);
+            ReadPage = rp;
+            for(int j = 0; j < w; j++, b += 4, t += 4)
+                for(int c = 0; c < 3; c++)
+                    b[c] = (t[3] * t[c] + (15 - t[3]) * ((b[3] * b[c] + (15 - b[3]) * bg[c]) / 15)) / 15;
+        }
         for(int j = 0; j < w * 4; j++) if(j % 4 != 3) *pp++ = buf[j];
     }
 }
@@ -353,7 +368,7 @@ static int SaveImageRLE(int fnbr, int x, int y, int w, int h, char *line) {
     return 1;
 }
 
-void cmd_save(void) {
+void OPTSIZE cmd_save(void) {
     int fnbr;
     unsigned int nbr;
     char *p, *pp, *flinebuf;
@@ -361,7 +376,7 @@ void cmd_save(void) {
     unsigned char bmpfileheader[14] = {'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0};
     unsigned char bmpinfoheader[40] = {40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 24,0};
     unsigned char bmppad[3] = {0,0,0};
-    int i,j;
+    int i;
     if(!InitSDCard()) return;
 	int maxH=PageTable[ReadPage].ymax;
     int maxW=PageTable[ReadPage].xmax;
@@ -444,14 +459,7 @@ void cmd_save(void) {
         flinebuf = GetTempMemory(maxW * 4);
         PngBegin(fnbr, w, h);
         for(i = y; i < y+h; i++){                                   // (from the top: a BMP's rows are from the bottom)
-           ReadBuffer(x, i, x+w-1, i, flinebuf);
-           if(VideoColour==4) Rgb121Shown(flinebuf, w);                // (MODE n,4: the colours shown, after MAP)
-           if(VideoColour==12){                                     // (4 bytes a pixel in 12-bit colour: 3 kept, as SAVE IMAGE)
-        	   pp=flinebuf;
-        	   for(j=0;j<w*4;j++){
-        		   if(j % 4 != 3)*pp++=flinebuf[j];
-        	   }
-           }
+           SaveImageRow(x, i, w, flinebuf);                         // (as SAVE IMAGE reads them: MODE n,4's MAP, 12-bit's three bytes)
            PngRow((uint8_t *)flinebuf);
            if(CurrentlyPlaying != P_NOTHING){
 			   f_sync(FileTable[fnbr].fptr);
@@ -2540,11 +2548,18 @@ void ErrorThrow(int e) {
 }
 
 
+// MMBasic's file error number (FErrorMsg) for FatFs's result fr: its "not ready" is the SD card's "SD Card not found",
+// or "USB drive not present" when the drive that was not ready is the USB flash drive (MKDIR "C:" with none there)
+extern BYTE NotReadyDrive;
+int FileErrorNo(int fr) {
+    return (fr == FR_NOT_READY && NotReadyDrive == 1) ? 21 : ErrorMap[fr];
+}
+
 void ErrorCheck(int fnbr) {                                         //checks for an error, if fnbr is specified frees up the filehandle before sending error
     int e;
     e = (int)FSerror;
     if(fnbr != 0 && e != 0) ForceFileClose(fnbr);
-    if(e >= 1 && e <= 19) ErrorThrow(ErrorMap[e]);
+    if(e >= 1 && e <= 19) ErrorThrow(FileErrorNo(e));
     return;
 }
 
@@ -2728,7 +2743,7 @@ static int InitUSBDrive(void) {
         if(FileTable[i].com > MAXCOMPORTS && FileTable[i].fptr != NULL && FileTable[i].fptr->obj.fs == &FatFs_USB)
             ForceFileClose(i);
     i = f_mount(&FatFs_USB, "C:", 1);
-    if(i) { ErrorThrow(ErrorMap[i]); return false; }
+    if(i) { ErrorThrow(FileErrorNo(i)); return false; }
     f_mount(&FatFs, "A:", 0);
     f_chdrive("C:");
     return 2;
@@ -2746,7 +2761,7 @@ int InitACard(void) {
             if(FileTable[i].fptr != NULL && FileTable[i].fptr->obj.fs != &FatFs_USB)
                 ForceFileClose(i);
     i = f_mount(&FatFs, "A:", 1);
-    if(i) { ErrorThrow(ErrorMap[i]); return false; }
+    if(i) { ErrorThrow(FileErrorNo(i)); return false; }
     return 2;
 }
 

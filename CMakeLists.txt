@@ -103,7 +103,8 @@ if(CMM2_CHECKS)
 endif()
 
 # Per-file optimisation overrides from the CubeIDE Release configuration.
-# These come after -Os on the command line, so they win.
+# These come after -Os on the command line, so they win.  A function in them marked OPTSIZE (Inc/Configuration.h) is
+# still -Os: start-up, loading, LIST, FILES, MM.INFO, OPTION and the like, whose speed does not matter (1 Nov 2026).
 set(RELEASE_O2_FILES
     Commands.c Draw.c FileIO.c Functions.c MATHS.c MMBasic.c MM_Misc.c
     Memory.c Operators.c OtherDisplays.c Serial.c

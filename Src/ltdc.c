@@ -278,7 +278,7 @@ void reset_CLUT(void){
 	}
 }
 
-void setmode(int mode, int colour, int bc, int force){
+void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	static int fnt=((0 << 4) | 1);
 	static int DisplayH=0, DisplayV=0;                                       // the physical characteristics of the display
 	int oldmode=VideoMode;

@@ -1,0 +1,9 @@
+false IF: 1 2
+true IF: y y y y
+FOR after ELSE: e e e e
+IF THEN IF THEN FOR: 1 2
+IF c THEN NEXT, not taken: 1 2 3
+outer loop skipped: done
+DO in IF in DO: 1 2
+Gauntlet's panel: 1 2 k b 1 k k b 2
+

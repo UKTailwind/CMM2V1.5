@@ -94,6 +94,9 @@ char *fstrstr (const char *s1, const char *s2)
    text; the save's temporary memory is freed at once (the editor never clears it, and a program's statement may still
    be using its own). The editor's tests send the code over the serial console to photograph the display
    (tools/edit_test.py). */
+extern int SaveTopLayer;                                            // (FileIO.c: a capture's top layer in 12-bit colour)
+extern char *SaveTopRow;
+
 static int ScreenShotSave(void *arg) {
     char name[48], *cmd = arg;
     FILINFO fno;
@@ -112,11 +115,28 @@ static int ScreenShotSave(void *arg) {
     return 1;
 }
 
+// the page an LTDC layer shows (its address: PAGE DISPLAY), or dflt when it is none of them
+static int ShownPage(uint32_t addr, int dflt) {
+    for(int k = 0; k <= LastPage; k++)
+        if((uint32_t)PageTable[k].address == addr) return k;
+    return dflt;
+}
+
 void ScreenShot(void) {
     char cmd[64];
-    int mark = TempMemoryMark();
+    int mark = TempMemoryMark(), rp = ReadPage;
     if((void *)ReadBuffer == (void *)DisplayNotSet || !MDD_SDSPI_CardDetectState()) return;
+    if(!DisplayMerged) {                                            // the page shown, not the one being written (a program that
+        ReadPage = ShownPage(LTDC_Layer1->CFBAR, 0);                // draws on page 1 and copies it saved its unfinished frame);
+        if(VideoColour == 12) {                                     // in 12-bit colour the top layer's page over it, as shown.
+            SaveTopLayer = ShownPage(LTDC_Layer2->CFBAR, 1);        // (A 4 or 1-bit mode's display is the merge's: as before)
+            SaveTopRow = GetTempMemory(PageTable[ReadPage].xmax * 4);
+        }
+    }
     FileTry(ScreenShotSave, cmd);
+    ReadPage = rp;
+    SaveTopLayer = -1;
+    SaveTopRow = NULL;
     ClearTempMemoryTo(mark);
 }
 
