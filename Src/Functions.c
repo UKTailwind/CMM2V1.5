@@ -76,6 +76,7 @@ const char* overlaid_functions[]={
 	"MM.CODE",                                                      // (before MM.END, which ends the table: the ~() codes stay)
 	"MM.USB",
 	"MM.DISPLAY",
+	"MM.MOUSE",
 	"MM.END"
 };
 
@@ -244,6 +245,13 @@ typedef enum {
 		case MMFLAGS:
 			iret = g_flag;
 			break;
+		case MMMOUSE: {                                            // the channel of the mouse to use, for CONTROLLER MOUSE OPEN,
+			int c = MouseOpenChannel();                             // MOUSE() and DEVICE(MOUSE): a USB mouse's 2, else the one open,
+			if(c < 0 && Option.Mouse >= 0)                          // else OPTION MOUSE's: 0 if the PS/2 mouse answers, an I2C
+				c = Option.Mouse == 0 ? (MouseOptionStart() ? 0 : -1) : Option.Mouse;   // interface's channel unprobed (OPEN
+			iret = c;                                               // checks it, and MM.MOUSE opens nothing); -1 for none
+			break;                                                  // (Peter, 1 Nov 2026)
+		}
 		case MMHRES:
 		    iret = PageTable[WritePage].xmax;
 			break;

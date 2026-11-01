@@ -209,6 +209,51 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
       did) but reported the font's 8, so a program placing lines by it (Print @(x * w, row * h)) drew them off its rows.
       Both now give gui_font_height, the spacing (8 under OPTION PICOMITE, as on the PicoMite, which has no such case).
       Z-MIM's small font checked on the G2; fonts89, datakw, libcsub and picomode still match.
+- [x] **A variable named after a command** (NOMIS, Bill Leue 2023: "flash = 1" was the FLASH command, added in 7.00,
+      "Syntax"). Peter's rule: at the start of a statement NAME = x (and NAME$, NAME%, NAME! = x) is an assignment,
+      for any command, except where the name is a keyword, operator or function too (FOR, GOTO, TIMER, DATE$) or NAME =
+      is the command's own (FLAGS, CASE; REM, RUN, DATA). A tokeniser change only (CmdNameVar, MMBasic.c): the line runs
+      as any assignment. The array form (NAME(bounds) = x) was dropped: it made IF (x) = y THEN, ELSEIF, WHILE and PRINT
+      assignments, and CASE = 5 was missed (another session's review, CMM2V1.5 issue #10); arrays are TILE, DEVICE and
+      RESOLUTION's as before. tests/cmm2/cmdvars has those lines; the manual's naming rule updated. NOMIS then runs; it
+      needs MODE 1 (800x600), the CMM2's default, which the G2 now has (OPTION DEFAULT MODE 1,8, Peter, 1 Nov).
+      Raised for the PicoMite as #149.
+- [x] **MM.MOUSE** (Peter, found with BoxDot, whose CONST mouseport = 3 named a Hobbytronic channel the USB mouse is not
+      on, "Sorry, this program needs a mouse"): the channel of the mouse to use, so a program fixes none. 2 for a USB
+      mouse; else the open one's (0-3); else OPTION MOUSE's (0 if the PS/2 mouse answers, MouseOptionStart; 1-3
+      unprobed, for OPEN to check: Peter); else -1. It opens nothing. A fun_tilde code (V) appended before MMEND; the
+      compiler leaves it to the interpreter. DEVICE(MOUSE n), MOUSE INTERRUPT and MOUSE SET take n = 0 to 4 (they act on
+      the mouse in use), so MM.MOUSE's 0 works with them. tests/cmm2/mmmouse; manual entries. NOMIS (A:/nomis) and
+      BoxDot (A:/boxdot) changed on the card to use it, and both start on the G2's USB mouse.
+- [x] **The G2 hung after OPTION DEFAULT MODE's restart** (1 Nov): no console and no display until an ST-Link reset.
+      Proven: reproduced with a Ctrl-C (a serial call's first byte) about two seconds into the restart; the ST-Link probe
+      found the CPU in HardFault_Handler with SP 0xFFFFFF98 and CFSR INVSTATE + IMPRECISERR, the marks of a longjmp
+      through main's still-empty jmp_buf (SP 0, PC 0). The path: start_console() starts the console's reception, then
+      InitDisplayOther's setmode (a new mode) waits for a frame in reset_CLUT with while(!pagesetdone) CheckAbort(); the
+      Ctrl-C's MMAbort made CheckAbort call cleanend(), whose longjmp(mark) ran before main's setjmp(mark). Fixed:
+      MarkSet (main.c), set on setjmp's first pass; CheckAbort acts on MMAbort only then, and a Ctrl-C typed during
+      start-up is dropped with the rest of the input. A USB keyboard's Ctrl-C (KeyboardMap.c) is covered too, which
+      disabling the console interrupt would not have been. The failing sequence then passed 4 times of 4. (error() before
+      setjmp would still jump through the empty jmp_buf; nothing calls it there in practice.)
+- [x] **MM.INFO(SOUND)'s strings follow OPTION PICOMITE** (Peter, 1 Nov, reversing 16 Oct's "the PicoMite's
+      throughout"): Into the Darkness stopped with "Samples play over MOD file" (SOUND.INC tests ="MODFILE", else PLAY
+      STOP and PLAY WAV, which ended the module before PLAY MODSAMPLE); Wolf3D and Gauntlet make the same test and lost
+      their music at the first effect. By default "MODFILE" and a bare "PAUSED" for any pause, as 6.00; under OPTION
+      PICOMITE the PicoMite's "MOD" and "PAUSED WAV" and so on. The states 6.00 had not (ARRAY, SAMPLE, BBC) keep their
+      names. Done after the switch (MM_Misc.c), so the PicoMite's table stays as it was. tests/cmm2/sndinfo and
+      tests/picomite/pmdialect check a paused tone; checked on the G2 with a module, an EFFECT over it and a WAV in both
+      dialects. Into the Darkness then plays its first stage to the end without an error, its effects by PLAY EFFECT over
+      the module, as on 6.00.
+- [x] **The mouse and the GUI cursor centred by a mode change** (Peter, 1 Nov: "the cursor should re-center on any mode
+      change"). Found with Cuno (Bill Leue): its GUI CURSOR ON 1, MM.HRES\2, MM.VRES\2 then GUI CURSOR MOUSE(X), MOUSE(Y)
+      put the cross at (400, 300), the USB mouse's place since it was attached in MODE 1 (USBMouseAttached centres it;
+      CONTROLLER MOUSE OPEN 2 sets only interrupts). MouseModeChange (USBMouse.c), at the end of setmode's change path
+      (ltdc.c): every channel's ax, ay and the cursor's point at HRes/2, VRes/2; an open I2C mouse's adapter is sent
+      registers 20 to 28 again (MouseI2CScreen, MiscSTM32.c, with OPEN's sensitivity kept), as its OPEN does, since it
+      holds the position and the screen's size and kept to the old screen. The I2C part is untested: no I2C mouse here.
+      tests/cmm2/mmmouse checks MODE 9's centre; checked on the G2 with the USB mouse in MODEs 9, 16, 7 and back to 1,
+      and Cuno's cross starts at (960, 540). Cuno also needs MODE 16 (its MODE 15 is 1280x1024, its layout 1920x1080):
+      changed on the card, with MM.MOUSE.
 - [x] **RUN f$ against SP Tools and the Welcome Tape** (Peter's check): every RUN either uses is a quoted name and a comma,
       the old path, or RUN prog$ (sys.run_shell), which now runs prog$. Checked on the G2: SP Tools matches its baseline
       but for tst_file, which needs a USB flash drive on C:; sptest's own chain in spflow, sptrans and splib; the menu's

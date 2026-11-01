@@ -6,7 +6,7 @@ In MMBasic command names, function names, labels, variable names, file names, et
 
 Variables can start with an alphabetic character or underscore and can contain any alphabetic or numeric character, the period (.) and the underscore (_). They may be up to 32 characters long.
 
-A variable name or a label must not be the same as a command, function, one of the nine PIO instructions (IN, OUT, JMP, WAIT, PUSH, PULL, MOV, IRQ, SET) or one of the following keywords: THEN, ELSE, GOTO, GOSUB, TO, STEP, FOR, WHILE, UNTIL, LOAD, MOD, NOT, AND, OR, XOR, AS. Eg, step = 5 is illegal as STEP is a keyword.
+A variable name or a label must not be the same as a function, one of the nine PIO instructions (IN, OUT, JMP, WAIT, PUSH, PULL, MOV, IRQ, SET) or one of the following keywords: THEN, ELSE, GOTO, GOSUB, TO, STEP, FOR, WHILE, UNTIL, LOAD, MOD, NOT, AND, OR, XOR, AS. Eg, step = 5 is illegal as STEP is a keyword. A label must not be the same as a command either. A variable can have the name of a command, so that a program written before that command was added still runs: at the start of a statement name = value (or name$, name% or name! = value) assigns to the variable. The exceptions are TIMER, TIME$, DATE$, FLAGS and CASE, where NAME = is the command itself, and REM, RUN and DATA. An array cannot have a command's name, as IF (x) = y THEN is the IF command (TILE, DEVICE and RESOLUTION are allowed).
 
 A label must be unique: the same label defined twice, in the program or in both the program and the library, is reported as Duplicate label when the program is run.
 

@@ -3489,8 +3489,8 @@ void OPTSIZE fun_info(void){
 		   CurrentlyPlaying == P_PAUSE_MP3 || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MOD) strcpy(sret, WAVfilename);
 		else strcpy(sret,"OFF");
 	} else if(checkstring(ep, "SOUND")){
-		switch(audiofinished ? P_NOTHING : CurrentlyPlaying){      // the PicoMite's strings (Peter, 16 Oct: "MODFILE" and a bare
-		case P_NOTHING:strcpy(sret,"OFF");break;                    // "PAUSED" were the CMM2's); TTS and DAC are the CMM2's own
+		switch(audiofinished ? P_NOTHING : CurrentlyPlaying){      // the PicoMite's strings; TTS and DAC are the CMM2's own
+		case P_NOTHING:strcpy(sret,"OFF");break;
 		case P_PAUSE_TONE:strcpy(sret,"PAUSED TONE");break;
 		case P_PAUSE_MP3:strcpy(sret,"PAUSED MP3");break;
 		case P_PAUSE_WAV:strcpy(sret,"PAUSED WAV");break;
@@ -3513,7 +3513,11 @@ void OPTSIZE fun_info(void){
 		case P_PAUSE_BBC:strcpy(sret,"PAUSED BBC");break;
 		default:strcpy(sret,"OFF");break;
 		}
-	} else if(checkstring(ep, "KEYBOARD")){                         // a USB keyboard; under OPTION PICOMITE the PicoMite's: the
+		if(PicoFlavour() == PICO_NONE) {                            // the CMM2's, as 6.00 gave them: "MODFILE", and a bare "PAUSED"
+			if(strncmp(sret, "PAUSED", 6) == 0) sret[6] = 0;        // for any pause (Wolf3D, Gauntlet and Into the Darkness test
+			else if(strcmp(sret, "MOD") == 0) strcpy(sret, "MODFILE");   // ="MODFILE"); the PicoMite's under OPTION PICOMITE
+		}                                                           // (Peter, 1 Nov)
+	} else if(checkstring(ep, "KEYBOARD")){                        // a USB keyboard; under OPTION PICOMITE the PicoMite's: the
 		if(PicoFlavour() != PICO_NONE) strcpy(sret, OSK_IsProgramActive() ? "On" : "Off");   // on-screen keyboard's KEYBOARD ON
 		else strcpy(sret,(keyboardseen? "Connected":"Not Connected"));
 

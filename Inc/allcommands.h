@@ -65,6 +65,7 @@ typedef enum {
     MMCODE,                                                         // MM.CODE: the stepper's free G-code slots (stepper.c)
     MMUSB,                                                          // MM.USB: the last USB key's HID code (the PicoMite's)
     MMDISPLAY,                                                      // MM.DISPLAY: 1, a display is always there (the PicoMite's)
+    MMMOUSE,                                                        // MM.MOUSE: the mouse's channel, -1 if none (Functions.c)
     MMEND
 } Operation;
 extern const char* overlaid_functions[];extern volatile int vol_left, vol_right;

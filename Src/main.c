@@ -188,6 +188,10 @@ int PromptFont, PromptFC, PromptBC;                             // the font and 
 uint8_t RxBuffer, TxBuffer;
 int MMCharPos;
 volatile int MMAbort = false;
+static volatile int MarkSet = false;                                // setjmp(mark) has run: until then CheckAbort leaves a Ctrl-C
+                                                                    // pending (its cleanend() jumped through the empty jmp_buf to
+                                                                    // address 0, a HardFault: a Ctrl-C while setmode waited for a
+                                                                    // frame at start-up after OPTION DEFAULT MODE, 1 Nov 2026)
 int use_uart;
 char bootcause[12]={0};
 unsigned int __attribute__((section(".my_section"))) _excep_dummy; // for some reason persistent does not work on the first variable
@@ -850,6 +854,7 @@ CloseAllFiles();
 LibBoot();                                                          // the flash library checked, and attached (Library.c)
 MouseOptionStart();                                                 // OPTION MOUSE 0: the PS/2 mouse started (UiMouse.c)
 while ((i = getConsole()) != -1){;} //clear anything in console
+MMAbort = false;                                                    // (and a Ctrl-C typed during start-up, with the rest)
 if(setjmp(mark) != 0) {
 	  SerUSBPutS("\033[?25h");
 	  SerUSBPutS("\033[37m");
@@ -919,6 +924,7 @@ if(setjmp(mark) != 0) {
         DefinedSubFunMem = 0;
     }
 } else {
+	MarkSet = true;                                                 // (a longjmp comes back through the branch above)
 	ClearProgram();
 	PrepareProgram(true);
 	_excep_cause = CAUSE_MMSTARTUP;
@@ -3204,7 +3210,7 @@ void CheckAbort(void) {
 			WritePage=writesave;
 		}
 	}
-    if(MMAbort) {
+    if(MMAbort && MarkSet) {                                        // (not before the prompt's jmp_buf is set: MarkSet)
         WDTimer = 0;                                                // turn off the watchdog timer
         ShowCursor(0);
     	ScrewUpTimer=0;

@@ -42,6 +42,7 @@ void USBMouseReport(uint8_t const *report, uint16_t len, int slot);
 void USBMouseAttached(int slot);
 void USBMouseDetached(void);
 int MouseOpenChannel(void);                         // the mouse in use: 0 PS/2, 1-3 I2C, 2 also USB; -1 none
+void MouseModeChange(void);                         // a mode change: the mice and the GUI cursor at the screen's centre
 extern char *MouseIntAny;                           // MOUSE INTERRUPT ENABLE n, sub
 extern volatile int MouseIntAnyFound;
 #endif

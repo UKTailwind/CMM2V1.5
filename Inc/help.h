@@ -368,6 +368,7 @@ const char *  const __attribute__((section(".rodata")))help[] = {
  "MM.INFO(VERSION","MM.INFO( VERSION)",
  "MM.INFO(VPOS","MM.INFO( VPOS)",
  "MM.INFO(WRITE PAGE","MM.INFO( WRITE PAGE)",
+ "MM.MOUSE","MM.MOUSE",
  "MM.ONEWIRE","MM.ONEWIRE",
  "MM.USB","MM.USB",
  "MM.VER","MM.VER ",

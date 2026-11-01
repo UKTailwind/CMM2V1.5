@@ -12,7 +12,7 @@ The type of a variable can be specified in the DIM command or by adding a suffix
 
 - Strings.  These will store a string of characters (eg, "Tom").  The suffix for a string is the '$' symbol (eg, name$, s$, etc)   Strings can be up to 255 characters long.
 
-Variable names and labels can start with an alphabetic character or underscore and can contain any alphabetic or numeric character, the period (.) and the underscore (_). They may be up to 32 characters long. A variable name or a label must not be the same as a command or a function or one of the following keywords: THEN, ELSE, TO, STEP, FOR, WHILE, UNTIL, MOD, NOT, AND, OR, XOR, AS. Eg, step = 5 is illegal.
+Variable names and labels can start with an alphabetic character or underscore and can contain any alphabetic or numeric character, the period (.) and the underscore (_). They may be up to 32 characters long. A variable name or a label must not be the same as a function or one of the following keywords: THEN, ELSE, GOTO, GOSUB, TO, STEP, FOR, WHILE, UNTIL, MOD, NOT, AND, OR, XOR, AS. Eg, step = 5 is illegal. A label must not be the same as a command either; a variable can be, with the exceptions given in the chapter Variables and Expressions.
 
 It is important to note that the alphanumeric name of the variable must be unique so you cannot have both a variable s$ and s%. As a result, if a variable is declared without a type suffix, it can be used with the relevant suffix in a program and will still reference the same variable.
 

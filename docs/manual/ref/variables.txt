@@ -276,7 +276,7 @@ The directory set by OPTION SEARCH PATH, in which RUN at the command prompt look
 =+= MM.INFO$(SOUND)
 MM.INFO$(TRACK)
 --- keep
-What the audio output is doing: "OFF", "TONE", "WAV", "FLAC", "MP3", "MOD", "SOUND", "TTS", "ARRAY", "SAMPLE", "BBC" or "DAC" (the DAC command), or "PAUSED" followed by a space and what is paused (eg, "PAUSED WAV").
+What the audio output is doing: "OFF", "TONE", "WAV", "FLAC", "MP3", "MODFILE", "SOUND", "TTS", "ARRAY", "SAMPLE", "BBC" or "DAC" (the DAC command), or "PAUSED" while any of these is paused.  With OPTION PICOMITE it gives the PicoMite's strings: "MOD" for a module, and "PAUSED" followed by a space and what is paused (eg, "PAUSED WAV").
 The name of the WAV, FLAC, MP3 or MOD file that is playing (or paused), or "OFF".
 
 =+= MM.INFO(SYSTEM HEAP)
@@ -305,6 +305,12 @@ The status of the USB flash drive, the C: drive: "Ready" (a drive is plugged in 
 =+= MM.INFO(VARCNT)
 --- keep
 The number of variables in use: the global variables and the local variables of the subroutines and functions that are running.  ERASE, CLEAR and the end of a subroutine or function lower it.
+
+=== MM.MOUSE
+--- keep
+The channel of the mouse to use with CONTROLLER MOUSE OPEN, MOUSE() and DEVICE(MOUSE ...), so that a program works with whatever mouse is connected instead of one fixed channel.  It is 2 if a USB mouse is plugged in; otherwise the channel of a mouse that is open (0 for a PS2 mouse, 1 to 3 for a Hobbytronic interface); otherwise the channel set with OPTION MOUSE (0 only if the PS2 mouse answers, and an I^^2^^C channel as it is set, for CONTROLLER MOUSE OPEN to check); and -1 if there is none.  It does not open a mouse.
+For example: m = MM.MOUSE : IF m < 0 THEN PRINT "This program needs a mouse" : END, then CONTROLLER MOUSE OPEN m, LeftClick and x = MOUSE(X, m).
+With OPTION MOUSE 0 and no PS2 mouse attached it can take half a second, so a program should read it once at its start.
 
 === MM.ONEWIRE
 --- keep

@@ -1894,6 +1894,23 @@ void ListUnfold(char *b) {
 // every byte tokenise() writes goes through TKNPUT, which stops at the end of tknbuf
 #define TKNPUT(c) do { if(op >= tknend) goto toolong; *op++ = (c); } while(0)
 #define TKNPUTCMD(i) do { if(op + sizeof(CommandToken) > tknend) goto toolong; op = commandtbl_put(op, (i)); } while(0)
+// A command's name as a variable's (Peter, 1 Nov 2026: NOMIS's flash = 1, from before FLASH was a command). At the start
+// of a statement NAME = x (and NAME$, NAME% or NAME! = x) is an assignment: tokenise() leaves the name as text, so the
+// line runs as any assignment does and the variable is made at its first use; nothing changes at run time. Not where
+// the name is a keyword, an operator or a function as well (FOR, GOTO, TIMER, DATE$: the variable could not be read
+// back), nor where NAME = is the command's own (FLAGS = n; CASE = 5, CASE's operator; REM, RUN and DATA, whose
+// argument is text). Not an array: IF (x) = y THEN, PRINT (a) = b and the like are the commands (issue #10); only
+// TILE, DEVICE and RESOLUTION, as before.
+static int CmdNameVar(int i) {
+    const char *c = (const char *)commandtbl[i].name;
+    if(strcasecmp(c, "Flags") == 0 || strcasecmp(c, "Case") == 0 || strcasecmp(c, "Rem") == 0 || strcasecmp(c, "Run") == 0 ||
+       strcasecmp(c, "Data") == 0)
+        return false;
+    for(int k = 0; k < TokenTableSize - 1; k++)
+        if(strcasecmp(c, (const char *)tokentbl[k].name) == 0) return false;
+    return true;
+}
+
 char tknerrmsg[80];
 // the source of the line being tokenised for a program image: its file (1 = the main program) and line,
 // which go into the line's header, and the file's name (NULL for the main program) for messages
@@ -2132,13 +2149,16 @@ int MIPS16 tokenise(int console) {
                 char *q = match_p;
                 if((match_i == cmdTYPE || match_i == cmdSTRUCT) && (*q == '$' || *q == '%' || *q == '!'))
                     match_i = -1;
-                else {
+                else if(*q == '$' || *q == '%' || *q == '!') {           // flash% = 1, flash$ = "a"
+                    char *r = q + 1;
+                    skipspace(r);
+                    if(*r == '=' && CmdNameVar(match_i)) match_i = -1;
+                } else {
                     skipspace(q);
                     if((match_i == cmdTYPE || match_i == cmdSTRUCT) && (*q == '=' || *q == '('))
                         match_i = -1;
-                    else if((match_i == cmdTILE || match_i == cmdDEVICE || match_i == cmdRESOLUTION) && *q == '=')   // a
-                        match_i = -1;                               // variable called TILE, DEVICE or RESOLUTION (tile = 3), as
-                                                                    // before those commands came, and an array below
+                    else if(*q == '=' && CmdNameVar(match_i))       // a variable called after a command: flash = 1, tile
+                        match_i = -1;                               // = 3 (CmdNameVar), and an array below
                     else if(checkstring(q, "AS") != NULL && match_i != cmdLOCAL && match_i != cmdSTATIC && match_i != GetCommandValue("Dim"))
                         match_i = -1;
                     else if(*q == '(' && commandtbl[match_i].name[strlen((char *)commandtbl[match_i].name) - 1] != '(') {

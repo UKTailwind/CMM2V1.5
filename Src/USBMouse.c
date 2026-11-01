@@ -283,6 +283,23 @@ void USBMouseReport(uint8_t const *report, uint16_t len, int slot) {
     MouseInput(dx, dy, (int8_t)wheel, buttons, 0.5f / sp);           // (halved, as the PicoMite's, and divided by the option)
 }
 
+// a mode change (setmode, ltdc.c): every mouse, and the GUI cursor's point, at the centre of the new screen (Peter, 1 Nov:
+// "the cursor should re-center on any mode change"; the USB mouse was centred only when plugged in, so Cuno's cursor
+// began at the start-up mode's centre). An I2C mouse's adapter holds its position and the screen's size: it is told
+// both again (MiscSTM32.c)
+void MouseModeChange(void) {
+    extern int xcursor, ycursor, xoffcursor, yoffcursor;
+    extern void MouseI2CScreen(void);
+    for(int c = 0; c < 4; c++) {
+        mousestruct[c].ax = HRes / 2;
+        mousestruct[c].ay = VRes / 2;
+    }
+    RemX = RemY = 0.0f;
+    xcursor = HRes / 2 - xoffcursor;
+    ycursor = VRes / 2 - yoffcursor;
+    MouseI2CScreen();
+}
+
 // the mouse in HID slot 'slot' has been set up (USBKeyboard.c): it is channel 2 from now on
 void USBMouseAttached(int slot) {
     volatile struct s_nunstruct *m = &mousestruct[USBMOUSE_CHANNEL];
@@ -310,7 +327,7 @@ void cmd_usbmouse(void) {
     if((tp = checkstring(cmdline, "INTERRUPT ENABLE"))) {
         getargs(&tp, 3, ",");
         if(argc != 3) error("Syntax");
-        getint(argv[0], 1, 4);
+        getint(argv[0], 0, 4);                                      // (n is any mouse: 0 too, MM.MOUSE's PS/2 channel)
         MouseIntAny = GetIntAddress(argv[2]);
         IntSignal();
         return;
@@ -318,14 +335,14 @@ void cmd_usbmouse(void) {
     if((tp = checkstring(cmdline, "INTERRUPT DISABLE"))) {
         getargs(&tp, 1, ",");
         if(argc != 1) error("Syntax");
-        getint(argv[0], 1, 4);
+        getint(argv[0], 0, 4);
         MouseIntAny = NULL;
         return;
     }
     if((tp = checkstring(cmdline, "SET"))) {
         getargs(&tp, 7, ",");
         if(!(argc == 7 || argc == 5)) error("Syntax");
-        getint(argv[0], 2, 2);
+        getint(argv[0], 0, 4);
         if((c = MouseOpenChannel()) < 0) error("No mouse");
         mousestruct[c].ax = getint(argv[2], 0, HRes - 1);
         mousestruct[c].ay = getint(argv[4], 0, VRes - 1);
@@ -341,7 +358,7 @@ void fun_device_fn(void) {
     if((tp = checkstring(ep, "MOUSE"))) {
         getargs(&tp, 3, ",");
         if(argc != 3) error("Syntax");
-        getint(argv[0], 1, 4);
+        getint(argv[0], 0, 4);                                      // (any mouse, so MM.MOUSE's 0 too)
         int c = MouseOpenChannel();
         volatile struct s_nunstruct *m = &mousestruct[c < 0 ? 0 : c];
         char *k = argv[2];

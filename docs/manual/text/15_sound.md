@@ -116,4 +116,4 @@ There are a number of commands that can be used to manage the sound output:
 >> PLAY NEXT	Skip to the next file when playing a directory.
 >> PLAY PREVIOUS	Skip to the previous file when playing a directory.
 
-Changes in volume, stopping and pausing are smoothed over a few milliseconds so that they do not click. MM.INFO(SOUND) returns what the audio output is doing: OFF, WAV, FLAC, MP3, MOD, TONE, SOUND, TTS, DAC (the DAC command), ARRAY, SAMPLE or BBC, and PAUSED followed by what was playing (eg, PAUSED WAV) while it is paused.
+Changes in volume, stopping and pausing are smoothed over a few milliseconds so that they do not click. MM.INFO(SOUND) returns what the audio output is doing: OFF, WAV, FLAC, MP3, MODFILE, TONE, SOUND, TTS, DAC (the DAC command), ARRAY, SAMPLE or BBC, and PAUSED while any of these is paused. With OPTION PICOMITE it returns the PicoMite's strings: MOD for a module, and PAUSED followed by what was playing (eg, PAUSED WAV).

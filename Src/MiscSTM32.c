@@ -937,6 +937,24 @@ void mouse0start(int sensitivity){
 	initMouse0(sensitivity);
 }
 
+/* a mode change (MouseModeChange, USBMouse.c): an open I2C mouse's adapter told the new screen's size, its position the
+   centre and its speed as CONTROLLER MOUSE OPEN set them (registers 20 to 28), or it would keep to the old screen.
+   Without a reply nothing is reported: the mode has changed whatever the mouse does */
+static uint8_t mousesens[4];                                        // OPEN's sensitivity (0: scaled to the screen's width)
+void MouseI2CScreen(void){
+	I2C_HandleTypeDef *h[4] = {NULL, &hi2c1, &hi2c4, &hi2c2};
+	int open[4] = {0, mouse1, mouse2, mouse3};
+	int maxW = HRes, maxH = VRes;
+	for(int c = 1; c <= 3; c++){
+		if(!open[c]) continue;
+		uint8_t m[5][3] = {{20, maxW>>8, maxW & 0xFF}, {22, maxH>>8, maxH & 0xFF}, {24, maxW>>9, (maxW>>1) & 0xFF},
+		                   {26, maxH>>9, (maxH>>1) & 0xFF}, {28, mousesens[c] ? mousesens[c] : maxW>>7, 0}};
+		mT4IntEnable(0);
+		for(int k = 0; k < 5; k++) HAL_I2C_Master_Transmit(h[c], (uint16_t)mouseaddr, m[k], k < 4 ? 3 : 2, 100);
+		mT4IntEnable(1);
+	}
+}
+
 void cmd_mouse(char *cmd){
 	int nchan=2, sensitivity=0;
 	char * tp;
@@ -1047,6 +1065,7 @@ void cmd_mouse(char *cmd){
 			HAL_NVIC_SetPriority(I2C1_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
 			mouse1=1;
+			mousesens[nchan]=sensitivity;                          // (for a mode change: MouseI2CScreen)
 		} else if(nchan==2){
 			if(mouse2) error("I2C2 already OPEN");
 			mymemset((struct s_nunstruct *)&mousestruct[nchan],0,sizeof(struct s_nunstruct));
@@ -1122,6 +1141,7 @@ void cmd_mouse(char *cmd){
 			HAL_NVIC_SetPriority(I2C4_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C4_EV_IRQn);
 			mouse2=1;
+			mousesens[nchan]=sensitivity;                          // (for a mode change: MouseI2CScreen)
 		} else { //nchan==3
 			if(mouse3) error("I2C3 already OPEN");
 			mymemset((struct s_nunstruct *)&mousestruct[nchan],0,sizeof(struct s_nunstruct));
@@ -1198,6 +1218,7 @@ void cmd_mouse(char *cmd){
 			HAL_NVIC_SetPriority(I2C2_EV_IRQn, IRQ_PRI(0),0);
 			HAL_NVIC_EnableIRQ(I2C2_EV_IRQn);
 			mouse3=1;
+			mousesens[nchan]=sensitivity;                          // (for a mode change: MouseI2CScreen)
 		}
 		mT4IntEnable(1);
 		if(nchan==1){

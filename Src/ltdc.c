@@ -42,7 +42,8 @@
 #include "CLUT.h"
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
-#define PLL3_TIMEOUT_VALUE         ((uint32_t)2)    /* 2 ms */
+#include "USBMouse.h"
+#define PLL3_TIMEOUT_VALUE        ((uint32_t)2)    /* 2 ms */
 
 #define DIVIDER_P_UPDATE          0U
 #define DIVIDER_Q_UPDATE          1U
@@ -591,6 +592,7 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	Rgb121Active=DisplayMerged;                                       // a 4 or 1-bit mode: the merge at each frame (Rgb121.c)
 	if(VideoColour==1)OSK_DropState();                               // the on-screen keyboard: none in MODE n,1 (Peter, 27 Oct)
 	else OSK_Invalidate();                                           // (redrawn at the prompt: OSK.c)
+	MouseModeChange();                                               // the mice and the GUI cursor at the centre (USBMouse.c)
 }
 
 /* LTDC init function */

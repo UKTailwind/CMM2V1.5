@@ -2,7 +2,8 @@
 ' PICOMITE: MM.INFO(CPUSPEED) a string; LOAD PNG's t and cutoff the PicoMite's (pd_alpha.png: four pixels, red alpha
 ' 255, green alpha 10, blue alpha 25, white alpha 0; colours 1 and 15, the same in the VGA and HDMI palettes);
 ' GETSCANLINE counting the screen's lines from the first visible one, as the PicoMite's HDMI versions do (in MODE 2
-' too). Each check reads the pixels before it prints (its line is on the top row).
+' too). Each check reads the pixels before it prints (its line is on the top row). MM.INFO(SOUND)'s strings the
+' PicoMite's (1 Nov: "PAUSED TONE"; without OPTION PICOMITE a bare "PAUSED", tests/cmm2/sndinfo).
 Option Explicit
 Option Default Integer
 Dim tests, pass, i, mx, g
@@ -10,6 +11,9 @@ Dim s$
 
 s$ = MM.Info(CpuSpeed)
 Check "MM.INFO(CPUSPEED) is a string, the clock in Hz", Val(s$) >= 400000000, 1
+Play Tone 440, 440, 2000 : Pause 50 : Play Pause
+CheckS "MM.INFO(SOUND) of a paused tone: PAUSED TONE", MM.Info$(Sound), "PAUSED TONE"
+Play Stop
 
 Mode 2
 CLS RGB(cyan)

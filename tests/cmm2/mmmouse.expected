@@ -1,0 +1,7 @@
+MM.MOUSE in range: 1
+open and read: 1
+DEVICE(MOUSE 0, X): 1
+MOUSE INTERRUPT DISABLE 0: ok
+MM.MOUSE again: 1
+centred by MODE: 1
+
