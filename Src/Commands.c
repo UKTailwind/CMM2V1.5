@@ -1765,6 +1765,24 @@ char *IfFindToken(char *p, int tok) {
     return p;
 }
 
+// The command right after the next THEN or ELSE of an IF, searching its element from q (the IF token, or a command
+// this returned), or NULL at the element's end. GetNextCommand steps from element to element, and a single-line IF's
+// THEN and ELSE commands are inside the IF's: in a FOR loop, IF k THEN FOR i = 1 TO k: ... : NEXT i counted NEXT i but
+// not its FOR, so the outer FOR took NEXT i for its own and its own NEXT found no loop ("Cannot find a matching FOR").
+// ForFindNext and DoFindLoop count a FOR, DO or WHILE there too. A NEXT or LOOP there (IF c THEN NEXT i) is not
+// counted: it is a second way to a loop's end, whose own NEXT or LOOP follows as a statement.
+static char *IfInlineCommand(char *q) {
+    char *t, *e;
+    if(commandtbl_at(q) != CMD_NOTOKEN) q += sizeof(CommandToken);  // (a command token's bytes can have THEN's value)
+    t = IfFindToken(q, tokenTHEN);
+    e = IfFindToken(q, tokenELSE);
+    if(e < t) t = e;                                                // (each stops at the element's end)
+    if(*t == 0) return NULL;
+    t++;
+    skipspace(t);
+    return t;
+}
+
 void cmd_if(void) {
 	int r, i, testgoto, testelseif;
 	char ss[3];														// this will be used to split up the argument line
@@ -2275,6 +2293,9 @@ char *ForFindNext(char *p, char *vname, int vlen, char *errmsg) {
         p = GetNextCommand(p, &tp, errmsg);
         if(*p == 0) return NULL;                                    // the end of the program (only when errmsg is NULL)
         CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdIF)                                            // a FOR right after a single-line IF's THEN or ELSE
+            for(char *q = IfInlineCommand(p); q; q = IfInlineCommand(q))
+                if(commandtbl_at(q) == cmdFOR) t++;
         if(tkn == cmdFOR) t++;                                      // count the FOR
         if(tkn == cmdNEXT) {                                        // is it NEXT
             if(SymFindName(p + sizeof(CommandToken), vname)) t = 0; // found the matching NEXT
@@ -2685,6 +2706,9 @@ char *DoFindLoop(char *p, CommandToken dotoken, char *errmsg) {
         p = GetNextCommand(p, &tp, errmsg);
         if(*p == 0) return NULL;                                    // the end of the program (only when errmsg is NULL)
         CommandToken tkn = commandtbl_at(p);
+        if(tkn == cmdIF)                                            // a DO (or WHILE) right after a single-line IF's THEN or ELSE
+            for(char *q = IfInlineCommand(p); q; q = IfInlineCommand(q))
+                if(commandtbl_at(q) == dotoken) i++;
         if(tkn == dotoken) i++;                                     // entered a nested DO or WHILE loop
         if(tkn == cmdLOOP) i--;                                     // exited a nested loop
         if(i == 0) return p;                                        // found our matching LOOP

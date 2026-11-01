@@ -247,7 +247,11 @@ static int fm_stricmp(const char *a, const char *b)
 static void fm_flush_keyboard_buffer(void)
 {
     // Reset repeat state and drain queued keycodes accumulated during redraw.
-    clearrepeat();
+    // CMM2: but a held Up or Down keeps repeating, to scroll a long list. A USB keyboard sends no report while a key
+    // stays down, so clearrepeat() here ended the repeat at every step (a PS/2 keyboard repeats by itself); the drain
+    // still stops a slow redraw from overshooting, and any other key (a held Enter) is reset as before.
+    if (KeyDown[0] != UP && KeyDown[0] != DOWN)
+        clearrepeat();
     while (MMInkey() != -1)
         ;
 }
