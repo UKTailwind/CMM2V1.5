@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.22)
 # Migrated from the STM32CubeIDE project CMM2V1.5. Compiler and linker flags
 # mirror the CubeIDE Debug and Release build configurations.
 
-project(CMM2 LANGUAGES C ASM)
+project(CMM2 LANGUAGES C CXX ASM)                  # (C++: only ymfm, the OPL3 synth, and its glue, OPLChip.cpp)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type (Debug or Release)" FORCE)
@@ -21,7 +21,7 @@ set(SOURCE_ROOTS Drivers Middlewares Src startup)
 
 set(_globs)
 foreach(root ${SOURCE_ROOTS})
-    list(APPEND _globs ${root}/*.c ${root}/*.s ${root}/*.S)
+    list(APPEND _globs ${root}/*.c ${root}/*.cpp ${root}/*.s ${root}/*.S)
 endforeach()
 file(GLOB_RECURSE _found CONFIGURE_DEPENDS RELATIVE ${CMAKE_SOURCE_DIR} ${_globs})
 list(REMOVE_DUPLICATES _found)                      # *.s and *.S overlap on Windows
@@ -86,6 +86,11 @@ target_compile_options(${TARGET} PRIVATE
     $<$<AND:$<COMPILE_LANGUAGE:C>,$<CONFIG:Debug>>:-Og -g3 -std=gnu11>
     $<$<COMPILE_LANGUAGE:ASM>:-x assembler-with-cpp -Wa,-W>
     $<$<AND:$<COMPILE_LANGUAGE:ASM>,$<CONFIG:Debug>>:-g3>
+    # C++ is ymfm (Src/ymfm) and OPLChip.cpp alone: no exceptions, RTTI, unwind tables or guarded statics
+    $<$<COMPILE_LANGUAGE:CXX>:-ffunction-sections -fdata-sections -Wall -std=gnu++14 -fno-exceptions -fno-rtti
+        -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics -fno-use-cxa-atexit -Wno-format>
+    $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:Release>>:-O2>
+    $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:Debug>>:-Og -g3>
 )
 
 # The PC sampler (Src/PcSampler.c): the "Sampler" preset, a Release build with it, for finding hot code.
@@ -110,7 +115,6 @@ set(RELEASE_O2_FILES
     Memory.c Operators.c OtherDisplays.c Serial.c
     Timers.c ltdc.c main.c mmc_stm32.c stm32h7xx_it.c
     Symbols.c Struct.c                                      # (on every variable reference: 17 Oct, measured)
-    opl3.c                                                  # (Nuked-OPL3, in bank 2: about 5% faster than -Os, 2 Nov)
 )
 # MiscSTM32.c (OPTION, LIST OPTIONS), flash.c (flash writes) and SerialFileIO.c (serial file transfer) are -Os, as
 # every other file is: their speed is the hardware's, and -O2 cost 5.6 KB of bank 1 (27 Oct 2026, Peter agreed)

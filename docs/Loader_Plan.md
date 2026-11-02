@@ -56,24 +56,50 @@ Peter's decisions since the plan was written:
 - From a program, RUN of a `.app` goes on with the next statement, the program's variables kept. At the prompt it returns to the prompt.
 - Service table version 1: the console, time, files and directories (FatFs), poll, leave, heap blocks, and the firmware's OPL3 synth.
 - The SDK is `tools/sdk`: `build.py`, `mkimage.py`, `app.ld`, `crt0.c`, `syscalls.c` (stdio, malloc, time) and two examples.
-- One existing bug was fixed on the way: the prompt's RUN path left the token buffer ended with one zero, not tokenise's three. RUN never returned before, so it never showed; with a returning RUN it gave a stray "Unknown command" after a shorter line.
+- Two existing bugs were fixed on the way:
+  - The prompt's RUN path left the token buffer ended with one zero, not tokenise's three. RUN never returned before, so it never showed; with a returning RUN it gave a stray "Unknown command" after a shorter line.
+  - `CloseAudio` left `WAV_fnbr` naming the file it had closed. After PLAY WAV and PLAY STOP, the next `FindFreeFileNbr` could hand that number out, and the next `CloseAudio` closed that file: here the loader's program, mid-read ("Cannot read the program"). It now sets `WAV_fnbr` to 0, as PLAY MODFILE's load already did.
+- Ctrl-C: `poll()` reports it and leaves it set, so the program ends and the BASIC program that ran it stops too (`tests/opl/ctrlc.bas`). Clearing it had let a loop of `RUN "x.app"` go on to the next run.
 
-**OPL (`Src/OPL.c`, Nuked-OPL3 `765ec962e473` unaltered in `Src/opl3.c` and `Inc/opl3.h`).**
-- Commands, all provisional (D2): PLAY OPL, PLAY OPL WRITE reg, value [, ...] (up to 19 pairs, the argument limit), PLAY OPL RESET and PLAY OPL TEST [seconds [, voices]]. PAUSE, RESUME and STOP work as for any sound, and MM.INFO(SOUND) gives "OPL".
-- PLAY OPL plays through MOD's buffers and interrupt branch.
-- Peter heard it on the G2: "sounds good" (`tests/opl/opldemo.bas`).
+**OPL (`Src/OPL.c`, `Src/OPLChip.cpp`, ymfm in `Src/ymfm`).**
+- **D3 decided, 2 Nov: ymfm.** Peter heard the same music through Nuked-OPL3, ymfm and emu8950. Of the ones heard so far, he found "ymfm sounds very good"; on WONDERIN.WLF, "no obvious sound differences".
+- Nuked-OPL3 has left the firmware; it is kept in `tools/sdk/examples/nuked` for comparison programs. With it goes the firmware's only LGPL code: ymfm is BSD-3-Clause.
+- `OPLChip.cpp` puts ymfm's YMF262 behind C:
+  - placement new into heap memory, so no C++ heap is used;
+  - resampling from 49,716 Hz to the output rate;
+  - the level halved to Nuked's;
+  - register writes queued and applied one per chip sample, as a real OPL2 (about 23 µs a write) takes them.
+- The write queue is needed. ymfm acts on a key change only at its next sample, so a drum struck again (key off and on written together, as YsBattle.vgm's rhythm section does) was lost. Peter heard the difference in the opening seconds. With the queue: "no problems sounds good".
+- C++ in the build: `CMakeLists.txt` enables CXX for `Src/ymfm` and `OPLChip.cpp` only, with no exceptions, RTTI or unwind tables. Flash: 1.3 KB more than Nuked in bank 2, and 32 bytes in bank 1.
+- Commands, all provisional (D2): PLAY OPL, PLAY OPL WRITE reg, value [, ...] (up to 19 pairs, the argument limit), PLAY OPL RESET and PLAY OPL TEST [seconds [, voices]]. PAUSE, RESUME and STOP work as for any sound, and MM.INFO(SOUND) gives "OPL". PLAY OPL plays through MOD's buffers and interrupt branch.
 
-**Measurements (S2), on the G2 at 480 MHz** (Nuked runs the chip at 49,716 Hz and resamples):
+**Measurements, on the G2 at 480 MHz.**
 
-| Nuked-OPL3 | 18 voices | 0 voices |
+PLAY OPL TEST (all 18 voices held with tremolo and vibrato; and the synth on but silent):
+
+| Synth | 18 voices | 0 voices |
 |---|---|---|
-| firmware, `-Os`, bank 2 flash | 64.6% | 56.6% |
-| firmware, `-O2`, bank 2 flash (now) | 61.2% | 51.4% |
-| program, `-O2`, in the SDRAM's 8 MB (`oplbench.app`) | 62.7% | 53.4% |
+| Nuked-OPL3, `-O2`, bank 2 flash | 61.2% | 51.4% |
+| ymfm, `-O2`, bank 2 flash (now) | 53.6% | 19.9% |
 
-- The chip's state in internal RAM and in SDRAM time the same, and code in SDRAM matches code in flash, so ITCM would gain little. The cost is Nuked's own arithmetic.
-- A BASIC loop keeps 44% of its speed while PLAY OPL plays (195.7 ms against 86.0 ms).
-- **D3 is therefore open again.** Nuked-OPL3 at 50-60% of the CPU, even when silent, is too heavy for music under a BASIC program, or under a game that has a CPU of its own to share. Next, time emu8950 (MIT, C, OPL2) and ymfm (BSD-3, C++, OPL3) the same way, through `oplbench.app` (building them into a program needs no reflash), and the "fast" Nuked fork reported on VOGONS if it can be found.
+Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders MIDI, IMF, DRO and VGM to a WAV with any of the three, timed):
+
+| Music | Nuked-OPL3 | ymfm | emu8950 (OPL2 only) |
+|---|---|---|---|
+| WONDERIN.WLF (IMF) | 59% | 28% | 22% |
+| Freedoom E1M1 (MIDI, 18 voices) | 68% | 52% | |
+| YsBattle.vgm (OPL2, rhythm), ymfm with the write queue | | 36% | |
+| BeyondSN.vgm (OPL3) | | 41% | |
+| Two OPL2 chips (dual DRO / VGM) | 114%: it can't keep up | 65% | |
+
+- The chip's state in internal RAM and in SDRAM time the same, and code in SDRAM matches code in flash, so ITCM would gain little.
+- A BASIC loop keeps 78% of its speed while PLAY OPL plays with ymfm (107.2 ms against 83.5 ms). With Nuked it kept 44%.
+
+**The test material** (on the G2's card in `A:/opl`; `tests/opl` has the programs):
+- Freedoom's MIDI music and GENMIDI instrument bank (BSD-3);
+- AdPlug's test files for IMF/WLF, DRO and VGM.
+
+`render.bas` writes the comparison WAVs and `jukebox.bas` plays them with titles. `make_opl_bas.py` (also in `tests/opl`) generated both, and lists the set.
 
 **Not done yet.**
 - Video, input and the audio stream services.
@@ -108,7 +134,7 @@ The G2's whole flash as it was before the first dev flash (7.00.00b5, its progra
 |---|---|---|
 | D1 | **Flash room** for the loader and the OPL synth, about 26-34 KB in all (Part 3) | **Decided 2 Nov: bank 2 sector 1 (A)** |
 | D2 | Names: the image's file extension, the command that starts an application, the module commands | `RUN f$` recognising an image; `MODULE LOAD` / `MODULE CALL` / `MODULE()` |
-| D3 | The OPL emulator, once its CPU cost is measured (S2) | **Measured 2 Nov: Nuked takes 51-61% of the CPU; time emu8950 and ymfm next** |
+| D3 | The OPL emulator, once its CPU cost is measured (S2) | **Decided 2 Nov: ymfm, after Peter heard all three (status above)** |
 | D4 | What PLAY MIDI TEST does on the CMM2 | Play a short built-in test phrase |
 | D5 | When a module is freed | When the program ends, as the RAM library is |
 | D6 | Where the SDK lives | `tools/sdk/` in this repository |

@@ -4,10 +4,15 @@ A loadable program is C built for the M7 and linked to run in the G2's 8 MB at 0
 
 ## Building
 
+From `tools/sdk`:
+
 ```
-python -I tools/sdk/build.py tools/sdk/out/hello.app tools/sdk/examples/hello.c
-python -I tools/sdk/build.py tools/sdk/out/oplbench.app tools/sdk/examples/oplbench.c Src/opl3.c
+python -I build.py out/hello.app examples/hello.c
+python -I build.py out/oplbench.app examples/oplbench.c examples/nuked/opl3.c -I examples/nuked
+python -I build.py out/oplplay.app examples/oplplay/oplplay.c examples/nuked/opl3.c examples/oplplay/emu8950/emu8950.c examples/oplplay/emu8950/emuadpcm.c ../../Src/OPLChip.cpp ../../Src/ymfm/ymfm_opl.cpp ../../Src/ymfm/ymfm_adpcm.cpp ../../Src/ymfm/ymfm_pcm.cpp -I examples/nuked -I examples/oplplay/emu8950 --cflag=-Wno-format
 ```
+
+`oplplay.app` renders MIDI, IMF, DRO and VGM files to a WAV, through Nuked-OPL3, emu8950 or the firmware's ymfm (the same `OPLChip.cpp`), and reports each one's CPU share. It's the tool used to choose the firmware's synth.
 
 `build.py` uses the firmware's own toolchain (from `CMakePresets.json`). It compiles the sources with `crt0.c` and `syscalls.c`, links them with `app.ld`, and calls `mkimage.py`. The `.elf` and `.map` are left beside the `.app` in `tools/sdk/out/`, which git ignores.
 
@@ -40,4 +45,7 @@ Only the services touch MMBasic. They never raise an MMBasic error; each returns
 
 ## Licences
 
-`cmm2img.h`, `cmm2.h`, `crt0.c`, `syscalls.c`, `app.ld` and the examples are MIT, so a program under any licence can use them. A program built with `Src/opl3.c` (Nuked-OPL3, LGPL-2.1-or-later), such as `oplbench.app`, is LGPL as a whole.
+`cmm2img.h`, `cmm2.h`, `crt0.c`, `syscalls.c`, `app.ld` and the examples are MIT, so a program under any licence can use them. Third-party code beside the examples keeps its own licence:
+- `examples/nuked` (Nuked-OPL3) is LGPL-2.1-or-later, so a program built with it, such as `oplbench.app` or `oplplay.app`, is LGPL as a whole.
+- emu8950 is MIT.
+- ymfm, in `Src/ymfm`, is BSD-3-Clause.

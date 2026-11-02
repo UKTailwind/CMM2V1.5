@@ -131,8 +131,8 @@ SECTIONS
     *Loader.c.obj(.text .text* .rodata .rodata*)
     *OPL.o(.text .text* .rodata .rodata*)                /* PLAY OPL: refilled in checkWAVinput, between statements */
     *OPL.c.obj(.text .text* .rodata .rodata*)
-    *opl3.o(.text .text* .rodata .rodata*)               /* Nuked-OPL3 (LGPL-2.1+, Src/opl3.LICENSE), as published */
-    *opl3.c.obj(.text .text* .rodata .rodata*)
+    *OPLChip.cpp.obj(.text .text* .rodata .rodata*)      /* the OPL3 synth: ymfm (BSD-3, Src/ymfm) behind C */
+    *ymfm_*.cpp.obj(.text .text* .rodata .rodata*)
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
     . = ALIGN(4);
     _ebank2 = .;

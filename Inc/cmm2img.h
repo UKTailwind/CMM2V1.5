@@ -111,14 +111,15 @@ struct cmm2_services {
     int      (*dir_read)(int h, cmm2_dirent *e);   /* 1: an entry, 0: the end */
     int      (*dir_close)(int h);
     /* the system */
-    int      (*poll)(void);                    /* the USB devices and keyboards seen to; 1 if Ctrl-C came since the last */
+    int      (*poll)(void);                    /* the USB devices and keyboards seen to; 1 once Ctrl-C has been pressed:
+                                                  the program should end, and the BASIC program that ran it stops too */
     void     (*leave)(int code);               /* back to MMBasic from anywhere, as if the entry had returned code */
     uint32_t (*cpu_hz)(void);
     void    *(*alloc)(uint32_t size);          /* a block of MMBasic's heap (outside the 8 MB), or NULL: freed at the end */
     void     (*release)(void *p);
-    /* the firmware's OPL3 synth (Nuked-OPL3: Src/OPL.c), its code in flash */
+    /* the firmware's OPL3 synth (ymfm's YMF262: Src/OPLChip.cpp), its code in flash */
     void    *(*opl_new)(uint32_t rate);        /* a chip, reset, making rate Hz stereo; NULL if there is no room */
-    void     (*opl_write)(void *chip, uint32_t reg, uint32_t value);   /* reg 0-0x1FF; buffered as the chip's timing */
+    void     (*opl_write)(void *chip, uint32_t reg, uint32_t value);   /* reg 0-0x1FF, written at once */
     void     (*opl_generate)(void *chip, int16_t *buf, uint32_t frames);   /* frames of 16-bit stereo */
     void     (*opl_free)(void *chip);
 };

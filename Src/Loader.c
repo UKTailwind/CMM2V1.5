@@ -21,7 +21,7 @@ The loader is in bank 2 (the linker script's .bank2): it runs in the foreground 
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "cmm2img.h"
-#include "opl3.h"
+#include "OPLChip.h"
 #include "Loader.h"
 
 extern TIM_HandleTypeDef htim16;
@@ -193,7 +193,8 @@ static int ld_closedir(int h) {
 }
 
 // the USB devices and keyboards seen to as routinechecks() does, without its SD card and GUI checks (either can raise
-// an error); Ctrl-C reported once
+// an error); 1 once Ctrl-C has been pressed. MMAbort is left set, so when the program ends the BASIC program that ran
+// it stops as well, as at any Ctrl-C (clearing it here let a RUN in a loop go on to the next program, 2 Nov)
 static int ld_poll(void) {
     if(USBtime) {
         mT4IntEnable(0);
@@ -201,11 +202,7 @@ static int ld_poll(void) {
         USBtime = 0;
         mT4IntEnable(1);
     }
-    if(MMAbort) {
-        MMAbort = 0;
-        return 1;
-    }
-    return 0;
+    return MMAbort != 0;
 }
 static uint32_t ld_cpuhz(void) { return SystemCoreClock; }
 void *LoaderAlloc(uint32_t size) {
@@ -222,14 +219,15 @@ void LoaderRelease(void *p) {
             ldblock[i] = NULL;
         }
 }
-// the firmware's OPL3 synth for a program: its own chips, on the heap (PLAY OPL's is OPL.c's)
+// the firmware's OPL3 synth for a program (ymfm: OPLChip.cpp): its own chips, on the heap (PLAY OPL's is OPL.c's)
 static void *ld_oplnew(uint32_t rate) {
-    opl3_chip *c = LoaderAlloc(sizeof(opl3_chip));
-    if(c) OPL3_Reset(c, rate);
+    void *c = LoaderAlloc(OPLChipSize());
+    if(c) OPLChipInit(c, rate);
     return c;
 }
-static void ld_oplwrite(void *chip, uint32_t reg, uint32_t value) { OPL3_WriteRegBuffered(chip, reg & 0x1FF, value); }
-static void ld_oplgen(void *chip, int16_t *buf, uint32_t frames) { OPL3_GenerateStream(chip, buf, frames); }
+static void ld_oplwrite(void *chip, uint32_t reg, uint32_t value) { OPLChipWrite(chip, reg & 0x1FF, value); }
+static void ld_oplgen(void *chip, int16_t *buf, uint32_t frames) { OPLChipGenerate(chip, buf, frames); }
+static void ld_oplfree(void *chip) { if(chip) { OPLChipDone(chip); LoaderRelease(chip); } }
 
 /*******************************************************************************************
  calling the program on its own stack
@@ -279,7 +277,7 @@ static const struct cmm2_services ldsvc = {
     .file_rename = ld_rename, .dir_make = ld_mkdir, .dir_open = ld_opendir, .dir_read = ld_readdir,
     .dir_close = ld_closedir,
     .poll = ld_poll, .leave = ld_leave, .cpu_hz = ld_cpuhz, .alloc = LoaderAlloc, .release = LoaderRelease,
-    .opl_new = ld_oplnew, .opl_write = ld_oplwrite, .opl_generate = ld_oplgen, .opl_free = LoaderRelease,
+    .opl_new = ld_oplnew, .opl_write = ld_oplwrite, .opl_generate = ld_oplgen, .opl_free = ld_oplfree,
 };
 
 /*******************************************************************************************
@@ -428,8 +426,7 @@ int LoaderRun(char *name) {
     ldstart.base = LOADER_BASE;
     MMAbort = 0;
     code = LoaderCall(base + h.entry, &ldstart, LOADER_BASE + LOADER_SIZE);
-    MMAbort = 0;                                                    // (a Ctrl-C the program did not poll for)
-    ld_tidy();
+    ld_tidy();                                                      // (a Ctrl-C stays: the BASIC program stops next)
     FreeMemory(argv);
     if(code) {
         char b[STRINGSIZE + 40];

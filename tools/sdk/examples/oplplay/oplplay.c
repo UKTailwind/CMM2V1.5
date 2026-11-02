@@ -21,6 +21,7 @@
 #include "cmm2.h"
 #include "opl3.h"
 #include "emu8950.h"
+#include "OPLChip.h"
 
 #define RATE 44100
 #define BLOCK 1024
@@ -79,21 +80,10 @@ static void *emu8950_new(void) {
 static void emu8950_write(void *c, int reg, int val) { if(reg < 0x100) OPL_writeReg(((rs_t *)c)->chip, reg, val); }
 static void emu8950_gen(void *c, int16_t *buf, int frames) { rs_gen(c, buf, frames); }
 
-/* ymfm's YMF262, behind C (ymfm_glue.cpp) */
-extern void *ymfm_create(void);
-extern void ymfm_write(void *chip, int reg, int val);
-extern void ymfm_one(void *chip, int32_t lr[2]);
-static void *ymfm_new(void) {
-    rs_t *r = calloc(1, sizeof(rs_t));
-    r->chip = ymfm_create();
-    r->one = ymfm_one;
-    r->gain = 0.5f;
-    r->step = (14318180.0f / 288.0f) / RATE;
-    r->pos = 1.0f;
-    return r;
-}
-static void ymfm_wr(void *c, int reg, int val) { ymfm_write(((rs_t *)c)->chip, reg, val); }
-static void ymfm_gen(void *c, int16_t *buf, int frames) { rs_gen(c, buf, frames); }
+/* ymfm's YMF262 as the firmware has it (Src/OPLChip.cpp: resampled, writes one a chip sample, Nuked's level) */
+static void *ymfm_new(void) { void *c = malloc(OPLChipSize()); if(c) OPLChipInit(c, RATE); return c; }
+static void ymfm_wr(void *c, int reg, int val) { OPLChipWrite(c, reg, val); }
+static void ymfm_gen(void *c, int16_t *buf, int frames) { OPLChipGenerate(c, buf, frames); }
 
 static const emu_t emus[] = {
     {"nuked", 1, nuked_new, nuked_write, nuked_gen},

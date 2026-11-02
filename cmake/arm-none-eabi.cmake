@@ -23,6 +23,7 @@ if(CMAKE_HOST_WIN32)
 endif()
 
 set(CMAKE_C_COMPILER   "${_arm_prefix}gcc${_arm_exe}")
+set(CMAKE_CXX_COMPILER "${_arm_prefix}g++${_arm_exe}")      # (ymfm, the OPL3 synth: Src/ymfm, 2 Nov 2026)
 set(CMAKE_ASM_COMPILER "${_arm_prefix}gcc${_arm_exe}")
 set(CMAKE_OBJCOPY      "${_arm_prefix}objcopy${_arm_exe}")
 set(CMAKE_OBJDUMP      "${_arm_prefix}objdump${_arm_exe}")

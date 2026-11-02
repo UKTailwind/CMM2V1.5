@@ -4,7 +4,8 @@ n = 20
 PLAY STOP
 FOR i = 1 TO n
   READ f$, t$
-  CLS : PRINT : PRINT "  OPL comparison"; i; " of"; n : PRINT : PRINT "  "; t$ : PRINT
+  CLS : PRINT : PRINT "  OPL comparison: piece"; i; " of"; n : PRINT : PRINT "  "; t$ : PRINT
+  PRINT i; ": "; t$
   PRINT "  (a key: the next, Q: stop)"
   PLAY WAV "A:/opl/wav/" + f$
   DO WHILE MM.INFO(SOUND) <> "OFF"
