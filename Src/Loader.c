@@ -67,6 +67,12 @@ static int ldscreen;                                                // the conso
 static void ld_putc(int c) { if(ldscreen) putConsole(c); else SerialConsolePutC(c); }
 static void ld_puts(const char *s) { if(ldscreen) MMPrintString((char *)s); else while(*s) SerialConsolePutC(*s++); }
 static void ld_conscreen(int on) { ldscreen = on != 0; }
+// Ctrl-C (version 5): taken by the program, which handles it, so MMAbort is cleared and the BASIC program goes on
+static int ld_breaktake(void) {
+    int b = MMAbort != 0;
+    MMAbort = 0;
+    return b;
+}
 // getConsole's queue without its CheckAbort (main.c): Ctrl-C is poll()'s to report
 static int ld_getc(void) {
     int c = -1;
@@ -181,6 +187,31 @@ static int ld_rename(const char *from, const char *to) {
     ld_path(from, a);
     ld_path(to, b);
     return ld_fail(f_rename(a, b));
+}
+// a file's or directory's details (version 5): FatFs's f_stat, which has no entry for a drive's root ("A:/")
+static int ld_stat(const char *name, cmm2_stat *st) {
+    char p[FF_MAX_LFN + 4];
+    FILINFO fno;
+    FRESULT r;
+    ld_path(name, p);
+    memset(st, 0, sizeof(*st));
+    if(p[0] && p[1] == ':' && (p[2] == 0 || (p[2] == '/' && p[3] == 0))) {
+        DIR d;
+        if((r = f_opendir(&d, p)) != FR_OK) return -(int)r;
+        f_closedir(&d);
+        st->is_dir = 1;
+        return 0;
+    }
+    if((r = f_stat(p, &fno)) != FR_OK) return -(int)r;
+    st->is_dir = (fno.fattrib & AM_DIR) != 0;
+    st->size = st->is_dir ? 0 : (uint32_t)fno.fsize;
+    st->year = (fno.fdate >> 9) + 1980;
+    st->month = (fno.fdate >> 5) & 15;
+    st->day = fno.fdate & 31;
+    st->hour = fno.ftime >> 11;
+    st->minute = (fno.ftime >> 5) & 63;
+    st->second = (fno.ftime & 31) * 2;
+    return 0;
 }
 static int ld_mkdir(const char *name) { char p[FF_MAX_LFN + 4]; ld_path(name, p); return ld_fail(f_mkdir(p)); }
 static int ld_opendir(const char *path) {
@@ -442,6 +473,7 @@ static const struct cmm2_services ldsvc = {
     .music_play = ld_mplay, .music_stop = OPLStreamStop, .music_volume = OPLStreamVolume, .music_pause = OPLStreamPause,
     .music_playing = OPLStreamPlaying, .music_rate = ld_mrate,
     .mouse = ld_mouse, .mouse_set = ld_mouseset, .con_screen = ld_conscreen,
+    .break_take = ld_breaktake, .file_stat = ld_stat,
 };
 
 /*******************************************************************************************

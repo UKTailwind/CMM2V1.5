@@ -31,8 +31,8 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  4                 /* the services below (2: the screen and the keys held; 3: sound;
-                                                  4: the mouse) */
+#define CMM2IMG_API_VERSION  5                 /* the services below (2: the screen and the keys held; 3: sound;
+                                                  4: the mouse; 5: Ctrl-C taken, a file's details) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2 (every image does, for now) */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved */
@@ -79,6 +79,13 @@ typedef struct {                               /* the display after video_mode: 
                                                   is stored twice, so line y is written at fb + y*pitch and again width
                                                   bytes later (pitch is then 2*width) */
 } cmm2_video;
+
+typedef struct {                               /* a file's or directory's details (file_stat) */
+    uint32_t size;                             /* 0 for a directory */
+    uint8_t  is_dir;
+    uint8_t  month, day, hour, minute, second; /* its last change (0 for a drive's root) */
+    uint16_t year;
+} cmm2_stat;
 
 typedef struct {                               /* one directory entry (dir_read) */
     char     name[256];
@@ -169,6 +176,11 @@ struct cmm2_services {
     void     (*mouse_set)(int x, int y);       /* its position moved there */
     void     (*con_screen)(int on);            /* 0: con_putc, con_puts (and so stdout) to the serial console only,
                                                   not drawn over a program's display; 1 (the start): both */
+    /* version 5 */
+    int      (*break_take)(void);              /* 1 if Ctrl-C has been pressed since the last call, which clears it:
+                                                  the program deals with it (a BASIC program that ran it goes on);
+                                                  poll() reports it too, until it is taken */
+    int      (*file_stat)(const char *name, cmm2_stat *st);   /* 0, or minus FatFs's FRESULT (4: no such file) */
 };
 
 #endif

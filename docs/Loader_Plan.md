@@ -228,6 +228,26 @@ Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders M
   - the names NUL-separated, in entry order.
   - The classic game is `classic/en/tentacle.000` (7,932 bytes, ScummVM's English CD MD5), `tentacle.001` and `monster.sou`, uncompressed.
 
+**The services, version 5.**
+- `break_take()` reports a Ctrl-C and clears MMAbort: the program deals with it, and a BASIC program that ran it goes on. (`poll` reports it until it is taken.)
+- `file_stat(name, st)` gives a file's or directory's size, kind and date (FatFs's `f_stat`, with a drive's root, which has no entry, taken as a directory).
+
+**MicroPython** (Peter: "next look at micropython"; decided: a port in his micropython repository, aiming at Pico Computer 3 compatibility).
+- `ports/cmm2` on branch `cmm2` of `~/src/micropython` in WSL (UKTailwind/micropython, from `pico-computer-3`), commit `b361297eb`. It is built there with MicroPython's own make files and linked with this SDK, into `micropython.app`.
+- **Phase 1 (done):**
+  - the REPL on MMBasic's console, with Ctrl-C through `break_take`;
+  - `VfsCMM2`, a VFS on the file services, modelled on `vfs_posix`. The SD card is at `/` and `/sd`, the USB drive at `/usb`.
+  - `time` on the CMM2's clock;
+  - `machine.reset()` back to MMBasic.
+  - The image is 221 KB, leaving a 6.7 MB heap.
+- **Tested on the G2:**
+  - big integers, doubles, json, re and struct;
+  - files written, read, stat'ed and removed; `mkdir`, `chdir` and `rmdir`; a module imported from the card;
+  - `sleep_ms(250)` measured at 250 ms;
+  - Ctrl-C interrupts a busy loop as KeyboardInterrupt;
+  - `fib(24)` in 330 ms.
+- **Next:** the PC3's `hdmi` module (`hdmi.c` over a CMM2 back end in place of `hdmi_rp2.c`), the keyboard and the mouse, then `audio`, the image loaders and the frozen `pc*.py` libraries.
+
 **Not done yet.**
 - Modules.
 - Doom (not needed for the proof of concept): saves into the game's directory without CHDIR; the mouse; the sample interrupt's cost.
