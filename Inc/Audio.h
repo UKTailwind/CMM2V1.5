@@ -62,6 +62,7 @@ extern void OPLStreamMix(int16_t *buf, uint32_t frames);            // the music
 extern void OPLStreamStop(void);
 extern void OPLStreamVolume(int v);
 extern void OPLStreamPause(int p);
+extern void OPLStreamDivide(int n);                                // the output at 1/n of the chip's rate (1-4)
 extern int OPLStreamPlaying(void);
 // PLAY OPL, PLAY MIDI, PLAY NOTE and PLAY MIDIFILE (OPL.c, G2 only): the OPL3 synth, refilled as MOD is
 extern int cmd_play_opl(char *cmdline);                             // 1 if cmdline was one of them

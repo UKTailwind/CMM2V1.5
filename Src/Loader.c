@@ -353,6 +353,13 @@ static int ld_mplay(const void *midi, uint32_t size, int loop, const uint8_t *ba
     return r;
 }
 
+static void ld_mrate(int n) {
+    uint32_t old = __get_BASEPRI();
+    __set_BASEPRI(LD_PRI_FILL);                                     // (not while the refill is making the music)
+    OPLStreamDivide(n);
+    __set_BASEPRI(old);
+}
+
 static int ld_keys(int keys[7]) {
     int i, n = 0;
     for(i = 0; i < 7; i++) keys[i] = KeyDown[i];
@@ -412,7 +419,7 @@ static const struct cmm2_services ldsvc = {
     .video_mode = ld_vmode, .video_palette = ld_palette, .video_wait = ld_frame, .keys_held = ld_keys,
     .audio_start = ld_astart, .audio_stop = ld_astop, .audio_lock = ld_alock, .audio_unlock = ld_aunlock,
     .music_play = ld_mplay, .music_stop = OPLStreamStop, .music_volume = OPLStreamVolume, .music_pause = OPLStreamPause,
-    .music_playing = OPLStreamPlaying,
+    .music_playing = OPLStreamPlaying, .music_rate = ld_mrate,
 };
 
 /*******************************************************************************************

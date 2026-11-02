@@ -2217,4 +2217,9 @@ uint8_t const ds1001::s_default_instruments[] =
 template class opl_registers_base<4>;
 template class fm_engine_base<opl_registers_base<4>>;
 
+// CMM2 (2 Nov 2026): the YMF262's too, for the CMM2's Src/OPLChip.cpp, whose half-rate step() calls the engine's
+// clock() itself. The only change to ymfm.
+template class opl_registers_base<3>;
+template class fm_engine_base<opl_registers_base<3>>;
+
 }

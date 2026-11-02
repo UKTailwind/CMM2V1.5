@@ -92,7 +92,7 @@ static double due;                                                  // samples t
 static int seqdone;                                                 // the file's last event done
 static uint32_t tail;                                               // samples of releases still to make after it
 static const unsigned char *genmidi = OPLGenMidi;                   // the bank: the flash's, or a program's (OPLStreamPlay)
-static int sactive, sloop, svol = 127, spaused;                     // a program's music (OPLStreamPlay)
+static int sactive, sloop, svol = 127, spaused, sdiv = 1;           // a program's music (OPLStreamPlay)
 static int song_tracks(void);
 
 static void ow(int c, int reg, int val) { if(c < nchips && chip[c]) OPLChipWrite(chip[c], reg, val); }
@@ -424,6 +424,7 @@ void OPLClose(void) {
     songheap = 0;
     nchips = 0;
     sactive = 0;
+    sdiv = 1;
     genmidi = OPLGenMidi;
 }
 
@@ -453,6 +454,7 @@ int OPLStreamPlay(const void *midi, uint32_t size, int loop, const unsigned char
     genmidi = bank ? bank : OPLGenMidi;
     OPLChipDone(chip[0]);                                           // (reset: no note of the last song left sounding)
     OPLChipInit(chip[0], oplrate);
+    OPLChipDivide(chip[0], sdiv);                                   // (the output rate the program asked for: OPLChip.cpp)
     nchips = 1;
     omode = OM_SONG;
     midi_reset();
@@ -466,6 +468,10 @@ int OPLStreamPlay(const void *midi, uint32_t size, int loop, const unsigned char
 void OPLStreamStop(void) { sactive = 0; }
 void OPLStreamVolume(int v) { svol = v < 0 ? 0 : v > 127 ? 127 : v; }
 void OPLStreamPause(int p) { spaused = p; }
+void OPLStreamDivide(int n) {                                       // the synth's output at 1/n of its rate (full: 1)
+    sdiv = n < 1 ? 1 : n > 4 ? 4 : n;
+    if(chip[0]) OPLChipDivide(chip[0], sdiv);
+}
 int OPLStreamPlaying(void) { return sactive; }
 
 // the music's next frames added to buf (16-bit stereo); at its end it starts again if it loops, or plays its releases

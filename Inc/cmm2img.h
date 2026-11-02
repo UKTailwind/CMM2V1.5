@@ -158,6 +158,9 @@ struct cmm2_services {
     void     (*music_volume)(int volume);      /* 0-127 (127 at the start) */
     void     (*music_pause)(int paused);
     int      (*music_playing)(void);           /* 0 once a file not looped has ended */
+    void     (*music_rate)(int divisor);       /* the synth's output at its full rate, 49,716 Hz (1, the default), or
+                                                  at 1/2, 1/3 or 1/4 of it: less CPU (Doom's music, 50% at 1, 37% at
+                                                  2), less treble; pitch and timing are kept. Held till the end */
 };
 
 #endif

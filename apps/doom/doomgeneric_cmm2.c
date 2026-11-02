@@ -11,10 +11,12 @@
      The sound: the effects mixed here, in the firmware's sound stream (its fill, called in an interrupt), 16 voices
        of Doom's 8-bit lumps taken to the stream's rate as DMX took them (each sample repeated: no smoothing); the
        music turned from MUS to MIDI (doomgeneric's mus2mid.c) and played by the firmware's OPL3 synth with the WAD's
-       own GENMIDI patches, as on a Sound Blaster. PLAY VOLUME sets the level of both.
+       own GENMIDI patches, as on a Sound Blaster, its output at half the synth's rate (-musicrate 1 for the full
+       rate, 50% of the CPU rather than 37%). PLAY VOLUME sets the level of both.
      Ctrl-C quits (and stops the BASIC program that ran it). */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include "cmm2.h"
 #include "doomgeneric.h"
@@ -258,7 +260,9 @@ typedef struct { uint8_t *midi; uint32_t len; } song_t;
 static const uint8_t *genmidi;
 
 static boolean mus_init(void) {
-    int l = W_CheckNumForName("GENMIDI");
+    int l = W_CheckNumForName("GENMIDI"), r = M_CheckParmWithArgs("-musicrate", 1);
+    if(cmm2->size > offsetof(struct cmm2_services, music_rate))     // the synth's output at half its rate: 37% of the CPU,
+        cmm2->music_rate(r ? atoi(myargv[r + 1]) : 2);              // not 50% (-musicrate 1: the full rate)
     if(l >= 0 && W_LumpLength(l) >= 8 + 175 * 36) {
         const uint8_t *g = W_CacheLumpNum(l, PU_STATIC);
         if(memcmp(g, "#OPL_II#", 8) == 0) genmidi = g + 8;

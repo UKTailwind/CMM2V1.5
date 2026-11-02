@@ -153,25 +153,45 @@ Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders M
   - `audio_lock` and `audio_unlock` set BASEPRI at PendSV's level.
   - `video_mode` holds the refill off too. setmode turns the MPU off for a moment, and the SDRAM is then execute-never, so a fill at that moment would fault fetching the program's code.
 - **The music:** `music_play(midi, size, loop, bank)` plays a MIDI file in the program's memory through OPL.c's sequencer and DMX driver (`OPLStreamPlay`/`OPLStreamMix`). It uses the program's GENMIDI bank, or the flash's. The track parse is shared with PLAY MIDIFILE (`song_tracks`).
+- **The synth's output rate:** `music_rate(n)` (Peter: full speed the default, a program may ask for less). The chip is stepped n times (1-4) for each output it makes (`OPLChipDivide`), so pitch, envelopes and the LFO are unchanged and only the output rate falls, to 49,716 / n Hz.
+  - It's done by a subclass in OPLChip.cpp. ymfm's one change: two lines in ymfm_opl.cpp that make the YMF262's engine explicitly, as ymfm already makes the OPL4's, so the subclass can call its `clock()`.
+- **Tried and left out: the synth in faster memory** (Peter: "Try faster memory for the sounds hot loop").
+  - With ymfm's code in ITCM and its tables in DTCM (both loaded from bank 2 at start-up), Doom's timed demo went from 38.6 to 38.8 frames a second, and the music still took 50% of the CPU.
+  - The synth is limited by its arithmetic, about 5,000 cycles per output sample for 18 voices. The chip's state (17,964 bytes) doesn't fit in DTCM's spare 11 KB, and earlier it timed the same in internal RAM and SDRAM.
+  - Reverted.
 - **Files read through a cluster map** (FatFs fast seek, `ld_map`): a seek no longer walks the FAT from the file's start over the card's SPI. Without it Doom's start-up crawled: each lump read began with a backward seek in the 28.8 MB WAD.
 - The SDK's `rename` is its own, since newlib's links and unlinks.
-- Bank 2: 161,872 bytes used of 256 KB.
+- Bank 2: 162,288 bytes used of 256 KB.
 
 **Doom, the first loadable game** (`apps/doom`: `make.py` fetches doomgeneric at a pinned commit and builds `doom.app`, 342 KB).
 - The CMM2 layer, `doomgeneric_cmm2.c`:
   - **picture:** MODE 3,8, with Doom's 8-bit frame and palette;
   - **keys:** KEYDOWN's changes become Doom's events;
   - **effects:** 16 voices of DMX lumps, mixed in the fill;
-  - **music:** MUS lumps turned to MIDI by mus2mid and played by the firmware's synth with the WAD's GENMIDI.
-- Freedoom Phase 1 (`A:/Doom/freedoom1.wad`) starts in a few seconds, from `CHDIR "A:/Doom": RUN "doom.app"`.
-- **Speed:** 56.9 frames a second without sound (135 s of play) and 32.9 with sound and music (112 s). Doom's game runs at 35 tics a second.
+  - **music:** MUS lumps turned to MIDI by mus2mid and played by the firmware's synth with the WAD's GENMIDI, at half the synth's output rate (`-musicrate 1` for the full rate).
+- Freedoom Phase 1 (`A:/Doom/freedoom1.wad`) starts in a few seconds, from `CHDIR "A:/Doom"` and then `RUN "doom.app"`.
+- **Speed:** Freedoom's demo 1 (7,117 tics), timed with `-timedemo demo1`; Doom's game runs at 35 tics a second.
+
+  | Sound | Frames a second | Music's share of the CPU | Effects' share |
+  |---|---|---|---|
+  | none (`-nosound`) | 97.3 | | |
+  | music at half rate (the default) | 51.0 | 37% | 1% |
+  | music at the full rate (`-musicrate 1`) | 37.5 | 51% | 1% |
+
+  - With sound, Doom gets less than the CPU the sound leaves it: at the full rate it should have reached about 48 frames a second, not 38.
+  - The rest goes to the sample interrupt (44,100 a second, only while sound plays) and to the caches the two share. That hasn't been measured apart.
 - **Peter:**
   - "graphics smooth and fast";
   - with sound, "sounded good - framerate still acceptable".
+  - Doom called OK as the proof of concept (2 Nov), once the music's rate could be lowered.
+- **Found: RUN's arguments are tokenised unless RUN starts the line.**
+  - `CHDIR "A:/Doom": RUN "doom.app", -timedemo demo1` gave the program `\x83TIMEDEMO`: a token for the minus sign, and the word in capitals.
+  - MM.CMDLINE$ is probably affected the same way, including RUN inside a program. Not fixed yet: it is in the main firmware too.
 
 **Not done yet.**
 - Modules.
-- Doom: the frame rate with music (the synth at half rate, or its loop in faster memory); a `-timedemo` measurement; saves into the game's directory without CHDIR; the mouse.
+- Doom (not needed for the proof of concept): saves into the game's directory without CHDIR; the mouse; the sample interrupt's cost.
+- RUN's tokenised arguments (above).
 - A G1 check of the gating (no G1 on the bench).
 - A full regression.
 
