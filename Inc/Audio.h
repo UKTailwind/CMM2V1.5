@@ -54,7 +54,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef AUDIO_HEADER
 #define AUDIO_HEADER
-typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3, P_ARRAY, P_PAUSE_ARRAY, P_SAMPLE, P_PAUSE_SAMPLE, P_BBC, P_PAUSE_BBC, P_OPL, P_PAUSE_OPL} e_CurrentlyPlaying;
+typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3, P_ARRAY, P_PAUSE_ARRAY, P_SAMPLE, P_PAUSE_SAMPLE, P_BBC, P_PAUSE_BBC, P_OPL, P_PAUSE_OPL, P_STREAM} e_CurrentlyPlaying;
+// P_STREAM: a loadable program's sound, made by it in PendSV (Loader.c) and played as MOD is; its music by the synth:
+extern uint32_t OPLRate(void);                                      // the rate the audio timer gives for 44.1 kHz
+extern int OPLStreamPlay(const void *midi, uint32_t size, int loop, const unsigned char *bank, uint32_t frames);
+extern void OPLStreamMix(int16_t *buf, uint32_t frames);            // the music's next frames added to buf
+extern void OPLStreamStop(void);
+extern void OPLStreamVolume(int v);
+extern void OPLStreamPause(int p);
+extern int OPLStreamPlaying(void);
 // PLAY OPL, PLAY MIDI, PLAY NOTE and PLAY MIDIFILE (OPL.c, G2 only): the OPL3 synth, refilled as MOD is
 extern int cmd_play_opl(char *cmdline);                             // 1 if cmdline was one of them
 extern void OPLRefill(int buffer);                                  // buffer 1 or 2 (sbuff1/sbuff2) filled and counted

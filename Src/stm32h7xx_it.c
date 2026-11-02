@@ -314,6 +314,8 @@ void PendSV_Handler(void)
 
   /* USER CODE END PendSV_IRQn 0 */
   /* USER CODE BEGIN PendSV_IRQn 1 */
+  extern void LoaderPendSV(void);
+  LoaderPendSV();                                                   // a loadable program's sound refilled (Loader.c)
 
   /* USER CODE END PendSV_IRQn 1 */
 }
@@ -999,7 +1001,8 @@ void Audio_Interrupt(void)  {
         		}
         	}
         }
-    } else if(CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_OPL) {   // (PLAY OPL's buffers are MOD's: OPL.c)
+    } else if(CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_OPL || CurrentlyPlaying == P_STREAM) {   // (PLAY OPL's buffers
+                                                                    // are MOD's: OPL.c; and a program's sound: Loader.c)
     	int32_t c1=0,c2=0,c3=0,c4=0, out=0;                          // MOD and EFFECT, signed, each at half level (i2convert)
         if(bcount[1]==0 && bcount[2]==0 && playreadcomplete==1){    // a module played once has ended (audio_checks finishes)
         	HAL_TIM_Base_Stop_IT(&htim4);
@@ -1014,6 +1017,7 @@ void Audio_Interrupt(void)  {
         	}
         	if(ppos==bcount[swingbuf]){
         		int psave=ppos;
+        		if(CurrentlyPlaying == P_STREAM) SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;   // the program's refill (Loader.c)
         		bcount[swingbuf]=0;
         		ppos=0;
         		if(swingbuf==1)swingbuf=2;

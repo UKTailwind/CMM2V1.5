@@ -40,6 +40,7 @@ extern int KeyDown[7];                                              // the keys 
 #define LD_FILES  8
 #define LD_DIRS   4
 #define LD_BLOCKS 64
+#define LD_PRI_FILL (15 << (8 - __NVIC_PRIO_BITS))                  // PendSV's priority (the sound's refill), as BASEPRI masks it
 static FIL *ldfile[LD_FILES];                                       // the program's open files, NULL when free
 static DIR *lddir[LD_DIRS];
 static void *ldblock[LD_BLOCKS];                                    // its blocks of the MMBasic heap (alloc, opl_new)
@@ -104,6 +105,26 @@ static void ld_path(const char *name, char *out) {
 }
 static int ld_fail(FRESULT r) { return r == FR_OK ? 0 : -(int)r; }
 static FIL *ld_fil(int h) { return (h >= 0 && h < LD_FILES) ? ldfile[h] : NULL; }
+// a file only read is given a map of its clusters (FatFs's fast seek): a seek, or the next cluster, is then found in the
+// table, not by following the FAT from the file's start over the card's SPI each time (Doom seeks to each lump of a
+// 28 MB WAD); 64 entries first, then as many as FatFs says it needs; without room it is read as before
+static void ld_map(FIL *f) {
+    DWORD n = 64, *t;
+    FRESULT r;
+    while((t = GetInternalMemoryNull(n * sizeof(DWORD))) != NULL) {
+        t[0] = n;
+        f->cltbl = t;
+        if((r = f_lseek(f, CREATE_LINKMAP)) == FR_OK) return;
+        f->cltbl = NULL;
+        n = t[0];
+        FreeMemory(t);
+        if(r != FR_NOT_ENOUGH_CORE) return;
+    }
+}
+static void ld_free(FIL *f) {
+    if(f->cltbl) FreeMemory(f->cltbl);
+    FreeMemory(f);
+}
 
 static int ld_open(const char *name, int mode) {
     char p[FF_MAX_LFN + 4];
@@ -121,6 +142,7 @@ static int ld_open(const char *name, int mode) {
         FreeMemory(f);
         return -(int)r;
     }
+    if(!(m & FA_WRITE)) ld_map(f);
     ldfile[h] = f;
     return h;
 }
@@ -128,7 +150,7 @@ static int ld_close(int h) {
     FIL *f = ld_fil(h);
     if(f == NULL) return -FR_INVALID_OBJECT;
     FRESULT r = f_close(f);
-    FreeMemory(f);
+    ld_free(f);
     ldfile[h] = NULL;
     return ld_fail(r);
 }
@@ -243,7 +265,10 @@ static int ld_vmode(int mode, int depth, cmm2_video *v) {
     if(mode < 1 || mode > MAX_MODES || depth != 8) return -1;
     if(mode == 16 && !(G1Hardware == 0 && HAL_GetREVID() != 0x1003)) return -1;
     if(VideoColour != depth && PageTable[WPN].address != NULL) return -2;   // (a FRAMEBUFFER of another depth)
-    setmode(mode, depth, 0, 0);
+    uint32_t old = __get_BASEPRI();
+    __set_BASEPRI(LD_PRI_FILL);                                     // (no refill: setmode turns the MPU off for a moment,
+    setmode(mode, depth, 0, 0);                                     // when the program's code in SDRAM can't be fetched)
+    __set_BASEPRI(old);
     v->fb = PageTable[0].address;
     v->width = PageTable[0].xmax;
     v->height = PageTable[0].ymax;
@@ -262,6 +287,72 @@ static int ld_palette(int start, int count, const uint8_t *rgb) {
     ldpalette = 1;
     return 0;
 }
+/* the sound stream (version 3): each buffer made by the program's fill in PendSV, at the lowest priority, which the
+   sample interrupt pends as it changes buffer (stm32h7xx_it.c, MOD's branch); the program's music added (OPL.c), then
+   PLAY VOLUME's level and the DACs' scale, as MOD's buffers are made. The refill is held off (BASEPRI at PendSV's
+   level) while the program or a service changes what it uses */
+#define LD_FRAMES   1024                                            // a buffer: 23 ms
+extern TIM_HandleTypeDef htim4;
+extern volatile int swingbuf, nextbuf, ppos, wav_filesize;
+extern uint16_t *ibuff1, *ibuff2;
+extern int nchannels;
+extern void i2convert(int16_t *ibuff, int16_t *sbuff, int count);
+static void (*ldfill)(int16_t *buf, uint32_t frames);
+
+static void ld_make(int b) {
+    int16_t *s = (int16_t *)(b == 1 ? sbuff1 : sbuff2);
+    ldfill(s, LD_FRAMES);
+    OPLStreamMix(s, LD_FRAMES);
+    i2convert(s, s, LD_FRAMES * 2);
+    bcount[b] = LD_FRAMES * 2;                                      // (last: the interrupt takes it once counted)
+}
+void LoaderPendSV(void) {                                           // the buffer the interrupt is not playing, if empty
+    int b = swingbuf == 1 ? 2 : 1;
+    if(CurrentlyPlaying == P_STREAM && ldfill && bcount[b] == 0) ld_make(b);
+}
+static void ld_alock(void) { __set_BASEPRI(LD_PRI_FILL); __ISB(); }
+static void ld_aunlock(void) { __set_BASEPRI(0); }
+static void ld_astop(void) {
+    uint32_t old = __get_BASEPRI();
+    __set_BASEPRI(LD_PRI_FILL);
+    if(CurrentlyPlaying == P_STREAM) CloseAudio(1);                 // the timer stopped, the buffers and the synth freed
+    ldfill = NULL;
+    __set_BASEPRI(old);
+}
+static int ld_astart(void (*fill)(int16_t *buf, uint32_t frames)) {
+    if(fill == NULL) return -1;
+    if(CurrentlyPlaying != P_NOTHING) return -2;
+    sbuff1 = GetInternalMemoryNull(LD_FRAMES * 4);
+    sbuff2 = GetInternalMemoryNull(LD_FRAMES * 4);
+    if(!sbuff1 || !sbuff2) { FreeMemorySafe((void **)&sbuff1); FreeMemorySafe((void **)&sbuff2); return -3; }
+    ibuff1 = (uint16_t *)sbuff1;
+    ibuff2 = (uint16_t *)sbuff2;
+    htim4.Init.Prescaler = (PeripheralBusSpeed / 2) / 44100 - 1;    // (as PLAY OPL sets it: OPLRate is what it gives)
+    htim4.Instance->PSC = htim4.Init.Prescaler;
+    HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);                       // (CubeMX left it at 0, the highest: it was unused)
+    ldfill = fill;
+    playreadcomplete = 0;
+    nchannels = 2;
+    wav_filesize = LD_FRAMES * 2;
+    ppos = 0;
+    bcount[1] = bcount[2] = 0;
+    swingbuf = 1;
+    nextbuf = 2;
+    ld_make(1);
+    CurrentlyPlaying = P_STREAM;
+    if(HAL_TIM_Base_Start_IT(&htim4) != HAL_OK) { ld_astop(); return -4; }
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;                             // (the second buffer)
+    return (int)OPLRate();
+}
+static int ld_mplay(const void *midi, uint32_t size, int loop, const uint8_t *bank) {
+    uint32_t old = __get_BASEPRI();
+    int r;
+    __set_BASEPRI(LD_PRI_FILL);
+    r = OPLStreamPlay(midi, size, loop, bank, LD_FRAMES);
+    __set_BASEPRI(old);
+    return r;
+}
+
 static int ld_keys(int keys[7]) {
     int i, n = 0;
     for(i = 0; i < 7; i++) keys[i] = KeyDown[i];
@@ -319,6 +410,9 @@ static const struct cmm2_services ldsvc = {
     .poll = ld_poll, .leave = ld_leave, .cpu_hz = ld_cpuhz, .alloc = LoaderAlloc, .release = LoaderRelease,
     .opl_new = ld_oplnew, .opl_write = ld_oplwrite, .opl_generate = ld_oplgen, .opl_free = ld_oplfree,
     .video_mode = ld_vmode, .video_palette = ld_palette, .video_wait = ld_frame, .keys_held = ld_keys,
+    .audio_start = ld_astart, .audio_stop = ld_astop, .audio_lock = ld_alock, .audio_unlock = ld_aunlock,
+    .music_play = ld_mplay, .music_stop = OPLStreamStop, .music_volume = OPLStreamVolume, .music_pause = OPLStreamPause,
+    .music_playing = OPLStreamPlaying,
 };
 
 /*******************************************************************************************
@@ -364,7 +458,10 @@ static char **ld_args(char *fname, char *text, int *argc) {
 // what a program left open, closed and freed
 static void ld_tidy(void) {
     int i;
-    for(i = 0; i < LD_FILES; i++) if(ldfile[i]) { f_close(ldfile[i]); FreeMemory(ldfile[i]); ldfile[i] = NULL; }
+    ld_astop();                                                     // its sound, and its music's synth (before its blocks)
+    OPLClose();
+    __set_BASEPRI(0);                                               // (audio_lock left on)
+    for(i = 0; i < LD_FILES; i++) if(ldfile[i]) { f_close(ldfile[i]); ld_free(ldfile[i]); ldfile[i] = NULL; }
     for(i = 0; i < LD_DIRS; i++) if(lddir[i]) { f_closedir(lddir[i]); FreeMemory(lddir[i]); lddir[i] = NULL; }
     for(i = 0; i < LD_BLOCKS; i++) if(ldblock[i]) { FreeMemory(ldblock[i]); ldblock[i] = NULL; }
 }

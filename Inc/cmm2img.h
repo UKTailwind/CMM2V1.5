@@ -31,7 +31,7 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  2                 /* the services below (2: the screen and the keys held) */
+#define CMM2IMG_API_VERSION  3                 /* the services below (2: the screen and the keys held; 3: sound) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2 (every image does, for now) */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved */
@@ -140,6 +140,24 @@ struct cmm2_services {
                                                   the arrows and editing keys, &H91 up F1...), [6] the modifier bits (1
                                                   left Alt, 2 left Ctrl, 4 left GUI, 8 left Shift, 16-128 the right
                                                   ones); returns how many keys are held */
+    /* version 3: sound. The stream is 16-bit stereo, made by the program's fill, which the firmware calls from an
+       interrupt (PendSV, below every other) each time a buffer is wanted: 1024 frames, 23 ms. fill runs on MMBasic's
+       stack, not the program's: it must be quick, keep its locals small and call no service, malloc or stdio. Its
+       sound goes out at PLAY VOLUME's level. */
+    int      (*audio_start)(void (*fill)(int16_t *buf, uint32_t frames));   /* the rate in Hz (44.1 kHz as the timer
+                                                  makes it), or negative: -2 sound already playing, -3 no room */
+    void     (*audio_stop)(void);              /* (ended for it when the program ends) */
+    void     (*audio_lock)(void);              /* fill held off, while the program changes what fill reads: briefly */
+    void     (*audio_unlock)(void);
+    /* the music: a Standard MIDI File in the program's memory (kept there while it plays), played by the firmware's
+       OPL3 synth with Doom's DMX patches and added to the stream after fill (audio_start first). bank: a GENMIDI
+       lump's 175 instruments of 36 bytes (after its 8-byte "#OPL_II#"), or NULL for the firmware's (Freedoom's). */
+    int      (*music_play)(const void *midi, uint32_t size, int loop, const uint8_t *bank);   /* 0, or -1 not a MIDI
+                                                  file, -2 its timing not supported, -3 no room */
+    void     (*music_stop)(void);
+    void     (*music_volume)(int volume);      /* 0-127 (127 at the start) */
+    void     (*music_pause)(int paused);
+    int      (*music_playing)(void);           /* 0 once a file not looped has ended */
 };
 
 #endif

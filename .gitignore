@@ -9,3 +9,6 @@ tests/*/*/rows.jsonl
 docs/manual/sources/
 # The game ports: under OPTION PICOMITE the PicoMite's own copies run unchanged (Peter, 27 Oct 2026); kept locally
 games/
+# Doom (apps/doom/make.py): doomgeneric fetched at a pinned commit, and the build
+apps/doom/doomgeneric/
+apps/doom/out/

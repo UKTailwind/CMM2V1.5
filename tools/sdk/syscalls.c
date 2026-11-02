@@ -124,6 +124,13 @@ int _kill(int pid, int sig) { (void)pid; (void)sig; errno = EINVAL; return -1; }
 int _getpid(void) { return 1; }
 int _unlink(const char *name) { return cmm2->file_remove(name) < 0 ? (errno = ENOENT, -1) : 0; }
 int mkdir(const char *name, mode_t mode) { (void)mode; return cmm2->dir_make(name) < 0 ? (errno = EIO, -1) : 0; }
+/* rename itself (newlib's would link and unlink): FatFs renames, and a file already called 'to' is replaced, as POSIX
+   has it (FR_EXIST, 8, then the file removed and the rename tried again) */
+int rename(const char *from, const char *to) {
+    int r = cmm2->file_rename(from, to);
+    if(r == -8 && cmm2->file_remove(to) == 0) r = cmm2->file_rename(from, to);
+    return r < 0 ? (errno = r == -4 ? ENOENT : EIO, -1) : 0;
+}
 
 /* days from 1 Jan 1970 to the date (Howard Hinnant's days_from_civil) */
 static int32_t days(int y, int m, int d) {

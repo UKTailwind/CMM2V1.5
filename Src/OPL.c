@@ -91,6 +91,9 @@ static int songheap;
 static double due;                                                  // samples to the next event
 static int seqdone;                                                 // the file's last event done
 static uint32_t tail;                                               // samples of releases still to make after it
+static const unsigned char *genmidi = OPLGenMidi;                   // the bank: the flash's, or a program's (OPLStreamPlay)
+static int sactive, sloop, svol = 127, spaused;                     // a program's music (OPLStreamPlay)
+static int song_tracks(void);
 
 static void ow(int c, int reg, int val) { if(c < nchips && chip[c]) OPLChipWrite(chip[c], reg, val); }
 static uint32_t opl_rate(void) { return PSpeedDiv / (PSpeedDiv / OPL_RATE); }   // the audio timer's: the chip's pitch
@@ -229,8 +232,8 @@ static void note_on(int ch, int note, int vel) {
     int sub, nsub, v;
     if(ch == 9) {
         if(note < 35 || note > 81) return;
-        ins = OPLGenMidi + (128 + note - 35) * 36;
-    } else ins = OPLGenMidi + os->ch[ch].program * 36;
+        ins = genmidi + (128 + note - 35) * 36;
+    } else ins = genmidi + os->ch[ch].program * 36;
     nsub = (GM_FLAGS(ins) & 4) ? 2 : 1;
     for(sub = 0; sub < nsub; sub++) {
         const unsigned char *g = GM_V(ins, sub);
@@ -420,11 +423,88 @@ void OPLClose(void) {
     song = NULL;
     songheap = 0;
     nchips = 0;
+    sactive = 0;
+    genmidi = OPLGenMidi;
 }
 
 // MM.INFO(SOUND)'s word for the synth, and MM.INFO(TRACK)'s file (NULL for register writes and real-time MIDI)
 const char *OPLSoundName(void) { return (omode == OM_LIVE || omode == OM_SONG) ? "MIDI" : "OPL"; }
 const char *OPLTrack(void) { return (omode == OM_LOG || omode == OM_SONG) ? WAVfilename : NULL; }
+uint32_t OPLRate(void) { return opl_rate(); }
+
+/*******************************************************************************************
+ a loadable program's music (Loader.c's sound stream): a MIDI file in the program's memory, played on the synth with
+ the flash's bank or the program's GENMIDI, and added to each buffer of the stream after the program's own sound. Set
+ going and stopped by the program (with the stream's refill held off: Loader.c), made in the refill (PendSV)
+*******************************************************************************************/
+// 0, or negative: -1 not a MIDI file, -2 its timing not supported, -3 no room
+int OPLStreamPlay(const void *midi, uint32_t size, int loop, const unsigned char *bank, uint32_t frames) {
+    int r;
+    sactive = 0;
+    oplrate = opl_rate();
+    if(!chip[0] && (chip[0] = GetMemoryNull(OPLChipSize())) != NULL) OPLChipInit(chip[0], oplrate);   // (made at once:
+    if(!os) os = GetMemoryNull(sizeof(ostate_t));                   // OPLClose ends it)
+    if(!mixbuf) mixbuf = GetMemoryNull(frames * 4);
+    if(!chip[0] || !os || !mixbuf) { OPLClose(); return -3; }
+    song = (unsigned char *)midi;
+    slen = size;
+    songheap = 0;
+    if((r = song_tracks()) < 0) return r;
+    genmidi = bank ? bank : OPLGenMidi;
+    OPLChipDone(chip[0]);                                           // (reset: no note of the last song left sounding)
+    OPLChipInit(chip[0], oplrate);
+    nchips = 1;
+    omode = OM_SONG;
+    midi_reset();
+    due = 0;
+    seqdone = 0;
+    sloop = loop;
+    spaused = 0;
+    sactive = 1;
+    return 0;
+}
+void OPLStreamStop(void) { sactive = 0; }
+void OPLStreamVolume(int v) { svol = v < 0 ? 0 : v > 127 ? 127 : v; }
+void OPLStreamPause(int p) { spaused = p; }
+int OPLStreamPlaying(void) { return sactive; }
+
+// the music's next frames added to buf (16-bit stereo); at its end it starts again if it loops, or plays its releases
+// for two seconds and stops (the synth costs as much silent as sounding)
+void OPLStreamMix(int16_t *buf, uint32_t frames) {
+    int16_t *m = mixbuf;
+    uint32_t left = frames, n, i;
+    int again = 0;
+    if(!sactive || spaused) return;
+    while(left) {
+        n = left;
+        if(!seqdone) {
+            while(due < 1.0) {
+                double d = midi_step();
+                if(d < 0) {
+                    if(sloop && !again++ && song_tracks() == 0) continue;   // (once a buffer: an empty file ends)
+                    seqdone = 1;
+                    tail = 2 * oplrate;
+                    break;
+                }
+                due += d;
+            }
+            if(!seqdone && due < n) n = (uint32_t)due;
+        }
+        if(seqdone) {
+            if(tail == 0) { sactive = 0; break; }
+            if(n > tail) n = tail;
+            tail -= n;
+        } else due -= n;
+        OPLChipGenerate(chip[0], m, n);
+        m += 2 * n;
+        left -= n;
+    }
+    n = (uint32_t)(m - mixbuf);
+    for(i = 0; i < n; i++) {
+        int32_t v = buf[i] + mixbuf[i] * svol / 127;
+        buf[i] = v > 32767 ? 32767 : v < -32768 ? -32768 : v;
+    }
+}
 
 // the synth on in a mode, with n chips, its first buffer made and the audio timer started
 static void opl_start(int mode, int n, char *interrupt) {
@@ -479,13 +559,12 @@ static void opl_load(char *name, char *ext) {
     strncpy(WAVfilename, p, sizeof(WAVfilename) - 1);               // (MM.INFO(TRACK))
 }
 
-// a MIDI file (the heap's, or the tune in flash) set going
-static void opl_song(char *interrupt) {
+// song's tracks found and set at their starts (os allocated): 0, -1 not a MIDI file, -2 its timing not supported
+static int song_tracks(void) {
     const unsigned char *p;
-    if(slen < 14 || memcmp(song, "MThd", 4)) error("Not a MIDI file");
-    if(!os) os = GetMemory(sizeof(ostate_t));
+    if(slen < 14 || memcmp(song, "MThd", 4)) return -1;
     os->division = song[12] << 8 | song[13];
-    if(os->division == 0 || (os->division & 0x8000)) error("MIDI timing not supported");
+    if(os->division == 0 || (os->division & 0x8000)) return -2;
     p = song + 8 + be32(song + 4);
     os->ntrk = 0;
     while(p + 8 <= song + slen && os->ntrk < OPL_MAXTRK) {
@@ -503,6 +582,16 @@ static void opl_song(char *interrupt) {
     }
     os->us_per_tick = 500000.0 / os->division;
     os->now_tick = 0;
+    return 0;
+}
+
+// a MIDI file (the heap's, or the tune in flash) set going
+static void opl_song(char *interrupt) {
+    int r;
+    if(slen < 14 || memcmp(song, "MThd", 4)) error("Not a MIDI file");
+    if(!os) os = GetMemory(sizeof(ostate_t));
+    if((r = song_tracks()) == -1) error("Not a MIDI file");
+    if(r == -2) error("MIDI timing not supported");
     opl_start(OM_SONG, 1, interrupt);
 }
 

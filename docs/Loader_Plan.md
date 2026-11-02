@@ -144,14 +144,34 @@ Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders M
   - keys, Shift, Alt, Ctrl and F5-F12 were reported;
   - Esc and Ctrl-C both ended it at BASIC's prompt;
   - Peter saw the bars and the colours turning.
-- **The USB touch screen:** it disconnects and reconnects at each mode change, apparently the monitor resetting it as it relocks. The program carried on.
-- Bank 2 has 101,768 bytes left.
+- **The USB touch screen:** it disconnects about 0.1 s after any mode change and reconnects 1.6 s later. BASIC's MODE does it too, with USB serviced every millisecond throughout, while 3 s and 10 s without any polling (`tools/sdk/examples/nopoll.c`) left it connected. So the monitor resets its touch controller as it relocks, and the firmware can't prevent it. The keyboard and mouse are not affected. Peter unplugged the touch screen for the Doom work.
+
+**The services, version 3: sound.**
+- **The stream:** `audio_start(fill)` returns the rate (44.1 kHz as the timer makes it).
+  - A new sound mode, `P_STREAM`, plays through MOD's branch of the sample interrupt, in 1024-frame buffers (23 ms).
+  - The interrupt pends PendSV at each change of buffer. PendSV, now set to the lowest priority (CubeMX had left it at 0, unused), calls the program's fill for the free buffer, adds the music, then applies PLAY VOLUME and the DACs' scale as MOD's refill does.
+  - `audio_lock` and `audio_unlock` set BASEPRI at PendSV's level.
+  - `video_mode` holds the refill off too. setmode turns the MPU off for a moment, and the SDRAM is then execute-never, so a fill at that moment would fault fetching the program's code.
+- **The music:** `music_play(midi, size, loop, bank)` plays a MIDI file in the program's memory through OPL.c's sequencer and DMX driver (`OPLStreamPlay`/`OPLStreamMix`). It uses the program's GENMIDI bank, or the flash's. The track parse is shared with PLAY MIDIFILE (`song_tracks`).
+- **Files read through a cluster map** (FatFs fast seek, `ld_map`): a seek no longer walks the FAT from the file's start over the card's SPI. Without it Doom's start-up crawled: each lump read began with a backward seek in the 28.8 MB WAD.
+- The SDK's `rename` is its own, since newlib's links and unlinks.
+- Bank 2: 161,872 bytes used of 256 KB.
+
+**Doom, the first loadable game** (`apps/doom`: `make.py` fetches doomgeneric at a pinned commit and builds `doom.app`, 342 KB).
+- The CMM2 layer, `doomgeneric_cmm2.c`:
+  - **picture:** MODE 3,8, with Doom's 8-bit frame and palette;
+  - **keys:** KEYDOWN's changes become Doom's events;
+  - **effects:** 16 voices of DMX lumps, mixed in the fill;
+  - **music:** MUS lumps turned to MIDI by mus2mid and played by the firmware's synth with the WAD's GENMIDI.
+- Freedoom Phase 1 (`A:/Doom/freedoom1.wad`) starts in a few seconds, from `CHDIR "A:/Doom": RUN "doom.app"`.
+- **Speed:** 56.9 frames a second without sound (135 s of play) and 32.9 with sound and music (112 s). Doom's game runs at 35 tics a second.
+- **Peter:**
+  - "graphics smooth and fast";
+  - with sound, "sounded good - framerate still acceptable".
 
 **Not done yet.**
-- The audio stream service.
-- PendSV refills for programs.
 - Modules.
-- The first loadable game (Peter, 2 Nov: "choose the simplest of the available id Tech 1 games as the first implementation as a proof of concept"): Doom through doomgeneric, with Freedoom Phase 1 (`A:/Doom/freedoom1.wad`). Started: the picture and the keys first, then the sound.
+- Doom: the frame rate with music (the synth at half rate, or its loop in faster memory); a `-timedemo` measurement; saves into the game's directory without CHDIR; the mouse.
 - A G1 check of the gating (no G1 on the bench).
 - A full regression.
 
