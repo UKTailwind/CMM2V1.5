@@ -510,6 +510,268 @@ static void ld_dma2dstop(void) {                                    // (the prog
     __HAL_RCC_DMA2D_CLK_DISABLE();
 }
 
+/* I/O (version 7), by the PicoMite's GP numbers (External.c's map). The firmware's own routines do the work: ExtCfg,
+   PinAnalogRaw, cmd_pwm, i2cEnable, I2CTransfer, cmd_spi1, SerialOpen... An MMBasic error one of them raises is caught
+   by ld_try as ON ERROR SKIP catches it, so nothing is printed and MM.ERRNO and a SUB the BASIC program is in are left
+   alone; its message is kept for io_error(). What the program set up is undone when it ends (ld_iotidy). */
+extern jmp_buf ErrNext;
+extern uint32_t DefinedSubFunMem;
+extern const MMFLOAT ADCdiv[];
+extern SPI_HandleTypeDef hspi1, hspi2;
+extern unsigned int I2C1_enabled, I2C2_enabled;
+extern void cmd_spi1(char *spi), cmd_spi2(char *spi);
+extern void i2cEnable(char *p), i2c2Enable(char *p), i2cDisable(char *p), i2c2Disable(char *p);
+static char lderrmsg[128];
+static uint64_t ldpins;                                             // the GPs the program set up
+static uint8_t ldpwm, ldi2c, ldspi, ldcom;                          // its PWM outputs (bit n: GP2+n), buses and COM ports
+static uint32_t ldpwmfreq[2];                                       // its PWM channels' frequencies
+
+static int ld_try(void (*fn)(void *), void *arg) {
+    jmp_buf save;
+    int skip = OptionErrorSkip, en = MMerrno;
+    uint32_t sub = DefinedSubFunMem;
+    char *msg = MMErrMsg;
+    volatile int failed = 0;
+    memcpy(save, ErrNext, sizeof(jmp_buf));
+    OptionErrorSkip = 1;                                            // (error() then goes to ErrNext, printing nothing,
+    DefinedSubFunMem = 0;                                           // and leaves a SUB call's arguments alone)
+    if(setjmp(ErrNext) == 0) fn(arg);
+    else {
+        failed = 1;
+        strncpy(lderrmsg, MMErrMsg ? MMErrMsg : "", sizeof(lderrmsg) - 1);
+    }
+    memcpy(ErrNext, save, sizeof(jmp_buf));
+    OptionErrorSkip = skip;
+    MMerrno = en;
+    DefinedSubFunMem = sub;
+    MMErrMsg = msg;
+    return failed ? -4 : 0;
+}
+static const char *ld_ioerror(void) { return lderrmsg; }
+
+// a command's routine run with its arguments as text (numbers and words only), as the interpreter runs it
+typedef struct { void (*cmd)(void); void (*cmdp)(char *); int token; char *args; } ldcmd;
+static void ld_cmdbody(void *a) {
+    ldcmd *c = a;
+    if(c->cmdp) { c->cmdp(c->args); return; }
+    cmdline = c->args;
+    cmdtoken = c->token;
+    c->cmd();
+}
+static int ld_cmd(void (*cmd)(void), void (*cmdp)(char *), const char *name, char *args) {
+    char *line = cmdline;
+    int tok = cmdtoken, r;
+    ldcmd c = {cmd, cmdp, name ? GetCommandValue((char *)name) : 0, args};
+    r = ld_try(ld_cmdbody, &c);
+    cmdline = line;
+    cmdtoken = tok;
+    return r;
+}
+
+typedef struct { int pin, cfg, opt; } ldcfg;
+static void ld_cfgbody(void *a) { ldcfg *c = a; ExtCfg(c->pin, c->cfg, c->opt); }
+static int ld_pinsetup(int gp, int mode, int pull) {
+    static const int cfgs[] = {EXT_NOT_CONFIG, EXT_DIG_IN, EXT_DIG_OUT, EXT_OC_OUT, EXT_ANA_IN};
+    static const int need[] = {0, DIGITAL_IN, DIGITAL_OUT, DIGITAL_OUT, ANALOG_IN};
+    int pin = GPPinNone(gp), r;
+    ldcfg c;
+    if(!pin) return -1;
+    if(mode < CMM2_PIN_OFF || mode > CMM2_PIN_ANALOG) return -3;
+    if(ExtCurrentConfig[pin] >= EXT_COM_RESERVED) return -2;
+    if(need[mode] && !(PinDef[pin].mode & need[mode])) return -3;
+    c.pin = pin;
+    c.cfg = cfgs[mode];
+    c.opt = mode == CMM2_PIN_IN ? (pull == CMM2_PULL_UP ? CNPUSET : pull == CMM2_PULL_DOWN ? CNPDSET : 0) :
+            mode == CMM2_PIN_ANALOG ? 16 : 0;                       // (16 bits: SETPIN AIN's)
+    r = ld_try(ld_cfgbody, &c);
+    if(r == 0) {
+        if(mode == CMM2_PIN_OFF) ldpins &= ~(1ULL << gp);
+        else ldpins |= 1ULL << gp;
+    }
+    return r;
+}
+static int ld_pinread(int gp) {
+    int pin = GPPinNone(gp);
+    if(!pin) return -1;
+    return (PinDef[pin].sfr->IDR & PinDef[pin].bitnbr) != 0;
+}
+static void ld_pinwrite(int gp, int v) {
+    int pin = GPPinNone(gp), c;
+    if(!pin) return;
+    c = ExtCurrentConfig[pin];
+    if(c == EXT_DIG_OUT || c == EXT_OC_OUT) PinDef[pin].sfr->BSRR = PinDef[pin].bitnbr << (v ? 0 : 16);
+}
+
+typedef struct { int pin; uint32_t v; } ldadc;
+static void ld_adcbody(void *a) { ldadc *c = a; c->v = PinAnalogRaw(c->pin); }
+static int ld_adcread(int gp, uint32_t *uv) {
+    int pin = GPPinNone(gp), r;
+    ldadc c = {pin, 0};
+    double f;
+    if(!pin) return -1;
+    if(ExtCurrentConfig[pin] != EXT_ANA_IN) return -3;
+    if((r = ld_try(ld_adcbody, &c)) < 0) return r;
+    f = (double)c.v / ADCdiv[ADCbits[pin]];
+    if(f > 1.0) f = 1.0;
+    if(uv) *uv = (uint32_t)(f * VCC * 1e6 + 0.5);
+    return (int)(f * 65535.0 + 0.5);
+}
+
+/* PWM: GP2-5 are PWM 1A, 1B, 2A, 2B (PWM channel, f, dutyA [, dutyB]: an empty duty leaves that output as it is).
+   The channel's other output, if it runs, is given its duty again, as its count would otherwise stay as it was for
+   the old frequency (PWM's own way with an output it is not given) */
+static uint32_t ldpwmduty[4];                                       // each output's duty, in hundredths of a percent
+static void ld_pct(char *s, uint32_t pct) { sprintf(s, "%u.%02u", (unsigned)(pct / 100), (unsigned)(pct % 100)); }
+static int ld_pwmset(int gp, uint32_t freq, uint32_t duty) {
+    char a[64], da[16] = "", db[16] = "";
+    int ch = (gp - 2) / 2, out = gp - 2, r;
+    if(gp < 2 || gp > 5) return -1;
+    if(freq < 1 || freq > 20000000) return -3;
+    ldpwmduty[out] = (uint32_t)(((uint64_t)(duty > 65535 ? 65535 : duty) * 10000 + 32767) / 65535);
+    ld_pct((out & 1) ? db : da, ldpwmduty[out]);
+    if(ldpwm & (1 << (out ^ 1))) ld_pct((out & 1) ? da : db, ldpwmduty[out ^ 1]);   // (the other output, running)
+    if(*db) sprintf(a, "%d,%u,%s,%s", ch + 1, (unsigned)freq, da, db);   // (A may be empty: B alone, as PWM 1, f, , dB)
+    else sprintf(a, "%d,%u,%s", ch + 1, (unsigned)freq, da);
+    r = ld_cmd(cmd_pwm, NULL, "PWM", a);
+    if(r == 0) {
+        ldpwm |= 1 << out;
+        ldpwmfreq[ch] = freq;
+    }
+    return r;
+}
+static void ld_pwmclosebody(void *a) { PWMClose(*(int *)a); }
+static int ld_pwmstop(int gp) {
+    char a[32];
+    int ch = (gp - 2) / 2;
+    if(gp < 2 || gp > 5) return -1;
+    if(!(ldpwm & (1 << (gp - 2)))) return 0;
+    ldpwm &= ~(1 << (gp - 2));
+    if(ldpwm & (3 << (ch * 2))) {                                   // the channel's other output runs: this one at 0%
+        sprintf(a, (gp - 2) & 1 ? "%d,%u,,0" : "%d,%u,0", ch + 1, (unsigned)ldpwmfreq[ch]);
+        return ld_cmd(cmd_pwm, NULL, "PWM", a);
+    }
+    return ld_try(ld_pwmclosebody, &ch);
+}
+
+// I2C: bus 0 is I2C (GP16/17), 1 is I2C2 (GP14/15)
+static int ld_i2cclose(int bus) {
+    if(bus < 0 || bus > 1) return -1;
+    if(!(ldi2c & (1 << bus))) return 0;
+    ldi2c &= ~(1 << bus);
+    return ld_cmd(NULL, bus ? i2c2Disable : i2cDisable, NULL, "");
+}
+static int ld_i2copen(int bus, int khz, int timeout) {
+    char a[32];
+    int r;
+    if(bus < 0 || bus > 1) return -1;
+    ld_i2cclose(bus);
+    sprintf(a, "%d,%d", khz, timeout);
+    r = ld_cmd(NULL, bus ? i2c2Enable : i2cEnable, NULL, a);
+    if(r == 0) ldi2c |= 1 << bus;
+    return r;
+}
+static int ld_i2cxfer(int bus, int addr, const uint8_t *w, uint32_t wn, uint8_t *r, uint32_t rn, int stop) {
+    if(bus < 0 || bus > 1) return -1;
+    if(!(bus ? I2C2_enabled : I2C1_enabled)) return -3;
+    if(addr < 0 || addr > 127 || wn > 65535 || rn > 65535) return -3;
+    return I2CTransfer(bus + 1, addr, w, wn, r, rn, !stop);
+}
+
+// SPI: bus 0 is SPI (GP18-20), 1 is SPI2 (GP10-12), 8 bits
+static int ld_spiclose(int bus) {
+    if(bus < 0 || bus > 1) return -1;
+    if(!(ldspi & (1 << bus))) return 0;
+    ldspi &= ~(1 << bus);
+    return ld_cmd(NULL, bus ? cmd_spi2 : cmd_spi1, NULL, "CLOSE");
+}
+static int ld_spiopen(int bus, uint32_t hz, int mode) {
+    char a[48];
+    int r;
+    if(bus < 0 || bus > 1) return -1;
+    ld_spiclose(bus);
+    sprintf(a, "OPEN %u,%d,8", (unsigned)hz, mode & 3);
+    r = ld_cmd(NULL, bus ? cmd_spi2 : cmd_spi1, NULL, a);
+    if(r == 0) ldspi |= 1 << bus;
+    return r;
+}
+static int ld_spixfer(int bus, const uint8_t *tx, uint8_t *rx, uint32_t n) {
+    static uint8_t zero[64], junk[64];
+    SPI_HandleTypeDef *h = bus ? &hspi2 : &hspi1;
+    if(bus < 0 || bus > 1) return -1;
+    if(!(ldspi & (1 << bus)) || ExtCurrentConfig[bus ? SPI2_OUT_PIN : SPI_OUT_PIN] != EXT_COM_RESERVED) return -3;
+    while(n) {
+        uint32_t k = n > 32768 ? 32768 : n;
+        if(!tx || !rx) k = k > sizeof(zero) ? sizeof(zero) : k;
+        if(HAL_SPI_TransmitReceive(h, (uint8_t *)(tx ? tx : zero), rx ? rx : junk, k, 5000) != HAL_OK) return -3;
+        if(tx) tx += k;
+        if(rx) rx += k;
+        n -= k;
+    }
+    return 0;
+}
+
+// COM1 (GP0/1) and COM2 (GP36/37), opened as OPEN "COMn:baud,buffer[,EVEN|ODD][,S2][,7BIT]" opens them
+static int ld_comclose(int com) {
+    if(com < 1 || com > 2) return -1;
+    if(!(ldcom & (1 << com))) return 0;
+    ldcom &= ~(1 << com);
+    SerialClose(com);
+    return 0;
+}
+static int ld_comopen(int com, uint32_t baud, int bits, int parity, int stop, uint32_t rxbuf) {
+    char a[64];
+    int r;
+    if(com < 1 || com > 2) return -1;
+    ld_comclose(com);
+    sprintf(a, "COM%d:%u,%u%s%s%s", com, (unsigned)baud, (unsigned)(rxbuf ? rxbuf : COM_DEFAULT_BUF_SIZE),
+            parity == 1 ? ",EVEN" : parity == 2 ? ",ODD" : "", stop == 2 ? ",S2" : "", bits == 7 ? ",7BIT" : "");
+    r = ld_cmd(NULL, SerialOpen, NULL, a);
+    if(r == 0) ldcom |= 1 << com;
+    return r;
+}
+static int ld_comwrite(int com, const uint8_t *buf, uint32_t n) {
+    uint32_t i;
+    if(com < 1 || com > 2) return -1;
+    if(!(ldcom & (1 << com))) return -3;
+    for(i = 0; i < n; i++) SerialPutchar(com, buf[i]);
+    return (int)n;
+}
+static int ld_comread(int com, uint8_t *buf, uint32_t n) {
+    uint32_t i = 0;
+    int c;
+    if(com < 1 || com > 2) return -1;
+    if(!(ldcom & (1 << com))) return -3;
+    while(i < n && (c = SerialGetchar(com)) >= 0) buf[i++] = c;
+    return (int)i;
+}
+static int ld_comavail(int com) {
+    if(com < 1 || com > 2) return -1;
+    if(!(ldcom & (1 << com))) return -3;
+    return SerialRxStatus(com);
+}
+
+// what the program set up, undone (its end)
+static void ld_iotidy(void) {
+    int gp, ch;
+    for(ch = 0; ch < 2; ch++) if(ldpwm & (3 << (ch * 2))) ld_try(ld_pwmclosebody, &ch);
+    ldpwm = 0;
+    ld_i2cclose(0);
+    ld_i2cclose(1);
+    ld_spiclose(0);
+    ld_spiclose(1);
+    ld_comclose(1);
+    ld_comclose(2);
+    for(gp = 0; gp < 64; gp++)
+        if(ldpins & (1ULL << gp)) {
+            int pin = GPPinNone(gp);
+            if(pin && ExtCurrentConfig[pin] < EXT_COM_RESERVED) {
+                ldcfg c = {pin, EXT_NOT_CONFIG, 0};
+                ld_try(ld_cfgbody, &c);
+            }
+        }
+    ldpins = 0;
+}
+
 /*******************************************************************************************
  calling the program on its own stack
 *******************************************************************************************/
@@ -566,6 +828,11 @@ static const struct cmm2_services ldsvc = {
     .mouse = ld_mouse, .mouse_set = ld_mouseset, .con_screen = ld_conscreen,
     .break_take = ld_breaktake, .file_stat = ld_stat,
     .video_scaled = ld_vscaled, .frame_hook = ld_framehook, .dma2d_copy = ld_dma2dcopy, .dma2d_busy = ld_dma2dbusy,
+    .pin_setup = ld_pinsetup, .pin_read = ld_pinread, .pin_write = ld_pinwrite, .adc_read = ld_adcread,
+    .pwm_set = ld_pwmset, .pwm_stop = ld_pwmstop, .i2c_open = ld_i2copen, .i2c_close = ld_i2cclose,
+    .i2c_xfer = ld_i2cxfer, .spi_open = ld_spiopen, .spi_close = ld_spiclose, .spi_xfer = ld_spixfer,
+    .com_open = ld_comopen, .com_close = ld_comclose, .com_write = ld_comwrite, .com_read = ld_comread,
+    .com_avail = ld_comavail, .io_error = ld_ioerror,
 };
 
 /*******************************************************************************************
@@ -613,6 +880,7 @@ static void ld_tidy(void) {
     int i;
     LoaderFrameFn = NULL;                                           // its frame hook and its copies (before its display goes)
     ld_dma2dstop();
+    ld_iotidy();                                                    // its pins, PWM, buses and ports
     ld_astop();                                                     // its sound, and its music's synth (before its blocks)
     OPLClose();
     __set_BASEPRI(0);                                               // (audio_lock left on)

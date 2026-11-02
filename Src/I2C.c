@@ -688,6 +688,22 @@ void i2c3_masterCommand(int timer, unsigned char *rbuf) {
 	mT4IntEnable(1);
 }
 
+/* a loadable program's transfer (Loader.c), on an open bus (1 I2C, 2 I2C2, 3 I2C3): 'wn' bytes written from 'w', then
+   (a repeated start between) 'rn' read into 'r', the bus kept after it if 'hold'; with neither, the address alone (a
+   probe). MM.I2C's values: 0 done, 1 a NACK, 2 timed out. As i2c_masterCommand, with the program's own buffers. */
+int I2CTransfer(int bus, int addr, const unsigned char *w, int wn, unsigned char *r, int rn, int hold) {
+	I2C_HandleTypeDef *h = bus == 1 ? &hi2c1 : bus == 2 ? &hi2c4 : &hi2c2;
+	int *held = bus == 1 ? &I2C_Held : bus == 2 ? &I2C2_Held : &I2C3_Held;
+	uint32_t timeout = bus == 1 ? I2C_Timeout : bus == 2 ? I2C2_Timeout : I2C3_Timeout;
+	int v = 0;
+	mT4IntEnable(0);
+	i2c_wait_idle(h);
+	if(wn || !rn) v = i2c_transfer(h, held, addr << 1, (uint8_t *)w, wn, 0, hold || rn, timeout);
+	if(rn && !v) v = i2c_transfer(h, held, addr << 1, r, rn, 1, hold, timeout);
+	mT4IntEnable(1);
+	return v;
+}
+
 //void fun_mmi2c(void) {
 //	iret = mmI2Cvalue;
 //    targ = T_INT;

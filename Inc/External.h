@@ -167,6 +167,8 @@ extern void initExtIO(void);
 extern void ExtCfg(int pin, int cfg, int option) ;
 extern void ExtSet(int pin, long long int val);
 extern int64_t ExtInp(int pin);
+extern uint32_t PinAnalogRaw(int pin);                 // an analog input's conversion (PIN(), adc_read)
+extern int GPPinNone(int gp);                          // a GP's pin, 0 if none
 extern int IsInvalidPin(int pin);
 extern int GetPinArg(char *p);                  // a pin argument: a number, or with OPTION PICOMITE a GP name
 extern int GetPinArgN(char *p);                 // the same, checked as getint(p, 1, NBRPINS) checks a number

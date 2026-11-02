@@ -88,4 +88,5 @@ extern void RtcGetTime(void);
 extern int mmI2Cvalue;
 
 #endif
+extern int I2CTransfer(int bus, int addr, const unsigned char *w, int wn, unsigned char *r, int rn, int hold);   // a loadable program's (Loader.c)
 #endif

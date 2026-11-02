@@ -529,9 +529,30 @@ void PinPut(int pin, int val) {
 
 
 
+/* an analog input's conversion (SETPIN AIN's bits, left-aligned in 16 as ADCdiv has them), from the ADC its pin is on:
+   PIN()'s, and a loadable program's adc_read (Loader.c) */
+uint32_t PinAnalogRaw(int pin) {
+	ADC_ChannelConfTypeDef sConfig = {0};
+	ADC_HandleTypeDef *h;
+	uint32_t v;
+	int inuse = ADC_init(pin, 0);
+	h = inuse == 1 ? &hadc1 : inuse == 2 ? &hadc2 : &hadc3;
+	sConfig.Channel      = PinDef[pin].ADCchannel;                  /* Sampled channel number */
+	sConfig.Rank         = ADC_REGULAR_RANK_1;                      /* Rank of sampled channel number ADCx_CHANNEL */
+	sConfig.SamplingTime = (ADCbits[pin]<10 ? ADC_SAMPLETIME_2CYCLES_5 : (ADCbits[pin]<12 ? ADC_SAMPLETIME_8CYCLES_5 : ADC_SAMPLETIME_64CYCLES_5));
+	sConfig.SingleDiff   = ADC_SINGLE_ENDED;                        /* Single-ended input channel */
+	sConfig.OffsetNumber = ADC_OFFSET_NONE;                         /* No offset subtraction */
+	sConfig.Offset = 0;
+	if(HAL_ADC_ConfigChannel(h, &sConfig) != HAL_OK) error("HAL_ADC_ConfigChannel");
+	if(HAL_ADC_Start(h) != HAL_OK) error("HAL_ADC_Start");
+	if(HAL_ADC_PollForConversion(h, 10) != HAL_OK) error("HAL_ADC_PollForConversion");
+	v = HAL_ADC_GetValue(h);
+	if(HAL_ADC_DeInit(h) != HAL_OK) error("HAL_ADC_DeInit");
+	return v;
+}
+
 // this is invoked as a function (ie, x = pin(3) )
 void fun_pin(void) {
-	int ADCinuse;
     MMFLOAT f;
     long long int i64;
     char *ss;
@@ -809,138 +830,9 @@ void fun_pin(void) {
             default:            error("Pin is not an input");
         }
 
-		/*##-2- Configure ADC regular channel ######################################*/
-	    ADCinuse=ADC_init(pin ,0);
-	    if(ADCinuse==1){
-	    	sConfig.Channel      = PinDef[pin].ADCchannel;                /* Sampled channel number */
-	    	sConfig.Rank         = ADC_REGULAR_RANK_1;          /* Rank of sampled channel number ADCx_CHANNEL */
-	    	sConfig.SamplingTime = (ADCbits[pin]<10 ? ADC_SAMPLETIME_2CYCLES_5 : (ADCbits[pin]<12 ? ADC_SAMPLETIME_8CYCLES_5 : ADC_SAMPLETIME_64CYCLES_5));    /* Sampling time (number of clock cycles unit) */
-	    	sConfig.SingleDiff   = ADC_SINGLE_ENDED;            /* Single-ended input channel */
-	    	sConfig.OffsetNumber = ADC_OFFSET_NONE;             /* No offset subtraction */
-	    	sConfig.Offset = 0;                                 /* Parameter discarded because offset correction is disabled */
-
-
-	    	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	    	{
-	    		/* Channel Configuration Error */
-			    error("HAL_ADC_ConfigChannel");
-	    	}
-	    	if (HAL_ADC_Start(&hadc1) != HAL_OK)
-	    	{
-	    		/* Start Conversation Error */
-	    		error("HAL_ADC_Start");
-	    	}
-
-	    	/*##-4- Wait for the end of conversion #####################################*/
-	    	/*  For simplicity reasons, this example is just waiting till the end of the
-	        	conversion, but application may perform other tasks while conversion
-	        	operation is ongoing. */
-	    	if (HAL_ADC_PollForConversion(&hadc1, 10) != HAL_OK)
-	    	{
-	    		/* End Of Conversion flag not set on time */
-	    		error("HAL_ADC_PollForConversion");
-	    	}
-	    	else
-	    	{
-	    		/* ADC conversion completed */
-	    		/*##-5- Get the converted value of regular channel  ########################*/
-				PinAdcValue(pin, HAL_ADC_GetValue(&hadc1));
-	    	}
-	    	if (HAL_ADC_DeInit(&hadc1) != HAL_OK)
-	    	{
-	    		/* ADC de-initialization Error */
-	    		error("HAL_ADC_DeInit");
-	    	}
-
-	    	targ = ADCraw[pin] ? T_INT : T_NBR;
-	    	return;
-	    } else if(ADCinuse==2){
-	    	sConfig.Channel      = PinDef[pin].ADCchannel;                /* Sampled channel number */
-	    	sConfig.Rank         = ADC_REGULAR_RANK_1;          /* Rank of sampled channel number ADCx_CHANNEL */
-	    	sConfig.SamplingTime = (ADCbits[pin]<10 ? ADC_SAMPLETIME_2CYCLES_5 : (ADCbits[pin]<12 ? ADC_SAMPLETIME_8CYCLES_5 : ADC_SAMPLETIME_64CYCLES_5));    /* Sampling time (number of clock cycles unit) */
-	    	sConfig.SingleDiff   = ADC_SINGLE_ENDED;            /* Single-ended input channel */
-	    	sConfig.OffsetNumber = ADC_OFFSET_NONE;             /* No offset subtraction */
-	    	sConfig.Offset = 0;                                 /* Parameter discarded because offset correction is disabled */
-
-
-	    	if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-	    	{
-	    		/* Channel Configuration Error */
-	  		    error("HAL_ADC_ConfigChannel");
-	    	}
-	    	if (HAL_ADC_Start(&hadc2) != HAL_OK)
-	    	{
-	    		/* Start Conversation Error */
-	    		error("HAL_ADC_Start");
-	    	}
-
-	    	/*##-4- Wait for the end of conversion #####################################*/
-	    	/*  For simplicity reasons, this example is just waiting till the end of the
-	          	  conversion, but application may perform other tasks while conversion
-	          	  operation is ongoing. */
-	    	if (HAL_ADC_PollForConversion(&hadc2, 10) != HAL_OK)
-	    	{
-	    		/* End Of Conversion flag not set on time */
-	    		error("HAL_ADC_PollForConversion");
-	    	}
-	    	else
-	    	{
-	    		/* ADC conversion completed */
-	    		/*##-5- Get the converted value of regular channel  ########################*/
-				PinAdcValue(pin, HAL_ADC_GetValue(&hadc2));
-	    	}
-	    	if (HAL_ADC_DeInit(&hadc2) != HAL_OK)
-	    	{
-	    		/* ADC de-initialization Error */
-	    		error("HAL_ADC_DeInit");
-	    	}
-
-	    	targ = ADCraw[pin] ? T_INT : T_NBR;
-	    	return;
-    	} else {
-    		sConfig.Channel      = PinDef[pin].ADCchannel;                /* Sampled channel number */
-    		sConfig.Rank         = ADC_REGULAR_RANK_1;          /* Rank of sampled channel number ADCx_CHANNEL */
-    		sConfig.SamplingTime = (ADCbits[pin]<10 ? ADC_SAMPLETIME_2CYCLES_5 : (ADCbits[pin]<12 ? ADC_SAMPLETIME_8CYCLES_5 : ADC_SAMPLETIME_64CYCLES_5));     /* Sampling time (number of clock cycles unit) */
-    		sConfig.SingleDiff   = ADC_SINGLE_ENDED;            /* Single-ended input channel */
-    		sConfig.OffsetNumber = ADC_OFFSET_NONE;             /* No offset subtraction */
-    		sConfig.Offset = 0;                                 /* Parameter discarded because offset correction is disabled */
-
-
-    		if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
-    		{
-    			/* Channel Configuration Error */
-    			error("HAL_ADC_ConfigChannel");
-    		}
-    		if (HAL_ADC_Start(&hadc3) != HAL_OK)
-    		{
-    			/* Start Conversation Error */
-    			error("HAL_ADC_Start");
-    		}
-
-    		/*##-4- Wait for the end of conversion #####################################*/
-    		/*  For simplicity reasons, this example is just waiting till the end of the
-          	  conversion, but application may perform other tasks while conversion
-          	  operation is ongoing. */
-    		if (HAL_ADC_PollForConversion(&hadc3, 10) != HAL_OK)
-    		{
-    			/* End Of Conversion flag not set on time */
-    			error("HAL_ADC_PollForConversion");
-    		}
-    		else
-    		{
-    			/* ADC conversion completed */
-    			/*##-5- Get the converted value of regular channel  ########################*/
-    			PinAdcValue(pin, HAL_ADC_GetValue(&hadc3));
-    		}
-    		if (HAL_ADC_DeInit(&hadc3) != HAL_OK)
-    		{
-    			/* ADC de-initialization Error */
-    			error("HAL_ADC_DeInit");
-    		}
-
-    		targ = ADCraw[pin] ? T_INT : T_NBR;
-    		return;
-    	}
+		PinAdcValue(pin, PinAnalogRaw(pin));                        // (the conversion: PinAnalogRaw, above)
+		targ = ADCraw[pin] ? T_INT : T_NBR;
+		return;
 	}
 }
 
@@ -2755,6 +2647,11 @@ static int GPString(char *ms) {
     memcpy(b, ms + 1, len);
     b[len] = 0;
     return GPName(b, "");
+}
+
+// a GP's pin, 0 if it has none (GPPinOf without the error, for a loadable program's services: Loader.c)
+int GPPinNone(int gp) {
+    return (gp < 0 || gp >= NBRGP) ? 0 : GPPin[gp];
 }
 
 // a GP's pin; an error for a GP that has none

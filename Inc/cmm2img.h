@@ -31,9 +31,9 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  6                 /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  7                 /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
-                                                  the program's memory, the DMA2D) */
+                                                  the program's memory, the DMA2D; 7: I/O) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2 (every image does, for now) */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved */
@@ -198,6 +198,48 @@ struct cmm2_services {
                                                   source written from the cache to the SDRAM first): 0, or -1 with 4
                                                   waiting or a size or address odd */
     int      (*dma2d_busy)(void);              /* the copies not yet done */
+    /* version 7: I/O, by the PicoMite's GP numbers: each GP is the connector pin the firmware gives it (External.c's
+       map), where the CMM2 has that function: COM1 on GP0/1, PWM 1A, 1B, 2A, 2B on GP2-5, SPI2 on GP10-12, I2C2 on
+       GP14/15, I2C on GP16/17, SPI on GP18-20, the analog inputs on GP26-28, COM2 on GP36/37. Each returns 0 (or a
+       value) or a negative error: -1 no such GP or bus, -2 its pins are in use (a COM port, SPI...), -3 not possible
+       (that mode on that pin, a bus not open...), -4 the firmware's error, whose message io_error() gives. What a
+       program sets up is put back when it ends: pins unconfigured, buses and ports closed, PWM stopped. */
+    int      (*pin_setup)(int gp, int mode, int pull);   /* CMM2_PIN_*, CMM2_PULL_* (for an input) */
+    int      (*pin_read)(int gp);              /* 0 or 1 (an output's level too) */
+    void     (*pin_write)(int gp, int v);      /* an output's level (nothing if it is not one) */
+    int      (*adc_read)(int gp, uint32_t *uv);   /* an analog input (CMM2_PIN_ANALOG): 0-65535, and its microvolts
+                                                  (from VCC, 3.3 V or OPTION VCC's) */
+    int      (*pwm_set)(int gp, uint32_t freq, uint32_t duty);   /* GP2-5: freq Hz (1-20 MHz; a channel's A and B, GP2/3
+                                                  and GP4/5, share theirs), duty 0-65535 */
+    int      (*pwm_stop)(int gp);              /* that output stopped (the channel, when neither runs) */
+    int      (*i2c_open)(int bus, int khz, int timeout_ms);   /* bus 0: I2C (GP16/17), 1: I2C2 (GP14/15); 100, 400 or
+                                                  1000 kHz; timeout 0 (none) or 100 ms up */
+    int      (*i2c_close)(int bus);
+    int      (*i2c_xfer)(int bus, int addr, const uint8_t *w, uint32_t wn, uint8_t *r, uint32_t rn, int stop);   /*
+                                                  wn bytes written, then rn read (a repeated start between), the bus
+                                                  released at the end if stop; neither: the address alone. 0, 1 a NACK,
+                                                  2 timed out (MM.I2C's), or negative */
+    int      (*spi_open)(int bus, uint32_t hz, int mode);   /* bus 0: SPI (GP18-20), 1: SPI2 (GP10-12); mode 0-3, 8 bits */
+    int      (*spi_close)(int bus);
+    int      (*spi_xfer)(int bus, const uint8_t *tx, uint8_t *rx, uint32_t n);   /* n bytes, tx NULL: 0s out, rx
+                                                  NULL: what comes in dropped */
+    int      (*com_open)(int com, uint32_t baud, int bits, int parity, int stop, uint32_t rxbuf);   /* com 1 (GP0/1)
+                                                  or 2 (GP36/37), as OPEN COMn: bits 7 or 8, parity 0 none, 1 even,
+                                                  2 odd, stop 1 or 2 */
+    int      (*com_close)(int com);
+    int      (*com_write)(int com, const uint8_t *buf, uint32_t n);   /* queued (waiting while the queue is full) */
+    int      (*com_read)(int com, uint8_t *buf, uint32_t n);   /* the bytes waiting, up to n: 0 if none (no wait) */
+    int      (*com_avail)(int com);            /* the bytes waiting */
+    const char *(*io_error)(void);             /* the firmware's message for the last -4 */
 };
+
+#define CMM2_PIN_OFF     0                     /* pin_setup's modes */
+#define CMM2_PIN_IN      1
+#define CMM2_PIN_OUT     2
+#define CMM2_PIN_OD      3                     /* open drain */
+#define CMM2_PIN_ANALOG  4
+#define CMM2_PULL_NONE   0
+#define CMM2_PULL_UP     1
+#define CMM2_PULL_DOWN   2
 
 #endif
