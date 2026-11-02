@@ -102,8 +102,20 @@ int _fstat(int fd, struct stat *st) {
 
 int _isatty(int fd) { return fd < FD_FILE; }
 
+static char *brk;                                                   // malloc's heap: from the start block's, upward
+
+/* size bytes (rounded up to 8) taken from the top of the heap, for a program's own allocator; malloc keeps the rest.
+   NULL if malloc has already taken too much. */
+void *cmm2_heap_take(uint32_t size) {
+    char *top = (char *)cmm2_start->heap + cmm2_start->heap_size;
+    size = (size + 7) & ~7u;
+    if(brk == NULL) brk = cmm2_start->heap;
+    if(size > (uint32_t)(top - brk)) return NULL;
+    cmm2_start->heap_size -= size;
+    return top - size;
+}
+
 void *_sbrk(ptrdiff_t incr) {
-    static char *brk;
     char *prev;
     if(brk == NULL) brk = cmm2_start->heap;
     if(brk + incr > (char *)cmm2_start->heap + cmm2_start->heap_size || brk + incr < (char *)cmm2_start->heap) {

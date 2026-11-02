@@ -31,7 +31,8 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  3                 /* the services below (2: the screen and the keys held; 3: sound) */
+#define CMM2IMG_API_VERSION  4                 /* the services below (2: the screen and the keys held; 3: sound;
+                                                  4: the mouse) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2 (every image does, for now) */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved */
@@ -161,6 +162,13 @@ struct cmm2_services {
     void     (*music_rate)(int divisor);       /* the synth's output at its full rate, 49,716 Hz (1, the default), or
                                                   at 1/2, 1/3 or 1/4 of it: less CPU (Doom's music, 50% at 1, 37% at
                                                   2), less treble; pitch and timing are kept. Held till the end */
+    /* version 4: the mouse in use (USB, PS/2 or I2C: MM.MOUSE's), its position kept by the firmware in the screen's
+       pixels (clamped to it, and centred by video_mode) */
+    int      (*mouse)(int m[4]);               /* 1 with m: x, y, the buttons (1 left, 2 right, 4 middle), the wheel's
+                                                  count; 0 if there is no mouse (m all 0) */
+    void     (*mouse_set)(int x, int y);       /* its position moved there */
+    void     (*con_screen)(int on);            /* 0: con_putc, con_puts (and so stdout) to the serial console only,
+                                                  not drawn over a program's display; 1 (the start): both */
 };
 
 #endif

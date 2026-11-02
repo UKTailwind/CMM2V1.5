@@ -34,7 +34,8 @@ extern volatile char ConsoleRxBuf[];
 extern volatile int ConsoleRxBufHead, ConsoleRxBufTail;
 extern UART_HandleTypeDef huart1, huart2, huart4;
 extern void CheckKeyboard(void);
-extern volatile uint8_t pagesetdone;                                // set by the LTDC's interrupt at each frame (ltdc.c)
+extern void SerialConsolePutC(int c);                               // the serial console alone (main.c)
+extern volatile uint8_t pagesetdone;                               // set by the LTDC's interrupt at each frame (ltdc.c)
 extern int KeyDown[7];                                              // the keys held (KeyboardMap.c)
 
 #define LD_FILES  8
@@ -62,8 +63,10 @@ uint64_t MicrosNow(void) {
 /*******************************************************************************************
  the services
 *******************************************************************************************/
-static void ld_putc(int c) { putConsole(c); }
-static void ld_puts(const char *s) { MMPrintString((char *)s); }
+static int ldscreen;                                                // the console's output drawn on the screen too (con_screen)
+static void ld_putc(int c) { if(ldscreen) putConsole(c); else SerialConsolePutC(c); }
+static void ld_puts(const char *s) { if(ldscreen) MMPrintString((char *)s); else while(*s) SerialConsolePutC(*s++); }
+static void ld_conscreen(int on) { ldscreen = on != 0; }
 // getConsole's queue without its CheckAbort (main.c): Ctrl-C is poll()'s to report
 static int ld_getc(void) {
     int c = -1;
@@ -360,6 +363,24 @@ static void ld_mrate(int n) {
     __set_BASEPRI(old);
 }
 
+// the mouse (version 4): MM.MOUSE's, its state the driver's (USBMouse.c, mouse.c), in the screen's pixels
+extern volatile struct s_nunstruct mousestruct[4];
+static int ld_mouse(int m[4]) {
+    int c = MouseOpenChannel();
+    if(c < 0) { m[0] = m[1] = m[2] = m[3] = 0; return 0; }
+    m[0] = mousestruct[c].ax;
+    m[1] = mousestruct[c].ay;
+    m[2] = mousestruct[c].x0;
+    m[3] = mousestruct[c].az;
+    return 1;
+}
+static void ld_mouseset(int x, int y) {
+    int c = MouseOpenChannel();
+    if(c < 0) return;
+    mousestruct[c].ax = x < 0 ? 0 : x >= HRes ? HRes - 1 : x;
+    mousestruct[c].ay = y < 0 ? 0 : y >= VRes ? VRes - 1 : y;
+}
+
 static int ld_keys(int keys[7]) {
     int i, n = 0;
     for(i = 0; i < 7; i++) keys[i] = KeyDown[i];
@@ -420,6 +441,7 @@ static const struct cmm2_services ldsvc = {
     .audio_start = ld_astart, .audio_stop = ld_astop, .audio_lock = ld_alock, .audio_unlock = ld_aunlock,
     .music_play = ld_mplay, .music_stop = OPLStreamStop, .music_volume = OPLStreamVolume, .music_pause = OPLStreamPause,
     .music_playing = OPLStreamPlaying, .music_rate = ld_mrate,
+    .mouse = ld_mouse, .mouse_set = ld_mouseset, .con_screen = ld_conscreen,
 };
 
 /*******************************************************************************************
@@ -575,6 +597,7 @@ int LoaderRun(char *name) {
     uint32_t oldclut[256];                                          // colours and palette (MAP's) are as they were
     memcpy(oldclut, CLUT, sizeof(oldclut));
     ldpalette = 0;
+    ldscreen = 1;
     code = LoaderCall(base + h.entry, &ldstart, LOADER_BASE + LOADER_SIZE);
     ld_tidy();                                                      // (a Ctrl-C stays: the BASIC program stops next)
     ConsoleRxBufTail = ConsoleRxBufHead;                            // (the keys the program had, not typed into BASIC)

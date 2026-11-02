@@ -188,6 +188,46 @@ Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders M
   - `CHDIR "A:/Doom": RUN "doom.app", -timedemo demo1` gave the program `\x83TIMEDEMO`: a token for the minus sign, and the word in capitals.
   - MM.CMDLINE$ is probably affected the same way, including RUN inside a program. Not fixed yet: it is in the main firmware too.
 
+**The services, version 4: the mouse and a quiet console.**
+- `mouse(m)` gives MM.MOUSE's mouse: x and y in the screen's pixels, kept by the firmware's driver (clamped, and centred by a mode change), the buttons' bitmap and the wheel. `mouse_set(x, y)` moves it.
+- `con_screen(0)` sends con_putc and con_puts, and so stdout, to the serial console only. Otherwise a program's log is drawn over its display, and scrolls it. Each program starts with it on.
+
+**The SDK, for large programs.**
+- `build.py`:
+  - compiles in parallel (every core) to objects named by their source's path, since ScummVM's engines share file names;
+  - recompiles only what changed, through gcc's `-MMD` dependencies (or everything, when the flags change);
+  - links through a response file;
+  - takes `--cxxflag`, `--ldflag` and `--sources FILE`.
+  - ScummVM's 531 sources compile in 23 s.
+- `cmm2.h` includes `cmm2img.h` by its path. The firmware's `Inc` is no longer on a program's quoted include path: there its `Audio.h` was taken for frank-quest's `audio.h`, since Windows ignores case.
+- `cmm2_heap_take(size)` takes a block from the top of the heap for a program's own allocator, leaving malloc the rest.
+
+**ScummVM, from frank-quest** (`apps/scummvm`: rh1tech's port of Cabal, a ScummVM fork, to the RP2350; v1.00 at `949301b`, fetched by `make.py`; GPL-2.0-or-later).
+- **Engines:** AGI, SCI, SCUMM v1-v7, GOB and KYRA.
+- **Built unchanged:** ScummVM's core and the engines, from frank-quest's own CMakeLists source lists, along with frank-quest's selector, welcome screen and main loop.
+- **Replaced** by files at the same paths in `overlay/`:
+  - `main.c` (start-up, the HDMI driver's calls on MODE 7,8 at 320x240, the I2S driver's calls on the sound stream, a counting sound lock);
+  - `rp2350-minimal.cpp` (input from keys_held and the mouse, Ctrl+Alt+Del back to the list, Ctrl-C to quit; frank-quest's graphics, overlay and cursor unchanged);
+  - `rp2350-system.cpp` (the mixer at the stream's rate, its mutex as the sound lock, the date from the CMM2's clock);
+  - `frank_quest_fs.c` (the loader's file services);
+  - `psram_allocator.c` (dlmalloc on 4 MB of the loader's heap);
+  - `board_config.h`.
+- **Stand-in headers** in `stub/`: `pico/time.h` (GOB reads `time_us_32`) and `audio.h`.
+- Built with `NDEBUG`, as frank-quest's Release builds are. With assertions on, `Common::String` stopped Sam & Max.
+- The image is 3.04 MB. The heap for ScummVM is 4,043 KB, against 8 MB of PSRAM on the RP2350.
+- **On the G2:**
+  - the selector, Gobliiins' demo (intro with music, then the game with the mouse) and Ctrl+Alt+Del back to the list all work;
+  - **the full Day of the Tentacle**, from Peter's Remastered edition (its classic English files taken out of `tenta.cle`), runs with speech and music. Peter: "seems to work perfectly. sound and video playing perfectly".
+- **Found on the way:**
+  - Moving the firmware's mouse on an engine's warp pinned it to a corner: GOB warps to positions off its screen. Now a warp moves only the cursor drawn, as on frank-quest.
+  - frank-quest launches SCUMM games from its own table of the full games' file names, so the demos (Sam & Max's SNMDEMO.SM0, Monkey Island 1 EGA's 000.LFL) aren't recognised. That is frank-quest's design, left as it is.
+  - Peter's ST-Link reads a target voltage of 0.02 V since it was replugged. Writes failed verification at 480 kHz and passed at 100 kHz.
+- **tenta.cle** (the Remastered edition's archive) is "KAPL", version 1.0:
+  - a 40-byte header of the index's, the entries', the names' and the data's offsets and sizes;
+  - 20-byte entries (data offset, a field not needed, size, size, a compressed flag);
+  - the names NUL-separated, in entry order.
+  - The classic game is `classic/en/tentacle.000` (7,932 bytes, ScummVM's English CD MD5), `tentacle.001` and `monster.sou`, uncompressed.
+
 **Not done yet.**
 - Modules.
 - Doom (not needed for the proof of concept): saves into the game's directory without CHDIR; the mouse; the sample interrupt's cost.

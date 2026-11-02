@@ -12,3 +12,6 @@ games/
 # Doom (apps/doom/make.py): doomgeneric fetched at a pinned commit, and the build
 apps/doom/doomgeneric/
 apps/doom/out/
+# ScummVM (apps/scummvm/make.py): frank-quest fetched at a pinned commit, and the build
+apps/scummvm/frank-quest/
+apps/scummvm/out/

@@ -1,4 +1,5 @@
-"""build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--cflag FLAG ...] [-I DIR ...]
+"""build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--cflag FLAG ...]
+            [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 G2 with the firmware's own toolchain (CMakePresets.json's ARM_TOOLCHAIN_DIR):
 compiles the sources with crt0.c and syscalls.c for the M7 (double-precision hard float; C++ as C++14 without
@@ -6,8 +7,13 @@ exceptions or RTTI, and then linked by g++ for its library), links them with app
 --base (default 0xD1800000, where the G2 loads a program, so nothing is moved), and makes OUT.app with mkimage.py.
 The ELF and its map are left beside OUT.app. --base 0x60000000 makes a copy that the loader must relocate (a pointer
 it missed would then fault at once, the FMC bank there being unused): the test of the relocations.
+
+The objects go in OUT's stem + ".obj/", each named by its source's path (engines share file names), and are compiled
+JOBS at a time (default: every core). A source is compiled again only when it, or a header it read (gcc -MMD), is
+newer than its object, or the flags have changed. --cflag goes to C and C++, --cxxflag to C++ only, --ldflag to the
+link. --sources names a file of sources, one a line, for lists too long for a command line.
 """
-import argparse, json, os, subprocess, sys
+import argparse, concurrent.futures, hashlib, json, os, subprocess, sys
 
 SDK = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(SDK))
@@ -18,39 +24,88 @@ GXX = os.path.join(tooldir, 'arm-none-eabi-g++' + EXE)
 
 FLAGS = ['-mcpu=cortex-m7', '-mfpu=fpv5-d16', '-mfloat-abi=hard', '-mthumb', '--specs=nano.specs',
          '-O2', '-g0', '-Wall', '-ffunction-sections', '-fdata-sections',
-         '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables',
-         '-iquote', os.path.join(REPO, 'Inc'), '-I', SDK]
+         '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '-I', SDK]
 CFLAGS = FLAGS + ['-std=gnu11']
 CXXFLAGS = FLAGS + ['-std=gnu++14', '-fno-rtti', '-fno-threadsafe-statics', '-fno-use-cxa-atexit']
+
+
+def objname(objdir, src):
+    s = os.path.abspath(src)
+    return os.path.join(objdir, os.path.splitext(os.path.basename(s))[0] + '_' +
+                        hashlib.md5(s.lower().encode()).hexdigest()[:8] + '.o')
+
+
+def stale(o):
+    """True if the object is missing or older than its source or any header its .d names"""
+    d = o[:-2] + '.d'
+    if not os.path.exists(o) or not os.path.exists(d):
+        return True
+    t = os.path.getmtime(o)
+    deps = open(d).read().replace('\\\n', ' ').split('.o:', 1)[-1]  # (after the target: D: in a path is no end)
+    for dep in deps.replace('\\ ', '\0').split():
+        dep = dep.replace('\0', ' ')
+        if not os.path.exists(dep) or os.path.getmtime(dep) > t:
+            return True
+    return False
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('out')
-    ap.add_argument('sources', nargs='+')
+    ap.add_argument('sources', nargs='*')
+    ap.add_argument('--sources', dest='listfile')
     ap.add_argument('--base', default='0xD1800000')
     ap.add_argument('--stack', default='0')
     ap.add_argument('--heap', default='0')
     ap.add_argument('--api', default='1')
     ap.add_argument('--cflag', action='append', default=[])
+    ap.add_argument('--cxxflag', action='append', default=[])
+    ap.add_argument('--ldflag', action='append', default=[])
     ap.add_argument('-I', dest='incs', action='append', default=[])
+    ap.add_argument('-j', dest='jobs', type=int, default=os.cpu_count() or 4)
     a = ap.parse_args()
     stem = os.path.splitext(a.out)[0]
+    objdir = stem + '.obj'
+    os.makedirs(objdir, exist_ok=True)
     incs = ['-I' + i for i in a.incs]
-    objs, cxx = [], False
-    for s in a.sources + [os.path.join(SDK, 'crt0.c'), os.path.join(SDK, 'syscalls.c')]:
+    sources = list(a.sources)
+    if a.listfile:
+        sources += [l.strip() for l in open(a.listfile) if l.strip() and not l.startswith('#')]
+    sources += [os.path.join(SDK, 'crt0.c'), os.path.join(SDK, 'syscalls.c')]
+    # the flags as they were: a change rebuilds everything
+    key = hashlib.md5(json.dumps([CFLAGS, CXXFLAGS, a.cflag, a.cxxflag, incs]).encode()).hexdigest()
+    keyfile = os.path.join(objdir, 'flags.md5')
+    same = os.path.exists(keyfile) and open(keyfile).read() == key
+    cxx = any(s.lower().endswith(('.cpp', '.cc')) for s in sources)
+    jobs, objs = [], []
+    for s in sources:
         # each source to an object by its own compiler (g++ would take every .c after the first as C++, -x c or not)
         isc = not s.lower().endswith(('.cpp', '.cc'))
-        cxx = cxx or not isc
-        o = stem + '_' + os.path.splitext(os.path.basename(s))[0] + '.o'
-        r = subprocess.run(([GCC] + CFLAGS if isc else [GXX] + CXXFLAGS) + a.cflag + incs + ['-c', s, '-o', o])
-        if r.returncode:
-            sys.exit(r.returncode)
+        o = objname(objdir, s)
         objs.append(o)
-    cmd = ([GXX if cxx else GCC] + FLAGS + a.cflag + objs +
+        if not same or stale(o):
+            cmd = (([GCC] + CFLAGS) if isc else ([GXX] + CXXFLAGS + a.cxxflag)) + a.cflag + incs + \
+                  ['-MMD', '-MF', o[:-2] + '.d', '-c', s, '-o', o]
+            jobs.append((s, cmd))
+    if jobs:
+        print('compiling %d of %d sources, %d at a time' % (len(jobs), len(sources), a.jobs), flush=True)
+    failed = []
+    with concurrent.futures.ThreadPoolExecutor(a.jobs) as ex:
+        for (s, cmd), r in zip(jobs, ex.map(lambda j: subprocess.run(j[1], capture_output=True, text=True), jobs)):
+            if r.stdout or r.stderr:
+                sys.stdout.write(r.stdout + r.stderr)
+            if r.returncode:
+                failed.append(s)
+    if failed:
+        sys.exit('%d failed: %s' % (len(failed), ' '.join(os.path.basename(f) for f in failed[:20])))
+    open(keyfile, 'w').write(key)
+    rsp = stem + '.rsp'
+    open(rsp, 'w').write('\n'.join('"%s"' % o.replace('\\', '/') for o in objs) + '\n')
+    cmd = ([GXX if cxx else GCC] + FLAGS + a.cflag + ['@' + rsp] +
            ['-nostartfiles', '-T', os.path.join(SDK, 'app.ld'), '-Wl,--defsym=__app_base=' + a.base,
             '-Wl,--gc-sections', '-Wl,--emit-relocs', '-Wl,-Map=' + stem + '.map', '-Wl,--no-warn-rwx-segments',
-            '-u', '_printf_float', '-o', stem + '.elf', '-Wl,--start-group', '-lc', '-lm', '-lgcc', '-Wl,--end-group'])
+            '-u', '_printf_float', '-o', stem + '.elf'] + a.ldflag +
+           ['-Wl,--start-group', '-lc', '-lm', '-lgcc', '-Wl,--end-group'])
     r = subprocess.run(cmd)
     if r.returncode:
         sys.exit(r.returncode)
