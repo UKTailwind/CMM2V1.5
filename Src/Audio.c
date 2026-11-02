@@ -1285,6 +1285,8 @@ void CloseAudio(int all){
 	if(all) { WAVInterrupt = NULL; EFFECTInterrupt = NULL; EFFECTcomplete = false; }                                      // (a track change keeps it: the last track fires it)
 	StopAudio();
 	ForceFileClose(WAV_fnbr);
+	WAV_fnbr = 0;                                                   // (closed: a later close must not take the file that
+	                                                                // number goes to next, as RUN "x.app"'s did)
 	if((was_playing == P_MP3 || was_playing == P_PAUSE_MP3) && mymp3)drmp3_uninit(mymp3);
 	if(was_playing==P_TTS){
 		FreeMemorySafe((void *)&buffer);

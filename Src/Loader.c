@@ -362,6 +362,7 @@ int LoaderRun(char *name) {
     while(*p == ' ') p++;
     if(*p == ',') p++;
 
+    CloseAudio(1);                                                  // (first: its refills would stop while the program runs)
     if(!InitSDCard()) return 1;
     fnbr = FindFreeFileNbr();
     if(!BasicFileOpen(fname, fnbr, FA_READ)) return 1;
@@ -379,7 +380,6 @@ int LoaderRun(char *name) {
     }
     if(h.api_version > CMM2IMG_API_VERSION) { FileClose(fnbr); error("Needs a newer firmware"); }
     if((uint64_t)end + stack + h.heap_min > LOADER_SIZE) { FileClose(fnbr); error("Needs % KB, more than the 8 MB", (int)(((uint64_t)end + stack + h.heap_min) / 1024)); }
-    CloseAudio(1);                                                  // (its refills would stop while the program runs)
     for(off = 0; off < h.image_size; off += got) {                  // the image, straight into the 8 MB
         i = h.image_size - off;
         if(i > 0x10000) i = 0x10000;
