@@ -1,8 +1,8 @@
 # Colour Maximite 2: MMBasic 7.00.00b5 (beta) release notes
 
-*1 November 2026. Compared with 7.00.00b4, the previous beta. The full notes, compared with MMBasic 5.07.02, are posted with these.*
+*2 November 2026. Compared with 7.00.00b4, the previous beta. The full notes, compared with MMBasic 5.07.02, are posted with these.*
 
-This beta comes from running published Colour Maximite 2 programs on MMBasic 7.00: Wolf3D, Gauntlet, Into the Darkness, Z-MIM, NOMIS, BoxDot, Cuno, the Welcome Tape and SP Tools. It fixes the problems they found in the firmware. It also lets a program use a new command's name as a variable, and adds RUN with a string expression, MM.MOUSE and the rest of the PicoMite's MM.INFO keys.
+This beta comes from running published Colour Maximite 2 programs on MMBasic 7.00: Wolf3D, Gauntlet, Into the Darkness, Z-MIM, NOMIS, BoxDot, Cuno, the Welcome Tape and SP Tools. It fixes the problems they found in the firmware. It also lets a program use a new command's name as a variable, and adds RUN with a string expression, MM.MOUSE and the rest of the PicoMite's MM.INFO keys. With OPTION COMPILE ON, the graphics commands and most built-in functions are now compiled too.
 
 This is a beta: a work-in-progress build for users to try. Please report problems on the Back Shed forum.
 
@@ -15,6 +15,9 @@ The same firmware file runs on both the Generation 1 and the Generation 2.
 
 ## What is new
 
+- **OPTION COMPILE ON compiles more of a program:** the graphics commands LINE, BOX, RBOX, CIRCLE, ARC, TRIANGLE, PIXEL, TEXT and COLOUR, and most built-in functions. Before, a statement with one of them in it ran as text.
+  - The functions include LEFT$, MID$, INSTR, STR$, HEX$, RGB, PIXEL(), MAX, MIN, PEEK and MM.INFO().
+  - The compiled code works out their arguments and hands the command or function the values, so a program that draws a lot gains most. For example, a Game of Life program that draws with PIXEL and LINE runs 2.4 times faster compiled than it did with 7.00.00b4: a row takes 7.8 ms, against 18.8 ms before and 20.2 ms without the option.
 - **RUN f$:** the program's name can be a string expression, as on the PicoMite. For example: RUN f$, RUN "GAME" + STR$(n), or RUN MM.INFO$(PATH) + "MENU", -x.
   - The name is read as an expression when it has a string variable or function in it, or when something other than a comma follows a quoted name.
   - Anything else is passed to the program in memory, as before: RUN -f still runs it with "-f" in MM.CMDLINE$.
@@ -67,6 +70,7 @@ The same firmware file runs on both the Generation 1 and the Generation 2.
 
 - **MM.INFO(FONTHEIGHT) and MM.FONTHEIGHT in font 7** now give 10, the spacing of its lines on the screen, instead of 8, the height of its characters. A program that placed text by them, such as Z-MIM with *FONT SMALL, drew it partly over the line before.
 - **A restart could leave the Colour Maximite 2 hung,** with no display and no console, until it was reset. This happened if a Ctrl-C arrived on the console, or from a keyboard, while it started up in a new video mode, such as after OPTION DEFAULT MODE.
+- **An error naming a variable whose name is 32 characters long,** the longest allowed, printed stray characters after the name. This affected "Different type already declared", "Global variable already declared", "Local variable already declared" and "is not declared".
 - **MM.ERRNO and MM.ERRMSG$** are kept at the command prompt after a program stops with an error. Before, the status line cleared them within a second.
 - **The file manager:** holding Up or Down on a USB keyboard now repeats, to scroll a long list. Page Up and Page Down still move one page per key press.
 - **A file command on C: with no USB flash drive** (MKDIR, OPEN and the like) gave "SD Card not found". It now gives "USB drive not present", as DRIVE "C:" does (MM.ERRNO 21).
@@ -83,11 +87,16 @@ These run on this beta. The ones marked with a change need it to their own code,
 - **BoxDot:** expects its mouse on channel 3. Change it to use MM.MOUSE.
 - **Cuno:** asks for MODE 15, which is 1280 x 1024 on the Colour Maximite 2, but is laid out for 1920 x 1080. Change it to MODE 16 (a Generation 2 with the Rev V processor), and to use MM.MOUSE.
 
+## Known problems
+
+- With a USB touch screen connected and OPTION MAXCTRLS above 0, every statement checks for the GUI's touch input, so programs run slower: the solar eclipse benchmark takes 2.2 s compiled instead of 1.7 s, and 6.4 s as text instead of 6.2 s. OPTION MAXCTRLS 0 avoids it when no GUI controls are needed.
+
 ## The manual
 
 The User Manual describes all of the above:
 
 - RUN, in the commands;
+- what OPTION COMPILE compiles, in the options;
 - MM.MOUSE, and the new MM.INFO keywords, in the read-only variables and the reference section on MM.INFO;
 - variables with a command's name, in the chapters Variables and Expressions and MMBasic Characteristics;
 - MM.MOUSE and the mouse's centring, in the chapter Keyboard, Mouse and Gamepad, and under MODE;

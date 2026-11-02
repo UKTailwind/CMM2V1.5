@@ -3525,7 +3525,7 @@ int FindVarSlot(char *p) {
         hash *= FNV_prime;
         name[namelen++] = c;
     } while(isnamechar(*p));
-    if(namelen != MAXVARLEN) name[namelen] = 0;
+    name[namelen] = 0;                                              // (a 32-character name too: the buffer has room)
     if(LocalIndex) vindex = find_local_slot(name, namelen);
     if(vindex < 0) {
         vindex = probe_global_slot(name, namelen, MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1)), &gfree);
@@ -3752,7 +3752,7 @@ static void __attribute__((noinline)) *findvar_body(char *p, int action, char **
         } while(isnamechar(*p));
     }
 	GlobalhashIndex = MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1));   // the global slot the probe starts at
-	if(namelen!=MAXVARLEN)*s=0;
+	*s = 0;                                                         // (a 32-character name too: an error's message prints it)
     // check the terminating char and set the type
     if(*p == '$') {
         if((action & T_IMPLIED) && !(action & T_STR)) error("Conflicting variable type");
@@ -3849,7 +3849,7 @@ static void __attribute__((noinline)) *findvar_body(char *p, int action, char **
             *s++ = c;
             namelen++;
         }
-        if(namelen != MAXVARLEN) *s = 0;
+        *s = 0;
         GlobalhashIndex = MAXLOCALVARS + (hash & (MAXGLOBALVARS - 1));
         symp = NULL;
     }
@@ -3917,7 +3917,7 @@ findvar_found:
                 const char *sp = SymSpelling(symp, &sl);
                 if(sl > MAXVARLEN) sl = MAXVARLEN;
                 for(namelen = 0; namelen < sl; namelen++) name[namelen] = toupper(sp[namelen]);
-                if(namelen != MAXVARLEN) name[namelen] = 0;
+                name[namelen] = 0;
             }
             error("$ Different type already declared", name);
         }

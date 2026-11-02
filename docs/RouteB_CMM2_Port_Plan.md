@@ -74,9 +74,13 @@ until the next restart, so turning the option off and on again costs nothing mor
 Done: every core item above but item 10 (see below), Stream.c built in with compiled code on, OPTION COMPILE and
 MM.INFO$(COMPILE), the G2's SDRAM layout, the manual entries and the release notes.
 
-- The value splice (P5b-P5e: built-in functions and graphics commands handed computed values) is off (RB_SPLICE 0):
-  its handlers are to be checked against the CMM2's own argument reading first (its graphics commands are not
-  symbol-aware, and several take keywords or names where the PicoMite's take numbers). Those statements run as text.
+- The value splice (P5b-P5e: built-in functions and graphics commands handed computed values) was left off
+  (RB_SPLICE 0) until its handlers were checked against the CMM2's own argument reading (its graphics commands are
+  not symbol-aware, and several take keywords or names where the PicoMite's take numbers). On 1 Nov it was turned on
+  (7.00.00b5), after a user found a PIXEL-heavy program (lifepx) twice as fast on a compiled PicoMite: every spliced
+  handler reads its values through getargs and the evaluating routines; the one fault, TEXT's justification as a
+  bare word (LT), now goes in spelled out (RBBareJustify). A row of lifepx: 20.2 ms as text, 18.8 compiled with the
+  splice off, 7.8 with it on (the PicoMite at 378 MHz 9.6). tools/rb_cmm2.py has four splice programs.
 - Item 10, the float overflow check: the PicoMite's +, -, * and / raise "Overflow" on a result of +INFINITY; the CMM2's
   give the infinity (tests/cmm2/bugs.bas, items 25 and 26 of its bug list, prints INF). Peter, 20 Oct: "keep cmm2
   behaviour". The text path is unchanged and the compiled inline ops do not check either (RB_OVERFLOWCHECK 0).

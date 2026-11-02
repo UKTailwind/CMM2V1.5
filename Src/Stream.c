@@ -59,10 +59,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #define cmdComment ((CommandToken)0x3FFE)        // (the CMM2's loader drops /* ... */ lines: no command is either of these)
 #define cmdEndComment ((CommandToken)0x3FFD)
 // The value splice (P5b-P5e: built-in functions and graphics commands handed values the compiled code computed).
-// Off on the CMM2 until each spliced handler is checked against the CMM2's own argument reading (its graphics
-// commands are not symbol-aware, and several take keywords or names where the PicoMite's take numbers): until then
-// those statements and functions run as text.
-#define RB_SPLICE 0
+// On since 1 Nov 2026 (7.00.00b5), once each spliced handler was checked against the CMM2's own argument reading
+// (its graphics commands are not symbol-aware, and several take keywords or names where the PicoMite's take numbers:
+// TEXT's justification as a bare word goes in spelled out, RBBareJustify). 0 runs those statements as text.
+#define RB_SPLICE 1
 // Bring-up (the CMM2, 20 Oct): 1 writes every statement as its fallback record only, the PicoMite's P1, to prove the
 // stream's plumbing (stamp, map, records, the hand-over, the tail, TRACE) before any compiled code runs.
 #ifndef RB_FALLBACKONLY
@@ -2132,27 +2132,34 @@ static void RBKey(rbcx_t *x, unsigned char *base, uint32_t libbit, unsigned char
    take every argument, or for another form.  Each handler reads its arguments
    with getcsargs and getinteger, getint, getnumber, getargaddress (whose
    literal path a spliced value takes) or, for TEXT, getCstring, so a string
-   value goes in only for TEXT; its justification as a bare word (LT) stays in
-   the text as its symbol, which GetJustificationArg reads, and its font may
+   value goes in only for TEXT; its justification as a bare word (LT) goes in
+   the text spelled out, as GetJustification reads it (the CMM2's handlers are
+   not symbol-aware: the text path spells a statement out, SymExpandStatement,
+   and a symbol here was compiled as a variable's value), and its font may
    start with cmd_text's '#'. */
-static int RBBareJustify(unsigned char *p, unsigned char *ae)
-{ // TEXT's justification at p is a lone symbol GetJustificationArg takes as letters
-    unsigned char sym[8], *e = p + symbolsize(*p);
-    int jh = 0, jv = 0, jo = 0;
+static int RBBareJustify(unsigned char *p, unsigned char *ae, unsigned char *sym)
+{ // TEXT's justification at p is a lone symbol whose spelling GetJustification takes as letters: the spelling in
+  // sym (8 bytes), and its length; 0 if not
+    const unsigned char *sp;
+    unsigned char *e = p + symbolsize(*p);
+    int jh = 0, jv = 0, jo = 0, sl;
     skipspace(e);
-    if (e != ae || symbolsize(*p) > (int)sizeof(sym) - 1)
+    if (e != ae)
         return 0;
-    memcpy(sym, p, symbolsize(*p));
-    sym[symbolsize(*p)] = 0;
-    return GetJustificationArg(sym, &jh, &jv, &jo);
+    sp = SymSpelling(p, &sl);
+    if (sl < 1 || sl > 7)
+        return 0;
+    memcpy(sym, sp, sl);
+    sym[sl] = 0;
+    return GetJustificationArg(sym, &jh, &jv, &jo) ? sl : 0;
 }
 
 static int RBCompileSplice(unsigned char *entry, unsigned char *cmdl, CommandToken ct, uint16_t *code)
 {
     rbcx_t x;
     void (*fn)(void) = commandtbl[ct].fptr;
-    unsigned char *p = cmdl, *ae, txt[2 * RB_MAXLIT];
-    int n = 0, len = 0, t, i, a = 0, lett = -1, lett2 = -1, hash = 0;
+    unsigned char *p = cmdl, *ae, txt[2 * RB_MAXLIT], sym[8];
+    int n = 0, len = 0, t, i, a = 0, lett = -1, lett2 = -1, hash = 0, sl;
     if (!RB_SPLICE)
         return 0;
     if (fn != cmd_box && fn != cmd_line && fn != cmd_pixel && fn != cmd_colour && fn != cmd_text && fn != cmd_circle &&
@@ -2197,12 +2204,12 @@ static int RBCompileSplice(unsigned char *entry, unsigned char *cmdl, CommandTok
     {
         ae = RBArgEnd(p, 0); // as getcsargs splits them
         skipspace(p);
-        if (p != ae && fn == cmd_text && a == 3 && issymbol(*p) && RBBareJustify(p, ae))
-        { // TEXT's justification as a bare word: its symbol
-            if (len + (ae - p) > (int)sizeof(txt) - 6)
+        if (p != ae && fn == cmd_text && a == 3 && issymbol(*p) && (sl = RBBareJustify(p, ae, sym)) > 0)
+        { // TEXT's justification as a bare word: its spelling
+            if (len + sl > (int)sizeof(txt) - 6)
                 return 0;
-            memcpy(txt + len, p, ae - p);
-            len += ae - p;
+            memcpy(txt + len, sym, sl);
+            len += sl;
         }
         else if (a == lett || a == lett2)
         { // BLIT's buffer letter, as cmd_blit's checkstring takes it: a name alone (its

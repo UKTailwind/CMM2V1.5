@@ -254,6 +254,34 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
       tests/cmm2/mmmouse checks MODE 9's centre; checked on the G2 with the USB mouse in MODEs 9, 16, 7 and back to 1,
       and Cuno's cross starts at (960, 540). Cuno also needs MODE 16 (its MODE 15 is 1280x1024, its layout 1920x1080):
       changed on the card, with MM.MOUSE.
+- [x] **The compiler's value splice on (RB_SPLICE 1)**, in 7.00.00b5 (Peter, 1 Nov, after a user's lifepx ran twice as fast on a
+      PicoMite: its OPTION COMPILE ON compiles PIXEL and PIXEL(, the CMM2's left them as text). lifepx's row, 318 cells
+      of five PIXEL() reads and a PIXEL: PicoMite PC3 378 MHz 29.0 ms as text, 9.6 compiled; CMM2 G2 20.2 as text,
+      18.8 compiled with the splice off, 7.8 with it on (PIXEL() 6.1 to 3.5 us, PIXEL 7.4 to 4.4, LINE 14.0 to 8.4).
+      Not frame blanking: MODE 7,8 is no slower than 8,8 or 1,8. The review of the spliced handlers against the CMM2's:
+      every one reads its values through getargs and getint, getinteger, getnumber, getColour, getCstring or
+      getargaddress's literal path (a T_VALUE is no name); their `*argv[n]` tests are for an empty argument, which stays
+      empty; OPTION LEGACY's syntax is only PIXEL's, CIRCLE's and LINE's, which RC_GUARD sends to the text; the CMM2's own
+      keyword forms (BOX AND_PIXELS, COLOUR MAP, PIXEL FILL) have arguments after the keyword, so are no one expression
+      and stay text; PIXEL( with a page and RGB( with four stay text; the fold selectors are the CMM2 tokeniser's. One
+      fault: TEXT's justification as a bare word went in as its symbol, which GetJustification (not symbol-aware) cannot
+      read, so it compiled as a variable's value; now its spelling (RBBareJustify). tools/rb_cmm2.py has four splice
+      programs (TEXT's justification, the graphics commands, the functions, OPTION LEGACY); tools/rbtest.py drops USB
+      notes and reads on to a program's STAT line (a touch monitor reconnecting after a mode change ended a run early).
+      rbtest: 409 programs, no difference (the seven first seen were the harness). It costs 4 KB of bank 1 (1288 left).
+      The regression with OPTION COMPILE OFF, ON and SHADOW (G2, 1-2 Nov): tests/cmm2, tests/picomite, the goldens and
+      Testfiles print the same every way, SP Tools ON as OFF; the goldens' two differences were solar_eclipse's printed
+      time and longname's error message, which printed the stack after a 32-character name in OFF too: findvar left such
+      a name unterminated (MMBasic.c, since the 6.00.00b7 baseline; the PicoMite's core/MMBasic.c has the same guards).
+      Fixed, with tests/cmm2/name32. solar_eclipse compiled: 2.21 s with the splice off, 2.19 with it on (an ASIN loop
+      5.6 to 3.7 us).
+- [ ] **Every statement calls check_interrupt() while a USB touch screen is present and OPTION MAXCTRLS is above 0**
+      (found 2 Nov by bisecting solar_eclipse's compiled time: 1.71 s up to 340e1c0, 2.20 s from bc781eb, the touch
+      port). GUI_INPUT_ON (GUI.h) is GUIactive || (usb_touch_present && Option.MaxCtrls > 0) || osk_state, and both
+      MMBasic.c's per-statement check and Stream.c's RBTail (RB_HOUSE_DUE) call check_interrupt() on it, for the
+      gestures. The G2 has a touch monitor on its hub and MAXCTRLS 20: solar_eclipse 6.42 s as text and 2.19 compiled;
+      with MAXCTRLS 0, 6.18 and 1.73. To do: call it only when a touch report or release is waiting (needs Peter's GUI
+      checks on the G2); compare the PicoMite's per-statement test.
 - [x] **RUN f$ against SP Tools and the Welcome Tape** (Peter's check): every RUN either uses is a quoted name and a comma,
       the old path, or RUN prog$ (sys.run_shell), which now runs prog$. Checked on the G2: SP Tools matches its baseline
       but for tst_file, which needs a USB flash drive on C:; sptest's own chain in spflow, sptrans and splib; the menu's

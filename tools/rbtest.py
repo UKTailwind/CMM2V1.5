@@ -14,7 +14,7 @@ Prints each program and a summary; exits 1 if any differs."""
 import os, re, sys, tempfile, time, types
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from goldens import Board, ANSI
+from goldens import Board, ANSI, USBNOTE
 
 PICO = r"D:\Dropbox\PicoMite\PicoMite\Bas\bench"
 STAT = 'Print "STAT "; MM.Info$(COMPILE)\n'
@@ -91,12 +91,20 @@ def main():
         outs = {}
         for mode in ("OFF", "ON", "SHADOW"):
             b.cmd("Option Compile " + mode, 10)
+            run = 'Run "%s"' % os.path.basename(p)
             try:
-                out = b.cmd('Run "%s"' % os.path.basename(p), 120)
+                out = b.cmd(run, 120)
+                t0 = time.time()                    # a USB note's prompt (a touch monitor reconnecting after a mode
+                while "STAT " not in out and "rror" not in out and time.time() - t0 < 60:   # change) can come
+                    try:                            # before the program's output: read on to its STAT line
+                        out += "\n" + b.wait_prompt(5)
+                    except TimeoutError:
+                        break
             except TimeoutError as e:
                 out = "TIMEOUT " + str(e)[-200:]
                 b.attention()
             lines = [l.rstrip() for l in out.replace("\r", "").split("\n") if l.strip() and l.strip() != ">"]
+            lines = [l for l in lines if not USBNOTE.match(l) and re.sub(r"^(?:> ?)+", "", l).strip() != run]
             stat = [l for l in lines if l.startswith("STAT ")]
             body = [l for l in lines if not l.startswith("STAT ")]
             outs[mode] = (body, stat[0][5:] if stat else "")

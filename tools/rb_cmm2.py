@@ -133,4 +133,65 @@ End Sub
 """, None),
     ("RUN in a slot's program", """Print MM.Info(FLASH)
 """, None),
+    # The value splice (RB_SPLICE 1, 1 Nov 2026): the graphics commands and functions handed values the compiled code
+    # computed, each drawing counted by PIXEL(), the CMM2's own forms beside them (which stay text)
+    ("splice TEXT justification", """CLS
+j$ = "CM" : LT = 5
+Text 50, 20, "Ab", LT
+Text 150, 20, "Ab", CM, 1
+Text 250, 20, "Ab", "RB", 1, 2
+Text 350, 20, "Ab", j$, #7
+Text 450, 20, "Ab", , 1, 1, RGB(red), RGB(blue)
+Text 50, 60, "Ab", LMV
+Text 150 + LT, 60, Str$(LT * 2), CT, 7
+c = 0 : For y = 0 To 95 : For x = 0 To 520 Step 2 : If Pixel(x, y) Then c = c + 1
+Next : Next
+Print c
+""", None),
+    ("splice graphics", """CLS
+For i = 1 To 5
+  Line i * 10, 5, i * 10 + 30, 60, 1, RGB(green)
+  Box 100 + i * 12, 5, 10, 20, 1, RGB(red), RGB(blue)
+  Circle 200 + i * 15, 30, i + 3, 1, 1.5, RGB(yellow)
+  Arc 300, 40, 10 + i, , i * 20, i * 20 + 90, RGB(cyan)
+  RBox 350 + i * 14, 5, 12, 30, 3, RGB(white), RGB(magenta)
+  Triangle 450, 5, 450 + i * 5, 60, 440, 60, RGB(green), RGB(red)
+  Pixel 10 + i, 80, RGB(white)
+Next
+Colour RGB(green), RGB(black)
+Pixel Fill 300, 40, RGB(blue)
+Line Aa 5, 85, 95, 90, 1, RGB(white)
+c = 0 : For y = 0 To 95 : For x = 0 To 520 Step 2 : If Pixel(x, y) Then c = c + 1
+Next : Next
+Print c; Pixel(305, 40)
+Colour RGB(white), RGB(black)
+""", None),
+    ("splice functions", """a$ = "Hello World"
+Print Left$(a$, 3); Right$(a$, 2); UCase$(a$); LCase$(a$); Mid$(a$, 2, 3); Len(a$); Asc(a$); Chr$(66)
+Print Hex$(255); Bin$(5); Oct$(9); Hex$(255, 4); Max(3, 7, 2); Min(3, 7, 2); Instr(a$, "o"); Instr(6, a$, "o")
+Print Str$(3.14159, 2, 3); Space$(3); "|"; Trim$("  x  "); "|"; Val("12.5") * 2
+Print Asin(0.5); Acos(0.5); Atan2(1, 1); Cint(2.6)
+Print RGB(red); RGB(10, 20, 30)
+On Error Skip
+x = RGB(10, 20, 30, 15)
+Print MM.ErrNo <> 0
+Print MM.HRes > 0; MM.Info(FONTHEIGHT) > 0; MM.Info(SOUND); MM.Info(FONT)
+Pixel 5, 5, RGB(green) : Print Pixel(5, 5); Pixel(5, 5, 0)
+Dim integer v = 77 : Print Peek(VAR v, 0); KeyDown(0)
+""", None),
+    ("splice under OPTION LEGACY", """Option Legacy On
+CLS
+Line (10, 10)-(60, 40), 2
+Line (70, 10)-(90, 30), 3, BF
+Circle (120, 30), 15, 4
+Pixel(5, 5) = 7
+Print Pixel(5, 5) <> 0
+On Error Skip
+Line 10, 50, 60, 55
+Print MM.ErrNo <> 0
+Option Legacy Off
+c = 0 : For y = 0 To 60 : For x = 0 To 140 Step 2 : If Pixel(x, y) Then c = c + 1
+Next : Next
+Print c
+""", None),
 ]
