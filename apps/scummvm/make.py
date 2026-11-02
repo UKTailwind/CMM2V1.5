@@ -7,7 +7,8 @@ few Pico SDK headers the engines include. The program is GPL-2.0-or-later, as Sc
 copy given out (frank-quest's, at that commit, and this directory).
 
     python apps/scummvm/make.py [-j JOBS]
-then put out/scummvm.app in A:/quest, the games in A:/quest/<dir>/, and at the CMM2's prompt:
+then put out/scummvm.app in A:/quest, the games in A:/quest/<dir>/ (Kyrandia also needs frank-quest's
+dists/engine-data/KYRA.DAT in its directory), and at the CMM2's prompt:
     CHDIR "A:/quest"
     RUN "scummvm.app"
 """
