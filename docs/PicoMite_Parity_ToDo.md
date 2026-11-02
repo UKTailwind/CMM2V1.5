@@ -275,13 +275,18 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
       a name unterminated (MMBasic.c, since the 6.00.00b7 baseline; the PicoMite's core/MMBasic.c has the same guards).
       Fixed, with tests/cmm2/name32. solar_eclipse compiled: 2.21 s with the splice off, 2.19 with it on (an ASIN loop
       5.6 to 3.7 us).
-- [ ] **Every statement calls check_interrupt() while a USB touch screen is present and OPTION MAXCTRLS is above 0**
+- [x] **Every statement calls check_interrupt() while a USB touch screen is present and OPTION MAXCTRLS is above 0**
       (found 2 Nov by bisecting solar_eclipse's compiled time: 1.71 s up to 340e1c0, 2.20 s from bc781eb, the touch
       port). GUI_INPUT_ON (GUI.h) is GUIactive || (usb_touch_present && Option.MaxCtrls > 0) || osk_state, and both
-      MMBasic.c's per-statement check and Stream.c's RBTail (RB_HOUSE_DUE) call check_interrupt() on it, for the
-      gestures. The G2 has a touch monitor on its hub and MAXCTRLS 20: solar_eclipse 6.42 s as text and 2.19 compiled;
-      with MAXCTRLS 0, 6.18 and 1.73. To do: call it only when a touch report or release is waiting (needs Peter's GUI
-      checks on the G2); compare the PicoMite's per-statement test.
+      MMBasic.c's per-statement check and Stream.c's RBTail called check_interrupt() on it; RB_HOUSE_DUE was then
+      always true, so the compiled chain never ran one statement into the next. Fixed 2 Nov: the 1 ms tick sets
+      IntReady.gui while GUI_INPUT_ON or a linked cursor, check_interrupt clears it, and the statement tails test
+      IntReady.any alone: the GUI is seen to once a millisecond. G2, MAXCTRLS 20 and the GUI started, ns a pass of
+      a = a + 1: 4096 as text and 2032 compiled before, 3508 and 680 after (b5 with MAXCTRLS 0: 3581 and 745);
+      solar_eclipse 2.19 s compiled before, 1.70 after. tests/cmm2 and tests/picomite OFF, ON and SHADOW: no
+      differences. Still to do: Peter's GUI checks by hand on the G2 (finger, mouse, the OSK, a spinner's repeat, a
+      slider's drag). The PicoMite's text loop calls ProcessTouch (in flash) after every statement while Ctrl or a USB
+      touch screen is there: likely the same cost, not measured.
 - [x] **RUN f$ against SP Tools and the Welcome Tape** (Peter's check): every RUN either uses is a quoted name and a comma,
       the old path, or RUN prog$ (sys.run_shell), which now runs prog$. Checked on the G2: SP Tools matches its baseline
       but for tst_file, which needs a USB flash drive on C:; sptest's own chain in spflow, sptrans and splib; the menu's

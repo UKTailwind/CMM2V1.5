@@ -4000,11 +4000,12 @@ static const uint16_t *RBRAM(RBFind)(unsigned char *p)
 //
 // The CMM2's: as its text loop (ExecuteProgram), CheckAbort when the 1 ms tick
 // (USBtime), a deferred page copy or an abort says so, and check_interrupt
-// when an interrupt is ready or the cursor or the GUI needs it.  Those tests
-// are three loads, so the PicoMite's 100 us cadence, which its housekeeping's
-// cost asked for, is not needed: compiled and text take an interrupt or a
-// Ctrl-C after the same statement.
-#define RB_HOUSE_DUE() ((USBtime | deferredcopy | MMAbort) || IntReady.any || autocursor || GUI_INPUT_ON)
+// when an interrupt is ready or the GUI's millisecond has come (IntReady.gui:
+// the touch, the GUI's pointer, a linked cursor).  Those tests are a few
+// loads, so the PicoMite's 100 us cadence, which its housekeeping's cost
+// asked for, is not needed: compiled and text take an interrupt or a Ctrl-C
+// after the same statement.
+#define RB_HOUSE_DUE() ((USBtime | deferredcopy | MMAbort) || IntReady.any)
 static int RBRAM(RBTail)(unsigned char *here)
 {
     nextstmt = here;
@@ -4017,7 +4018,7 @@ static int RBRAM(RBTail)(unsigned char *here)
         ClearTempMemory();
     if (USBtime | deferredcopy | MMAbort)
         CheckAbort();
-    if (IntReady.any || autocursor || GUI_INPUT_ON)
+    if (IntReady.any)
         check_interrupt();
     return (unsigned char *)nextstmt != here;
 }

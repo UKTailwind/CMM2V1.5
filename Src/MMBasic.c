@@ -503,7 +503,7 @@ void ITCM_CODE ExecuteProgram(char *p) {
 				}
                 if(TempMemoryIsChanged) ClearTempMemory();          // at the end of each command we need to clear any temporary string vars
                 if(USBtime | deferredcopy | MMAbort) CheckAbort();      // (it does nothing unless one is set: the 1 ms tick sets USBtime)
-                if(IntReady.any || autocursor || GUI_INPUT_ON)check_interrupt();                                  // check for an MMBasic interrupt and handle it
+                if(IntReady.any)check_interrupt();                  // an MMBasic interrupt, or the GUI's millisecond (IntReady.gui)
             }
             p = nextstmt;
         }

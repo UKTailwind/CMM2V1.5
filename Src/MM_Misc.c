@@ -4173,6 +4173,7 @@ int check_interrupt(void) {
 	int i, v;
 	char *intaddr;
 	static char rti[4];		// a dummy IRETURN statement: the token (up to two bytes) and zeros to end it
+	IntReady.gui = 0;                                               // (the tick's call for the GUI: answered here)
 	if(GUIactive && GUITimer1>=16){
 		GuiPointer();                                               // (the pointer, once there is a mouse: linked to it, it follows
 		GUITimer1=0;                                                // it as GUI CURSOR LINK MOUSE's does, below)

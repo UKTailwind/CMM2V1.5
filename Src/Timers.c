@@ -338,6 +338,7 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 	        usb_touch_active = false;                                   // (the PicoMite's no-report watchdog: PicoMite.c; signed,
 	                                                                    // as a read here can be 50 mS behind while TIM16 wraps)
 	    GuiPressTick();                                                 // the GUI's press: a finger, a mouse, GUI CLICK (GUI.c)
+	    if(GUI_INPUT_ON || autocursor) IntReady.gui = 1;               // and check_interrupt after the next statement sees to it
 
 		// Handle any IR remote control activity
 		ElapsedMicroSec = readusclock();
