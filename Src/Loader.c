@@ -23,6 +23,7 @@ The loader is in bank 2 (the linker script's .bank2): it runs in the foreground 
 #include "cmm2img.h"
 #include "OPLChip.h"
 #include "Loader.h"
+#include "PicoMode.h"
 
 extern TIM_HandleTypeDef htim16;
 extern volatile uint64_t uSecTimer;
@@ -36,6 +37,7 @@ extern UART_HandleTypeDef huart1, huart2, huart4;
 extern void CheckKeyboard(void);
 extern void SerialConsolePutC(int c);                               // the serial console alone (main.c)
 extern volatile uint8_t pagesetdone;                               // set by the LTDC's interrupt at each frame (ltdc.c)
+extern const int xres[], yres[];                                    // each mode's size (ltdc.c)
 extern int KeyDown[7];                                              // the keys held (KeyboardMap.c)
 
 #define LD_FILES  8
@@ -295,23 +297,34 @@ static void ld_frame(void) {                                       // the next f
     pagesetdone = 0;
     while(!pagesetdone && MicrosNow() < end) {}
 }
-static int ld_vmode(int mode, int depth, cmm2_video *v) {
-    if(mode < 1 || mode > MAX_MODES || depth != 8) return -1;
+static int ld_dma2dbusy(void);
+static int ld_vscaled(int mode, int depth, int scale, cmm2_video *v) {
+    if(mode < 1 || mode > MAX_MODES || (depth != 8 && depth != 16) || (scale != 1 && scale != 2)) return -1;
     if(mode == 16 && !(G1Hardware == 0 && HAL_GetREVID() != 0x1003)) return -1;
+    if(depth == 16 && (mode == 15 || mode == 16)) return -1;        // (MODE's rule: 8 and 1-bit only)
+    if(scale == 2 && (mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17))
+        return -1;                                                  // (their lines shown twice already: ltdc.c's ModeRowScale)
     if(VideoColour != depth && PageTable[WPN].address != NULL) return -2;   // (a FRAMEBUFFER of another depth)
     uint32_t old = __get_BASEPRI();
-    __set_BASEPRI(LD_PRI_FILL);                                     // (no refill: setmode turns the MPU off for a moment,
-    setmode(mode, depth, 0, 0);                                     // when the program's code in SDRAM can't be fetched)
+    __set_BASEPRI(LD_PRI_FILL);                                     // (no refill or frame hook: setmode turns the MPU off for
+    while(ld_dma2dbusy()) {}                                        // a moment, when the program's code in SDRAM can't be
+    if(scale > 1) {                                                 // fetched; and no copy into the pages as they are laid
+        ModeReqW = xres[mode] / scale;                              // out again). The smaller display is made as OPTION
+        ModeReqH = yres[mode] / scale;                              // PICOMITE makes its modes (PicoMode.c): the pixel clock
+        ModeReqHs = ModeReqVs = scale;                              // divided, each row shown twice, the pages holding it twice
+    }
+    setmode(mode, depth, 0, 0);
     __set_BASEPRI(old);
     v->fb = PageTable[0].address;
     v->width = PageTable[0].xmax;
     v->height = PageTable[0].ymax;
     v->copies = PageTable[0].expand ? 2 : 1;                        // (a doubled mode's page holds each line twice: Draw.c)
-    v->pitch = v->width * v->copies;
-    v->bpp = 8;
+    v->bpp = depth;
+    v->pitch = v->width * (depth / 8) * v->copies;
     memset(v->fb, 0, v->pitch * v->height);                         // (the same mode again is not cleared by setmode)
     return 0;
 }
+static int ld_vmode(int mode, int depth, cmm2_video *v) { return ld_vscaled(mode, depth, 1, v); }
 static int ld_palette(int start, int count, const uint8_t *rgb) {
     int i;
     if(VideoColour != 8 || start < 0 || count < 0 || start + count > 256) return -1;
@@ -343,6 +356,11 @@ static void ld_make(int b) {
 void LoaderPendSV(void) {                                           // the buffer the interrupt is not playing, if empty
     int b = swingbuf == 1 ? 2 : 1;
     if(CurrentlyPlaying == P_STREAM && ldfill && bcount[b] == 0) ld_make(b);
+    if(LoaderFramePend) {                                           // and a frame's start: the program's hook (version 6)
+        void (*fn)(void) = LoaderFrameFn;
+        LoaderFramePend = 0;
+        if(fn) fn();
+    }
 }
 static void ld_alock(void) { __set_BASEPRI(LD_PRI_FILL); __ISB(); }
 static void ld_aunlock(void) { __set_BASEPRI(0); }
@@ -419,6 +437,79 @@ static int ld_keys(int keys[7]) {
     return n;
 }
 
+/* a display in the program's memory (version 6): its frame hook called in PendSV after the LTDC's interrupt at the start
+   of each frame's blanking (ltdc.c sees LoaderFrameFn and pends it: this bank may not be fetched from there), and the
+   DMA2D's copies, which it may queue there. Up to 4 wait; the DMA2D's interrupt starts each after the one before. The
+   firmware leaves the DMA2D alone (CubeMX's init is not called), so it is the program's */
+void (*volatile LoaderFrameFn)(void);
+volatile int LoaderFramePend;
+static void ld_framehook(void (*fn)(void)) {
+    HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);                       // (below every other, as for the sound)
+    LoaderFramePend = 0;
+    LoaderFrameFn = fn;
+}
+
+#define LD_JOBS 4
+static struct { uint32_t src, dst, fgor, oor, nlr, cm; } ldjob[LD_JOBS];
+static volatile int ldjobin, ldjobout;                              // the queue: the next free, and the one running
+static void ld_dma2dgo(int j) {
+    DMA2D->FGMAR = ldjob[j].src;
+    DMA2D->OMAR = ldjob[j].dst;
+    DMA2D->FGOR = ldjob[j].fgor;
+    DMA2D->OOR = ldjob[j].oor;
+    DMA2D->NLR = ldjob[j].nlr;
+    DMA2D->FGPFCCR = ldjob[j].cm;
+    DMA2D->OPFCCR = ldjob[j].cm;
+    DMA2D->CR = DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;   // (memory to memory: MODE 0)
+}
+void LoaderDMA2D(void) {                                            // the DMA2D's interrupt: a copy done, the next started
+    DMA2D->IFCR = DMA2D_IFCR_CTCIF | DMA2D_IFCR_CTEIF | DMA2D_IFCR_CCEIF;
+    if(ldjobout == ldjobin) return;
+    ldjobout = (ldjobout + 1) % LD_JOBS;
+    if(ldjobout != ldjobin) ld_dma2dgo(ldjobout);
+}
+static int ld_dma2dbusy(void) { return (ldjobin - ldjobout + LD_JOBS) % LD_JOBS; }
+static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h) {
+    uint32_t s = (uint32_t)src, d = (uint32_t)dst, px = ((s | d | sp | dp | w) & 3) ? 2 : 4, a, next;
+    if(((s | d | sp | dp | w) & 1) || sp < w || dp < w || w / px > 0x3FFF || (sp - w) / px > 0x3FFF ||
+       (dp - w) / px > 0x3FFF || h > 0xFFFF) return -1;
+    if(w == 0 || h == 0) return 0;
+    a = s & ~31u;                                                   // the source from the cache to the SDRAM, which the DMA2D reads
+    SCB_CleanDCache_by_Addr((uint32_t *)a, (int32_t)((s - a + sp * (h - 1) + w + 31) & ~31u));
+    if(!(RCC->AHB3ENR & RCC_AHB3ENR_DMA2DEN)) {
+        __HAL_RCC_DMA2D_CLK_ENABLE();
+        HAL_NVIC_SetPriority(DMA2D_IRQn, 14, 0);                    // (above the frame hook's PendSV, which may wait for it)
+        HAL_NVIC_EnableIRQ(DMA2D_IRQn);
+    }
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    next = (ldjobin + 1) % LD_JOBS;
+    if(next == ldjobout) { __set_PRIMASK(primask); return -1; }     // (4 waiting)
+    ldjob[ldjobin].src = s;
+    ldjob[ldjobin].dst = d;
+    ldjob[ldjobin].fgor = (sp - w) / px;
+    ldjob[ldjobin].oor = (dp - w) / px;
+    ldjob[ldjobin].nlr = (w / px) << DMA2D_NLR_PL_Pos | h;
+    ldjob[ldjobin].cm = px == 4 ? 0 : 2;                            // ARGB8888 or RGB565: only its size matters, unconverted
+    int idle = ldjobin == ldjobout;
+    ldjobin = next;
+    if(idle) ld_dma2dgo(ldjobout);
+    __set_PRIMASK(primask);
+    return 0;
+}
+static void ld_dma2dstop(void) {                                    // (the program's end: its copies dropped)
+    if(!(RCC->AHB3ENR & RCC_AHB3ENR_DMA2DEN)) return;
+    HAL_NVIC_DisableIRQ(DMA2D_IRQn);
+    if(DMA2D->CR & DMA2D_CR_START) {
+        DMA2D->CR |= DMA2D_CR_ABORT;
+        uint64_t end = MicrosNow() + 10000;
+        while((DMA2D->CR & DMA2D_CR_START) && MicrosNow() < end) {}
+    }
+    DMA2D->IFCR = DMA2D_IFCR_CTCIF | DMA2D_IFCR_CTEIF | DMA2D_IFCR_CCEIF;
+    ldjobin = ldjobout = 0;
+    __HAL_RCC_DMA2D_CLK_DISABLE();
+}
+
 /*******************************************************************************************
  calling the program on its own stack
 *******************************************************************************************/
@@ -474,6 +565,7 @@ static const struct cmm2_services ldsvc = {
     .music_playing = OPLStreamPlaying, .music_rate = ld_mrate,
     .mouse = ld_mouse, .mouse_set = ld_mouseset, .con_screen = ld_conscreen,
     .break_take = ld_breaktake, .file_stat = ld_stat,
+    .video_scaled = ld_vscaled, .frame_hook = ld_framehook, .dma2d_copy = ld_dma2dcopy, .dma2d_busy = ld_dma2dbusy,
 };
 
 /*******************************************************************************************
@@ -519,6 +611,8 @@ static char **ld_args(char *fname, char *text, int *argc) {
 // what a program left open, closed and freed
 static void ld_tidy(void) {
     int i;
+    LoaderFrameFn = NULL;                                           // its frame hook and its copies (before its display goes)
+    ld_dma2dstop();
     ld_astop();                                                     // its sound, and its music's synth (before its blocks)
     OPLClose();
     __set_BASEPRI(0);                                               // (audio_lock left on)

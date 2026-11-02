@@ -838,7 +838,9 @@ void DMA2D_IRQHandler(void)
   /* USER CODE BEGIN DMA2D_IRQn 0 */
 
   /* USER CODE END DMA2D_IRQn 0 */
-  HAL_DMA2D_IRQHandler(&hdma2d);
+  extern void LoaderDMA2D(void);
+  LoaderDMA2D();                                                    // a loadable program's copies (Loader.c): the
+                                                                    // firmware's own use of the DMA2D is not set up
   /* USER CODE BEGIN DMA2D_IRQn 1 */
 
   /* USER CODE END DMA2D_IRQn 1 */

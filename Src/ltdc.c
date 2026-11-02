@@ -43,6 +43,7 @@
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 #include "USBMouse.h"
+#include "Loader.h"
 #define PLL3_TIMEOUT_VALUE        ((uint32_t)2)    /* 2 ms */
 
 #define DIVIDER_P_UPDATE          0U
@@ -143,6 +144,10 @@ void __attribute__ ((optimize("-O2"))) HAL_LTDC_LineEventCallback(LTDC_HandleTyp
 			IntSignal();
 		}
 		if(Rgb121Active) NVIC_SetPendingIRQ(CEC_IRQn);                // a 4 or 1-bit mode: the merge, at a low priority (Rgb121.c)
+		if(LoaderFrameFn) {                                         // a loadable program's frame hook, in PendSV (Loader.c;
+			LoaderFramePend=1;                                      // its code is in bank 2, not to be fetched here)
+			SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+		}
 		HAL_LTDC_ProgramLineEvent(&hltdc, hltdc.Init.AccumulatedActiveH+1);
 }
 HAL_StatusTypeDef PLL3_Config(RCC_PLL3InitTypeDef *pll3, uint32_t Divider)

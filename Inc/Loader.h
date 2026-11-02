@@ -6,4 +6,7 @@ extern int LoaderRun(char *name);                   // RUN's hook: 1 if it ran a
 extern uint64_t MicrosNow(void);                    // microseconds since start-up (TIM16 and uSecTimer, read in step)
 extern void *LoaderAlloc(uint32_t size);            // a block of the heap for a program, or NULL; freed when it ends
 extern void LoaderRelease(void *p);
+extern void (*volatile LoaderFrameFn)(void);      // a program's frame hook (version 6): the LTDC's interrupt pends it
+extern volatile int LoaderFramePend;
+extern void LoaderDMA2D(void);                     // the DMA2D's interrupt: the program's copies
 #endif

@@ -31,8 +31,9 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  5                 /* the services below (2: the screen and the keys held; 3: sound;
-                                                  4: the mouse; 5: Ctrl-C taken, a file's details) */
+#define CMM2IMG_API_VERSION  6                 /* the services below (2: the screen and the keys held; 3: sound;
+                                                  4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
+                                                  the program's memory, the DMA2D) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2 (every image does, for now) */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved */
@@ -139,8 +140,9 @@ struct cmm2_services {
     void     (*opl_generate)(void *chip, int16_t *buf, uint32_t frames);   /* frames of 16-bit stereo */
     void     (*opl_free)(void *chip);
     /* version 2: the screen and the keys held. The mode and the palette BASIC had are put back when the program ends. */
-    int      (*video_mode)(int mode, int depth, cmm2_video *v);   /* MODE mode,depth (depth 8 only: 256 colours from
-                                                  the palette); 0 with v filled, or negative if the mode can't be set */
+    int      (*video_mode)(int mode, int depth, cmm2_video *v);   /* MODE mode,depth (depth 8: 256 colours from the
+                                                  palette; 16 from version 6); 0 with v filled, or negative if the mode
+                                                  can't be set */
     int      (*video_palette)(int start, int count, const uint8_t *rgb);   /* entries from R,G,B bytes, shown from the
                                                   next frame (it waits for it) */
     void     (*video_wait)(void);              /* until the display starts its next frame */
@@ -181,6 +183,21 @@ struct cmm2_services {
                                                   the program deals with it (a BASIC program that ran it goes on);
                                                   poll() reports it too, until it is taken */
     int      (*file_stat)(const char *name, cmm2_stat *st);   /* 0, or minus FatFs's FRESULT (4: no such file) */
+    /* version 6: a display the program keeps in its own memory, put on the screen each frame. video_mode takes depth 16
+       too from this version (RGB565, two bytes a pixel; not in modes 15 and 16) */
+    int      (*video_scaled)(int mode, int depth, int scale, cmm2_video *v);   /* as video_mode, the display 1/scale of
+                                                  the mode's size, each pixel scale x scale (scale 1, or 2 where the
+                                                  mode's lines are not shown twice already: the page then holds each
+                                                  line twice, copies 2) */
+    void     (*frame_hook)(void (*fn)(void));  /* fn called at the start of each frame's blanking, in PendSV as audio's
+                                                  fill is (its rules: quick, and only the dma2d services); NULL: no more
+                                                  (ended for it when the program ends) */
+    int      (*dma2d_copy)(const void *src, uint32_t src_pitch, void *dst, uint32_t dst_pitch, uint32_t width,
+                           uint32_t height);   /* width bytes from each of height rows (pitch bytes apart), moved by the
+                                                  DMA2D while the program goes on, after any copies before it (the
+                                                  source written from the cache to the SDRAM first): 0, or -1 with 4
+                                                  waiting or a size or address odd */
+    int      (*dma2d_busy)(void);              /* the copies not yet done */
 };
 
 #endif
