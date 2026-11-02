@@ -131,6 +131,8 @@ SECTIONS
     *Loader.c.obj(.text .text* .rodata .rodata*)
     *OPL.o(.text .text* .rodata .rodata*)                /* PLAY OPL: refilled in checkWAVinput, between statements */
     *OPL.c.obj(.text .text* .rodata .rodata*)
+    *OPLData.o(.text .text* .rodata .rodata*)            /* PLAY MIDI's GENMIDI bank and test tune (Freedoom, BSD-3) */
+    *OPLData.c.obj(.text .text* .rodata .rodata*)
     *OPLChip.cpp.obj(.text .text* .rodata .rodata*)      /* the OPL3 synth: ymfm (BSD-3, Src/ymfm) behind C */
     *ymfm_*.cpp.obj(.text .text* .rodata .rodata*)
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */

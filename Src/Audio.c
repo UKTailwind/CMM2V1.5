@@ -2147,10 +2147,7 @@ void cmd_play(void) {
 
        return;
     }
-    if((tp = checkstring(cmdline, "OPL"))) {                      // PLAY OPL [WRITE | RESET | TEST]: the OPL3 synth (OPL.c, G2)
-        cmd_opl(tp);
-        return;
-    }
+    if(cmd_play_opl(cmdline)) return;                               // PLAY OPL, MIDI, NOTE and MIDIFILE: the OPL3 synth (OPL.c, G2)
     if((tp = checkstring(cmdline, "MODFILE"))) {                  // PLAY MODFILE file$ [, rate] [, interrupt]: with an interrupt it
         getargs(&tp, 5,",");                                  // this MUST be the first executable line in the function
         char *p, *r, *ia = NULL;                                    // plays once and fires it; PLAY MODFILE file$, sub is the PicoMite's
@@ -2433,6 +2430,7 @@ void audio_checks(void){
             FreeMemorySafe((void *)&sbuff1);
             FreeMemorySafe((void *)&sbuff2);
             FreeMemorySafe((void *)&alist);
+            OPLClose();                                             // (an OPL or MIDI file played to its end: OPL.c)
             if(CurrentlyPlaying == P_MOD) {                         // a module played once
                 FreeMemorySafe((void *)&modbuff);
                 FreeMemorySafe((void *)&sbuff1e);

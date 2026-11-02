@@ -73,6 +73,36 @@ Peter's decisions since the plan was written:
 - C++ in the build: `CMakeLists.txt` enables CXX for `Src/ymfm` and `OPLChip.cpp` only, with no exceptions, RTTI or unwind tables. Flash: 1.3 KB more than Nuked in bank 2, and 32 bytes in bank 1.
 - Commands, all provisional (D2): PLAY OPL, PLAY OPL WRITE reg, value [, ...] (up to 19 pairs, the argument limit), PLAY OPL RESET and PLAY OPL TEST [seconds [, voices]]. PAUSE, RESUME and STOP work as for any sound, and MM.INFO(SOUND) gives "OPL". PLAY OPL plays through MOD's buffers and interrupt branch.
 
+**PLAY MIDI and OPL files (2 Nov).** Peter's answers:
+- **The instrument bank:** "flash".
+- **The names:** "PLAY OPL".
+- **PLAY MIDI TEST:** "store a midi sample in flash and play it from flash".
+
+Built, tested on the G2 (`tests/opl/miditest.bas`), and heard: "sounds very good".
+
+```
+PLAY OPL file$ [, interrupt]             ' IMF (.imf 560 Hz, .wlf 700 Hz), DRO 0.1 and 2.0, VGM of OPL/OPL2 (one or two)/OPL3
+PLAY MIDI                                ' real-time MIDI on (the PicoMite's syntax; no VS1053 needed)
+PLAY NOTE ON channel, note, velocity     ' channel 0-15, 9 the drums
+PLAY NOTE OFF channel, note [, velocity]
+PLAY MIDI CMD cmd, data1 [, data2]       ' &H80-&HEF
+PLAY MIDI TEST [n]                       ' the tune in flash: Freedoom's FreeDM title (d_fdmttl.mid, 11 s); n 1-3 as on the PicoMite
+PLAY MIDIFILE file$ [, interrupt]        ' Standard MIDI File, types 0 and 1
+```
+
+- **How it plays:**
+  - MIDI is driven as Doom's DMX driver drives an OPL: GENMIDI patches, 18 OPL3 voices with the oldest taken when all are busy, and velocity, volume, expression, pan, sustain and pitch bend followed.
+  - A file's events fall at their sample in each buffer. PLAY NOTE and PLAY MIDI CMD are heard at the next buffer, 46-93 ms later.
+  - A two-OPL2 file gets a second chip, mixed in.
+  - The whole file is read into the heap first.
+  - A file ends after two seconds of releases, the way a module played once ends: the buffers drain, `audio_checks` closes it and the interrupt runs.
+- **MM.INFO:** SOUND gives "MIDI" or "OPL"; the CMM2 dialect shortens a pause to "PAUSED". TRACK gives the file's name, or "MIDI TEST".
+- **Flash:**
+  - `Src/OPLData.c`, made by `tools/mkopldata.py`: the GENMIDI bank (175 x 36 bytes, names left out) and the test tune, 9.9 KB together.
+  - The new code is about 6 KB.
+  - Bank 2 has 102 KB left. **Bank 1 is down to 712 bytes.**
+- **Licence:** Freedoom's data is BSD-3. Its notice has to go in the documentation of a binary release; it is in `OPLData.c`'s header, ready for the manual and the release notes when this is merged.
+
 **Measurements, on the G2 at 480 MHz.**
 
 PLAY OPL TEST (all 18 voices held with tremolo and vibrato; and the synth on but silent):
@@ -105,7 +135,7 @@ Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders M
 - Video, input and the audio stream services.
 - PendSV refills for programs.
 - Modules.
-- The MIDI player, GENMIDI and the PicoMite's PLAY MIDI syntax.
+- The first loadable game (Peter, 2 Nov: "choose the simplest of the available id Tech 1 games as the first implementation as a proof of concept"), once the video, input and audio-stream services exist.
 - A G1 check of the gating (no G1 on the bench).
 - A full regression.
 
@@ -135,7 +165,7 @@ The G2's whole flash as it was before the first dev flash (7.00.00b5, its progra
 | D1 | **Flash room** for the loader and the OPL synth, about 26-34 KB in all (Part 3) | **Decided 2 Nov: bank 2 sector 1 (A)** |
 | D2 | Names: the image's file extension, the command that starts an application, the module commands | `RUN f$` recognising an image; `MODULE LOAD` / `MODULE CALL` / `MODULE()` |
 | D3 | The OPL emulator, once its CPU cost is measured (S2) | **Decided 2 Nov: ymfm, after Peter heard all three (status above)** |
-| D4 | What PLAY MIDI TEST does on the CMM2 | Play a short built-in test phrase |
+| D4 | What PLAY MIDI TEST does on the CMM2 | **Decided 2 Nov: plays a MIDI tune kept in flash (Freedoom's FreeDM title)** |
 | D5 | When a module is freed | When the program ends, as the RAM library is |
 | D6 | Where the SDK lives | `tools/sdk/` in this repository |
 | D7 | G1 support | **Decided 2 Nov: G2 only, with a permanent 8 MB at 0xD1800000** |

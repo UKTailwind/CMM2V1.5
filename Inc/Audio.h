@@ -55,10 +55,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef AUDIO_HEADER
 #define AUDIO_HEADER
 typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3, P_ARRAY, P_PAUSE_ARRAY, P_SAMPLE, P_PAUSE_SAMPLE, P_BBC, P_PAUSE_BBC, P_OPL, P_PAUSE_OPL} e_CurrentlyPlaying;
-// PLAY OPL (OPL.c, G2 only): the Nuked-OPL3 synth, refilled as MOD is, in checkWAVinput
-extern void cmd_opl(char *tp);
+// PLAY OPL, PLAY MIDI, PLAY NOTE and PLAY MIDIFILE (OPL.c, G2 only): the OPL3 synth, refilled as MOD is
+extern int cmd_play_opl(char *cmdline);                             // 1 if cmdline was one of them
 extern void OPLRefill(int buffer);                                  // buffer 1 or 2 (sbuff1/sbuff2) filled and counted
 extern void OPLClose(void);
+extern const char *OPLSoundName(void);                              // MM.INFO(SOUND): "OPL" or "MIDI"
+extern const char *OPLTrack(void);                                  // MM.INFO(TRACK): the file playing, or NULL
 extern volatile e_CurrentlyPlaying CurrentlyPlaying; 
 extern volatile e_CurrentlyPlaying CurrentlyPlayinge;
 extern int PWM_FREQ;

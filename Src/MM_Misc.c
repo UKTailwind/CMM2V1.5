@@ -3487,6 +3487,7 @@ void OPTSIZE fun_info(void){
 	} else if(checkstring(ep, "TRACK")){                                // the file playing (it read alist, NULL for a single file)
 		if(CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_MOD ||
 		   CurrentlyPlaying == P_PAUSE_MP3 || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MOD) strcpy(sret, WAVfilename);
+		else if((CurrentlyPlaying == P_OPL || CurrentlyPlaying == P_PAUSE_OPL) && OPLTrack()) strcpy(sret, OPLTrack());   // (a file: OPL.c)
 		else strcpy(sret,"OFF");
 	} else if(checkstring(ep, "SOUND")){
 		switch(audiofinished ? P_NOTHING : CurrentlyPlaying){      // the PicoMite's strings; TTS and DAC are the CMM2's own
@@ -3511,8 +3512,8 @@ void OPTSIZE fun_info(void){
 		case P_PAUSE_SAMPLE:strcpy(sret,"PAUSED SAMPLE");break;
 		case P_BBC:strcpy(sret,"BBC");break;
 		case P_PAUSE_BBC:strcpy(sret,"PAUSED BBC");break;
-		case P_OPL:strcpy(sret,"OPL");break;                        // PLAY OPL (OPL.c, G2)
-		case P_PAUSE_OPL:strcpy(sret,"PAUSED OPL");break;
+		case P_OPL:strcpy(sret,OPLSoundName());break;               // PLAY OPL and PLAY MIDI (OPL.c, G2): "OPL" or "MIDI"
+		case P_PAUSE_OPL:strcpy(sret,"PAUSED ");strcat(sret,OPLSoundName());break;
 		default:strcpy(sret,"OFF");break;
 		}
 		if(PicoFlavour() == PICO_NONE) {                            // the CMM2's, as 6.00 gave them: "MODFILE", and a bare "PAUSED"
