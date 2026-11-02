@@ -2815,7 +2815,7 @@ void CheckSDCard(void) {
 			}
 		}
 	} else {
-		if(CurrentlyPlayinge == P_WAV || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE || CurrentlyPlaying == P_BBC || audiofinished)
+		if(CurrentlyPlayinge == P_WAV || CurrentlyPlaying == P_WAV || CurrentlyPlaying == P_FLAC || CurrentlyPlaying == P_MP3 || CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_ARRAY || CurrentlyPlaying == P_SAMPLE || CurrentlyPlaying == P_BBC || CurrentlyPlaying == P_OPL || audiofinished)
 			checkWAVinput();
 		if(GifTimer==0 && gif!=NULL){
 			GifTimer=5000;

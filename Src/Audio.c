@@ -1298,6 +1298,7 @@ void CloseAudio(int all){
 	}
 	FreeMemorySafe((void *)&buffer);
 	FreeMemorySafe((void *)&modbuff);
+	OPLClose();                                                     // PLAY OPL's synth (OPL.c)
 	if(was_playing == P_FLAC || was_playing == P_PAUSE_FLAC )FreeMemorySafe((void *)&myflac);
 	FreeMemorySafe((void *)&mymp3);
 	leftarray = rightarray = NULL;
@@ -1552,7 +1553,8 @@ void cmd_play(void) {
     if(checkstring(cmdline, "PAUSE")) {
         if(CurrentlyPlaying == P_PAUSE_TONE || CurrentlyPlaying == P_PAUSE_FLAC || CurrentlyPlaying == P_PAUSE_SOUND ||
            CurrentlyPlaying == P_PAUSE_MOD || CurrentlyPlaying == P_PAUSE_WAV || CurrentlyPlaying == P_PAUSE_MP3 ||
-           CurrentlyPlaying == P_PAUSE_ARRAY || CurrentlyPlaying == P_PAUSE_SAMPLE || CurrentlyPlaying == P_PAUSE_BBC) return;  // already paused (the PicoMite's)
+           CurrentlyPlaying == P_PAUSE_ARRAY || CurrentlyPlaying == P_PAUSE_SAMPLE || CurrentlyPlaying == P_PAUSE_BBC ||
+           CurrentlyPlaying == P_PAUSE_OPL) return;  // already paused (the PicoMite's)
         if(CurrentlyPlaying == P_TONE) CurrentlyPlaying = P_PAUSE_TONE;
         else if(CurrentlyPlaying == P_FLAC) CurrentlyPlaying = P_PAUSE_FLAC;
         else if(CurrentlyPlaying == P_SOUND) CurrentlyPlaying = P_PAUSE_SOUND;
@@ -1562,6 +1564,7 @@ void cmd_play(void) {
         else if(CurrentlyPlaying == P_ARRAY)  CurrentlyPlaying = P_PAUSE_ARRAY;
         else if(CurrentlyPlaying == P_SAMPLE)  CurrentlyPlaying = P_PAUSE_SAMPLE;
         else if(CurrentlyPlaying == P_BBC)  CurrentlyPlaying = P_PAUSE_BBC;
+        else if(CurrentlyPlaying == P_OPL)  CurrentlyPlaying = P_PAUSE_OPL;
         else
             error("Nothing playing");
         return;
@@ -1577,8 +1580,9 @@ void cmd_play(void) {
         else if(CurrentlyPlaying == P_PAUSE_ARRAY) CurrentlyPlaying = P_ARRAY;
         else if(CurrentlyPlaying == P_PAUSE_SAMPLE) CurrentlyPlaying = P_SAMPLE;
         else if(CurrentlyPlaying == P_PAUSE_BBC) CurrentlyPlaying = P_BBC;
+        else if(CurrentlyPlaying == P_PAUSE_OPL) CurrentlyPlaying = P_OPL;
         else
-            error("Nothing to resume");  
+            error("Nothing to resume");
         return;
     }
 
@@ -2141,6 +2145,10 @@ void cmd_play(void) {
 
        return;
     }
+    if((tp = checkstring(cmdline, "OPL"))) {                      // PLAY OPL [WRITE | RESET | TEST]: the OPL3 synth (OPL.c, G2)
+        cmd_opl(tp);
+        return;
+    }
     if((tp = checkstring(cmdline, "MODFILE"))) {                  // PLAY MODFILE file$ [, rate] [, interrupt]: with an interrupt it
         getargs(&tp, 5,",");                                  // this MUST be the first executable line in the function
         char *p, *r, *ia = NULL;                                    // plays once and fires it; PLAY MODFILE file$, sub is the PicoMite's
@@ -2332,6 +2340,9 @@ void checkWAVinput(void){
         	  }
         	  nextbuf=swingbuf;
 
+        } else if(CurrentlyPlaying == P_OPL){                       // the buffer the interrupt has left (OPL.c)
+            OPLRefill(swingbuf == 2 ? 1 : 2);
+            nextbuf=swingbuf;
         } else if(CurrentlyPlaying == P_MP3){
             if(swingbuf==2){
                 bcount[1]=drmp3_read_pcm_frames_s16(mymp3, WAV_BUFFER_SIZE/2, (drmp3_int16*)sbuff1) * mymp3->channels;

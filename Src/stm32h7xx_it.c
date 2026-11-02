@@ -999,7 +999,7 @@ void Audio_Interrupt(void)  {
         		}
         	}
         }
-    } else if(CurrentlyPlaying == P_MOD ) {
+    } else if(CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_OPL) {   // (PLAY OPL's buffers are MOD's: OPL.c)
     	int32_t c1=0,c2=0,c3=0,c4=0, out=0;                          // MOD and EFFECT, signed, each at half level (i2convert)
         if(bcount[1]==0 && bcount[2]==0 && playreadcomplete==1){    // a module played once has ended (audio_checks finishes)
         	HAL_TIM_Base_Stop_IT(&htim4);

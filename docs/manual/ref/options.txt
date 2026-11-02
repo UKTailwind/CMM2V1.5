@@ -181,7 +181,7 @@ The other function keys (F2 to F4, F10) are fixed.
 --- P keep roomy
 Specifies that programs are to be run from flash memory (the default), so that the program is preserved when the Colour Maximite 2 is powered off or reset.  It undoes OPTION RAM.
 The flash is not written every time a program is run: it is only written if it does not match the newly tokenised program, ie, a different or altered program is being loaded.
-The optional parameter ‘n’ (1 to 6, default 1) specifies where the program starts, in 128KB sectors of the flash: the maximum program size is 512KB for ‘n’ of 1 to 3, 384KB for 4, 256KB for 5 and 128KB for 6.  Moving the program can spread the wear on the flash, although this is unlikely ever to be needed.  A library saved in flash uses sector 6 (see the LIBRARY command), which a program then cannot use (the error is "Library is using flash slot 6").
+The optional parameter ‘n’ (2 to 6, default 2) specifies where the program starts, in 128KB sectors of the flash: the maximum program size is 512KB for ‘n’ of 2 or 3, 384KB for 4, 256KB for 5 and 128KB for 6.  Moving the program can spread the wear on the flash, although this is unlikely ever to be needed.  A library saved in flash uses sector 6 (see the LIBRARY command), which a program then cannot use (the error is "Library is using flash slot 6").
 This command can only be run from the command line and will cause a reboot.
 
 === OPTION HORIZONTAL OFFSET mode, offset

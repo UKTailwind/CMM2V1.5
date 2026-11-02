@@ -3511,6 +3511,8 @@ void OPTSIZE fun_info(void){
 		case P_PAUSE_SAMPLE:strcpy(sret,"PAUSED SAMPLE");break;
 		case P_BBC:strcpy(sret,"BBC");break;
 		case P_PAUSE_BBC:strcpy(sret,"PAUSED BBC");break;
+		case P_OPL:strcpy(sret,"OPL");break;                        // PLAY OPL (OPL.c, G2)
+		case P_PAUSE_OPL:strcpy(sret,"PAUSED OPL");break;
 		default:strcpy(sret,"OFF");break;
 		}
 		if(PicoFlavour() == PICO_NONE) {                            // the CMM2's, as 6.00 gave them: "MODFILE", and a bare "PAUSED"

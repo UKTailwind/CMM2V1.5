@@ -1600,8 +1600,8 @@ void MIPS16 OtherOptions(void) {
     tp = checkstring(cmdline, "FLASH");
 	if(tp) {
 	    if(CurrentLinePtr) error("Invalid in a program");
-		int offset=0;
-		getargs(&tp,1,",");
+		int offset=PROGRAMSTARTCODE;                                // (OPTION FLASH alone: the first program sector, not 0, which
+		getargs(&tp,1,",");                                         // is firmware and only the boot's remap put right)
 		if(argc==1)offset=getint(argv[0],PROGRAMSTARTCODE,6);
 		if(offset == 6 && LibFlashPresent()) error("Library is using flash slot 6");   // (Library.c: LIBRARY DELETE frees it)
 		Option.ProgramStartCode = offset;

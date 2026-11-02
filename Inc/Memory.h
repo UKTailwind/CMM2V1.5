@@ -118,12 +118,16 @@ extern uint32_t RBStreamSize;
 #define RB_STREAM_BASE    	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) : 0xD0780000)
 #define RB_STREAM_SIZE    	RBStreamSize
 #define SDRAMBASE         	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) + RBStreamSize : 0xD0880000)
-#define SDRAMEND         	(G1Hardware ? 0xD0800000-0x100 : 0xD2000000-0x100)
+#define SDRAMEND         	(G1Hardware ? 0xD0800000-0x100 : 0xD1800000-0x100)
 // the executable window: the top 512 KB of the SDRAM heap, below SDRAMEND (MPU region 15; the rest of the heap is
 // not executable, which keeps speculative instruction fetches off the FMC).  GetMemory allocates below it, GetExecMemory
 // in it.  At the top, because newlib's _sbrk grows up from SDRAMBASE.
-#define SDRAMEXEC        	(G1Hardware ? 0xD0780000 : 0xD1F80000)
+#define SDRAMEXEC        	(G1Hardware ? 0xD0780000 : 0xD1780000)
 #define SDRAMEXECSIZE    	0x80000
+// loadable programs (G2 only, Peter 2 Nov 2026): the top 8 MB of the SDRAM, above the heap, kept for them for good.
+// MPU region 8 makes it executable and write-back cached (main.c); RUN "x.app" loads a program at its start (Loader.c).
+#define LOADER_BASE       	0xD1800000
+#define LOADER_SIZE       	0x800000
 extern void *GetExecMemory(size_t size);
 // other (minor) memory management parameters
 #define RAMPAGESIZE        256                                         // the allocation granuality

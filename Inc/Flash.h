@@ -68,10 +68,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	#define SAVED_VAR_RAM_ADDR     ((uint32_t)0x38800000)   /* Start of Saved Variables flash area */
    // #define PROGRAMSTARTCODE 0
  	//#define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_0_BANK2   /* Start Basic Program flash area */
-    #define PROGRAMSTARTCODE 1
-    #define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_1_BANK2   /* Start Basic Program flash area */
-    #define FLASH_FIRMWARE_END       ADDR_FLASH_SECTOR_1_BANK2   /* the firmware: bank 1 and bank 2 sector 0 (the linker
-                                                                    script's .bank2), 19 Oct 2026 */
+    #define PROGRAMSTARTCODE 2
+    #define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_2_BANK2   /* Start Basic Program flash area */
+    #define FLASH_FIRMWARE_END       ADDR_FLASH_SECTOR_2_BANK2   /* the firmware: bank 1 and bank 2 sectors 0-1 (the linker
+                                                                    script's .bank2; sector 0 19 Oct, sector 1 2 Nov 2026) */
 	#define SAVED_VAR_RAM_SIZE 0x1000  // amount of flash reserved for saved variables
 	#define FLASH_SAVED_OPTION_ADDR  ADDR_FLASH_SECTOR_7_BANK2   /* Start of Saved Options flash area */
 	#define SAVED_OPTIONS_FLASH 4

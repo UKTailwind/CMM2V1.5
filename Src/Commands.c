@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Hardware_Includes.h"
 #include "help.h"
 #include "turtle.h"
+#include "Loader.h"
 
 void flist(int, int, int);
 void clearprog(void);
@@ -1534,6 +1535,7 @@ void MIPS16 cmd_run(void) {
 		FlashRunSlot(FlashLoad, 0);                                 // slot's program RUN alone runs it again (the PicoMite's)
 		return;
 	}
+	if(LoaderRun(expr ? name : NULL)) return;                       // a loadable program, name.app (Loader.c, G2): run, then go on
 	RunPrelude();
 	if(expr){
 		if(!FileLoadProgram(name,0)) return;

@@ -59,8 +59,8 @@ Below is a summary of how the MMBasic firmware makes use of the memory of the ST
 |---|---|---|
 | 0000 0000 - 0000 FFFF | 64K | ITCM RAM: the interrupt routines and some of the interpreter's code, run from here for speed. |
 | 0800 0000 - 080F FFFF | 1024K | Flash bank 1: the MMBasic firmware and its constant data. |
-| 0810 0000 - 0811 FFFF | 128K | Flash bank 2, sector 0: firmware too (the file manager and the editor). |
-| 0812 0000 - 081D FFFF | 768K | Flash bank 2, sectors 1 to 6: the program in program memory (see OPTION FLASH) and the library (sector 6, 081C 0000 - 081D FFFF, when one is saved). |
+| 0810 0000 - 0813 FFFF | 256K | Flash bank 2, sectors 0 and 1: firmware too (the file manager, the editor, the OPL synth and the loader, among others). |
+| 0814 0000 - 081D FFFF | 640K | Flash bank 2, sectors 2 to 6: the program in program memory (see OPTION FLASH) and the library (sector 6, 081C 0000 - 081D FFFF, when one is saved). |
 | 081E 0000 - 081F FFFF | 128K | Flash bank 2, sector 7: the saved options. |
 | 2000 0000 - 2001 FFFF | 128K | DTCM RAM: the firmware's own variables and, above them, the C stack (MM.INFO(HEAPEND) is the lowest it may go). |
 | 2400 0000 - 2407 FFFF | 512K | AXI RAM: display page 0 (see the MODE command) and the display of the 4-bit modes. |
@@ -72,7 +72,8 @@ Below is a summary of how the MMBasic firmware makes use of the memory of the ST
 | D000 0000 - D06F FFFF | 7M | SDRAM (Generation 2): the display pages (see the MODE command). |
 | D070 0000 - D077 FFFF | 0.5M | SDRAM (Generation 2): program memory with OPTION RAM. |
 | D078 0000 - D087 FFFF | 1M | SDRAM (Generation 2): the compiled program (OPTION COMPILE). |
-| D088 0000 - D1FF FFFF | 23.5M | SDRAM (Generation 2): the MMBasic heap, MM.INFO(HEAPS): variables, arrays and buffers. Its top 512K (D1F8 0000 - D1FF FFFF) is where the code of a RAM library's CSUBs is kept. |
+| D088 0000 - D17F FFFF | 15.5M | SDRAM (Generation 2): the MMBasic heap, MM.INFO(HEAPS): variables, arrays and buffers. Its top 512K (D178 0000 - D17F FFFF) is where the code of a RAM library's CSUBs is kept. |
+| D180 0000 - D1FF FFFF | 8M | SDRAM (Generation 2): loadable programs (RUN "file.app"). |
 | D000 0000 - D02F FFFF | 3M | SDRAM (Generation 1): the display pages. |
 | D030 0000 - D037 FFFF | 0.5M | SDRAM (Generation 1): program memory with OPTION RAM. |
 | D030 0000 - D07F FFFF | 5M | SDRAM (Generation 1): the MMBasic heap (from D038 0000 with OPTION RAM). While OPTION COMPILE is ON or SHADOW its bottom 1M is the compiled program, and the heap starts above it. Its top 512K (D078 0000 - D07F FFFF) is where the code of a RAM library's CSUBs is kept. |

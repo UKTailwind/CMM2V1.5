@@ -1,0 +1,43 @@
+# tools/sdk: loadable programs for the CMM2 G2
+
+A loadable program is C built for the M7 and linked to run in the G2's 8 MB at 0xD1800000. `RUN "name.app"` loads it there and runs it (`Src/Loader.c`). The design is in `docs/Loader_Plan.md`, and the file format and services are in `Inc/cmm2img.h`.
+
+## Building
+
+```
+python -I tools/sdk/build.py tools/sdk/out/hello.app tools/sdk/examples/hello.c
+python -I tools/sdk/build.py tools/sdk/out/oplbench.app tools/sdk/examples/oplbench.c Src/opl3.c
+```
+
+`build.py` uses the firmware's own toolchain (from `CMakePresets.json`). It compiles the sources with `crt0.c` and `syscalls.c`, links them with `app.ld`, and calls `mkimage.py`. The `.elf` and `.map` are left beside the `.app` in `tools/sdk/out/`, which git ignores.
+
+Options:
+
+| Option | Meaning |
+|---|---|
+| `--stack BYTES` | The stack size (default 64 KB). |
+| `--heap BYTES` | The least heap the program needs. The loader refuses the program if the 8 MB can't give it. |
+| `--base 0x60000000` | Link elsewhere, so the loader has to relocate every address. This tests the relocations: a missed one faults, because that FMC bank is unused. |
+| `--cflag FLAG` | Pass an extra compiler flag. |
+
+## Running
+
+Copy the `.app` to the SD card, for example with `ZMODEM RECEIVE "A:/apps/*"` on the board and `tools/zmodem_pc.py send COM4 115200 file.app` on the PC. Then:
+
+```
+RUN "A:/apps/hello.app", any words
+```
+
+The words become `argv[1]` onward. A non-zero exit code is printed. Run from a program, the program carries on with its next statement.
+
+## What a program has
+
+- **Standard C:** `printf` and the rest of stdio, `malloc`, `fopen` and friends, and `time()`. Names follow MMBasic's style: `A:/dir/name`, `C:/...`, or a name relative to the current directory.
+- **The `cmm2` services** (`cmm2.h`): direct console, microsecond clock, files and directories, `poll()`, `leave()`, extra heap blocks, and the firmware's OPL3 synth.
+- **Its own stack and heap** in the 8 MB.
+
+Only the services touch MMBasic. They never raise an MMBasic error; each returns a status instead.
+
+## Licences
+
+`cmm2img.h`, `cmm2.h`, `crt0.c`, `syscalls.c`, `app.ld` and the examples are MIT, so a program under any licence can use them. A program built with `Src/opl3.c` (Nuked-OPL3, LGPL-2.1-or-later), such as `oplbench.app`, is LGPL as a whole.

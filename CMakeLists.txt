@@ -110,6 +110,7 @@ set(RELEASE_O2_FILES
     Memory.c Operators.c OtherDisplays.c Serial.c
     Timers.c ltdc.c main.c mmc_stm32.c stm32h7xx_it.c
     Symbols.c Struct.c                                      # (on every variable reference: 17 Oct, measured)
+    opl3.c                                                  # (Nuked-OPL3, in bank 2: about 5% faster than -Os, 2 Nov)
 )
 # MiscSTM32.c (OPTION, LIST OPTIONS), flash.c (flash writes) and SerialFileIO.c (serial file transfer) are -Os, as
 # every other file is: their speed is the hardware's, and -O2 cost 5.6 KB of bank 1 (27 Oct 2026, Peter agreed)

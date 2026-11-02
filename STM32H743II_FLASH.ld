@@ -51,8 +51,9 @@ FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 1024K
 FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 896K
 FLASH7 (rx)	    : ORIGIN = 0x080E0000, LENGTH = 128K
 */
-FLASHB2 (rx)    : ORIGIN = 0x08100000, LENGTH = 128K   /* bank 2 sector 0: firmware too (.bank2 below, 19 Oct 2026) */
-FLASH2 (r)      : ORIGIN = 0x08120000, LENGTH = 896K   /* the program (OPTION FLASH 1-6), the library, the options */
+FLASHB2 (rx)    : ORIGIN = 0x08100000, LENGTH = 256K   /* bank 2 sectors 0-1: firmware too (.bank2 below; sector 1 since
+                                                          2 Nov 2026, for the loader and the OPL synth) */
+FLASH2 (r)      : ORIGIN = 0x08140000, LENGTH = 768K   /* the program (OPTION FLASH 2-6), the library, the options */
 /*RAM_D5 (rw)     : ORIGIN = 0x38800000, LENGTH = 4K*/
 }
 
@@ -93,8 +94,8 @@ SECTIONS
 /* used by the startup to initialize data */
   _siITCM = LOADADDR(.ITCMSection);
 
-  /* .bank2: bank 2 sector 0, right after bank 1, so the firmware is still one block (one .bin, which ends in this
-     sector and never reaches the program's). Only code that runs in the foreground goes here, named file by file:
+  /* .bank2: bank 2 sectors 0 and 1, right after bank 1, so the firmware is still one block (one .bin, which ends in
+     these sectors and never reaches the program's). Only code that runs in the foreground goes here, named file by file:
      the bank's sectors are erased and written for a program, the library and the options, and a fetch from the bank
      waits until that is done (up to a second or two for an erase), so nothing an interrupt or routinechecks() runs
      may be here. It comes before .text, which would otherwise take these files' sections (the first output section
@@ -126,6 +127,12 @@ SECTIONS
     *OSK.o(.text .text* .rodata .rodata*)                /* the on-screen keyboard (the PicoMite's: OSK.c); the 1 mS tick */
     *OSK.c.obj(.text .text* .rodata .rodata*)            /* reads only its osk_state, which is in RAM (27 Oct 2026: for its
                                                             room UiMouse.c, EDIT's and FM's mouse, went back to bank 1) */
+    *Loader.o(.text .text* .rodata .rodata*)             /* loadable programs (G2): RUN "x.app" and its services */
+    *Loader.c.obj(.text .text* .rodata .rodata*)
+    *OPL.o(.text .text* .rodata .rodata*)                /* PLAY OPL: refilled in checkWAVinput, between statements */
+    *OPL.c.obj(.text .text* .rodata .rodata*)
+    *opl3.o(.text .text* .rodata .rodata*)               /* Nuked-OPL3 (LGPL-2.1+, Src/opl3.LICENSE), as published */
+    *opl3.c.obj(.text .text* .rodata .rodata*)
     *(.bank2 .bank2.*)                                   /* anything marked __attribute__((section(".bank2"))) */
     . = ALIGN(4);
     _ebank2 = .;

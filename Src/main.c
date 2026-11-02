@@ -701,8 +701,8 @@ MX_GPIO_Init();
 RAMSETUP();
 FMC_Bank1_R->BTCR[1] = 0x000030D2;
 if(Option.ProgramStartCode>=0){
-	if(Option.ProgramStartCode < PROGRAMSTARTCODE || Option.ProgramStartCode > 6)   // (sector 0 is firmware: options from
-		Option.ProgramStartCode = PROGRAMSTARTCODE;             // another firmware may name it)
+	if(Option.ProgramStartCode < PROGRAMSTARTCODE || Option.ProgramStartCode > 6)   // (sectors 0-1 are firmware: options
+		Option.ProgramStartCode = PROGRAMSTARTCODE;             // from another firmware may name them)
 	ProgMemory=(char *)((uint32_t)progstart[Option.ProgramStartCode]);
 	if(!(*ProgMemory==0 || ImageIsCurrent())){                  // erased, or an image from another format
 		char *nm = NULL;                                            // an older firmware's image: the file its first line names
@@ -1095,6 +1095,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 	    	  if(strlen(p)>3){
 	    		  PutRunToken(p, p[4] != ',' ? 4 : 5);           // the RUN token in place of "RUN " (or "RUN ,")
 				  strcpy(tknbuf,inpbuf);
+				  memset(tknbuf + strlen(tknbuf), 0, 3);          // ended as tokenise ends a line: RUN of a .app returns
 	    	  } else {
 	    		  tokenise(true);                                             // turn into executable code
 	    	  }
@@ -1120,6 +1121,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 				  }
 			  }
 			  strcpy(tknbuf,inpbuf);
+			  memset(tknbuf + strlen(tknbuf), 0, 3);              // (as above)
 	      }
 	  } else {
 		  if(toupper(p[0])=='L' && toupper(p[1])=='S' && (strlen(p)==2 || p[2]==32)){
@@ -2808,13 +2810,13 @@ void MPU_Config_nCacheable(int jpg)
   static MPU_Region_InitTypeDef MPU_InitStruct5; //  512K main video memory
   static MPU_Region_InitTypeDef MPU_InitStruct6; //  512K main video memory
   static MPU_Region_InitTypeDef MPU_InitStruct7; //  OPTION RAM memory or first 512Kb of variable space
-  static MPU_Region_InitTypeDef MPU_InitStruct8; //  2nd 512Kb of variable space
+  static MPU_Region_InitTypeDef MPU_InitStruct8; //  the loadable programs' 8 MB if G2 H/W (2 Nov 2026)
   static MPU_Region_InitTypeDef MPU_InitStruct9; //  4Mb of variable space
   static MPU_Region_InitTypeDef MPU_InitStruct10;//  vartbl
   static MPU_Region_InitTypeDef MPU_InitStruct11;//  funtbl
   static MPU_Region_InitTypeDef MPU_InitStruct12;//  page 0 video memory
   static MPU_Region_InitTypeDef MPU_InitStruct13;//  8Mb of variable space if G2 H/W
-  static MPU_Region_InitTypeDef MPU_InitStruct14;//  16Mb of variable space if G2 H/W
+  static MPU_Region_InitTypeDef MPU_InitStruct14;//  8Mb of variable space if G2 H/W (16 before 2 Nov 2026)
   static MPU_Region_InitTypeDef MPU_InitStruct15;//  2Mb of variable space if G2 H/W
   switch(ShareNeeded){
 	  case 0xD0300000:
@@ -3005,10 +3007,11 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct15.SubRegionDisable = 0x00;
 		  MPU_InitStruct15.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct15);
-		  /* Configure the MPU attributes for Video Memory */
-		  MPU_InitStruct8.Enable = MPU_REGION_DISABLE;               // spare: region 0 covers it (and region 9 the 512 KB here)
-		  MPU_InitStruct8.BaseAddress = 0xD0700000;
-		  MPU_InitStruct8.Size = MPU_REGION_SIZE_512KB;
+		  /* Configure the MPU attributes for the loadable programs' 8 MB (Memory.h LOADER_BASE, 2 Nov 2026): executable and
+		     write-back cached, above the heap, where region 14 no longer reaches (no overlap, so no priority between them) */
+		  MPU_InitStruct8.Enable = MPU_REGION_ENABLE;
+		  MPU_InitStruct8.BaseAddress = LOADER_BASE;
+		  MPU_InitStruct8.Size = MPU_REGION_SIZE_8MB;
 		  MPU_InitStruct8.AccessPermission = MPU_REGION_FULL_ACCESS;
 		  MPU_InitStruct8.IsBufferable = MPU_ACCESS_BUFFERABLE;
 		  MPU_InitStruct8.IsCacheable = MPU_ACCESS_CACHEABLE;
@@ -3016,7 +3019,7 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct8.Number = MPU_REGION_NUMBER8;
 		  MPU_InitStruct8.TypeExtField = MPU_TEX_LEVEL0;
 		  MPU_InitStruct8.SubRegionDisable = 0x00;
-		  MPU_InitStruct8.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+		  MPU_InitStruct8.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct8);
 		  /* Configure the MPU attributes for SDRAM used for program (OPTION RAM's, below the compiler's stream: Memory.h) */
 		  MPU_InitStruct9.Enable = MPU_REGION_ENABLE;
@@ -3047,10 +3050,10 @@ void MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct13.SubRegionDisable = 0x00;
 		  MPU_InitStruct13.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct13);
-		  /* Configure the MPU attributes for Variable SDRAM */
+		  /* Configure the MPU attributes for Variable SDRAM (8 MB since 2 Nov 2026: the top 8 MB is region 8's) */
 		  MPU_InitStruct14.Enable = MPU_REGION_ENABLE;
 		  MPU_InitStruct14.BaseAddress = 0xD1000000;
-		  MPU_InitStruct14.Size = MPU_REGION_SIZE_16MB;
+		  MPU_InitStruct14.Size = MPU_REGION_SIZE_8MB;
 		  MPU_InitStruct14.AccessPermission = MPU_REGION_FULL_ACCESS;
 		  MPU_InitStruct14.IsBufferable = MPU_ACCESS_BUFFERABLE;
 		  MPU_InitStruct14.IsCacheable = MPU_ACCESS_CACHEABLE;
