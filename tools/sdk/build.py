@@ -1,4 +1,4 @@
-"""build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--cflag FLAG ...] [-I DIR ...]
+"""build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--cflag FLAG ...] [-I DIR ...]
 
 Builds a loadable program for the CMM2 G2 with the firmware's own toolchain (CMakePresets.json's ARM_TOOLCHAIN_DIR):
 compiles the sources with crt0.c and syscalls.c for the M7 (double-precision hard float; C++ as C++14 without
@@ -31,6 +31,7 @@ def main():
     ap.add_argument('--base', default='0xD1800000')
     ap.add_argument('--stack', default='0')
     ap.add_argument('--heap', default='0')
+    ap.add_argument('--api', default='1')
     ap.add_argument('--cflag', action='append', default=[])
     ap.add_argument('-I', dest='incs', action='append', default=[])
     a = ap.parse_args()
@@ -54,7 +55,7 @@ def main():
     if r.returncode:
         sys.exit(r.returncode)
     r = subprocess.run([sys.executable, '-I', os.path.join(SDK, 'mkimage.py'), stem + '.elf', a.out,
-                        '--stack', str(int(a.stack, 0)), '--heap', str(int(a.heap, 0))])
+                        '--stack', str(int(a.stack, 0)), '--heap', str(int(a.heap, 0)), '--api', a.api])
     sys.exit(r.returncode)
 
 

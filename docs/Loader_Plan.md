@@ -131,11 +131,27 @@ Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders M
 
 `render.bas` writes the comparison WAVs and `jukebox.bas` plays them with titles. `make_opl_bas.py` (also in `tests/opl`) generated both, and lists the set.
 
+**The services, version 2: the screen and the keys held** (`tools/sdk/examples/vidtest.c`, built with `--api 2`).
+- `video_mode(mode, 8, &v)`: MODE's checks made first, so the program never meets an MMBasic error. A bad mode or depth gives -1, and another depth while a FRAMEBUFFER is open gives -2. The page is cleared.
+- The doubled modes (3, 5, 6, 7...) store each line twice: `v.copies` is 2 and `v.pitch` 2 x width. MODE 3,8 gives 320x200 at 0x24000000 (internal RAM).
+- `video_palette` loads R,G,B bytes into the CLUT at the next frame, and `video_wait` waits for one (50 ms at most).
+- `keys_held`: KEYDOWN's six codes and the modifier bits. With Ctrl held a letter comes as its control code (Ctrl-D is &H04).
+- When the program ends, BASIC's mode (OPTION PICOMITE's through its MODE), font, colours and MAP palette are put back, and the keys typed meanwhile are dropped.
+- **On the G2:**
+  - a frame in MODE 3 takes 13,377 us (75 Hz);
+  - 225 palette loads took 3,009 ms, one per frame;
+  - the bad modes were refused;
+  - keys, Shift, Alt, Ctrl and F5-F12 were reported;
+  - Esc and Ctrl-C both ended it at BASIC's prompt;
+  - Peter saw the bars and the colours turning.
+- **The USB touch screen:** it disconnects and reconnects at each mode change, apparently the monitor resetting it as it relocks. The program carried on.
+- Bank 2 has 101,768 bytes left.
+
 **Not done yet.**
-- Video, input and the audio stream services.
+- The audio stream service.
 - PendSV refills for programs.
 - Modules.
-- The first loadable game (Peter, 2 Nov: "choose the simplest of the available id Tech 1 games as the first implementation as a proof of concept"), once the video, input and audio-stream services exist.
+- The first loadable game (Peter, 2 Nov: "choose the simplest of the available id Tech 1 games as the first implementation as a proof of concept"): Doom through doomgeneric, with Freedoom Phase 1 (`A:/Doom/freedoom1.wad`). Started: the picture and the keys first, then the sound.
 - A G1 check of the gating (no G1 on the bench).
 - A full regression.
 

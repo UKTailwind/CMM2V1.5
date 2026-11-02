@@ -31,7 +31,7 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  1                 /* the services below */
+#define CMM2IMG_API_VERSION  2                 /* the services below (2: the screen and the keys held) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2 (every image does, for now) */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved */
@@ -70,6 +70,14 @@ typedef struct {
     uint32_t heap_size;
     uint32_t base;                             /* where the image is */
 } cmm2img_start;
+
+typedef struct {                               /* the display after video_mode: page 0, the one shown */
+    uint8_t *fb;                               /* its first pixel; a line is pitch bytes on from the one before */
+    uint32_t width, height, pitch, bpp;
+    uint32_t copies;                           /* 1, or 2 in a mode whose lines are shown twice (3, 5, 6, 7...): each line
+                                                  is stored twice, so line y is written at fb + y*pitch and again width
+                                                  bytes later (pitch is then 2*width) */
+} cmm2_video;
 
 typedef struct {                               /* one directory entry (dir_read) */
     char     name[256];
@@ -122,6 +130,16 @@ struct cmm2_services {
     void     (*opl_write)(void *chip, uint32_t reg, uint32_t value);   /* reg 0-0x1FF, written at once */
     void     (*opl_generate)(void *chip, int16_t *buf, uint32_t frames);   /* frames of 16-bit stereo */
     void     (*opl_free)(void *chip);
+    /* version 2: the screen and the keys held. The mode and the palette BASIC had are put back when the program ends. */
+    int      (*video_mode)(int mode, int depth, cmm2_video *v);   /* MODE mode,depth (depth 8 only: 256 colours from
+                                                  the palette); 0 with v filled, or negative if the mode can't be set */
+    int      (*video_palette)(int start, int count, const uint8_t *rgb);   /* entries from R,G,B bytes, shown from the
+                                                  next frame (it waits for it) */
+    void     (*video_wait)(void);              /* until the display starts its next frame */
+    int      (*keys_held)(int keys[7]);        /* KEYDOWN's: [0]-[5] the keys held (MMBasic's codes: ASCII, &H80-&H89
+                                                  the arrows and editing keys, &H91 up F1...), [6] the modifier bits (1
+                                                  left Alt, 2 left Ctrl, 4 left GUI, 8 left Shift, 16-128 the right
+                                                  ones); returns how many keys are held */
 };
 
 #endif

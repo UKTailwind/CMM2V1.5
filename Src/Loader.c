@@ -34,6 +34,8 @@ extern volatile char ConsoleRxBuf[];
 extern volatile int ConsoleRxBufHead, ConsoleRxBufTail;
 extern UART_HandleTypeDef huart1, huart2, huart4;
 extern void CheckKeyboard(void);
+extern volatile uint8_t pagesetdone;                                // set by the LTDC's interrupt at each frame (ltdc.c)
+extern int KeyDown[7];                                              // the keys held (KeyboardMap.c)
 
 #define LD_FILES  8
 #define LD_DIRS   4
@@ -229,6 +231,44 @@ static void ld_oplwrite(void *chip, uint32_t reg, uint32_t value) { OPLChipWrite
 static void ld_oplgen(void *chip, int16_t *buf, uint32_t frames) { OPLChipGenerate(chip, buf, frames); }
 static void ld_oplfree(void *chip) { if(chip) { OPLChipDone(chip); LoaderRelease(chip); } }
 
+// the screen (version 2): MODE's checks made here, so setmode raises no error; the mode and palette BASIC had are put
+// back by LoaderRun when the program ends
+static int ldpalette;                                               // the program changed the palette
+static void ld_frame(void) {                                       // the next frame's start, or 50 ms
+    uint64_t end = MicrosNow() + 50000;
+    pagesetdone = 0;
+    while(!pagesetdone && MicrosNow() < end) {}
+}
+static int ld_vmode(int mode, int depth, cmm2_video *v) {
+    if(mode < 1 || mode > MAX_MODES || depth != 8) return -1;
+    if(mode == 16 && !(G1Hardware == 0 && HAL_GetREVID() != 0x1003)) return -1;
+    if(VideoColour != depth && PageTable[WPN].address != NULL) return -2;   // (a FRAMEBUFFER of another depth)
+    setmode(mode, depth, 0, 0);
+    v->fb = PageTable[0].address;
+    v->width = PageTable[0].xmax;
+    v->height = PageTable[0].ymax;
+    v->copies = PageTable[0].expand ? 2 : 1;                        // (a doubled mode's page holds each line twice: Draw.c)
+    v->pitch = v->width * v->copies;
+    v->bpp = 8;
+    memset(v->fb, 0, v->pitch * v->height);                         // (the same mode again is not cleared by setmode)
+    return 0;
+}
+static int ld_palette(int start, int count, const uint8_t *rgb) {
+    int i;
+    if(VideoColour != 8 || start < 0 || count < 0 || start + count > 256) return -1;
+    for(i = 0; i < count; i++, rgb += 3) CLUT[start + i] = (uint32_t)rgb[0] << 16 | rgb[1] << 8 | rgb[2];
+    ld_frame();
+    HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+    ldpalette = 1;
+    return 0;
+}
+static int ld_keys(int keys[7]) {
+    int i, n = 0;
+    for(i = 0; i < 7; i++) keys[i] = KeyDown[i];
+    for(i = 0; i < 6; i++) if(keys[i]) n++;
+    return n;
+}
+
 /*******************************************************************************************
  calling the program on its own stack
 *******************************************************************************************/
@@ -278,6 +318,7 @@ static const struct cmm2_services ldsvc = {
     .dir_close = ld_closedir,
     .poll = ld_poll, .leave = ld_leave, .cpu_hz = ld_cpuhz, .alloc = LoaderAlloc, .release = LoaderRelease,
     .opl_new = ld_oplnew, .opl_write = ld_oplwrite, .opl_generate = ld_oplgen, .opl_free = ld_oplfree,
+    .video_mode = ld_vmode, .video_palette = ld_palette, .video_wait = ld_frame, .keys_held = ld_keys,
 };
 
 /*******************************************************************************************
@@ -425,8 +466,27 @@ int LoaderRun(char *name) {
     ldstart.heap_size = LOADER_SIZE - end - stack;
     ldstart.base = LOADER_BASE;
     MMAbort = 0;
+    int oldmode = VideoMode, oldcolour = VideoColour, oldpico = PicoActive;   // BASIC's screen, put back at the end: a
+    int oldfont = gui_font, oldfc = gui_fcolour, oldbc = gui_bcolour;   // mode change clears it, but its mode, font,
+    uint32_t oldclut[256];                                          // colours and palette (MAP's) are as they were
+    memcpy(oldclut, CLUT, sizeof(oldclut));
+    ldpalette = 0;
     code = LoaderCall(base + h.entry, &ldstart, LOADER_BASE + LOADER_SIZE);
     ld_tidy();                                                      // (a Ctrl-C stays: the BASIC program stops next)
+    ConsoleRxBufTail = ConsoleRxBufHead;                            // (the keys the program had, not typed into BASIC)
+    int changed = VideoMode != oldmode || VideoColour != oldcolour || PicoActive != oldpico;
+    if(changed) {
+        if(oldpico) PicoModeSet(PicoModeNow);                       // (OPTION PICOMITE's window: its MODE again)
+        else setmode(oldmode, oldcolour, 0, 0);
+        SetFont(oldfont);
+        gui_fcolour = oldfc;
+        gui_bcolour = oldbc;
+    }
+    if(oldcolour == 8 && (changed || ldpalette)) {
+        memcpy(CLUT, oldclut, sizeof(CLUT));
+        ld_frame();
+        HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+    }
     FreeMemory(argv);
     if(code) {
         char b[STRINGSIZE + 40];
