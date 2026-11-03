@@ -1,4 +1,7 @@
-"""chapter.py TEXT.md [...]: writes chapters of the manual from their text (docs/Manual_Plan.md, M3).
+"""chapter.py [--docx DOCX] [--rawcode] TEXT.md [...]: writes chapters of the manual from their text
+(docs/Manual_Plan.md, M3). --docx writes another document of the same template instead (the companion manual
+Colour_Maximite_2_Loadable_Programs.docx: tools/manual/guide.py); --rawcode takes a code block's lines as they are, with
+no **bold** or other marks in them (C has char **argv).
 
 Each file in docs/manual/text/ is one chapter. Its first line, "# Title", names the chapter's Heading 1 in
 docs/manual/Colour_Maximite_2_User_Manual.docx. Everything between that heading and the next Heading 1 is replaced by
@@ -32,6 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 MANUAL = os.path.join(ROOT, 'docs', 'manual', 'Colour_Maximite_2_User_Manual.docx')
 B14 = r'D:\Dropbox\VSCode-STM32\Colour_Maximite_2_User_Manual.pdf'
 TODO = '[MANUAL TODO] '
+RAWCODE = False                                         # (--rawcode)
 TEXT_WIDTH = 9866                                       # twips: A4 less the 18 mm margins
 BULLETS = '5'                                           # the manual's bullet list (numbering.xml)
 
@@ -118,7 +122,12 @@ class Writer:
             p.paragraph_format.left_indent = Cm(540 / 567)
             p.paragraph_format.space_before = Pt(0)
             p.paragraph_format.space_after = Pt(6) if n == len(lines) - 1 else Pt(0)
-            self.runs(p, line if line else ' ', code=True)
+            if RAWCODE:                                 # (9 point: 86 characters to a line)
+                r = p.add_run(line if line else ' ')
+                r.font.name = 'Courier New'
+                r.font.size = Pt(9)
+            else:
+                self.runs(p, line if line else ' ', code=True)
         self.after_block = True
 
     def note(self, text, todo=True):
@@ -276,6 +285,12 @@ def keep(d, body, is_h1, title, path):
 
 
 def main():
+    global MANUAL, RAWCODE
+    args = sys.argv[1:]
+    if args[:1] == ['--docx']:
+        MANUAL, args = os.path.abspath(args[1]), args[2:]
+    if args[:1] == ['--rawcode']:
+        RAWCODE, args = True, args[1:]
     d = docx.Document(MANUAL)
     sid = {s.style_id: s.name for s in d.styles}
     body = d.element.body
@@ -287,7 +302,7 @@ def main():
         st = ppr.find(qn('w:pStyle')) if ppr is not None else None
         return st is not None and sid.get(st.get(qn('w:val'))) == 'Heading 1'
 
-    for path in sys.argv[1:]:
+    for path in args:
         lines = open(path, encoding='utf-8').read().split('\n')
         if len(lines) > 2 and lines[2].strip() == '!KEEP':
             keep(d, body, is_h1, lines[0][2:].strip(), path)    # (a chapter kept as it is: its notes go)

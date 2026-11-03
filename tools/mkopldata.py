@@ -1,4 +1,4 @@
-"""mkopldata.py GENMIDI.OP2 TUNE.mid OUT.c: Src/OPLData.c, the data PLAY MIDI keeps in flash (G2 only).
+"""mkopldata.py GENMIDI.OP2 TUNE.mid OUT.c: Src/OPLData.c, the data PLAY MIDI keeps in flash.
 
   OPLGenMidi    the GENMIDI instrument bank: 175 instruments of 36 bytes (128 General MIDI programs, then the drums
                 of notes 35-81), the file's "#OPL_II#" header and its 32-byte names left out
@@ -43,7 +43,7 @@ if tune[:4] != b'MThd':
 with open(sys.argv[3], 'w', newline='\n') as f:
     f.write('/* OPLData.c: made by tools/mkopldata.py, not by hand. The GENMIDI instrument bank (175 instruments of 36 bytes:\n')
     f.write('   the 128 General MIDI programs, then the drums of notes 35-81) and the tune of PLAY MIDI TEST (%s), both from\n' % os.path.basename(sys.argv[2]))
-    f.write('   Freedoom 0.13.0 (BSD-3-Clause), for PLAY MIDI (OPL.c, G2 only). Freedoom\'s notice:\n\n')
+    f.write('   Freedoom 0.13.0 (BSD-3-Clause), for PLAY MIDI (OPL.c). Freedoom\'s notice:\n\n')
     f.write('\n'.join('   ' + l for l in LICENCE.split('\n')) + '\n*/\n\n')
     f.write(carray('OPLGenMidi', gm[8:8 + 175 * 36]))
     f.write('\n')

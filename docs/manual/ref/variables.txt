@@ -276,8 +276,8 @@ The directory set by OPTION SEARCH PATH, in which RUN at the command prompt look
 =+= MM.INFO$(SOUND)
 MM.INFO$(TRACK)
 --- keep
-What the audio output is doing: "OFF", "TONE", "WAV", "FLAC", "MP3", "MODFILE", "SOUND", "TTS", "ARRAY", "SAMPLE", "BBC" or "DAC" (the DAC command), or "PAUSED" while any of these is paused.  With OPTION PICOMITE it gives the PicoMite's strings: "MOD" for a module, and "PAUSED" followed by a space and what is paused (eg, "PAUSED WAV").
-The name of the WAV, FLAC, MP3 or MOD file that is playing (or paused), or "OFF".
+What the audio output is doing: "OFF", "TONE", "WAV", "FLAC", "MP3", "MODFILE", "SOUND", "TTS", "ARRAY", "SAMPLE", "BBC", "OPL" (PLAY OPL), "MIDI" (PLAY MIDI, PLAY MIDIFILE and PLAY MIDI TEST) or "DAC" (the DAC command), or "PAUSED" while any of these is paused.  With OPTION PICOMITE it gives the PicoMite's strings: "MOD" for a module, and "PAUSED" followed by a space and what is paused (eg, "PAUSED WAV").
+The name of the WAV, FLAC, MP3, MOD, OPL or MIDI file that is playing (or paused), "MIDI TEST" during PLAY MIDI TEST, or "OFF".
 
 =+= MM.INFO(SYSTEM HEAP)
 --- keep

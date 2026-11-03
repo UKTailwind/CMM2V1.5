@@ -2,7 +2,8 @@
 copies). Headings: the title centred, size 5, blue; ## size 4, blue, after two blank lines; ### size 3. A line that is
 all *italic* is [I]. List items are bullets; items indented two spaces are hollow bullets after four non-breaking spaces,
 which the forum keeps. **bold** is [B], `code` is Courier. A ``` block (indented or not) is [CODE], its lines as they
-are less the fence's indent. The blank line after a heading is dropped."""
+are less the fence's indent. Lines starting > (a quoted block, such as a licence's notice) are one [QUOTE]. The blank
+line after a heading is dropped."""
 import re
 import sys
 
@@ -19,7 +20,14 @@ def convert(md):
     lines = md.replace('\r\n', '\n').split('\n')
     skip_blank = False
     fence, block = None, []                                         # the open ``` block's indent, and its lines
+    quote = None                                                    # the open > block's lines
     for line in lines:
+        if line.startswith('>'):
+            quote = (quote or []) + [inline(line[1:].lstrip())]
+            continue
+        if quote is not None:
+            out.append('[QUOTE]' + '\n'.join(quote) + '[/QUOTE]')
+            quote = None
         if fence is not None:
             if line.strip() == '```':
                 out.append('[CODE]' + '\n'.join(block) + '[/CODE]')
@@ -55,6 +63,8 @@ def convert(md):
             out.append('\u2022 ' + inline(line[2:]))
         else:
             out.append(inline(line))
+    if quote is not None:
+        out.append('[QUOTE]' + '\n'.join(quote) + '[/QUOTE]')
     while out and out[-1] == '':
         out.pop()
     return '\n'.join(out) + '\n'

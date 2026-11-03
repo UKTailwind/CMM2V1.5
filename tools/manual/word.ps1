@@ -39,4 +39,7 @@ try {
 }
 # the reference sections' entries as bookmarks under their Detailed Listing headings, which Word's export does not make
 # (bookmarks.py, as the PicoMite's add_manual_bookmarks.py; 24 Oct 2026)
-if ($Pdf) { & python -I (Join-Path $PSScriptRoot 'bookmarks.py') $Docx $Pdf }
+# (the user manual's only: the companion manuals have no reference sections)
+if ($Pdf -and (Split-Path $Docx -Leaf) -eq 'Colour_Maximite_2_User_Manual.docx') {
+    & python -I (Join-Path $PSScriptRoot 'bookmarks.py') $Docx $Pdf
+}

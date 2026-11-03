@@ -328,8 +328,9 @@ def run_program(b, run, inputs):
 
 STLINK = r"C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
 PROBES = {"COM4": "0667FF575255878281071917",           # each test board's ST-Link, by its console port: the G2 on the
-          "COM34": "37FF71064E5734367D2B1643",          # Nucleo's, the G1 on the ST-Link V2 (COM34, and COM33 since
-          "COM33": "37FF71064E5734367D2B1643"}          # 23 Oct 2026)
+          "COM34": "37FF71064E5734367D2B1643",          # Nucleo's, the G1 on the ST-Link V2 (COM34, COM33 since
+          "COM33": "37FF71064E5734367D2B1643",          # 23 Oct 2026, COM40 since 2 Nov)
+          "COM40": "37FF71064E5734367D2B1643"}
 
 
 def fresh_slots(b, flash):

@@ -1,4 +1,4 @@
-"""make.py: builds apps/doom/out/doom.app, Doom for the CMM2 G2 (doomgeneric_cmm2.c). doomgeneric is fetched the first
+"""make.py: builds apps/doom/out/doom.app, Doom for the CMM2 (doomgeneric_cmm2.c). doomgeneric is fetched the first
 time into apps/doom/doomgeneric (git ignores it), at the commit below, and built unaltered with the files its own
 Makefile names (and mus2mid.c, for the music), its X11 layer replaced by doomgeneric_cmm2.c, with FEATURE_SOUND (stub/
 holds the SDL_mixer.h it then includes, empty). The program is GPL-2.0, as doomgeneric is: its source

@@ -77,7 +77,7 @@ def main():
     inc = [os.path.join(HERE, 'overlay', 'src'), os.path.join(HERE, 'overlay', 'drivers'), os.path.join(SRC, 'src'),
            os.path.join(SRC, 'src', 'engines'), os.path.join(SRC, 'drivers'), os.path.join(HERE, 'stub')]
     cmd = [sys.executable, '-I', os.path.join(REPO, 'tools', 'sdk', 'build.py'), os.path.join(out, 'scummvm.app'),
-           '--sources', listfile, '--api', '3', '--stack', '0x10000', '--g2']   # (7 MB: not on a G1)
+           '--sources', listfile, '--api', '4', '--stack', '0x10000', '--g2']   # (7 MB: not on a G1)
     for i in inc:
         cmd += ['-I', i]
     cmd += ['--cflag=-D' + d for d in DEFINES] + ['--cflag=-w']

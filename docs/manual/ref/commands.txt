@@ -2232,6 +2232,45 @@ The BBC Micro's ENVELOPE statement.  Defines envelope 'n' (1 to 16) for use as t
 'T' is the length of each step in hundredths of a second (bits 0 to 6, 0 is treated as 1); add 128 to stop the pitch envelope repeating.  'PI1', 'PI2' and 'PI3' (-128 to 127) are the pitch change per step, in quarter semitones, in each of three pitch sections and 'PN1', 'PN2' and 'PN3' (0 to 255) are the number of steps in each section.  When the three sections are done the pitch returns to the note's own and the sections repeat, unless 128 was added to T.
 'AA', 'AD', 'AS' and 'AR' (-127 to 127) are the volume change per step during the attack, decay, sustain and release phases and 'ALA' and 'ALD' (0 to 126) are the levels the attack rises to and the decay falls to (126 is as loud as amplitude -15).  The attack runs from 0 to ALA, the decay from there to ALD, the sustain lasts until the note's duration ends and the release then runs until the level reaches 0, at which point the note ends.  A release of 0 never ends the note, so it will sound until the channel is flushed.
 
+=== PLAY MIDI
+--- keep
+Turns on the FM synthesiser (an emulated Yamaha YMF262, the OPL3 chip of the Sound Blaster cards: see the chapter Sound Output) as a General MIDI instrument, so that a program can play music on it note by note with PLAY NOTE and PLAY MIDI CMD.  It is silent until notes are played and stays on until PLAY STOP or the end of the program.  This is the PicoMite's syntax: the PicoMite needs a VS1053 module for it, and the Colour Maximite 2 needs nothing extra.
+Each of the 128 General MIDI instruments (programs), and each drum of channel 9 (notes 35 to 81), is an FM instrument of the GENMIDI bank built into the firmware, which comes from Freedoom.  Up to 18 notes sound at once: a note started while all 18 are sounding takes the place of the oldest.  The velocity, volume (controller 7), expression (11), pan (10), the sustain pedal (64) and pitch bend (2 semitones) are followed.  A note or command is heard at the next audio buffer, 46 to 93 ms later.
+
+=+= PLAY NOTE ON channel, note, velocity
+PLAY NOTE OFF channel, note [, velocity]
+---
+Starts or ends a note after PLAY MIDI.  ‘channel’ is the MIDI channel, 0 to 15: channel 9 is the drums, where the note chooses the drum.  ‘note’ is the MIDI note number, 0 to 127 (60 is middle C), and ‘velocity’ is how hard the note is struck, 0 to 127.  PLAY NOTE OFF's ‘velocity’ is accepted and not used.  Without PLAY MIDI the error is "Midi output not enabled".
+
+=+= PLAY MIDI CMD cmd, data1 [, data2]
+---
+Sends a MIDI channel message to the synthesiser after PLAY MIDI.  ‘cmd’ is the status byte, &H80 to &HEF: its upper four bits are the message and its lower four the channel (&H80 note off, &H90 note on, &HB0 a controller, &HC0 a program change, &HE0 pitch bend).  ‘data1’ and ‘data2’ are the message's data bytes, 0 to 127.  For example, PLAY MIDI CMD &HC0, 40 makes channel 0 a violin.  Controllers 120 and 123 end the channel's notes and 121 resets its controllers.  System messages (&HF0 to &HFF) are accepted and ignored.
+
+=+= PLAY MIDI TEST [n]
+---
+Plays a tune kept in the firmware on the synthesiser (the title music of Freedoom's FreeDM, 11 seconds), to try the sound output.  ‘n’ (1 to 3) is accepted, as on the PicoMite where it chooses a test; here each plays the same tune.  It ends a PLAY MIDI that is on.
+
+=+= PLAY MIDIFILE file$ [, interrupt]
+---
+Plays a Standard MIDI File (type 0 or 1) on the synthesiser.  ".MID" is added to ‘file$’ if it has no extension.  The whole file is read into memory and played in the background, once: two seconds after its last event, for the notes to die away, the sound ends and ‘interrupt’, if given (in a program only), is called.  MM.INFO$(TRACK) returns the file's name while it plays.  A file timed in SMPTE frames rather than in beats gives the error "MIDI timing not supported".
+
+=== PLAY OPL file$ [, interrupt]
+--- keep
+Plays a music file recorded from an OPL chip, as the music of many DOS games is, on the FM synthesiser.  ‘file$’ can be an IMF file (id Software's format, used by Wolfenstein 3D and Commander Keen: a file ending .IMF is played at 560 ticks a second and one ending .WLF at 700), a DOSBox capture (.DRO, versions 0.1 and 2.0) or a VGM log of an OPL, an OPL2 (one or two of them) or an OPL3 (.VGM).  A compressed VGM file (.VGZ) must be unpacked first.  ".VGM" is added if ‘file$’ has no extension.  The format is found from the file's contents, and IMF from the extension.
+The whole file is read into memory and played in the background, once.  ‘interrupt’ (in a program only) is called when it has finished.  A file for two OPL2 chips gets a second synthesiser, mixed with the first.  MM.INFO$(TRACK) returns the file's name while it plays.
+
+=+= PLAY OPL
+PLAY OPL WRITE reg, value [, reg, value ...]
+PLAY OPL RESET
+---
+PLAY OPL with nothing after it turns the synthesiser on for a program that plays it by writing to its registers, as a DOS program wrote to an AdLib or Sound Blaster card.  It is silent until it is written to, and stays on until PLAY STOP or the end of the program.
+PLAY OPL WRITE writes ‘value’ (0 to 255) to the register ‘reg’: 0 to &HFF are the OPL3's first bank of registers and &H100 to &H1FF its second (bit 0 of &H105 turns on the OPL3's own features; without it the chip is an OPL2, as on an AdLib card).  One command writes up to 19 pairs.  The writes are made in order at the chip's own pace, one every 20 microseconds as a real chip takes them, and are heard at the next audio buffer, 46 to 93 ms later.  The registers are described in the YMF262's data sheet and in any AdLib programming guide.
+PLAY OPL RESET returns every register to its value at reset, which silences the chip.  After PLAY MIDI or PLAY MIDIFILE it also ends every note.  Either command without the synthesiser on gives the error "OPL is not on".
+
+=+= PLAY OPL TEST [seconds [, voices]]
+---
+Measures the synthesiser's share of the processor.  It makes ‘seconds’ (1 to 60, default 1) of sound with ‘voices’ (0 to 18, default 18) voices sounding, without playing it, and prints the time this took and the share of the processor that is: first with the synthesiser's state in the SDRAM and then in internal RAM.  No sound may be playing.
+
 === PLAY PAUSE
 PLAY RESUME
 PLAY STOP
@@ -2485,6 +2524,8 @@ If ‘file$’ is omitted the current program is run: the file that the program 
 The program is loaded from its file every time it is run: MMBasic inserts any #INCLUDE files, makes the #DEFINE substitutions, removes the comments, blank lines and unnecessary spaces and keeps the result in program memory, from where it runs (see the chapter Using MMBasic).  Then all variables are cleared, files are closed, any sound is stopped, the video mode is set to the default (see OPTION DEFAULT MODE), and the code in the library outside its subroutines and functions runs before the program's first line.
 ‘cmdline’ is passed to the program, which reads it as MM.CMDLINE$.  It is not processed by MMBasic, so it can contain numbers, commas, quoted strings, etc: it is for the program to decode.  Without a ‘file$’ it follows RUN or a comma (eg, RUN -f or RUN , -f).
 See also the \* shortcut, which runs a program without the quotes.
+A file whose name ends in .APP is a loadable program: a program written in C or C++ and compiled for the Colour Maximite 2's processor, such as a game, an emulator or another programming language (see Loadable Programs in the chapter Using MMBasic).  RUN "name.app" loads it and runs it.  The words after the comma are given to it as its arguments, separated by spaces (a word in quotes can hold spaces).  The BASIC program in program memory is not touched: at the command prompt MMBasic returns to the prompt when the program ends, and in a BASIC program the next statement runs, with the program's variables as they were.  A non-zero exit code is printed as "name.app ended with code n".  Ctrl-C asks the loadable program to end, and then also stops the BASIC program that ran it, unless the loadable program uses Ctrl-C itself (MicroPython does, as KeyboardInterrupt).
+When it ends, MMBasic closes the files it left open, stops its sound, releases the I/O pins it used and puts back the video mode, font, colours and palette that were in use.  If it cannot be run the error says why: "Not a loadable program", "Needs a newer firmware", "Needs a G2" (a program too large for a Generation 1 Colour Maximite 2), "Needs n KB, n KB free" or "The program file is damaged".
 
 === SAVE CONTEXT [CLEAR]
 --- keep

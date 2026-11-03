@@ -284,10 +284,24 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
       IntReady.any alone: the GUI is seen to once a millisecond. G2, MAXCTRLS 20 and the GUI started, ns a pass of
       a = a + 1: 4096 as text and 2032 compiled before, 3508 and 680 after (b5 with MAXCTRLS 0: 3581 and 745);
       solar_eclipse 2.19 s compiled before, 1.70 after. tests/cmm2 and tests/picomite OFF, ON and SHADOW: no
-      differences. Still to do: Peter's GUI checks by hand on the G2 (finger, mouse, the OSK, a spinner's repeat, a
-      slider's drag). The PicoMite's text loop calls ProcessTouch (in flash) after every statement while Ctrl or a USB
+      differences. Peter checked the GUI by hand on the G2 with a finger and the mouse and signed it off (2 Nov). The
+      PicoMite's text loop calls ProcessTouch (in flash) after every statement while Ctrl or a USB
       touch screen is there: likely the same cost, not measured.
+- [ ] **A mouse press reads as a swipe while a USB touch screen is plugged in** (found 2 Nov in the GUI hand test).
+      ProcessTouch's release takes the gesture's end point from usb_touch_x/y whenever usb_touch_present, so a mouse
+      press or GUI CLICK ends where the finger last touched: GUI CLICK 100,500, 720,70 and 400,300 gave SWIPE 3, 1, 3
+      and no TAP. The PicoMite's graphics/GUI.c is the same (usb_touch_present tested before gui_click_from_mouse). To
+      do: the end point from the press's owner (GuiClickFromMouse: the mouse, or the cursor's point for GUI CLICK);
+      a PicoMite issue if Peter wants one.
 - [x] **RUN f$ against SP Tools and the Welcome Tape** (Peter's check): every RUN either uses is a quoted name and a comma,
       the old path, or RUN prog$ (sys.run_shell), which now runs prog$. Checked on the G2: SP Tools matches its baseline
       but for tst_file, which needs a USB flash drive on C:; sptest's own chain in spflow, sptrans and splib; the menu's
       launch and return with its label.
+
+## Found on 3 Nov 2026 (tests/cmm2 on a G1, for the loader's G1 support)
+- [ ] **rgb121 hangs a G1 in MODE 8,4** (COM40): the third layer's FRAMEBUFFER LAYER TOP then FRAMEBUFFER WAIT never
+      returns, Ctrl-C does not reach the prompt, and only an ST-Link reset recovers. MODE 7,4 passes, and the G2 runs
+      the whole program. Not the loader's: main's own firmware (268eda3) hangs the same way. Likely (unchecked) the
+      merge of N, L and T onto the 640x480 display takes longer than a frame on the G1's 400 MHz and 16-bit SDRAM, so
+      the frame interrupt starves the program. The other G1 differences in tests/cmm2 are hardware: nine programs need
+      32-bit colour, guictl a mouse, and osk prints the G1's OPTION LIST.

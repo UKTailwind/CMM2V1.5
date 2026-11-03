@@ -1,6 +1,6 @@
 /* OPLData.c: made by tools/mkopldata.py, not by hand. The GENMIDI instrument bank (175 instruments of 36 bytes:
    the 128 General MIDI programs, then the drums of notes 35-81) and the tune of PLAY MIDI TEST (d_fdmttl.mid), both from
-   Freedoom 0.13.0 (BSD-3-Clause), for PLAY MIDI (OPL.c, G2 only). Freedoom's notice:
+   Freedoom 0.13.0 (BSD-3-Clause), for PLAY MIDI (OPL.c). Freedoom's notice:
 
    Copyright (c) 2001-2024 Contributors to the Freedoom project. All rights reserved.
    Redistribution and use in source and binary forms, with or without modification, are permitted provided that the

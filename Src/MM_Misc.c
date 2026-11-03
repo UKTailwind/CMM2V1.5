@@ -3512,7 +3512,7 @@ void OPTSIZE fun_info(void){
 		case P_PAUSE_SAMPLE:strcpy(sret,"PAUSED SAMPLE");break;
 		case P_BBC:strcpy(sret,"BBC");break;
 		case P_PAUSE_BBC:strcpy(sret,"PAUSED BBC");break;
-		case P_OPL:strcpy(sret,OPLSoundName());break;               // PLAY OPL and PLAY MIDI (OPL.c, G2): "OPL" or "MIDI"
+		case P_OPL:strcpy(sret,OPLSoundName());break;               // PLAY OPL and PLAY MIDI (OPL.c): "OPL" or "MIDI"
 		case P_PAUSE_OPL:strcpy(sret,"PAUSED ");strcat(sret,OPLSoundName());break;
 		default:strcpy(sret,"OFF");break;
 		}

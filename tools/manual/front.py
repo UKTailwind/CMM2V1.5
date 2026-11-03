@@ -32,6 +32,9 @@ THANKS = [
     'Marcel Rodrigues wrote the GIF decoder.',
     'Maury Quijada wrote the image resize and image rotate code.',
     'cJSON is copyright Dave Gamble and cJSON contributors.',
+    'The FM synthesiser is ymfm, copyright 2021 Aaron Giles (BSD 3-Clause licence).',
+    'The MIDI instrument bank and the PLAY MIDI TEST tune are from Freedoom, copyright 2001-2024 Contributors to the '
+    'Freedoom project (BSD 3-Clause licence). The two licences are in the firmware\'s release notes.',
     'The CRC calculations are copyright Rob Tillaart.',
     'Thomas Williams and Gerry Allardice for MMBasic enhancements.',
     'STM32 drivers and software components are copyright STMicroelectronics.',

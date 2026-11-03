@@ -1,10 +1,11 @@
 """build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--cflag FLAG ...]
             [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
-Builds a loadable program for the CMM2 G2 with the firmware's own toolchain (CMakePresets.json's ARM_TOOLCHAIN_DIR):
-compiles the sources with crt0.c and syscalls.c for the M7 (double-precision hard float; C++ as C++14 without
-exceptions or RTTI, and then linked by g++ for its library), links them with app.ld at
---base (default 0xD1800000, where the G2 loads a program, so nothing is moved), and makes OUT.app with mkimage.py.
+Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
+CMakePresets.json's, else the PATH's): compiles the sources with crt0.c and syscalls.c for the M7 (double-precision
+hard float; C++ as C++14 without exceptions or RTTI, and then linked by g++ for its library), links them with app.ld at
+--base (default 0xD1800000, where the G2 loads a program, so nothing is moved; a G1 moves it), and makes OUT.app with
+mkimage.py.
 The ELF and its map are left beside OUT.app. --base 0x60000000 makes a copy that the loader must relocate (a pointer
 it missed would then fault at once, the FMC bank there being unused): the test of the relocations.
 
@@ -13,12 +14,32 @@ JOBS at a time (default: every core). A source is compiled again only when it, o
 newer than its object, or the flags have changed. --cflag goes to C and C++, --cxxflag to C++ only, --ldflag to the
 link. --sources names a file of sources, one a line, for lists too long for a command line.
 """
-import argparse, concurrent.futures, hashlib, json, os, subprocess, sys
+import argparse, concurrent.futures, hashlib, json, os, shutil, subprocess, sys
 
 SDK = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(SDK))
-tooldir = json.load(open(os.path.join(REPO, 'CMakePresets.json')))['configurePresets'][0]['cacheVariables']['ARM_TOOLCHAIN_DIR']
 EXE = '.exe' if os.name == 'nt' else ''
+
+
+def toolchain():
+    """the folder of arm-none-eabi-gcc: the environment's ARM_TOOLCHAIN_DIR (as the firmware's README has it), else
+    CMakePresets.json's, else wherever the PATH finds it"""
+    dirs = [os.environ.get('ARM_TOOLCHAIN_DIR', '')]
+    try:
+        dirs.append(json.load(open(os.path.join(REPO, 'CMakePresets.json')))['configurePresets'][0]['cacheVariables']
+                    ['ARM_TOOLCHAIN_DIR'])
+    except (OSError, ValueError, KeyError, IndexError):
+        pass
+    for d in dirs:
+        if d and os.path.exists(os.path.join(d, 'arm-none-eabi-gcc' + EXE)):
+            return d
+    found = shutil.which('arm-none-eabi-gcc')
+    if found:
+        return os.path.dirname(found)
+    sys.exit('arm-none-eabi-gcc not found: set ARM_TOOLCHAIN_DIR to its folder, or put it on the PATH')
+
+
+tooldir = toolchain()
 GCC = os.path.join(tooldir, 'arm-none-eabi-gcc' + EXE)
 GXX = os.path.join(tooldir, 'arm-none-eabi-g++' + EXE)
 

@@ -1,4 +1,4 @@
-/* doomgeneric_cmm2.c: Doom on the Colour Maximite 2 G2, a loadable program (RUN "doom.app") through doomgeneric, which
+/* doomgeneric_cmm2.c: Doom on the Colour Maximite 2 (G1 and G2), a loadable program (RUN "doom.app") through doomgeneric, which
    make.py fetches. MIT License, as Inc/cmm2img.h; the program built with it is GPL-2.0, as Doom's source is.
 
      The picture: MODE 3,8 (320x200, 256 colours). Doom's frame is copied to the page (each line twice: the mode shows

@@ -1,14 +1,14 @@
-# Colour Maximite 2: MMBasic 7.00.00b5 (beta) release notes, from 5.07.02
+# Colour Maximite 2: MMBasic 7.00.00RC0 (release candidate) release notes, from 5.07.02
 
-*2 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous beta, 7.00.00b4, have notes of their own.*
+*3 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last beta, 7.00.00b5, have notes of their own.*
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
-The fourth beta added USB touch screens, with the GUI controls, gestures and an on-screen keyboard, and the PicoMite's STEPPER command for stepper motors driven by G-code. This beta comes from running published Colour Maximite 2 programs (Wolf3D, Gauntlet, Into the Darkness, Z-MIM, NOMIS, BoxDot, Cuno, the Welcome Tape and SP Tools), and fixes the problems they found. With OPTION COMPILE ON, it also compiles the graphics commands and most built-in functions.
+The betas added USB touch screens, with the GUI controls, gestures and an on-screen keyboard, and the PicoMite's STEPPER command for stepper motors driven by G-code, and they were checked by running published Colour Maximite 2 programs (Wolf3D, Gauntlet, Into the Darkness, Z-MIM, NOMIS, BoxDot, Cuno, the Welcome Tape and SP Tools). This release candidate adds loadable programs, written in C or C++ and run with RUN (MicroPython, Doom and ScummVM come with it), and an FM synthesiser that plays MIDI and the music of DOS games.
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
-This is a beta: a work-in-progress build for users to try. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
+This is the first release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -24,6 +24,14 @@ The serial console runs at 115200 baud after the update. A Generation 2 can run 
 You can go back to an earlier firmware the same way, should you need to.
 
 ## What is new
+
+### Loadable programs
+
+- A file ending .APP is a program written in C or C++ and compiled for the processor: `RUN "name.app" [, words]` runs it, at the full speed of the processor, and MMBasic carries on when it ends (at the prompt, or with the BASIC program's next statement), tidying up after it.
+- It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
+- MicroPython (as on the Pico Computer 3), Doom (with Freedoom) and ScummVM (for classic adventure games, Generation 2 only) come with the firmware, in CMM2_Programs_7.00.00RC0.zip.
+- A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs.
+- The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk.
 
 ### OPTION PICOMITE
 
@@ -139,6 +147,7 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 - BBC Micro sound: PLAY BBC SOUND and PLAY BBC ENVELOPE.
 - PLAY MODFILE can play once and call an interrupt at its end, and PLAY EFFECT has its own interrupt.
 - MM.INFO(SOUND) also reports ARRAY, SAMPLE and BBC sound.
+- An FM synthesiser (ymfm's emulation of the OPL3): PLAY MIDIFILE plays MIDI files; PLAY MIDI, PLAY NOTE ON and OFF, PLAY MIDI CMD and PLAY MIDI TEST are the PicoMite's commands for its VS1053 module, with no module needed; PLAY OPL plays IMF, DRO and VGM music recorded from an OPL chip, and PLAY OPL WRITE writes its registers. MM.INFO(SOUND) reports OPL and MIDI.
 - Volume changes, stops and pauses are smooth (no clicks), and PLAY SOUND's square and sawtooth are band-limited.
 
 ### Communications and I/O
@@ -491,15 +500,19 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 
 - A touch monitor that is also the Colour Maximite 2's display may reset its touch controller when the screen's resolution changes (MODE). Touches are not seen for a moment while it reconnects.
 - An armed interrupt pin slows the program down, because the pin is polled after every statement.
-- With a USB touch screen connected and OPTION MAXCTRLS above 0, every statement checks for the GUI's touch input, so programs run slower: the solar eclipse benchmark takes 2.2 s compiled instead of 1.7 s, and 6.4 s as text instead of 6.2 s. OPTION MAXCTRLS 0 avoids it when no GUI controls are needed.
+- RUN's arguments are changed when RUN does not start the line: in `CHDIR "A:/Doom" : RUN "doom.app", -timedemo demo1` they are given as MMBasic stores them, in capitals and with the minus sign changed, and MM.CMDLINE$ after a RUN inside a program the same way. RUN typed as a line of its own passes them as they are written.
+- On a Generation 1, the test program rgb121 stops responding in MODE 8,4 when it shows three layers (FRAMEBUFFER LAYER TOP) and waits for a frame. A reset is needed.
+- With a USB touch screen connected, a mouse click can be taken as a swipe by the GUI controls' gestures.
 - The keyboard layout list names IT, but it cannot be selected.
 
 ## The manual
 
 The Colour Maximite 2 User Manual for this release is posted with it. Its chapters and its reference sections (the commands, functions, options and read-only variables) have been checked against this firmware. Appendix N lists where each keyword is described.
 
-This beta's manual also describes:
+This release's manual also describes:
 
+- loadable programs, in the commands (RUN) and the chapter Using MMBasic;
+- the FM synthesiser, in the chapter Sound Output and in the commands (PLAY MIDI, PLAY NOTE, PLAY MIDI CMD, PLAY MIDI TEST, PLAY MIDIFILE and PLAY OPL);
 - the touch screens and the on-screen keyboard, in the chapter Keyboard, Mouse and Gamepad;
 - TOUCH(), CLICK(), GUI CURSOR, GUI CLICK, GUI TEST, KEYBOARD and OPTION SCREEN KEYBOARD, in the reference sections;
 - the editor's swipes and taps, in the chapter Full Screen Editor;
@@ -507,4 +520,4 @@ This beta's manual also describes:
 - variables with a command's name, in the chapters Variables and Expressions and MMBasic Characteristics;
 - MM.MOUSE and the mouse's centring on a mode change, in the chapter Keyboard, Mouse and Gamepad.
 
-STEPPER is described in Stepper_Reference.pdf, posted with the manual.
+STEPPER is described in Stepper_Reference.pdf, and writing loadable programs in Colour_Maximite_2_Loadable_Programs.pdf, both posted with the manual.

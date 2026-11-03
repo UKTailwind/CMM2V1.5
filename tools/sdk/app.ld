@@ -1,6 +1,7 @@
-/* app.ld: a loadable program for the CMM2 G2 (tools/sdk). Linked as one block at __app_base (0xD1800000, where the
-   G2 loads it, unless build.py --base says otherwise) and loaded as one: code, constants, the init/fini arrays and
-   data, then .bss, which the loader zeroes. mkimage.py makes the file from the ELF this gives with --emit-relocs. */
+/* app.ld: a loadable program for the CMM2 (tools/sdk). Linked as one block at __app_base (0xD1800000, where the
+   G2 loads it, unless build.py --base says otherwise; a G1 moves it by its relocations) and loaded as one: code,
+   constants, the init/fini arrays and data, then .bss, which the loader zeroes. mkimage.py makes the file from the
+   ELF this gives with --emit-relocs. */
 ENTRY(_start)
 
 SECTIONS

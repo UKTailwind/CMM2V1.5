@@ -1,6 +1,6 @@
 # Sound Output
 
-The Colour Maximite 2 can play WAV, FLAC and MP3 files, generate synthesised music in the MOD format and the BBC Micro's sound, create robot speech and sound effects as well as generate precise sine wave tones. All these are output on the audio socket (see Audio Connector in the chapter Hardware Features). The ARM Cortex-M7 chip includes its own DAC (digital to analog converter) so an output filter network is not needed.
+The Colour Maximite 2 can play WAV, FLAC and MP3 files, generate synthesised music in the MOD format and the BBC Micro's sound, play MIDI and the music of DOS games on an FM synthesiser, create robot speech and sound effects as well as generate precise sine wave tones. All these are output on the audio socket (see Audio Connector in the chapter Hardware Features). The ARM Cortex-M7 chip includes its own DAC (digital to analog converter) so an output filter network is not needed.
 
 ## Playing WAV, FLAC, MP3 and MOD Files
 
@@ -48,6 +48,7 @@ There are a number of specialised audio commands that are mostly used in compute
 - PLAY ARRAY which plays 16-bit samples held in integer arrays.
 - PLAY SAMPLE which plays one cycle of a wave held in an array, looped under ADSR envelopes, and PLAY RELEASE which starts the release of its envelopes.
 - PLAY BBC SOUND and PLAY BBC ENVELOPE, described below.
+- PLAY MIDIFILE, PLAY MIDI and PLAY OPL, which play MIDI and the music of DOS games on an FM synthesiser, described below.
 
 See the details in the command listing.
 
@@ -72,6 +73,37 @@ PLAY BBC SOUND &H11, 2, 220, 4
 ```
 
 The audio output is released automatically when every channel is silent and every queue is empty, so a tune can be followed by PLAY WAV or PLAY MP3 without a PLAY STOP in between, and MM.INFO(SOUND) returns BBC while it is playing. Envelope definitions survive PLAY STOP and are cleared with the program's variables by RUN.
+
+## FM Synthesis and MIDI
+
+The firmware includes an FM synthesiser: an emulation of the Yamaha YMF262, the OPL3 chip of the Sound Blaster cards and the successor of the AdLib card's OPL2, by ymfm (Aaron Giles). It has 18 voices, each two (or four) operators, and it sounds as the music of the DOS games of the early 1990s sounded. It is used in four ways:
+
+```
+PLAY MIDIFILE file$ [, interrupt]
+PLAY MIDI : PLAY NOTE ON channel, note, velocity
+PLAY OPL file$ [, interrupt]
+PLAY OPL : PLAY OPL WRITE reg, value
+```
+
+PLAY MIDIFILE plays a Standard MIDI File. PLAY MIDI turns the synthesiser into a General MIDI instrument that a program plays note by note with PLAY NOTE ON, PLAY NOTE OFF and PLAY MIDI CMD, using the PicoMite's syntax for its VS1053 module. In both, each of the 128 General MIDI instruments and each drum is an FM instrument of the GENMIDI bank in the firmware (Freedoom's, the bank Doom's music was written for), so the result sounds like the MIDI music of a DOS game rather than a sampled instrument. PLAY MIDI TEST plays a short tune kept in the firmware:
+
+```
+PLAY MIDI TEST : PAUSE 11000
+```
+
+PLAY OPL plays music recorded from a real OPL chip: IMF files (Wolfenstein 3D, Commander Keen), DOSBox captures (.DRO) and VGM logs. PLAY OPL on its own lets a program write the chip's registers itself, as a DOS game wrote to an AdLib card. For example, this plays a simple organ note (an OPL2 instrument on channel 0) for a second:
+
+```
+PLAY OPL
+PLAY OPL WRITE &H20, &H01, &H40, &H10, &H60, &HF0, &H80, &H77
+PLAY OPL WRITE &H23, &H01, &H43, &H00, &H63, &HF0, &H83, &H77
+PLAY OPL WRITE &HA0, &H98, &HB0, &H31
+PAUSE 1000
+PLAY OPL WRITE &HB0, &H11
+PAUSE 500 : PLAY STOP
+```
+
+The synthesiser makes every sample in software, so it takes a large share of the processor while it plays: about 20% with no notes sounding and 30% to 55% for typical music on a Generation 2 at 480MHz (a little more on a Generation 1 at 400MHz). PLAY OPL TEST measures it. A BASIC program keeps about three quarters of its speed while music plays. Only one kind of sound plays at a time, so the synthesiser cannot play over a WAV or MOD file, and MM.INFO$(SOUND) returns "OPL" or "MIDI" while it plays.
 
 ## Using PLAY
 
@@ -116,4 +148,4 @@ There are a number of commands that can be used to manage the sound output:
 >> PLAY NEXT	Skip to the next file when playing a directory.
 >> PLAY PREVIOUS	Skip to the previous file when playing a directory.
 
-Changes in volume, stopping and pausing are smoothed over a few milliseconds so that they do not click. MM.INFO(SOUND) returns what the audio output is doing: OFF, WAV, FLAC, MP3, MODFILE, TONE, SOUND, TTS, DAC (the DAC command), ARRAY, SAMPLE or BBC, and PAUSED while any of these is paused. With OPTION PICOMITE it returns the PicoMite's strings: MOD for a module, and PAUSED followed by what was playing (eg, PAUSED WAV).
+Changes in volume, stopping and pausing are smoothed over a few milliseconds so that they do not click. MM.INFO(SOUND) returns what the audio output is doing: OFF, WAV, FLAC, MP3, MODFILE, TONE, SOUND, TTS, DAC (the DAC command), ARRAY, SAMPLE, BBC, OPL or MIDI, and PAUSED while any of these is paused. With OPTION PICOMITE it returns the PicoMite's strings: MOD for a module, and PAUSED followed by what was playing (eg, PAUSED WAV).

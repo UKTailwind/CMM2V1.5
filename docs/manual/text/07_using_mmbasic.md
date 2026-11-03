@@ -111,6 +111,23 @@ A program is set running by the RUN command. You can interrupt MMBasic and the r
 
 The running program is normally held in non volatile flash memory. This means that it will not be lost if the power is removed and, if you have the AUTORUN feature turned on, the program will automatically run when power is restored (use the OPTION AUTORUN command to turn it on). Normally an SD card holding the original program must be present in order to run a program but this is one of the exceptions and allows you to change the SD card for recording data, etc.
 
+## Loadable Programs
+
+As well as BASIC programs, the Colour Maximite 2 can run programs written in C or C++ and compiled for its processor. These loadable programs are files ending in .APP, kept on the SD card or USB flash drive like any other file and run with RUN:
+
+```
+RUN "doom.app"
+RUN "A:/apps/hello.app", one two "three four"
+```
+
+A loadable program runs at the full speed of the processor and takes over the computer while it runs: it can use the screen, the keyboard and mouse, the sound output, the files and the I/O pins through services that the firmware gives it. Games, emulators and other programming languages can be written or ported this way: the firmware's distribution includes MicroPython, the game Doom (with the Freedoom game data) and ScummVM (which runs many classic adventure games).
+
+The words after the comma are the program's arguments. When the program ends MMBasic carries on where it was: at the command prompt it returns to the prompt, and in a BASIC program it goes on with the next statement, with the BASIC program and its variables as they were. MMBasic closes the files the program left open, stops its sound, releases the I/O pins it used and restores the video mode, font, colours and palette. Pressing Ctrl-C asks the program to end and also stops the BASIC program that ran it, unless the program uses Ctrl-C itself (MicroPython turns it into a KeyboardInterrupt, as on other computers).
+
+On a Generation 2 Colour Maximite 2 a loadable program has 8MB of SDRAM of its own, set aside for it. A Generation 1 has no memory to spare for this, so the program borrows the largest free part of the MMBasic heap (less 256KB) while it runs and gives it back when it ends. At the command prompt that is about 4MB; in a BASIC program it is what the program's variables leave free. A program that needs more than the memory there is says so ("Needs n KB, n KB free"), and one built for the Generation 2 alone gives "Needs a G2".
+
+Writing a loadable program needs a PC with the free Arm GNU toolchain and Python. The process, the services that the firmware gives a program and the tools that build one are described in the companion manual *Colour Maximite 2 Loadable Programs* (see Appendix O).
+
 ## Expressions
 
 In most cases where a number or string is required you can also use an expression. For example:

@@ -5,6 +5,7 @@ Some features are large enough to have a manual of their own rather than an entr
 {widths: 30,45,25}
 | Manual | Covers | Notes |
 |---|---|---|
+| Colour_Maximite_2_Loadable_Programs.pdf | Writing loadable programs in C and C++ (RUN "name.app"): the tools that build them, how they are loaded and run, the services that the firmware gives them (the console, files, screen, keyboard, mouse, sound, the FM synthesiser and the I/O pins) and porting existing software. | The Colour Maximite 2's own, in the firmware's distribution. |
 | GUI Controls and Programming.pdf | The GUI controls - buttons, switches, LEDs, check boxes, spin boxes, text and number boxes, gauges and the date, time and position controls - together with CTRLVAL() and MSGBOX(). | The Colour Maximite 2's own. |
 | The 3D engine.pdf | The DRAW3D command and function: cameras, objects, rotation and hidden line removal. | The Colour Maximite 2's own. |
 | Graphics Programming on the CMM2 | Pages, layers, sprites and the other advanced graphics features, written for games developers (also on the Back Shed forum). | The Colour Maximite 2's own. |
