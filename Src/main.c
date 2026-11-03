@@ -3180,7 +3180,7 @@ static void MX_SD_SPI_Init(void)
   SD_SPI.Init.CRCPolynomial = 0x0;
   SD_SPI.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   SD_SPI.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
-  SD_SPI.Init.FifoThreshold = SPI_FIFO_THRESHOLD_16DATA;
+  SD_SPI.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;       // (a byte a packet: mmc_stm32.c's spi3_run)
   SD_SPI.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
   SD_SPI.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
   SD_SPI.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;

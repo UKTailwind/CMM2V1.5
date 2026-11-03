@@ -238,12 +238,42 @@ BYTE BitBangSwapSPI(BYTE data_out){
 /* Transmit/Receive data to/from MMC via SPI  (Platform dependent)       */
 /*-----------------------------------------------------------------------*/
 
+/* OPTION SD TIMING FAST: SPI3 at its registers, not through HAL's calls, whose state, locks and timeouts for each call
+   (and a byte at a time) took most of each byte's time: a 32 MB copy ran at 1.25 MB/s on a 24 MHz clock (3 Nov 2026).
+   A transfer is set to its length (TSIZE), started, its bytes kept up to 8 ahead in the 16-byte FIFOs so that the clock
+   runs on, and ended as HAL ends one (EOT, SPI off: SPISpeedSet's clock, in CFG1, is taken only while the SPI is off).
+   The FIFO threshold is one byte (MX_SD_SPI_Init), so that a single byte is a packet. tx NULL: 0xFF out; rx NULL: what
+   comes in dropped */
+static void spi3_run(const BYTE *tx, BYTE *rx, UINT cnt)
+{
+    SPI_TypeDef *s = SPI3;
+    UINT sent = 0, got = 0;
+    if(cnt == 0) return;
+    MODIFY_REG(s->CR2, SPI_CR2_TSIZE, cnt);
+    s->CR1 |= SPI_CR1_SPE;
+    s->CR1 |= SPI_CR1_CSTART;
+    while(got < cnt) {
+        if(sent < cnt && sent - got < 8 && (s->SR & SPI_SR_TXP)) {
+            *(volatile uint8_t *)&s->TXDR = tx ? tx[sent] : 0xFF;
+            sent++;
+        }
+        if(s->SR & SPI_SR_RXP) {
+            BYTE b = *(volatile uint8_t *)&s->RXDR;
+            if(rx) rx[got] = b;
+            got++;
+        }
+    }
+    while(!(s->SR & SPI_SR_EOT)) {}
+    s->IFCR = SPI_IFCR_EOTC | SPI_IFCR_TXTFC;
+    s->CR1 &= ~SPI_CR1_SPE;
+}
+
 /* Single byte SPI transfer */
 
 BYTE xchg_spi (BYTE data_out)
 {
     BYTE   clear;
-    HAL_SPI_TransmitReceive(&SD_SPI,&data_out,&clear,1,500);
+    spi3_run(&data_out, &clear, 1);
     return clear;                // return non-negative#
 }
 BYTE xchg_bitbang (BYTE data_out)
@@ -259,7 +289,7 @@ void xmit_spi_multi (
 	UINT cnt			// Number of bytes to send
 )
 {
-	HAL_SPI_Transmit(&SD_SPI,(uint8_t *)buff,cnt,500);
+	spi3_run(buff, NULL, cnt);
 	routinechecks(0);
 }
 void xmit_bitbang_multi (
@@ -276,7 +306,7 @@ void rcvr_spi_multi (
 	UINT cnt		// Number of bytes to receive
 )
 {
-	HAL_SPI_TransmitReceive(&SD_SPI,(uint8_t *)high,buff,cnt,500);
+	spi3_run(NULL, buff, cnt);
 	routinechecks(0);
 }
 void rcvr_bitbang_multi (
@@ -449,7 +479,7 @@ BYTE send_cmd (
 		command[3]=(arg >> 8);		// Argument[15..8]
 		command[4]=(arg);			// Argument[7..0]
 		command[5]=(CRC7(command, 5)<<1) | 1;
-		HAL_SPI_Transmit(&SD_SPI,command,6,500);
+		spi3_run(command, NULL, 6);
 	}
 	/* Receive command response */
 	if (cmd == CMD12) xchg_byte(0xFF);	/* Skip a stuff byte on stop to read */
