@@ -125,9 +125,11 @@ static void ld_path(const char *name, char *out) {
 }
 static int ld_fail(FRESULT r) { return r == FR_OK ? 0 : -(int)r; }
 static FIL *ld_fil(int h) { return (h >= 0 && h < LD_FILES) ? ldfile[h] : NULL; }
-// a file only read is given a map of its clusters (FatFs's fast seek): a seek, or the next cluster, is then found in the
-// table, not by following the FAT from the file's start over the card's SPI each time (Doom seeks to each lump of a
-// 28 MB WAD); 64 entries first, then as many as FatFs says it needs; without room it is read as before
+// a file opened as it is (read, or read and written in place) is given a map of its clusters (FatFs's fast seek): a
+// seek, or the next cluster, is then found in the table, not by following the FAT from the file's start over the card's
+// SPI each time (Doom seeks to each lump of a 28 MB WAD; the 386 PC to each sector of its disk images, 3 Nov 2026). A
+// write or seek past the end drops it (ld_unmap: with it a file cannot grow). 64 entries first, then as many as FatFs
+// says it needs; without room it is read as before
 static void ld_map(FIL *f) {
     DWORD n = 64, *t;
     FRESULT r;
@@ -140,6 +142,9 @@ static void ld_map(FIL *f) {
         FreeMemory(t);
         if(r != FR_NOT_ENOUGH_CORE) return;
     }
+}
+static void ld_unmap(FIL *f) {
+    if(f->cltbl) { FreeMemory(f->cltbl); f->cltbl = NULL; }
 }
 static void ld_free(FIL *f) {
     if(f->cltbl) FreeMemory(f->cltbl);
@@ -162,7 +167,7 @@ static int ld_open(const char *name, int mode) {
         FreeMemory(f);
         return -(int)r;
     }
-    if(!(m & FA_WRITE)) ld_map(f);
+    if(!(m & (FA_CREATE_ALWAYS | FA_OPEN_APPEND))) ld_map(f);
     ldfile[h] = f;
     return h;
 }
@@ -185,10 +190,16 @@ static int32_t ld_write(int h, const void *buf, uint32_t n) {
     UINT put = 0;
     FIL *f = ld_fil(h);
     if(f == NULL) return -FR_INVALID_OBJECT;
+    if(f_tell(f) + n > f_size(f)) ld_unmap(f);                     // (the file grows: the FAT is followed again)
     FRESULT r = f_write(f, buf, n, &put);
     return r ? -(int)r : (int32_t)put;
 }
-static int ld_seek(int h, uint32_t pos) { FIL *f = ld_fil(h); return f ? ld_fail(f_lseek(f, pos)) : -FR_INVALID_OBJECT; }
+static int ld_seek(int h, uint32_t pos) {
+    FIL *f = ld_fil(h);
+    if(f == NULL) return -FR_INVALID_OBJECT;
+    if(pos > f_size(f)) ld_unmap(f);                                // (past the end: as without the map)
+    return ld_fail(f_lseek(f, pos));
+}
 static int32_t ld_tell(int h) { FIL *f = ld_fil(h); return f ? (int32_t)f_tell(f) : -FR_INVALID_OBJECT; }
 static int32_t ld_size(int h) { FIL *f = ld_fil(h); return f ? (int32_t)f_size(f) : -FR_INVALID_OBJECT; }
 static int ld_sync(int h) { FIL *f = ld_fil(h); return f ? ld_fail(f_sync(f)) : -FR_INVALID_OBJECT; }
@@ -444,6 +455,13 @@ static void ld_mouseset(int x, int y) {
     mousestruct[c].ay = y < 0 ? 0 : y >= VRes ? VRes - 1 : y;
 }
 
+extern uint8_t KeyRaw[8];                                           // the keyboard's last report (USBKeyboard.c)
+static int ld_keysraw(uint8_t r[8]) {                              // (version 9)
+    int i, n = 0;
+    memcpy(r, KeyRaw, 8);
+    for(i = 2; i < 8; i++) if(r[i] >= 4) n++;                     // (1-3 are a keyboard's errors, not keys)
+    return n;
+}
 static int ld_keys(int keys[7]) {
     int i, n = 0;
     for(i = 0; i < 7; i++) keys[i] = KeyDown[i];
@@ -847,6 +865,7 @@ static const struct cmm2_services ldsvc = {
     .i2c_xfer = ld_i2cxfer, .spi_open = ld_spiopen, .spi_close = ld_spiclose, .spi_xfer = ld_spixfer,
     .com_open = ld_comopen, .com_close = ld_comclose, .com_write = ld_comwrite, .com_read = ld_comread,
     .com_avail = ld_comavail, .io_error = ld_ioerror,
+    .keys_raw = ld_keysraw,
 };
 
 /*******************************************************************************************

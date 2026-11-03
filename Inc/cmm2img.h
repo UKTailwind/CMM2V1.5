@@ -32,10 +32,10 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  8                 /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  9                 /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
-                                                  heap2, a G1's display memory lent) */
+                                                  heap2, a G1's display memory lent; 9: the keyboard's own codes) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
@@ -243,6 +243,12 @@ struct cmm2_services {
     int      (*com_read)(int com, uint8_t *buf, uint32_t n);   /* the bytes waiting, up to n: 0 if none (no wait) */
     int      (*com_avail)(int com);            /* the bytes waiting */
     const char *(*io_error)(void);             /* the firmware's message for the last -4 */
+    /* version 9 */
+    int      (*keys_raw)(uint8_t report[8]);   /* the USB keyboard's last report as it sent it: [0] its modifier bits
+                                                  (HID's order: 1 left Ctrl, 2 left Shift, 4 left Alt, 8 left GUI,
+                                                  16-128 the right ones), [1] 0, [2]-[7] the HID usage codes of
+                                                  the keys held (4 = A ... 0x65: each key's place, before any layout),
+                                                  0 for none. Returns how many keys are held; all 0 with no keyboard */
 };
 
 #define CMM2_PIN_OFF     0                     /* pin_setup's modes */

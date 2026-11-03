@@ -73,6 +73,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 volatile struct s_HID HID[HID_SLOTS] = {0};
 static uint8_t Current_USB_devices = 0;     /* slots in use */
+uint8_t KeyRaw[8];                          /* the last keyboard report as it came, its HID usage codes: a loadable
+                                               program's keys_raw (Loader.c, version 9: a PC emulator's scan codes) */
 static bool USBenabled = false;
 extern const char *KBrdList[];
 
@@ -576,6 +578,7 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 		if (!keyboards)
 		{
 			keyboardseen = 0;
+			memset(KeyRaw, 0, sizeof(KeyRaw));       // (no keys held by a keyboard unplugged)
 			SD_LED_GPIO_Port->BSRR = SD_LED_Pin << 16;
 		}
 	}
@@ -597,7 +600,10 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 	memcpy((void *)&HID[n].report[1], report, (len > 64 ? 64 : len));
 	HID[n].report[0] = (len > 64 ? 64 : len);
 	if (HID[n].Device_type == HID_ITF_PROTOCOL_KEYBOARD && len >= sizeof(hid_keyboard_report_t))
+	{
+		memcpy(KeyRaw, report, sizeof(KeyRaw));
 		process_kbd_report((hid_keyboard_report_t const *)report, n);
+	}
 	else if (HID[n].Device_type == HID_ITF_PROTOCOL_MOUSE)
 		USBMouseReport(report, len, n);
 	else if (IsGamepadType(HID[n].Device_type))
