@@ -1,0 +1,205 @@
+diff --git a/pc.c b/pc.c
+index 9fe093d..439e97e 100644
+--- a/pc.c
++++ b/pc.c
+@@ -659,8 +659,10 @@ static void iomem_write8(void *iomem, uword addr, u8 val)
+ 	uword vga_addr2 = pc->pci_vga_ram_addr;
+ 	if (addr >= vga_addr2) {
+ 		addr -= vga_addr2;
+-		if (addr < pc->vga_mem_size)
++		if (addr < pc->vga_mem_size) {
+ 			pc->vga_mem[addr] = val;
++			vga_mark_dirty(pc->vga, addr, 1);
++		}
+ 		return;
+ 	}
+ 	vga_mem_write(pc->vga, addr - 0xa0000, val);
+@@ -679,8 +681,10 @@ static void iomem_write16(void *iomem, uword addr, u16 val)
+ 	uword vga_addr2 = pc->pci_vga_ram_addr;
+ 	if (addr >= vga_addr2) {
+ 		addr -= vga_addr2;
+-		if (addr + 1 < pc->vga_mem_size)
++		if (addr + 1 < pc->vga_mem_size) {
+ 			*(uint16_t *)&(pc->vga_mem[addr]) = val;
++			vga_mark_dirty(pc->vga, addr, 2);
++		}
+ 		return;
+ 	}
+ 	vga_mem_write16(pc->vga, addr - 0xa0000, val);
+@@ -700,8 +704,10 @@ static void iomem_write32(void *iomem, uword addr, u32 val)
+ 	if (addr >= vga_addr2) {
+ 		uword vga_addr2 = pc->pci_vga_ram_addr;
+ 		addr -= vga_addr2;
+-		if (addr + 3 < pc->vga_mem_size)
++		if (addr + 3 < pc->vga_mem_size) {
+ 			*(uint32_t *)&(pc->vga_mem[addr]) = val;
++			vga_mark_dirty(pc->vga, addr, 4);
++		}
+ 		return;
+ 	}
+ 	vga_mem_write32(pc->vga, addr - 0xa0000, val);
+@@ -731,6 +737,7 @@ static bool iomem_write_string(void *iomem, uword addr, uint8_t *buf, int len)
+ 		addr -= vga_addr2;
+ 		if (addr + len < pc->vga_mem_size) {
+ 			memcpy(pc->vga_mem + addr, buf, len);
++			vga_mark_dirty(pc->vga, addr, len);
+ 			return true;
+ 		}
+ 		return false;
+diff --git a/vga.c b/vga.c
+index d705d25..993663e 100644
+--- a/vga.c
++++ b/vga.c
+@@ -137,6 +137,9 @@ struct VGAState {
+     /* text mode state */
+     uint32_t last_palette[16];
+     int last_gw, last_gh;   /* the graphics picture's size; -1: just cleared */
++    uint32_t *dirty;        /* a bit for each 1 KB of video memory written since the last picture */
++    int dirty_words;
++    uint32_t last_sig;      /* what else the last picture was drawn from (vga_graphic_refresh) */
+ #ifndef FULL_UPDATE
+     uint16_t last_ch_attr[MAX_TEXT_WIDTH * MAX_TEXT_HEIGHT];
+ #endif
+@@ -175,6 +178,28 @@ static int after_eq(uint32_t a, uint32_t b)
+     return (a - b) < (1u << 31);
+ }
+ 
++/* video memory written: its 1 KB blocks marked, for the next picture to redraw the lines that show them */
++static inline void vga_dirty(VGAState *s, uint32_t off, uint32_t len)
++{
++    uint32_t a = off >> 10, b = (off + len - 1) >> 10;
++    for (; a <= b && (int) (a >> 5) < s->dirty_words; a++)
++        s->dirty[a >> 5] |= 1u << (a & 31);
++}
++
++void vga_mark_dirty(VGAState *s, uint32_t off, uint32_t len)
++{
++    vga_dirty(s, off, len);
++}
++
++static inline int vga_is_dirty(VGAState *s, uint32_t off, uint32_t len)
++{
++    uint32_t a = off >> 10, b = (off + len - 1) >> 10;
++    for (; a <= b && (int) (a >> 5) < s->dirty_words; a++)
++        if (s->dirty[a >> 5] & (1u << (a & 31)))
++            return 1;
++    return 0;
++}
++
+ static void simplefb_clear(FBDevice *fb_dev)
+ {
+     memset(fb_dev->fb_data, 0, fb_dev->width * fb_dev->height * (BPP / 8));
+@@ -1292,6 +1317,21 @@ static void vga_graphic_refresh(VGAState *s,
+         line_bytes = 4 * ((((w - 1) / xdiv + pan) >> 3) + 1);
+     else
+         line_bytes = ((w - 1) / xdiv + pan + 1) * ((bpp + 7) / 8);
++    /* Only the lines whose video memory was written are drawn again,
++       unless anything else the picture is drawn from changed since the
++       last one: then all of it. */
++    uint32_t sig = 2166136261u;
++#define SIG(v) (sig = (sig ^ (uint32_t) (v)) * 16777619u)
++    SIG(w); SIG(h); SIG(i0); SIG(shift_control); SIG(xdiv); SIG(bpp);
++    SIG(addr1); SIG(line_offset); SIG(multi_scan); SIG(pan);
++    SIG(split_after); SIG(s->ar[0x10] & 0x20); SIG(s->cr[0x17]);
++    SIG(vbe); SIG(plane_mask); SIG(s->comp_ntsc);
++    int npal = shift_control <= 1 ? 16 : bpp == 8 ? 256 : 0;
++    for (int k = 0; k < npal; k++)
++        SIG(palette[k]);
++#undef SIG
++    int all = full_update || sig != s->last_sig;
++    s->last_sig = sig;
+     for (int y = 0; y < h; y++) {
+         uint32_t addr = addr1;
+         if (!(s->cr[0x17] & 1)) {
+@@ -1319,6 +1359,10 @@ static void vga_graphic_refresh(VGAState *s,
+ #endif
+             x0 = w;
+         }
++#if !defined(SCALE_3_2) && !defined(SCALE_2_1) && !defined(SWAPXY)
++        if (!all && x0 == 0 && !vga_is_dirty(s, addr, line_bytes))
++            x0 = w;     /* as it is shown already */
++#endif
+ 
+         uint32_t color_comp = 0;
+         for (int x = x0; x < w; x++) {
+@@ -1500,6 +1544,7 @@ static void vga_graphic_refresh(VGAState *s,
+ #undef KLINE
+ #endif
+     }
++    memset(s->dirty, 0, s->dirty_words * sizeof(uint32_t));
+     redraw_func(opaque, 0, 0, fb_dev->width, fb_dev->height);
+ }
+ 
+@@ -2046,6 +2091,7 @@ void IRAM_ATTR vga_mem_write16(VGAState *s, uint32_t addr, uint16_t val16)
+     mask = (1 << plane);
+     if (s->sr[VGA_SEQ_PLANE_WRITE] & mask) {
+         * (uint16_t *) &(s->vga_ram[addr]) = val;
++        vga_dirty(s, addr, 2);
+     }
+ }
+ 
+@@ -2095,6 +2141,7 @@ void IRAM_ATTR vga_mem_write32(VGAState *s, uint32_t addr, uint32_t val)
+     mask = (1 << plane);
+     if (s->sr[VGA_SEQ_PLANE_WRITE] & mask) {
+         * (uint32_t *) &(s->vga_ram[addr]) = val;
++        vga_dirty(s, addr, 4);
+     }
+ }
+ 
+@@ -2140,6 +2187,7 @@ bool IRAM_ATTR vga_mem_write_string(VGAState *s, uint32_t addr, uint8_t *buf, in
+     mask = (1 << plane);
+     if (s->sr[VGA_SEQ_PLANE_WRITE] & mask) {
+         memcpy(s->vga_ram + addr, buf, len);
++        vga_dirty(s, addr, len);
+         return true;
+     }
+     return false;
+@@ -2193,7 +2241,7 @@ void IRAM_ATTR vga_mem_write(VGAState *s, uint32_t addr, uint8_t val8)
+             printf("vga: chain4: [0x" TARGET_FMT_plx "]\n", addr);
+ #endif
+ //            s->plane_updated |= mask; /* only used to detect font change */
+-//            memory_region_set_dirty(&s->vram, addr, 1);
++            vga_dirty(s, addr, 1);
+         }
+     } else if (s->gr[VGA_GFX_MODE] & 0x10) {
+         /* odd/even mode (aka text mode mapping) */
+@@ -2219,7 +2267,7 @@ void IRAM_ATTR vga_mem_write(VGAState *s, uint32_t addr, uint8_t val8)
+             printf("vga: odd/even: [0x" TARGET_FMT_plx "]\n", addr);
+ #endif
+ //            s->plane_updated |= mask; /* only used to detect font change */
+-//            memory_region_set_dirty(&s->vram, addr, 1);
++            vga_dirty(s, addr, 1);
+         }
+     } else {
+         /* standard VGA latched access */
+@@ -2297,7 +2345,7 @@ void IRAM_ATTR vga_mem_write(VGAState *s, uint32_t addr, uint8_t val8)
+         printf("vga: latch: [0x" TARGET_FMT_plx "] mask=0x%08x val=0x%08x\n",
+                addr * 4, write_mask, val);
+ #endif
+-//        memory_region_set_dirty(&s->vram, addr << 2, sizeof(uint32_t));
++        vga_dirty(s, addr << 2, sizeof(uint32_t));
+     }
+ }
+ 
+@@ -2396,6 +2444,9 @@ VGAState *vga_init(char *vga_ram, int vga_ram_size,
+ 
+     s->vga_ram = (uint8_t *) vga_ram;
+     s->vga_ram_size = vga_ram_size;
++    s->dirty_words = ((vga_ram_size >> 10) + 31) / 32;
++    s->dirty = pcmalloc(s->dirty_words * sizeof(uint32_t));
++    memset(s->dirty, 0xff, s->dirty_words * sizeof(uint32_t));
+ 
+     s->vbe_regs[VBE_DISPI_INDEX_ID] = VBE_DISPI_ID5;
+     s->vbe_regs[VBE_DISPI_INDEX_VIDEO_MEMORY_64K] = s->vga_ram_size >> 16;
+diff --git a/vga.h b/vga.h
+index e66f3f8..53b433f 100644
+--- a/vga.h
++++ b/vga.h
+@@ -25,6 +25,7 @@ void vbe_write(VGAState *s, uint32_t offset, uint32_t val);
+ uint32_t vbe_read(VGAState *s, uint32_t offset);
+ 
+ void vga_mem_write(VGAState *s, uint32_t addr, uint8_t val);
++void vga_mark_dirty(VGAState *s, uint32_t off, uint32_t len);   /* video memory written as it is (the LFB) */
+ uint8_t vga_mem_read(VGAState *s, uint32_t addr);
+ void vga_mem_write16(VGAState *s, uint32_t addr, uint16_t val);
+ void vga_mem_write32(VGAState *s, uint32_t addr, uint32_t val);

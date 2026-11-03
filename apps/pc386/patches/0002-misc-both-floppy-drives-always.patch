@@ -1,0 +1,19 @@
+diff --git a/misc.c b/misc.c
+index 55ec0c9..5559f86 100644
+--- a/misc.c
++++ b/misc.c
+@@ -492,11 +492,9 @@ static void exec_cmd(EMULINK *e)
+ 		e->cmd = -1;
+ 		break;
+ 	case 0x100:
+-		e->status = 0;
+-		if (e->fdd[0])
+-			e->status |= 0x40;
+-		if (e->fdd[1])
+-			e->status |= 0x04;
++		/* both drives, 1.44 MB, with a disk in or not: one can be put in
++		   while the PC runs, as in a real drive */
++		e->status = 0x44;
+ 		e->cmd = -1;
+ 		break;
+ 	case 0x101:
