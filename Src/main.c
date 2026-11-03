@@ -1129,16 +1129,9 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
 			  p[0]='L';			  p[1]='I';			  p[2]='S';			  p[3]='T';			  p[4]=' ';
 			  p[5]='F';			  p[6]='I';			  p[7]='L';			  p[8]='E';			  p[9]='S';
 		  }
-		  i=0;
-		  while(inpbuf[i]){
-				if(inpbuf[i]==34){
-					if(toggle==0)toggle=1;
-					else toggle=0;
-				}
-				if(!toggle)inpbuf[i]=toupper(inpbuf[i]);
-				i++;
-		  }
+		  for(i = 0; inpbuf[i]; i++) if(inpbuf[i] == 34) toggle = !toggle;
 		  if(toggle)error("Unterminated string");
+		  ProgramLineUpper(inpbuf, strlen(inpbuf), 0);              // capitals, but for strings and RUN's text (FileIO.c)
 		  tokenise(true); // turn into executable code
 	  }
 	  if(ShortScroll){
@@ -2798,7 +2791,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void MPU_Config_nCacheable(int jpg)
+void OPTSIZE MPU_Config_nCacheable(int jpg)
 {
   static int neverrun=1, lastjpg=-1;
   int dp1=0, dp2=0, dp3=0, dp4=0, dp5=0 ,dp6=0;
@@ -2832,7 +2825,10 @@ void MPU_Config_nCacheable(int jpg)
 	  case 0xD0080000:
 		  dp1=1;
   }
-  /* Disable the MPU */
+  /* Disable the MPU. While it is off the SDRAM is the default map's device memory, not cached, so the cache is written
+     out and emptied first: a loadable program's stack is in the SDRAM (its video_mode comes here), and a write in the
+     cache not yet in the SDRAM would be missed, or a stale line read after (3 Nov 2026: a G1 program hung on MODE 8,8) */
+  SCB_CleanInvalidateDCache();
   HAL_MPU_Disable();
 	  /* Configure the MPU attributes for Video Memory */
   if(dp1!=MPU_InitStruct1.IsShareable || neverrun){
@@ -3144,6 +3140,19 @@ void MPU_Config_nCacheable(int jpg)
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct8);
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct9);
 		  lastexec = LoaderExec;
+	  }
+	  static int lastvram = 0;                                     // a loadable program's code in the display memory (Loader.c,
+	  if(LoaderVram != lastvram || LoaderVram) {                   // CMM2IMG_FLAG_VRAM): regions 1-6 executable only while it
+		  uint8_t x = LoaderVram ? MPU_INSTRUCTION_ACCESS_ENABLE : MPU_INSTRUCTION_ACCESS_DISABLE;   // runs, execute-never again
+		  MPU_InitStruct1.DisableExec = MPU_InitStruct2.DisableExec = MPU_InitStruct3.DisableExec = x;   // after (Peter: set for
+		  MPU_InitStruct4.DisableExec = MPU_InitStruct5.DisableExec = MPU_InitStruct6.DisableExec = x;   // the fastest reads and
+		  HAL_MPU_ConfigRegion(&MPU_InitStruct1);                  // writes); again at each mode change meanwhile, which sets
+		  HAL_MPU_ConfigRegion(&MPU_InitStruct2);                  // them up above
+		  HAL_MPU_ConfigRegion(&MPU_InitStruct3);
+		  HAL_MPU_ConfigRegion(&MPU_InitStruct4);
+		  HAL_MPU_ConfigRegion(&MPU_InitStruct5);
+		  HAL_MPU_ConfigRegion(&MPU_InitStruct6);
+		  lastvram = LoaderVram;
 	  }
   }
   /* Enable the MPU */

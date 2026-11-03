@@ -1496,6 +1496,23 @@ void HeapLowMark(void *was) {
     minMMheap = addr;
 }
 
+// a G1's loadable program built --vram in one area, as a G2's (Loader.c, 3 Nov 2026): the display memory and the heap's
+// bottom above it. HeapBottomFree: the bytes free from SDRAMBASE up; HeapClaimBottom: size bytes from SDRAMBASE taken as
+// one block (FreeMemory gives it back), or NULL if a page of them is in use. In bank 2 (the linker script's .bank2),
+// as the loader is: bank 1 is full
+int __attribute__((section(".bank2"))) HeapBottomFree(void) {
+    unsigned char *addr;
+    for(addr = (unsigned char *)SDRAMBASE; addr < (unsigned char *)SDRAMEXEC; addr += RAMPAGESIZE)
+        if(SDBitsGet(addr) & PUSED) break;
+    return addr - (unsigned char *)SDRAMBASE;
+}
+void * __attribute__((section(".bank2"))) HeapClaimBottom(int size) {
+    size = (size / RAMPAGESIZE) * RAMPAGESIZE;
+    if(size <= 0 || size > HeapBottomFree()) return NULL;
+    HeapMark((void *)SDRAMBASE, size);
+    return (void *)SDRAMBASE;
+}
+
 
 unsigned int UsedHeap(void) {
     unsigned int nbr;

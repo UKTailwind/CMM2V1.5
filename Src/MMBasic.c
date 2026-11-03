@@ -1923,7 +1923,7 @@ int MIPS16 tokenise(int console) {
     int labelvalid;
     // symbols: names in a program being saved become symbols (see Symbols.h), except in DATA statements, CSUB
     // and DefineFont blocks, the letter after ~( and &H/&O/&B numbers.  A console line never makes them.
-    static int tkDATA = -1, tkDEFINEFONT, tkENDCSUB, tkENDDEFINEFONT, tkTILDE, tkSCHANGE, tkTOPBOTTOM;
+    static int tkDATA = -1, tkDEFINEFONT, tkENDCSUB, tkENDDEFINEFONT, tkTILDE, tkSCHANGE, tkTOPBOTTOM, tkRUN;
     int symbols = !console && SymMode != SYM_OFF;
     int symrawstmt = false;                                         // this statement is DATA: its names stay text
     int symrawnext = false;                                         // the next name is the letter after ~(, SCHANGE$( or TOPBOTTOM(
@@ -1935,6 +1935,7 @@ int MIPS16 tokenise(int console) {
         tkTILDE = GetTokenValue("~(");
         tkSCHANGE = GetTokenValue("SChange$(");
         tkTOPBOTTOM = GetTokenValue("TopBottom(");
+        tkRUN = GetCommandValue("RUN");                             // (the table's spelling: str_equal heeds case)
     }
     routinechecks(1);
     strreplace_overflow = 0;
@@ -2182,6 +2183,15 @@ int MIPS16 tokenise(int console) {
                 if(IsAlpha(*(p-1)) && *p == ' ') p++;               // if the command is followed by a space skip over it
                 if(match_i == GetCommandValue("Rem"))               // check if it is a REM command
                     while(*p) TKNPUT(*p++);                         // and in that case just copy everything
+                if(match_i == tkRUN) {                              // RUN's argument stays text, as it does when RUN starts
+                    int q = false;                                  // the line (main.c, the prompt): a file's name and the
+                    while(*p) {                                     // program's command line, not to be tokenised (-timedemo
+                        if(*p == '"') q = !q;                       // was a minus token and TIMEDEMO). Here it ends at a ':',
+                        else if(!q && (*p == ':' || *p == '\'')) break;   // a comment, or a single-line IF's ELSE
+                        else if(!q && p[-1] == ' ' && checkstring(p, "ELSE") != NULL) break;
+                        TKNPUT(*p++);
+                    }
+                }
                 firstnonwhite = false;
                 labelvalid = false;                                 // we do not want any labels after this
                 if(symbols) {

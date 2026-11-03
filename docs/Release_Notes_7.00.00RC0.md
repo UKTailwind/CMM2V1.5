@@ -27,12 +27,12 @@ The same firmware file runs on both the Generation 1 and the Generation 2.
   - The words after RUN's comma are its arguments. When it ends, MMBasic carries on: at the command prompt it returns to the prompt, and in a BASIC program it goes on with the next statement, the program's variables as they were.
   - MMBasic tidies up after it: its files are closed, its sound stopped, its I/O pins released, and the video mode, font, colours and palette put back.
   - Ctrl-C asks it to end, and then stops the BASIC program that ran it too.
-  - A Generation 2 keeps 8MB of its memory for loadable programs. A Generation 1 lends a program the largest free part of MMBasic's heap (about 4MB at the command prompt) while it runs.
+  - A Generation 2 keeps 8MB of its memory for loadable programs. A Generation 1 lends a program the largest free part of MMBasic's heap (about 4MB at the command prompt) while it runs, and a program built for it, as Doom and ScummVM are, the 3MB of display memory as well: about 7MB in all. The same program file runs on both generations.
   - Errors: "Not a loadable program", "Needs a newer firmware", "Needs a G2", "Needs n KB, n KB free", "The program file is damaged".
 - **Three programs come with the firmware,** in CMM2_Programs_7.00.00RC0.zip, to copy to the SD card:
   - **MicroPython,** as on the Pico Computer 3: its display, keyboard, mouse, audio and image modules, SQLite, ulab and the machine module on the rear I/O pins. It runs Python about twice as fast as the RP2350 does.
-  - **Doom,** with Freedoom, a free replacement for its game data: about 50 frames a second on a Generation 2 with its sound effects and its music on the FM synthesiser.
-  - **ScummVM,** for classic adventure games (AGI, SCI, SCUMM, Gobliiins and Kyrandia), with two free games: the Freddy Pharkas demo and DG: The Adventure Game. It needs a Generation 2.
+  - **Doom,** with Freedoom, a free replacement for its game data: about 50 frames a second on a Generation 2 and 35 on a Generation 1, with its sound effects and its music on the FM synthesiser.
+  - **ScummVM,** for classic adventure games (AGI, SCI, SCUMM, Gobliiins and Kyrandia), with three free games: the Freddy Pharkas demo, DG: The Adventure Game and Another DG Game. It runs on both generations. Games you own go in folders of A:/quest whose names the zip's README.txt lists, and `RUN "scummvm.app", dott` starts one at once.
 - **A new manual, Colour Maximite 2 Loadable Programs,** is for programmers: the tools that build a program (in the repository's tools/sdk, with the free Arm GNU toolchain), how the firmware runs one, every service with examples, and how MicroPython, Doom and ScummVM were ported.
 - **An FM synthesiser:** an emulation of the Yamaha YMF262 (the OPL3 of the Sound Blaster cards), by ymfm.
   - **PLAY MIDIFILE file$ [, interrupt]** plays a Standard MIDI File.
@@ -51,6 +51,7 @@ The same firmware file runs on both the Generation 1 and the Generation 2.
 ## Fixed since 7.00.00b5
 
 - **With a USB touch screen and OPTION MAXCTRLS above 0, programs ran slower,** as every statement checked for the GUI's touch input. The GUI is now seen to once a millisecond: the solar eclipse benchmark takes 1.70 s compiled with the GUI running, as it does without it.
+- **RUN's arguments after a ':' or in a single-line IF** reach the program as they are written. In `CHDIR "A:/Doom" : RUN "doom.app", -timedemo demo1` the program was given them in capitals and with the minus sign changed (MMBasic's stored form of the line), and so was MM.CMDLINE$ after such a RUN in a program. RUN at the start of a line was always right.
 - **After PLAY WAV (or FLAC, MP3) and PLAY STOP,** the sound output kept the number of the file it had closed. A file the program opened next could be given that number, and the next sound command closed it.
 
 ## The programs tested
@@ -61,7 +62,6 @@ The same firmware file runs on both the Generation 1 and the Generation 2.
 
 ## Known problems
 
-- **RUN's arguments are changed when RUN does not start the line.** In `CHDIR "A:/Doom" : RUN "doom.app", -timedemo demo1` the program is given the arguments as MMBasic stores them, in capitals and with the minus sign changed. MM.CMDLINE$ after a RUN inside a program is affected the same way. Typed as a line of its own, RUN passes them as they are written.
 - **On a Generation 1, the test program rgb121 stops responding in MODE 8,4** when it shows three layers (FRAMEBUFFER LAYER TOP) and waits for a frame. It is in 7.00.00b5 too. A reset is needed.
 - **With a USB touch screen connected, a mouse click can be taken as a swipe** by the GUI controls' gestures, as the click's end is taken from the touch screen.
 - An armed interrupt pin slows the program down, because the pin is polled after every statement.

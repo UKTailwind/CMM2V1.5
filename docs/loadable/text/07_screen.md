@@ -16,7 +16,7 @@ typedef struct {
 } cmm2_video;
 ```
 
-video_mode sets MMBasic's MODE mode,depth, clears the page and fills in v. It returns 0, or -1 if the mode or depth is not valid on this computer (as MODE would refuse it: MODE 16 needs a Generation 2), or -2 if MMBasic has a frame buffer of another depth. The depth is 8 (256 colours from the palette) or, from version 6, 16 (RGB565: two bytes a pixel, 65,536 colours; not in modes 15 and 16).
+video_mode sets MMBasic's MODE mode,depth, clears the page and fills in v. It returns 0, or -1 if the mode or depth is not valid on this computer (as MODE would refuse it: MODE 16 needs a Generation 2; or, on a Generation 1 that has lent the program its display memory, a mode whose page does not fit in the internal RAM: see The Display Memory Lent in the chapter How a Program Runs), or -2 if MMBasic has a frame buffer of another depth. The depth is 8 (256 colours from the palette) or, from version 6, 16 (RGB565: two bytes a pixel, 65,536 colours; not in modes 15 and 16).
 
 The modes are MMBasic's:
 

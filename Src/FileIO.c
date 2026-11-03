@@ -609,8 +609,44 @@ static int IsCommentEnd(const char *s) {
     return strncasecmp(s, "END", 3) == 0;
 }
 
+// a RUN statement at s[c]: RUN as a word, after the line's start, a ':', THEN or ELSE
+static int RunStatementAt(const char *s, int c, int len) {
+    int k = c - 1;
+    if(strncasecmp(s + c, "RUN", 3) != 0 || (c + 3 < len && s[c + 3] != ' ')) return 0;
+    while(k >= 0 && s[k] == ' ') k--;
+    if(k < 0 || s[k] == ':') return 1;
+    return k >= 3 && (strncasecmp(s + k - 3, "THEN", 4) == 0 || strncasecmp(s + k - 3, "ELSE", 4) == 0) &&
+           (k == 3 || s[k - 4] == ' ' || s[k - 4] == ':');
+}
+
+/* A line of a program, or one typed at the prompt, put in capitals for tokenise(), but for its strings, a DATA line and
+   RUN's argument: a file's name and the program's command line keep their case (Peter, 3 Nov 2026: CHDIR "A:/Doom" :
+   RUN "doom.app", -timedemo demo1 gave doom.app -TIMEDEMO). A line that starts with RUN is left as it is; after a ':',
+   THEN or ELSE the argument runs to the next ':', comment or single-line IF's ELSE, where tokenise() ends its text. */
+void OPTSIZE ProgramLineUpper(char *s, int len, int data) {
+    int c, q = 0, run = 0;
+    if(data || RunStatementAt(s, 0, len)) return;
+    for(c = 0; c < len; c++) {
+        if(s[c] == '"') { q = !q; continue; }
+        if(q) continue;
+        if(run) {
+            if(s[c] == ':' || s[c] == '\'') run = 0;
+            else if(c && s[c - 1] == ' ' && strncasecmp(s + c, "ELSE", 4) == 0 && (c + 4 >= len || s[c + 4] == ' '))
+                run = 0;
+            else continue;
+        }
+        if(RunStatementAt(s, c, len)) {
+            s[c] = 'R'; s[c + 1] = 'U'; s[c + 2] = 'N';
+            c += 2;
+            run = 1;
+            continue;
+        }
+        s[c] = toupper(s[c]);
+    }
+}
+
 void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
-    int blockcomment = 0;                                           // within /* ... */ (a block comment): its /* line
+    int blockcomment = 0;                                          // within /* ... */ (a block comment): its /* line
     int insub = 0;                                                  // within a SUB or FUNCTION (BlockComment)
     const char *bm;
     int fnbr;
@@ -688,16 +724,7 @@ void importfile(char *pp, char *tp, char **p, uint32_t buf, int convertdebug){
 			else *op++=*ip++;
 		}
 		slen=len;
-		if(!(toupper(sbuff[0])=='R' && toupper(sbuff[1])=='U' && toupper(sbuff[2])=='N' && (strlen(sbuff)==3 || sbuff[3]==' '))){
-			toggle=0;
-			for(c=0;c<slen;c++){
-				if(!(toggle || data))sbuff[c]=toupper(sbuff[c]);
-				if(sbuff[c]==34){
-					if(toggle==0)toggle=1;
-					else toggle=0;
-				}
-			}
-		}
+		ProgramLineUpper(sbuff, slen, data);                        // (but its strings, DATA and RUN's text)
 		toggle=0;
 		for(c=0;c<slen;c++){
 			if(sbuff[c]==34){
@@ -884,16 +911,7 @@ static char *ProgramText(char *fname, char *name) {
 				}
 			}
 		} else {
-			if(!(toupper(sbuff[0])=='R' && toupper(sbuff[1])=='U' && toupper(sbuff[2])=='N' && (strlen(sbuff)==3 || sbuff[3]==' '))){
-				toggle=0;
-				for(c=0;c<slen;c++){
-					if(!(toggle || data))sbuff[c]=toupper(sbuff[c]);
-					if(sbuff[c]==34){
-						if(toggle==0)toggle=1;
-						else toggle=0;
-					}
-				}
-			}
+			ProgramLineUpper(sbuff, slen, data);                    // (but its strings, DATA and RUN's text)
 			toggle=0;
 			for(c=0;c<slen;c++){
 				if(sbuff[c]==34){

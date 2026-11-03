@@ -19,7 +19,7 @@ Doom was written to be ported: its game code calls a small set of platform funct
 - **The time.** DG_GetTicksMs is micros() divided by 1000, and DG_SleepMs waits while calling poll().
 - **The sound effects.** Doom's sound functions are replaced by a mixer of sixteen voices in the stream's fill.
 - **The music.** Doom's MUS music is turned into MIDI (by doomgeneric's mus2mid.c) and played by music_play with the game data's own instrument bank, as a Sound Blaster played it, at half the synthesiser's rate.
-- **The memory.** Doom's zone, the memory it manages itself, is sized from the program's heap: 6MB on a Generation 2 and about 3MB on a Generation 1.
+- **The memory.** Doom's zone, the memory it manages itself, is sized from the program's heap, up to doomgeneric's 6MB. Doom is built with --vram, so a Generation 1 lends it the display memory and it has the 6MB there too.
 
 apps/doom/make.py fetches doomgeneric at a fixed commit, builds its files unchanged (with mus2mid.c, which its own make file leaves out) and the CMM2 layer, and links doom.app.
 
@@ -28,10 +28,10 @@ apps/doom/make.py fetches doomgeneric at a fixed commit, builds its files unchan
 ScummVM is a large C++ program (531 source files in this port), and frank-quest had already ported it to a small machine, the RP2350, with its display, sound and file drivers in a handful of files. The CMM2 port replaces those files and nothing else:
 
 - apps/scummvm/make.py reads frank-quest's own CMakeLists.txt for its lists of source files, so the build follows the original's.
-- The directory overlay/ holds the replacements, at the same paths as the files they replace: the start-up and display driver (main.c, MODE 7,8 at 320 x 240), the input (keys_held and the mouse), the sound mixer's connection to the stream, the files (the file services), and the memory allocator (4MB taken with cmm2_heap_take, managed by dlmalloc).
+- The directory overlay/ holds the replacements, at the same paths as the files they replace: the start-up and display driver (main.c, MODE 7,8 at 320 x 240), the input (keys_held and the mouse), the sound mixer's connection to the stream, the files (the file services), the memory allocator (the heap but 512KB, taken with cmm2_heap_take and managed by dlmalloc), and the list of games, with one more game and a game started by the name given after RUN's comma.
 - The directory stub/ holds the few Pico SDK headers that the engines include, with just the declarations they use.
 
-The program is 3MB and needs 4MB of heap besides, so it is built with --g2.
+The program is 3MB and needs about 4MB of heap besides, more than a Generation 1 has borrowing MMBasic's heap alone, so it is built with --vram: a Generation 1 lends it the display memory too, and its MODE 7 display is one that a lent program can use.
 
 ## MicroPython
 

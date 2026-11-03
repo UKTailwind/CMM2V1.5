@@ -93,6 +93,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern int FileErrorNo(int fr);                       // FErrorMsg's number for a FatFs result (FileIO.c)
     extern void CheckSDCard(void);
     extern int FileLoadProgram(char *fname,int mode);
+    extern void ProgramLineUpper(char *s, int len, int data);   // a line in capitals but its strings, DATA and RUN's text
     extern int FindFreeFileNbr(void);
 
     extern const int ErrorMap[21];

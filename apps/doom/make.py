@@ -34,7 +34,7 @@ def main():
     srcs = [os.path.join(dg, f + '.c') for f in FILES] + [os.path.join(HERE, 'doomgeneric_cmm2.c')]
     flags = ['-DCMAP256', '-DDOOMGENERIC_RESX=320', '-DDOOMGENERIC_RESY=200', '-DFEATURE_SOUND', '-w']
     cmd = [sys.executable, '-I', os.path.join(REPO, 'tools', 'sdk', 'build.py'), os.path.join(HERE, 'out', 'doom.app')]
-    cmd += srcs + ['--api', '3', '--stack', '0x20000', '--heap', str(2560 << 10), '-I', dg, '-I', os.path.join(HERE, 'stub')]
+    cmd += srcs + ['--api', '8', '--vram', '--stack', '0x20000', '--heap', str(2560 << 10), '-I', dg, '-I', os.path.join(HERE, 'stub')]
     cmd += ['--cflag=' + f for f in flags]
     sys.exit(subprocess.run(cmd).returncode)
 

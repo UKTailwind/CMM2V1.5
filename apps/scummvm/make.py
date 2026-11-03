@@ -1,16 +1,21 @@
-"""make.py: builds apps/scummvm/out/scummvm.app, ScummVM for the CMM2 G2 from frank-quest (rh1tech's port of Cabal,
+"""make.py: builds apps/scummvm/out/scummvm.app, ScummVM for the CMM2 from frank-quest (rh1tech's port of Cabal,
 a fork of ScummVM, to the RP2350), which is fetched the first time into apps/scummvm/frank-quest (git ignores it) at
-the commit below. Its engines (AGI, SCI, SCUMM v1-v7, GOB, KYRA), ScummVM's core and its own selector and main loop are
-built unaltered, from the source lists in its CMakeLists.txt. What touches the RP2350 is replaced by a file of the same
-path in overlay/ (the display, input, sound, files and the PSRAM heap, on the loader's services), and stub/ holds the
-few Pico SDK headers the engines include. The program is GPL-2.0-or-later, as ScummVM is: its source must go with any
-copy given out (frank-quest's, at that commit, and this directory).
+the commit below. Its engines (AGI, SCI, SCUMM v1-v7, GOB, KYRA), ScummVM's core and its own main loop are built
+unaltered, from the source lists in its CMakeLists.txt. What touches the RP2350 is replaced by a file of the same path in
+overlay/ (the display, input, sound, files and the PSRAM heap, on the loader's services), and stub/ holds the few Pico
+SDK headers the engines include. Its selector and welcome screen are there too, with one game added (dgc64: Another DG
+Game, a public-domain SCI fan game shipped as an example) and a game named after RUN's comma started at once. The
+program is GPL-2.0-or-later, as ScummVM is: its source must go with any copy given out (frank-quest's, at that commit,
+and this directory).
+
+Built --vram, so that a G1 runs it too (3 Nov 2026): a G1 loads it at 0xD0000000 into one area, as a G2's 8 MB, of
+its display memory and the heap's bottom (about 7 MB at the prompt). A G2 loads it into its 8 MB as before.
 
     python apps/scummvm/make.py [-j JOBS]
 then put out/scummvm.app in A:/quest, the games in A:/quest/<dir>/ (Kyrandia also needs frank-quest's
 dists/engine-data/KYRA.DAT in its directory), and at the CMM2's prompt:
     CHDIR "A:/quest"
-    RUN "scummvm.app"
+    RUN "scummvm.app"                    (or RUN "scummvm.app", dott: that folder's game at once)
 """
 import os, re, subprocess, sys
 
@@ -77,7 +82,7 @@ def main():
     inc = [os.path.join(HERE, 'overlay', 'src'), os.path.join(HERE, 'overlay', 'drivers'), os.path.join(SRC, 'src'),
            os.path.join(SRC, 'src', 'engines'), os.path.join(SRC, 'drivers'), os.path.join(HERE, 'stub')]
     cmd = [sys.executable, '-I', os.path.join(REPO, 'tools', 'sdk', 'build.py'), os.path.join(out, 'scummvm.app'),
-           '--sources', listfile, '--api', '4', '--stack', '0x10000', '--g2']   # (7 MB: not on a G1)
+           '--sources', listfile, '--api', '8', '--stack', '0x10000', '--vram']
     for i in inc:
         cmd += ['-I', i]
     cmd += ['--cflag=-D' + d for d in DEFINES] + ['--cflag=-w']

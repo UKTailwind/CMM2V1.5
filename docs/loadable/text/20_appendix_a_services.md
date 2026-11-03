@@ -1,6 +1,6 @@
 # Appendix A – The Services
 
-The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h), with the version of the firmware's services that added each and the chapter that describes it. The table starts with two numbers: version, the firmware's version of the services (7 in 7.00.00RC0), and size, the table's size in bytes.
+The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h), with the version of the firmware's services that added each and the chapter that describes it. The table starts with two numbers: version, the firmware's version of the services (8 in 7.00.00RC0), and size, the table's size in bytes.
 
 {widths: 9,46,9,36}
 | Ver | Service | Ver | Service |

@@ -32,11 +32,17 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  7                 /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  8                 /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
-                                                  the program's memory, the DMA2D; 7: I/O) */
+                                                  the program's memory, the DMA2D; 7: I/O; 8: the start block's
+                                                  heap2, a G1's display memory lent) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
+#define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
+                                                  pages at 0xD0000000, which holds the program if it fits there (else
+                                                  the program is in the heap it borrows, and the 3 MB is its heap2).
+                                                  Meanwhile only the modes whose page fits the internal RAM can be set
+                                                  (MODE 7,8 is set at the start); MMBasic's pages are cleared after */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved
                                                   there (a G1 moves it, by its relocations) */
 #define CMM2IMG_AREA         0x00800000u       /* a G2's 8 MB: image, .bss, heap, stack */
@@ -70,9 +76,13 @@ typedef struct {
     const struct cmm2_services *svc;
     int      argc;
     char   **argv;                             /* argv[0] the file's name, then the words after RUN's comma */
-    void    *heap;                             /* the program's heap: from its .bss to its stack, 8-byte aligned */
+    void    *heap;                             /* the program's heap: from its .bss to its stack, 8-byte aligned (on a
+                                                  G1 with CMM2IMG_FLAG_VRAM, the larger of its two blocks) */
     uint32_t heap_size;
     uint32_t base;                             /* where the image is */
+    void    *heap2;                            /* version 8: a second block, 8-byte aligned, or NULL: a G1 with
+                                                  CMM2IMG_FLAG_VRAM gives the other of its two blocks here */
+    uint32_t heap2_size;
 } cmm2img_start;
 
 typedef struct {                               /* the display after video_mode: page 0, the one shown */

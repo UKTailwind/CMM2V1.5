@@ -56,6 +56,8 @@ static cmm2img_start ldstart;
 #define LD_G1_RESERVE 0x40000                                       // a G1's heap left beside the program: the services'
 static void *ldarea;                                                // blocks and malloc's arena; ldarea the run it borrows
 int LoaderExec;                                                     // 1 while that run is executable (MPU_Config_nCacheable)
+int LoaderVram;                                                     // 1 while the display memory holds the program's code (the
+static int ldlent;                                                  // same); ldlent: a G1's display memory lent (CMM2IMG_FLAG_VRAM)
 
 // the time in microseconds since start-up: TIM16 counts 0-49999 at 1 MHz and uSecTimer its wraps (CFunctions.c's
 // timer()), both read until they agree, so a wrap between the two reads is not lost
@@ -312,6 +314,11 @@ static int ld_vscaled(int mode, int depth, int scale, cmm2_video *v) {
     if(scale == 2 && (mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17))
         return -1;                                                  // (their lines shown twice already: ltdc.c's ModeRowScale)
     if(VideoColour != depth && PageTable[WPN].address != NULL) return -2;   // (a FRAMEBUFFER of another depth)
+    if(ldlent) {                                                    // the display memory lent: page 0 must be in the internal
+        uint32_t bytes = (uint32_t)(xres[mode] / scale) * (yres[mode] / scale) * (depth / 8);   // RAM (pagegen puts it there
+        if(scale == 2 || ModeRowScale(mode) == 2) bytes *= 2;       // while it fits), not in the 3 MB the program has
+        if(bytes > 0x80000) return -1;
+    }
     uint32_t old = __get_BASEPRI();
     __set_BASEPRI(LD_PRI_FILL);                                     // (no refill or frame hook: setmode turns the MPU off for
     while(ld_dma2dbusy()) {}                                        // a moment, when the program's code in SDRAM can't be
@@ -896,9 +903,49 @@ static void ld_tidy(void) {
     for(i = 0; i < LD_BLOCKS; i++) if(ldblock[i]) { FreeMemory(ldblock[i]); ldblock[i] = NULL; }
 }
 
+// BASIC's screen, kept before a program runs (or the display memory is lent) and put back after: a mode change clears
+// it, but its mode, font, colours and palette (MAP's) are as they were
+static int ldsaved, ldoldmode, ldoldcolour, ldoldpico, ldoldfont, ldoldfc, ldoldbc;
+static uint32_t ldoldclut[256];
+static void ld_screensave(void) {
+    ldoldmode = VideoMode; ldoldcolour = VideoColour; ldoldpico = PicoActive;
+    ldoldfont = gui_font; ldoldfc = gui_fcolour; ldoldbc = gui_bcolour;
+    memcpy(ldoldclut, CLUT, sizeof(ldoldclut));
+    ldpalette = 0;
+    ldsaved = 1;
+}
+static void ld_screenback(void) {
+    int changed;
+    if(!ldsaved) return;
+    ldsaved = 0;
+    changed = VideoMode != ldoldmode || VideoColour != ldoldcolour || PicoActive != ldoldpico;
+    if(changed) {
+        if(ldoldpico) PicoModeSet(PicoModeNow);                     // (OPTION PICOMITE's window: its MODE again)
+        else setmode(ldoldmode, ldoldcolour, 0, 0);
+        SetFont(ldoldfont);
+        gui_fcolour = ldoldfc;
+        gui_bcolour = ldoldbc;
+    }
+    if(ldoldcolour == 8 && (changed || ldpalette)) {
+        memcpy(CLUT, ldoldclut, sizeof(CLUT));
+        ld_frame();
+        HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+    }
+}
+
 // a G1's borrowed run given back (after ld_tidy, or when a load fails): the heap no longer executable, the run freed, and
-// the low mark malloc's arena may grow to put back to where it was before the load, or to the lowest block still in use
+// the low mark malloc's arena may grow to put back to where it was before the load, or to the lowest block still in use.
+// The display memory, if lent: cleared (MMBasic's pages, as after a MODE) and written out of the cache, execute-never
+// again (Peter: those regions are set for the fastest reads and writes), and BASIC's screen put back
 static void ld_giveback(void *oldmin) {
+    LoaderNoSbrk = 0;
+    if(ldlent) {
+        ldlent = 0;
+        memset((void *)LOADER_VRAM_BASE, 0, LOADER_VRAM_SIZE);
+        SCB_CleanInvalidateDCache_by_Addr((uint32_t *)LOADER_VRAM_BASE, LOADER_VRAM_SIZE);
+        if(LoaderVram) { LoaderVram = 0; MPU_Config_nCacheable(0); }
+        ld_screenback();
+    }
     if(ldarea == NULL) return;
     if(LoaderExec) { LoaderExec = 0; MPU_Config_nCacheable(0); }
     FreeMemory(ldarea);
@@ -959,22 +1006,67 @@ int LoaderRun(char *name) {
     }
     if(h.api_version > CMM2IMG_API_VERSION) { FileClose(fnbr); error("Needs a newer firmware"); }
     if(G1Hardware && (h.flags & CMM2IMG_FLAG_G2)) { FileClose(fnbr); error("Needs a G2"); }
-    if(G1Hardware) {                                                // a G1: the heap's largest free run but the reserve, from
-        room = LargestFreeOnHeap() - LD_G1_RESERVE;                 // its first 64 KB boundary (the image's relocations
-        if(room < 0) room = 0;                                      // allow a move by whole 64 KBs)
+    int vram = G1Hardware && (h.flags & CMM2IMG_FLAG_VRAM), invram = 0, joined = 0;
+    if(G1Hardware) {
         area = 0;
-        if(room > 0x10000 && (ldarea = GetMemoryNull(room)) != NULL) {
-            base = (char *)(((uint32_t)ldarea + 0xFFFF) & ~0xFFFF);
-            area = ((uint32_t)ldarea + room - (uint32_t)base) & ~7;
+        if(vram && SDRAMBASE == LOADER_VRAM_BASE + LOADER_VRAM_SIZE && SbrkUnused()) {
+            room = ((HeapBottomFree() - LD_G1_RESERVE) / RAMPAGESIZE) * RAMPAGESIZE;   // built --vram: one area, as a G2's
+            if(room > 0x10000 && (ldarea = HeapClaimBottom(room)) != NULL) {   // 8 MB (Peter): the display memory and the
+                joined = invram = 1;                                // heap's bottom above it, where newlib's arena would
+                base = (char *)LOADER_VRAM_BASE;                    // start, were it ever used (syscalls.c: it may not grow
+                area = (LOADER_VRAM_SIZE + room) & ~7;              // meanwhile). Not with OPTION RAM or COMPILE's stream,
+            }                                                       // which are in between
+        }
+        if(!joined) {                                               // a G1: the heap's largest free run but the reserve, from
+            room = LargestFreeOnHeap() - LD_G1_RESERVE;             // its first 64 KB boundary (the image's relocations
+            if(room < 0) room = 0;                                  // allow a move by whole 64 KBs)
+            if(room > 0x10000 && (ldarea = GetMemoryNull(room)) != NULL) {
+                base = (char *)(((uint32_t)ldarea + 0xFFFF) & ~0xFFFF);
+                area = ((uint32_t)ldarea + room - (uint32_t)base) & ~7;
+            }
         }
     }
-    need = (uint64_t)end + stack + h.heap_min;                      // (the relocations are read in above the .bss)
-    if(need < (uint64_t)end + h.reloc_count * 4) need = (uint64_t)end + h.reloc_count * 4;
-    if(need > area) {
+    // where it goes: its image, .bss and stack in one area (the relocations are read in above the .bss), its heap the
+    // area's rest. Else a G1 lends a program built --vram its display memory as a second block: the program there if it
+    // fits, the run it borrows then all heap; else the program in the run, the display memory a heap. Of two heaps the
+    // larger is the start block's heap (malloc's: a program that knows nothing of heap2 has the most), the other heap2
+    uint32_t place = end + (stack > h.reloc_count * 4 ? stack : h.reloc_count * 4), heapsize = 0, heap2size = 0;
+    char *heap = NULL, *heap2 = NULL;
+    if(joined) {
+        ;
+    } else if(vram && place <= LOADER_VRAM_SIZE) {
+        invram = 1;
+        if(ldarea) {
+            heap2 = (char *)(((uint32_t)ldarea + 7) & ~7);
+            heap2size = ((uint32_t)ldarea + room - (uint32_t)heap2) & ~7;
+        }
+        base = (char *)LOADER_VRAM_BASE;
+        area = LOADER_VRAM_SIZE;
+    } else if(vram) {
+        heap2 = (char *)LOADER_VRAM_BASE;
+        heap2size = LOADER_VRAM_SIZE;
+    }
+    if(place <= area) {
+        heap = base + end;
+        heapsize = area - end - stack;
+    }
+    if(heap2size > heapsize) {
+        char *t = heap; heap = heap2; heap2 = t;
+        uint32_t s = heapsize; heapsize = heap2size; heap2size = s;
+    }
+    need = (uint64_t)end + stack + h.heap_min;
+    if(place > area || heapsize < h.heap_min) {
         FileClose(fnbr);
         ld_giveback(oldmin);
-        if(G1Hardware) error("Needs % KB, % KB free", (int)(need / 1024), (int)((area ? area : room) / 1024));
+        if(G1Hardware) error("Needs % KB, % KB free", (int)(need / 1024),
+                             (int)(((area ? area : room) + (vram && !invram ? LOADER_VRAM_SIZE : 0)) / 1024));
         error("Needs % KB, more than the 8 MB", (int)(need / 1024));
+    }
+    ld_screensave();                                                // (BASIC's screen, put back at the end)
+    if(vram) {                                                      // the display memory lent: the screen first to a mode
+        cmm2_video v;                                               // whose page is in the internal RAM (MODE 7,8), so that
+        ldlent = 1;                                                 // nothing is drawn where the program goes
+        if(ld_vscaled(7, 8, 1, &v) < 0) { FileClose(fnbr); ld_giveback(oldmin); error("Cannot lend the display memory"); }
     }
     for(off = 0; off < h.image_size; off += got) {                  // the image, straight into its place
         i = h.image_size - off;
@@ -1018,34 +1110,22 @@ int LoaderRun(char *name) {
     ldstart.svc = &ldsvc;
     ldstart.argc = argc;
     ldstart.argv = argv;
-    ldstart.heap = base + end;
-    ldstart.heap_size = area - end - stack;
+    ldstart.heap = heap;
+    ldstart.heap_size = heapsize;
+    ldstart.heap2 = heap2size ? heap2 : NULL;
+    ldstart.heap2_size = heap2size;
     ldstart.base = (uint32_t)base;
     MMAbort = 0;
-    int oldmode = VideoMode, oldcolour = VideoColour, oldpico = PicoActive;   // BASIC's screen, put back at the end: a
-    int oldfont = gui_font, oldfc = gui_fcolour, oldbc = gui_bcolour;   // mode change clears it, but its mode, font,
-    uint32_t oldclut[256];                                          // colours and palette (MAP's) are as they were
-    memcpy(oldclut, CLUT, sizeof(oldclut));
-    ldpalette = 0;
     ldscreen = 1;
-    if(ldarea) { LoaderExec = 1; MPU_Config_nCacheable(0); }       // (a G1: its heap executable while the program runs)
+    if(ldarea && (!invram || joined)) LoaderExec = 1;               // (a G1: the run it borrows executable while the program
+    if(invram) LoaderVram = 1;                                      // runs, and the display memory when the program is there)
+    LoaderNoSbrk = joined;
+    if(LoaderExec || LoaderVram) MPU_Config_nCacheable(0);
     code = LoaderCall(base + h.entry, &ldstart, (uint32_t)base + area);
     ld_tidy();                                                      // (a Ctrl-C stays: the BASIC program stops next)
     ld_giveback(oldmin);
     ConsoleRxBufTail = ConsoleRxBufHead;                            // (the keys the program had, not typed into BASIC)
-    int changed = VideoMode != oldmode || VideoColour != oldcolour || PicoActive != oldpico;
-    if(changed) {
-        if(oldpico) PicoModeSet(PicoModeNow);                       // (OPTION PICOMITE's window: its MODE again)
-        else setmode(oldmode, oldcolour, 0, 0);
-        SetFont(oldfont);
-        gui_fcolour = oldfc;
-        gui_bcolour = oldbc;
-    }
-    if(oldcolour == 8 && (changed || ldpalette)) {
-        memcpy(CLUT, oldclut, sizeof(CLUT));
-        ld_frame();
-        HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
-    }
+    ld_screenback();
     FreeMemory(argv);
     if(code) {
         char b[STRINGSIZE + 40];

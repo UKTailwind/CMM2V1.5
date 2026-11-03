@@ -1,6 +1,6 @@
 # tools/sdk: loadable programs for the Colour Maximite 2
 
-A loadable program is C or C++ built for the M7 and run with `RUN "name.app"` (`Src/Loader.c`). A G2 loads it into the 8 MB at 0xD1800000 that it keeps for loadable programs; a G1 lends it the largest free part of BASIC's heap while it runs and moves it there by its relocations. The file format and the services are in `Inc/cmm2img.h`.
+A loadable program is C or C++ built for the M7 and run with `RUN "name.app"` (`Src/Loader.c`). A G2 loads it into the 8 MB at 0xD1800000 that it keeps for loadable programs; a G1 lends it the largest free part of BASIC's heap while it runs (with `--vram`, the 3 MB of display memory as well) and moves it there by its relocations. The file format and the services are in `Inc/cmm2img.h`.
 
 The companion manual **Colour Maximite 2 Loadable Programs** (`docs/loadable/Colour_Maximite_2_Loadable_Programs.pdf`) covers it all for a programmer: getting started, how a program runs, the tools, the C library, every service with examples, performance, debugging and porting. Its source is `docs/loadable/text`, built by `tools/manual/guide.py`.
 
@@ -24,7 +24,8 @@ Options:
 | `--api N` | The services' version the program needs (default 1); older firmware refuses it. |
 | `--heap BYTES` | The least heap the program needs: the loader refuses it at once if it can't have it. |
 | `--stack BYTES` | The stack size (default 64 KB). |
-| `--g2` | A G1 refuses it ("Needs a G2"): for programs too large for a G1's memory (ScummVM). |
+| `--vram` | A G1 lends it its display memory too (about 7 MB in all, the video modes limited to those whose page fits in internal RAM). Use with `--api 8`; a G2 ignores it. Doom and ScummVM are built this way. |
+| `--g2` | A G1 refuses it ("Needs a G2"): for a program that can't run on a G1 at all. |
 | `--base 0x60000000` | Link elsewhere, so the loader has to relocate every address. This tests the relocations: a missed one faults, because that FMC bank is unused. |
 | `--cflag`, `--cxxflag`, `--ldflag` | Extra flags for the compiler (C and C++, or C++ only) and the link. |
 | `-I DIR`, `--sources FILE`, `-j JOBS` | Include directories, a file listing the sources, parallel jobs. |

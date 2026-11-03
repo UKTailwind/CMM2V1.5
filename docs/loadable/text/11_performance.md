@@ -35,4 +35,4 @@ On a Generation 2 at 480MHz:
 | MicroPython, the solar eclipse benchmark | 4.4 seconds (8.8 on a Pico Computer 3; MMBasic 6.1 interpreted, 1.7 with OPTION COMPILE ON) |
 | The FM synthesiser, 18 voices sounding | 54% of the processor |
 
-A Generation 1 at 400MHz runs a little slower than its clock alone would suggest: Doom's demo runs at 78 frames a second silent and 33 with sound.
+A Generation 1 at 400MHz runs a little slower than its clock alone would suggest: Doom's demo runs at 78 frames a second silent and 35 with sound.

@@ -305,3 +305,10 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
       merge of N, L and T onto the 640x480 display takes longer than a frame on the G1's 400 MHz and 16-bit SDRAM, so
       the frame interrupt starves the program. The other G1 differences in tests/cmm2 are hardware: nine programs need
       32-bit colour, guictl a mouse, and osk prints the G1's OPTION LIST.
+- [x] **RUN's arguments after a ':' or in a single-line IF** (Peter, 3 Nov, for RC0): `CHDIR "A:/Doom" : RUN "doom.app",
+      -timedemo demo1` gave the program `\x83TIMEDEMO DEMO1` (the minus a token, the words in capitals), and MM.CMDLINE$
+      after such a RUN in a program the same. Only a line that starts with RUN was kept as text. Now tokenise() copies
+      RUN's argument as text wherever RUN is (as it does REM's), to the next ':', comment or single-line IF's ELSE, and
+      ProgramLineUpper (FileIO.c; the loader's two loops and the prompt's) leaves that text out of the capitals.
+      Checked on the G2 in a program and at the prompt: after ':', THEN with and without ELSE, RUN f$, a comment, and
+      ':' in a quoted argument. Not the PicoMite's: its RUN takes the command line as a string expression.

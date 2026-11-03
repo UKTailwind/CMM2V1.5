@@ -34,7 +34,7 @@ A program that has its own memory manager, or needs one large block, takes it fr
 void *cmm2_heap_take(uint32_t size);
 ```
 
-which returns the block (8-byte aligned) or NULL, and leaves malloc() the rest. Call it before malloc() has used much of the heap. MicroPython takes its garbage-collected heap this way, and ScummVM the 4MB that its allocator manages.
+which returns the block (8-byte aligned) or NULL, and leaves malloc() the rest. Call it before malloc() has used much of the heap. MicroPython takes its garbage-collected heap this way, and ScummVM all of the heap but 512KB for its allocator to manage. A second heap that a Generation 1 may give a program built with --vram (cmm2_start->heap2: see The Display Memory Lent in the chapter How a Program Runs) is not used by malloc(): it is the program's to use as it likes.
 
 The alloc and release services give blocks of MMBasic's heap instead, outside the program's memory, up to 64 of them. They are freed when the program ends. A program rarely needs them; the FM synthesiser's state (opl_new) is kept in one.
 

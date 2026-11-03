@@ -160,7 +160,7 @@ int main(void) {
     printf("\n\n");
     printf("================================\n");
     printf("  Frank-Cabal v%s\n", CABAL_VERSION);
-    printf("  ScummVM for the CMM2 G2\n");
+    printf("  ScummVM for the CMM2\n");
     printf("================================\n");
     printf("\n");
     printf("CPU: %lu MHz\n", (unsigned long)(cmm2->cpu_hz() / 1000000));

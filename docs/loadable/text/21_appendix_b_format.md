@@ -11,7 +11,7 @@ A program file (.APP) is made by mkimage.py and read by the firmware's loader (S
 | 8 | 2 | hdr_version | The header's version: 1. |
 | 10 | 2 | api_version | The version of the services the program needs (mkimage's --api). |
 | 12 | 1 | kind | 1: an application, which runs and returns to MMBasic. |
-| 13 | 1 | flags | Bit 0: the program needs a Generation 2 (--g2). |
+| 13 | 1 | flags | Bit 0: the program needs a Generation 2 (--g2). Bit 1: a Generation 1 lends it the display memory (--vram). |
 | 14 | 2 | reserved | 0. |
 | 16 | 4 | link_base | The address the program was linked at, a multiple of 64KB (0xD1800000). |
 | 20 | 4 | image_size | The bytes of the image, which follow the header. |

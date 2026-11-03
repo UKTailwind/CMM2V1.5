@@ -28,6 +28,7 @@ The options:
 | --api N | The version of the services the program needs (default 1). Firmware with an older version refuses the program with "Needs a newer firmware". See below. |
 | --heap BYTES | The least heap the program can run with (default 0). RUN refuses the program at once if it cannot have it. |
 | --stack BYTES | The size of the program's stack (default 64KB). |
+| --vram | A Generation 1 lends the program its display memory too, about 7MB in all, and limits its video modes while it runs (see The Display Memory Lent in the chapter How a Program Runs). Use it with --api 8: firmware before version 8 ignores it. A Generation 2 ignores it too. |
 | --g2 | The program runs on a Generation 2 only: a Generation 1 refuses it with "Needs a G2". |
 | --cflag FLAG | A flag for the compiler, for C and C++ (eg, --cflag=-DDEBUG, --cflag=-O3). Repeat it for more. |
 | --cxxflag FLAG | A flag for C++ sources only. |
@@ -72,8 +73,9 @@ The table of services only grows: each version of the firmware keeps the entries
 | 5 | Ctrl-C taken by the program (break_take), and a file's details (file_stat). |
 | 6 | A display in the program's own memory (video_scaled, frame_hook), the DMA2D and 16-bit colour. |
 | 7 | The I/O pins, the ADC, PWM, I2C, SPI and the COM ports. |
+| 8 | No new services: the start block's second heap (heap2), and a Generation 1's display memory lent to a program built with --vram. |
 
-Firmware 7.00.00RC0 has version 7. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
+Firmware 7.00.00RC0 has version 8. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
 
 ```
 if(cmm2->version >= 4) cmm2->con_screen(0);
@@ -111,7 +113,7 @@ $(BUILD)/micropython.app: $(BUILD)/micropython.elf
         --stack 262144 --heap 1572864
 ```
 
-mkimage.py takes the options --name (up to 15 characters, the file's name by default), --api, --stack, --heap and --g2, with the same meanings as build.py's.
+mkimage.py takes the options --name (up to 15 characters, the file's name by default), --api, --stack, --heap, --vram and --g2, with the same meanings as build.py's.
 
 ## mkimage.py and the Relocations
 

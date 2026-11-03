@@ -29,8 +29,8 @@ You can go back to an earlier firmware the same way, should you need to.
 
 - A file ending .APP is a program written in C or C++ and compiled for the processor: `RUN "name.app" [, words]` runs it, at the full speed of the processor, and MMBasic carries on when it ends (at the prompt, or with the BASIC program's next statement), tidying up after it.
 - It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
-- MicroPython (as on the Pico Computer 3), Doom (with Freedoom) and ScummVM (for classic adventure games, Generation 2 only) come with the firmware, in CMM2_Programs_7.00.00RC0.zip.
-- A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs.
+- MicroPython (as on the Pico Computer 3), Doom (with Freedoom) and ScummVM (for classic adventure games) come with the firmware, in CMM2_Programs_7.00.00RC0.zip.
+- A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 - The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk.
 
 ### OPTION PICOMITE
@@ -311,6 +311,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 ### The interpreter
 
+- **RUN's arguments after a ':' or in a single-line IF** reach the program as they are written. In `CHDIR "A:/Doom" : RUN "doom.app", -timedemo demo1` the program was given them in capitals and with the minus sign changed (MMBasic's stored form of the line), and so was MM.CMDLINE$ after such a RUN in a program. RUN at the start of a line was always right.
 - A line longer than the screen, or one that grew past 255 characters when substituted, could hang the board. The console now keeps a line of up to 255 characters.
 - `IF c THEN ERROR "x" ELSE ...` stopped with "Invalid character".
 - A FUNCTION called as a statement, or a SUB used in an expression, ran part way and failed inside itself.
@@ -500,7 +501,6 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 
 - A touch monitor that is also the Colour Maximite 2's display may reset its touch controller when the screen's resolution changes (MODE). Touches are not seen for a moment while it reconnects.
 - An armed interrupt pin slows the program down, because the pin is polled after every statement.
-- RUN's arguments are changed when RUN does not start the line: in `CHDIR "A:/Doom" : RUN "doom.app", -timedemo demo1` they are given as MMBasic stores them, in capitals and with the minus sign changed, and MM.CMDLINE$ after a RUN inside a program the same way. RUN typed as a line of its own passes them as they are written.
 - On a Generation 1, the test program rgb121 stops responding in MODE 8,4 when it shows three layers (FRAMEBUFFER LAYER TOP) and waits for a frame. A reset is needed.
 - With a USB touch screen connected, a mouse click can be taken as a swipe by the GUI controls' gestures.
 - The keyboard layout list names IT, but it cannot be selected.

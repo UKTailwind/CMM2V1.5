@@ -1,5 +1,5 @@
-"""build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--cflag FLAG ...]
-            [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
+"""build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
+            [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
 CMakePresets.json's, else the PATH's): compiles the sources with crt0.c and syscalls.c for the M7 (double-precision
@@ -80,6 +80,7 @@ def main():
     ap.add_argument('--heap', default='0')
     ap.add_argument('--api', default='1')
     ap.add_argument('--g2', action='store_true')
+    ap.add_argument('--vram', action='store_true')
     ap.add_argument('--cflag', action='append', default=[])
     ap.add_argument('--cxxflag', action='append', default=[])
     ap.add_argument('--ldflag', action='append', default=[])
@@ -132,7 +133,8 @@ def main():
     if r.returncode:
         sys.exit(r.returncode)
     r = subprocess.run([sys.executable, '-I', os.path.join(SDK, 'mkimage.py'), stem + '.elf', a.out,
-                        '--stack', str(int(a.stack, 0)), '--heap', str(int(a.heap, 0)), '--api', a.api] + (['--g2'] if a.g2 else []))
+                        '--stack', str(int(a.stack, 0)), '--heap', str(int(a.heap, 0)), '--api', a.api] +
+                       (['--g2'] if a.g2 else []) + (['--vram'] if a.vram else []))
     sys.exit(r.returncode)
 
 

@@ -15,8 +15,8 @@ This makes the Colour Maximite 2 a platform for software that would be too slow 
 Three large programs are included with the firmware, and they show what is possible:
 
 - **MicroPython**, the Python 3 of microcontrollers, as on the Pico Computer 3: its display, keyboard, mouse, sound and image modules, SQLite and ulab (a NumPy for MicroPython), and the I/O pins through the machine module. It runs Python about twice as fast as the RP2350 does.
-- **Doom**, through doomgeneric, with the Freedoom game data: the original 320 x 200 game with its sound effects and its music on the FM synthesiser, at about 50 frames a second on a Generation 2.
-- **ScummVM**, the interpreter for the classic adventure games of LucasArts, Sierra and others (from frank-quest, its port to the RP2350): the AGI, SCI, SCUMM, Gobliiins and Kyrandia engines, with music and speech. It needs a Generation 2.
+- **Doom**, through doomgeneric, with the Freedoom game data: the original 320 x 200 game with its sound effects and its music on the FM synthesiser, at about 50 frames a second on a Generation 2 and 35 on a Generation 1.
+- **ScummVM**, the interpreter for the classic adventure games of LucasArts, Sierra and others (from frank-quest, its port to the RP2350): the AGI, SCI, SCUMM, Gobliiins and Kyrandia engines, with music and speech.
 
 Each was ported with the tools and services described in this guide, and the chapter Porting Existing Software describes how.
 
@@ -35,11 +35,11 @@ The same program runs on both generations. The differences that matter to a prog
 | | Generation 1 | Generation 2 |
 |---|---|---|
 | Processor clock | 400MHz or 480MHz, by the chip's revision | 480MHz |
-| Memory for the program | about 4MB, borrowed from MMBasic's heap while the program runs | 8MB set aside for it |
+| Memory for the program | about 4MB, borrowed from MMBasic's heap while the program runs; about 7MB with the display memory too, for a program built with --vram | 8MB set aside for it |
 | Where the program is loaded | where the free memory is: it is moved there | 0xD1800000, where it was linked |
-| Video modes | as for BASIC: no MODE 16 and no 32-bit colour | all |
+| Video modes | as for BASIC: no MODE 16 and no 32-bit colour; with --vram, those whose page fits in the internal RAM | all |
 
-A program too large for a Generation 1 is built with the --g2 option, and a Generation 1 then refuses it with the error "Needs a G2". ScummVM is built this way.
+A program that needs more memory than a Generation 1's 4MB is built with the --vram option: a Generation 1 then lends it the display memory as well while it runs, and limits it to the video modes that do not need it (see The Display Memory Lent in the next chapter). Doom and ScummVM are built this way, and the same file runs on both generations. A program that cannot run on a Generation 1 at all is built with --g2, and a Generation 1 then refuses it with the error "Needs a G2".
 
 ## This Guide
 

@@ -116,15 +116,23 @@ __attribute__((weak)) int _write(int file, char *ptr, int len)
 	return len;
 }
 
+static char *heap_end;
+int LoaderNoSbrk;                                   // a G1's loadable program has the heap's bottom (Loader.c): no growth
+// newlib's arena never grown, or grown nowhere: the heap's bottom is free of it (Loader.c, a G1's one area)
+int SbrkUnused(void) { return heap_end == 0 || heap_end == (char *)SDRAMBASE; }
+
 caddr_t _sbrk(int incr)
 {
 //	extern char end asm("end");
-	static char *heap_end;
 	char *prev_heap_end;
 
 	if (heap_end == 0)
 		heap_end = (char *)SDRAMBASE;//&end;
 
+	if (LoaderNoSbrk && incr > 0) {                 // (quietly: malloc gives NULL; the program is where it would grow)
+		errno = ENOMEM;
+		return (caddr_t) -1;
+	}
 	prev_heap_end = heap_end;
 //	if (heap_end + incr > stack_ptr)
 	if ((uint32_t)heap_end + incr > (uint32_t)minMMheap)	{
