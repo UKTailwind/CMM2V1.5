@@ -1475,6 +1475,27 @@ int FreeSpaceOnHeap(void) {
     return nbr * RAMPAGESIZE;
 }
 
+// the largest run of free pages in GetMemory's part of the heap, in bytes: the most one GetMemory can have (a loadable
+// program's room on a G1, Loader.c)
+int LargestFreeOnHeap(void) {
+    unsigned int run = 0, best = 0;
+    unsigned char *addr;
+    for(addr = (unsigned char *)SDRAMEXEC -  RAMPAGESIZE; addr >= (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE) {
+        if(SDBitsGet(addr) & PUSED) run = 0;
+        else if(++run > best) best = run;
+    }
+    return best * RAMPAGESIZE;
+}
+
+// minMMheap, the low mark malloc's arena may grow to (syscalls.c), put back after a large block is freed: to was (the
+// mark before it was taken), or to the lowest page still in use if that is lower
+void HeapLowMark(void *was) {
+    unsigned char *addr;
+    for(addr = (unsigned char *)SDRAMBASE; addr < (unsigned char *)was; addr += RAMPAGESIZE)
+        if(SDBitsGet(addr) & PUSED) break;
+    minMMheap = addr;
+}
+
 
 unsigned int UsedHeap(void) {
     unsigned int nbr;

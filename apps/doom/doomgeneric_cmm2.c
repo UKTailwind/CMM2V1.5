@@ -316,10 +316,19 @@ static void report(void) {
 
 int main(int argc, char **argv) {
     static const char *const wads[] = { "freedoom1.wad", "doom1.wad", "doom.wad", "freedoom2.wad", "doom2.wad" };
-    char **args = malloc((argc + 3) * sizeof(char *)), dir[256], *p;
+    char **args = malloc((argc + 5) * sizeof(char *)), dir[256], *p;
+    static char mb[8];
     int i, n = 0;
     FILE *f;
     for(i = 0; i < argc; i++) args[n++] = argv[i];
+    for(i = 1; i < argc && strcmp(argv[i], "-mb"); i++) {}
+    if(i == argc) {                                                 // no -mb: the zone as large as the heap allows, up to
+        int m = (int)((cmm2_start->heap_size - (512 << 10)) >> 20); // doomgeneric's 6 MB, with 512 KB left for the rest (a
+        if(m > 6) m = 6;                                            // G2 gives 6 MB, a G1 about 2)
+        snprintf(mb, sizeof(mb), "%d", m);
+        args[n++] = "-mb";
+        args[n++] = mb;
+    }
     for(i = 1; i < argc && strcmp(argv[i], "-iwad"); i++) {}
     if(i == argc) {                                                 // no -iwad: the first IWAD in the program's directory
         strncpy(dir, argv[0], sizeof(dir) - 32);

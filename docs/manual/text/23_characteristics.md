@@ -76,7 +76,7 @@ Below is a summary of how the MMBasic firmware makes use of the memory of the ST
 | D180 0000 - D1FF FFFF | 8M | SDRAM (Generation 2): loadable programs (RUN "file.app"). |
 | D000 0000 - D02F FFFF | 3M | SDRAM (Generation 1): the display pages. |
 | D030 0000 - D037 FFFF | 0.5M | SDRAM (Generation 1): program memory with OPTION RAM. |
-| D030 0000 - D07F FFFF | 5M | SDRAM (Generation 1): the MMBasic heap (from D038 0000 with OPTION RAM). While OPTION COMPILE is ON or SHADOW its bottom 1M is the compiled program, and the heap starts above it. Its top 512K (D078 0000 - D07F FFFF) is where the code of a RAM library's CSUBs is kept. |
+| D030 0000 - D07F FFFF | 5M | SDRAM (Generation 1): the MMBasic heap (from D038 0000 with OPTION RAM). While OPTION COMPILE is ON or SHADOW its bottom 1M is the compiled program, and the heap starts above it. Its top 512K (D078 0000 - D07F FFFF) is where the code of a RAM library's CSUBs is kept. A loadable program (RUN "file.app") borrows the largest free part of the heap, less 256K, while it runs. |
 
 ## Compatibility
 

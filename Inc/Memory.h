@@ -124,10 +124,15 @@ extern uint32_t RBStreamSize;
 // in it.  At the top, because newlib's _sbrk grows up from SDRAMBASE.
 #define SDRAMEXEC        	(G1Hardware ? 0xD0780000 : 0xD1780000)
 #define SDRAMEXECSIZE    	0x80000
-// loadable programs (G2 only, Peter 2 Nov 2026): the top 8 MB of the SDRAM, above the heap, kept for them for good.
+// loadable programs (Peter 2 Nov 2026): on a G2 the top 8 MB of the SDRAM, above the heap, kept for them for good.
 // MPU region 8 makes it executable and write-back cached (main.c); RUN "x.app" loads a program at its start (Loader.c).
+// A G1 has no room to keep: a program borrows the heap's largest free run while it runs, and LoaderExec makes regions
+// 8 and 9 (the heap above 0xD0380000) executable meanwhile (MPU_Config_nCacheable).
 #define LOADER_BASE       	0xD1800000
 #define LOADER_SIZE       	0x800000
+extern int LoaderExec;
+extern int LargestFreeOnHeap(void);
+extern void HeapLowMark(void *was);
 extern void *GetExecMemory(size_t size);
 // other (minor) memory management parameters
 #define RAMPAGESIZE        256                                         // the allocation granuality

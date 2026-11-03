@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
-The firmware's OPL3 synth (G2 only): ymfm's YMF262 (Src/ymfm, BSD-3-Clause, Aaron Giles; ymfm/LICENSE) behind C for
+The firmware's OPL3 synth: ymfm's YMF262 (Src/ymfm, BSD-3-Clause, Aaron Giles; ymfm/LICENSE) behind C for
 PLAY OPL (OPL.c) and the opl_ services of loadable programs (Loader.c). Peter chose it on 2 Nov 2026 after hearing it
 against Nuked-OPL3 and emu8950 on the same music (tests/opl): it sounded the same at about half Nuked's CPU.
 

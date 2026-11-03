@@ -1,15 +1,19 @@
 /***********************************************************************************************************************
-Loadable programs (G2 only, 2 Nov 2026: Peter). docs/Loader_Plan.md has the design, Inc/cmm2img.h the file format and
-the services, tools/sdk the tools that build a program.
+Loadable programs (2 Nov 2026: Peter; a G1 too since 3 Nov). docs/Loader_Plan.md has the design, Inc/cmm2img.h the
+file format and the services, tools/sdk the tools that build a program.
 
-  RUN "name.app" [, words]   loads the program into the 8 MB at LOADER_BASE (Memory.h; MPU region 8 makes it executable
-                             and write-back cached), runs it, and goes on with the next statement when it ends (typed at
-                             the prompt: back to the prompt). The words after the comma are its argv[1] on.
+  RUN "name.app" [, words]   loads the program into its area, runs it, and goes on with the next statement when it ends
+                             (typed at the prompt: back to the prompt). The words after the comma are its argv[1] on.
+
+Its area: on a G2, the 8 MB at LOADER_BASE (Memory.h; MPU region 8 makes it executable and write-back cached). A G1 has
+no SDRAM to keep for it, so it borrows the heap's largest free run (all but LD_G1_RESERVE of it, from a 64 KB boundary)
+while the program runs: the image is moved there by its relocations, and LoaderExec makes the heap executable meanwhile.
+From the prompt that is about 4 MB; from a BASIC program, what the program leaves. An image flagged G2 is refused there.
 
 Only a name ending in .APP is looked at, so RUN of a BASIC program is as it was, and nothing of the BASIC program in
-memory is touched: the 8 MB is the program's alone.
+memory is touched.
 
-The program runs on its own stack (the process stack, at the top of the 8 MB), so the interrupts keep the main stack in
+The program runs on its own stack (the process stack, at the top of its area), so the interrupts keep the main stack in
 DTCM, with its heap between its .bss and that stack. LoaderCall switches to it and calls the entry with the start block;
 the program comes back by returning, or from any depth through leave(), which goes to LoaderReturn: that puts back the
 main stack and the registers LoaderCall saved. The services never raise an MMBasic error (its longjmp would leave the
@@ -49,6 +53,9 @@ static DIR *lddir[LD_DIRS];
 static void *ldblock[LD_BLOCKS];                                    // its blocks of the MMBasic heap (alloc, opl_new)
 static uint32_t ldmsp __attribute__((used));                        // the main stack inside LoaderCall, for LoaderReturn
 static cmm2img_start ldstart;
+#define LD_G1_RESERVE 0x40000                                       // a G1's heap left beside the program: the services'
+static void *ldarea;                                                // blocks and malloc's arena; ldarea the run it borrows
+int LoaderExec;                                                     // 1 while that run is executable (MPU_Config_nCacheable)
 
 // the time in microseconds since start-up: TIM16 counts 0-49999 at 1 MHz and uSecTimer its wraps (CFunctions.c's
 // timer()), both read until they agree, so a wrap between the two reads is not lost
@@ -889,6 +896,16 @@ static void ld_tidy(void) {
     for(i = 0; i < LD_BLOCKS; i++) if(ldblock[i]) { FreeMemory(ldblock[i]); ldblock[i] = NULL; }
 }
 
+// a G1's borrowed run given back (after ld_tidy, or when a load fails): the heap no longer executable, the run freed, and
+// the low mark malloc's arena may grow to put back to where it was before the load, or to the lowest block still in use
+static void ld_giveback(void *oldmin) {
+    if(ldarea == NULL) return;
+    if(LoaderExec) { LoaderExec = 0; MPU_Config_nCacheable(0); }
+    FreeMemory(ldarea);
+    ldarea = NULL;
+    HeapLowMark(oldmin);
+}
+
 // a word of a Thumb-2 MOVT (T1) given another immediate: hw1 11110 i 101100 imm4, hw2 0 imm3 Rd imm8
 static uint16_t ld_movt_imm(uint16_t *ins) {
     return ((ins[0] & 0xF) << 12) | ((ins[0] & 0x400) << 1) | ((ins[1] & 0x7000) >> 4) | (ins[1] & 0xFF);
@@ -906,6 +923,10 @@ int LoaderRun(char *name) {
     UINT got;
     FIL *f;
     char *base = (char *)LOADER_BASE;
+    uint32_t area = LOADER_SIZE;
+    uint64_t need;
+    int room = 0;
+    void *oldmin = minMMheap;
     if(name) strcpy(fname, name);                                   // RUN f$: its value
     else {                                                          // RUN "name": the quoted name of the line's text
         p = runcmd;
@@ -915,7 +936,6 @@ int LoaderRun(char *name) {
     }
     n = strlen(fname);
     if(n < 4 || strcasecmp(fname + n - 4, ".APP")) return 0;
-    if(G1Hardware) error("Only available on a G2");
     p = runcmd;                                                     // the words after the name's comma (runcmd is "name",text)
     if(*p == '"') { p++; while(*p && *p != '"') p++; if(*p) p++; }
     while(*p == ' ') p++;
@@ -938,15 +958,32 @@ int LoaderRun(char *name) {
         error("Not a program this firmware can load");
     }
     if(h.api_version > CMM2IMG_API_VERSION) { FileClose(fnbr); error("Needs a newer firmware"); }
-    if((uint64_t)end + stack + h.heap_min > LOADER_SIZE) { FileClose(fnbr); error("Needs % KB, more than the 8 MB", (int)(((uint64_t)end + stack + h.heap_min) / 1024)); }
-    for(off = 0; off < h.image_size; off += got) {                  // the image, straight into the 8 MB
+    if(G1Hardware && (h.flags & CMM2IMG_FLAG_G2)) { FileClose(fnbr); error("Needs a G2"); }
+    if(G1Hardware) {                                                // a G1: the heap's largest free run but the reserve, from
+        room = LargestFreeOnHeap() - LD_G1_RESERVE;                 // its first 64 KB boundary (the image's relocations
+        if(room < 0) room = 0;                                      // allow a move by whole 64 KBs)
+        area = 0;
+        if(room > 0x10000 && (ldarea = GetMemoryNull(room)) != NULL) {
+            base = (char *)(((uint32_t)ldarea + 0xFFFF) & ~0xFFFF);
+            area = ((uint32_t)ldarea + room - (uint32_t)base) & ~7;
+        }
+    }
+    need = (uint64_t)end + stack + h.heap_min;                      // (the relocations are read in above the .bss)
+    if(need < (uint64_t)end + h.reloc_count * 4) need = (uint64_t)end + h.reloc_count * 4;
+    if(need > area) {
+        FileClose(fnbr);
+        ld_giveback(oldmin);
+        if(G1Hardware) error("Needs % KB, % KB free", (int)(need / 1024), (int)((area ? area : room) / 1024));
+        error("Needs % KB, more than the 8 MB", (int)(need / 1024));
+    }
+    for(off = 0; off < h.image_size; off += got) {                  // the image, straight into its place
         i = h.image_size - off;
         if(i > 0x10000) i = 0x10000;
-        if(f_read(f, base + off, i, &got) != FR_OK || got != i) { FileClose(fnbr); error("Cannot read the program"); }
+        if(f_read(f, base + off, i, &got) != FR_OK || got != i) { FileClose(fnbr); ld_giveback(oldmin); error("Cannot read the program"); }
     }
     if(h.reloc_count) {
-        rel = GetMemory(h.reloc_count * 4);
-        if(f_read(f, rel, h.reloc_count * 4, &got) != FR_OK || got != h.reloc_count * 4) { FileClose(fnbr); error("Cannot read the program"); }
+        rel = (uint32_t *)(base + end);
+        if(f_read(f, rel, h.reloc_count * 4, &got) != FR_OK || got != h.reloc_count * 4) { FileClose(fnbr); ld_giveback(oldmin); error("Cannot read the program"); }
     }
     FileClose(fnbr);
     table = GetTempMemory(256 * sizeof(uint32_t));
@@ -957,12 +994,12 @@ int LoaderRun(char *name) {
     }
     crc = ld_crc(table, 0, (unsigned char *)base, h.image_size);
     if(rel) crc = ld_crc(table, crc, (unsigned char *)rel, h.reloc_count * 4);
-    if(crc != h.crc32) error("The program file is damaged");
-    if(LOADER_BASE != h.link_base) {                                // moved by a multiple of 64 KB: ABS32 words and MOVTs
-        uint32_t delta = LOADER_BASE - h.link_base;
+    if(crc != h.crc32) { ld_giveback(oldmin); error("The program file is damaged"); }
+    if((uint32_t)base != h.link_base) {                             // moved by a multiple of 64 KB: ABS32 words and MOVTs
+        uint32_t delta = (uint32_t)base - h.link_base;
         for(i = 0; i < h.reloc_count; i++) {
             off = CMM2IMG_REL_OFFSET(rel[i]);
-            if(off + 4 > h.image_size) error("The program file is damaged");
+            if(off + 4 > h.image_size) { ld_giveback(oldmin); error("The program file is damaged"); }
             if(CMM2IMG_REL_KIND(rel[i]) == CMM2IMG_REL_ABS32) {
                 uint32_t w;
                 memcpy(&w, base + off, 4);
@@ -971,10 +1008,9 @@ int LoaderRun(char *name) {
             } else if(CMM2IMG_REL_KIND(rel[i]) == CMM2IMG_REL_MOVT) {
                 uint16_t *ins = (uint16_t *)(base + off);
                 ld_movt_set(ins, ld_movt_imm(ins) + (delta >> 16));
-            } else error("The program file is damaged");
+            } else { ld_giveback(oldmin); error("The program file is damaged"); }
         }
     }
-    if(rel) FreeMemory(rel);
     memset(base + h.image_size, 0, h.bss_size);
     SCB_CleanDCache_by_Addr((uint32_t *)base, h.image_size + h.bss_size);   // the code to the SDRAM, where it is fetched
     SCB_InvalidateICache();                                         // (a program run before may be in the cache)
@@ -983,8 +1019,8 @@ int LoaderRun(char *name) {
     ldstart.argc = argc;
     ldstart.argv = argv;
     ldstart.heap = base + end;
-    ldstart.heap_size = LOADER_SIZE - end - stack;
-    ldstart.base = LOADER_BASE;
+    ldstart.heap_size = area - end - stack;
+    ldstart.base = (uint32_t)base;
     MMAbort = 0;
     int oldmode = VideoMode, oldcolour = VideoColour, oldpico = PicoActive;   // BASIC's screen, put back at the end: a
     int oldfont = gui_font, oldfc = gui_fcolour, oldbc = gui_bcolour;   // mode change clears it, but its mode, font,
@@ -992,8 +1028,10 @@ int LoaderRun(char *name) {
     memcpy(oldclut, CLUT, sizeof(oldclut));
     ldpalette = 0;
     ldscreen = 1;
-    code = LoaderCall(base + h.entry, &ldstart, LOADER_BASE + LOADER_SIZE);
+    if(ldarea) { LoaderExec = 1; MPU_Config_nCacheable(0); }       // (a G1: its heap executable while the program runs)
+    code = LoaderCall(base + h.entry, &ldstart, (uint32_t)base + area);
     ld_tidy();                                                      // (a Ctrl-C stays: the BASIC program stops next)
+    ld_giveback(oldmin);
     ConsoleRxBufTail = ConsoleRxBufHead;                            // (the keys the program had, not typed into BASIC)
     int changed = VideoMode != oldmode || VideoColour != oldcolour || PicoActive != oldpico;
     if(changed) {

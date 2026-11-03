@@ -1,6 +1,6 @@
-"""mkimage.py ELF OUT.app [--name NAME] [--stack BYTES] [--heap BYTES] [--api N]
+"""mkimage.py ELF OUT.app [--name NAME] [--stack BYTES] [--heap BYTES] [--api N] [--g2]
 
-Makes a loadable program for the CMM2 G2 (Inc/cmm2img.h) from an ELF that app.ld linked with -Wl,--emit-relocs:
+Makes a loadable program for the CMM2 (Inc/cmm2img.h) from an ELF that app.ld linked with -Wl,--emit-relocs:
 the 64-byte header, the image (every allocated section with contents, from the link address, gaps zeroed), then the
 relocation words. Kept are the relocations that hold an absolute address of the image: R_ARM_ABS32 and R_ARM_TARGET1
 words (CMM2IMG_REL_ABS32) and R_ARM_THM_MOVT_ABS instructions (CMM2IMG_REL_MOVT). A MOVW needs nothing, as the loader
@@ -44,6 +44,7 @@ def main():
     ap.add_argument('--stack', type=int, default=0)
     ap.add_argument('--heap', type=int, default=0)
     ap.add_argument('--api', type=int, default=1)   # the services' version it uses: older firmware refuses it
+    ap.add_argument('--g2', action='store_true')    # CMM2IMG_FLAG_G2: a G1 refuses it (more than a G1's memory)
     a = ap.parse_args()
     d = open(a.elf, 'rb').read()
     if d[:4] != b'\x7fELF' or d[4] != 1 or d[5] != 1:
@@ -102,7 +103,7 @@ def main():
     rel = b''.join(struct.pack('<I', r) for r in sorted(relocs, key=lambda r: r & 0x0FFFFFFF))
     crc = zlib.crc32(bytes(image) + rel) & 0xFFFFFFFF
     name = (a.name or a.out.replace('\\', '/').split('/')[-1].rsplit('.', 1)[0])[:15].encode()
-    hdr = HEADER.pack(b'CMM2IMG\0', 1, a.api, 1, 0x01, 0, base, len(image), bss_end - end, entry - base, a.stack, a.heap,
+    hdr = HEADER.pack(b'CMM2IMG\0', 1, a.api, 1, 0x01 if a.g2 else 0, 0, base, len(image), bss_end - end, entry - base, a.stack, a.heap,
                       len(relocs), crc, name)
     open(a.out, 'wb').write(hdr + bytes(image) + rel)
     print('%s: %d bytes of image at 0x%08X, %d of .bss, entry +0x%X, %d relocations (%d absolute left alone), '

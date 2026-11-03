@@ -1,4 +1,4 @@
-/* Loadable programs (G2 only): Src/Loader.c. RUN "name.app" runs one; docs/Loader_Plan.md has the design. */
+/* Loadable programs: Src/Loader.c. RUN "name.app" runs one; docs/Loader_Plan.md has the design. */
 #ifndef LOADER_HEADER
 #define LOADER_HEADER
 #include <stdint.h>

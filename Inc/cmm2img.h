@@ -1,5 +1,5 @@
 /*
- * cmm2img.h: loadable programs for the Colour Maximite 2 G2. The image header, the start block a program is called
+ * cmm2img.h: loadable programs for the Colour Maximite 2. The image header, the start block a program is called
  * with, and the table of firmware services it uses. The firmware (Src/Loader.c, Src/OPL.c) and the SDK (tools/sdk)
  * are both built from this file.
  *
@@ -22,8 +22,9 @@
  * top 4 bits. The loader only moves an image by a multiple of 64 KB, so a MOVW never changes and a MOVT's immediate
  * takes the top half of the difference. tools/sdk/mkimage.py makes the file from an ELF linked with --emit-relocs.
  *
- * A program runs on its own stack (the process stack) at the top of the 8 MB, with its heap between its .bss and the
- * stack. It returns from its entry, or calls leave(), to go back to MMBasic.
+ * A program runs on its own stack (the process stack) at the top of its area (a G2: the 8 MB; a G1: the heap it
+ * borrows), with its heap between its .bss and the stack. It returns from its entry, or calls leave(), to go back to
+ * MMBasic.
  */
 #ifndef CMM2IMG_H
 #define CMM2IMG_H
@@ -35,9 +36,10 @@
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
-#define CMM2IMG_FLAG_G2      0x01              /* needs a G2 (every image does, for now) */
-#define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved */
-#define CMM2IMG_AREA         0x00800000u       /* the 8 MB it has: image, .bss, heap, stack */
+#define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
+#define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved
+                                                  there (a G1 moves it, by its relocations) */
+#define CMM2IMG_AREA         0x00800000u       /* a G2's 8 MB: image, .bss, heap, stack */
 #define CMM2IMG_STACK        0x00010000u       /* the stack when the header asks for none: 64 KB */
 
 #define CMM2IMG_REL_ABS32    0u                /* add the difference to the word */

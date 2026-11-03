@@ -50,7 +50,7 @@ Peter's decisions since the plan was written:
 - This replaces Part 1's "an image in the heap": an application is linked at 0xD1800000, so it loads without relocation. The relocation code stays for images linked elsewhere, and was tested with a copy linked at 0x60000000.
 
 **The loader (`Src/Loader.c`, `Inc/cmm2img.h`).**
-- `RUN "name.app" [, words]` (D2, provisional). Only names ending `.app` are looked at, and G1 gives "Only available on a G2".
+- `RUN "name.app" [, words]` (D2, provisional). Only names ending `.app` are looked at. (A G1 gave "Only available on a G2" until 3 Nov: see "A G1" below.)
 - The program runs on the process stack at the top of the 8 MB, and comes back by returning or through `leave()` from any depth.
 - What it leaves open is closed and freed when it ends.
 - From a program, RUN of a `.app` goes on with the next statement, the program's variables kept. At the prompt it returns to the prompt.
@@ -263,60 +263,42 @@ Real music, through `oplplay.app` (`tools/sdk/examples/oplplay`, which renders M
 - Modules.
 - Doom (not needed for the proof of concept): saves into the game's directory without CHDIR; the mouse; the sample interrupt's cost.
 - RUN's tokenised arguments (above).
-- A G1 (the review below).
 
-**A G1: what it would take (review, 2 Nov).**
+**A G1 (reviewed 2 Nov; done and tested 3 Nov on Peter's G1, COM40, its own ST-Link).**
+
+Peter, 2 Nov: "Review how the new loader functionality could be made to work on a G1 CMM2", then "There is a g1 on com40 you can test with" and "The G1 is all yours to get working".
 
 What a G1 has, against the G2:
-- **SDRAM:** 8 MB on the same 16-bit bus, not 32 MB. The display pages take 0xD0000000-0xD0300000. Above them come the OPTION RAM program (512 KB) and the compiler's stream (1 MB, while OPTION COMPILE is on). The heap runs from there to the executable window at 0xD0780000. That is about 4.5 MB of heap, or 3.5 MB while compiling.
-- **CPU:** Peter's G1 runs at 400 MHz, so everything, the SDRAM's clock included, is about a sixth slower.
-- **MPU:** regions 8 (0xD0380000, 512 KB) and 9 (0xD0400000, 4 MB) cover the heap. They are write-back cached like the G2's region 8, but execute-never. Regions 0, 13 and 14 are unused on a G1.
-- **Unchanged:** the flash (the one binary serves both), the DACs, the USB host, the LTDC and DMA2D, and the I/O pins. External.c's GP map has no G1 case.
+- **SDRAM:** 8 MB on the same 16-bit bus, not 32 MB. The display pages take 0xD0000000-0xD0300000. Above them come the OPTION RAM program (512 KB) and the compiler's stream (1 MB, while OPTION COMPILE is on). The heap runs from there to the executable window at 0xD0780000: about 4.5 MB, or 3.5 MB while compiling.
+- **CPU:** Peter's G1 runs at 400 MHz.
+- **MPU:** regions 8 (0xD0380000, 512 KB) and 9 (0xD0400000, 4 MB) cover the heap. They are write-back cached like the G2's region 8, but execute-never. Region 7 (0xD0300000, 512 KB) is executable for OPTION RAM's CSUBs.
+- **Unchanged:** the flash (the one binary serves both), the DACs, the USB host, the LTDC and DMA2D, and the I/O pins (External.c's GP map has no G1 case).
 
-The gating today:
-- `LoaderRun` and PLAY OPL, MIDI, NOTE and MIDIFILE give "Only available on a G2".
-- `video_mode` already refuses MODE 16 on a G1, as MODE does.
-- `CMM2IMG_FLAG_G2` is defined, but mkimage never sets it and the loader never reads it.
+**The OPL synth:** its "Only available on a G2" gates are gone; nothing else was needed. PLAY OPL TEST on the G1: 63.4% of the CPU for 18 voices (G2 53.6%), 23.0% with none (G2 19.9%).
 
-**The OPL synth needs nothing but its gate removed.**
-- Its code is in the binary already.
-- A chip takes 18 KB of heap, and a file is read whole into the heap; only a big VGM file would be a problem on a G1.
-- At 400 MHz expect about 1.2x the G2's figures: 18 held voices about 64% of the CPU, real music 34-62%, two OPL2 chips about 78%. It works, and BASIC gets less.
+**The loader: a program borrows BASIC's heap while it runs.** A fixed area would have taken nearly half a G1's heap for good.
+1. **Its area.** On a G1, `LoaderRun` takes the heap's largest free run (`LargestFreeOnHeap`, Memory.c) less `LD_G1_RESERVE` (256 KB, left for the services' blocks and malloc's arena), with `GetMemoryNull`, which places it at the run's top. The image goes at the run's first 64 KB boundary and is moved there by its relocations (a move by whole 64 KBs is what they allow). The relocation words are read in above the .bss, on both boards, so no heap block is needed for them. The stack is at the area's top, the program's heap between.
+2. **Executable while it runs.** `LoaderExec`, set around `LoaderCall`, makes the G1 branch of `MPU_Config_nCacheable` clear XN on regions 8 and 9. It has to be there: that function runs again at every mode change. The display pages stay execute-never.
+3. **Given back** after `ld_tidy`, or when a load fails: XN back, the run freed, and `minMMheap` (malloc's arena's limit) put back by `HeapLowMark`, to its mark before the load or to the lowest block still in use.
+4. **Refused before loading** when image, .bss, stack, `heap_min` (and the relocation words) don't fit: "Needs n KB, n KB free". An image built with `--g2` (`CMM2IMG_FLAG_G2`) gives "Needs a G2". mkimage used to set that flag on every image; it is now `--g2`'s, and only ScummVM's make.py passes it.
 
-**The loader needs memory, and a fixed area is not the answer on a G1.** 2 MB would be nearly half its heap, for good. Instead, a program should borrow BASIC's heap only while it runs:
-1. **Load into the heap.** On a G1, `LoaderRun` takes the highest free run of heap pages that starts on a 64 KB boundary.
-   - It searches top-down, as `GetMemory` does, because newlib's `_sbrk` grows up from SDRAMBASE.
-   - It leaves a reserve, about 256 KB, for the services' own blocks: argv, cluster maps, the OPL chip, heap blocks.
-   - The image is loaded and moved there by the relocation code that exists now. mkimage keeps every ABS32 and MOVT, and a move by a multiple of 64 KB needs no more; it was tested with a copy linked at 0x60000000.
-   - The stack goes at the run's top, and the rest is the program's heap.
-   - The run is freed after `ld_tidy`.
-   - From the prompt, nearly all of the 4.5 MB is free. From a BASIC program, the program gets what that program leaves.
-   - "Needs n KB, n KB free" is given before anything loads when image, bss, stack and `heap_min` don't fit.
-2. **Make it executable while it runs.**
-   - A flag set around `LoaderCall` makes the G1 branch of `MPU_Config_nCacheable` clear XN on regions 8 and 9. Region 7, the OPTION RAM program's, is executable already.
-   - The flag has to live there: that function runs again at every mode change (ltdc.c), and a `video_mode` call would otherwise make the program's own code execute-never under it.
-   - The display pages stay execute-never. That was the reason for keeping the heap XN: no speculative fetches over live display buffers.
-   - A region of its own (13 or 14) over just the run would need a power-of-two size and subregions. Flipping 8 and 9 is simpler and no less safe.
-3. **Refuse what can't fit.**
-   - The loader refuses an image flagged G2 on a G1.
-   - Programs set `heap_min` (`build.py --heap`) to what they really need, so a G1 refuses them before loading rather than failing inside.
+**Tested on the G1:**
+- `hello.app`: loaded at 0xD0340000 with a 4,272 KB heap; argv, files, `leave()` (code 42) and a code from main (7). MM.INFO(HEAP) is the same before and after every run (4,945,920), and after NEW.
+- `vidtest.app`: MODE 3,8 and 1,8 from the program, the palette turned, Ctrl-C; BASIC's 1280x720 mode back.
+- From a BASIC program with an 800 KB array: the program had a 3,490 KB heap, and the BASIC program's variables were kept. With 340 KB free: "Needs 79 KB, 84 KB free", caught by ON ERROR SKIP.
+- **MicroPython** (the same `micropython.app` as the G2's, cmm2 branch 096da75c5): start-up 1.9 s; 2.3 MB of GC heap with the display and the on-screen console up. With under 4 MB of heap it takes SQLite's pool at 512 KB and leaves newlib 256 KB (a G2: 2 MB and 1 MB); 5,000 rows inserted, summed and sorted. ulab; all six hdmi modes (RGB512 at 60 Hz, RGB320 at 75).
+- **Doom** with Freedoom Phase 1 (`A:/Doom`). Its zone is now sized to the heap it is given (`-mb` added when not given: the heap less 512 KB, at most 6 MB; 3 MB on the G1), and its `heap_min` is 2.5 MB. Timed demo 1:
 
-About 100 lines in Loader.c, main.c and Memory.c, with no change to the SDK or the services.
+  | | G1, 400 MHz | G2, 480 MHz |
+  |---|---|---|
+  | silent (`-nosound`) | 77.8 fps | 97.3 fps |
+  | music at half rate and effects | 33.2 fps | 51.0 fps |
 
-**The programs on a G1, from the prompt (about 4.5 MB):**
+**Not for a G1:** ScummVM (3.04 MB, plus 4 MB for its allocator): built with `--g2`.
 
-| Program | Needs | On a G1 |
-|---|---|---|
-| vidtest, oplplay, nopoll | under 1 MB | as they are |
-| Doom | 342 KB, plus a zone that doomgeneric sizes at 6 MB (DEFAULT_RAM and MIN_RAM) | with `-mb 3`, or MIN_RAM lowered in the build. Whether Freedoom's levels fit in 3 MB is to be tried. |
-| MicroPython | 1.1 MB, plus SQLite's 2 MB pool in .bss (`MEMSYS5_HEAP_SIZE`), plus the GC heap | with the pool taken at run time and sized to the memory (512 KB on a G1), leaving a GC heap of about 2.5 MB. RGB1024's frame (768 KB) comes out of that. |
-| ScummVM | 3.04 MB, plus 4 MB for its allocator | no. It should set `heap_min` (or the G2 flag) so a G1 refuses it cleanly. |
-
-**Other G1 points:**
-- Its console's USB bridge runs at 115200 only. A 1 MB `.app` takes about 95 s by ZMODEM, so copy programs onto the card.
-- Video: the services offer depths 8 and 16 only, so there is no 32-bit mode to refuse. MODE's checks run first, so a mode whose pages don't fit in the G1's 3 MB is refused as BASIC's MODE refuses it. The largest `video_scaled` page, 1024x768 at 16 bits (1.5 MB), fits.
-
-**To test on the G1** (COM34, 115200; Peter moves the ST-Link): RUN of each program from the prompt and from a BASIC program; a mode change inside a program (the MPU flag); Ctrl-C and `leave()`; the heap given back (MM.INFO(HEAP) before and after); and PLAY OPL TEST's load.
+**G1 notes:**
+- Its console's USB bridge runs at 115200 only: 8 KB/s by ZMODEM (Freedoom's 28.8 MB WAD took 58 minutes).
+- The services offer depths 8 and 16 only, and MODE's own checks run first, so the G1's limits (no MODE 16, 3 MB of pages) apply as they do to BASIC.
 
 The G2's whole flash as it was before the first dev flash (7.00.00b5, its program and options) is in
 `build/g2backup/g2_flash_20261102.bin`, with its OPTION LIST. git ignores it. To put it back:
@@ -347,7 +329,7 @@ The G2's whole flash as it was before the first dev flash (7.00.00b5, its progra
 | D4 | What PLAY MIDI TEST does on the CMM2 | **Decided 2 Nov: plays a MIDI tune kept in flash (Freedoom's FreeDM title)** |
 | D5 | When a module is freed | When the program ends, as the RAM library is |
 | D6 | Where the SDK lives | `tools/sdk/` in this repository |
-| D7 | G1 support | **Decided 2 Nov: G2 only, with a permanent 8 MB at 0xD1800000** |
+| D7 | G1 support | **Decided 2 Nov: a permanent 8 MB at 0xD1800000 on the G2. 3 Nov: a G1 too, its programs in borrowed heap ("A G1" above)** |
 
 ## The CMM2 now
 

@@ -1,4 +1,4 @@
-/* The firmware's OPL3 synth (G2 only): ymfm's YMF262 behind C, Src/OPLChip.cpp. A chip is OPLChipSize() bytes the
+/* The firmware's OPL3 synth: ymfm's YMF262 behind C, Src/OPLChip.cpp. A chip is OPLChipSize() bytes the
    caller provides (the heap), made by OPLChipInit and ended by OPLChipDone; it makes 16-bit stereo at the rate given. */
 #ifndef OPLCHIP_HEADER
 #define OPLCHIP_HEADER

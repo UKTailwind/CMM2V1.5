@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
-PLAY OPL and PLAY MIDI (G2 only, 2 Nov 2026: Peter): an OPL3 (Yamaha YMF262) FM synth in the firmware, played as MOD
+PLAY OPL and PLAY MIDI (2 Nov 2026: Peter; a G1 too since 3 Nov): an OPL3 (Yamaha YMF262) FM synth in the firmware, played as MOD
 is, and what plays on it.
 
   PLAY OPL                                      the synth on for register writes: silent until written
@@ -804,9 +804,9 @@ static void cmd_midifile(char *tp) {
 // PLAY's OPL and MIDI commands: 1 if cmdline was one of them (Audio.c's cmd_play)
 int cmd_play_opl(char *cmdline) {
     char *tp;
-    if((tp = checkstring(cmdline, "OPL"))) { if(G1Hardware) error("Only available on a G2"); cmd_opl(tp); return 1; }
-    if((tp = checkstring(cmdline, "MIDIFILE"))) { if(G1Hardware) error("Only available on a G2"); cmd_midifile(tp); return 1; }
-    if((tp = checkstring(cmdline, "MIDI"))) { if(G1Hardware) error("Only available on a G2"); cmd_midi(tp); return 1; }
-    if((tp = checkstring(cmdline, "NOTE"))) { if(G1Hardware) error("Only available on a G2"); cmd_note(tp); return 1; }
+    if((tp = checkstring(cmdline, "OPL"))) { cmd_opl(tp); return 1; }
+    if((tp = checkstring(cmdline, "MIDIFILE"))) { cmd_midifile(tp); return 1; }
+    if((tp = checkstring(cmdline, "MIDI"))) { cmd_midi(tp); return 1; }
+    if((tp = checkstring(cmdline, "NOTE"))) { cmd_note(tp); return 1; }
     return 0;
 }
