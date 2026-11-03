@@ -50,16 +50,16 @@ CHDIR "A:/Doom" : RUN "doom.app"[/CODE]
 • [B]With a USB touch screen and OPTION MAXCTRLS above 0, programs ran slower,[/B] as every statement checked for the GUI's touch input. The GUI is now seen to once a millisecond: the solar eclipse benchmark takes 1.70 s compiled with the GUI running, as it does without it.
 • [B]RUN's arguments after a ':' or in a single-line IF[/B] reach the program as they are written. In [FONT=Courier]CHDIR "A:/Doom" : RUN "doom.app", -timedemo demo1[/FONT] the program was given them in capitals and with the minus sign changed (MMBasic's stored form of the line), and so was MM.CMDLINE$ after such a RUN in a program. RUN at the start of a line was always right.
 • [B]After PLAY WAV (or FLAC, MP3) and PLAY STOP,[/B] the sound output kept the number of the file it had closed. A file the program opened next could be given that number, and the next sound command closed it.
+• [B]On a Generation 1, MODE 8,4 with three FRAMEBUFFER layers stopped responding[/B] (the test program rgb121, at FRAMEBUFFER LAYER TOP and then FRAMEBUFFER WAIT; 7.00.00b5 too). Drawing the layers onto the display took longer than a frame, so the drawing ran without a break and the program, Ctrl-C included, never ran again. It now takes about three quarters of a frame, and a drawing that ever takes longer than a frame is made every other frame instead. The firmware file of this release was replaced with the fixed one on 3 November, about two hours after it was first posted: download it again if you took it earlier.
 
 
 [SIZE=4][COLOR=BLUE][B]The programs tested[/B][/COLOR][/SIZE]
 • The regression tests: tests/cmm2 (113 programs), the PicoMite's tests, the goldens (202 programs) and the Testfiles (66), each with OPTION COMPILE OFF, ON and SHADOW; SP Tools; the editor's and the file manager's tests. All give the results they gave with 7.00.00b5, except the free memory that three of the Testfiles print, now 8MB less on a Generation 2.
-• On a Generation 1, tests/cmm2 runs as on a Generation 2, apart from what the Generation 1's hardware does not have (32-bit colour, the mouse in use) and rgb121 (see Known problems).
-• MicroPython, Doom and ScummVM on both generations (ScummVM on the Generation 2), including the full Day of the Tentacle.
+• On a Generation 1, tests/cmm2 runs as on a Generation 2, apart from what the Generation 1's hardware does not have (32-bit colour, the mouse in use).
+• MicroPython, Doom and ScummVM on both generations, including the full Day of the Tentacle.
 
 
 [SIZE=4][COLOR=BLUE][B]Known problems[/B][/COLOR][/SIZE]
-• [B]On a Generation 1, the test program rgb121 stops responding in MODE 8,4[/B] when it shows three layers (FRAMEBUFFER LAYER TOP) and waits for a frame. It is in 7.00.00b5 too. A reset is needed.
 • [B]With a USB touch screen connected, a mouse click can be taken as a swipe[/B] by the GUI controls' gestures, as the click's end is taken from the touch screen.
 • An armed interrupt pin slows the program down, because the pin is polled after every statement.
 

@@ -299,11 +299,16 @@ PicoMite's VGA versions count from the vertical sync). Flash: 7,684 bytes left i
       launch and return with its label.
 
 ## Found on 3 Nov 2026 (tests/cmm2 on a G1, for the loader's G1 support)
-- [ ] **rgb121 hangs a G1 in MODE 8,4** (COM40): the third layer's FRAMEBUFFER LAYER TOP then FRAMEBUFFER WAIT never
-      returns, Ctrl-C does not reach the prompt, and only an ST-Link reset recovers. MODE 7,4 passes, and the G2 runs
-      the whole program. Not the loader's: main's own firmware (268eda3) hangs the same way. Likely (unchecked) the
-      merge of N, L and T onto the 640x480 display takes longer than a frame on the G1's 400 MHz and 16-bit SDRAM, so
-      the frame interrupt starves the program. The other G1 differences in tests/cmm2 are hardware: nine programs need
+- [x] **rgb121 hangs a G1 in MODE 8,4** (COM40): the third layer's FRAMEBUFFER LAYER TOP then FRAMEBUFFER WAIT never
+      returned, Ctrl-C did not reach the prompt, and only an ST-Link reset recovered. MODE 7,4 passed, and the G2 ran
+      the whole program. Not the loader's: main's own firmware (268eda3) hung the same way. Cause (found 3 Nov from
+      the stuck G1's registers: always in IRQ 94, the merge, half the samples in Over): Rgb121.c is built -Os, which
+      left Over() a function in flash, so the merge in ITCM called it through a veneer for every word of L and T,
+      and with both layers took longer than a frame; the LTDC's next request was pending as it ended, so the merge
+      ran back to back and the program never ran again. Fixed: Over always inline (the merge with N, L and T now
+      takes about three quarters of a G1's frame: a BASIC loop keeps 26% of its speed, 67% with N alone), and
+      CEC_IRQHandler drops a frame's request made while it ran, so a merge longer than a frame runs every other frame
+      rather than starving the program. The other G1 differences in tests/cmm2 are hardware: nine programs need
       32-bit colour, guictl a mouse, and osk prints the G1's OPTION LIST.
 - [x] **RUN's arguments after a ':' or in a single-line IF** (Peter, 3 Nov, for RC0): `CHDIR "A:/Doom" : RUN "doom.app",
       -timedemo demo1` gave the program `\x83TIMEDEMO DEMO1` (the minus a token, the words in capitals), and MM.CMDLINE$

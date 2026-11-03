@@ -469,7 +469,6 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 [SIZE=4][COLOR=BLUE][B]Known problems[/B][/COLOR][/SIZE]
 • A touch monitor that is also the Colour Maximite 2's display may reset its touch controller when the screen's resolution changes (MODE). Touches are not seen for a moment while it reconnects.
 • An armed interrupt pin slows the program down, because the pin is polled after every statement.
-• On a Generation 1, the test program rgb121 stops responding in MODE 8,4 when it shows three layers (FRAMEBUFFER LAYER TOP) and waits for a frame. A reset is needed.
 • With a USB touch screen connected, a mouse click can be taken as a swipe by the GUI controls' gestures.
 • The keyboard layout list names IT, but it cannot be selected.
 

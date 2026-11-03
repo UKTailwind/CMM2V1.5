@@ -196,8 +196,11 @@ static inline void OvRow(int y, int w, int scale) {
 The merge: N, then L and T over it where they are created, onto the display, a byte a pixel
 ***********************************************************************************************************************/
 // the layer word v over the word f: each nibble of v that is not t's (t in every nibble) comes from v (FrameBuffer.c's
-// merge_words: a lane of ((z & low) + low) | z has its top bit set exactly when z's lane is not zero)
-static inline uint32_t Over(uint32_t f, uint32_t v, uint32_t t) {
+// merge_words: a lane of ((z & low) + low) | z has its top bit set exactly when z's lane is not zero). Always inline:
+// this file is -Os, which kept it a function in flash, so the merge in ITCM went through a veneer for every word, and
+// a G1 in MODE 8,4 with L and T took longer than a frame over it: the merge ran back to back and starved the program
+// (3 Nov 2026, rgb121.bas)
+static inline __attribute__((always_inline)) uint32_t Over(uint32_t f, uint32_t v, uint32_t t) {
     uint32_t z = v ^ t;
     uint32_t mask = (((((z & 0x77777777u) + 0x77777777u) | z) & 0x88888888u) >> 3) * 0xFu;
     return (v & mask) | (f & ~mask);
@@ -317,12 +320,15 @@ static void __attribute__((noinline)) ITCM_CODE Merge8Run(void) {
     }
 }
 
-// the software interrupt the LTDC's line interrupt pends at the end of each frame
+// the software interrupt the LTDC's line interrupt pends at the end of each frame. A frame's end that came while the
+// merge ran is let go: the next merge starts at the next frame's end, so a merge longer than a frame (a large mode, a
+// slow board) runs every other frame rather than back to back, and the program below it, Ctrl-C included, still runs
 void CEC_IRQHandler(void) {
     if(!Rgb121Active) return;
     if(VideoColour == 1) MonoMergeRun();
     else if(VideoColour == 8) Merge8Run();
     else Rgb121Merge();
+    NVIC_ClearPendingIRQ(CEC_IRQn);
 }
 void Rgb121MergeRequest(void) {
     NVIC_SetPendingIRQ(CEC_IRQn);
