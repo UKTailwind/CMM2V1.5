@@ -4,14 +4,19 @@ file format and the services, tools/sdk the tools that build a program.
 
   RUN "name.app" [, words]   loads the program into its area, runs it, and goes on with the next statement when it ends
                              (typed at the prompt: back to the prompt). The words after the comma are its argv[1] on.
+  RUN "prog.bc" [, words]    a compiled C program: bcrun.app, the C compiler's runtime, runs it (argv[0] prog.bc)
+  RUN "prog.c" [, words]     compiled first by cc.app, to prog.bc beside it, if that is missing or not newer; then run
+  CC file$ [, options$]      compiles file$ (prog.c to prog.bc beside it); an error if it does not compile
+The C compiler is Peter's Fuzix compiler (4 Nov 2026, apps/cc and docs/C_Compiler_Plan.md): cc.app and bcrun.app are
+loadable programs in LD_CC_DIR, with the headers in its include/ folder.
 
 Its area: on a G2, the 8 MB at LOADER_BASE (Memory.h; MPU region 8 makes it executable and write-back cached). A G1 has
 no SDRAM to keep for it, so it borrows the heap's largest free run (all but LD_G1_RESERVE of it, from a 64 KB boundary)
 while the program runs: the image is moved there by its relocations, and LoaderExec makes the heap executable meanwhile.
 From the prompt that is about 4 MB; from a BASIC program, what the program leaves. An image flagged G2 is refused there.
 
-Only a name ending in .APP is looked at, so RUN of a BASIC program is as it was, and nothing of the BASIC program in
-memory is touched.
+Only a name ending in .APP, .BC or .C is looked at, so RUN of a BASIC program is as it was, and nothing of the BASIC
+program in memory is touched.
 
 The program runs on its own stack (the process stack, at the top of its area), so the interrupts keep the main stack in
 DTCM, with its heap between its .bss and that stack. LoaderCall switches to it and calls the entry with the start block;
@@ -53,6 +58,7 @@ static DIR *lddir[LD_DIRS];
 static void *ldblock[LD_BLOCKS];                                    // its blocks of the MMBasic heap (alloc, opl_new)
 static uint32_t ldmsp __attribute__((used));                        // the main stack inside LoaderCall, for LoaderReturn
 static cmm2img_start ldstart;
+#define LD_CC_DIR "A:/cc/"                                          // the C compiler's folder (the release's cc folder)
 #define LD_G1_RESERVE 0x40000                                       // a G1's heap left beside the program: the services'
 static void *ldarea;                                                // blocks and malloc's arena; ldarea the run it borrows
 int LoaderExec;                                                     // 1 while that run is executable (MPU_Config_nCacheable)
@@ -993,8 +999,10 @@ static void ld_movt_set(uint16_t *ins, uint16_t v) {
     ins[1] = (ins[1] & ~0x70FF) | ((v & 0x700) << 4) | (v & 0xFF);
 }
 
-int LoaderRun(char *name) {
-    char fname[STRINGSIZE], *p, **argv;
+// the program fname run with text's words as its argv[1] on: its exit code, printed if not 0 (as shown's, or not if
+// shown is NULL)
+static int ld_app(char *fname, char *text, char *shown) {
+    char *p = text, **argv;
     cmm2img_header h;
     uint32_t *rel = NULL, *table, i, stack, end, crc, off;
     int n, fnbr, argc, code;
@@ -1005,19 +1013,6 @@ int LoaderRun(char *name) {
     uint64_t need;
     int room = 0;
     void *oldmin = minMMheap;
-    if(name) strcpy(fname, name);                                   // RUN f$: its value
-    else {                                                          // RUN "name": the quoted name of the line's text
-        p = runcmd;
-        if(*p++ != '"') return 0;
-        for(n = 0; *p && *p != '"' && n < STRINGSIZE - 1; ) fname[n++] = *p++;
-        fname[n] = 0;
-    }
-    n = strlen(fname);
-    if(n < 4 || strcasecmp(fname + n - 4, ".APP")) return 0;
-    p = runcmd;                                                     // the words after the name's comma (runcmd is "name",text)
-    if(*p == '"') { p++; while(*p && *p != '"') p++; if(*p) p++; }
-    while(*p == ' ') p++;
-    if(*p == ',') p++;
 
     CloseAudio(1);                                                  // (first: its refills would stop while the program runs)
     if(!InitSDCard()) return 1;
@@ -1159,10 +1154,87 @@ int LoaderRun(char *name) {
     ConsoleRxBufTail = ConsoleRxBufHead;                            // (the keys the program had, not typed into BASIC)
     ld_screenback();
     FreeMemory(argv);
-    if(code) {
+    if(code && shown) {
         char b[STRINGSIZE + 40];
-        snprintf(b, sizeof(b), "%s ended with code %d\r\n", fname, code);
+        snprintf(b, sizeof(b), "%s ended with code %d\r\n", shown, code);
         MMPrintString(b);
     }
+    return code;
+}
+
+// the C compiler (cc.app) run on src, its object to bc, with the options' words before the source: an error if it fails
+// (its messages, file:line, are on the console already)
+static void ld_compile(char *src, char *bc, char *options) {
+    char args[STRINGSIZE * 3];
+    snprintf(args, sizeof(args), "-o \"%s\" %s \"%s\"", bc, options, src);
+    if(ld_app(LD_CC_DIR "cc.app", args, NULL)) error("$ did not compile", src);
+}
+
+// prog.c's object, prog.bc beside it
+static void ld_bcname(char *src, char *bc) {
+    int n = strlen(src);
+    if(n < 3 || n + 2 > STRINGSIZE - 1) error("Invalid file name");
+    memcpy(bc, src, n - 2);
+    strcpy(bc + n - 2, ".bc");
+}
+
+// a compiled C program run by bcrun.app, the words after it its argv[1] on
+static void ld_bc(char *bc, char *text) {
+    char args[STRINGSIZE * 2];
+    snprintf(args, sizeof(args), "\"%s\" %s", bc, text);
+    ld_app(LD_CC_DIR "bcrun.app", args, bc);
+}
+
+// a file's date and time as one number (FAT's: 2 second steps), or -1 if it is not there
+static int64_t ld_ftime(char *name) {
+    char p[FF_MAX_LFN + 4];
+    FILINFO fno;
+    ld_path(name, p);
+    if(f_stat(p, &fno) != FR_OK) return -1;
+    return ((int64_t)fno.fdate << 16) | fno.ftime;
+}
+
+// RUN of a loadable program (.app), a compiled C program (.bc) or a C source (.c: compiled first to the .bc beside it,
+// unless that is newer). 0 for any other name: RUN carries on with a BASIC program.
+int LoaderRun(char *name) {
+    char fname[STRINGSIZE], *p;
+    int n;
+    if(name) strcpy(fname, name);                                   // RUN f$: its value
+    else {                                                          // RUN "name": the quoted name of the line's text
+        p = runcmd;
+        if(*p++ != '"') return 0;
+        for(n = 0; *p && *p != '"' && n < STRINGSIZE - 1; ) fname[n++] = *p++;
+        fname[n] = 0;
+    }
+    n = strlen(fname);
+    p = runcmd;                                                     // the words after the name's comma (runcmd is "name",text)
+    if(*p == '"') { p++; while(*p && *p != '"') p++; if(*p) p++; }
+    while(*p == ' ') p++;
+    if(*p == ',') p++;
+    if(n >= 4 && !strcasecmp(fname + n - 4, ".APP")) ld_app(fname, p, fname);
+    else if(n >= 3 && !strcasecmp(fname + n - 3, ".BC")) ld_bc(fname, p);
+    else if(n >= 2 && !strcasecmp(fname + n - 2, ".C")) {
+        char bc[STRINGSIZE];
+        int64_t ct;
+        ld_bcname(fname, bc);
+        if(!InitSDCard()) return 1;
+        if((ct = ld_ftime(fname)) < 0) error("Cannot find $", fname);
+        if(ld_ftime(bc) <= ct) ld_compile(fname, bc, "");          // (missing, or not newer: FAT's times are 2 s apart)
+        ld_bc(bc, p);
+    } else return 0;
     return 1;
+}
+
+// CC file$ [, options$]: file$ compiled by the C compiler, prog.c to prog.bc beside it; options$ the compiler's (-v: each
+// pass shown, -k: the intermediate files kept, -o name: another object's name)
+void cmd_cc(void) {
+    char src[STRINGSIZE], bc[STRINGSIZE], options[STRINGSIZE];
+    getargs(&cmdline, 3, ",");
+    if(argc != 1 && argc != 3) error("Argument count");
+    strcpy(src, getCstring(argv[0]));
+    strcpy(options, argc == 3 ? (char *)getCstring(argv[2]) : "");
+    ld_bcname(src, bc);
+    if(!InitSDCard()) return;
+    if(ld_ftime(src) < 0) error("Cannot find $", src);
+    ld_compile(src, bc, options);
 }

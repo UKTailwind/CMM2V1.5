@@ -127,6 +127,7 @@ void cmd_slew(void);
 void cmd_locate(void);
 void cmd_flash(void);
 void cmd_ram(void);
+void cmd_cc(void);
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -570,6 +571,7 @@ void op_inv(void);
 	{ "Stepper",	    T_CMD,				0, cmd_stepper	},      // STEPPER ...: the PicoMite's motion control (stepper.c)
 	{ "TMC22xx",	    T_CMD,				0, cmd_TMC22xx	},      // TMC22xx ...: TMC2208/2209 drivers set up over their UART
 	{ "Keyboard",	    T_CMD,				0, cmd_keyboard	},      // KEYBOARD ON|OFF: the on-screen keyboard (MM_Misc.c, OSK.c)
+	{ "CC",			    T_CMD,				0, cmd_cc		},      // CC file$ [, options$]: the C compiler, cc.app (Loader.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

@@ -71,6 +71,7 @@ const char *  const __attribute__((section(".rodata")))help[] = {
  "CASE ELSE","CASE ELSE",
  "CASE IS","CASE [IS] comparison",
  "CAT","CAT string$1, string$2",
+ "CC","CC file$ [, options$]",
  "CHDIR","CHDIR dir$",
  "CHOICE(","CHOICE(condition, expression, expression)",
  "CHR$(","CHR$( number )",

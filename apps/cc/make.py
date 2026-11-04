@@ -28,7 +28,7 @@ CC = os.path.join(SRC, 'Applications', 'CC')
 CPP = os.path.join(SRC, 'Applications', 'cpp')
 OUT = os.path.join(HERE, 'out')
 URL = 'https://github.com/UKTailwind/FUZIX'
-COMMIT = '803848948c3f98fdb6477820931f2a866f812545'   # branch cmm2, 4 Nov 2026 (from pc3's 6d662a677)
+COMMIT = '9a077bbdf814d3b78bf2c91d118ba426cd7d6543'   # branch cmm2, 4 Nov 2026 (from pc3's 6d662a677)
 SPARSE = ['Applications/CC', 'Applications/cpp', 'Applications/mmb2c', 'Library/libs/fnum.c']
 
 # the passes: their sources (Makefile.common and Makefile.host's lists) and flags (the host build's: tables as big as
@@ -64,8 +64,8 @@ def sdk(args):
 
 def bcrun(extra):
     sdk([os.path.join(OUT, 'bcrun.app'), os.path.join(CC, 'bcrun.c'), os.path.join(CC, 'cmm2', 'bcrun_cmm2.c'),
-         os.path.join(SRC, 'Library', 'libs', 'fnum.c'), '--stack', '0x40000', '-I', CC, '-I', os.path.join(CC, 'cmm2'),
-         '--cflag=-DCMM2'] + ['--cflag=' + a for a in extra])
+         os.path.join(SRC, 'Library', 'libs', 'fnum.c'), '--stack', '0x20000', '-I', CC, '-I', os.path.join(CC, 'cmm2'),
+         '--cflag=-DCMM2'] + ['--cflag=' + a for a in extra])     # (the program's own stack is in its memory, not here)
 
 
 def passobj(name, folder, files, flags, b):
@@ -93,8 +93,8 @@ def cc(extra):
     import build as b
     objs = [passobj(name, folder, files, flags, b) for name, folder, files, flags in PASSES]
     sdk([os.path.join(OUT, 'cc.app'), os.path.join(CC, 'ccbc.c'), os.path.join(CC, 'cmm2', 'ccbc_cmm2.c')] + objs +
-        ['--stack', '0x40000', '-I', CC, '-I', os.path.join(CC, 'cmm2'), '--cflag=-DCMM2'] +
-        ['--cflag=' + a for a in extra])
+        ['--stack', '0x10000', '-I', CC, '-I', os.path.join(CC, 'cmm2'), '--cflag=-DCMM2'] +
+        ['--cflag=' + a for a in extra])                            # (the passes' recursion: cc1 32K on the PC3)
 
 
 def main():
@@ -112,6 +112,26 @@ def main():
         bcrun(extra)
     if not what or 'cc' in what:
         cc(extra)
+    card()
+
+
+def card():
+    """out/sd/cc, the SD card's A:/cc (the folder the firmware's CC and RUN of a .c or .bc use): the two programs, and
+    in include/ the headers - ctest-include's (what the PC3's card has), then the CMM2's over them (cmm2/include:
+    math.h, ctype.h, time.h, and a stdlib.h with all that bcrun has)"""
+    import shutil
+    sd = os.path.join(OUT, 'sd', 'cc')
+    inc = os.path.join(sd, 'include')
+    os.makedirs(inc, exist_ok=True)
+    for f in ('cc.app', 'bcrun.app'):
+        if os.path.exists(os.path.join(OUT, f)):
+            shutil.copy(os.path.join(OUT, f), sd)
+    for d in (os.path.join(CC, 'hosttest', 'ctest-include'), os.path.join(CC, 'cmm2', 'include')):
+        for f in sorted(os.listdir(d)):
+            if f.endswith('.h'):
+                shutil.copy(os.path.join(d, f), inc)
+    print('%s: %s, include/ %s' % (sd, ' '.join(f for f in sorted(os.listdir(sd)) if f.endswith('.app')),
+                                   ' '.join(sorted(os.listdir(inc)))))
 
 
 if __name__ == '__main__':

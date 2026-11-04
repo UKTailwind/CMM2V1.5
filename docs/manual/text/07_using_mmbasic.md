@@ -128,6 +128,33 @@ On a Generation 2 Colour Maximite 2 a loadable program has 8MB of SDRAM of its o
 
 Writing a loadable program needs a PC with the free Arm GNU toolchain and Python. The process, the services that the firmware gives a program and the tools that build one are described in the companion manual *Colour Maximite 2 Loadable Programs* (see Appendix O).
 
+## The C Compiler
+
+The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. Its two loadable programs, cc.app (the compiler) and bcrun.app (which runs what it makes), are in the cc folder of the programs that come with the firmware, with the header files in cc/include. Copy that folder to the SD card as A:/cc, where the commands look for it.
+
+```
+CC "hello.c"
+RUN "hello.bc", one two
+RUN "hello.c"
+```
+
+CC compiles a source file to an object file of the same name ending in .BC, beside it (hello.c makes hello.bc). Errors are listed with the file's name and the line number (hello.c:12 - missing semicolon) and then CC gives the error "hello.c did not compile". RUN "hello.bc" runs a compiled program, and the words after the comma are its arguments, in argv[1] onward. RUN "hello.c" compiles the source first if hello.bc is missing or older than it, and then runs it, so editing the source and running it again is one step. As with a loadable program, MMBasic carries on when the C program ends, and Ctrl-C stops it.
+
+A small program compiles in about a quarter of a second. The compiler translates each function to the processor's own instructions where it can, and the rest to a compact bytecode that bcrun.app interprets, so a program runs at about a fifth of the speed of the same program built on a PC with gcc as a loadable program; floating point uses the processor's double precision hardware.
+
+The language is C89 (ANSI C) with long long, // comments and declarations after statements. A program is one source file (there is no linker), and bit fields, declarations inside a for statement and local arrays initialised from a string ("static char s[] = ..." works) are not supported. The library has:
+
+- stdio.h: printf, sprintf and fprintf, putchar and puts, and files with fopen, fread, fwrite, fgetc, fgets, fputc, fputs, fseek, ftell, rewind, feof, fflush, fclose, remove and rename (there is no scanf);
+- stdlib.h: malloc, calloc, realloc and free, atoi, atol, atof, strtod, strtol and strtoul, abs, labs and llabs, rand and srand, exit;
+- string.h: strlen, strcpy, strncpy, strcat, strcmp, strncmp, strchr, strrchr, memset, memcpy, memmove and memcmp;
+- math.h: sin, cos, tan, asin, acos, atan, atan2, sinh, cosh, tanh, sqrt, exp, log, log10, pow, floor, ceil, fabs and fmod, in double precision;
+- ctype.h: isdigit, isalpha and the others, toupper and tolower;
+- time.h: time, and time_us and time_us64, the microseconds since the Colour Maximite 2 started.
+
+Files have MMBasic's names (A:/dir/name.txt, or relative to the current directory). A C program uses the console and the files: graphics, sound and the I/O pins are not yet available to it.
+
+The compiler is free software under the GNU General Public License version 3; its source, and that of bcrun, is in Peter Mather's Fuzix repository (github.com/UKTailwind/FUZIX, branch cmm2).
+
 ## Expressions
 
 In most cases where a number or string is required you can also use an expression. For example:

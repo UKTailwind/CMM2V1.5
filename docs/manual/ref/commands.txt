@@ -332,6 +332,10 @@ Closes the CAN interface and releases the pins used for CAN Rx and CAN Tx.
 --- keep
 Concatenates the strings by appending N$ to S$. This functionally the same as `S$ = S$ + N$ ` but operates somewhat faster.
 
+=== CC file$ [, options$]
+--- keep
+Compiles the C program in ‘file$’ with the C compiler (see The C Compiler in the chapter Using MMBasic): a source file ending in .C becomes an object file of the same name ending in .BC, beside it, which RUN runs.  The compiler is cc.app in A:/cc, the folder from the programs that come with the firmware.  Errors are listed as the file's name, the line number and the error, and CC then gives an error (eg, "hello.c did not compile").  ‘options$’ is passed to the compiler: "-v" shows each of its passes, "-k" keeps the intermediate files and "-o name" gives the object another name.
+
 === CHAIN file$ [, cmdline$]
 --- keep
 Runs another program, keeping the global variables (and constants) with their values.  The program in ‘file$’ is loaded and run as by RUN, but the global variables of the program that used CHAIN stay, so a program too large for program memory can be split into parts that pass their data on.  ‘file$’ and ‘cmdline$’ are string expressions; ".BAS" is added to ‘file$’ if it has no extension.  ‘cmdline$’ is passed to the new program as MM.CMDLINE$.
@@ -2526,6 +2530,7 @@ The program is loaded from its file every time it is run: MMBasic inserts any #I
 See also the \* shortcut, which runs a program without the quotes.
 A file whose name ends in .APP is a loadable program: a program written in C or C++ and compiled for the Colour Maximite 2's processor, such as a game, an emulator or another programming language (see Loadable Programs in the chapter Using MMBasic).  RUN "name.app" loads it and runs it.  The words after the comma are given to it as its arguments, separated by spaces (a word in quotes can hold spaces).  The BASIC program in program memory is not touched: at the command prompt MMBasic returns to the prompt when the program ends, and in a BASIC program the next statement runs, with the program's variables as they were.  A non-zero exit code is printed as "name.app ended with code n".  Ctrl-C asks the loadable program to end, and then also stops the BASIC program that ran it, unless the loadable program uses Ctrl-C itself (MicroPython does, as KeyboardInterrupt).
 When it ends, MMBasic closes the files it left open, stops its sound, releases the I/O pins it used and puts back the video mode, font, colours and palette that were in use.  If it cannot be run the error says why: "Not a loadable program", "Needs a newer firmware", "Needs a G2" (a program built for the Generation 2 alone), "Needs n KB, n KB free" or "The program file is damaged".
+A file whose name ends in .BC is a C program compiled by CC, and RUN runs it with bcrun.app from A:/cc, its words after the comma in argv[1] onward.  RUN of a file ending in .C compiles it first, to the .BC file beside it, if that is missing or older than the source, and then runs it.
 
 === SAVE CONTEXT [CLEAR]
 --- keep

@@ -83,7 +83,25 @@ without reflashing. Phase 1c then chooses, measured:
 - **Not yet:**
   - cc.app has 3.3MB of tables (cc2's BIG_TABLES), so it is unproved on a G1.
   - `cc -r` cannot start bcrun (one loadable program cannot start another), which is phase 1c's CC/RUN.
-- **Where it is:** the fork's branch cmm2 (github.com/UKTailwind/FUZIX): 7c44807 the argc/argv fix alone, so it can go to pc3 too, and 8038489 the CMM2 platform. apps/cc/make.py fetches 8038489.
+- **Where it is:** the fork's branch cmm2 (github.com/UKTailwind/FUZIX): 7c44807 the argc/argv fix alone, so it can go to pc3 too, 8038489 the CMM2 platform, and 9a077bb the CMM2's headers and a longer name after `cc -o`. apps/cc/make.py fetches 9a077bb.
+
+**4 November: phase 1c's commands work on a Generation 2.**
+
+- **The firmware (Loader.c):**
+  - `CC file$ [, options$]` runs A:/cc/cc.app, putting prog.bc beside prog.c, and gives the error "prog.c did not compile" after the compiler's own messages (prog.c:4 - invalid value).
+  - `RUN "prog.bc" [, words]` runs A:/cc/bcrun.app with the object and the words as argv.
+  - `RUN "prog.c" [, words]` compiles first if prog.bc is missing or not newer, then runs it.
+  - All three work from a program, which carries on afterwards.
+- **Where the runtime lives: a loadable program, bcrun.app, not the firmware.** `RUN "hello.bc"` takes 52ms in all from a BASIC program, loading bcrun.app included, and costs no flash. `CC "hello.c"` takes 238ms.
+- **A:/cc on the card:** make.py lays it out in apps/cc/out/sd/cc:
+  - cc.app and bcrun.app;
+  - include/: ctest-include's headers, then the CMM2's (cmm2/include: math.h prototyped, ctype.h, time.h, and a stdlib.h with all that bcrun has).
+- **Rechecked:** all 198 test sources, compiled on the board with those headers, still give the host's objects byte for byte, and cc.app's stack is now 64KB (bcrun's 128KB), for a G1's sake.
+- **The user manual:** a section "The C Compiler" in Using MMBasic, CC in the commands, and RUN's paragraph on .BC and .C (the PDFs to be rebuilt with the next release).
+- **Not yet:**
+  - The G1, unproved: at the prompt it lends about 4.2MB and cc.app needs 3.5MB with its tables.
+  - The release's programs zip needs the cc folder, with the GPL-3.0 text and where the source is.
+  - FM runs .BAS files only, as the PicoMite's does.
 
 ## Where the work is
 
