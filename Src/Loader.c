@@ -437,10 +437,22 @@ static void ld_mrate(int n) {
     __set_BASEPRI(old);
 }
 
-// the mouse (version 4): MM.MOUSE's, its state the driver's (USBMouse.c, mouse.c), in the screen's pixels
+// the mouse (version 4): MM.MOUSE's, its state the driver's (USBMouse.c, mouse.c), in the screen's pixels. OPTION MOUSE
+// 0's PS/2 mouse, if it did not answer at boot, is started as MM.MOUSE and GUI CURSOR LINK MOUSE start it: once in a run
+// (a try with no mouse takes half a second), at the program's first look (a program's PS/2 mouse worked only after BASIC
+// had started it: 3 Nov 2026)
 extern volatile struct s_nunstruct mousestruct[4];
-static int ld_mouse(int m[4]) {
+static int ldmousetried;
+static int ld_mousechan(void) {
     int c = MouseOpenChannel();
+    if(c < 0 && !ldmousetried) {
+        ldmousetried = 1;
+        if(MouseOptionStart()) c = 0;
+    }
+    return c;
+}
+static int ld_mouse(int m[4]) {
+    int c = ld_mousechan();
     if(c < 0) { m[0] = m[1] = m[2] = m[3] = 0; return 0; }
     m[0] = mousestruct[c].ax;
     m[1] = mousestruct[c].ay;
@@ -449,7 +461,7 @@ static int ld_mouse(int m[4]) {
     return 1;
 }
 static void ld_mouseset(int x, int y) {
-    int c = MouseOpenChannel();
+    int c = ld_mousechan();
     if(c < 0) return;
     mousestruct[c].ax = x < 0 ? 0 : x >= HRes ? HRes - 1 : x;
     mousestruct[c].ay = y < 0 ? 0 : y >= VRes ? VRes - 1 : y;
@@ -1136,6 +1148,7 @@ int LoaderRun(char *name) {
     ldstart.base = (uint32_t)base;
     MMAbort = 0;
     ldscreen = 1;
+    ldmousetried = 0;
     if(ldarea && (!invram || joined)) LoaderExec = 1;               // (a G1: the run it borrows executable while the program
     if(invram) LoaderVram = 1;                                      // runs, and the display memory when the program is there)
     LoaderNoSbrk = joined;
