@@ -18,4 +18,7 @@ apps/scummvm/out/
 # The 386 PC (apps/pc386/make.py): tiny386 fetched at a pinned commit, and the build
 apps/pc386/tiny386/
 apps/pc386/out/
+# The C compiler (apps/cc/make.py): Peter's Fuzix fork fetched at a pinned commit, and the build
+apps/cc/fuzix/
+apps/cc/out/
 .claude/settings.local.json

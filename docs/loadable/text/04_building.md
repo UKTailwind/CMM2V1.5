@@ -18,7 +18,7 @@ From tools/sdk, or with a path to it. Each source is compiled to an object file 
 | OUT.map | The linker's map: where each function and variable is, and what took the space. |
 | OUT.obj/ | The object files. |
 
-A source is compiled again only when it, or a header it includes, has changed since its object was made (or the options have changed), and the sources are compiled in parallel, so building again after a small change is quick. ScummVM's 531 source files compile in about 23 seconds on a fast PC.
+A source is compiled again only when it, or a header it includes, has changed since its object was made (or the options have changed), and the sources are compiled in parallel, so building again after a small change is quick. ScummVM's 531 source files compile in about 23 seconds on a fast PC. An object file (.o) among the sources is linked as it is: a part compiled and linked on its own first, as each of the C compiler's passes is (apps/cc/make.py).
 
 The options:
 

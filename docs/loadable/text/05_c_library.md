@@ -22,6 +22,8 @@ fopen(), fread(), fwrite(), fprintf(), fgets(), fseek(), ftell(), fclose(), remo
 
 The file system is FAT (FAT16, FAT32 or exFAT) with long names, and names are not case sensitive. Up to eight files can be open at once. rename() replaces a file that is there already, as POSIX's does. A file opened for reading, or for reading and writing in place (without creating or appending), is given a map of where its parts are on the card, so that seeking in it is fast: Doom reads its 28MB game data file by seeking to each part, and the 386 PC emulator seeks in its disk images. A write or seek past the end of the file drops the map, as the file then grows.
 
+The POSIX calls under stdio work too: open(), creat(), read(), write(), lseek() and close(), with descriptors 0, 1 and 2 the console and 3 upwards the files. dup2(fd, 0), dup2(fd, 1) or dup2(fd, 2) puts a file in the console's place as standard input, output or error, as a shell's < and > do, so that a program written as a Unix filter reads and writes files; closing that descriptor gives the console back. The C compiler's passes run that way.
+
 The C library has no functions for directories or for a file's details by its name (opendir, stat). The services do these: dir_open, dir_read and dir_close list a directory, and file_stat gives a file's size, kind and date (see the chapter The Services). The services' file functions can be used directly too, without stdio's buffering.
 
 ## Memory

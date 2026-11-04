@@ -1,4 +1,4 @@
-"""build.py OUT.app SOURCE.c|.cpp [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
+"""build.py OUT.app SOURCE.c|.cpp|.o [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
             [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
@@ -12,7 +12,8 @@ it missed would then fault at once, the FMC bank there being unused): the test o
 The objects go in OUT's stem + ".obj/", each named by its source's path (engines share file names), and are compiled
 JOBS at a time (default: every core). A source is compiled again only when it, or a header it read (gcc -MMD), is
 newer than its object, or the flags have changed. --cflag goes to C and C++, --cxxflag to C++ only, --ldflag to the
-link. --sources names a file of sources, one a line, for lists too long for a command line.
+link. --sources names a file of sources, one a line, for lists too long for a command line. An object (.o) among
+the sources is linked as it is.
 """
 import argparse, concurrent.futures, hashlib, json, os, shutil, subprocess, sys
 
@@ -102,6 +103,9 @@ def main():
     cxx = any(s.lower().endswith(('.cpp', '.cc')) for s in sources)
     jobs, objs = [], []
     for s in sources:
+        if s.lower().endswith('.o'):
+            objs.append(os.path.abspath(s))
+            continue
         # each source to an object by its own compiler (g++ would take every .c after the first as C++, -x c or not)
         isc = not s.lower().endswith(('.cpp', '.cc'))
         o = objname(objdir, s)
