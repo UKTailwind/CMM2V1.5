@@ -44,6 +44,13 @@ The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h),
 | 7 | `int adc_read(int gp, uint32_t *uv)` | 7 | `int com_read(com, buf, n)` |
 | 7 | `int pwm_set(gp, freq, duty)` | 7 | `int com_avail(int com)` |
 | 7 | `int pwm_stop(int gp)` | 7 | `const char *io_error(void)` |
-| 9 | `int keys_raw(uint8_t report[8])` | | |
+| 9 | `int keys_raw(uint8_t report[8])` | 10 | `int gfx_text(x, y, s, just, font, scale, c, bg)` |
+| 10 | `int gfx_cls(int colour)` | 10 | `int gfx_font(font, scale, *w, *h)` |
+| 10 | `int gfx_pixel(x, y, colour)` | 10 | `int gfx_colour(colour, bg)` |
+| 10 | `int gfx_line(x1, y1, x2, y2, width, colour)` | 10 | `int gfx_read(x, y, w, h, uint8_t *bgr)` |
+| 10 | `int gfx_box(x, y, w, h, width, colour, fill)` | 10 | `int gfx_write(x, y, w, h, bgr)` |
+| 10 | `int gfx_rbox(x, y, w, h, radius, colour, fill)` | 10 | `int gfx_save(const char *name)` |
+| 10 | `int gfx_circle(x, y, r, width, aspect, c, fill)` | | |
+| 10 | `int gfx_triangle(x1, y1, x2, y2, x3, y3, c, fill)` | | |
 
-The console, the clock, files, directories, the system and the FM synthesiser are in the chapter The Services; the screen in The Screen; the keys and mouse in The Keyboard and Mouse; audio and music in Sound and Music; and the I/O services in The I/O Pins. Inc/cmm2img.h has the full declarations, with a comment on each.
+The console, the clock, files, directories, the system and the FM synthesiser are in the chapter The Services; the screen and drawing in The Screen; the keys and mouse in The Keyboard and Mouse; audio and music in Sound and Music; and the I/O services in The I/O Pins. Inc/cmm2img.h has the full declarations, with a comment on each.

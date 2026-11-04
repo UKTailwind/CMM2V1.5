@@ -130,7 +130,7 @@ Writing a loadable program needs a PC with the free Arm GNU toolchain and Python
 
 ## The C Compiler
 
-The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. The compiler, cc.app, is a loadable program in the cc folder of the programs that come with the firmware, with the header files in cc/include: copy that folder to the SD card as A:/cc, where CC looks for it. What runs a compiled program, bcrun, is built into the firmware, so a compiled program needs nothing else on the card.
+The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. The compiler, cc.app, is a loadable program in the cc folder of the programs that come with the firmware, with the header files in cc/include and examples in cc/examples: copy that folder to the SD card as A:/cc, where CC looks for it. What runs a compiled program, bcrun, is built into the firmware, so a compiled program needs nothing else on the card.
 
 ```
 CC "hello.c"
@@ -149,9 +149,22 @@ The language is C89 (ANSI C) with long long, // comments and declarations after 
 - string.h: strlen, strcpy, strncpy, strcat, strcmp, strncmp, strchr, strrchr, memset, memcpy, memmove and memcmp;
 - math.h: sin, cos, tan, asin, acos, atan, atan2, sinh, cosh, tanh, sqrt, exp, log, log10, pow, floor, ceil, fabs and fmod, in double precision;
 - ctype.h: isdigit, isalpha and the others, toupper and tolower;
-- time.h: time, and time_us and time_us64, the microseconds since the Colour Maximite 2 started.
+- time.h: time, clock (CLOCKS_PER_SEC is 1000000), and time_us and time_us64, the microseconds since the Colour Maximite 2 started;
+- cmm2.h: the Colour Maximite 2's own facilities (below).
 
-Files have MMBasic's names (A:/dir/name.txt, or relative to the current directory). A C program uses the console and the files: graphics, sound and the I/O pins are not yet available to it.
+Files have MMBasic's names (A:/dir/name.txt, or relative to the current directory).
+
+cmm2.h gives a C program the services that the firmware gives a loadable program (described in the companion manual *Colour Maximite 2 Loadable Programs*), by the same names: the video modes and the palette, drawing with MMBasic's own BOX, CIRCLE, TEXT and the rest (gfx_box, gfx_circle, gfx_text...), the screen saved as a PNG, the keyboard and the mouse, MIDI music on the firmware's synthesiser, files and directories, and the I/O pins, PWM, I2C, SPI and the serial ports. Colours are MMBasic's, with RGB() and the colour names (RED, BLUE...). The framebuffer video_mode gives is an ordinary pointer, so a program can also write its pixels itself. examples/shapes.c draws, and examples/blink.c drives a pin:
+
+```
+#include <cmm2.h>
+
+cmm2_video v;
+video_mode(1, 8, &v);
+gfx_cls(BLACK);
+gfx_circle(400, 300, 100, 2, 1.0, GREEN, RED);
+gfx_text(400, 300, "Hello", "CM", 1, 2, WHITE, NOFILL);
+```
 
 The compiler is free software under the GNU General Public License version 3; its source, and that of bcrun, is in Peter Mather's Fuzix repository (github.com/UKTailwind/FUZIX, branch cmm2).
 

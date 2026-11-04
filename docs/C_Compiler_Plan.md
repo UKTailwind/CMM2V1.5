@@ -115,6 +115,29 @@ without reflashing. Phase 1c then chooses, measured:
   - RUN "hello.bc" now takes 16ms in all (52ms from the card), with no bcrun.app on the card.
   - Bank 2 has 15KB left.
 - **A 256KB stack for C programs** (fork cb5492c): STACKROOM was the PC3's 8KB, a few hundred levels of recursion. A function recursing 10,000 deep now runs, on both boards.
+**4 November: graphics and I/O for compiled programs (Peter: before the transpiler, through the services, supplemented as necessary).**
+
+- **The services by their names:** a compiled program calls the services a loadable program has, by the same names: cmm2->pin_write(5, 1) there is pin_write(5, 1) here.
+  - bcrun binds them as library calls (fork e9dae11, cmm2/bcrun_svc.c).
+  - cmm2/include/cmm2.h declares them, prototyped, with MMBasic's colours (RGB(), RED...).
+  - A program address is a machine address, so buffers and the framebuffer pass straight through.
+  - A service the firmware is too old for is refused at load, by its name.
+  - Not offered: audio_start and frame_hook, whose callbacks run in an interrupt, and the OPL chip. music_play starts a silent sound output itself.
+- **Services version 10, the supplement:** drawing by MMBasic's own routines, each under ld_try (Loader.c), on the mode video_mode set:
+  - gfx_cls, gfx_pixel, gfx_line, gfx_box, gfx_rbox, gfx_circle, gfx_triangle, gfx_text, gfx_font, gfx_colour, gfx_read and gfx_write;
+  - gfx_save: SAVE PNG's, Print Screen's, 0.4s.
+- **Also:** clock() and CLOCKS_PER_SEC. Examples on the card: shapes.c and blink.c.
+- **Bank 2:** bcrun is 83,676 bytes now, and 8KB of the bank is left.
+- **Tested on both boards:**
+  - every shape drawn, read back with gfx_read in the mode's colours, and saved as a PNG;
+  - the framebuffer written directly;
+  - delay_us timed to the microsecond.
+  - The pin test could not be judged: the G2's loop-back wires read 1 at both levels from BASIC too.
+- **Peter's Benchmark 4** (1M iterations of j = j + 1: a = j / 2 * 3 + 4 - 5, doubles), on a G2:
+  - compiled C, 0.298s;
+  - MMBasic, 8.73s interpreted and 1.69s with OPTION COMPILE ON;
+  - gcc -O2 as a loadable program, 0.025s.
+  - On the G1 at 400MHz the compiled C takes 0.357s.
 - **Left alone:** the review's speed items are in the PC3's code already, but for register allocation, which the design declines; and bit fields, which it also declines. Dhrystone stays at 18% of gcc.
 
 ## Where the work is

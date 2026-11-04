@@ -863,6 +863,111 @@ __attribute__((naked, noreturn)) static void ld_leave(int code) {
     __asm volatile("b LoaderReturn");                               // (r0 is already the code)
 }
 
+/* version 10: drawing by MMBasic's routines (Draw.c), on page 0 of the mode video_mode set (setmode's) or BASIC's.
+   Each is run under ld_try: what MMBasic's commands find wrong (a font that is not there, a justification it does not
+   know) is an error there, and comes back as -4 with its message */
+enum { LG_CLS, LG_PIXEL, LG_LINE, LG_BOX, LG_RBOX, LG_CIRCLE, LG_TRIANGLE, LG_TEXT, LG_FONT, LG_COLOUR, LG_READ, LG_WRITE };
+typedef struct { int op, a[8]; float f; const char *s, *j; uint8_t *buf; int *w, *h; } ldgfx;
+static int ld_fontno(int font, int scale) {                         // FONT's number for font 1-16 at scale 1-15
+    if(font < 1 || font > FONT_TABLE_SIZE || FontTable[font - 1] == NULL) error("Invalid font #%", font);
+    if(scale < 1 || scale > 15) error("Invalid scale");
+    return ((font - 1) << 4) | scale;
+}
+static void ld_gfxbody(void *v) {
+    ldgfx *g = v;
+    int *a = g->a, jh = 0, jv = 0, jo = 0;
+    switch(g->op) {
+    case LG_CLS: ClearScreen(a[0]); CurrentX = CurrentY = 0; break;
+    case LG_PIXEL: DrawPixel(a[0], a[1], a[2]); break;
+    case LG_LINE: DrawLine(a[0], a[1], a[2], a[3], a[4], a[5]); break;
+    case LG_BOX:
+    case LG_RBOX:                                                   // (BOX's and RBOX's corners from the size)
+        if(a[2] == 0 || a[3] == 0) break;
+        a[2] = a[0] + a[2] + (a[2] > 0 ? -1 : 1);
+        a[3] = a[1] + a[3] + (a[3] > 0 ? -1 : 1);
+        if(g->op == LG_BOX) DrawBox(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+        else DrawRBox(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+        break;
+    case LG_CIRCLE: DrawCircle(a[0], a[1], a[2], a[3], a[4], a[5], g->f); break;
+    case LG_TRIANGLE: DrawTriangle(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]); break;
+    case LG_TEXT:
+        if(g->j && *g->j && !GetJustification((char *)g->j, &jh, &jv, &jo)) error("Justification");
+        GUIPrintString(a[0], a[1], ld_fontno(a[2] ? a[2] : (gui_font >> 4) + 1, a[3] ? a[3] : (gui_font & 15)), jh, jv,
+                       jo, a[4], a[5], (char *)g->s);
+        break;
+    case LG_FONT:
+        if(a[0]) SetFont(ld_fontno(a[0], a[1] ? a[1] : 1));
+        if(g->w) *g->w = gui_font_width;
+        if(g->h) *g->h = gui_font_height;
+        break;
+    case LG_COLOUR: gui_fcolour = a[0]; gui_bcolour = a[1]; break;
+    case LG_READ:
+    case LG_WRITE:
+        if(a[2] < 1 || a[3] < 1) break;
+        ReadPage = WritePage;                                       // (BLIT's: the page drawn on)
+        if(g->op == LG_READ) ReadBuffer(a[0], a[1], a[0] + a[2] - 1, a[1] + a[3] - 1, (char *)g->buf);
+        else DrawBuffer(a[0], a[1], a[0] + a[2] - 1, a[1] + a[3] - 1, (char *)g->buf, 0);
+        break;
+    }
+}
+static int ld_gfx(ldgfx *g) { return ld_try(ld_gfxbody, g); }
+static int ld_gcls(int c) { ldgfx g = {LG_CLS, {c}}; return ld_gfx(&g); }
+static int ld_gpixel(int x, int y, int c) { ldgfx g = {LG_PIXEL, {x, y, c}}; return ld_gfx(&g); }
+static int ld_gline(int x1, int y1, int x2, int y2, int w, int c) {
+    ldgfx g = {LG_LINE, {x1, y1, x2, y2, w, c}};
+    return ld_gfx(&g);
+}
+static int ld_gbox(int x, int y, int w, int h, int lw, int c, int f) {
+    ldgfx g = {LG_BOX, {x, y, w, h, lw, c, f}};
+    return ld_gfx(&g);
+}
+static int ld_grbox(int x, int y, int w, int h, int r, int c, int f) {
+    ldgfx g = {LG_RBOX, {x, y, w, h, r, c, f}};
+    return ld_gfx(&g);
+}
+static int ld_gcircle(int x, int y, int r, int w, float aspect, int c, int f) {
+    ldgfx g = {LG_CIRCLE, {x, y, r, w, c, f}, aspect};
+    return ld_gfx(&g);
+}
+static int ld_gtriangle(int x1, int y1, int x2, int y2, int x3, int y3, int c, int f) {
+    ldgfx g = {LG_TRIANGLE, {x1, y1, x2, y2, x3, y3, c, f}};
+    return ld_gfx(&g);
+}
+static int ld_gtext(int x, int y, const char *s, const char *just, int font, int scale, int c, int bg) {
+    ldgfx g = {LG_TEXT, {x, y, font, scale, c, bg}, 0, s, just};
+    return ld_gfx(&g);
+}
+static int ld_gfont(int font, int scale, int *w, int *h) {
+    ldgfx g = {LG_FONT, {font, scale}};
+    g.w = w;
+    g.h = h;
+    return ld_gfx(&g);
+}
+static int ld_gcolour(int c, int bg) { ldgfx g = {LG_COLOUR, {c, bg}}; return ld_gfx(&g); }
+static int ld_gread(int x, int y, int w, int h, uint8_t *bgr) {
+    ldgfx g = {LG_READ, {x, y, w, h}};
+    g.buf = bgr;
+    return ld_gfx(&g);
+}
+static int ld_gwrite(int x, int y, int w, int h, const uint8_t *bgr) {
+    ldgfx g = {LG_WRITE, {x, y, w, h}};
+    g.buf = (uint8_t *)bgr;
+    return ld_gfx(&g);
+}
+
+static int ld_gsave(const char *name) {
+    char cmd[STRINGSIZE + 16];
+    int n = strlen(name), mark, rp = ReadPage, r;
+    if(n == 0 || n > STRINGSIZE - 1) return -3;
+    snprintf(cmd, sizeof(cmd), "%s \"%s\"", n >= 4 && !strcasecmp(name + n - 4, ".BMP") ? "IMAGE" : "PNG", name);
+    mark = TempMemoryMark();                                        // (as Print Screen saves it: Console.c, ScreenShot)
+    ReadPage = WritePage;
+    r = ld_cmd(cmd_save, NULL, NULL, cmd);
+    ReadPage = rp;
+    ClearTempMemoryTo(mark);
+    return r;
+}
+
 static const struct cmm2_services ldsvc = {
     .version = CMM2IMG_API_VERSION, .size = sizeof(struct cmm2_services),
     .con_putc = ld_putc, .con_puts = ld_puts, .con_getc = ld_getc,
@@ -886,6 +991,9 @@ static const struct cmm2_services ldsvc = {
     .com_open = ld_comopen, .com_close = ld_comclose, .com_write = ld_comwrite, .com_read = ld_comread,
     .com_avail = ld_comavail, .io_error = ld_ioerror,
     .keys_raw = ld_keysraw,
+    .gfx_cls = ld_gcls, .gfx_pixel = ld_gpixel, .gfx_line = ld_gline, .gfx_box = ld_gbox, .gfx_rbox = ld_grbox,
+    .gfx_circle = ld_gcircle, .gfx_triangle = ld_gtriangle, .gfx_text = ld_gtext, .gfx_font = ld_gfont,
+    .gfx_colour = ld_gcolour, .gfx_read = ld_gread, .gfx_write = ld_gwrite, .gfx_save = ld_gsave,
 };
 
 /*******************************************************************************************

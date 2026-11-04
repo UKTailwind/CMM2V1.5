@@ -32,10 +32,11 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  9                 /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  10                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
-                                                  heap2, a G1's display memory lent; 9: the keyboard's own codes) */
+                                                  heap2, a G1's display memory lent; 9: the keyboard's own codes;
+                                                  10: drawing, by MMBasic's own routines) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
@@ -249,6 +250,28 @@ struct cmm2_services {
                                                   16-128 the right ones), [1] 0, [2]-[7] the HID usage codes of
                                                   the keys held (4 = A ... 0x65: each key's place, before any layout),
                                                   0 for none. Returns how many keys are held; all 0 with no keyboard */
+    /* version 10: drawing, by MMBasic's routines (CLS, PIXEL, LINE, BOX, RBOX, CIRCLE, TRIANGLE, TEXT, FONT, COLOUR and
+       BLIT READ/WRITE's), on the display video_mode set or, if the program set none, MMBasic's. Colours are MMBasic's,
+       RGB888 (0xRRGGBB), made the mode's own; a fill or a background of -1 is none. Each returns 0, or -4 with
+       io_error()'s message (a font that is not there, a mode with no display) */
+    int      (*gfx_cls)(int colour);
+    int      (*gfx_pixel)(int x, int y, int colour);
+    int      (*gfx_line)(int x1, int y1, int x2, int y2, int width, int colour);
+    int      (*gfx_box)(int x, int y, int w, int h, int width, int colour, int fill);   /* BOX's: w and h the size */
+    int      (*gfx_rbox)(int x, int y, int w, int h, int radius, int colour, int fill);
+    int      (*gfx_circle)(int x, int y, int r, int width, float aspect, int colour, int fill);   /* aspect 1: round */
+    int      (*gfx_triangle)(int x1, int y1, int x2, int y2, int x3, int y3, int colour, int fill);
+    int      (*gfx_text)(int x, int y, const char *s, const char *just, int font, int scale, int colour, int bg);
+                                               /* TEXT's: just "" or as TEXT's ("CM": centred and middle...), font
+                                                  1-16 and scale 1-15, or 0 for FONT's */
+    int      (*gfx_font)(int font, int scale, int *w, int *h);   /* FONT's, the console's (font 0: as it is), and the
+                                                  size of its characters in pixels (either pointer may be NULL) */
+    int      (*gfx_colour)(int colour, int bg);   /* COLOUR's: the console's, and the drawing's when none is given */
+    int      (*gfx_read)(int x, int y, int w, int h, uint8_t *bgr);   /* the area's pixels into bgr, 3 bytes each:
+                                                  blue, green, red (BLIT READ's buffer) */
+    int      (*gfx_write)(int x, int y, int w, int h, const uint8_t *bgr);   /* and back */
+    int      (*gfx_save)(const char *name);   /* the screen to a file, as SAVE PNG saves it (Print Screen's), or as
+                                                  SAVE IMAGE does if the name ends in .BMP */
 };
 
 #define CMM2_PIN_OFF     0                     /* pin_setup's modes */

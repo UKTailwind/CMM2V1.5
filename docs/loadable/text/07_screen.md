@@ -106,3 +106,37 @@ int main(int argc, char **argv) {
 A copy in progress while the program draws the next frame shows a mixture of the two: double buffering (two frames, drawing one while the other is copied) avoids that.
 
 When the program ends its frame hook is removed and copies still waiting are dropped.
+
+## Drawing
+
+Version 10 adds drawing by MMBasic's own routines, the ones its CLS, PIXEL, LINE, BOX, RBOX, CIRCLE, TRIANGLE, TEXT, FONT, COLOUR and BLIT READ and WRITE commands use, on the display video_mode set (or MMBasic's, if the program set none):
+
+```
+int gfx_cls(int colour);
+int gfx_pixel(int x, int y, int colour);
+int gfx_line(int x1, int y1, int x2, int y2, int width, int colour);
+int gfx_box(int x, int y, int w, int h, int width, int colour, int fill);
+int gfx_rbox(int x, int y, int w, int h, int radius, int colour, int fill);
+int gfx_circle(int x, int y, int r, int width, float aspect, int colour, int fill);
+int gfx_triangle(int x1, int y1, int x2, int y2, int x3, int y3, int colour, int fill);
+int gfx_text(int x, int y, const char *s, const char *just, int font, int scale, int colour, int bg);
+int gfx_font(int font, int scale, int *w, int *h);
+int gfx_colour(int colour, int bg);
+int gfx_read(int x, int y, int w, int h, uint8_t *bgr);
+int gfx_write(int x, int y, int w, int h, const uint8_t *bgr);
+int gfx_save(const char *name);
+```
+
+Colours are MMBasic's: RGB888 (0xRRGGBB, with MMBasic's transparency nibble in bits 24-27, as its RGB() gives them), made the mode's own, so the same calls draw in every mode and depth. A fill or background of -1 is none. The arguments are the commands': a box's w and h are its size, aspect 1 makes a circle round (2 an ellipse twice as wide), and gfx_text's just is TEXT's ("" for the default, "CM" centred on x and y...), its font 1-16 and scale 1-15, or 0 for the console's (FONT's). gfx_font sets the console's font, as FONT does (font 0 leaves it), and gives the size of its characters in pixels; gfx_colour sets the console's colours, as COLOUR does. gfx_read gives an area's pixels as 3 bytes each, blue, green and red (BLIT READ's buffer), and gfx_write puts them back. gfx_save saves the screen as a PNG, as SAVE PNG and Print Screen do (in about 0.4 seconds for 800 x 600), or as a BMP if the name ends in .BMP.
+
+Each returns 0, or -4 when MMBasic's command would have given an error (a font that is not loaded, a justification it does not know, a folder that is not there), with the message in io_error(). Drawing this way is slower than writing the page directly, a call a shape, but the shapes, the fonts and the colours are MMBasic's own. A program can mix the two: the page video_mode gives is the one these draw on.
+
+```
+cmm2_video v;
+if(cmm2->version < 10 || cmm2->video_mode(1, 8, &v) < 0) return 1;
+cmm2->gfx_cls(0);
+cmm2->gfx_box(20, 20, 160, 100, 3, 0x0FFFFFFF, 0x0FFF0000);   /* white, filled red */
+cmm2->gfx_circle(400, 70, 50, 2, 1.0f, 0x0F00FF00, -1);       /* a green ring */
+cmm2->gfx_text(400, 200, "Hello", "CM", 1, 3, 0x0FFFFFFF, -1);
+cmm2->gfx_save("A:/hello.png");
+```

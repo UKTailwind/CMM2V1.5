@@ -75,8 +75,9 @@ The table of services only grows: each version of the firmware keeps the entries
 | 7 | The I/O pins, the ADC, PWM, I2C, SPI and the COM ports. |
 | 8 | No new services: the start block's second heap (heap2), and a Generation 1's display memory lent to a program built with --vram. |
 | 9 | The USB keyboard's own codes (keys_raw), and fast seeking in a file that is read and written in place. |
+| 10 | Drawing by MMBasic's routines (gfx_cls to gfx_save), and the screen saved as a PNG. |
 
-Firmware 7.00.00RC1 has version 9. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
+Firmware 7.00.00RC1 has version 9, and the firmware after it version 10. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
 
 ```
 if(cmm2->version >= 4) cmm2->con_screen(0);

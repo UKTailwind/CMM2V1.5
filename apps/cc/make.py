@@ -30,7 +30,7 @@ CC = os.path.join(SRC, 'Applications', 'CC')
 CPP = os.path.join(SRC, 'Applications', 'cpp')
 OUT = os.path.join(HERE, 'out')
 URL = 'https://github.com/UKTailwind/FUZIX'
-COMMIT = 'cb5492c8a67e6ae97b5b7092514e5713a2f2db7d'   # branch cmm2, 4 Nov 2026 (from pc3's 6d662a677)
+COMMIT = 'e9dae111632cb8d2f458495589aff95bfaaa62cc'   # branch cmm2, 4 Nov 2026 (from pc3's 6d662a677)
 SPARSE = ['Applications/CC', 'Applications/cpp', 'Applications/mmb2c', 'Library/libs/fnum.c']
 
 # the passes: their sources (Makefile.common and Makefile.host's lists) and flags (the host build's: tables as big as
@@ -136,14 +136,18 @@ def image(head, dirty):
         % (head[:9], ' with changes' if dirty else '', len(data), len(data), ',\n'.join('    ' + r for r in rows)))
     print('%s: bcrun.app, %d bytes' % (out, len(data)))
 
+
 def card():
     """out/sd/cc, the SD card's A:/cc (the folder the firmware's CC and RUN of a .c use): cc.app (bcrun is in the
-    firmware), and in include/ the headers - ctest-include's (what the PC3's card has), then the CMM2's over them (cmm2/include:
-    math.h, ctype.h, time.h, and a stdlib.h with all that bcrun has)"""
+    firmware); in include/ the headers - ctest-include's (what the PC3's card has), then the CMM2's over them
+    (cmm2/include: math.h, ctype.h, time.h, a stdlib.h with all that bcrun has, and cmm2.h, the services); and in
+    examples/ the CMM2's examples"""
     import shutil
     sd = os.path.join(OUT, 'sd', 'cc')
     inc = os.path.join(sd, 'include')
+    ex = os.path.join(sd, 'examples')
     os.makedirs(inc, exist_ok=True)
+    os.makedirs(ex, exist_ok=True)
     if os.path.exists(os.path.join(sd, 'bcrun.app')):
         os.remove(os.path.join(sd, 'bcrun.app'))
     if os.path.exists(os.path.join(OUT, 'cc.app')):
@@ -152,8 +156,10 @@ def card():
         for f in sorted(os.listdir(d)):
             if f.endswith('.h'):
                 shutil.copy(os.path.join(d, f), inc)
-    print('%s: %s, include/ %s' % (sd, ' '.join(f for f in sorted(os.listdir(sd)) if f.endswith('.app')),
-                                   ' '.join(sorted(os.listdir(inc)))))
+    for f in sorted(os.listdir(os.path.join(CC, 'cmm2', 'examples'))):
+        shutil.copy(os.path.join(CC, 'cmm2', 'examples', f), ex)
+    print('%s: %s, include/ %s, examples/ %s' % (sd, ' '.join(f for f in sorted(os.listdir(sd)) if f.endswith('.app')),
+                                                 ' '.join(sorted(os.listdir(inc))), ' '.join(sorted(os.listdir(ex)))))
 
 
 if __name__ == '__main__':
