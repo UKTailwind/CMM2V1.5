@@ -52,7 +52,7 @@ def main():
     if cpu not in ('', 'interp', 'pd'):
         sys.exit('make.py [interp|pd] [-compiler-flag...]')
     srcs = [os.path.join(SRC, f + '.c') for f in FILES] + [os.path.join(HERE, 'pc386_cmm2.c')]
-    flags = ['-include', os.path.join(HERE, 'port.h'), '-DBPP=16', '-DI386_ENABLE_FPU', '-DUSE_FMOPL',
+    flags = ['-include', os.path.join(HERE, 'port.h'), '-DBPP=8', '-DI386_ENABLE_FPU', '-DUSE_FMOPL',
              '-DI386_ALIGNED_ONLY', '-w']   # (the guest's unaligned words: single LDRs and STRs, never an LDRD, LDM, STRD or
                                             # STM, which a Cortex-M7 faults on unaligned)
     if cpu != 'interp':

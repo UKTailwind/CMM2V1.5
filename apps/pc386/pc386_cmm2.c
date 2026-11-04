@@ -10,9 +10,11 @@
    each second (its MIPS) to the serial console every 5 s; -keys each keyboard report and console character, -mouse
    each movement of the mouse (the time in ms, x, y, the wheel and the buttons).
 
-   - The screen: tiny386's VGA draws the PC's picture, centred, straight into the CMM2's page in RGB565: MODE 8,16
-     (640x480), or MODE 2,16 (640x400) where a G1 has lent the program its display memory and MODE 8,16 does not fit.
-     Text is drawn with 8-dot characters (vga_force_8dm), so 80 columns are 640 pixels.
+   - The screen: tiny386's VGA draws the PC's picture, centred, straight into the CMM2's page: MODE 8,8 (640x480, 256
+     colours) on every CMM2, a page small enough for a G1's internal RAM while it lends the program its display memory.
+     Each pixel is the number of the VGA DAC's entry it is shown in (tiny386 built with BPP 8), and the CMM2's palette
+     is the DAC's 256 colours, set again when they change (a fade redraws nothing); VBE's direct-colour modes show
+     through a 3-3-2 RGB palette. Text is drawn with 8-dot characters (vga_force_8dm), so 80 columns are 640 pixels.
    - The keyboard: keys_raw's USB HID usage codes, turned into the Linux input codes tiny386's i8042 takes (the PC's
      scan codes), so DOS sees each key's place and applies its own layout (KEYB). Ctrl+Alt with End leaves, and with
      PgDn or PgUp puts the next or the previous of the floppies in A: (the PC is not given these keys); what A: holds
@@ -73,21 +75,33 @@ int load_rom(void *phys_mem, const char *file, uword addr, int backward) {
 }
 
 /* the screen: a line of text over the picture for a while (what A: holds), in the VGA's own 8x16 font, at the top
-   left, where a 400-line picture leaves 40 lines of border; put back by a full redraw when it goes */
+   left, where a 400-line picture leaves 40 lines of border; put back by a full redraw when it goes. Its colours are
+   the palette's nearest to dark blue and yellow, as the PC has set it */
 extern const uint8_t vgafont16[256 * 16];
+static PC *thepc;
 static cmm2_video v;
+static uint8_t shown[768], colours[768];                            // the CMM2's palette, and the PC's colours now
 static char note[64];
 static uint64_t note_until;
 
+static int nearest(int r, int g, int b) {
+    int best = 0, bestd = 1 << 30;
+    for(int i = 0; i < 256; i++) {
+        int dr = shown[3 * i] - r, dg = shown[3 * i + 1] - g, db = shown[3 * i + 2] - b, d = dr * dr + dg * dg + db * db;
+        if(d < bestd) { bestd = d; best = i; }
+    }
+    return best;
+}
+
 static void note_draw(void) {
-    uint16_t *fb = (uint16_t *)v.fb;
-    int pitch = v.pitch / 2, n = strlen(note);
+    uint8_t *fb = v.fb;
+    int n = strlen(note), bg = nearest(0, 0, 128), fg = nearest(255, 255, 0);
     for(int y = 0; y < 20; y++)                                     // (a dark blue strip, the text in yellow)
         for(int x = 0; x < 8 * n + 16; x++) {
-            int c = 0x0010, gx = x - 8, gy = y - 2;
+            int c = bg, gx = x - 8, gy = y - 2;
             if(gx >= 0 && gx < 8 * n && gy >= 0 && gy < 16 && (vgafont16[(uint8_t)note[gx / 8] * 16 + gy] & (0x80 >> (gx & 7))))
-                c = 0xFFE0;
-            fb[(4 + y) * pitch + 8 + x] = c;
+                c = fg;
+            fb[(4 + y) * v.pitch + 8 + x] = c;
         }
 }
 
@@ -99,22 +113,25 @@ static void note_set(const char *s) {
 
 static void note_step(PC *pc) {                                     // gone after its time: the strip cleared, all redrawn
     if(!note[0] || cmm2->micros() < note_until) return;
-    uint16_t *fb = (uint16_t *)v.fb;
-    int pitch = v.pitch / 2, n = strlen(note);
-    for(int y = 0; y < 20; y++) memset(fb + (4 + y) * pitch + 8, 0, (8 * n + 16) * 2);
+    int n = strlen(note);
+    for(int y = 0; y < 20; y++) memset(v.fb + (4 + y) * v.pitch + 8, 0, 8 * n + 16);
     note[0] = 0;
     pc->full_update = 2;
 }
 
-static void redraw(void *opaque, int x, int y, int w, int h) {    // (the picture is drawn in the page shown: only the
-    (void)opaque; (void)x; (void)y; (void)w; (void)h;               // note goes over it again)
+static void redraw(void *opaque, int x, int y, int w, int h) {    // (the picture is drawn in the page shown: the
+    (void)opaque; (void)x; (void)y; (void)w; (void)h;               // palette set when the PC's colours have changed,
+    vga_palette_rgb(thepc->vga, colours);                           // which video_palette shows from the next frame, and
+    if(memcmp(colours, shown, sizeof(shown))) {                     // the note put over the picture again)
+        memcpy(shown, colours, sizeof(shown));
+        cmm2->video_palette(0, 256, shown);
+    }
     if(note[0]) note_draw();
 }
 
 /* the sound: the Adlib, the Sound Blaster and the PC speaker mixed as tiny386's mixer_callback mixes them, but in the
    CMM2's sound stream's fill (an interrupt on MMBasic's stack: its buffers here, not on the stack), which asks for each
    1024 frames as it wants them, as SDL's audio thread does; tiny386's devices make 44.1 kHz, the stream's rate */
-static PC *thepc;
 static int16_t mixmono[1024];
 static uint8_t mixspk[1024];
 
@@ -402,10 +419,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "pc386: only %lu KB of heap\n", (unsigned long)(cmm2_start->heap_size >> 10));
         return 1;
     }
-    if(cmm2->video_mode(8, 16, &v) < 0 && cmm2->video_mode(2, 16, &v) < 0) {
-        fprintf(stderr, "pc386: no 16-bit mode\n");
+    if(cmm2->video_mode(8, 8, &v) < 0 || v.pitch != v.width) {
+        fprintf(stderr, "pc386: MODE 8,8 cannot be set\n");
         return 1;
     }
+    cmm2->video_palette(0, 256, shown);                             // (black, as the PC's DAC starts)
     conf.width = v.width;
     conf.height = v.height;
     fprintf(stderr, "pc386: %ld KB of RAM, %dx%d, %s\n", conf.mem_size >> 10, conf.width, conf.height, ini);

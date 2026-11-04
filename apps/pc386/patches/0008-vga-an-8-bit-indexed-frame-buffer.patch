@@ -1,0 +1,246 @@
+diff --git a/vga.c b/vga.c
+index 993663e..af681c9 100644
+--- a/vga.c
++++ b/vga.c
+@@ -419,6 +419,76 @@ static void scale_2_1(uint8_t *dst, int dst_stride, uint8_t *src, int w)
+     }
+ }
+ 
++#elif BPP == 8
++/* An indexed frame buffer: a pixel is the number of the DAC entry the VGA
++   shows it in, and the front end shows the frame buffer through the DAC's
++   colours (vga_palette_rgb()). A change of colours then redraws nothing. */
++#if defined(SCALE_3_2) || defined(SCALE_2_1) || defined(SWAPXY)
++#error "BPP 8 does not scale"
++#endif
++#ifdef VGA_STORE_CHANGED
++#define PUT8(d, n, v) do { \
++        uint8_t v_ = (v); \
++        if (((uint8_t *)(d))[n] != v_) \
++            ((uint8_t *)(d))[n] = v_; \
++    } while (0)
++#else
++#define PUT8(d, n, v) (((uint8_t *)(d))[n] = (v))
++#endif
++static void vga_draw_glyph8(uint8_t *d, int linesize,
++                            const uint8_t *font_ptr, int h,
++                            uint32_t fgcol, uint32_t bgcol)
++{
++    uint32_t font_data, xorcol;
++
++    xorcol = bgcol ^ fgcol;
++    do {
++        font_data = font_ptr[0];
++        PUT8(d, 0, (-((font_data >> 7)) & xorcol) ^ bgcol);
++        PUT8(d, 1, (-((font_data >> 6) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 2, (-((font_data >> 5) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 3, (-((font_data >> 4) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 4, (-((font_data >> 3) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 5, (-((font_data >> 2) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 6, (-((font_data >> 1) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 7, (-((font_data >> 0) & 1) & xorcol) ^ bgcol);
++        font_ptr += 4;
++        d += linesize;
++    } while (--h);
++}
++
++static void vga_draw_glyph9(uint8_t *d, int linesize,
++                            const uint8_t *font_ptr, int h,
++                            uint32_t fgcol, uint32_t bgcol,
++                            int dup9)
++{
++    uint32_t font_data, xorcol, v;
++
++    xorcol = bgcol ^ fgcol;
++    do {
++        font_data = font_ptr[0];
++        PUT8(d, 0, (-((font_data >> 7)) & xorcol) ^ bgcol);
++        PUT8(d, 1, (-((font_data >> 6) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 2, (-((font_data >> 5) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 3, (-((font_data >> 4) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 4, (-((font_data >> 3) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 5, (-((font_data >> 2) & 1) & xorcol) ^ bgcol);
++        PUT8(d, 6, (-((font_data >> 1) & 1) & xorcol) ^ bgcol);
++        v = (-((font_data >> 0) & 1) & xorcol) ^ bgcol;
++        PUT8(d, 7, v);
++        if (dup9)
++            PUT8(d, 8, v);
++        else
++            PUT8(d, 8, bgcol);
++        font_ptr += 4;
++        d += linesize;
++    } while (--h);
++}
++
++/* the 3-3-2 RGB entry nearest a colour: VBE's direct-colour modes, drawn
++   through a palette of those (vga_palette_rgb()) */
++#define RGB332(r, g, b) (((r) & 0xe0) | (((g) & 0xe0) >> 3) | (((b) & 0xff) >> 6))
++
+ #else
+ #error "bad bpp"
+ #endif
+@@ -449,6 +519,9 @@ static void vga_draw_glyph_wide(uint8_t *d, int linesize,
+ #if BPP == 32
+             ((uint32_t *)d)[2 * i] = v;
+             ((uint32_t *)d)[2 * i + 1] = v;
++#elif BPP == 8
++            d[2 * i] = v;
++            d[2 * i + 1] = v;
+ #else
+             ((uint16_t *)d)[2 * i] = v;
+             ((uint16_t *)d)[2 * i + 1] = v;
+@@ -473,6 +546,7 @@ static void vga_draw_cell(uint8_t *d, int linesize, const uint8_t *font_ptr,
+         vga_draw_glyph9(d, linesize, font_ptr, h, fgcol, bgcol, dup9);
+ }
+ 
++#if BPP != 8      /* (an indexed frame buffer shows composite colour through the attribute palette) */
+ #if BPP == 32
+ #define COLOR(a) a
+ #elif BPP == 16
+@@ -497,6 +571,7 @@ const static uint32_t ntsc_color_lut[16] = {
+     COLOR(0xFFFFFF),
+ };
+ #undef COLOR
++#endif
+ 
+ #if BPP == 32
+ static inline int c6_to_8(int v)
+@@ -612,10 +687,72 @@ static int update_palette16(VGAState *s, uint32_t *palette)
+     }
+     return full_update;
+ }
++#elif BPP == 8
++/* a colour is the DAC entry's number: its RGB is the front end's */
++static int update_palette256(VGAState *s, uint32_t *palette)
++{
++    int full_update, i;
++    uint32_t col;
++
++    full_update = 0;
++    for(i = 0; i < 256; i++) {
++        /* through the PEL mask (3C6h) to the DAC */
++        col = i & s->dac_mask;
++        if (col != palette[i]) {
++            full_update = 1;
++            palette[i] = col;
++        }
++    }
++    return full_update;
++}
++
++static int update_palette16(VGAState *s, uint32_t *palette)
++{
++    int full_update, i;
++    uint32_t v, col;
++
++    full_update = 0;
++    for(i = 0; i < 16; i++) {
++        v = s->ar[i];
++        if (s->ar[0x10] & 0x80)
++            v = ((s->ar[0x14] & 0xf) << 4) | (v & 0xf);
++        else
++            v = ((s->ar[0x14] & 0xc) << 4) | (v & 0x3f);
++        col = v & s->dac_mask;
++        if (col != palette[i]) {
++            full_update = 1;
++            palette[i] = col;
++        }
++    }
++    return full_update;
++}
+ #else
+ #error "bad bpp"
+ #endif
+ 
++static bool vbe_enabled(VGAState *s);
++
++/* The 256 colours, as R, G, B bytes, that an indexed frame buffer (BPP 8)
++   is to be shown in: the DAC's, or in a VBE mode of 15 bits or more, whose
++   pixels are drawn as 3-3-2 RGB, those. */
++void vga_palette_rgb(VGAState *s, uint8_t *rgb)
++{
++    int shift_control = (s->gr[0x05] >> 5) & 3;
++    if ((s->gr[0x06] & 1) && shift_control >= 2 && vbe_enabled(s) &&
++        s->vbe_regs[VBE_DISPI_INDEX_BPP] > 8) {
++        for (int i = 0; i < 256; i++) {
++            rgb[3 * i] = (i >> 5) * 255 / 7;
++            rgb[3 * i + 1] = ((i >> 2) & 7) * 255 / 7;
++            rgb[3 * i + 2] = (i & 3) * 255 / 3;
++        }
++        return;
++    }
++    for (int i = 0; i < 768; i++) {
++        int c = s->palette[i];
++        rgb[i] = s->dac_8bit ? c : ((c & 0x3f) << 2) | ((c & 0x3f) >> 4);
++    }
++}
++
+ /* VGA CRT controller register indices */
+ #define VGA_CRTC_H_TOTAL        0
+ #define VGA_CRTC_H_DISP         1
+@@ -1377,7 +1514,11 @@ static void vga_graphic_refresh(VGAState *s,
+                             int k = vram[addr + 4 * (x1 >> 3)];
+                             if (!(x1 & 4))
+                                 k >>= 4;
++#if BPP == 8
++                            color_comp = palette[k & 0xf];
++#else
+                             color_comp = ntsc_color_lut[k & 0xf];
++#endif
+                         }
+                         color = color_comp;
+                     } else {
+@@ -1494,6 +1635,41 @@ static void vga_graphic_refresh(VGAState *s,
+             fb_dev->fb_data[i + 1] = color >> 8;
+ #endif
+ #endif
++#elif BPP == 8
++            {
++                switch (bpp) {
++                case 8: {
++                    color = palette[vram[addr + x1]];
++                    break;
++                }
++                case 15: {
++                    int k = vram[addr + 2 * x1] | (vram[addr + 2 * x1 + 1] << 8);
++                    color = RGB332((k >> 7) & 0xf8, (k >> 2) & 0xf8, k << 3);
++                    break;
++                }
++                case 16: {
++                    int k = vram[addr + 2 * x1] | (vram[addr + 2 * x1 + 1] << 8);
++                    color = RGB332((k >> 8) & 0xf8, (k >> 3) & 0xfc, k << 3);
++                    break;
++                }
++                case 24: {
++                    color = RGB332(vram[addr + 3 * x1 + 2],
++                                   vram[addr + 3 * x1 + 1],
++                                   vram[addr + 3 * x1]);
++                    break;
++                }
++                case 32: {
++                    color = RGB332(vram[addr + 4 * x1 + 2],
++                                   vram[addr + 4 * x1 + 1],
++                                   vram[addr + 4 * x1]);
++                    break;
++                }
++                default:
++                    fprintf(stderr, "vga bpp is %d\n", bpp);
++                    abort();
++                }
++            }
++            PUT8(fb_dev->fb_data, y * fb_dev->width + x + i0, color);
+ #else
+ #error "bad bpp"
+ #endif
+diff --git a/vga.h b/vga.h
+index 53b433f..749fb67 100644
+--- a/vga.h
++++ b/vga.h
+@@ -17,6 +17,7 @@ void vga_set_force_8dm(VGAState *s, int v);
+ int vga_step(VGAState *vga);
+ void vga_refresh(VGAState *s,
+                  SimpleFBDrawFunc *redraw_func, void *opaque, int full_update);
++void vga_palette_rgb(VGAState *s, uint8_t *rgb);   /* BPP 8: the 256 colours to show (768 bytes, R, G, B) */
+ 
+ void vga_ioport_write(VGAState *s, uint32_t addr, uint32_t val);
+ uint32_t vga_ioport_read(VGAState *s, uint32_t addr);
