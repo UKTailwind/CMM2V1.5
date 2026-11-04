@@ -8,10 +8,12 @@ of the host console code it has but the CMM2 does not use.
 tiny386's CPU and the project are BSD-3-Clause, the devices from QEMU and TinyEMU MIT, the Adlib's fmopl LGPL-2.1+; the
 BIOS files it boots (SeaBIOS, LGPL-3) go on the SD card beside the program.
 
-    python apps/pc386/make.py [fast|pd]
+    python apps/pc386/make.py [interp|pd]
 then put out/pc386.app in A:/pc386 with bios.bin, vgabios.bin, a disk image and pc386.ini, and at the CMM2's prompt:
-CHDIR "A:/pc386" : RUN "pc386.app" (or RUN "pc386.app", other.ini). fast builds tiny386's fast path in front of its
-interpreter (fast/fast.c in place of i386.c), pd that with its pre-decoding too, as out/pc386fast.app and pc386pd.app.
+CHDIR "A:/pc386" : RUN "pc386.app" (or RUN "pc386.app", other.ini). pc386.app has tiny386's fast path in front of its
+interpreter (fast/fast.c in place of i386.c): FreeDOS boots in 35 s, not 52 (Peter: the default, 3 Nov 2026). interp
+builds the interpreter alone, pd the fast path with its pre-decoding too (quicker in tight loops, slower to boot), as
+out/pc386interp.app and pc386pd.app.
 """
 import glob, hashlib, os, subprocess, sys
 
@@ -47,13 +49,13 @@ def main():
     os.makedirs(os.path.join(HERE, 'out'), exist_ok=True)
     args = [a for a in sys.argv[1:] if not a.startswith('-')]     # (and flags for the compiler: -O3 and the like)
     cpu = args[0] if args else ''
-    if cpu not in ('', 'fast', 'pd'):
-        sys.exit('make.py [fast|pd] [-compiler-flag...]')
+    if cpu not in ('', 'interp', 'pd'):
+        sys.exit('make.py [interp|pd] [-compiler-flag...]')
     srcs = [os.path.join(SRC, f + '.c') for f in FILES] + [os.path.join(HERE, 'pc386_cmm2.c')]
     flags = ['-include', os.path.join(HERE, 'port.h'), '-DBPP=16', '-DI386_ENABLE_FPU', '-DUSE_FMOPL',
              '-DI386_ALIGNED_ONLY', '-w']   # (the guest's unaligned words: single LDRs and STRs, never an LDRD, LDM, STRD or
                                             # STM, which a Cortex-M7 faults on unaligned)
-    if cpu:
+    if cpu != 'interp':
         srcs[FILES.index('i386')] = os.path.join(SRC, 'fast', 'fast.c')
         flags += ['-DUSE_FAST'] + (['-DFAST_PD'] if cpu == 'pd' else [])
     flags += [a for a in sys.argv[1:] if a.startswith('-')]
