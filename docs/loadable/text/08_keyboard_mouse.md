@@ -65,6 +65,23 @@ static void keys(void) {
 
 The keys held come from a USB keyboard only: the serial console sends characters, not key presses, so a program that should also work from a terminal reads con_getc as well.
 
+## The Keyboard's Own Codes
+
+```
+int keys_raw(uint8_t report[8]);                         /* version 9 */
+```
+
+keys_raw gives the USB keyboard's last report as the keyboard sent it, before MMBasic's keyboard layout is applied. Each key is named by its place on the keyboard, not by the character it types, as a PC's scan codes name the keys. This is for a program that applies a layout of its own, or needs keys that type no character: the 386 PC emulator passes the keys to the PC this way, and DOS applies its own layout.
+
+{widths: 15,85}
+| Byte | Holds |
+|---|---|
+| 0 | The modifier keys held, as bits in the USB order: 1 left Ctrl, 2 left Shift, 4 left Alt, 8 left GUI, 16 right Ctrl, 32 right Shift, 64 right Alt, 128 right GUI. Note that this order is not keys_held's. |
+| 1 | 0. |
+| 2 to 7 | The USB HID usage codes of up to six keys held (4 for A, 5 for B, and so on to 0x65), or 0. |
+
+It returns the number of keys held. With no keyboard, the report is all zero.
+
 ## The Mouse
 
 ```

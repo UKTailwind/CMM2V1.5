@@ -342,7 +342,7 @@ This command can only be run from the command line and will cause a reboot.  Thi
 or
 OPTION SD TIMING FAST
 --- P keep roomy
-The fast option will speed up the timing for SD card access.  This results in read/write speeds being about 20% faster where cards can accommodate the higher speed access.  The default is NORMAL.
+OPTION SD TIMING FAST drives the SD card with the processor's SPI hardware, at 24MHz on a Generation 2 (20MHz on an original Colour Maximite 2 running at 400MHz), in place of NORMAL's slower timing.  Large files are then read and written about 60% faster where the card can take the higher speed: on a Generation 2 a 32MB copy takes 37 seconds rather than 59.  The default is NORMAL.
 This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
 === OPTION SCREEN KEYBOARD n [, M]

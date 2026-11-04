@@ -1,6 +1,6 @@
 # Appendix A – The Services
 
-The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h), with the version of the firmware's services that added each and the chapter that describes it. The table starts with two numbers: version, the firmware's version of the services (8 in 7.00.00RC0), and size, the table's size in bytes.
+The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h), with the version of the firmware's services that added each and the chapter that describes it. The table starts with two numbers: version, the firmware's version of the services (9 in 7.00.00RC1), and size, the table's size in bytes.
 
 {widths: 9,46,9,36}
 | Ver | Service | Ver | Service |
@@ -44,5 +44,6 @@ The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h),
 | 7 | `int adc_read(int gp, uint32_t *uv)` | 7 | `int com_read(com, buf, n)` |
 | 7 | `int pwm_set(gp, freq, duty)` | 7 | `int com_avail(int com)` |
 | 7 | `int pwm_stop(int gp)` | 7 | `const char *io_error(void)` |
+| 9 | `int keys_raw(uint8_t report[8])` | | |
 
 The console, the clock, files, directories, the system and the FM synthesiser are in the chapter The Services; the screen in The Screen; the keys and mouse in The Keyboard and Mouse; audio and music in Sound and Music; and the I/O services in The I/O Pins. Inc/cmm2img.h has the full declarations, with a comment on each.

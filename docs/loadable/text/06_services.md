@@ -75,7 +75,7 @@ file_open opens a file and returns its handle, 0 to 7, or an error. The mode is 
 | CMM2_O_WRITE + CMM2_O_CREATE | The file is made, or emptied if it is there. |
 | CMM2_O_WRITE + CMM2_O_APPEND | The file is made if it is not there, and written at its end. |
 
-READ and WRITE can be used together. A file opened only to read is given a map of its clusters, so that seeking in it does not have to read the card's allocation table again (Doom seeks to each part of its 28MB data file).
+READ and WRITE can be used together. A file opened to read, or to read and write without CREATE or APPEND (version 9), is given a map of its clusters, so that seeking in it does not have to read the card's allocation table again (Doom seeks to each part of its 28MB data file). A write or seek past the end of the file drops the map, as the file then grows.
 
 file_read and file_write return the number of bytes read or written (fewer than asked at the end of a file, or when the drive is full) or an error. file_seek moves to a position from the start of the file. file_sync writes what is waiting to the card without closing the file. file_rename fails if a file of the new name is there (-8); the C library's rename() removes it first. Names are as described in the chapter The C Library.
 

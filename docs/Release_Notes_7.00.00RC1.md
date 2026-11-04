@@ -1,0 +1,81 @@
+# Colour Maximite 2: MMBasic 7.00.00RC1 (release candidate) release notes
+
+*4 November 2026. Compared with 7.00.00RC0, the previous release candidate. The full notes, compared with MMBasic 5.07.02, are posted with these.*
+
+This is the second release candidate of MMBasic 7.00 for the Colour Maximite 2. Unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum.
+
+It adds pc386, a 386 PC that the Colour Maximite 2 runs as a loadable program: FreeDOS, MS-DOS and Windows 3.1 run on it, with VGA graphics, a Sound Blaster 16 and a mouse. It also makes OPTION SD TIMING FAST much faster, and fixes OPTION OVERCLOCK, which stopped a Generation 1 from responding.
+
+The same firmware file runs on both the Generation 1 and the Generation 2.
+
+## Before you update
+
+- **Options kept:** all of them. An OPTION OVERCLOCK ON saved by an earlier version is left out on a machine where it no longer applies (see below).
+- **Kept:** the library, the variables saved with VAR SAVE, the flash slots, and the programs and files on the SD card.
+
+## What is new
+
+- **pc386, a 386 PC.** It is tiny386, Chunhui He's 386 PC emulator, with a front end for the Colour Maximite 2:
+
+  ```
+  CHDIR "A:/pc386"
+  RUN "pc386.app"
+  ```
+
+  - The PC has a 386 processor with a maths coprocessor, 4MB of memory (2.75MB on a Generation 1), a VGA card shown at 640 x 480 in 256 colours, a Sound Blaster 16, an Adlib and the PC speaker. The Colour Maximite 2's USB keyboard and its USB or PS/2 mouse are the PC's.
+  - Its hard disks and floppy disks are image files on the SD card. Ctrl+Alt+Page Down and Page Up change the disk in drive A: from a list, as you would change disks when an installation asks for the next one. Ctrl+Alt+End leaves.
+  - It comes with FreeDOS 1.3 installed on a hard disk image, ready to run. MS-DOS 6.2 and Windows 3.1 install from images of your own disks, and run with mouse and sound.
+  - FreeDOS starts in about 35 seconds on a Generation 2, and Windows 3.1 is usable. On a Generation 1 of revision Y, OPTION OVERCLOCK ON (below) makes it as fast as on a Generation 2.
+  - Its files are in the pc386 folder of CMM2_Programs_7.00.00RC1.zip. A new manual, Colour Maximite 2 386 PC Emulator, describes its keys, the configuration file of each PC, disk images, and installing MS-DOS and Windows 3.1.
+- **OPTION SD TIMING FAST** now drives the SD card with the processor's SPI hardware directly. A 32MB copy on a Generation 2 takes 37 seconds, against 51 seconds with RC0's FAST and 59 seconds with NORMAL.
+- **Loadable programs: services version 9.**
+  - keys_raw gives a program the USB keyboard's own key codes, the keys' places before any keyboard layout. The 386 PC uses it, so that DOS applies its own layout.
+  - A file opened to read and write in place now seeks as fast as one opened only to read.
+  - The Loadable Programs manual describes both.
+
+## What behaves differently
+
+- **OPTION OVERCLOCK ON** now runs an original Colour Maximite 2 whose processor is of revision Y at 480MHz, in place of 400MHz: the speed at which every other Colour Maximite 2 runs. It gives an error on a Generation 2 ("G1 only") and on an original that runs at 480MHz already ("Already 480MHz"). It used to run every machine at 504MHz, which is beyond the processor's ratings (see below).
+
+## Fixed since 7.00.00RC0
+
+- **OPTION OVERCLOCK ON stopped a Generation 1 from responding.** It started and showed its screen, but took no keys from the keyboard or the serial console. At 504MHz its processor ran 26% above its rating, and computed wrong values.
+- **A loadable program found no PS/2 mouse** unless a BASIC program had used it first, because the mouse had not answered at power up. ScummVM had no mouse. The program now starts it, as MM.MOUSE does.
+- **The PS/2 mouse** now starts each byte afresh if 5 milliseconds pass without the rest of it, as the PicoMite's does, so that one missed clock pulse no longer garbles the bytes after it.
+
+## The programs tested
+
+- The regression tests in tests/cmm2 (113 programs) on a Generation 2: the same results as 7.00.00b5. Three programs whose expected output was recorded with OPTION DEFAULT MODE 8 differ with the board's own setting (DEFAULT MODE 1,8, and OPTION SD TIMING FAST in the option list), and match with the board set as they were recorded.
+- pc386 on both generations: FreeDOS; MS-DOS 6.2 installed from its Setup disks; Windows 3.1 installed from its six disks and run with sound, a USB mouse and a PS/2 mouse, and Band-in-a-Box under it; on a Generation 1 of revision Y with OPTION OVERCLOCK ON at 480MHz.
+- ScummVM with a PS/2 mouse alone, on a Generation 2.
+
+## Known problems
+
+- **With a USB touch screen connected, a mouse click can be taken as a swipe** by the GUI controls' gestures, as the click's end is taken from the touch screen.
+- An armed interrupt pin slows the program down, because the pin is polled after every statement.
+- In pc386, a program protected by a check of its original floppy disk (Lemmings is one) does not run from a disk image.
+
+## The manual
+
+The User Manual describes:
+
+- OPTION SD TIMING and OPTION OVERCLOCK as they now are, in the options;
+- pc386, among the programs that come with the firmware, in the chapter Using MMBasic.
+
+Appendix O lists the new companion manual, Colour_Maximite_2_386_PC_Emulator.pdf, posted with this release. Colour_Maximite_2_Loadable_Programs.pdf adds the services of version 9.
+
+## Licences
+
+pc386 is tiny386, under the BSD 3-Clause licence, whose notice follows. Its emulated devices come from QEMU and TinyEMU (MIT licence), its Adlib's FM synthesis is fmopl (GNU LGPL 2.1 or later), its BIOS files are SeaBIOS and SeaVGABIOS (GNU LGPL 3), and FreeDOS has its own licences, most of them the GNU GPL. CMM2_Programs_7.00.00RC1.zip has all of their texts in its licences folder, and its README.txt says where each one's source is.
+
+> **tiny386:** Copyright (c) 2024-2025, Chunhui He. All rights reserved.
+>
+> Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+>
+> - Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+> - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+> - Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+>
+> THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The licences of the programs from RC0 (MicroPython, Doom, ScummVM, ymfm and Freedoom) are unchanged.

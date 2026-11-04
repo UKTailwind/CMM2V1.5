@@ -120,7 +120,7 @@ RUN "doom.app"
 RUN "A:/apps/hello.app", one two "three four"
 ```
 
-A loadable program runs at the full speed of the processor and takes over the computer while it runs: it can use the screen, the keyboard and mouse, the sound output, the files and the I/O pins through services that the firmware gives it. Games, emulators and other programming languages can be written or ported this way: the firmware's distribution includes MicroPython, the game Doom (with the Freedoom game data) and ScummVM (which runs many classic adventure games).
+A loadable program runs at the full speed of the processor and takes over the computer while it runs: it can use the screen, the keyboard and mouse, the sound output, the files and the I/O pins through services that the firmware gives it. Games, emulators and other programming languages can be written or ported this way: the firmware's distribution includes MicroPython, the game Doom (with the Freedoom game data), ScummVM (which runs many classic adventure games) and pc386, a 386 PC that runs FreeDOS, MS-DOS and Windows 3.1 (described in its own manual, see Appendix O).
 
 The words after the comma are the program's arguments. When the program ends MMBasic carries on where it was: at the command prompt it returns to the prompt, and in a BASIC program it goes on with the next statement, with the BASIC program and its variables as they were. MMBasic closes the files the program left open, stops its sound, releases the I/O pins it used and restores the video mode, font, colours and palette. Pressing Ctrl-C asks the program to end and also stops the BASIC program that ran it, unless the program uses Ctrl-C itself (MicroPython turns it into a KeyboardInterrupt, as on other computers).
 

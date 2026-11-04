@@ -1,13 +1,13 @@
-[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00RC0 (release candidate) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
-[I]3 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last beta, 7.00.00b5, have notes of their own.[/I]
+[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00RC1 (release candidate) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
+[I]4 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous release candidate, 7.00.00RC0, have notes of their own.[/I]
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
-The betas added USB touch screens, with the GUI controls, gestures and an on-screen keyboard, and the PicoMite's STEPPER command for stepper motors driven by G-code, and they were checked by running published Colour Maximite 2 programs (Wolf3D, Gauntlet, Into the Darkness, Z-MIM, NOMIS, BoxDot, Cuno, the Welcome Tape and SP Tools). This release candidate adds loadable programs, written in C or C++ and run with RUN (MicroPython, Doom and ScummVM come with it), and an FM synthesiser that plays MIDI and the music of DOS games.
+The betas added USB touch screens, with the GUI controls, gestures and an on-screen keyboard, and the PicoMite's STEPPER command for stepper motors driven by G-code, and they were checked by running published Colour Maximite 2 programs (Wolf3D, Gauntlet, Into the Darkness, Z-MIM, NOMIS, BoxDot, Cuno, the Welcome Tape and SP Tools). The release candidates add loadable programs, written in C or C++ and run with RUN (MicroPython, Doom, ScummVM and pc386, a 386 PC that runs DOS and Windows 3.1, come with them), and an FM synthesiser that plays MIDI and the music of DOS games.
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
-This is the first release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
+This is the second release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -27,9 +27,9 @@ You can go back to an earlier firmware the same way, should you need to.
 [SIZE=3][B]Loadable programs[/B][/SIZE]
 • A file ending .APP is a program written in C or C++ and compiled for the processor: [FONT=Courier]RUN "name.app" [, words][/FONT] runs it, at the full speed of the processor, and MMBasic carries on when it ends (at the prompt, or with the BASIC program's next statement), tidying up after it.
 • It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
-• MicroPython (as on the Pico Computer 3), Doom (with Freedoom) and ScummVM (for classic adventure games) come with the firmware, in CMM2_Programs_7.00.00RC0.zip.
+• MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse) come with the firmware, in CMM2_Programs_7.00.00RC1.zip.
 • A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
-• The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk.
+• The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
 
 [SIZE=3][B]OPTION PICOMITE[/B][/SIZE]
 • OPTION PICOMITE device [, resolution] makes the Colour Maximite 2 behave as the PicoMite named, by the name its MM.DEVICE$ gives: PicoMiteVGA, PicoMiteVGAUSB, PicoMiteHDMI, PicoMiteHDMIUSB, PicoMitePC3, PicoMiteHDMIBTH or PicoMiteHDMIWEB, with RP2350A or RP2350B where the PicoMite has it. VGA and HDMI are short for PicoMiteVGAUSB RP2350B and PicoMiteHDMIUSB RP2350B. OPTION PICOMITE NONE, the default, turns it off.
@@ -70,6 +70,8 @@ You can go back to an earlier firmware the same way, should you need to.
 
 [SIZE=3][B]Speed[/B][/SIZE]
 Programs run faster: the solar eclipse benchmark takes 6.0 s against 7.4 s before. SUB and FUNCTION calls, IF, DO and FOR loops, and programs with interrupts armed gain the most.
+
+OPTION SD TIMING FAST drives the SD card with the processor's SPI hardware directly: a 32MB copy on a Generation 2 takes 37 seconds, against 59 seconds with NORMAL.
 
 [SIZE=3][B]The compiler[/B][/SIZE]
 • OPTION COMPILE ON runs programs from a compiled form, as the PicoMite does: the solar eclipse benchmark takes 1.7 s, and tight loops run up to ten times faster.
@@ -239,6 +241,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 
 [SIZE=4][COLOR=BLUE][B]What behaves differently[/B][/COLOR][/SIZE]
+• OPTION OVERCLOCK ON runs an original Colour Maximite 2 whose processor is of revision Y at 480MHz, in place of 400MHz, and gives an error on other machines, which run at 480MHz already. It no longer runs a machine at 504MHz, beyond the processor's ratings: that stopped a Generation 1 from responding.
 • FILES lists the files, as LIST FILES does; FM is the file manager.
 • The editor's keys are the PicoMite's.
 • MM.ERRMSG$ is the bare message, without "Error in line n:"; MM.ERRLINE gives the line.
@@ -471,6 +474,7 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 • An armed interrupt pin slows the program down, because the pin is polled after every statement.
 • With a USB touch screen connected, a mouse click can be taken as a swipe by the GUI controls' gestures.
 • The keyboard layout list names IT, but it cannot be selected.
+• In pc386, a program protected by a check of its original floppy disk (Lemmings is one) does not run from a disk image.
 
 
 [SIZE=4][COLOR=BLUE][B]The manual[/B][/COLOR][/SIZE]
@@ -479,6 +483,7 @@ The Colour Maximite 2 User Manual for this release is posted with it. Its chapte
 This release's manual also describes:
 
 • loadable programs, in the commands (RUN) and the chapter Using MMBasic;
+• OPTION SD TIMING and OPTION OVERCLOCK as they now are, in the options;
 • the FM synthesiser, in the chapter Sound Output and in the commands (PLAY MIDI, PLAY NOTE, PLAY MIDI CMD, PLAY MIDI TEST, PLAY MIDIFILE and PLAY OPL);
 • the touch screens and the on-screen keyboard, in the chapter Keyboard, Mouse and Gamepad;
 • TOUCH(), CLICK(), GUI CURSOR, GUI CLICK, GUI TEST, KEYBOARD and OPTION SCREEN KEYBOARD, in the reference sections;
@@ -487,4 +492,4 @@ This release's manual also describes:
 • variables with a command's name, in the chapters Variables and Expressions and MMBasic Characteristics;
 • MM.MOUSE and the mouse's centring on a mode change, in the chapter Keyboard, Mouse and Gamepad.
 
-STEPPER is described in Stepper_Reference.pdf, and writing loadable programs in Colour_Maximite_2_Loadable_Programs.pdf, both posted with the manual.
+STEPPER is described in Stepper_Reference.pdf, writing loadable programs in Colour_Maximite_2_Loadable_Programs.pdf, and pc386 in Colour_Maximite_2_386_PC_Emulator.pdf, all posted with the manual.
