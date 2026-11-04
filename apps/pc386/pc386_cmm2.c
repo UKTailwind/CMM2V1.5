@@ -7,7 +7,8 @@
    first at the start, if fda names none; "none" is an empty drive), and new_disk, a size (64M): hda is made, empty,
    if there is no such file.
    The guest's RAM, its video RAM and the rest are on the program's heap. -stats prints the instructions the PC ran
-   each second (its MIPS) to the serial console every 5 s.
+   each second (its MIPS) to the serial console every 5 s; -keys each keyboard report and console character, -mouse
+   each movement of the mouse (the time in ms, x, y, the wheel and the buttons).
 
    - The screen: tiny386's VGA draws the PC's picture, centred, straight into the CMM2's page in RGB565: MODE 8,16
      (640x480), or MODE 2,16 (640x400) where a G1 has lent the program its display memory and MODE 8,16 does not fit.
@@ -271,6 +272,7 @@ static int keys(PC *pc) {
    firmware keeps a position clamped to the screen, so it is put back in the middle after each look, and the movement
    is how far it went from there; the buttons' bits are the same (1 left, 2 right, 4 middle), and the wheel's count
    gives its turns */
+static int debugmouse;                                              // (-mouse: each movement shown, with the time in ms)
 static void mouse(PC *pc) {
     static int started, wheel;
     int m[4], cx = v.width / 2, cy = v.height / 2;
@@ -283,6 +285,8 @@ static void mouse(PC *pc) {
     }
     int dx = m[0] - cx, dy = m[1] - cy, dz = m[3] - wheel;
     wheel = m[3];
+    if(debugmouse && (dx || dy || dz))
+        fprintf(stderr, "pc386: mouse %lu %d %d %d %d\n", (unsigned long)(cmm2->micros() / 1000), dx, dy, dz, m[2] & 7);
     if(dx || dy) cmm2->mouse_set(cx, cy);
     ps2_mouse_event(pc->mouse, dx, dy, dz, m[2] & 7);
 }
@@ -370,6 +374,7 @@ int main(int argc, char **argv) {
     for(int i = 1; i < argc; i++) {
         if(strcmp(argv[i], "-stats") == 0) stats = 1;
         else if(strcmp(argv[i], "-keys") == 0) debugkeys = 1;
+        else if(strcmp(argv[i], "-mouse") == 0) debugmouse = 1;
         else ini = argv[i];
     }
     PCConfig conf;
