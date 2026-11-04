@@ -98,10 +98,22 @@ without reflashing. Phase 1c then chooses, measured:
   - include/: ctest-include's headers, then the CMM2's (cmm2/include: math.h prototyped, ctype.h, time.h, and a stdlib.h with all that bcrun has).
 - **Rechecked:** all 198 test sources, compiled on the board with those headers, still give the host's objects byte for byte, and cc.app's stack is now 64KB (bcrun's 128KB), for a G1's sake.
 - **The user manual:** a section "The C Compiler" in Using MMBasic, CC in the commands, and RUN's paragraph on .BC and .C (the PDFs to be rebuilt with the next release).
+- **The G1, proved the same day:**
+  - Flashed with this firmware, it compiles and runs hello.c and libtest.c, from the prompt and from a program (CC 391ms, RUN 194ms at 400MHz).
+  - The 35 samples compiled there give the host's objects, cc.app relocated into the borrowed heap.
 - **Not yet:**
-  - The G1, unproved: at the prompt it lends about 4.2MB and cc.app needs 3.5MB with its tables.
   - The release's programs zip needs the cc folder, with the GPL-3.0 text and where the source is.
   - FM runs .BAS files only, as the PicoMite's does.
+
+**4 November: phase 1d, first part.**
+
+- **Doubles in the FPU itself:** cc2 built with THUMB_VFP (cc.app's) emits vadd.f64, vsub, vmul, vdiv and vcmp with vmrs where it called slots 4-12. These are fork commit 1efd7aa and object version 6, which a bcrun without a double FPU refuses.
+  - The double loop takes 151ms, against 212ms through the shims (gcc: 55ms).
+  - Every test gives what it gave, the board's compiles are identical to the VFP host chain's, and without THUMB_VFP the objects are as before, byte for byte.
+- **bcrun in the firmware (Peter):** bcrun.app's file is a constant in bank 2 (Src/BcrunImage.c, written by make.py), and the loader copies it from there as it reads a program from the card.
+  - Copying takes well under a millisecond. Running in place would need a split link, and on a G1 position-independent data, since its RAM moves.
+  - RUN "hello.bc" now takes 16ms in all (52ms from the card), with no bcrun.app on the card.
+  - Bank 2 has 15KB left.
 
 ## Where the work is
 

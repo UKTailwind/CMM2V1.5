@@ -12,11 +12,13 @@ meet. The driver calls each where Fuzix forks and execs it (cmm2/ccbc_cmm2.c). T
 
 bcrun.app loads a compiled program (prog.bc), relocates it and runs it: its native Thumb-2 functions directly, the rest
 as bytecode. The runtime is not under the compiler's GPLv3 (the kit's README); fnum.c, printf's %e %f %g, is from
-Fuzix's C library.
+Fuzix's C library. The firmware carries it in bank 2's flash (Peter, 4 Nov 2026: so that a compiled program needs
+nothing on the card), as Src/BcrunImage.c, which this writes whenever it builds bcrun.app: the firmware is then built
+again with it, and the two are committed together.
 
     python apps/cc/make.py [cc|bcrun]
-then put both in a folder on the SD card, with the headers (Applications/CC/hosttest/ctest-include) in its include/
-folder, and at the CMM2's prompt: RUN "cc.app", prog.c   then   RUN "bcrun.app", prog.bc [args]
+then put out/sd/cc on the SD card as A:/cc (cc.app, and the headers in include/), and at the CMM2's prompt:
+CC "prog.c" and RUN "prog.bc" [, args], or RUN "prog.c" [, args] for both
 """
 import concurrent.futures, os, subprocess, sys
 
@@ -28,7 +30,7 @@ CC = os.path.join(SRC, 'Applications', 'CC')
 CPP = os.path.join(SRC, 'Applications', 'cpp')
 OUT = os.path.join(HERE, 'out')
 URL = 'https://github.com/UKTailwind/FUZIX'
-COMMIT = '9a077bbdf814d3b78bf2c91d118ba426cd7d6543'   # branch cmm2, 4 Nov 2026 (from pc3's 6d662a677)
+COMMIT = '1efd7aa968395f8b08d211174a7e99a57015b0c0'   # branch cmm2, 4 Nov 2026 (from pc3's 6d662a677)
 SPARSE = ['Applications/CC', 'Applications/cpp', 'Applications/mmb2c', 'Library/libs/fnum.c']
 
 # the passes: their sources (Makefile.common and Makefile.host's lists) and flags (the host build's: tables as big as
@@ -39,7 +41,7 @@ C1 = '''body.c declaration.c enum.c error.c expression.c header.c idxdata.c init
 PASSES = [('cpp', CPP, 'cpp.c hash.c main.c token1.c token2.c'.split(), ['-I', CPP]),
           ('cc0', CC, ['frontend.c'], PASSFLAGS),
           ('cc1', CC, C1, PASSFLAGS),
-          ('cc2', CC, ['backend.c', 'backend-bcode.c'], PASSFLAGS)]
+          ('cc2', CC, ['backend.c', 'backend-bcode.c'], PASSFLAGS + ['-DTHUMB_VFP'])]   # (doubles inline in the FPU)
 
 
 def git(*args, **kw):
@@ -110,22 +112,42 @@ def main():
     extra = [a for a in sys.argv[1:] if a.startswith('-')]     # (flags for the compiler: -O3 and the like)
     if not what or 'bcrun' in what:
         bcrun(extra)
+        image(head, dirty)
     if not what or 'cc' in what:
         cc(extra)
     card()
 
 
+def image(head, dirty):
+    """Src/BcrunImage.c: bcrun.app's file as a constant in bank 2, which the firmware's loader reads in place of a file
+    on the card (Loader.c, ld_bc)"""
+    data = open(os.path.join(OUT, 'bcrun.app'), 'rb').read()
+    rows = [', '.join('0x%02X' % b for b in data[i:i + 16]) for i in range(0, len(data), 16)]
+    out = os.path.join(REPO, 'Src', 'BcrunImage.c')
+    open(out, 'w', newline='\n').write(
+        '/* BcrunImage.c: bcrun.app, the C compiler\'s runtime, as the firmware carries it in bank 2\'s flash (Peter, 4 Nov\n'
+        '   2026: a compiled program then needs nothing on the card). Loader.c loads it as it loads a program from the card.\n'
+        '   Made by apps/cc/make.py from apps/cc/out/bcrun.app, built from Peter\'s Fuzix fork, branch cmm2, at %s%s:\n'
+        '   do not edit, but run make.py and build the firmware again. bcrun is the runtime of the Fuzix Compiler Kit\'s\n'
+        '   PC3 target, not under the compiler\'s GPLv3 (the kit\'s README). */\n'
+        '#include <stdint.h>\n\n'
+        'const uint32_t BcrunImageSize = %d;\n'
+        'const uint8_t BcrunImage[%d] __attribute__((section(".bank2"), aligned(4))) = {\n%s\n};\n'
+        % (head[:9], ' with changes' if dirty else '', len(data), len(data), ',\n'.join('    ' + r for r in rows)))
+    print('%s: bcrun.app, %d bytes' % (out, len(data)))
+
 def card():
-    """out/sd/cc, the SD card's A:/cc (the folder the firmware's CC and RUN of a .c or .bc use): the two programs, and
-    in include/ the headers - ctest-include's (what the PC3's card has), then the CMM2's over them (cmm2/include:
+    """out/sd/cc, the SD card's A:/cc (the folder the firmware's CC and RUN of a .c use): cc.app (bcrun is in the
+    firmware), and in include/ the headers - ctest-include's (what the PC3's card has), then the CMM2's over them (cmm2/include:
     math.h, ctype.h, time.h, and a stdlib.h with all that bcrun has)"""
     import shutil
     sd = os.path.join(OUT, 'sd', 'cc')
     inc = os.path.join(sd, 'include')
     os.makedirs(inc, exist_ok=True)
-    for f in ('cc.app', 'bcrun.app'):
-        if os.path.exists(os.path.join(OUT, f)):
-            shutil.copy(os.path.join(OUT, f), sd)
+    if os.path.exists(os.path.join(sd, 'bcrun.app')):
+        os.remove(os.path.join(sd, 'bcrun.app'))
+    if os.path.exists(os.path.join(OUT, 'cc.app')):
+        shutil.copy(os.path.join(OUT, 'cc.app'), sd)
     for d in (os.path.join(CC, 'hosttest', 'ctest-include'), os.path.join(CC, 'cmm2', 'include')):
         for f in sorted(os.listdir(d)):
             if f.endswith('.h'):

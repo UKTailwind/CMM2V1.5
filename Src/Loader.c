@@ -4,11 +4,13 @@ file format and the services, tools/sdk the tools that build a program.
 
   RUN "name.app" [, words]   loads the program into its area, runs it, and goes on with the next statement when it ends
                              (typed at the prompt: back to the prompt). The words after the comma are its argv[1] on.
-  RUN "prog.bc" [, words]    a compiled C program: bcrun.app, the C compiler's runtime, runs it (argv[0] prog.bc)
+  RUN "prog.bc" [, words]    a compiled C program: bcrun, the C compiler's runtime, runs it (argv[0] prog.bc)
   RUN "prog.c" [, words]     compiled first by cc.app, to prog.bc beside it, if that is missing or not newer; then run
   CC file$ [, options$]      compiles file$ (prog.c to prog.bc beside it); an error if it does not compile
-The C compiler is Peter's Fuzix compiler (4 Nov 2026, apps/cc and docs/C_Compiler_Plan.md): cc.app and bcrun.app are
-loadable programs in LD_CC_DIR, with the headers in its include/ folder.
+The C compiler is Peter's Fuzix compiler (4 Nov 2026, apps/cc and docs/C_Compiler_Plan.md): cc.app is a loadable
+program in LD_CC_DIR, with the headers in its include/ folder; bcrun.app, the runtime, is in the firmware (Peter: in bank
+2's flash, so that a compiled program needs nothing on the card), as BcrunImage (BcrunImage.c, made by apps/cc/make.py),
+and is loaded from there as a program file is from the card.
 
 Its area: on a G2, the 8 MB at LOADER_BASE (Memory.h; MPU region 8 makes it executable and write-back cached). A G1 has
 no SDRAM to keep for it, so it borrows the heap's largest free run (all but LD_G1_RESERVE of it, from a 64 KB boundary)
@@ -999,15 +1001,34 @@ static void ld_movt_set(uint16_t *ins, uint16_t v) {
     ins[1] = (ins[1] & ~0x70FF) | ((v & 0x700) << 4) | (v & 0xFF);
 }
 
-// the program fname run with text's words as its argv[1] on: its exit code, printed if not 0 (as shown's, or not if
-// shown is NULL)
-static int ld_app(char *fname, char *text, char *shown) {
+extern const uint8_t BcrunImage[];                                  // bcrun.app, in bank 2 (BcrunImage.c)
+extern const uint32_t BcrunImageSize;
+
+// the program file ld_app reads: an image in flash (ldimg), or the file open as ldfnbr
+static const uint8_t *ldimg;
+static uint32_t ldimgsize, ldimgpos;
+static int ldfnbr;
+
+// the file's next n bytes into buf: 1, or 0 if it is shorter or cannot be read
+static int ld_get(void *buf, uint32_t n) {
+    UINT got;
+    if(ldimg) {
+        if(n > ldimgsize - ldimgpos) return 0;
+        memcpy(buf, ldimg + ldimgpos, n);
+        ldimgpos += n;
+        return 1;
+    }
+    return f_read(FileTable[ldfnbr].fptr, buf, n, &got) == FR_OK && got == n;
+}
+static void ld_done(void) { if(!ldimg) FileClose(ldfnbr); }
+
+// the program fname (from the card, or img's imgsize bytes if img is not NULL) run with text's words as its argv[1] on:
+// its exit code, printed if not 0 (as shown's, or not if shown is NULL)
+static int ld_app(char *fname, const uint8_t *img, uint32_t imgsize, char *text, char *shown) {
     char *p = text, **argv;
     cmm2img_header h;
     uint32_t *rel = NULL, *table, i, stack, end, crc, off;
-    int n, fnbr, argc, code;
-    UINT got;
-    FIL *f;
+    int n, argc, code;
     char *base = (char *)LOADER_BASE;
     uint32_t area = LOADER_SIZE;
     uint64_t need;
@@ -1016,22 +1037,27 @@ static int ld_app(char *fname, char *text, char *shown) {
 
     CloseAudio(1);                                                  // (first: its refills would stop while the program runs)
     if(!InitSDCard()) return 1;
-    fnbr = FindFreeFileNbr();
-    if(!BasicFileOpen(fname, fnbr, FA_READ)) return 1;
-    f = FileTable[fnbr].fptr;
-    if(f_read(f, &h, sizeof(h), &got) != FR_OK || got != sizeof(h) || memcmp(h.magic, CMM2IMG_MAGIC, 8)) {
-        FileClose(fnbr);
+    ldimg = img;
+    ldimgsize = imgsize;
+    ldimgpos = 0;
+    if(!img) {
+        ldfnbr = FindFreeFileNbr();
+        if(!BasicFileOpen(fname, ldfnbr, FA_READ)) return 1;
+    }
+    if(!ld_get(&h, sizeof(h)) || memcmp(h.magic, CMM2IMG_MAGIC, 8)) {
+        ld_done();
         error("Not a loadable program");
     }
     stack = h.stack_size ? (h.stack_size + 7) & ~7 : CMM2IMG_STACK;
     end = (h.image_size + h.bss_size + 7) & ~7;
     if(h.hdr_version != CMM2IMG_HDR_VERSION || h.kind != CMM2IMG_KIND_APP || (h.link_base & 0xFFFF) ||
-       h.image_size == 0 || (h.entry & ~1) >= h.image_size || f_size(f) != sizeof(h) + h.image_size + h.reloc_count * 4) {
-        FileClose(fnbr);
+       h.image_size == 0 || (h.entry & ~1) >= h.image_size ||
+       (img ? imgsize : f_size(FileTable[ldfnbr].fptr)) != sizeof(h) + h.image_size + h.reloc_count * 4) {
+        ld_done();
         error("Not a program this firmware can load");
     }
-    if(h.api_version > CMM2IMG_API_VERSION) { FileClose(fnbr); error("Needs a newer firmware"); }
-    if(G1Hardware && (h.flags & CMM2IMG_FLAG_G2)) { FileClose(fnbr); error("Needs a G2"); }
+    if(h.api_version > CMM2IMG_API_VERSION) { ld_done(); error("Needs a newer firmware"); }
+    if(G1Hardware && (h.flags & CMM2IMG_FLAG_G2)) { ld_done(); error("Needs a G2"); }
     int vram = G1Hardware && (h.flags & CMM2IMG_FLAG_VRAM), invram = 0, joined = 0;
     if(G1Hardware) {
         area = 0;
@@ -1082,7 +1108,7 @@ static int ld_app(char *fname, char *text, char *shown) {
     }
     need = (uint64_t)end + stack + h.heap_min;
     if(place > area || heapsize < h.heap_min) {
-        FileClose(fnbr);
+        ld_done();
         ld_giveback(oldmin);
         if(G1Hardware) error("Needs % KB, % KB free", (int)(need / 1024),
                              (int)(((area ? area : room) + (vram && !invram ? LOADER_VRAM_SIZE : 0)) / 1024));
@@ -1092,18 +1118,18 @@ static int ld_app(char *fname, char *text, char *shown) {
     if(vram) {                                                      // the display memory lent: the screen first to a mode
         cmm2_video v;                                               // whose page is in the internal RAM (MODE 7,8), so that
         ldlent = 1;                                                 // nothing is drawn where the program goes
-        if(ld_vscaled(7, 8, 1, &v) < 0) { FileClose(fnbr); ld_giveback(oldmin); error("Cannot lend the display memory"); }
+        if(ld_vscaled(7, 8, 1, &v) < 0) { ld_done(); ld_giveback(oldmin); error("Cannot lend the display memory"); }
     }
-    for(off = 0; off < h.image_size; off += got) {                  // the image, straight into its place
+    for(off = 0; off < h.image_size; off += i) {                    // the image, straight into its place
         i = h.image_size - off;
         if(i > 0x10000) i = 0x10000;
-        if(f_read(f, base + off, i, &got) != FR_OK || got != i) { FileClose(fnbr); ld_giveback(oldmin); error("Cannot read the program"); }
+        if(!ld_get(base + off, i)) { ld_done(); ld_giveback(oldmin); error("Cannot read the program"); }
     }
     if(h.reloc_count) {
         rel = (uint32_t *)(base + end);
-        if(f_read(f, rel, h.reloc_count * 4, &got) != FR_OK || got != h.reloc_count * 4) { FileClose(fnbr); ld_giveback(oldmin); error("Cannot read the program"); }
+        if(!ld_get(rel, h.reloc_count * 4)) { ld_done(); ld_giveback(oldmin); error("Cannot read the program"); }
     }
-    FileClose(fnbr);
+    ld_done();
     table = GetTempMemory(256 * sizeof(uint32_t));
     for(i = 0; i < 256; i++) {
         crc = i;
@@ -1167,7 +1193,7 @@ static int ld_app(char *fname, char *text, char *shown) {
 static void ld_compile(char *src, char *bc, char *options) {
     char args[STRINGSIZE * 3];
     snprintf(args, sizeof(args), "-o \"%s\" %s \"%s\"", bc, options, src);
-    if(ld_app(LD_CC_DIR "cc.app", args, NULL)) error("$ did not compile", src);
+    if(ld_app(LD_CC_DIR "cc.app", NULL, 0, args, NULL)) error("$ did not compile", src);
 }
 
 // prog.c's object, prog.bc beside it
@@ -1178,11 +1204,11 @@ static void ld_bcname(char *src, char *bc) {
     strcpy(bc + n - 2, ".bc");
 }
 
-// a compiled C program run by bcrun.app, the words after it its argv[1] on
+// a compiled C program run by bcrun (the firmware's copy), the words after it its argv[1] on
 static void ld_bc(char *bc, char *text) {
     char args[STRINGSIZE * 2];
     snprintf(args, sizeof(args), "\"%s\" %s", bc, text);
-    ld_app(LD_CC_DIR "bcrun.app", args, bc);
+    ld_app("bcrun", BcrunImage, BcrunImageSize, args, bc);
 }
 
 // a file's date and time as one number (FAT's: 2 second steps), or -1 if it is not there
@@ -1211,7 +1237,7 @@ int LoaderRun(char *name) {
     if(*p == '"') { p++; while(*p && *p != '"') p++; if(*p) p++; }
     while(*p == ' ') p++;
     if(*p == ',') p++;
-    if(n >= 4 && !strcasecmp(fname + n - 4, ".APP")) ld_app(fname, p, fname);
+    if(n >= 4 && !strcasecmp(fname + n - 4, ".APP")) ld_app(fname, NULL, 0, p, fname);
     else if(n >= 3 && !strcasecmp(fname + n - 3, ".BC")) ld_bc(fname, p);
     else if(n >= 2 && !strcasecmp(fname + n - 2, ".C")) {
         char bc[STRINGSIZE];

@@ -130,7 +130,7 @@ Writing a loadable program needs a PC with the free Arm GNU toolchain and Python
 
 ## The C Compiler
 
-The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. Its two loadable programs, cc.app (the compiler) and bcrun.app (which runs what it makes), are in the cc folder of the programs that come with the firmware, with the header files in cc/include. Copy that folder to the SD card as A:/cc, where the commands look for it.
+The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. The compiler, cc.app, is a loadable program in the cc folder of the programs that come with the firmware, with the header files in cc/include: copy that folder to the SD card as A:/cc, where CC looks for it. What runs a compiled program, bcrun, is built into the firmware, so a compiled program needs nothing else on the card.
 
 ```
 CC "hello.c"
@@ -140,7 +140,7 @@ RUN "hello.c"
 
 CC compiles a source file to an object file of the same name ending in .BC, beside it (hello.c makes hello.bc). Errors are listed with the file's name and the line number (hello.c:12 - missing semicolon) and then CC gives the error "hello.c did not compile". RUN "hello.bc" runs a compiled program, and the words after the comma are its arguments, in argv[1] onward. RUN "hello.c" compiles the source first if hello.bc is missing or older than it, and then runs it, so editing the source and running it again is one step. As with a loadable program, MMBasic carries on when the C program ends, and Ctrl-C stops it.
 
-A small program compiles in about a quarter of a second. The compiler translates each function to the processor's own instructions where it can, and the rest to a compact bytecode that bcrun.app interprets, so a program runs at about a fifth of the speed of the same program built on a PC with gcc as a loadable program; floating point uses the processor's double precision hardware.
+A small program compiles in about a quarter of a second. The compiler translates each function to the processor's own instructions where it can, and the rest to a compact bytecode that bcrun.app interprets, so a program runs at about a fifth of the speed of the same program built on a PC with gcc as a loadable program, and its floating point arithmetic is done by the processor's double precision hardware. Starting a compiled program takes about 16ms.
 
 The language is C89 (ANSI C) with long long, // comments and declarations after statements. A program is one source file (there is no linker), and bit fields, declarations inside a for statement and local arrays initialised from a string ("static char s[] = ..." works) are not supported. The library has:
 
