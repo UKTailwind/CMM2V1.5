@@ -1,0 +1,199 @@
+diff --git a/fast/fast.h b/fast/fast.h
+index e83fdf6..ed397d9 100644
+--- a/fast/fast.h
++++ b/fast/fast.h
+@@ -416,7 +416,7 @@ static bool fast_exec(CPUI386 *cpu, int stepcount)
+ 	const bool pd_on = stepcount > PD_MAX && pd_init(cpu);
+ 	pd_ep++;                      /* devices may have written code since */
+ #define PD_UNCALL do { if (pd_call) { pd_call = false; steps += pd_saved; } } while (0)
+-#define PD_GO_ON (!cpu->halt && (cpu->flags & VM) == vm0 && !(cpu->intr && (cpu->flags & IF)))
++#define PD_GO_ON (!cpu->halt && (cpu->flags & VM) == vm0 && !(cpu->intr && (cpu->flags & IF)) && !(cpu->flags & TF))
+ #define PD_ENTER do { if (pd_on) goto pd_enter; } while (0)
+ #define PD_JUMPED do { if (pd_on) goto pd_jumped; } while (0)
+ #else
+@@ -504,7 +504,7 @@ static bool fast_exec(CPUI386 *cpu, int stepcount)
+ 		if (!(call)) goto fault; \
+ 		ftlb_check(cpu); \
+ 		eip = cpu->next_ip; \
+-		if ((cpu->flags & VM) != vm0 || (cpu->intr && (cpu->flags & IF))) { FV_END(eip); goto out_ip; } \
++		if ((cpu->flags & VM) != vm0 || (cpu->intr && (cpu->flags & IF)) || (cpu->flags & TF)) { FV_END(eip); goto out_ip; } \
+ 		RELOAD; \
+ 	} while (0)
+ 	/* code window around eip, or the instruction goes to tiny386 */
+@@ -640,7 +640,8 @@ slow_eip:
+ 		ftlb_check(cpu);
+ 	}
+ 	/* cpu_exec1 counted it: into nslow only with its step, or FAST_COUNT leaves it out twice when stopping here */
+-	if (cpu->halt || (cpu->flags & VM) != vm0 || (cpu->intr && (cpu->flags & IF)) || (nslow++, --steps < 0)) {
++	if (cpu->halt || (cpu->flags & VM) != vm0 || (cpu->intr && (cpu->flags & IF)) || (cpu->flags & TF) ||
++	    (nslow++, --steps < 0)) {
+ #ifdef FAST_PD
+ 		if (pd_call) {   /* pd_classic's instruction, by tiny386 */
+ 			PD_UNCALL;
+@@ -691,19 +692,15 @@ void cpui386_step(CPUI386 *cpu, int stepcount)
+ 		return;
+ 	}
+ 
++	if (cpu->flags & TF) {   /* single steps, by tiny386 (fast_exec stops when an instruction sets TF) */
++		cpu_trace_step(cpu);
++		return;
++	}
++
+ 	if (cpu != ftlb_cpu || cpu->phys_mem != ftlb_mem)
+ 		ftlb_cr0 = -1;   /* another CPU or RAM: flush */
+ 	int ret = fast_exec(cpu, stepcount);
+ 	cpu->ifetch.paddr = 0;
+-	if (!ret) {
+-		bool pusherr = false;
+-		switch (cpu->excno) {
+-		case EX_DF: case EX_TS: case EX_NP: case EX_SS: case EX_GP:
+-		case EX_PF:
+-			pusherr = true;
+-		}
+-		cpu->next_ip = cpu->ip;
+-
+-		if (!call_isr(cpu, cpu->excno, pusherr, 1)) cpu_shutdown(cpu);
+-	}
++	if (!ret)
++		cpu_exception(cpu);
+ }
+diff --git a/fast/fast_ops.h b/fast/fast_ops.h
+index 9d40367..86d1150 100644
+--- a/fast/fast_ops.h
++++ b/fast/fast_ops.h
+@@ -365,8 +365,8 @@ FL(op_popf): {
+ 	cpu->flags &= EFLAGS_MASK;
+ 	cpu->flags |= 0x2;
+ 	cpu->cc.mask = 0;
+-	if (cpu->intr && (cpu->flags & IF)) {   // take the interrupt now, as tiny386
+-		FV_END(EIP_OF(pc));
++	if ((cpu->intr && (cpu->flags & IF)) || (cpu->flags & TF)) {   // take the interrupt now, as tiny386 (or
++		FV_END(EIP_OF(pc));                                         // single steps from here: cpui386_step)
+ 		goto out;
+ 	}
+ 	NEXT; }
+@@ -573,8 +573,8 @@ FL(op_iret): {   // protected mode by pmret
+ 	LOAD_CS(sel);
+ 	cpu->cc.mask = 0;
+ 	SP_ADD(6);
+-	if (cpu->intr && (cpu->flags & IF)) {   // take the interrupt now, as tiny386
+-		FV_END(eip);
++	if ((cpu->intr && (cpu->flags & IF)) || (cpu->flags & TF)) {   // take the interrupt now, as tiny386 (or
++		FV_END(eip);                                                // single steps from here: cpui386_step)
+ 		cpu->next_ip = eip;
+ 		goto out_ip;
+ 	}
+diff --git a/i386.c b/i386.c
+index b3a6a1b..3912840 100644
+--- a/i386.c
++++ b/i386.c
+@@ -2312,6 +2312,7 @@ noinline void IRAM_ATTR try_jcc8(CPUI386 *cpu)
+ 	}
+ 
+ static bool call_isr(CPUI386 *cpu, int no, bool pusherr, int ext);
++static bool cpu_isr_called;	/* call_isr ran: in a traced instruction, an INT or the like (cpu_trace_step) */
+ 
+ #define INT(i, li, _) \
+ 	/*dolog("int %02x %08x %04x:%08x\n", li(i), REGi[0], SEGi(SEG_CS), cpu->ip);*/ \
+@@ -2366,7 +2367,7 @@ static bool call_isr(CPUI386 *cpu, int no, bool pusherr, int ext);
+ 		set_sp(sp + 6, sp_mask); \
+ 		cpu->next_ip = newip; \
+ 	} \
+-	if (cpu->intr && (cpu->flags & IF)) return true;
++	if ((cpu->intr && (cpu->flags & IF)) || (cpu->flags & TF)) return true;   /* (TF: single steps, cpui386_step) */
+ 
+ #define RETFARw(i, li, _) \
+ 	if ((cpu->cr0 & 1) && !(cpu->flags & VM)) { \
+@@ -2554,7 +2555,7 @@ static bool call_isr(CPUI386 *cpu, int no, bool pusherr, int ext);
+ 	cpu->flags &= EFLAGS_MASK; \
+ 	cpu->flags |= 0x2; \
+ 	cpu->cc.mask = 0; \
+-	if (cpu->intr && (cpu->flags & IF)) return true;
++	if ((cpu->intr && (cpu->flags & IF)) || (cpu->flags & TF)) return true;   /* (TF: single steps, cpui386_step) */
+ 
+ #define PUSHSeg(seg) \
+ 	if (opsz16) { \
+@@ -4646,6 +4647,7 @@ static int __call_isr_check_cs(CPUI386 *cpu, int sel, int ext, int *csdpl)
+ 
+ static bool IRAM_ATTR call_isr(CPUI386 *cpu, int no, bool pusherr, int ext)
+ {
++	cpu_isr_called = true;
+ 	if (!(cpu->cr0 & 1)) {
+ 		/* REAL-ADDRESS-MODE */
+ 		uword sp_mask = cpu->seg[SEG_SS].flags & SEG_B_BIT ? 0xffffffff : 0xffff;
+@@ -5151,6 +5153,44 @@ static void cpu_shutdown(CPUI386 *cpu)
+ 	cpu->cb.io_write8(cpu->cb.io, 0x92, cpu->cb.io_read8(cpu->cb.io, 0x92) | 1);
+ }
+ 
++/* the exception cpu_exec1 stopped at (cpu->excno), taken */
++static void cpu_exception(CPUI386 *cpu)
++{
++#ifdef AMD64_ENABLE_LEG32
++	if (cpu->excno == 0x8664)
++		return;
++#endif
++	bool pusherr = false;
++	switch (cpu->excno) {
++	case EX_DF: case EX_TS: case EX_NP: case EX_SS: case EX_GP:
++	case EX_PF:
++		pusherr = true;
++	}
++	cpu->next_ip = cpu->ip;
++
++	if (!call_isr(cpu, cpu->excno, pusherr, 1)) cpu_shutdown(cpu);
++}
++
++/* TF set: one instruction, then the single-step trap (INT 1) with the next
++   one's address, as a debugger uses it, and as programs of the time did to
++   decrypt their code an instruction at a time in their own INT 1 handler
++   (Lemmings' loader: without the trap it ran into code still encrypted).
++   None after an instruction that faulted (its exception is taken instead)
++   or that called an interrupt handler (traps are dropped in the new
++   context, its IRET bringing TF back), as Intel's manual and Bochs have it. */
++static void cpu_trace_step(CPUI386 *cpu)
++{
++	cpu_isr_called = false;
++	bool ok = cpu_exec1(cpu, 1);
++	cpu->ifetch.paddr = 0;
++	if (!ok) {
++		cpu_exception(cpu);
++	} else if (!cpu_isr_called) {
++		cpu->ip = cpu->next_ip;
++		if (!call_isr(cpu, EX_DB, false, 1)) cpu_shutdown(cpu);
++	}
++}
++
+ void cpui386_step(CPUI386 *cpu, int stepcount)
+ {
+ 	if ((cpu->flags & IF) && cpu->intr) {
+@@ -5166,23 +5206,15 @@ void cpui386_step(CPUI386 *cpu, int stepcount)
+ 		return;
+ 	}
+ 
++	if (cpu->flags & TF) {
++		cpu_trace_step(cpu);
++		return;
++	}
++
+ 	int ret = cpu_exec1(cpu, stepcount);
+ 	cpu->ifetch.paddr = 0;
+-	if (!ret) {
+-#ifdef AMD64_ENABLE_LEG32
+-		if (cpu->excno == 0x8664)
+-			return;
+-#endif
+-		bool pusherr = false;
+-		switch (cpu->excno) {
+-		case EX_DF: case EX_TS: case EX_NP: case EX_SS: case EX_GP:
+-		case EX_PF:
+-			pusherr = true;
+-		}
+-		cpu->next_ip = cpu->ip;
+-
+-		if (!call_isr(cpu, cpu->excno, pusherr, 1)) cpu_shutdown(cpu);
+-	}
++	if (!ret)
++		cpu_exception(cpu);
+ }
+ 
+ void cpu_setax(CPUI386 *cpu, u16 ax)
