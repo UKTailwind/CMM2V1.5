@@ -18,3 +18,4 @@ apps/scummvm/out/
 # The 386 PC (apps/pc386/make.py): tiny386 fetched at a pinned commit, and the build
 apps/pc386/tiny386/
 apps/pc386/out/
+.claude/settings.local.json

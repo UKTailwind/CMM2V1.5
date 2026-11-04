@@ -1,7 +1,8 @@
-"""guide.py: the companion manual Colour Maximite 2 Loadable Programs (docs/loadable/), made in the user manual's
-template: its title page, styles, page size and footer, with the guide's own front matter, a table of contents and a
-chapter for each file of docs/loadable/text/ (written by chapter.py --docx --rawcode). Run it again after an edit; then
-tools/manual/word.ps1 docs/loadable/Colour_Maximite_2_Loadable_Programs.docx docs/loadable/...pdf makes the PDF.
+"""guide.py [loadable|pc386]: a companion manual, made in the user manual's template: Colour Maximite 2 Loadable
+Programs (docs/loadable/, the default) or Colour Maximite 2 386 PC Emulator (docs/pc386/). Its title page, styles,
+page size and footer, with the guide's own front matter, a table of contents and a chapter for each file of the
+guide's text/ (written by chapter.py --docx --rawcode). Run it again after an edit; then tools/manual/word.ps1
+docs/loadable/Colour_Maximite_2_Loadable_Programs.docx docs/loadable/...pdf (or the pc386 guide's) makes the PDF.
 
 The skeleton is made afresh each time from docs/manual/Colour_Maximite_2_User_Manual.docx:
 - the title page's text replaced (TITLE below), its links taken out;
@@ -21,13 +22,13 @@ MANUAL = os.path.join(ROOT, 'docs', 'manual', 'Colour_Maximite_2_User_Manual.doc
 DIR = os.path.join(ROOT, 'docs', 'loadable')
 OUT = os.path.join(DIR, 'Colour_Maximite_2_Loadable_Programs.docx')
 NAME = 'Colour Maximite 2 Loadable Programs'
-FIRMWARE = '7.00.00RC0'
+FIRMWARE = '7.00.00RC1'
 DATE = '3 November 2026'
 
 TITLE = {                                               # the title page: its paragraphs by their start
     'User Manual': 'Loadable Programs',
     'MMBasic Ver': 'Programs in C and C++',
-    'Matches firmware': 'For firmware %s (services version 7)' % FIRMWARE,
+    'Matches firmware': 'For firmware %s (services version 9)' % FIRMWARE,
     'Geoff Graham': 'Peter Mather',
     'For updates to this manual': 'The firmware, this guide and the tools that build a program are at',
     'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
@@ -43,6 +44,35 @@ COPYRIGHT = ('This guide is copyright 2026 Peter Mather and is distributed under
              'Attribution-NonCommercial-ShareAlike 3.0 Australia license (CC BY-NC-SA 3.0), as the user manual is. The '
              'files of the tools (tools/sdk) are under the MIT licence, so a program built with them can have any licence '
              'its author chooses (see Appendix C).')
+SUBJECT = 'Loadable programs for the Colour Maximite 2'
+TITLE_ADD = {}                                          # a line put on the title page before the paragraph that starts so
+
+PC386 = {                                               # guide.py pc386: the 386 PC's guide, for users
+    'DIR': os.path.join(ROOT, 'docs', 'pc386'),
+    'OUT': os.path.join(ROOT, 'docs', 'pc386', 'Colour_Maximite_2_386_PC_Emulator.docx'),
+    'NAME': 'Colour Maximite 2 386 PC Emulator',
+    'DATE': '4 November 2026',
+    'TITLE': {
+        'User Manual': '386 PC Emulator',
+        'MMBasic Ver': 'MS-DOS, FreeDOS and Windows 3.1 on the Colour Maximite 2',
+        'Matches firmware': 'For firmware with loadable-program services version 9',
+        'Geoff Graham': 'Port and guide: Peter Mather',
+        'For updates to this manual': 'The firmware, the emulator and this guide are at',
+        'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
+    },
+    'ABOUT': ('This guide is for users of pc386, a 386 PC that the Colour Maximite 2 runs as a loadable program. It '
+              'covers the files the emulator needs, starting it, its keys, the configuration file that describes each '
+              'PC, disk images, and installing MS-DOS and Windows 3.1 from their floppy disks. It assumes you can use '
+              'the MMBasic command prompt and copy files to the SD card.'),
+    'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '
+                'and problems with the emulator reported as issues of the repository above.'),
+    'COPYRIGHT': ('This guide is copyright 2026 Peter Mather and is distributed under a Creative Commons '
+                  'Attribution-NonCommercial-ShareAlike 3.0 Australia license (CC BY-NC-SA 3.0), as the user manual is. '
+                  'The emulator is tiny386, by Chunhui He, under the BSD 3-Clause licence; its other parts, the BIOS '
+                  'files and FreeDOS have their own licences (see Appendix A).'),
+    'SUBJECT': 'A 386 PC emulator for the Colour Maximite 2',
+    'TITLE_ADD': {'Geoff Graham': 'Emulator: tiny386, by Chunhui He'},   # (his work, credited above the guide's author)
+}
 
 
 def style_of(el, sid):
@@ -86,6 +116,11 @@ def skeleton(titles):
     # the title page
     for e in els[:contents]:
         t = ptext(e)
+        for start, extra in TITLE_ADD.items():
+            if t.startswith(start):
+                line = copy.deepcopy(e)
+                set_text(line, extra)
+                e.addprevious(line)
         for start, new in TITLE.items():
             if t.startswith(start):
                 set_text(e, new)
@@ -135,12 +170,18 @@ def skeleton(titles):
                     if 'Colour Maximite 2 User Manual' in r.text:
                         r.text = r.text.replace('Colour Maximite 2 User Manual', NAME)
     d.core_properties.title = NAME
-    d.core_properties.subject = 'Loadable programs for the Colour Maximite 2'
+    d.core_properties.subject = SUBJECT
     d.save(OUT)
     assert sect.tag == qn('w:sectPr')
 
 
 def main():
+    which = sys.argv[1] if len(sys.argv) > 1 else 'loadable'
+    if which == 'pc386':
+        globals().update(PC386)
+    elif which != 'loadable':
+        sys.exit('guide.py [loadable|pc386]')
+    os.makedirs(DIR, exist_ok=True)
     files = sorted(glob.glob(os.path.join(DIR, 'text', '*.md')))
     titles = [open(f, encoding='utf-8').readline()[2:].strip() for f in files]
     skeleton(titles)
