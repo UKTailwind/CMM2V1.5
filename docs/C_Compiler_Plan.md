@@ -114,6 +114,8 @@ without reflashing. Phase 1c then chooses, measured:
   - Copying takes well under a millisecond. Running in place would need a split link, and on a G1 position-independent data, since its RAM moves.
   - RUN "hello.bc" now takes 16ms in all (52ms from the card), with no bcrun.app on the card.
   - Bank 2 has 15KB left.
+- **A 256KB stack for C programs** (fork cb5492c): STACKROOM was the PC3's 8KB, a few hundred levels of recursion. A function recursing 10,000 deep now runs, on both boards.
+- **Left alone:** the review's speed items are in the PC3's code already, but for register allocation, which the design declines; and bit fields, which it also declines. Dhrystone stays at 18% of gcc.
 
 ## Where the work is
 
