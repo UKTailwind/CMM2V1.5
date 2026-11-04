@@ -96,7 +96,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define progress  "\rprogress\r\n"
-#define MAINCLOCKSPEED ((HAL_GetREVID()==0x1003 || G1Hardware>=2) ? (Overclock==0 ? 504 :400) : (Overclock==0 ? 504 :480) )
+#define MAINCLOCKSPEED ((HAL_GetREVID()==0x1003 || G1Hardware>=2) ? (Overclock==0 ? 480 :400) : 480)   // (OPTION OVERCLOCK: a
+                                                                    // G1 of revision Y at 480MHz, as a G1 of revision V runs:
+                                                                    // 504MHz on either board, its VCO at 1008MHz, crashed a G1;
+                                                                    // Peter, 4 Nov 2026)
 #define M40CLOCKSPEED (MAINCLOCKSPEED>>1)-1
 #define LOGO_Y      0
 #define LOGO_BYTES   1244                                           // number of bytes in logo image
@@ -548,6 +551,10 @@ if(_excep_code == RESTART_BOOT0){
   RBMode = (Option.Compile <= RB_SHADOW && RB_STREAM_SIZE) ? Option.Compile : RB_OFF;   // area (Memory.h), and OPTION COMPILE
                                                                     // as saved (Stream.c): before the heap's start is first read
   Overclock = ((Option.CPUmode >>4 ) ? 0:1);
+  if(Overclock==0 && !(G1Hardware==1 && HAL_GetREVID()==0x1003)) { // (only a G1 that runs at 400MHz goes faster: an older
+      Overclock=1;                                                  // firmware's OVERCLOCK ON elsewhere is left out)
+      Option.CPUmode&=~0x10;
+  }
   SystemClock_Config();
   /* USER CODE BEGIN SysInit */
   firsttime=MX_RTC_Init();
@@ -808,8 +815,8 @@ if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_
 		  SerUSBPutS("\033[?25h");
 		  SerUSBPutS("\033[37m");
 		  SerUSBPutS("\033[m");
-		  GUIPrintString(maxW/2, 70+gui_font_height, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, (G1Hardware ? (Overclock==0 ? MES_SIGNON504 : ((HAL_GetREVID()==0x1003 || G1Hardware>=2) ? MES_SIGNON400:MES_SIGNON480)) : (Overclock==0 ? MES_SIGNON504G2 : (HAL_GetREVID()==0x1003 ? MES_SIGNON400G2:MES_SIGNON480G2))));
-		  SerUSBPutS((G1Hardware ? (Overclock==0 ? MES_SIGNON504 : ((HAL_GetREVID()==0x1003 || G1Hardware>=2) ? MES_SIGNON400:MES_SIGNON480)) : (Overclock==0 ? MES_SIGNON504G2 : (HAL_GetREVID()==0x1003 ? MES_SIGNON400G2:MES_SIGNON480G2))));
+		  GUIPrintString(maxW/2, 70+gui_font_height, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, (G1Hardware ? (MAINCLOCKSPEED==480 ? MES_SIGNON480:MES_SIGNON400) : (MAINCLOCKSPEED==480 ? MES_SIGNON480G2:MES_SIGNON400G2)));
+		  SerUSBPutS((G1Hardware ? (MAINCLOCKSPEED==480 ? MES_SIGNON480:MES_SIGNON400) : (MAINCLOCKSPEED==480 ? MES_SIGNON480G2:MES_SIGNON400G2)));
 		  GUIPrintString(maxW/2, 70+gui_font_height*2, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, MES_SIGNON1);
 		  SerUSBPutS(MES_SIGNON1);
 		  GUIPrintString(maxW/2, 70+gui_font_height*3, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, COPYRIGHT0);
@@ -1206,7 +1213,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 1;
   RCC_OscInitStruct.PLL.PLLN = (MAINCLOCKSPEED>>2);
   RCC_OscInitStruct.PLL.PLLP = 2;
-  RCC_OscInitStruct.PLL.PLLQ = (Overclock==0 ?  21 : 20);
+  RCC_OscInitStruct.PLL.PLLQ = 20;
   RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;

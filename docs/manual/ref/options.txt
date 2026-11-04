@@ -268,7 +268,7 @@ The PicoMite's option to stop checking for Ctrl-C and interrupts between stateme
 or
 OPTION OVERCLOCK OFF
 --- P keep roomy
-OPTION OVERCLOCK ON runs the processor at 504MHz in place of 480MHz (or 400MHz on processors of revision Y).  This is the fastest speed at which most of both the original and the Generation 2 versions of the Colour Maximite 2 run reliably.
+OPTION OVERCLOCK ON runs the processor of an original Colour Maximite 2 at 480MHz in place of 400MHz, where it is of revision Y: the speed at which every other Colour Maximite 2 runs.  It gives an error on a Generation 2 machine ("G1 only") and on an original whose processor runs at 480MHz already ("Already 480MHz").
 OPTION OVERCLOCK and OPTION BASELINE cannot both be on: turning one on turns the other off, and OPTION OVERCLOCK OFF (or OPTION BASELINE OFF) returns to the normal speed.
 This command will cause a reboot.
 

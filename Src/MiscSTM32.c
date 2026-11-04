@@ -115,7 +115,6 @@ uint8_t mousebuff[10];
 extern UART_HandleTypeDef huart1;
 volatile struct s_nunstruct nunstruct[4];
 volatile struct s_nunstruct mousestruct[4];
-extern int Overclock;
 
 uint32_t swap32(uint32_t in)
 {
@@ -221,7 +220,7 @@ static const char *DepthName(void) {
 void printoptions(void){
 	LoadOptions();
 
-	MMPrintString((G1Hardware ? (Overclock==0 ? MES_SIGNON504 : ((HAL_GetREVID()==0x1003 || G1Hardware>=2) ? MES_SIGNON400:MES_SIGNON480)) : (Overclock==0 ? MES_SIGNON504G2 : (HAL_GetREVID()==0x1003 ? MES_SIGNON400G2:MES_SIGNON480G2))));
+	MMPrintString((G1Hardware ? (SystemCoreClock==480000000 ? MES_SIGNON480:MES_SIGNON400) : (SystemCoreClock==480000000 ? MES_SIGNON480G2:MES_SIGNON400G2)));
 	MMPrintString( "MMBasic " VERSION "\r\n" );
 
 	if(Option.mode==8) 	PO2Str("Default mode 8","640x480",3);
@@ -1728,7 +1727,9 @@ void MIPS16 OtherOptions(void) {
 	}
 	tp = checkstring(cmdline, "OVERCLOCK");
 	if(tp) {
-		if(checkstring(tp, "ON")) {
+		if(checkstring(tp, "ON")) {                                     // (480MHz for a G1 of revision Y, as main.c's
+			if(!(G1Hardware & 1)) error("G1 only");                     // MAINCLOCKSPEED; the rest run at 480MHz already)
+			if(HAL_GetREVID()!=0x1003) error("Already 480MHz");
 			Option.CPUmode = 0x10;
 		} else if(checkstring(tp, "OFF")) {
 			Option.CPUmode = 0;
