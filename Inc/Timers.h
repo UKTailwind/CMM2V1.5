@@ -65,7 +65,7 @@ extern volatile unsigned int MouseTimer;                            // used to d
 extern volatile unsigned int SecondsTimer;
 extern volatile unsigned int GifTimer;
 extern volatile int ds18b20Timer;
-extern volatile unsigned int Timer1, Timer2, Timer3, GUITimer1;
+extern volatile unsigned int Timer1, Timer2, Timer3, Timer5, GUITimer1;
 // date/time counters
 extern volatile int milliseconds;
 extern volatile int second;													

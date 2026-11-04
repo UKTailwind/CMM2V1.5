@@ -75,7 +75,7 @@ volatile unsigned int WDTimer = 0;
 volatile unsigned int ScrewUpTimer=0;
 extern volatile unsigned int SleepTimer;
 extern volatile int sleeping;
-volatile unsigned int Timer1=0, Timer2=0, GUITimer1=0;		                       //1000Hz decrement timer
+volatile unsigned int Timer1=0, Timer2=0, Timer5=0, GUITimer1=0;		               //1000Hz decrement timer (5: a PS/2 byte's)
 volatile int ds18b20Timer = -1;
 volatile unsigned long long int mSecTimer = 0;								// this is used to count mSec
 volatile long long int nunTimer = 0;								// this is used to count mSec
@@ -164,6 +164,7 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 		disk_timerproc();
 		if(Timer2)Timer2--;
 		if(Timer1)Timer1--;
+		if(Timer5)Timer5--;
 		if(GUIactive)GUITimer1++;
 		if(GifTimer)GifTimer--;
 		if((mSecTimer % 3600000) == 2000)CopyClockDue = 1;            // the DS3231's time copied in hourly (it was every 100 hours),

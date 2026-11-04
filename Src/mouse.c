@@ -305,6 +305,8 @@ void MNInterrupt(void) {
     // Make sure it was a falling edge
     if(PinRead(MOUSE_CLOCK) == 0)
     {
+        if(!Timer5) PS2State = PS2START;                    // a byte not done in 5 ms dropped, as the PicoMite's: one missed
+                                                            // edge put every byte after it out of step (4 Nov 2026)
 	    // Sample the data
 	    d = PinRead(MOUSE_DATA);
         switch(PS2State){
@@ -318,6 +320,7 @@ void MNInterrupt(void) {
                     KParity = 0;        							// init parity check
                     Code = 0;
                     PS2State = PS2BIT;
+                    Timer5 = 5;
                 }
                 break;
 
