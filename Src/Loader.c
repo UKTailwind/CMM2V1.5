@@ -8,9 +8,12 @@ file format and the services, tools/sdk the tools that build a program.
   RUN "prog.c" [, words]     compiled first by cc.app, to prog.bc beside it, if that is missing or not newer; then run
   CC file$ [, options$]      compiles file$ (prog.c to prog.bc beside it); an error if it does not compile
 The C compiler is Peter's Fuzix compiler (4 Nov 2026, apps/cc and docs/C_Compiler_Plan.md): cc.app is a loadable
-program in LD_CC_DIR, with the headers in its include/ folder; bcrun.app, the runtime, is in the firmware (Peter: in bank
-2's flash, so that a compiled program needs nothing on the card), as BcrunImage (BcrunImage.c, made by apps/cc/make.py),
-and is loaded from there as a program file is from the card.
+program in LD_CC_DIR, with the headers in its include/ folder. The runtime, mmbrun (the compiler's bcrun with the BASIC
+runtime, so that C and translated BASIC programs alike need nothing on the card), is in the firmware (Peter, 4 Nov 2026:
+in bank 2's sector 2 after the options, right after the firmware, in the one .bin) as MmbrunImage (MmbrunImage.c, made
+by apps/cc/make.py), and runs where it is (from the SDRAM, instruction cache refills took much of its time): linked for
+the flash's .xip and the D2 RAM at CMM2XIP_RAM (cmm2img.h), its .data copied and .bss zeroed, its stack and heap in the
+area as a program's. SaveOptions keeps it when it erases the sector (flash.c).
 
 Its area: on a G2, the 8 MB at LOADER_BASE (Memory.h; MPU region 8 makes it executable and write-back cached). A G1 has
 no SDRAM to keep for it, so it borrows the heap's largest free run (all but LD_G1_RESERVE of it, from a 64 KB boundary)
@@ -35,6 +38,7 @@ The loader is in bank 2 (the linker script's .bank2): it runs in the foreground 
 #include "OPLChip.h"
 #include "Loader.h"
 #include "PicoMode.h"
+#include "USBGamepad.h"
 
 extern TIM_HandleTypeDef htim16;
 extern volatile uint64_t uSecTimer;
@@ -64,6 +68,7 @@ static cmm2img_start ldstart;
 #define LD_G1_RESERVE 0x40000                                       // a G1's heap left beside the program: the services'
 static void *ldarea;                                                // blocks and malloc's arena; ldarea the run it borrows
 int LoaderExec;                                                     // 1 while that run is executable (MPU_Config_nCacheable)
+volatile int LoaderActive;                                          // 1 while a program runs: CheckAbort leaves a Ctrl-C to it
 int LoaderVram;                                                     // 1 while the display memory holds the program's code (the
 static int ldlent;                                                  // same); ldlent: a G1's display memory lent (CMM2IMG_FLAG_VRAM)
 
@@ -284,14 +289,9 @@ static int ld_closedir(int h) {
 // an error); 1 once Ctrl-C has been pressed. MMAbort is left set, so when the program ends the BASIC program that ran
 // it stops as well, as at any Ctrl-C (clearing it here let a RUN in a loop go on to the next program, 2 Nov)
 static int ld_poll(void) {
-    if(USBtime) {
-        mT4IntEnable(0);
-        CheckKeyboard();
-        USBtime = 0;
-        mT4IntEnable(1);
-    }
-    return MMAbort != 0;
-}
+    routinechecks(1);                                               // what the interpreter does between statements: the USB
+    return MMAbort != 0;                                            // keyboard, and the card check that refills a player (PLAY
+}                                                                   // MODFILE through basic_cmd: the music was slow, 4 Nov 2026)
 static uint32_t ld_cpuhz(void) { return SystemCoreClock; }
 void *LoaderAlloc(uint32_t size) {
     int i;
@@ -968,6 +968,217 @@ static int ld_gsave(const char *name) {
     return r;
 }
 
+static int ld_chdir(const char *path) {
+    char a[STRINGSIZE + 4];
+    int mark, r;
+    if(strlen(path) > STRINGSIZE - 4 || strchr(path, '"')) return -3;
+    snprintf(a, sizeof(a), "\"%s\"", path);
+    mark = TempMemoryMark();                                        // (CHDIR's string is temporary memory)
+    r = ld_cmd(cmd_chdir, NULL, NULL, a);
+    ClearTempMemoryTo(mark);
+    return r;
+}
+static int ld_getcwd(char *buf, uint32_t size) {
+    char b[STRINGSIZE];
+    strcpy(b, filepath);                                            // CWD$'s: the names as the card has them (fun_cwd)
+    {
+        char c[STRINGSIZE];
+        if(f_getcwd(c, sizeof(c)) == FR_OK && toupper(c[0]) == toupper(filepath[0]) && c[1] == ':') strcpy(b, c);
+    }
+    if(strlen(b) + 1 > size) return -3;
+    strcpy(buf, b);
+    return 0;
+}
+
+/* version 11: one MMBasic statement, run as the interpreter runs it (Peter, 4 Nov 2026: a translated BASIC program's
+   MODE, FRAMEBUFFER, MAP, LOAD IMAGE and the like are the firmware's own commands, their parsing and all): a command
+   and its arguments as text, constants only (the program's variables are not BASIC's), tokenised as EXECUTE's
+   (Commands.c TokeniseStatement) and run without ExecuteProgram's loop, which would take the BASIC program's interrupts.
+   A SUB of the BASIC program, or anything but a command, is refused. The token buffer (the line RUN was in, which goes
+   on after the program) and the interpreter's place are put back, and the temporary memory the command took freed */
+extern void TokeniseStatement(void);
+static char *ld_tokenised(const char *line) {
+    char *p;
+    strcpy(inpbuf, line);
+    TokeniseStatement();
+    p = tknbuf;
+    if(*p == 0) p++;
+    if(*p == T_NEWLINE) p += T_NEWLINE_HDR;
+    if(*p == T_LINENBR) p += 3;
+    skipspace(p);
+    return p;
+}
+static void ld_basicbody(void *a) {
+    char *p = ld_tokenised((char *)a);
+    CommandToken tkn;
+    tkn = commandtbl_at(p);
+    if(tkn == CMD_NOTOKEN || tkn >= CommandTableSize - 1 || !(commandtbl[tkn].type & T_CMD)) error("Not a command");
+    cmdtoken = tkn;
+    CmdTokenPtr = p;
+    targ = T_CMD;
+    nextstmt = cmdline = p + sizeof(CommandToken);
+    skipspace(cmdline);
+    skipelement(nextstmt);
+    if(!SymAwareCommand(tkn)) cmdline = SymExpandStatement(cmdline);
+    commandtbl[tkn].fptr();
+}
+static int ld_interp(void (*body)(void *), void *a) {
+    char save[TKNBUFSIZE], *cl = cmdline, *ctp = CmdTokenPtr, *ns = nextstmt;
+    int ct = cmdtoken, tg = targ, mark, r;
+    memcpy(save, tknbuf, TKNBUFSIZE);
+    mark = TempMemoryMark();
+    r = ld_try(body, a);
+    ClearTempMemoryTo(mark);
+    memcpy(tknbuf, save, TKNBUFSIZE);
+    cmdline = cl; CmdTokenPtr = ctp; nextstmt = ns; cmdtoken = ct; targ = tg;
+    return r;
+}
+static int ld_basic(const char *line) {
+    if(strlen(line) >= STRINGSIZE) return -3;
+    return ld_interp(ld_basicbody, (void *)line);
+}
+
+// version 12: an expression's value as text (a string as it is, a number as PRINT has it), for what only the firmware
+// knows: tokenised as a PRINT's would be, and evaluated. MM.INFO(SOUND) in a translated BASIC program
+typedef struct { const char *expr; char *out; } ldeval;
+static void ld_evalbody(void *a) {
+    ldeval *e = a;
+    char line[STRINGSIZE + 8], *p, *s = NULL;
+    MMFLOAT f = 0;
+    long long int i = 0;
+    int t = T_NOTYPE;
+    strcpy(line, "PRINT ");
+    strcat(line, e->expr);
+    p = ld_tokenised(line) + sizeof(CommandToken);
+    skipspace(p);
+    p = SymExpandStatement(p);
+    evaluate(p, &f, &i, &s, &t, false);
+    if(t & T_STR) {
+        memcpy(e->out, s + 1, (unsigned char)*s);
+        e->out[(unsigned char)*s] = 0;
+    } else if(t & T_INT) IntToStr(e->out, i, 10);
+    else FloatToStr(e->out, f, 0, STR_AUTO_PRECISION, ' ');
+}
+static int ld_eval(const char *expr, char *out) {
+    ldeval e = {expr, out};
+    if(strlen(expr) >= STRINGSIZE) return -3;
+    return ld_interp(ld_evalbody, &e);
+}
+extern volatile int audiofinished;
+
+// version 12: a statement tokenised once, as tokenising costs far more than most statements (PAGE WRITE 1 took 85 us by
+// basic_cmd against the interpreter's 4). A number goes through the tokeniser as it is (tokenise() copies its digits), so
+// each \001 goes in as a number no statement has and comes back out as \001; basic_exec then runs the tokens as
+// ld_basicbody runs its, with the values written in. A console line has no symbols, so SymExpandStatement has nothing to do
+#define LD_MARK "1357924680"
+typedef struct { const char *line; char *tok; int size, len; } ldprep;
+static void ld_prepbody(void *a) {
+    ldprep *e = a;
+    char line[STRINGSIZE], *o = line, *p, *q, *w;
+    const char *s;
+    CommandToken tkn;
+    e->len = -3;
+    for(s = e->line; *s; s++) {
+        if(o + sizeof(LD_MARK) >= line + sizeof(line)) return;
+        if(*s == 1) { memcpy(o, LD_MARK, sizeof(LD_MARK) - 1); o += sizeof(LD_MARK) - 1; }
+        else *o++ = *s;
+    }
+    *o = 0;
+    p = ld_tokenised(line);
+    tkn = commandtbl_at(p);
+    if(tkn == CMD_NOTOKEN || tkn >= CommandTableSize - 1 || !(commandtbl[tkn].type & T_CMD)) error("Not a command");
+    w = e->tok;
+    for(q = p + sizeof(CommandToken), memcpy(w, p, sizeof(CommandToken)), w += sizeof(CommandToken); *q; ) {
+        if(w + 4 >= e->tok + e->size) return;
+        if(strncmp(q, LD_MARK, sizeof(LD_MARK) - 1) == 0) { *w++ = 1; q += sizeof(LD_MARK) - 1; }
+        else *w++ = *q++;
+    }
+    *w++ = 0; *w++ = 0; *w++ = 0;
+    e->len = w - e->tok;
+}
+static int ld_prep(const char *line, char *tokens, int size) {
+    ldprep e = {line, tokens, size, -3};
+    int r = ld_interp(ld_prepbody, &e);
+    return r < 0 ? r : e.len;
+}
+static void ld_execbody(void *a) {
+    char *p = a;
+    CommandToken tkn = commandtbl_at(p);
+    cmdtoken = tkn;
+    CmdTokenPtr = p;
+    targ = T_CMD;
+    nextstmt = cmdline = p + sizeof(CommandToken);
+    skipspace(cmdline);
+    skipelement(nextstmt);
+    commandtbl[tkn].fptr();
+}
+static int ld_exec(char *tokens) {
+    char *cl = cmdline, *ctp = CmdTokenPtr, *ns = nextstmt;
+    int ct = cmdtoken, tg = targ, mark = TempMemoryMark(), r;
+    r = ld_try(ld_execbody, tokens);
+    ClearTempMemoryTo(mark);
+    cmdline = cl; CmdTokenPtr = ctp; nextstmt = ns; cmdtoken = ct; targ = tg;
+    return r;
+}
+static void ld_resizebody(void *a) { ImageResizeFast(a); }
+static int ld_resize(const long long *a) {
+    int mark = TempMemoryMark(), r = ld_try(ld_resizebody, (void *)a);
+    ClearTempMemoryTo(mark);
+    return r;
+}
+static int ld_soundstate(void) {
+    return (audiofinished ? P_NOTHING : CurrentlyPlaying) | (EFFECTcomplete ? 0x100 : 0);
+}
+
+// version 11: the page drawing goes to (MMBasic's WritePage: FRAMEBUFFER WRITE's), for a program that moves a picture's
+// bytes itself (a translated BASIC program's BLIT and SPRITE). A 4 or 1-bit page is the PicoMite's (Rgb121.c, Mono.c
+// Stride); the others are the CMM2's, a line stored twice where the mode shows it twice
+static int ld_gtarget(cmm2_target *t) {
+    struct s_pagetable *pg = &PageTable[WritePage];
+    if(pg->address == NULL || pg->xmax == 0) return -1;
+    t->fb = pg->address;
+    t->width = pg->xmax;
+    t->height = pg->ymax;
+    t->bpp = VideoColour == 12 ? 16 : VideoColour;
+    t->pitch = t->bpp == 1 ? pg->xmax >> 3 : t->bpp == 4 ? (pg->xmax + 1) >> 1 : pg->xmax * (t->bpp / 8) * (pg->expand ? 2 : 1);
+    return 0;
+}
+
+// version 11: a font's character size, and a font of the program's own as 10-16 (MMBasic's DefineFont layout, in its
+// memory) until it ends, when the font each one replaced is put back (ld_fontsback)
+static unsigned char *ldfontwas[FONT_TABLE_SIZE];
+static uint32_t ldfontset;                                          // (a bit for each font the program set)
+static int ld_fontsize(int font, int *w, int *h) {
+    if(font < 1 || font > FONT_TABLE_SIZE || FontTable[font - 1] == NULL) return -1;
+    if(w) *w = FontTable[font - 1][0];
+    if(h) *h = FontTable[font - 1][1];
+    return 0;
+}
+static int ld_fontdef(int font, const uint8_t *data) {
+    if(font <= FONT_BUILTIN_NBR || font > FONT_TABLE_SIZE) return -1;
+    if(!(ldfontset & (1u << font))) {
+        ldfontwas[font - 1] = FontTable[font - 1];
+        ldfontset |= 1u << font;
+    }
+    FontTable[font - 1] = data ? (unsigned char *)data : ldfontwas[font - 1];
+    return 0;
+}
+static void ld_fontsback(void) {
+    for(int font = 1; font <= FONT_TABLE_SIZE; font++)
+        if(ldfontset & (1u << font)) FontTable[font - 1] = ldfontwas[font - 1];
+    ldfontset = 0;                                                  // (the console's font, if it was one: ld_screenback)
+}
+
+// version 11: the firmware's libm, the PC3 kernel's shared 19 (bcrun's maths table). floor, ceil and fabs are the
+// FPU's instructions, as GCC makes them in MMBasic's own code (newlib's floor is 61 cycles)
+static double ld_floor(double x) { return floor(x); }
+static double ld_ceil(double x) { return ceil(x); }
+static double ld_fabs(double x) { return fabs(x); }
+static const struct cmm2_libm ldlibm = {
+    sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, sqrt, exp, log, log10, ld_floor, ld_ceil, ld_fabs, pow, atan2,
+    fmod
+};
+
 static const struct cmm2_services ldsvc = {
     .version = CMM2IMG_API_VERSION, .size = sizeof(struct cmm2_services),
     .con_putc = ld_putc, .con_puts = ld_puts, .con_getc = ld_getc,
@@ -994,6 +1205,12 @@ static const struct cmm2_services ldsvc = {
     .gfx_cls = ld_gcls, .gfx_pixel = ld_gpixel, .gfx_line = ld_gline, .gfx_box = ld_gbox, .gfx_rbox = ld_grbox,
     .gfx_circle = ld_gcircle, .gfx_triangle = ld_gtriangle, .gfx_text = ld_gtext, .gfx_font = ld_gfont,
     .gfx_colour = ld_gcolour, .gfx_read = ld_gread, .gfx_write = ld_gwrite, .gfx_save = ld_gsave,
+    .dir_change = ld_chdir, .dir_current = ld_getcwd,
+    .mem_copy = memcpy, .mem_fill = memset, .mem_move = memmove,   // (Memory.c's, in ITCM)
+    .libm = &ldlibm,
+    .basic_cmd = ld_basic, .gfx_target = ld_gtarget, .font_size = ld_fontsize, .font_define = ld_fontdef,
+    .basic_eval = ld_eval, .sound_state = ld_soundstate, .basic_prep = ld_prep, .basic_exec = ld_exec,
+    .image_resize = ld_resize, .gamepad = USBGamepadState,
 };
 
 /*******************************************************************************************
@@ -1048,6 +1265,8 @@ static void ld_tidy(void) {
     for(i = 0; i < LD_FILES; i++) if(ldfile[i]) { f_close(ldfile[i]); ld_free(ldfile[i]); ldfile[i] = NULL; }
     for(i = 0; i < LD_DIRS; i++) if(lddir[i]) { f_closedir(lddir[i]); FreeMemory(lddir[i]); lddir[i] = NULL; }
     for(i = 0; i < LD_BLOCKS; i++) if(ldblock[i]) { FreeMemory(ldblock[i]); ldblock[i] = NULL; }
+    ld_fontsback();                                                 // (its fonts were in its memory)
+    CloseAudio(1);                                                  // (what it played through basic_cmd: PLAY MODFILE...)
 }
 
 // BASIC's screen, kept before a program runs (or the display memory is lent) and put back after: a mode change clears
@@ -1065,8 +1284,13 @@ static void ld_screenback(void) {
     int changed;
     if(!ldsaved) return;
     ldsaved = 0;
+    if(FontTable[gui_font >> 4] == NULL) SetFont(ldoldfont);       // (the console's font was one of the program's)
     changed = VideoMode != ldoldmode || VideoColour != ldoldcolour || PicoActive != ldoldpico;
     if(changed) {
+        if(VideoColour != ldoldcolour && PageTable[WPN].address != NULL) {   // (a FRAMEBUFFER it left: setmode refuses a depth
+            ReadPage = WritePage = 0;                               // change under one)
+            FramebufferClose();
+        }
         if(ldoldpico) PicoModeSet(PicoModeNow);                     // (OPTION PICOMITE's window: its MODE again)
         else setmode(ldoldmode, ldoldcolour, 0, 0);
         SetFont(ldoldfont);
@@ -1109,33 +1333,60 @@ static void ld_movt_set(uint16_t *ins, uint16_t v) {
     ins[1] = (ins[1] & ~0x70FF) | ((v & 0x700) << 4) | (v & 0xFF);
 }
 
-extern const uint8_t BcrunImage[];                                  // bcrun.app, in bank 2 (BcrunImage.c)
-extern const uint32_t BcrunImageSize;
+_Static_assert(CMM2XIP_RAM == 0x30000000 + SDMAP_SIZE && CMM2XIP_RAM + CMM2XIP_RAM_SIZE <= 0x30008000,
+               "the in-place runtime's RAM is the 16 KB above the SDRAM heap's page map, below RAMBASE");
 
-// the program file ld_app reads: an image in flash (ldimg), or the file open as ldfnbr
-static const uint8_t *ldimg;
-static uint32_t ldimgsize, ldimgpos;
+// the program file ld_app reads, open as ldfnbr (0: none)
 static int ldfnbr;
 
 // the file's next n bytes into buf: 1, or 0 if it is shorter or cannot be read
 static int ld_get(void *buf, uint32_t n) {
     UINT got;
-    if(ldimg) {
-        if(n > ldimgsize - ldimgpos) return 0;
-        memcpy(buf, ldimg + ldimgpos, n);
-        ldimgpos += n;
-        return 1;
-    }
     return f_read(FileTable[ldfnbr].fptr, buf, n, &got) == FR_OK && got == n;
 }
-static void ld_done(void) { if(!ldimg) FileClose(ldfnbr); }
+static void ld_done(void) {
+    if(ldfnbr) FileClose(ldfnbr);
+    ldfnbr = 0;
+}
 
-// the program fname (from the card, or img's imgsize bytes if img is not NULL) run with text's words as its argv[1] on:
-// its exit code, printed if not 0 (as shown's, or not if shown is NULL)
-static int ld_app(char *fname, const uint8_t *img, uint32_t imgsize, char *text, char *shown) {
+// the image read in at base checked by its CRC, and moved by its relocations (rel, or NULL if it has none) if it is not
+// where it was linked: 0 if it is damaged
+static int ld_fixup(char *base, uint32_t *rel, cmm2img_header *h) {
+    uint32_t *table = GetTempMemory(256 * sizeof(uint32_t)), i, crc, off;
+    int n;
+    for(i = 0; i < 256; i++) {
+        crc = i;
+        for(n = 0; n < 8; n++) crc = (crc & 1) ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+        table[i] = crc;
+    }
+    crc = ld_crc(table, 0, (unsigned char *)base, h->image_size);
+    if(rel) crc = ld_crc(table, crc, (unsigned char *)rel, h->reloc_count * 4);
+    if(crc != h->crc32) return 0;
+    if((uint32_t)base != h->link_base) {                            // moved by a multiple of 64 KB: ABS32 words and MOVTs
+        uint32_t delta = (uint32_t)base - h->link_base;
+        for(i = 0; i < h->reloc_count; i++) {
+            off = CMM2IMG_REL_OFFSET(rel[i]);
+            if(off + 4 > h->image_size) return 0;
+            if(CMM2IMG_REL_KIND(rel[i]) == CMM2IMG_REL_ABS32) {
+                uint32_t w;
+                memcpy(&w, base + off, 4);
+                w += delta;
+                memcpy(base + off, &w, 4);
+            } else if(CMM2IMG_REL_KIND(rel[i]) == CMM2IMG_REL_MOVT) {
+                uint16_t *ins = (uint16_t *)(base + off);
+                ld_movt_set(ins, ld_movt_imm(ins) + (delta >> 16));
+            } else return 0;
+        }
+    }
+    return 1;
+}
+
+// the program fname from the card, or the runtime xip in the firmware's flash if xip is not NULL, run with text's words
+// as its argv[1] on: its exit code, printed if not 0 (as shown's, or not if shown is NULL)
+static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *shown) {
     char *p = text, **argv;
     cmm2img_header h;
-    uint32_t *rel = NULL, *table, i, stack, end, crc, off;
+    uint32_t *rel = NULL, i, stack, end, off;
     int n, argc, code;
     char *base = (char *)LOADER_BASE;
     uint32_t area = LOADER_SIZE;
@@ -1145,25 +1396,31 @@ static int ld_app(char *fname, const uint8_t *img, uint32_t imgsize, char *text,
 
     CloseAudio(1);                                                  // (first: its refills would stop while the program runs)
     if(!InitSDCard()) return 1;
-    ldimg = img;
-    ldimgsize = imgsize;
-    ldimgpos = 0;
-    if(!img) {
-        ldfnbr = FindFreeFileNbr();
-        if(!BasicFileOpen(fname, ldfnbr, FA_READ)) return 1;
-    }
-    if(!ld_get(&h, sizeof(h)) || memcmp(h.magic, CMM2IMG_MAGIC, 8)) {
-        ld_done();
-        error("Not a loadable program");
+    ldfnbr = 0;
+    if(xip) {                                                       // in the flash: only its stack and heap in the area
+        if(memcmp(xip->magic, CMM2XIP_MAGIC, 8) || xip->data_end - xip->data_start > CMM2XIP_RAM_SIZE ||
+           xip->bss_end > CMM2XIP_RAM + CMM2XIP_RAM_SIZE) error("Not a program this firmware can load");
+        memset(&h, 0, sizeof(h));
+        h.api_version = xip->api_version;
+        h.stack_size = xip->stack_size;
+        h.heap_min = xip->heap_min;
+    } else {
+        n = FindFreeFileNbr();
+        if(!BasicFileOpen(fname, n, FA_READ)) return 1;
+        ldfnbr = n;
+        if(!ld_get(&h, sizeof(h)) || memcmp(h.magic, CMM2IMG_MAGIC, 8)) {
+            ld_done();
+            error("Not a loadable program");
+        }
+        if(h.hdr_version != CMM2IMG_HDR_VERSION || h.kind != CMM2IMG_KIND_APP || (h.link_base & 0xFFFF) ||
+           h.image_size == 0 || (h.entry & ~1) >= h.image_size ||
+           f_size(FileTable[ldfnbr].fptr) != sizeof(h) + h.image_size + h.reloc_count * 4) {
+            ld_done();
+            error("Not a program this firmware can load");
+        }
     }
     stack = h.stack_size ? (h.stack_size + 7) & ~7 : CMM2IMG_STACK;
     end = (h.image_size + h.bss_size + 7) & ~7;
-    if(h.hdr_version != CMM2IMG_HDR_VERSION || h.kind != CMM2IMG_KIND_APP || (h.link_base & 0xFFFF) ||
-       h.image_size == 0 || (h.entry & ~1) >= h.image_size ||
-       (img ? imgsize : f_size(FileTable[ldfnbr].fptr)) != sizeof(h) + h.image_size + h.reloc_count * 4) {
-        ld_done();
-        error("Not a program this firmware can load");
-    }
     if(h.api_version > CMM2IMG_API_VERSION) { ld_done(); error("Needs a newer firmware"); }
     if(G1Hardware && (h.flags & CMM2IMG_FLAG_G2)) { ld_done(); error("Needs a G2"); }
     int vram = G1Hardware && (h.flags & CMM2IMG_FLAG_VRAM), invram = 0, joined = 0;
@@ -1238,34 +1495,15 @@ static int ld_app(char *fname, const uint8_t *img, uint32_t imgsize, char *text,
         if(!ld_get(rel, h.reloc_count * 4)) { ld_done(); ld_giveback(oldmin); error("Cannot read the program"); }
     }
     ld_done();
-    table = GetTempMemory(256 * sizeof(uint32_t));
-    for(i = 0; i < 256; i++) {
-        crc = i;
-        for(n = 0; n < 8; n++) crc = (crc & 1) ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
-        table[i] = crc;
+    if(xip) {                                                       // its .data and .bss in the D2 RAM; the code stays put
+        memcpy((void *)xip->data_start, (const void *)xip->data_load, xip->data_end - xip->data_start);
+        memset((void *)xip->bss_start, 0, xip->bss_end - xip->bss_start);
+    } else {
+        if(!ld_fixup(base, rel, &h)) { ld_giveback(oldmin); error("The program file is damaged"); }
+        memset(base + h.image_size, 0, h.bss_size);
+        SCB_CleanDCache_by_Addr((uint32_t *)base, h.image_size + h.bss_size);   // the code to the SDRAM, where it is
+        SCB_InvalidateICache();                                     // fetched (a program run before may be in the cache)
     }
-    crc = ld_crc(table, 0, (unsigned char *)base, h.image_size);
-    if(rel) crc = ld_crc(table, crc, (unsigned char *)rel, h.reloc_count * 4);
-    if(crc != h.crc32) { ld_giveback(oldmin); error("The program file is damaged"); }
-    if((uint32_t)base != h.link_base) {                             // moved by a multiple of 64 KB: ABS32 words and MOVTs
-        uint32_t delta = (uint32_t)base - h.link_base;
-        for(i = 0; i < h.reloc_count; i++) {
-            off = CMM2IMG_REL_OFFSET(rel[i]);
-            if(off + 4 > h.image_size) { ld_giveback(oldmin); error("The program file is damaged"); }
-            if(CMM2IMG_REL_KIND(rel[i]) == CMM2IMG_REL_ABS32) {
-                uint32_t w;
-                memcpy(&w, base + off, 4);
-                w += delta;
-                memcpy(base + off, &w, 4);
-            } else if(CMM2IMG_REL_KIND(rel[i]) == CMM2IMG_REL_MOVT) {
-                uint16_t *ins = (uint16_t *)(base + off);
-                ld_movt_set(ins, ld_movt_imm(ins) + (delta >> 16));
-            } else { ld_giveback(oldmin); error("The program file is damaged"); }
-        }
-    }
-    memset(base + h.image_size, 0, h.bss_size);
-    SCB_CleanDCache_by_Addr((uint32_t *)base, h.image_size + h.bss_size);   // the code to the SDRAM, where it is fetched
-    SCB_InvalidateICache();                                         // (a program run before may be in the cache)
     argv = ld_args(fname, p, &argc);
     ldstart.svc = &ldsvc;
     ldstart.argc = argc;
@@ -1274,7 +1512,7 @@ static int ld_app(char *fname, const uint8_t *img, uint32_t imgsize, char *text,
     ldstart.heap_size = heapsize;
     ldstart.heap2 = heap2size ? heap2 : NULL;
     ldstart.heap2_size = heap2size;
-    ldstart.base = (uint32_t)base;
+    ldstart.base = xip ? (uint32_t)xip : (uint32_t)base;
     MMAbort = 0;
     ldscreen = 1;
     ldmousetried = 0;
@@ -1282,7 +1520,9 @@ static int ld_app(char *fname, const uint8_t *img, uint32_t imgsize, char *text,
     if(invram) LoaderVram = 1;                                      // runs, and the display memory when the program is there)
     LoaderNoSbrk = joined;
     if(LoaderExec || LoaderVram) MPU_Config_nCacheable(0);
-    code = LoaderCall(base + h.entry, &ldstart, (uint32_t)base + area);
+    LoaderActive = 1;
+    code = LoaderCall(xip ? (void *)xip->entry : base + h.entry, &ldstart, (uint32_t)base + area);
+    LoaderActive = 0;
     ld_tidy();                                                      // (a Ctrl-C stays: the BASIC program stops next)
     ld_giveback(oldmin);
     ConsoleRxBufTail = ConsoleRxBufHead;                            // (the keys the program had, not typed into BASIC)
@@ -1301,7 +1541,7 @@ static int ld_app(char *fname, const uint8_t *img, uint32_t imgsize, char *text,
 static void ld_compile(char *src, char *bc, char *options) {
     char args[STRINGSIZE * 3];
     snprintf(args, sizeof(args), "-o \"%s\" %s \"%s\"", bc, options, src);
-    if(ld_app(LD_CC_DIR "cc.app", NULL, 0, args, NULL)) error("$ did not compile", src);
+    if(ld_app(LD_CC_DIR "cc.app", NULL, args, NULL)) error("$ did not compile", src);
 }
 
 // prog.c's object, prog.bc beside it
@@ -1312,11 +1552,15 @@ static void ld_bcname(char *src, char *bc) {
     strcpy(bc + n - 2, ".bc");
 }
 
-// a compiled C program run by bcrun (the firmware's copy), the words after it its argv[1] on
+extern const uint8_t MmbrunImage[];                                 // mmbrun, at CMM2XIP_FLASH (bank 2's sector 2: .xip)
+_Static_assert(CMM2XIP_FLASH == FLASH_SAVED_OPTION_ADDR + SAVED_OPTIONS_SIZE, "mmbrun follows the options in sector 2");
+
+// a compiled program, C or translated BASIC, run by mmbrun in place in the firmware's flash (the one runtime, Peter 4 Nov
+// 2026: bcrun with the BASIC runtime, which a C program leaves alone), the words after it its argv[1] on
 static void ld_bc(char *bc, char *text) {
     char args[STRINGSIZE * 2];
     snprintf(args, sizeof(args), "\"%s\" %s", bc, text);
-    ld_app("bcrun", BcrunImage, BcrunImageSize, args, bc);
+    ld_app("mmbrun", (const cmm2xip_header *)MmbrunImage, args, bc);
 }
 
 // a file's date and time as one number (FAT's: 2 second steps), or -1 if it is not there
@@ -1340,14 +1584,16 @@ int LoaderRun(char *name) {
         for(n = 0; *p && *p != '"' && n < STRINGSIZE - 1; ) fname[n++] = *p++;
         fname[n] = 0;
     }
-    n = strlen(fname);
+    char *e = strrchr(fname, '.');
+    if(e == NULL || (strcasecmp(e, ".APP") && strcasecmp(e, ".BC") && strcasecmp(e, ".C"))) return 0;
+    RunPrelude();                                                   // (the console's reset and all, as for a BASIC program)
     p = runcmd;                                                     // the words after the name's comma (runcmd is "name",text)
     if(*p == '"') { p++; while(*p && *p != '"') p++; if(*p) p++; }
     while(*p == ' ') p++;
     if(*p == ',') p++;
-    if(n >= 4 && !strcasecmp(fname + n - 4, ".APP")) ld_app(fname, NULL, 0, p, fname);
-    else if(n >= 3 && !strcasecmp(fname + n - 3, ".BC")) ld_bc(fname, p);
-    else if(n >= 2 && !strcasecmp(fname + n - 2, ".C")) {
+    if(!strcasecmp(e, ".APP")) ld_app(fname, NULL, p, fname);
+    else if(!strcasecmp(e, ".BC")) ld_bc(fname, p);
+    else {
         char bc[STRINGSIZE];
         int64_t ct;
         ld_bcname(fname, bc);
@@ -1355,7 +1601,7 @@ int LoaderRun(char *name) {
         if((ct = ld_ftime(fname)) < 0) error("Cannot find $", fname);
         if(ld_ftime(bc) <= ct) ld_compile(fname, bc, "");          // (missing, or not newer: FAT's times are 2 s apart)
         ld_bc(bc, p);
-    } else return 0;
+    }
     return 1;
 }
 

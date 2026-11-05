@@ -22,6 +22,7 @@ void USBGamepadDetached(int slot);
 void USBGamepadTask(void);                          // the PS4's light bar and motors (from hid_app_task)
 void USBGamepadService(void);                       // GAMEPAD MONITOR's print (from CheckKeyboard, outside tuh_task)
 void USBGamepadDevice(char *tp);                    // DEVICE(GAMEPAD n, funct)
+int USBGamepadState(int n, int *lx, int *ly);       // pad n's buttons and left stick, or -1: the loader's gamepad service
 int USBGamepadXInputMount(uint8_t daddr, bool one); // an Xbox pad (USBXInput.c; one: GIP): its HID slot, -1 if none free
 void USBGamepadXInputReport(uint8_t const *report, uint16_t len, int slot);
 void USBGamepadXInputDetached(int slot);

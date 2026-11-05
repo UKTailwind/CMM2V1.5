@@ -433,7 +433,7 @@ void cmd_var(void) {
 int FlashOptionInit(int sector, int check) {
 //	__IO uint32_t SectorsWRPStatus = 0xFFF;
     // Unlock the Flash to enable the flash control register access
-	int i;
+	int i, failed = 0;
 	uint32_t *j;
     SCB_DisableICache() ;
     SCB_DisableDCache() ;
@@ -452,7 +452,7 @@ int FlashOptionInit(int sector, int check) {
     	  EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
     	  EraseInitStruct.Banks         = FLASH_BANK_2;
     	  EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
-    	  EraseInitStruct.Sector = FLASH_SECTOR_7;
+    	  EraseInitStruct.Sector = GetSector(FLASH_SAVED_OPTION_ADDR);   // (bank 2's sector 2, 4 Nov 2026: it was 7)
     	  EraseInitStruct.NbSectors = 1;
    		  FlashDone=0;
 
@@ -463,13 +463,33 @@ int FlashOptionInit(int sector, int check) {
 			  }
 			  j=(uint32_t *)FLASH_SAVED_OPTION_ADDR;
 			  while(j<(uint32_t *)(FLASH_SAVED_OPTION_ADDR+0x20000)){
-				  if(*j++ != 0xFFFFFFFF)return 1;
-			  }
-    	  } else return 1;
+				  if(*j++ != 0xFFFFFFFF){ failed = 1; break; } // (the caches back on all the same: a failed try returned
+			  }                                                 // with them off, for good)
+    	  } else failed = 1;
       }
       SCB_EnableICache() ;
       SCB_EnableDCache() ;
-      return 0;
+      return failed;
+}
+
+/* RAM for sector 2 while it is erased (Peter, 4 Nov 2026: mmbrun follows the options there), never RAM the display shows
+   (Peter: the AXI SRAM showed it on the monitor): while the LTDC is off (SaveOptions early in a first start, before the
+   SDRAM is up) the AXI SRAM, which nothing shows then; with it on, on a G2 the loader's 8 MB of SDRAM, never in use
+   when the options are saved, and on a G1 the heap's area, empty until InitHeap (minMMheap), then a block of the heap
+   (*freeme), or NULL if there is none. (The D2 RAM of MMBasic's heap, empty early in a start, read back as zeros there
+   and mmbrun was written back so: hence the checks in SaveOptions) */
+_Static_assert(sizeof(struct option_s) <= SAVED_OPTIONS_SIZE, "the options outgrow their part of sector 2 (Flash.h)");
+static uint8_t *OptionSectorBuffer(void **freeme) {
+    *freeme = NULL;
+    if(!(LTDC->GCR & LTDC_GCR_LTDCEN)) return (uint8_t *)0x24000000;
+    if(!G1Hardware) return (uint8_t *)LOADER_BASE;
+    if(minMMheap == NULL) return (uint8_t *)SDRAMBASE;
+    return *freeme = GetMemoryNull(0x20000);
+}
+static uint32_t SectorSum(const uint8_t *p) {                      // (a check that the copy is the same after the erase)
+    uint32_t s = 0, i;
+    for(i = 0; i < 0x20000 / 4; i++) s = (s << 1 | s >> 31) ^ ((const uint32_t *)p)[i];
+    return s;
 }
 
 /**********************************************************************************************
@@ -490,19 +510,56 @@ void SaveOptions(int check) {
     skipreturn:
 
     while(!(ConsoleTxBufHead == ConsoleTxBufTail));                    // wait for the console UART to send whatever is in its buffer
-    p = (char *)&Option;
-	i=3;
-	while(FlashOptionInit(SAVED_OPTIONS_FLASH, check) && i)i--;                     // erase program memory
-	if(i==0)error("Failed to erase flash memory");
+    // Sector 2 is erased only if the options' flash words are written already (a first start after the sector was
+    // written, the options blank, programs them as they are). What follows the options (mmbrun: Peter, 4 Nov 2026) is
+    // kept in RAM while it is erased, and written back after them, all but its blank flash words
+    uint8_t *sector = (uint8_t *)FLASH_SAVED_OPTION_ADDR, *buf = NULL;
+    void *freeme = NULL;
+    uint32_t k, *w, sum = 0;
+    int blank = 1, rest = 0;
+    for(w = (uint32_t *)sector; w < (uint32_t *)(sector + SAVED_OPTIONS_SIZE); w++) if(*w != 0xFFFFFFFF) { blank = 0; break; }
+    if(!blank) {
+        for(w = (uint32_t *)(sector + SAVED_OPTIONS_SIZE); w < (uint32_t *)(sector + 0x20000); w++)
+            if(*w != 0xFFFFFFFF) { rest = 1; break; }
+        if(rest) {
+            if((buf = OptionSectorBuffer(&freeme)) == NULL) error("Not enough memory to save the options");
+            memcpy(buf, sector, 0x20000);
+            if(memcmp(buf, sector, 0x20000)) {                      // (nothing erased if the copy is not right)
+                if(freeme) FreeMemory(freeme);
+                error("Cannot save the options: the RAM for sector 2 does not hold it");
+            }
+            sum = SectorSum(buf);
+        }
+        i=3;
+        while(FlashOptionInit(SAVED_OPTIONS_FLASH, check) && i)i--;                     // erase program memory
+        if(i==0) { if(freeme) FreeMemory(freeme); error("Failed to erase flash memory"); }
+    } else HAL_FLASH_Unlock();
 	p = (char *)&Option;
 	while(p<(char *)&Option.end){
 		for(i=0;i<8;i++)FlashWord.i32[i]=0xFFFFFFFF;
 		for(i=0;i<32;i++)if(p<(char *)&Option.end)FlashWord.i8[i]=*p++;
 		tries=0;
 		while((HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, address, (uint64_t)((uint32_t)FlashWord.i64)) != HAL_OK) && (tries++ < 10));
-		if(tries==10)error("Option write fail");
+		if(tries==10) { if(freeme) FreeMemory(freeme); error("Option write fail"); }
 		address+=32;
 	}
+    if(buf) {                                                       // what followed the options, put back
+        if(SectorSum(buf) != sum) {
+            if(freeme) FreeMemory(freeme);
+            error("The copy of sector 2 changed while it was erased: mmbrun is lost (write the firmware's _mmbrun.bin)");
+        }
+        for(k = SAVED_OPTIONS_SIZE; k < 0x20000; k += 32) {
+            for(w = (uint32_t *)(buf + k), i = 0; i < 8 && w[i] == 0xFFFFFFFF; i++);
+            if(i == 8) continue;                                    // (blank: left as the erase left it)
+            memcpy(FlashWord.i8, buf + k, 32);
+            tries=0;
+            while((HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, FLASH_SAVED_OPTION_ADDR + k, (uint64_t)((uint32_t)FlashWord.i64)) != HAL_OK) && (tries++ < 10));
+            if(tries==10) { if(freeme) FreeMemory(freeme); error("Flash write fail (mmbrun, after the options)"); }
+        }
+        if(freeme) FreeMemory(freeme);
+    }
+    SCB_InvalidateDCache_by_Addr((uint32_t *)FLASH_SAVED_OPTION_ADDR, 0x20000);   // (what was read of the sector before:
+    SCB_InvalidateICache();                                         // blank, or mmbrun's code, written again)
 //    for(i = 0; i < sizeof(struct option_s); i++){
 //    	FlashWriteByte(*p);    // write the changed page back to flash
 //    	p++;
@@ -512,8 +569,8 @@ void SaveOptions(int check) {
 }
 
 
-void LoadOptions(void) {
-    memcpy((struct option_s *)&Option, (struct option_s *)FLASH_SAVED_OPTION_ADDR, sizeof(struct option_s));
+static void OptionsFrom(uint32_t from) {
+    memcpy((struct option_s *)&Option, (struct option_s *)from, sizeof(struct option_s));
     if(Option.layout != OPTION_LAYOUT) {                            // saved before OPTION F15-F20 (layout 1), F1 and F5-F9 (2) or
         if(Option.layout != 1 && Option.layout != 2) {             // SCREEN KEYBOARD (3): those bytes are erased flash, so they are
             mymemset((char *)Option.F15Key, 0, sizeof(Option.F15Key)); // emptied (the other options are kept; the next SaveOptions
@@ -534,6 +591,78 @@ void LoadOptions(void) {
     if((OptionConsole & 2) && gui_font_height > 0 && PageTable[WritePage].ymax > 0)
         Option.Height = ConsoleVRes() / gui_font_height;            // the console on the screen: its rows now (SetFont's), not as
                                                                     // saved, which may be with the on-screen keyboard's strip
+}
+
+void LoadOptions(void) {
+    OptionsFrom(FLASH_SAVED_OPTION_ADDR);
+}
+
+/* An update from a firmware before 7.00.00RC2, in which bank 2 held OPTION FLASH n's program in sector n, the library in
+   sector 6 and the options in sector 7. The options are now in sector 2, OPTION FLASH n is sector n + 1 and the library
+   is sector 7. Writing the .bin leaves sectors 3 to 7 as they were, so the first start finds this firmware's options
+   blank and the old ones alone in sector 7, and puts everything where it now belongs: the options first, as the most
+   to lose, then sectors 3 to 6 up one, so that the library and a program at OPTION FLASH 3 to 6 are as they were
+   (ImageRebase: a program's CSUB records hold addresses). OPTION FLASH 2's was in sector 2, which the .bin replaced: RUN
+   loads it again. The AXI SRAM holds the four sectors: 512 KB, and nothing uses it before the LTDC is on (Peter, 5 Nov
+   2026: "move everything") */
+static int OldOptionsFound(void) {
+    const struct option_s *o = (const struct option_s *)ADDR_FLASH_SECTOR_7_BANK2;
+    const uint32_t *w;
+    for(w = (const uint32_t *)FLASH_SAVED_OPTION_ADDR; w < (const uint32_t *)(FLASH_SAVED_OPTION_ADDR + SAVED_OPTIONS_SIZE); w++)
+        if(*w != 0xFFFFFFFF) return 0;
+    if(!(o->Tab == 2 || o->Tab == 3 || o->Tab == 4 || o->Tab == 8) || !(o->USBKeyboard >= 0 && o->USBKeyboard <= MAXKEYBOARDS)) return 0;
+    for(w = (const uint32_t *)((const char *)o + ((sizeof(struct option_s) + 31) & ~31)); w < (const uint32_t *)(ADDR_FLASH_SECTOR_7_BANK2 + 0x20000); w++)
+        if(*w != 0xFFFFFFFF) return 0;                              // (a library or a program there, not the options)
+    return 1;
+}
+
+// the 128 KB sector of bank 2 at address erased, and the 128 KB at img written to it (img NULL: only erased)
+static void SectorReplace(uint32_t address, const uint8_t *img) {
+    FLASH_EraseInitTypeDef e;
+    uint32_t k, bad, *w;
+    int i, tries;
+    for(w = (uint32_t *)address; w < (uint32_t *)(address + 0x20000) && *w == 0xFFFFFFFF; w++);
+    if(w < (uint32_t *)(address + 0x20000)) {
+        SCB_DisableICache();
+        SCB_DisableDCache();
+        e.TypeErase = FLASH_TYPEERASE_SECTORS;
+        e.Banks = FLASH_BANK_2;
+        e.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+        e.Sector = GetSector(address);
+        e.NbSectors = 1;
+        HAL_FLASHEx_Erase(&e, &bad);                                // (not _IT: this early there is no interrupt for it yet)
+        SCB_EnableICache();
+        SCB_EnableDCache();
+    }
+    for(k = 0; img != NULL && k < 0x20000; k += 32) {
+        for(w = (uint32_t *)(img + k), i = 0; i < 8 && w[i] == 0xFFFFFFFF; i++);
+        if(i == 8) continue;                                        // (blank: left as the erase left it)
+        memcpy(FlashWord.i8, img + k, 32);
+        tries = 0;
+        while(HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, address + k, (uint64_t)((uint32_t)FlashWord.i64)) != HAL_OK && tries++ < 10);
+    }
+    SCB_InvalidateDCache_by_Addr((uint32_t *)address, 0x20000);
+}
+
+// 0 if it found no old options. Else it has moved everything and the start begins again, on the options it has saved: 1
+// for a record of 7.00's, its layout byte set, which is kept whole; 2 for an older one (5.07.02's ends before that byte),
+// which the first start's reset has to go through, as only the options it keeps mean the same in both
+int OldLayoutMove(void) {
+    uint8_t *sectors = (uint8_t *)0x24000000;
+    int n, whole;
+    if(!OldOptionsFound()) return 0;
+    n = ((const struct option_s *)ADDR_FLASH_SECTOR_7_BANK2)->layout;
+    whole = n >= 1 && n <= OPTION_LAYOUT;
+    memcpy(sectors, (void *)ADDR_FLASH_SECTOR_3_BANK2, 4 * 0x20000);
+    if(memcmp(sectors, (void *)ADDR_FLASH_SECTOR_3_BANK2, 4 * 0x20000)) return 0;   // (nothing touched if the copy is not right)
+    OptionsFrom(ADDR_FLASH_SECTOR_7_BANK2);
+    SaveOptions(0);
+    n = Option.ProgramStartCode;
+    if(n > PROGRAMSTARTCODE && n <= 6 && ImageIsCurrentAt((char *)sectors + (n - 3) * 0x20000))
+        ImageRebase(sectors + (n - 3) * 0x20000, (7 - n) * 0x20000, 0x20000);
+    for(n = 7; n > 3; n--) SectorReplace(ADDR_FLASH_SECTOR_3_BANK2 + (n - 3) * 0x20000, sectors + (n - 4) * 0x20000);
+    SectorReplace(ADDR_FLASH_SECTOR_3_BANK2, NULL);
+    return whole ? 1 : 2;
 }
 
 

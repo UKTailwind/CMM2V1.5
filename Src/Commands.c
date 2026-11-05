@@ -287,10 +287,29 @@ void cmd_help(void){
 void cmd_execute(void){
 	execute(cmdline);
 }
+// the statement in inpbuf tokenised into tknbuf as a line typed at the prompt is: upper case outside its quotes, one
+// statement only. EXECUTE's, after it has the string (execute), and a loaded program's (Loader.c, basic_cmd: 4 Nov 2026)
+void TokeniseStatement(void){
+	int i=0,toggle=0;
+	while(inpbuf[i]){
+		if(inpbuf[i]==34){
+			if(toggle==0)toggle=1;
+			else toggle=0;
+		}
+		if(!toggle){
+			if(inpbuf[i]==':')error("Only single statements allowed");
+			inpbuf[i]=toupper(inpbuf[i]);
+		}
+		i++;
+	}
+	tokenise(true);                                                 // and tokenise it (the result is in tknbuf)
+	mymemset(inpbuf,0,STRINGSIZE);
+	tknbuf[strlen(tknbuf)]=0;
+	tknbuf[strlen(tknbuf)+1]=0;
+}
 void execute(char *mycmd){
 //    char *temp_tknbuf;
 	char *ttp;
-	int i=0,toggle=0;
 //    temp_tknbuf = GetTempStrMemory();
 //    strcpy(temp_tknbuf, tknbuf);
     // first save the current token buffer in case we are in immediate mode
@@ -303,21 +322,7 @@ void execute(char *mycmd){
 		 char savetkn[TKNBUFSIZE];                                      // an EXECUTE run from inside another (by a SUB that one
 		 int savescrew = ScrewUpTimer;                                  // called) keeps the outer one's line, which runs from
 		 memcpy(savetkn, tknbuf, TKNBUFSIZE);                           // tknbuf, and its timeout (it cleared it)
-		 while(inpbuf[i]){
-			if(inpbuf[i]==34){
-				if(toggle==0)toggle=1;
-				else toggle=0;
-			}
-			if(!toggle){
-				if(inpbuf[i]==':')error("Only single statements allowed");
-				inpbuf[i]=toupper(inpbuf[i]);
-			}
-			i++;
-		  }
-		 tokenise(true);                                                 // and tokenise it (the result is in tknbuf)
-		 mymemset(inpbuf,0,STRINGSIZE);
-		 tknbuf[strlen(tknbuf)]=0;
-		 tknbuf[strlen(tknbuf)+1]=0;
+		 TokeniseStatement();
 		 ttp = nextstmt;                                                 // save the globals used by commands
 		 ScrewUpTimer=1000;
 		 ExecuteProgram(tknbuf);                                              // execute the function's code
@@ -1426,8 +1431,8 @@ static void MIPS16 RunStart(int runlib);
 // monitor drops off the bus for a moment after the last program's MODE)
 volatile int RunStarting;
 
-// RUN and FLASH RUN: the console, the keyboard and the status line made ready for a program
-static void MIPS16 RunPrelude(void) {
+// RUN and FLASH RUN: the console, the keyboard and the status line made ready for a program (a loadable one too: LoaderRun)
+void MIPS16 RunPrelude(void) {
 	int maxH=ConsoleVRes();                                         // (the status line: above the on-screen keyboard)
     int maxW=PageTable[WritePage].xmax;
 	RunStarting = 1;
@@ -1535,7 +1540,10 @@ void MIPS16 cmd_run(void) {
 		FlashRunSlot(FlashLoad, 0);                                 // slot's program RUN alone runs it again (the PicoMite's)
 		return;
 	}
-	if(LoaderRun(expr ? name : NULL)) return;                       // a loadable program, name.app (Loader.c, G2): run, then go on
+	if(LoaderRun(expr ? name : NULL)) {                             // a loadable program, name.app (Loader.c, G2): run, then go on
+		RunStarting = 0;
+		return;
+	}
 	RunPrelude();
 	if(expr){
 		if(!FileLoadProgram(name,0)) return;

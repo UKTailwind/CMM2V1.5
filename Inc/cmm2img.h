@@ -28,15 +28,18 @@
  */
 #ifndef CMM2IMG_H
 #define CMM2IMG_H
+#include <stddef.h>
 #include <stdint.h>
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  10                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  13                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
-                                                  10: drawing, by MMBasic's own routines) */
+                                                  10: drawing, by MMBasic's own routines; 11: the firmware's memcpy,
+                                                  memset, memmove and libm; 12: an expression's value, the sound's
+                                                  state; 13: the USB gamepads) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
@@ -72,6 +75,32 @@ typedef struct {
     char     name[16];                         /* NUL padded */
 } cmm2img_header;                              /* 64 bytes */
 
+/* A runtime the firmware carries in its own flash and runs where it is (Peter, 4 Nov 2026: mmbrun, the C compiler's
+   runtime bcrun with the BASIC runtime, which from the SDRAM lost much of its time to instruction cache refills; it runs
+   C and translated BASIC programs alike). The SDK's xip.ld (build.py
+   --xip) links its code, constants and .data's values at CMM2XIP_FLASH, this header first, and its .data and .bss at
+   CMM2XIP_RAM: the same addresses on a G1 and a G2, so nothing is moved. The loader copies .data, zeroes .bss and
+   starts it as it starts a program, its stack and heap in the loader's area. */
+#define CMM2XIP_MAGIC        "CMM2XIP"
+#define CMM2XIP_FLASH        0x08141000u       /* mmbrun's (the one runtime: bcrun with the BASIC runtime): bank 2's
+                                                  sector 2 after the options' 4 KB, right after the firmware (flash.c;
+                                                  the link script's .xip), so the one .bin has it */
+#define CMM2XIP_FLASH_SIZE   0x0001F000u
+#define CMM2XIP_RAM          0x30004000u       /* 16 KB of D2 RAM: the top half of the SDRAM heap's page map, which a
+                                                  G2's 15.5 MB heap does not reach (Memory.h SDMAP_SIZE) */
+#define CMM2XIP_RAM_SIZE     0x00004000u
+
+typedef struct {
+    char     magic[8];                         /* "CMM2XIP\0" */
+    uint32_t api_version;                      /* the version of the services it needs */
+    uint32_t entry;                            /* its _start (odd: a Thumb address) */
+    uint32_t data_load;                        /* .data's values, in the flash after the code */
+    uint32_t data_start, data_end;             /* .data, from CMM2XIP_RAM */
+    uint32_t bss_start, bss_end;               /* .bss, zeroed */
+    uint32_t stack_size;                       /* 0: CMM2IMG_STACK */
+    uint32_t heap_min;                         /* the least heap it can run with */
+} cmm2xip_header;                              /* 44 bytes */
+
 struct cmm2_services;
 typedef struct {
     const struct cmm2_services *svc;
@@ -93,6 +122,13 @@ typedef struct {                               /* the display after video_mode: 
                                                   is stored twice, so line y is written at fb + y*pitch and again width
                                                   bytes later (pitch is then 2*width) */
 } cmm2_video;
+
+typedef struct {                               /* the page drawing goes to (gfx_target, version 11) */
+    uint8_t *fb;                               /* its first row */
+    uint32_t width, height, pitch;             /* pitch: bytes from a row to the next */
+    uint32_t bpp;                              /* 1 or 4: the PicoMite's pages, the left pixel in the low bits (4: RGB121,
+                                                  bit 3 red, 2-1 green, 0 blue); 8, 16 or 32 the CMM2's own */
+} cmm2_target;
 
 typedef struct {                               /* a file's or directory's details (file_stat) */
     uint32_t size;                             /* 0 for a directory */
@@ -272,6 +308,57 @@ struct cmm2_services {
     int      (*gfx_write)(int x, int y, int w, int h, const uint8_t *bgr);   /* and back */
     int      (*gfx_save)(const char *name);   /* the screen to a file, as SAVE PNG saves it (Print Screen's), or as
                                                   SAVE IMAGE does if the name ends in .BMP */
+    int      (*dir_change)(const char *path);  /* CHDIR's: MMBasic's current directory, which names are relative to,
+                                                  and which stays when the program ends, as CHDIR's does */
+    int      (*dir_current)(char *buf, uint32_t size);   /* CWD$'s ("A:/GAMES"): 0, or -3 if size is too small */
+    /* version 11: the firmware's own copy and fill (Memory.c: a word at a time, eight by LDM/STM, from ITCM), which
+       the SDK's memcpy, memset and memmove call in place of newlib-nano's byte loops (Peter, 4 Nov 2026) */
+    void    *(*mem_copy)(void *d, const void *s, size_t n);
+    void    *(*mem_fill)(void *d, int c, size_t n);
+    void    *(*mem_move)(void *d, const void *s, size_t n);
+    const struct cmm2_libm *libm;              /* and its libm (below), which a runtime run in place calls (the SDK's
+                                                  fwlibm.c, built --xip) rather than carry 19 KB of its own */
+    /* and the firmware's BASIC for a translated program (Peter, 4 Nov 2026: its commands, not copies of them) */
+    int      (*basic_cmd)(const char *line);   /* one MMBasic statement, a command with its arguments as text (constants
+                                                  only), run as the interpreter runs it: MODE 7,4, FRAMEBUFFER MERGE 9,
+                                                  LOAD IMAGE "f",0,10, PRINT @(8,16);...: 0, or -4 with io_error()'s
+                                                  message; -3 if the line is too long. Not a SUB call */
+    int      (*gfx_target)(cmm2_target *t);    /* the page drawing goes to (FRAMEBUFFER WRITE's): 0 with t filled, -1
+                                                  if there is no display */
+    int      (*font_size)(int font, int *w, int *h);   /* font 1-16's character size: 0, or -1 if there is no such font */
+    int      (*font_define)(int font, const uint8_t *data);   /* font 10-16 from the program's memory, in DefineFont's
+                                                  layout (width, height, first character, count, then the glyphs),
+                                                  until it ends; NULL: the one it replaced back. 0, or -1 */
+    int      (*basic_eval)(const char *expr, char *out);   /* an MMBasic expression (constants only), for what only the
+                                                  firmware knows, MM.INFO(SOUND): its value in out, 256 bytes, as
+                                                  text: 0, or -4 with io_error()'s message; -3 if it is too long */
+    int      (*sound_state)(void);             /* what is playing (Audio.h's CurrentlyPlaying, 0 nothing), and 0x100 once
+                                                  the last PLAY EFFECT has ended: a compiled program's interrupt,
+                                                  which the firmware cannot call, is watched by this */
+    int      (*basic_prep)(const char *line, char *tokens, int size);   /* a statement as basic_cmd's, \001 for each value
+                                                  to come, tokenised once: tokens, with \001 where they go, and their
+                                                  length with the end's zeros; -3 if it will not fit, -4 as basic_cmd */
+    int      (*basic_exec)(char *tokens);      /* those tokens with the values written in, as digits or a quoted string (a
+                                                  minus sign is a token: basic_cmd has those), run: 0, or -4. Tokenising
+                                                  costs far more than most statements: 85 against 4 us for PAGE WRITE */
+    int      (*image_resize)(const long long *a);   /* IMAGE RESIZE_FAST without its parsing: x, y, w, h, new x, new y, new w,
+                                                  new h, the page read (-1 the FRAMEBUFFER, -2 as it is), 1 to leave
+                                                  black alone (-2 as 0): 0, or -4 */
+    /* version 13: a USB gamepad, as DEVICE(GAMEPAD n, ...) gives it (poll keeps it up to date) */
+    int      (*gamepad)(int n, int *lx, int *ly);   /* the buttons of the pad in HID slot n (1 up): DEVICE(GAMEPAD n, B)'s
+                                                  bitmap, and the left stick, 0-255 with 128 centred (always, on a pad
+                                                  with no sticks), in lx and ly if they are not NULL; -1 if no pad is
+                                                  there */
+};
+
+/* the firmware's libm (services version 11): the 19 functions the PC3's kernel shares with its programs, in the
+   order of bcrun's maths table. Pure functions only: the firmware's strtod and printf allocate from its own heap,
+   which a program must never grow, so those stay the program's */
+struct cmm2_libm {
+    double (*sin)(double), (*cos)(double), (*tan)(double), (*asin)(double), (*acos)(double), (*atan)(double);
+    double (*sinh)(double), (*cosh)(double), (*tanh)(double), (*sqrt)(double), (*exp)(double), (*log)(double);
+    double (*log10)(double), (*floor)(double), (*ceil)(double), (*fabs)(double);
+    double (*pow)(double, double), (*atan2)(double, double), (*fmod)(double, double);
 };
 
 #define CMM2_PIN_OFF     0                     /* pin_setup's modes */

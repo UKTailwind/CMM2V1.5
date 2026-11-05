@@ -178,10 +178,18 @@ int WritePage=0;
 int ReadPage=0;
 //uint8_t* volatile DataPageAddress = (void *)0x58021400;
 const int64_t initoptions[4] __attribute__ ((aligned (32)))  = {-1,-1,-1,-1};
+static void FirstStartDone(void) {                                  // (initoptions, blank in the .bin: a firmware's first start is over)
+	uint64_t i64[4]={0};
+	int tries=0;
+	while((HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, (uint32_t)initoptions, (uint64_t)((uint32_t)i64)) != HAL_OK) && (tries++ < 10));
+	if(tries==10)error("Flash write fail");
+}
 volatile uint8_t pagesetdone=0;
 int ShortScroll;
 int SystemError=0;
-void firstinit(void);
+void firstinit(int asktime, int askkeyboard);
+static int KeptKeyboard(void);
+static void KeepKeyboard(int k);
 extern void JumpToBootloader(void);
 int docheck=1;
 FATFS fs;                 // Work area (file system object) for logical drive
@@ -237,15 +245,15 @@ int G1Hardware;
 int Overclock;
 int executerun=0;
 char canopen=0;	  //CAN has no pins assigned
-void firstinit(void);
-const uint32_t progstart[]={
-		ADDR_FLASH_SECTOR_0_BANK2,
-		ADDR_FLASH_SECTOR_1_BANK2,
-		ADDR_FLASH_SECTOR_2_BANK2,
+void firstinit(int asktime, int askkeyboard);
+const uint32_t progstart[]={                                        // OPTION FLASH n's sector: n + 1 (4 Nov 2026: sector 2
+		ADDR_FLASH_SECTOR_0_BANK2,                                  // is the options' and mmbrun's, right after the firmware
+		ADDR_FLASH_SECTOR_1_BANK2,                                  // in sectors 0-1; 0 and 1 are never used)
 		ADDR_FLASH_SECTOR_3_BANK2,
-		ADDR_FLASH_SECTOR_4_BANK2,   //was missing G.A.
-		ADDR_FLASH_SECTOR_5_BANK2,
+		ADDR_FLASH_SECTOR_4_BANK2,
+		ADDR_FLASH_SECTOR_5_BANK2,   //was missing G.A.
 		ADDR_FLASH_SECTOR_6_BANK2,
+		ADDR_FLASH_SECTOR_7_BANK2,
 };
 char FunKey[NBRPROGKEYS][MAXKEYLEN + 1]= {		// data storage for the function keys
 		{"FM\r\n"},//Run immediately (the file manager: FILES lists, as on the PicoMite, 19 Oct)
@@ -513,7 +521,7 @@ void rtcChangeSet(void){
 int OPTSIZE main(void)
 {
   /* USER CODE BEGIN 1 */
-	int i, firsttime=0;
+	int i, clockreset, keptkb, optionsreset = 0;
 	static int ErrorInPrompt;
 	int64_t* volatile test;
 	test=(int64_t* volatile)initoptions;
@@ -557,7 +565,8 @@ if(_excep_code == RESTART_BOOT0){
   }
   SystemClock_Config();
   /* USER CODE BEGIN SysInit */
-  firsttime=MX_RTC_Init();
+  clockreset=MX_RTC_Init();                                         // 1: the RTC had lost the time (it was set to 2000)
+  keptkb=KeptKeyboard();                                            // (before anything resets the options)
   HAL_FLASH_Unlock();
 
 
@@ -572,9 +581,20 @@ if(_excep_code == RESTART_BOOT0){
 //		  !(Option.ProgramStartCode >= -2 && Option.ProgramStartCode <= 7) ||
 //		  !(Option.RepeatStart>=100 && Option.RepeatRate>=25)) {
 {
+	  i = OldLayoutMove();                                          // an update from before RC2 (flash.c): 7.00's options
+	  if(i == 1) FirstStartDone();                                  // all kept, so not the first start's reset of most of them;
+	  if(i) {                                                       // and a restart, as all the set-up above read them blank
+		  _excep_code = 0;
+		  SoftReset();
+	  }
 	  ResetAllFlash();
 	  rtcChange=1;
-	  firsttime=1;
+	  optionsreset=1;                                               // (blank after a reflash: the keyboard as it was kept)
+	  if(keptkb >= 0) { Option.USBKeyboard = keptkb; SaveOptions(0); }
+	  if(keptkb >= 0 && !clockreset) {                              // nothing to ask: a restart, as firstinit's, since all
+		  _excep_code = 0;                                          // the set-up above read the options blank (CPUmode's
+		  SoftReset();                                              // 0xFF made a G2 a G1 at 400 MHz, its SDRAM as a G1's)
+	  }
   }
 
   if(*test==-1){  //first time in
@@ -610,15 +630,13 @@ if(_excep_code == RESTART_BOOT0){
 	  gui_fcolour = PromptFC = Option.DefaultFC = WHITE;
 	  gui_bcolour = PromptBC = Option.DefaultBC = BLACK;
 	  _excep_code=0;
-	  uint64_t i64[4]={0};
-	  int tries=0;
-	  while((HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, (uint32_t)test, (uint64_t)((uint32_t)i64)) != HAL_OK) && (tries++ < 10));
-	  if(tries==10)error("Flash write fail");
+	  FirstStartDone();
 	  ClearSavedVars();
   }
 
   HAL_PWREx_EnableBkUpReg();
   HAL_PWR_EnableBkUpAccess();
+  if(!optionsreset || keptkb >= 0) KeepKeyboard(Option.USBKeyboard);   // (the keyboard known: kept for a reflash)
   strcpy(FunKey[10],(char *)Option.F11Key);
   strcpy(FunKey[11],(char *)Option.F12Key);
   if(rtcChange!=0x76767676){
@@ -981,7 +999,7 @@ if(setjmp(mark) != 0) {
 	  mymemset(inpbuf,0,STRINGSIZE);
 	}
 }
-if(firsttime==1)firstinit();
+if(clockreset || (optionsreset && keptkb < 0)) firstinit(clockreset, optionsreset && keptkb < 0);
 copy_clock();
 if(Option.sleep)SleepTimer=Option.sleep*1000*60;
   /* USER CODE END 2 */
@@ -3237,7 +3255,9 @@ void CheckAbort(void) {
 			WritePage=writesave;
 		}
 	}
-    if(MMAbort && MarkSet) {                                        // (not before the prompt's jmp_buf is set: MarkSet)
+    if(MMAbort && MarkSet && !LoaderActive) {                       // (not before the prompt's jmp_buf is set: MarkSet; nor
+                                                                    // while a loaded program runs, which takes it by poll():
+                                                                    // cleanend from inside a service left its stack, 4 Nov 2026)
         WDTimer = 0;                                                // turn off the watchdog timer
         ShowCursor(0);
     	ScrewUpTimer=0;
@@ -3862,14 +3882,14 @@ done:
 }
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to program flash in tokenised format
-/* Program memory erased for an image of size bytes: each 128 KB sector it reaches, none of them the saved options'
-   (sector 7) nor the flash library's. (The test here was > where it is >=, which let a program over 128 KB at OPTION
-   FLASH 6, or over 256 KB at 5, erase the options' sector.) Under OPTION RAM FlashWriteInit clears the SDRAM program
-   area, once. */
+/* Program memory erased for an image of size bytes: each 128 KB sector it reaches, none of them past bank 2's end
+   (OPTION FLASH 6 is sector 7, the last: progstart) nor the flash library's. (The test here was > where it is >=, which
+   let a program over 128 KB at OPTION FLASH 6, or over 256 KB at 5, erase the options' sector, which was sector 7.)
+   Under OPTION RAM FlashWriteInit clears the SDRAM program area, once. */
 void ProgramFlashErase(int size) {
     int i, k, n = (size + 0x1FFFF) / 0x20000;
     if(n < 1 || Option.ProgramStartCode < 0) n = 1;
-    if(Option.ProgramStartCode >= 0 && (uint32_t)ProgMemory + n * 0x20000 > FLASH_SAVED_OPTION_ADDR)
+    if(Option.ProgramStartCode >= 0 && (uint32_t)ProgMemory + n * 0x20000 > ADDR_FLASH_SECTOR_7_BANK2 + 0x20000)
         error("OPTION FLASH must be in range % to % for this program", PROGRAMSTARTCODE, 7 - n);
     LibCheckProgramFlash(size);
     for(k = 0; k < n; k++) {
@@ -4961,16 +4981,29 @@ void DrawLogo(void) {
     CurrentY=70;
 }
 
-void firstinit(void){
+// The keyboard type in the RTC's backup register 1: battery backed (on a G1 and a G2 alike), and so kept through a
+// reflash, which erases the options with mmbrun's sector, so the first start after one need not ask for it (Peter, 4 Nov
+// 2026). KBDTAG and the type, or anything else: none kept
+#define KBDTAG 0x4B420000u
+static int KeptKeyboard(void) {
+    uint32_t v = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
+    return ((v & 0xFFFF0000u) == KBDTAG && (v & 0xFFFF) <= MAXKEYBOARDS) ? (int)(v & 0xFFFF) : -1;
+}
+static void KeepKeyboard(int k) { HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, KBDTAG | (uint32_t)k); }
+
+// the first start's questions: the keyboard if it is not known (askkeyboard), the time and date if the RTC lost them
+// (asktime: its battery flat or out). Not after a reflash, which leaves both alone (Peter, 4 Nov 2026)
+void firstinit(int asktime, int askkeyboard){
 	struct tm  *tm;
 	struct tm tma;
 	tm=&tma;
 	  int loop, redo, c;
-	  int dd=01, mm=0, yy=24, h=0, m=0, s=0, keyboard;
+	  int dd=01, mm=0, yy=24, h=0, m=0, s=0, keyboard = Option.USBKeyboard;
 	  //prompt for various settings
 	  MMAbort = false;
       BreakKey = 0;
 	  MMPrintString("Initial setup - all parameters can be changed later\r\n");
+	  if(askkeyboard) {
 	  loop=1;
 	  MMPrintString("Keyboard type: 1=UK, 2=US, 3=DE , 4=FR, 5=ES , 6=BE ? ");
 	  while(loop){
@@ -4982,6 +5015,8 @@ void firstinit(void){
 		  MMPrintString("\r\n");
 		  keyboard=c-48;
 	  }
+	  }
+	  if(!asktime) goto keepclock;
 	  MMPrintString("Enter time (24hr clock) HH:MM:SS ? ");
 	      loop=1;
 	      while(loop){ //tens of hours
@@ -5139,8 +5174,10 @@ void firstinit(void){
 		    if(day_of_week==0)day_of_week=7;
 			update_clock();
 			mT4IntEnable(1);       										// enable interrupt
+		keepclock:
 			Option.USBKeyboard=keyboard;
 		    SaveOptions(0);
+		    KeepKeyboard(keyboard);
 		    MMPrintString("\r\n");
 		    while(ConsoleTxBufTail != ConsoleTxBufHead);
 		    _excep_code = 0;                            // otherwise do an automatic reset

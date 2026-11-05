@@ -1457,7 +1457,8 @@ void cmd_mode(void){
 	setmode(mode,colour,bc,0);
 }
 
-void MIPS16 OtherOptions(void) {
+// (in bank 2, 4 Nov 2026: bank 1 was full. Foreground only; SaveOptions, which erases bank 2's sector 7, is bank 1's)
+void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
 	char *tp, *ttp;
 
 	tp = checkstring(cmdline, "RESET");
@@ -1465,6 +1466,38 @@ void MIPS16 OtherOptions(void) {
 	    if(CurrentLinePtr) error("Invalid in a program");
         ResetAllOptions();
         SaveOptions(0);
+		goto saveandreset;
+	}
+
+	// OPTION DISK SAVE f$ and OPTION DISK LOAD f$: the options to a file (.opt if no extension is given) and back, as the
+	// PicoMite's, then a restart. Writing the firmware's sector 7 (mmbrun's: the .hex or _mmbrun.bin) erases the options
+	// with it (Peter, 4 Nov 2026: saved before, loaded after)
+	tp = checkstring(cmdline, "DISK SAVE");
+	if(tp == NULL) tp = checkstring(cmdline, "DISK LOAD");
+	if(tp) {
+	    int fnbr, i, load = (checkstring(cmdline, "DISK LOAD") != NULL);
+	    char *pp, *s = (char *)&Option;
+	    getargs(&tp, 1, ",");
+	    if(argc != 1) error("Syntax");
+	    if(CurrentLinePtr) error("Invalid in a program");
+	    if(!InitSDCard()) return;
+	    fnbr = FindFreeFileNbr();
+	    pp = getFstring(argv[0]);
+	    if(strchr(pp, '.') == NULL) strcat(pp, ".opt");
+	    if(!BasicFileOpen(pp, fnbr, load ? FA_READ : FA_WRITE | FA_CREATE_ALWAYS)) return;
+	    if(!load) {
+	        for(i = 0; i < sizeof(struct option_s); i++) FilePutChar(*s++, fnbr);
+	        FileClose(fnbr);
+	        return;
+	    }
+	    if(f_size(FileTable[fnbr].fptr) != sizeof(struct option_s)) {
+	        FileClose(fnbr);
+	        error("File size incorrect: not saved by OPTION DISK SAVE in this firmware");
+	    }
+	    char *t = GetTempMemory(sizeof(struct option_s));        // read whole first: the SD card's driver reads the options
+	    for(i = 0; i < sizeof(struct option_s); i++) t[i] = FileGetChar(fnbr);   // (SD TIMING...) while it reads, and
+	    FileClose(fnbr);                                        // one changed in the middle hung it
+	    memcpy(s, t, sizeof(struct option_s));
 		goto saveandreset;
 	}
 

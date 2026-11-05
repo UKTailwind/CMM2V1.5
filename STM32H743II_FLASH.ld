@@ -53,7 +53,10 @@ FLASH7 (rx)	    : ORIGIN = 0x080E0000, LENGTH = 128K
 */
 FLASHB2 (rx)    : ORIGIN = 0x08100000, LENGTH = 256K   /* bank 2 sectors 0-1: firmware too (.bank2 below; sector 1 since
                                                           2 Nov 2026, for the loader and the OPL synth) */
-FLASH2 (r)      : ORIGIN = 0x08140000, LENGTH = 768K   /* the program (OPTION FLASH 2-6), the library, the options */
+FLASHOPT (rx)   : ORIGIN = 0x08141000, LENGTH = 124K   /* sector 2: the options (its first 4 KB, written by SaveOptions:
+                                                          flash.c), then mmbrun, run in place (.xip below): right after
+                                                          the firmware, so the one .bin has it (Peter, 4 Nov 2026) */
+FLASH2 (r)      : ORIGIN = 0x08160000, LENGTH = 640K   /* sectors 3-7: the program (OPTION FLASH 2-6) and the library */
 /*RAM_D5 (rw)     : ORIGIN = 0x38800000, LENGTH = 4K*/
 }
 
@@ -118,6 +121,8 @@ SECTIONS
     *libm.a:libm_a-ef_rem_pio2.o(.text .text* .rodata .rodata*)
     *libm.a:libm_a-kf_rem_pio2.o(.text .text* .rodata .rodata*)
     *libm.a:libm_a-sf_floor.o(.text .text* .rodata .rodata*)
+    *libm.a:libm_a-w_acos.o(.text .text* .rodata .rodata*)  /* acos, which only a loaded program calls (cmm2_libm) */
+    *libm.a:libm_a-e_acos.o(.text .text* .rodata .rodata*)
     *stepper.o(.text .text* .rodata .rodata*)            /* STEPPER and TMC22xx (its 200 kHz tick is in ITCM: .itcm) */
     *stepper.c.obj(.text .text* .rodata .rodata*)
     *BmpDecoder.o(.text .text* .rodata .rodata*)         /* LOAD BMP's decoder (26 Oct 2026: bank 1 was full) */
@@ -139,6 +144,16 @@ SECTIONS
     . = ALIGN(4);
     _ebank2 = .;
   } >FLASHB2
+
+  /* .xip: mmbrun, the C compiler's runtime with the BASIC runtime (MmbrunImage.c), the one that runs C and translated
+     BASIC programs alike (Peter, 4 Nov 2026), in bank 2's sector 2 after the options' 4 KB, right after the firmware so
+     that the one .bin has it, at the address it was linked for (cmm2img.h CMM2XIP_FLASH, the SDK's xip.ld), where the
+     loader runs it in place. SaveOptions keeps it, the sector held in RAM while it is erased (flash.c). Writing the .bin
+     erases the options (OPTION DISK SAVE before, OPTION DISK LOAD after) */
+  .xip 0x08141000 :
+  {
+    KEEP(*(.xip))
+  } >FLASHOPT
 
 
   /* The program code and other data goes into FLASH */

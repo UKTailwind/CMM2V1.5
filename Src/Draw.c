@@ -966,6 +966,17 @@ void PageDisplayOn(void){
 	GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
 	HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 }
+void FramebufferClose(void){
+	FreeMemorySafe((void *)&PageTable[BPN].address);
+	FreeMemorySafe((void *)&PageTable[WPN].address);
+	PageTable[BPN].address=NULL;
+	PageTable[BPN].expand=0;
+	PageTable[BPN].nbytes=0;
+	PageTable[WPN].address=NULL;
+	PageTable[WPN].expand=0;
+	PageTable[WPN].nbytes=0;
+}
+
 void cmd_framebuffer(void){
 	char *p;
 	if(VideoColour<8){                                             // a 4 or 1-bit mode: the PicoMite's FRAMEBUFFER (Rgb121.c)
@@ -1026,14 +1037,7 @@ void cmd_framebuffer(void){
     if(p) {
 		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
 		if(WritePage==WPN)error("Framebuffer is set for write");
-		FreeMemorySafe((void *)&PageTable[BPN].address);
-		FreeMemorySafe((void *)&PageTable[WPN].address);
-    	PageTable[BPN].address=NULL;
-    	PageTable[BPN].expand=0;
-    	PageTable[BPN].nbytes=0;
-    	PageTable[WPN].address=NULL;
-    	PageTable[WPN].expand=0;
-    	PageTable[WPN].nbytes=0;
+		FramebufferClose();
     	return;
     }
     p = checkstring(cmdline, "BACKUP");
@@ -1898,6 +1902,219 @@ void fun_3D(void){
 	} else error("Syntax");
 	targ=T_NBR;
 }
+// IMAGE RESIZE_FAST's work, apart from its parsing as a compiled program calls it for every column of a wall (Loader.c):
+// a[0-7] x, y, w, h, new x, new y, new w, new h; a[8] the page read (-1 the FRAMEBUFFER, -2 as it is); a[9] 1 to leave
+// black alone (-2 as 0)
+static uint32_t ResizeArg(long long v, long long lo, long long hi) {
+    if(v < lo || v > hi) error("~ is invalid (valid is ~ to ~)", v, lo, hi);
+    return v;
+}
+void ImageResizeFast(const long long *a) {
+        int cursorhidden=0;
+        if(cursoron && (ReadPage==(VideoColour == 12 ? 1 : 0 ) || WritePage==(VideoColour == 12 ? 1 : 0 ))) {
+    		hidecursor(0);
+    		cursorhidden=1;
+        }
+    	int dontcopyblack=0;
+        if(a[8]==-1){
+        	if(PageTable[WPN].address==NULL)error("Framebuffer not created");
+        	ReadPage=WPN;
+        } else if(a[8]!=-2) ReadPage=ResizeArg(a[8],0,LastPage);
+        int maxWR=PageTable[ReadPage].xmax;
+    	int maxHR=PageTable[ReadPage].ymax;
+    	int maxH=PageTable[WritePage].ymax;
+        int maxW=PageTable[WritePage].xmax;
+    	uint32_t x=ResizeArg(a[0],0,maxWR-1);
+    	uint32_t y=ResizeArg(a[1],0,maxHR-1);
+    	uint32_t w1=ResizeArg(a[2],1,maxWR-x);
+    	uint32_t h1=ResizeArg(a[3],1,maxHR-y);
+    	uint32_t nx=ResizeArg(a[4],0,maxW-1);
+    	uint32_t ny=ResizeArg(a[5],0,maxH-1);
+    	uint32_t w2=ResizeArg(a[6],1,maxW-nx);
+    	uint32_t h2=ResizeArg(a[7],1,maxH-ny);
+        if(a[9]!=-2)dontcopyblack=(ResizeArg(a[9],0,1)<<2);
+		short *buff;
+		char *bbuff;
+		int c, multiplier=(VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4));
+		int px, py, yy;
+		if(w1==w2 && h1==h2 && ReadPage!=WritePage){
+	    	int copymode=PageTable[ReadPage].expand | (PageTable[WritePage].expand<<1);
+	    	switch(copymode){
+	    	case 0:
+	    		MoveBufferNormal( x, y, nx, ny, w1, h1, dontcopyblack);
+	    		break;
+	    	case 1:
+	        	MoveBufferContract( x, y, nx, ny, w1, h1, dontcopyblack);
+	    		break;
+	    	case 2:
+	        	MoveBufferExpand( x, y, nx, ny, w1, h1, dontcopyblack);
+	    		break;
+	    	case 3:
+	        	MoveBufferDup( x, y, nx, ny, w1, h1, dontcopyblack);
+	    	}
+		} else if(w1==w2 && ReadPage!=WritePage){
+    		float y_ratio = ((float)h1/(float)h2) ;
+	    	int copymode=PageTable[ReadPage].expand | (PageTable[WritePage].expand<<1);
+	    	switch(copymode){
+	    	case 0:
+				for (yy=0;yy<h2;yy++) {
+					py = (yy*y_ratio)+y;
+					MoveBufferNormal( x, py, nx, ny+yy, w1, 1, dontcopyblack);
+				}
+	    		break;
+	    	case 1:
+				for (yy=0;yy<h2;yy++) {
+					py = (yy*y_ratio)+y;
+					MoveBufferContract( x, py, nx, ny+yy, w1, 1, dontcopyblack);
+				}
+	    		break;
+	    	case 2:
+				for (yy=0;yy<h2;yy++) {
+					py = (yy*y_ratio)+y;
+					MoveBufferExpand( x, py, nx, ny+yy, w1, 1, dontcopyblack);
+				}
+	    		break;
+	    	case 3:
+				for (yy=0;yy<h2;yy++) {
+					py = (yy*y_ratio)+y;
+					MoveBufferDup( x, py, nx, ny+yy, w1, 1, dontcopyblack);
+				}
+	    	}
+        } else {
+    		int x_ratio = (int)((float)w1/(float)w2*(float)65536.0) ;
+    		int y_ratio = (int)((float)h1/(float)h2*(float)65536.0) ;
+    		int Scale=(PageTable[WritePage].expand ? 2 : 1);
+    		uint32_t wpa=(uint32_t)PageTable[WritePage].address;
+			if(w1*h1*multiplier<LBUFFSIZE){
+				buff=(short *)linebuff;
+			} else {
+				buff=GetTempMemory(w1 * h1 * multiplier);
+			}
+			bbuff=(char*)buff;
+			ReadBufferFast(x,y,x+w1-1,y+h1-1, (char *)bbuff);
+			if(VideoColour==8){
+				if(Scale==1){
+					uint8_t *start1=(uint8_t *)((ny * maxW + nx) + wpa);
+					uint8_t *cout1;
+					for (int i=0;i<h2;i++) {
+						cout1=start1;
+						py = (i*y_ratio)>>16 ;
+						for (int j=0;j<w2;j++) {
+							px = (j*x_ratio)>>16 ;
+							c=bbuff[(int)(px+py*w1)];
+							if(dontcopyblack==0 || c){
+								*cout1=c;
+							}
+							cout1++;
+						}
+						start1+=maxW;
+					}
+				} else {
+					uint8_t *start1=(uint8_t *)((ny * 2 * maxW + nx) + wpa);
+					uint8_t *start2=(uint8_t *)(((ny * 2 + 1) * maxW + nx) + wpa);
+					uint8_t *cout1,*cout2;
+					for (int i=0;i<h2;i++) {
+						py = (i*y_ratio)>>16 ;
+						cout1=start1;
+						cout2=start2;
+						for (int j=0;j<w2;j++) {
+							px = (j*x_ratio)>>16 ;
+							c=bbuff[(int)(px+py*w1)];
+							if(dontcopyblack==0 || c){
+								*cout1=c;
+								*cout2=c;
+							}
+							cout1++;
+							cout2++;
+						}
+					start1+=(maxW<<1);
+					start2+=(maxW<<1);
+					}
+				}
+			} else if(VideoColour<=16) {
+				if(Scale==1){
+					uint16_t *start1=(uint16_t *)((ny * maxW + nx) * 2 + wpa);
+					uint16_t *cout1;
+					for (int i=0;i<h2;i++) {
+						cout1=start1;
+						py = (i*y_ratio)>>16 ;
+						for (int j=0;j<w2;j++) {
+							px = (j*x_ratio)>>16 ;
+							c=buff[(int)(px+py*w1)];
+							if(dontcopyblack==0 || c){
+								*cout1=c;
+							}
+							cout1++;
+						}
+						start1+=maxW;
+					}
+				} else {
+					uint16_t *start1=(uint16_t *)((ny * 2 * maxW + nx) * 2 + wpa);
+					uint16_t *start2=(uint16_t *)(((ny * 2 + 1) * maxW + nx) * 2 + wpa);
+					uint16_t *cout1,*cout2;
+					for (int i=0;i<h2;i++) {
+						py = (i*y_ratio)>>16 ;
+						cout1=start1;
+						cout2=start2;
+						for (int j=0;j<w2;j++) {
+							px = (j*x_ratio)>>16 ;
+							c=buff[(int)(px+py*w1)];
+							if(dontcopyblack==0 || c){
+								*cout1=c;
+								*cout2=c;
+							}
+							cout1++;
+							cout2++;
+						}
+					start1+=(maxW<<1);
+					start2+=(maxW<<1);
+					}
+				}
+			} else{
+				if(Scale==1){
+					uint32_t *start1=(uint32_t *)((ny * maxW + nx) * 4 + wpa);
+					uint32_t *cout1;
+					for (int i=0;i<h2;i++) {
+						cout1=start1;
+						py = (i*y_ratio)>>16 ;
+						for (int j=0;j<w2;j++) {
+							px = (j*x_ratio)>>16 ;
+							c=((uint32_t *)buff)[(int)(px+py*w1)];
+							if(dontcopyblack==0 || c){
+								*cout1=c;
+							}
+							cout1++;
+						}
+						start1+=maxW;
+					}
+				} else {
+					uint32_t *start1=(uint32_t *)((ny * 2 * maxW + nx) * 4 + wpa);
+					uint32_t *start2=(uint32_t *)(((ny * 2 + 1) * maxW + nx) * 4 + wpa);
+					uint32_t *cout1,*cout2;
+					for (int i=0;i<h2;i++) {
+						py = (i*y_ratio)>>16 ;
+						cout1=start1;
+						cout2=start2;
+						for (int j=0;j<w2;j++) {
+							px = (j*x_ratio)>>16 ;
+							c=((uint32_t *)buff)[(int)(px+py*w1)];
+							if(dontcopyblack==0 || c){
+								*cout1=c;
+								*cout2=c;
+							}
+							cout1++;
+							cout2++;
+						}
+					start1+=(maxW<<1);
+					start2+=(maxW<<1);
+					}
+				}
+			}
+        }
+        ReadPage=WritePage;
+        if(cursorhidden)showcursor(0, xcursor,ycursor);
+}
+
 void cmd_image(void){
 	char *p;
 	if(VideoColour<8)error("Invalid for this screen mode");
@@ -2335,213 +2552,11 @@ void cmd_image(void){
     if((p=checkstring(cmdline, "RESIZE_FAST"))) {
     	getargs(&p,19,",");
        	if(argc<15)error("Argument count");
-        int cursorhidden=0;
-        if(cursoron && (ReadPage==(VideoColour == 12 ? 1 : 0 ) || WritePage==(VideoColour == 12 ? 1 : 0 ))) {
-    		hidecursor(0);
-    		cursorhidden=1;
-        }
-    	int dontcopyblack=0;
-        if(argc>=17 && *argv[16]){
-        	if(checkstring(argv[16], "FRAMEBUFFER")){
-        		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
-        		ReadPage=WPN;
-        	} else {
-				ReadPage=getint(argv[16],0,LastPage);
-        	}
-        }
-        int maxWR=PageTable[ReadPage].xmax;
-    	int maxHR=PageTable[ReadPage].ymax;
-    	int maxH=PageTable[WritePage].ymax;
-        int maxW=PageTable[WritePage].xmax;
-    	uint32_t x=getint(argv[0],0,maxWR-1);
-    	uint32_t y=getint(argv[2],0,maxHR-1);
-    	uint32_t w1=getint(argv[4],1,maxWR-x);
-    	uint32_t h1=getint(argv[6],1,maxHR-y);
-    	uint32_t nx=getint(argv[8],0,maxW-1);
-    	uint32_t ny=getint(argv[10],0,maxH-1);
-    	uint32_t w2=getint(argv[12],1,maxW-nx);
-    	uint32_t h2=getint(argv[14],1,maxH-ny);
-        if(argc==19)dontcopyblack=(getint(argv[18],0,1)<<2);
-		short *buff;
-		char *bbuff;
-		int c, multiplier=(VideoColour==8 ? 1 : (VideoColour<=16 ? 2 : 4));
-		int px, py, yy;
-		if(w1==w2 && h1==h2 && ReadPage!=WritePage){
-	    	int copymode=PageTable[ReadPage].expand | (PageTable[WritePage].expand<<1);
-	    	switch(copymode){
-	    	case 0:
-	    		MoveBufferNormal( x, y, nx, ny, w1, h1, dontcopyblack);
-	    		break;
-	    	case 1:
-	        	MoveBufferContract( x, y, nx, ny, w1, h1, dontcopyblack);
-	    		break;
-	    	case 2:
-	        	MoveBufferExpand( x, y, nx, ny, w1, h1, dontcopyblack);
-	    		break;
-	    	case 3:
-	        	MoveBufferDup( x, y, nx, ny, w1, h1, dontcopyblack);
-	    	}
-		} else if(w1==w2 && ReadPage!=WritePage){
-    		float y_ratio = ((float)h1/(float)h2) ;
-	    	int copymode=PageTable[ReadPage].expand | (PageTable[WritePage].expand<<1);
-	    	switch(copymode){
-	    	case 0:
-				for (yy=0;yy<h2;yy++) {
-					py = (yy*y_ratio)+y;
-					MoveBufferNormal( x, py, nx, ny+yy, w1, 1, dontcopyblack);
-				}
-	    		break;
-	    	case 1:
-				for (yy=0;yy<h2;yy++) {
-					py = (yy*y_ratio)+y;
-					MoveBufferContract( x, py, nx, ny+yy, w1, 1, dontcopyblack);
-				}
-	    		break;
-	    	case 2:
-				for (yy=0;yy<h2;yy++) {
-					py = (yy*y_ratio)+y;
-					MoveBufferExpand( x, py, nx, ny+yy, w1, 1, dontcopyblack);
-				}
-	    		break;
-	    	case 3:
-				for (yy=0;yy<h2;yy++) {
-					py = (yy*y_ratio)+y;
-					MoveBufferDup( x, py, nx, ny+yy, w1, 1, dontcopyblack);
-				}
-	    	}
-        } else {
-    		int x_ratio = (int)((float)w1/(float)w2*(float)65536.0) ;
-    		int y_ratio = (int)((float)h1/(float)h2*(float)65536.0) ;
-    		int Scale=(PageTable[WritePage].expand ? 2 : 1);
-    		uint32_t wpa=(uint32_t)PageTable[WritePage].address;
-			if(w1*h1*multiplier<LBUFFSIZE){
-				buff=(short *)linebuff;
-			} else {
-				buff=GetTempMemory(w1 * h1 * multiplier);
-			}
-			bbuff=(char*)buff;
-			ReadBufferFast(x,y,x+w1-1,y+h1-1, (char *)bbuff);
-			if(VideoColour==8){
-				if(Scale==1){
-					uint8_t *start1=(uint8_t *)((ny * maxW + nx) + wpa);
-					uint8_t *cout1;
-					for (int i=0;i<h2;i++) {
-						cout1=start1;
-						py = (i*y_ratio)>>16 ;
-						for (int j=0;j<w2;j++) {
-							px = (j*x_ratio)>>16 ;
-							c=bbuff[(int)(px+py*w1)];
-							if(dontcopyblack==0 || c){
-								*cout1=c;
-							}
-							cout1++;
-						}
-						start1+=maxW;
-					}
-				} else {
-					uint8_t *start1=(uint8_t *)((ny * 2 * maxW + nx) + wpa);
-					uint8_t *start2=(uint8_t *)(((ny * 2 + 1) * maxW + nx) + wpa);
-					uint8_t *cout1,*cout2;
-					for (int i=0;i<h2;i++) {
-						py = (i*y_ratio)>>16 ;
-						cout1=start1;
-						cout2=start2;
-						for (int j=0;j<w2;j++) {
-							px = (j*x_ratio)>>16 ;
-							c=bbuff[(int)(px+py*w1)];
-							if(dontcopyblack==0 || c){
-								*cout1=c;
-								*cout2=c;
-							}
-							cout1++;
-							cout2++;
-						}
-					start1+=(maxW<<1);
-					start2+=(maxW<<1);
-					}
-				}
-			} else if(VideoColour<=16) {
-				if(Scale==1){
-					uint16_t *start1=(uint16_t *)((ny * maxW + nx) * 2 + wpa);
-					uint16_t *cout1;
-					for (int i=0;i<h2;i++) {
-						cout1=start1;
-						py = (i*y_ratio)>>16 ;
-						for (int j=0;j<w2;j++) {
-							px = (j*x_ratio)>>16 ;
-							c=buff[(int)(px+py*w1)];
-							if(dontcopyblack==0 || c){
-								*cout1=c;
-							}
-							cout1++;
-						}
-						start1+=maxW;
-					}
-				} else {
-					uint16_t *start1=(uint16_t *)((ny * 2 * maxW + nx) * 2 + wpa);
-					uint16_t *start2=(uint16_t *)(((ny * 2 + 1) * maxW + nx) * 2 + wpa);
-					uint16_t *cout1,*cout2;
-					for (int i=0;i<h2;i++) {
-						py = (i*y_ratio)>>16 ;
-						cout1=start1;
-						cout2=start2;
-						for (int j=0;j<w2;j++) {
-							px = (j*x_ratio)>>16 ;
-							c=buff[(int)(px+py*w1)];
-							if(dontcopyblack==0 || c){
-								*cout1=c;
-								*cout2=c;
-							}
-							cout1++;
-							cout2++;
-						}
-					start1+=(maxW<<1);
-					start2+=(maxW<<1);
-					}
-				}
-			} else{
-				if(Scale==1){
-					uint32_t *start1=(uint32_t *)((ny * maxW + nx) * 4 + wpa);
-					uint32_t *cout1;
-					for (int i=0;i<h2;i++) {
-						cout1=start1;
-						py = (i*y_ratio)>>16 ;
-						for (int j=0;j<w2;j++) {
-							px = (j*x_ratio)>>16 ;
-							c=((uint32_t *)buff)[(int)(px+py*w1)];
-							if(dontcopyblack==0 || c){
-								*cout1=c;
-							}
-							cout1++;
-						}
-						start1+=maxW;
-					}
-				} else {
-					uint32_t *start1=(uint32_t *)((ny * 2 * maxW + nx) * 4 + wpa);
-					uint32_t *start2=(uint32_t *)(((ny * 2 + 1) * maxW + nx) * 4 + wpa);
-					uint32_t *cout1,*cout2;
-					for (int i=0;i<h2;i++) {
-						py = (i*y_ratio)>>16 ;
-						cout1=start1;
-						cout2=start2;
-						for (int j=0;j<w2;j++) {
-							px = (j*x_ratio)>>16 ;
-							c=((uint32_t *)buff)[(int)(px+py*w1)];
-							if(dontcopyblack==0 || c){
-								*cout1=c;
-								*cout2=c;
-							}
-							cout1++;
-							cout2++;
-						}
-					start1+=(maxW<<1);
-					start2+=(maxW<<1);
-					}
-				}
-			}
-        }
-        ReadPage=WritePage;
-        if(cursorhidden)showcursor(0, xcursor,ycursor);
+    	long long a[10]={0,0,0,0,0,0,0,0,-2,-2};
+    	for(int i=0;i<8;i++)a[i]=getinteger(argv[i*2]);
+        if(argc>=17 && *argv[16])a[8]=checkstring(argv[16], "FRAMEBUFFER") ? -1 : getint(argv[16],0,LastPage);
+        if(argc==19)a[9]=getint(argv[18],0,1);
+        ImageResizeFast(a);
         return;
     }
 

@@ -147,10 +147,12 @@ target_link_libraries(${TARGET} PRIVATE -Wl,--start-group c m -Wl,--end-group)
 set_target_properties(${TARGET} PROPERTIES SUFFIX ".elf" LINK_DEPENDS ${LINKER_SCRIPT})
 
 # --- Outputs (.hex, .bin, .list, size) --------------------------------------
+# The .bin is one block from 0x08000000 to bank 2's sector 2, mmbrun's (.xip) after the options: writing it erases the
+# options, the program (OPTION FLASH, sectors 3 up) is kept (Peter, 4 Nov 2026: OPTION DISK SAVE before, LOAD after)
 add_custom_command(TARGET ${TARGET} POST_BUILD
     COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${TARGET}>
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${TARGET}> ${TARGET}.hex
-    COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${TARGET}> ${TARGET}.bin
+    COMMAND ${CMAKE_OBJCOPY} -O binary --gap-fill 0xFF $<TARGET_FILE:${TARGET}> ${TARGET}.bin   # (the options blank)
     COMMAND ${CMAKE_OBJDUMP} -h -S $<TARGET_FILE:${TARGET}> > ${TARGET}.list
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     BYPRODUCTS ${TARGET}.hex ${TARGET}.bin ${TARGET}.list ${TARGET}.map

@@ -15,7 +15,7 @@ python build.py out/oplbench.app examples/oplbench.c examples/nuked/opl3.c -I ex
 python build.py out/oplplay.app examples/oplplay/oplplay.c examples/nuked/opl3.c examples/oplplay/emu8950/emu8950.c examples/oplplay/emu8950/emuadpcm.c ../../Src/OPLChip.cpp ../../Src/ymfm/ymfm_opl.cpp ../../Src/ymfm/ymfm_adpcm.cpp ../../Src/ymfm/ymfm_pcm.cpp -I examples/nuked -I examples/oplplay/emu8950 --cflag=-Wno-format
 ```
 
-`build.py` compiles the sources with `crt0.c` and `syscalls.c`, links them with `app.ld`, and calls `mkimage.py`. It finds `arm-none-eabi-gcc` in `ARM_TOOLCHAIN_DIR`, else in the folder `CMakePresets.json` names, else on the PATH; use GCC 13.3, as the firmware does. The `.elf` and `.map` are left beside the `.app` in `tools/sdk/out/`, which git ignores.
+`build.py` compiles the sources with `crt0.c` and `syscalls.c`, links them with `app.ld`, and calls `mkimage.py`. `syscalls.c` gives a program the firmware's `memcpy`, `memset` and `memmove` (services version 11; they run from ITCM a word at a time) in place of newlib-nano's byte loops, so rebuilding a program speeds up its copies on a firmware from 4 Nov 2026 on. It finds `arm-none-eabi-gcc` in `ARM_TOOLCHAIN_DIR`, else in the folder `CMakePresets.json` names, else on the PATH; use GCC 13.3, as the firmware does. The `.elf` and `.map` are left beside the `.app` in `tools/sdk/out/`, which git ignores.
 
 Options:
 
@@ -27,6 +27,8 @@ Options:
 | `--vram` | A G1 lends it its display memory too (about 7 MB in all, the video modes limited to those whose page fits in internal RAM). Use with `--api 8`; a G2 ignores it. Doom and ScummVM are built this way. |
 | `--g2` | A G1 refuses it ("Needs a G2"): for a program that can't run on a G1 at all. |
 | `--base 0x60000000` | Link elsewhere, so the loader has to relocate every address. This tests the relocations: a missed one faults, because that FMC bank is unused. |
+| `--xip` | Not a `.app`, but a runtime the firmware carries in its own flash and runs in place: linked with `xip.ld` (code at 0x08141000 by default, `--xip-base` to move it; `.data` and `.bss` in the 16 KB of D2 RAM at 0x30004000), and OUT is the flash's bytes. It calls the firmware's libm (`fwlibm.c`, services version 11) instead of carrying its own. Only mmbrun, the C compiler's runtime with the BASIC runtime, is built this way (`apps/cc/make.py`, into `Src/MmbrunImage.c`). |
+| `--no-printf-float` | Leave out newlib's `printf` of floats (dtoa, about 4 KB), for a program that formats its own. |
 | `--cflag`, `--cxxflag`, `--ldflag` | Extra flags for the compiler (C and C++, or C++ only) and the link. |
 | `-I DIR`, `--sources FILE`, `-j JOBS` | Include directories, a file listing the sources, parallel jobs. |
 

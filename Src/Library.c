@@ -10,7 +10,7 @@ top level every program shares.
   LIBRARY DISK SAVE fname$           its image to a file (".lib" if none is given)
   LIBRARY DISK LOAD fname$           an image from a file into the flash library
 
-Where it is.  The flash library is bank 2 sector 6, 128 KB, the last program slot (OPTION FLASH 6), as the PicoMite's
+Where it is.  The flash library is bank 2 sector 7, 128 KB, the last program slot (OPTION FLASH 6), as the PicoMite's
 is its last flash slot.  Option.libflash says it holds a library and Option.libhash which files LIBRARY LOAD made it
 from, so loading the same files again touches nothing (the hash is 0 after LIBRARY SAVE or DISK LOAD, which come from
 no files).  A RAM library (LIBRARY LOAD ..., RAM) is a heap block (Peter, 17 Oct: no fixed SDRAM area).  It shadows the
@@ -31,10 +31,10 @@ set.  As on the PicoMite only a CSUB's binary is kept, not its hex text, and bla
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 
-#define LIB_FLASH_ADDR  ADDR_FLASH_SECTOR_6_BANK2
+#define LIB_FLASH_ADDR  ADDR_FLASH_SECTOR_7_BANK2                   // (OPTION FLASH 6's sector: main.c progstart, 4 Nov 2026)
 #define LIB_FLASH_SLOT  6
 #define LIB_MAX         0x20000                                     // the image's limit: one flash sector
-#define LIB_FLAG        0x4C                                        // Option.libflash: 'L' when sector 6 holds a library
+#define LIB_FLAG        0x4C                                        // Option.libflash: 'L' when sector 7 holds a library
 #define MAXLIBFILES     8
 #define MAXLIBNAMES     64                                          // the files a LIBRARY SAVE may gather
 #define LIB_HASH_SEED   2166136261u                                 // FNV-1a, across every file in order

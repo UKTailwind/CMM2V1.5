@@ -216,7 +216,7 @@ static void SlotRefuse(int slot, int kind, const uint8_t *p, int n) {
 
 /* The CSUB records of the program's image at img (len bytes): each address word moved by delta (a font's, its number,
    stays). -1 if the image is not sound, else 1 if it has a CSUB (delta 0: only the question). */
-static int ImageRebase(uint8_t *img, int len, int32_t delta) {
+int ImageRebase(uint8_t *img, int len, int32_t delta) {
     const unsigned int *rec;
     unsigned int *cfp;
     int csubs = 0;

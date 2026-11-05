@@ -68,12 +68,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	#define SAVED_VAR_RAM_ADDR     ((uint32_t)0x38800000)   /* Start of Saved Variables flash area */
    // #define PROGRAMSTARTCODE 0
  	//#define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_0_BANK2   /* Start Basic Program flash area */
-    #define PROGRAMSTARTCODE 2
-    #define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_2_BANK2   /* Start Basic Program flash area */
-    #define FLASH_FIRMWARE_END       ADDR_FLASH_SECTOR_2_BANK2   /* the firmware: bank 1 and bank 2 sectors 0-1 (the linker
-                                                                    script's .bank2; sector 0 19 Oct, sector 1 2 Nov 2026) */
+    #define PROGRAMSTARTCODE 2                                   /* OPTION FLASH 2-6: bank 2 sectors 3-7 (main.c progstart:
+                                                                    one sector up from their numbers since 4 Nov 2026) */
+    #define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_3_BANK2   /* Start Basic Program flash area (OPTION FLASH 2's) */
+    #define FLASH_FIRMWARE_END       ADDR_FLASH_SECTOR_3_BANK2   /* the firmware: bank 1 and bank 2 sectors 0-1 (the linker
+                                                                    script's .bank2; sector 0 19 Oct, sector 1 2 Nov 2026),
+                                                                    and sector 2, the options and mmbrun (4 Nov 2026) */
 	#define SAVED_VAR_RAM_SIZE 0x1000  // amount of flash reserved for saved variables
-	#define FLASH_SAVED_OPTION_ADDR  ADDR_FLASH_SECTOR_7_BANK2   /* Start of Saved Options flash area */
+	#define SAVED_OPTIONS_SIZE 0x1000  // the options' part of sector 2: mmbrun follows (cmm2img.h CMM2XIP_FLASH)
+	#define FLASH_SAVED_OPTION_ADDR  ADDR_FLASH_SECTOR_2_BANK2   /* Start of Saved Options flash area: bank 2's sector 2,
+	                                                                right after the firmware, mmbrun after the options, all
+	                                                                in the one .bin (Peter, 4 Nov 2026) */
 	#define SAVED_OPTIONS_FLASH 4
 /* Base address of the Flash sectors */
 
@@ -141,7 +146,7 @@ struct option_s {
 	uint8_t F19Key[64];
 	uint8_t F20Key[64];
 	uint8_t layout;                     // OPTION_LAYOUT; options saved before the keys above have erased flash there
-	uint8_t libflash;                   // LIBRARY: 'L' when bank 2 sector 6 holds the flash library (erased flash: none)
+	uint8_t libflash;                   // LIBRARY: 'L' when bank 2 sector 7 holds the flash library (erased flash: none)
 	uint8_t libhash[4];                 // and the hash of the files LIBRARY LOAD made it from (0: from none)
 	uint8_t mousespeed[4];              // OPTION MOUSE SENSITIVITY: a float, USB mice's divisor (erased flash: 0)
 	uint8_t Compile;                    // OPTION COMPILE: RB_OFF, RB_ON or RB_SHADOW (Stream.h; erased flash, 0xFF: OFF)
@@ -192,6 +197,7 @@ long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *Calle
 extern char *SDMemory;
 extern char *ProgMemory;
 extern void ClearSavedVars(void);
+extern int OldLayoutMove(void);
 
 
 /* Private function prototypes -----------------------------------------------*/

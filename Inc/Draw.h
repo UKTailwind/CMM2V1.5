@@ -66,6 +66,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void CursorRunReset(void);                   // RUN: its shape, point and colour forgotten
 //    extern void DrawPixel(int x, int y, int c);
     extern void ClearScreen(int c);
+    extern void FramebufferClose(void);
+    extern void ImageResizeFast(const long long *a);
     extern void SetFont(int fnt);
     extern void ResetDisplay(void);
     extern int GetFontWidth(int fnt);

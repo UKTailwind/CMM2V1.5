@@ -1,11 +1,16 @@
 """build.py OUT.app SOURCE.c|.cpp|.o [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
-            [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
+            [--xip] [--xip-base ADDR] [--no-printf-float] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
 CMakePresets.json's, else the PATH's): compiles the sources with crt0.c and syscalls.c for the M7 (double-precision
 hard float; C++ as C++14 without exceptions or RTTI, and then linked by g++ for its library), links them with app.ld at
 --base (default 0xD1800000, where the G2 loads a program, so nothing is moved; a G1 moves it), and makes OUT.app with
 mkimage.py.
+--xip builds instead a runtime the firmware carries in its own flash and runs in place (as bcrun, apps/cc/make.py):
+linked with xip.ld at --xip-base (default cmm2img.h's CMM2XIP_FLASH, mmbrun's place) and CMM2XIP_RAM, with crt0.c's cmm2xip_header first, and OUT (.bin) is
+the flash's bytes, for a C file the firmware is built with. It takes the firmware's libm (fwlibm.c), not its own.
+--no-printf-float leaves out newlib's printf of floats (dtoa, 4 KB), which a program that formats its own does not
+need: printf's %f is otherwise always there.
 The ELF and its map are left beside OUT.app. --base 0x60000000 makes a copy that the loader must relocate (a pointer
 it missed would then fault at once, the FMC bank there being unused): the test of the relocations.
 
@@ -82,12 +87,18 @@ def main():
     ap.add_argument('--api', default='1')
     ap.add_argument('--g2', action='store_true')
     ap.add_argument('--vram', action='store_true')
+    ap.add_argument('--xip', action='store_true')
+    ap.add_argument('--xip-base', default='0x08141000')
+    ap.add_argument('--no-printf-float', dest='pfloat', action='store_false')
     ap.add_argument('--cflag', action='append', default=[])
     ap.add_argument('--cxxflag', action='append', default=[])
     ap.add_argument('--ldflag', action='append', default=[])
     ap.add_argument('-I', dest='incs', action='append', default=[])
     ap.add_argument('-j', dest='jobs', type=int, default=os.cpu_count() or 4)
     a = ap.parse_args()
+    if a.xip:                                                       # (in the flags' key: a change rebuilds everything)
+        a.cflag += ['-DCMM2_XIP', '-DCMM2_XIP_API=' + a.api, '-DCMM2_XIP_STACK=' + str(int(a.stack, 0)),
+                    '-DCMM2_XIP_HEAP=' + str(int(a.heap, 0))]
     stem = os.path.splitext(a.out)[0]
     objdir = stem + '.obj'
     os.makedirs(objdir, exist_ok=True)
@@ -96,6 +107,8 @@ def main():
     if a.listfile:
         sources += [l.strip() for l in open(a.listfile) if l.strip() and not l.startswith('#')]
     sources += [os.path.join(SDK, 'crt0.c'), os.path.join(SDK, 'syscalls.c')]
+    if a.xip:
+        sources.append(os.path.join(SDK, 'fwlibm.c'))
     # the flags as they were: a change rebuilds everything
     key = hashlib.md5(json.dumps([CFLAGS, CXXFLAGS, a.cflag, a.cxxflag, incs]).encode()).hexdigest()
     keyfile = os.path.join(objdir, 'flags.md5')
@@ -128,14 +141,22 @@ def main():
     open(keyfile, 'w').write(key)
     rsp = stem + '.rsp'
     open(rsp, 'w').write('\n'.join('"%s"' % o.replace('\\', '/') for o in objs) + '\n')
+    layout = (['-T', os.path.join(SDK, 'xip.ld'), '-Wl,--defsym=__xip_base=' + a.xip_base] if a.xip else
+              ['-T', os.path.join(SDK, 'app.ld'), '-Wl,--defsym=__app_base=' + a.base, '-Wl,--emit-relocs'])
     cmd = ([GXX if cxx else GCC] + FLAGS + a.cflag + ['@' + rsp] +
-           ['-nostartfiles', '-T', os.path.join(SDK, 'app.ld'), '-Wl,--defsym=__app_base=' + a.base,
-            '-Wl,--gc-sections', '-Wl,--emit-relocs', '-Wl,-Map=' + stem + '.map', '-Wl,--no-warn-rwx-segments',
-            '-u', '_printf_float', '-o', stem + '.elf'] + a.ldflag +
+           ['-nostartfiles'] + layout +
+           ['-Wl,--gc-sections', '-Wl,-Map=' + stem + '.map', '-Wl,--no-warn-rwx-segments',
+            '-o', stem + '.elf'] + (['-u', '_printf_float'] if a.pfloat else []) + a.ldflag +
            ['-Wl,--start-group', '-lc', '-lm', '-lgcc', '-Wl,--end-group'])
     r = subprocess.run(cmd)
     if r.returncode:
         sys.exit(r.returncode)
+    if a.xip:                                                       # the flash's bytes, from CMM2XIP_FLASH
+        r = subprocess.run([os.path.join(tooldir, 'arm-none-eabi-objcopy' + EXE), '-O', 'binary', stem + '.elf', a.out])
+        if r.returncode or open(a.out, 'rb').read(8) != b'CMM2XIP\0':
+            sys.exit('%s: no cmm2xip_header at its start' % a.out)
+        print('%s: %d bytes in the flash' % (a.out, os.path.getsize(a.out)))
+        sys.exit(0)
     r = subprocess.run([sys.executable, '-I', os.path.join(SDK, 'mkimage.py'), stem + '.elf', a.out,
                         '--stack', str(int(a.stack, 0)), '--heap', str(int(a.heap, 0)), '--api', a.api] +
                        (['--g2'] if a.g2 else []) + (['--vram'] if a.vram else []))

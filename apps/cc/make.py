@@ -12,11 +12,14 @@ meet. The driver calls each where Fuzix forks and execs it (cmm2/ccbc_cmm2.c). T
 
 bcrun.app loads a compiled program (prog.bc), relocates it and runs it: its native Thumb-2 functions directly, the rest
 as bytecode. The runtime is not under the compiler's GPLv3 (the kit's README); fnum.c, printf's %e %f %g, is from
-Fuzix's C library. The firmware carries it in bank 2's flash (Peter, 4 Nov 2026: so that a compiled program needs
-nothing on the card), as Src/BcrunImage.c, which this writes whenever it builds bcrun.app: the firmware is then built
-again with it, and the two are committed together.
+Fuzix's C library. The firmware carries it with the BASIC runtime, as mmbrun, the one runtime for C and translated
+BASIC programs alike (Peter, 4 Nov 2026: so that a compiled program needs nothing on the card), in bank 2's sector 2
+after the options, and runs it there in place: built --xip (tools/sdk/build.py) as out/mmbrunx.bin, the flash's bytes at
+cmm2img.h's CMM2XIP_FLASH; Src/MmbrunImage.c holds them, and this writes it whenever it builds mmbrun: the firmware is
+then built again with it, and the two are committed together. out/bcrun.app and out/mmbrun.app, the same as loadable
+programs, are for comparison runs from the card (RUN "mmbrun.app", "prog.bc").
 
-    python apps/cc/make.py [cc|bcrun]
+    python apps/cc/make.py [cc|bcrun|mmbrun]
 then put out/sd/cc on the SD card as A:/cc (cc.app, and the headers in include/), and at the CMM2's prompt:
 CC "prog.c" and RUN "prog.bc" [, args], or RUN "prog.c" [, args] for both
 """
@@ -30,7 +33,7 @@ CC = os.path.join(SRC, 'Applications', 'CC')
 CPP = os.path.join(SRC, 'Applications', 'cpp')
 OUT = os.path.join(HERE, 'out')
 URL = 'https://github.com/UKTailwind/FUZIX'
-COMMIT = 'e9dae111632cb8d2f458495589aff95bfaaa62cc'   # branch cmm2, 4 Nov 2026 (from pc3's 6d662a677)
+COMMIT = 'e0e8516f220e3cb8edb0c583cfc61a1b4b91fe61'   # branch cmm2, 5 Nov 2026 (from pc3's 6d662a677)
 SPARSE = ['Applications/CC', 'Applications/cpp', 'Applications/mmb2c', 'Library/libs/fnum.c']
 
 # the passes: their sources (Makefile.common and Makefile.host's lists) and flags (the host build's: tables as big as
@@ -38,10 +41,15 @@ SPARSE = ['Applications/CC', 'Applications/cpp', 'Applications/mmb2c', 'Library/
 PASSFLAGS = ['-DCPU_armm0', '-DNO_FLOAT', '-DBIG_TABLES', '-include', 'unistd.h', '-I', CC]
 C1 = '''body.c declaration.c enum.c error.c expression.c header.c idxdata.c initializer.c label.c lex.c main.c primary.c
         stackframe.c storage.c struct.c switch.c symbol.c tree.c type.c type_iterator.c target-thumb.c'''.split()
+MMBC = os.path.join(SRC, 'Applications', 'mmb2c', 'mmbc')
 PASSES = [('cpp', CPP, 'cpp.c hash.c main.c token1.c token2.c'.split(), ['-I', CPP]),
+          ('mmbc', MMBC, ('mmbc_main.c mmbc_lex.c mmbc_util.c mmbc_tab.c mmbc_sym.c mmbc_expr.c mmbc_builtin.c '
+                          'mmbc_decl.c mmbc_walk.c mmbc_stmt.c mmbc_type.c mmbc_out.c mmbc_font.c').split(),
+           ['-I', MMBC, '-DMMBC_ARENA', '-DMMBC_ARENA_MALLOC']),
           ('cc0', CC, ['frontend.c'], PASSFLAGS),
           ('cc1', CC, C1, PASSFLAGS),
-          ('cc2', CC, ['backend.c', 'backend-bcode.c'], PASSFLAGS + ['-DTHUMB_VFP'])]   # (doubles inline in the FPU)
+          ('cc2', CC, ['backend.c', 'backend-bcode.c'], PASSFLAGS + ['-DTHUMB_VFP', '-DCMM2_TARGET', '-DARENA_TABLES', '-DARENA_MALLOC'])]   # (doubles inline in the
+                                                                    # FPU, its tables on the heap: under 5 MB on a G1)
 
 
 def git(*args, **kw):
@@ -64,10 +72,21 @@ def sdk(args):
         sys.exit(r.returncode)
 
 
-def bcrun(extra):
-    sdk([os.path.join(OUT, 'bcrun.app'), os.path.join(CC, 'bcrun.c'), os.path.join(CC, 'cmm2', 'bcrun_cmm2.c'),
-         os.path.join(SRC, 'Library', 'libs', 'fnum.c'), '--stack', '0x20000', '-I', CC, '-I', os.path.join(CC, 'cmm2'),
-         '--cflag=-DCMM2'] + ['--cflag=' + a for a in extra])     # (the program's own stack is in its memory, not here)
+def bcrun(extra, mm=False, xip=False):
+    """bcrun.app, or with mm mmbrun.app: bcrun with the BASIC runtime (Applications/mmb2c's, its /dev/sys answered by
+    cmm2/cmm2_sys.c), which runs what the translator makes and C alike; with xip (mm) mmbrunx.bin, to run in place
+    from the firmware's flash (CMM2XIP_FLASH, xip.ld's default)"""
+    srcs = [os.path.join(CC, 'bcrun.c'), os.path.join(CC, 'cmm2', 'bcrun_cmm2.c'),
+            os.path.join(SRC, 'Library', 'libs', 'fnum.c')]
+    flags = ['--cflag=-DCMM2']
+    if mm:
+        srcs.append(os.path.join(CC, 'cmm2', 'cmm2_sys.c'))
+        flags += ['--cflag=-DCMM2_MM', '-I', os.path.join(SRC, 'Applications', 'mmb2c')]
+    out = ('mmbrun' if mm else 'bcrun') + ('x.bin' if xip else '.app')
+    sdk([os.path.join(OUT, out)] + srcs + (['--xip'] if xip else []) +
+        ['--no-printf-float'] +                                     # (fnum.c's %f)
+        ['--stack', '0x20000', '-I', CC, '-I', os.path.join(CC, 'cmm2')] + flags +
+        ['--cflag=' + a for a in extra])                            # (the program's own stack is in its memory, not here)
 
 
 def passobj(name, folder, files, flags, b):
@@ -111,36 +130,41 @@ def main():
     what = [a for a in sys.argv[1:] if not a.startswith('-')]
     extra = [a for a in sys.argv[1:] if a.startswith('-')]     # (flags for the compiler: -O3 and the like)
     if not what or 'bcrun' in what:
-        bcrun(extra)
+        bcrun(extra)                                                # (out/bcrun.app: for comparison runs)
+    if not what or 'mmbrun' in what:
+        bcrun(extra, mm=True)
+        bcrun(extra, mm=True, xip=True)
         image(head, dirty)
     if not what or 'cc' in what:
         cc(extra)
     card()
 
 
-def image(head, dirty):
-    """Src/BcrunImage.c: bcrun.app's file as a constant in bank 2, which the firmware's loader reads in place of a file
-    on the card (Loader.c, ld_bc)"""
-    data = open(os.path.join(OUT, 'bcrun.app'), 'rb').read()
+def image(head, dirty, binname='mmbrunx.bin', out=os.path.join(REPO, 'Src', 'MmbrunImage.c'), name='MmbrunImage',
+          section='.xip'):
+    """Src/MmbrunImage.c: out/mmbrunx.bin's bytes as a constant in the firmware's .xip, at the flash address they were
+    linked for, where the loader runs the runtime in place (Loader.c, ld_bc)"""
+    data = open(os.path.join(OUT, binname), 'rb').read()
     rows = [', '.join('0x%02X' % b for b in data[i:i + 16]) for i in range(0, len(data), 16)]
-    out = os.path.join(REPO, 'Src', 'BcrunImage.c')
+    what = 'bcrun, the C compiler\'s runtime,' if name == 'BcrunImage' else 'mmbrun, bcrun with the BASIC runtime,'
     open(out, 'w', newline='\n').write(
-        '/* BcrunImage.c: bcrun.app, the C compiler\'s runtime, as the firmware carries it in bank 2\'s flash (Peter, 4 Nov\n'
-        '   2026: a compiled program then needs nothing on the card). Loader.c loads it as it loads a program from the card.\n'
-        '   Made by apps/cc/make.py from apps/cc/out/bcrun.app, built from Peter\'s Fuzix fork, branch cmm2, at %s%s:\n'
+        '/* %s.c: %s as the firmware carries it in bank 2\'s flash (Peter, 4 Nov 2026:\n'
+        '   a compiled program then needs nothing on the card), linked for the place the link script\'s %s gives it\n'
+        '   (cmm2img.h), where Loader.c runs it. Made by apps/cc/make.py from apps/cc/out/%s, built\n'
+        '   from Peter\'s Fuzix fork, branch cmm2, at %s%s:\n'
         '   do not edit, but run make.py and build the firmware again. bcrun is the runtime of the Fuzix Compiler Kit\'s\n'
         '   PC3 target, not under the compiler\'s GPLv3 (the kit\'s README). */\n'
         '#include <stdint.h>\n\n'
-        'const uint32_t BcrunImageSize = %d;\n'
-        'const uint8_t BcrunImage[%d] __attribute__((section(".bank2"), aligned(4))) = {\n%s\n};\n'
-        % (head[:9], ' with changes' if dirty else '', len(data), len(data), ',\n'.join('    ' + r for r in rows)))
-    print('%s: bcrun.app, %d bytes' % (out, len(data)))
+        'const uint8_t %s[%d] __attribute__((section("%s"), used, aligned(4))) = {\n%s\n};\n'
+        % (name, what, section, binname, head[:9], ' with changes' if dirty else '', name, len(data), section,
+           ',\n'.join('    ' + r for r in rows)))
+    print('%s: %s, %d bytes' % (out, binname, len(data)))
 
 
 def card():
     """out/sd/cc, the SD card's A:/cc (the folder the firmware's CC and RUN of a .c use): cc.app (bcrun is in the
     firmware); in include/ the headers - ctest-include's (what the PC3's card has), then the CMM2's over them
-    (cmm2/include: math.h, ctype.h, time.h, a stdlib.h with all that bcrun has, and cmm2.h, the services); and in
+    (cmm2/include: a time.h with clock, a stdlib.h with all that bcrun has, and cmm2.h, the services); and in
     examples/ the CMM2's examples"""
     import shutil
     sd = os.path.join(OUT, 'sd', 'cc')
@@ -150,16 +174,25 @@ def card():
     os.makedirs(ex, exist_ok=True)
     if os.path.exists(os.path.join(sd, 'bcrun.app')):
         os.remove(os.path.join(sd, 'bcrun.app'))
-    if os.path.exists(os.path.join(OUT, 'cc.app')):
-        shutil.copy(os.path.join(OUT, 'cc.app'), sd)
-    for d in (os.path.join(CC, 'hosttest', 'ctest-include'), os.path.join(CC, 'cmm2', 'include')):
-        for f in sorted(os.listdir(d)):
-            if f.endswith('.h'):
-                shutil.copy(os.path.join(d, f), inc)
+    for f in ('cc.app', 'mmbrun.app'):
+        if os.path.exists(os.path.join(OUT, f)):
+            shutil.copy(os.path.join(OUT, f), sd)
+    # as the PC3's card has them (Applications/CC/mkccimage.sh): ctest-include's, the four FCC-view headers by name, and
+    # every mmb_*.h (what a translated program reads); then the CMM2's over them
+    mmb = os.path.join(SRC, 'Applications', 'mmb2c')
+    hdrs = [os.path.join(CC, 'hosttest', 'ctest-include', f) for f in os.listdir(os.path.join(CC, 'hosttest',
+                                                                                            'ctest-include'))]
+    hdrs += [os.path.join(mmb, 'fcc', 'include', f) for f in ('math.h', 'ctype.h', 'stdint.h', 'time.h')]
+    hdrs += [os.path.join(mmb, f) for f in os.listdir(mmb) if f.startswith('mmb_')]
+    hdrs += [os.path.join(CC, 'cmm2', 'include', f) for f in os.listdir(os.path.join(CC, 'cmm2', 'include'))]
+    for h in hdrs:
+        if h.endswith('.h'):
+            shutil.copy(h, inc)
     for f in sorted(os.listdir(os.path.join(CC, 'cmm2', 'examples'))):
         shutil.copy(os.path.join(CC, 'cmm2', 'examples', f), ex)
-    print('%s: %s, include/ %s, examples/ %s' % (sd, ' '.join(f for f in sorted(os.listdir(sd)) if f.endswith('.app')),
-                                                 ' '.join(sorted(os.listdir(inc))), ' '.join(sorted(os.listdir(ex)))))
+    print('%s: %s, include/ %d headers, examples/ %s' % (sd, ' '.join(f for f in sorted(os.listdir(sd))
+                                                                      if f.endswith('.app')),
+                                                         len(os.listdir(inc)), ' '.join(sorted(os.listdir(ex)))))
 
 
 if __name__ == '__main__':

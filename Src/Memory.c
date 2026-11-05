@@ -141,7 +141,9 @@ void *GetStringMemory(void);
 int TempMemoryIsChanged = false;						            // used to prevent unnecessary scanning of strtmp[]
 int StrTmpIndex = 0;                                                // index to the next unallocated slot in strtmp[]
 //unsigned int   __attribute__ ((aligned (8))) smap[16]; //16*16*256 = 64Kbyte of memory
-unsigned int *SDmap=(unsigned int *)0x30000000; //space for 24Mbyte of memory
+unsigned int *SDmap=(unsigned int *)0x30000000; //space for 16Mbyte of memory (Memory.h SDMAP_SIZE)
+_Static_assert((0xD1800000 - 0x100 - 0xD0880000) / RAMPAGESIZE / PAGESPERWORD * 4 + 4 <= SDMAP_SIZE,
+               "a G2's SDRAM heap needs a larger page map than SDMAP_SIZE (the in-place runtime's RAM is above it)");
 unsigned int __attribute__ ((aligned (8))) mmap[65];// 64*16*256 = 256Kbyes of memory
 extern unsigned int GetPokeAddr(char *p);
 extern unsigned int GetPeekAddr(char *p);
@@ -1090,7 +1092,7 @@ static void HeapWipe(void **keep, int *size, int n) {
     void *slot[MAXIMAGESLOTS];
     int i, slotsize[MAXIMAGESLOTS], nslots = RamSlotBlocks(slot, slotsize);   // the RAM slots stay (ImageSlots.c): their sizes
     BBCSoundRelease();                                              // read now. PLAY BBC's state block is in this heap: freed while the map is valid
-    memset(SDmap,0x00,0x8000);
+    memset(SDmap,0x00,SDMAP_SIZE);
     memset(mmap,0x00,sizeof(mmap));
     for(i = 0; i < MAXTEMPSTRINGS; i++) StrTmp[i] = NULL;
     MBitsSet((unsigned char *)RAMEND, PUSED | PLAST);

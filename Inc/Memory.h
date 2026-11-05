@@ -134,7 +134,12 @@ extern uint32_t RBStreamSize;
 #define LOADER_SIZE       	0x800000
 #define LOADER_VRAM_BASE  	0xD0000000                      // a G1's display memory, lent (Loader.c, CMM2IMG_FLAG_VRAM)
 #define LOADER_VRAM_SIZE  	0x300000
+// the SDRAM heap's page map at 0x30000000 (Memory.c SDmap): 2 bits for each 256 bytes, so 16 KB maps 16 MB, more than a
+// G2's 15.5 MB heap. The 16 KB above it, to RAMBASE's 0x30008000, is the RAM of the runtime the firmware runs in place
+// from its flash (cmm2img.h CMM2XIP_RAM: bcrun's .data and .bss, Peter 4 Nov 2026)
+#define SDMAP_SIZE        	0x4000
 extern int LoaderExec, LoaderVram, LoaderNoSbrk;
+extern volatile int LoaderActive;
 extern int LargestFreeOnHeap(void);
 extern int HeapBottomFree(void);
 extern void *HeapClaimBottom(int size);

@@ -17,6 +17,7 @@ uint8_t *ImageSlotAddress(int slot);
 uint8_t *ImageSlotPixels(int slot, int *w, int *h, const char *none);
 void ImageSlotBlit(const uint8_t *src, int srcw, int srch, int sx, int sy, int w, int h, int page, int dx, int dy, int transparent);
 void ImageSlotsForget(void);
+int ImageRebase(uint8_t *img, int len, int32_t delta);
 void BlitFlash(char *p);
 void TileMapForget(void);
 extern int Rgb121Colours[16];                   // the 4-bit depth's 16 colours: Rgb121Vga's, or Rgb121Hdmi's under OPTION

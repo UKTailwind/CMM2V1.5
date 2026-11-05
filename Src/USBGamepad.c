@@ -587,6 +587,15 @@ void USBGamepadDevice(char *tp) {
     else iret = 0;
 }
 
+// the loader's gamepad service: DEVICE(GAMEPAD n, B), LX and LY for a compiled or loaded program, with no parsing
+int USBGamepadState(int n, int *lx, int *ly) {
+    if(n < 1 || n > HID_SLOTS || Pad[n].type == 0) return -1;
+    int sticks = Pad[n].type != GAMEPAD_SNES;                       // (a generic pad has none here: its d-pad is in the bitmap)
+    if(lx) *lx = sticks ? Pad[n].lx : 128;
+    if(ly) *ly = sticks ? Pad[n].ly : 128;
+    return Pad[n].b;
+}
+
 char *GamepadInterrupt(void) {
     for(int n = 1; n <= HID_SLOTS; n++)
         if(Pad[n].interrupt != NULL && Pad[n].found) {

@@ -1,11 +1,14 @@
 /* syscalls.c: newlib's system calls for a loadable program (tools/sdk), on the firmware's services. MIT License, as
    cmm2img.h.
 
-   File descriptors 0-2 are the console (a newline goes out as CR LF; a read waits for one key, echoes it, and gives
-   Enter as a newline), or a file put in its place by dup2, as a shell's < and > would; 3 up are the services' file
-   handles 0-7. The heap (malloc) is the start block's, between the
-   program's .bss and its stack. time() and gettimeofday() read MMBasic's clock (DATE$ and TIME$), with the
-   microseconds since start-up for the fraction. */
+   File descriptors 0-2 are the console (a newline goes out as CR LF while OPOST and ONLCR are on; a read waits for
+   one key, echoes it, and gives Enter as a newline), or a file put in its place by dup2, as a shell's < and > would; 3
+   up are the services' file handles 0-7. The console has a termios (sys/termios.h): ECHO, ICRNL, ONLCR, and with
+   ICANON off VMIN and VTIME, so that a read can return at once with no key, as an INKEY$ does. The heap (malloc) is
+   the start block's, between the program's .bss and its stack. time() and gettimeofday() read MMBasic's clock (DATE$
+   and TIME$), with the microseconds since start-up for the fraction. opendir and the rest (sys/dirent.h), stat, chdir and getcwd are the
+   services' (versions 5 and 10); fork, exec and wait refuse, as one program cannot start another. memcpy, memset and
+   memmove are the firmware's (version 11). */
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -14,6 +17,11 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <dirent.h>
+#include <stdlib.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/statvfs.h>
 #include "cmm2.h"
 
 #undef errno
@@ -25,18 +33,62 @@ extern int errno;
 static int8_t stdh[FD_FILE] = {-1, -1, -1};             /* 0-2: the handle dup2 put in the console's place, or -1 */
 static uint8_t refs[HANDLES];                           /* the descriptors open on each handle */
 
+/* memcpy, memset and memmove (Peter, 4 Nov 2026): newlib-nano's are byte loops, and a program, newlib itself and GCC's
+   structure copies all call them. From version 11 they are the firmware's (word at a time, from ITCM), bound by
+   cmm2_mem_bind when _start has the services; before that, or from an older firmware, these byte loops. */
+#define NOLIBCALL __attribute__((optimize("no-tree-loop-distribute-patterns")))   /* (a loop must not become a call) */
+static void *NOLIBCALL byte_copy(void *d, const void *s, size_t n) {
+    uint8_t *dp = d;
+    const uint8_t *sp = s;
+    while(n--) *dp++ = *sp++;
+    return d;
+}
+static void *NOLIBCALL byte_fill(void *d, int c, size_t n) {
+    uint8_t *dp = d;
+    while(n--) *dp++ = (uint8_t)c;
+    return d;
+}
+static void *NOLIBCALL byte_move(void *d, const void *s, size_t n) {
+    uint8_t *dp = d;
+    const uint8_t *sp = s;
+    if(dp <= sp || dp >= sp + n) return byte_copy(d, s, n);
+    dp += n;
+    sp += n;
+    while(n--) *--dp = *--sp;
+    return d;
+}
+static void *(*mem_copy)(void *, const void *, size_t) = byte_copy;
+static void *(*mem_fill)(void *, int, size_t) = byte_fill;
+static void *(*mem_move)(void *, const void *, size_t) = byte_move;
+
+void cmm2_mem_bind(void) {
+    if(cmm2->version >= 11) {
+        mem_copy = cmm2->mem_copy;
+        mem_fill = cmm2->mem_fill;
+        mem_move = cmm2->mem_move;
+    }
+}
+
+void *memcpy(void *d, const void *s, size_t n) { return mem_copy(d, s, n); }
+void *memset(void *d, int c, size_t n) { return mem_fill(d, c, n); }
+void *memmove(void *d, const void *s, size_t n) { return mem_move(d, s, n); }
+
 /* the services' handle a descriptor stands for, or -1: the console */
 static int handle(int fd) {
     if(fd < 0) return -1;
     return fd < FD_FILE ? stdh[fd] : fd - FD_FILE;
 }
 
+/* the console's line discipline (tcgetattr, tcsetattr): at the start, a key at a time, echoed, Enter a newline */
+static struct termios contio = {ICRNL, OPOST | ONLCR, CS8 | CREAD, ISIG | ICANON | ECHO, {[VMIN] = 1}};
+
 int _write(int fd, const char *p, int n) {
     int i, h = handle(fd);
     int32_t r;
     if(h < 0 && (fd == 1 || fd == 2)) {
+        int nl = (contio.c_oflag & (OPOST | ONLCR)) == (OPOST | ONLCR);
         for(i = 0; i < n; i++) {
-            if(p[i] == '\n') cmm2->con_putc('\r');
+            if(nl && p[i] == '\n') cmm2->con_putc('\r');
             cmm2->con_putc(p[i]);
         }
         return n;
@@ -55,10 +107,19 @@ int _read(int fd, char *p, int n) {
     int32_t r;
     if(h < 0 && fd == 0) {
         if(n <= 0) return 0;
-        while((c = cmm2->con_getc()) < 0) cmm2->poll();
-        if(c == '\r') c = '\n';
-        if(c == '\n') cmm2->con_puts("\r\n");
-        else cmm2->con_putc(c);
+        if(!(contio.c_lflag & ICANON) && contio.c_cc[VMIN] == 0) {     // (a poll: VTIME tenths of a second at most)
+            uint64_t end = cmm2->micros() + contio.c_cc[VTIME] * 100000ull;
+            while((c = cmm2->con_getc()) < 0) {
+                if(cmm2->micros() >= end) return 0;
+                cmm2->poll();
+            }
+        } else
+            while((c = cmm2->con_getc()) < 0) cmm2->poll();
+        if(c == '\r' && (contio.c_iflag & ICRNL)) c = '\n';
+        if(contio.c_lflag & ECHO) {
+            if(c == '\n') cmm2->con_puts("\r\n");
+            else cmm2->con_putc(c);
+        }
         *p = c;
         return 1;
     }
@@ -137,6 +198,39 @@ int _fstat(int fd, struct stat *st) {
 
 int _isatty(int fd) { return handle(fd) < 0 && fd >= 0 && fd < FD_FILE; }
 
+int tcgetattr(int fd, struct termios *tp) {
+    if(!_isatty(fd)) { errno = ENOTTY; return -1; }
+    *tp = contio;
+    return 0;
+}
+
+int tcsetattr(int fd, int when, const struct termios *tp) {
+    (void)when;
+    if(!_isatty(fd)) { errno = ENOTTY; return -1; }
+    contio = *tp;
+    return 0;
+}
+
+int tcflush(int fd, int which) {
+    if(!_isatty(fd)) { errno = ENOTTY; return -1; }
+    if(which != TCOFLUSH) while(cmm2->con_getc() >= 0) {}         // (the keys typed and not read)
+    return 0;
+}
+
+void cfmakeraw(struct termios *tp) {
+    tp->c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+    tp->c_oflag &= ~OPOST;
+    tp->c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    tp->c_cflag = (tp->c_cflag & ~(CSIZE | PARENB)) | CS8;
+    tp->c_cc[VMIN] = 1;
+    tp->c_cc[VTIME] = 0;
+}
+
+speed_t cfgetispeed(const struct termios *tp) { (void)tp; return B115200; }
+speed_t cfgetospeed(const struct termios *tp) { (void)tp; return B115200; }
+int cfsetispeed(struct termios *tp, speed_t s) { (void)tp; (void)s; return 0; }
+int cfsetospeed(struct termios *tp, speed_t s) { (void)tp; (void)s; return 0; }
+
 static char *brk;                                                   // malloc's heap: from the start block's, upward
 
 /* size bytes (rounded up to 8) taken from the top of the heap, for a program's own allocator; malloc keeps the rest.
@@ -169,6 +263,39 @@ void _exit(int code) {
 
 int _kill(int pid, int sig) { (void)pid; (void)sig; errno = EINVAL; return -1; }
 int _getpid(void) { return 1; }
+int _fork(void) { errno = ENOSYS; return -1; }                       // (one program cannot start another)
+int _execve(const char *name, char *const argv[], char *const env[]) {
+    (void)name; (void)argv; (void)env;
+    errno = ENOSYS;
+    return -1;
+}
+int _wait(int *status) { (void)status; errno = ECHILD; return -1; }
+pid_t waitpid(pid_t pid, int *status, int options) { (void)pid; (void)status; (void)options; errno = ECHILD; return -1; }
+int execv(const char *name, char *const argv[]) { return _execve(name, argv, NULL); }
+int execvp(const char *name, char *const argv[]) { return _execve(name, argv, NULL); }
+int pipe(int fd[2]) { (void)fd; errno = ENOSYS; return -1; }
+
+/* us microseconds, with the USB devices looked after every 10ms meanwhile (and a Ctrl-C there seen), as MMBasic's
+   PAUSE does */
+int usleep(useconds_t us) {
+    uint64_t end = cmm2->micros() + us, now;
+    while((now = cmm2->micros()) < end) {
+        cmm2->delay_us(end - now > 10000 ? 10000 : (uint32_t)(end - now));
+        cmm2->poll();
+    }
+    return 0;
+}
+
+int fsync(int fd) {
+    int h = handle(fd);
+    if(h < 0) return 0;
+    if(cmm2->file_sync(h) < 0) { errno = EIO; return -1; }
+    return 0;
+}
+
+void sync(void) {}                                                  // (each file is written out as it is closed)
+int rmdir(const char *name) { return cmm2->file_remove(name) < 0 ? (errno = ENOENT, -1) : 0; }   // (FatFs: an empty one)
+int statvfs(const char *path, struct statvfs *buf) { (void)path; (void)buf; errno = ENOSYS; return -1; }
 int _unlink(const char *name) { return cmm2->file_remove(name) < 0 ? (errno = ENOENT, -1) : 0; }
 int mkdir(const char *name, mode_t mode) { (void)mode; return cmm2->dir_make(name) < 0 ? (errno = EIO, -1) : 0; }
 /* rename itself (newlib's would link and unlink): FatFs renames, and a file already called 'to' is replaced, as POSIX
@@ -187,6 +314,55 @@ static int32_t days(int y, int m, int d) {
     yoe = y - era * 400;
     doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
     return era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+}
+
+int _stat(const char *name, struct stat *st) {
+    cmm2_stat s;
+    int r;
+    memset(st, 0, sizeof(*st));
+    if(cmm2->version < 5) { errno = ENOSYS; return -1; }
+    if((r = cmm2->file_stat(name, &s)) < 0) { errno = (r == -4 || r == -5) ? ENOENT : EIO; return -1; }
+    st->st_mode = s.is_dir ? S_IFDIR | 0755 : S_IFREG | 0644;
+    st->st_size = s.size;
+    st->st_mtime = (time_t)days(s.year, s.month, s.day) * 86400 + s.hour * 3600 + s.minute * 60 + s.second;
+    return 0;
+}
+
+int chdir(const char *path) {
+    if(cmm2->version < 10) { errno = ENOSYS; return -1; }
+    if(cmm2->dir_change(path) < 0) { errno = ENOENT; return -1; }
+    return 0;
+}
+
+char *getcwd(char *buf, size_t size) {
+    if(cmm2->version < 10) { errno = ENOSYS; return NULL; }
+    if(cmm2->dir_current(buf, size) < 0) { errno = ERANGE; return NULL; }
+    return buf;
+}
+
+DIR *opendir(const char *path) {
+    DIR *d;
+    int h = cmm2->dir_open(path);
+    if(h < 0) { errno = ENOENT; return NULL; }
+    if((d = malloc(sizeof(DIR))) == NULL) { cmm2->dir_close(h); errno = ENOMEM; return NULL; }
+    d->handle = h;
+    return d;
+}
+
+struct dirent *readdir(DIR *d) {
+    static cmm2_dirent e;
+    if(cmm2->dir_read(d->handle, &e) != 1) return NULL;
+    strncpy(d->entry.d_name, e.name, sizeof(d->entry.d_name) - 1);
+    d->entry.d_name[sizeof(d->entry.d_name) - 1] = 0;
+    d->entry.d_type = e.is_dir ? DT_DIR : DT_REG;
+    d->entry.d_ino = 0;
+    return &d->entry;
+}
+
+int closedir(DIR *d) {
+    int r = cmm2->dir_close(d->handle);
+    free(d);
+    return r < 0 ? (errno = EBADF, -1) : 0;
 }
 
 int _gettimeofday(struct timeval *tv, void *tz) {
