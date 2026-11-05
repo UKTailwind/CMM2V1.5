@@ -15,6 +15,12 @@ apps/doom/out/
 # ScummVM (apps/scummvm/make.py): frank-quest fetched at a pinned commit, and the build
 apps/scummvm/frank-quest/
 apps/scummvm/out/
+# Heretic (apps/heretic/make.py): frank-heretic fetched at a pinned commit, and the build
+apps/heretic/frank-heretic/
+apps/heretic/out/
+# The NES (apps/nes/make.py): frank-nes fetched at a pinned commit, and the build
+apps/nes/frank-nes/
+apps/nes/out/
 # The 386 PC (apps/pc386/make.py): tiny386 fetched at a pinned commit, and the build
 apps/pc386/tiny386/
 apps/pc386/out/
