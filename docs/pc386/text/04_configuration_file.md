@@ -32,7 +32,7 @@ File names are found in the current directory, or can be given in full (A:/pc386
 | mem_size | The PC's memory, for example 4M. If there is not room for that much, the PC gets as much as fits, and the first line on the serial console says how much. |
 | vga_mem_size | The VGA card's memory: 256K, as on a VGA card of the time. More lets the PC use larger VESA modes, but it comes from the same memory as the PC's own. |
 | hda, hdb, hdc, hdd | The PC's first to fourth hard disks: image files. hda is the disk DOS starts from, C:. |
-| cda, cdb, cdc, cdd | A CD-ROM drive in place of that hard disk, holding an image file (.iso). This has not been tried on the Colour Maximite 2. |
+| cda, cdb, cdc, cdd | A CD-ROM drive in place of that hard disk, holding an image file (CD Images, in Disk Images). |
 | fda, fdb | The floppy images in drives A: and B: when the PC starts. |
 | fill_cmos | 1 puts the hard disks' sizes in the PC's set-up (its CMOS memory), as a BIOS set-up program would. Keep it at 1. |
 
@@ -51,10 +51,13 @@ This section is the Colour Maximite 2 emulator's own.
 | Name | What it sets |
 | floppies | The floppy images that drive A: is given in turn, separated by spaces or commas, up to 16. The word none is an empty drive. The first is in A: when the PC starts, unless fda names one. Ctrl+Alt+Page Down and Ctrl+Alt+Page Up change between them. |
 | new_disk | A size, for example 64M. If the image that hda names is not on the card, an empty one of this size is made when the PC starts. |
+| com1 | A speed, for example 9600. The PC gets a serial port, which is the Colour Maximite 2's COM1 at that speed (The Serial Port, in Using the PC). Without this line it has none. |
 
 ## Which Drive the PC Starts From
 
 As on a real PC, the BIOS starts from drive A: if there is a disk in it, and otherwise from the first hard disk. So a list of floppies that starts with none starts the PC from its hard disk, with the floppies ready to be put in later. A list that starts with a disk starts the PC from that disk, as an installation does.
+
+If there is no disk in A: and the first hard disk has nothing on it to start from, the BIOS goes on to a CD that can be started from.
 
 As the PC starts, SeaBIOS shows "Press ESC for boot menu" for a moment: pressing Esc then lets you choose the drive to start from.
 

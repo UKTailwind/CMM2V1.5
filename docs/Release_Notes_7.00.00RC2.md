@@ -8,6 +8,16 @@ It adds a C compiler on the Colour Maximite 2 itself, which also compiles MMBasi
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
+## Updated on 5 November 2026
+
+The firmware is unchanged. CMM2_Programs_7.00.00RC2.zip has a new pc386.app, and Colour_Maximite_2_386_PC_Emulator.pdf is updated. To update pc386, copy pc386.app from the zip over the one in A:/pc386.
+
+- **A serial port.** The line com1 = 9600 in the [pc386] section of a configuration file makes the PC's COM1 the Colour Maximite 2's COM1, on GP0 and GP1. There is no flow control. Tested on a Generation 1: a DOS program at up to 115200 baud, and Windows 3.1's Terminal sending and receiving files by XModem at 9600 and 38400 baud.
+- **CD images** (cda to cdd in the configuration file) work, and the PC can start from one.
+- **Windows 95** installs from its CD and runs on a Generation 2, with the mouse and sound. It is not fast: Setup takes about three hours. The guide has a new chapter on it. It needed a fix to the PC's CMOS, which gave Setup a memory size of 0 bytes.
+- **tiny386 brought up to date.** The mouse reports at the rate the PC's driver sets. Timer ticks missed while the emulator was held up are dropped, and a page table outside the PC's memory is taken as not present, both by Platima.
+- **On the serial console**, Ctrl-A holds Alt for the next key, which opens Windows' menus from a terminal.
+
 ## Before you update
 
 The flash is laid out differently in this version, so the first start after the update does some work. It takes a few seconds longer than usual: please let it finish.

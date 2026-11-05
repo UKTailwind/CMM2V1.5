@@ -20,10 +20,11 @@
      PgDn or PgUp puts the next or the previous of the floppies in A: (the PC is not given these keys); what A: holds
      is shown at the top of the screen for 3 s.
    - The mouse: the CMM2's, as the PC's PS/2 mouse (CuteMouse, MOUSE.COM, Windows' own driver).
+   - The serial port: with com1 = baud in [pc386], the PC's COM1 (tiny386's 8250) is the CMM2's COM1, on GP0 and GP1.
    - The sound: the Adlib, the Sound Blaster 16 and the PC speaker, mixed into the CMM2's sound stream at 44.1 kHz.
    - The serial console types into the PC too, for remote use: its characters as a US keyboard's keys, while no USB
      key is held (the USB keyboard's own characters reach the console as well, and are left out so). Ctrl-] leaves,
-     Ctrl-N puts the next floppy in A:, and Ctrl-T prints the PC's text screen there. */
+     Ctrl-N puts the next floppy in A:, Ctrl-T prints the PC's text screen there, and Ctrl-A holds Alt for the next key. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,13 +45,6 @@ int clock_gettime(clockid_t clock_id, struct timespec *tp) {
     return 0;
 }
 
-int usleep(useconds_t us) {
-    if(us) cmm2->delay_us(us);
-    return 0;
-}
-
-int tcgetattr(int fd, struct termios *t) { (void)fd; memset(t, 0, sizeof(*t)); return 0; }
-int tcsetattr(int fd, int action, const struct termios *t) { (void)fd; (void)action; (void)t; return 0; }
 int ioctl(int fd, unsigned long request, ...) { (void)fd; (void)request; return -1; }
 
 void *bigmalloc(size_t size) { return malloc(size); }
@@ -178,12 +172,22 @@ static void floppy_step(PC *pc, int by) {
 
 /* the ini file: this front end's [pc386], then tiny386's own */
 static long new_disk;
+static long com1_baud;                                              // [pc386] com1: the PC's COM1 on the CMM2's, GP0 and GP1
+
+/* the PC's COM1 on the CMM2's, 8 bits, no parity, 1 stop bit. It has no handshake lines: the PC sees them all on */
+static int com_rx(void) {
+    uint8_t b;
+    return cmm2->com_read(1, &b, 1) == 1 ? b : -1;
+}
+static void com_tx(uint8_t b) { cmm2->com_write(1, &b, 1); }
 
 static int ini_entry(void *user, const char *section, const char *name, const char *value) {
     if(strcmp(section, "pc386") == 0) {
         if(strcmp(name, "floppies") == 0) {
             char *s = strdup(value), *t;
             for(t = strtok(s, " ,"); t && floppies < MAXFLOPPY; t = strtok(NULL, " ,")) floppy[floppies++] = t;
+        } else if(strcmp(name, "com1") == 0) {
+            com1_baud = atol(value);
         } else if(strcmp(name, "new_disk") == 0) {
             new_disk = atol(value);
             if(strchr(value, 'M') || strchr(value, 'm')) new_disk <<= 20;
@@ -361,6 +365,7 @@ static void dump_text(PC *pc) {
 
 // the serial console's characters typed in; 1 if Ctrl-] (leave)
 static int serial(PC *pc) {
+    static int alt;
     static int quiet;                                               // no USB key held at the last look, nor now
     int c, k, usb = held[0] || held[2];
     int ok = !usb && quiet;
@@ -376,11 +381,15 @@ static int serial(PC *pc) {
         if(c == 0x1D) return 1;
         if(c == 0x14) { dump_text(pc); continue; }
         if(c == 0x0E) { floppy_step(pc, 1); continue; }
+        if(c == 0x01) { alt = 1; continue; }                        // (Ctrl-A: the next key with Alt, for Windows' menus)
         if(!ok || (k = ascii_key(c)) == 0) continue;
+        if(alt) ps2_put_keycode(pc->kbd, 1, 56);
         if(k & 0x100) ps2_put_keycode(pc->kbd, 1, 42);
         ps2_put_keycode(pc->kbd, 1, k & 0xFF);
         ps2_put_keycode(pc->kbd, 0, k & 0xFF);
         if(k & 0x100) ps2_put_keycode(pc->kbd, 0, 42);
+        if(alt) ps2_put_keycode(pc->kbd, 0, 56);
+        alt = 0;
     }
     return 0;
 }
@@ -410,6 +419,15 @@ int main(int argc, char **argv) {
     }
     if(floppies && !conf.fdd[0] && strcmp(floppy[0], "none") != 0) conf.fdd[0] = floppy[0];
     if(new_disk && conf.disks[0] && !conf.iscd[0] && !disk_make(conf.disks[0], new_disk)) return 1;
+    if(com1_baud) {
+        if(cmm2->com_open(1, com1_baud, 8, 0, 1, 1024) < 0) {
+            fprintf(stderr, "pc386: COM1 could not be opened at %ld baud: %s\n", com1_baud, cmm2->io_error());
+            return 1;
+        }
+        conf.enable_serial = 1;
+        u8250_host_read = com_rx;
+        u8250_host_write = com_tx;
+    }
     long room = (long)cmm2_start->heap_size - conf.vga_mem_size - (1536L << 10);   // (the rest of the PC, stdio's
 #ifdef FAST_PD                                                                      // buffers and the C library's)
     room = (room - (2L << 20)) * 32 / 33;                           // (the pre-decoder's blocks, fast_pd.h's FAST_PD_SIZE,

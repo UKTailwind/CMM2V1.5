@@ -41,13 +41,26 @@ Note that many USB floppy drives read only 1.44 MB disks and not 720 KB ones. A 
 
 A program whose disk is copy-protected (Lemmings is one) checks for something on the original disk that an image does not keep, so it will not run from an image.
 
+## CD Images
+
+A CD image is an .iso file, which goes on the SD card as it is. The names cda to cdd in the configuration file put it in a CD-ROM drive, in place of that hard disk, so a PC with its hard disk as hda has its CD as cdb:
+
+```
+hda = freedos.img
+cdb = MYCD.ISO
+```
+
+FreeDOS finds the drive as it starts and calls it D:. MS-DOS needs a CD-ROM driver in CONFIG.SYS and MSCDEX in AUTOEXEC.BAT, as on a real PC.
+
+A CD that can be started from is started if there is no disk in A: and the first hard disk has nothing on it to start from (Which Drive the PC Starts From, in The Configuration File).
+
 ## Getting a Program into the PC
 
 A program reaches the PC on a floppy image. You put its files in an image on another computer, give the image to the emulator, and copy the files to the PC's hard disk from DOS.
 
 ### Check That It Is a DOS Program
 
-The PC runs programs written for DOS, and programs for Windows 3.1 if that is installed. A program for Windows 95 or later does not run, even one that works in a command window. The name can mislead: a "DOS version" of a modern program is often a Windows program for the Command Prompt. DOS stops such a program with one of these messages:
+The PC runs programs written for DOS, and programs for Windows 3.1 or Windows 95 if that is installed. Under DOS, a program for Windows 95 or later does not run, even one that works in a command window. The name can mislead: a "DOS version" of a modern program is often a Windows program for the Command Prompt. DOS stops such a program with one of these messages:
 
 ```
 This program cannot be run in DOS mode.

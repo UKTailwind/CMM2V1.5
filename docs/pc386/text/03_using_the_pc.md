@@ -53,12 +53,39 @@ While the emulator runs, a terminal on the serial console can type into the PC: 
 | Ctrl-] | Leave the emulator. |
 | Ctrl-N | Put the next floppy image of the list in drive A:. |
 | Ctrl-T | Print the PC's text screen on the terminal. |
+| Ctrl-A | Hold Alt for the next key: Ctrl-A then F opens a Windows program's File menu. |
 
 The emulator also prints its messages there, such as which floppy image is in drive A:.
 
 ## The Mouse
 
 The Colour Maximite 2's mouse is the PC's PS/2 mouse: a USB mouse, or a PS/2 mouse set up with OPTION MOUSE. DOS programs need a mouse driver to use it: the FreeDOS disk loads CuteMouse, and with MS-DOS you can load CuteMouse or Microsoft's MOUSE.COM. Windows 3.1 has its own driver, which it chooses as it is installed.
+
+## The Serial Port
+
+A line in the [pc386] section of the configuration file gives the PC a serial port:
+
+```
+com1 = 9600
+```
+
+The PC's COM1 (port 3F8, IRQ 4) is then the Colour Maximite 2's COM1, on its rear connector:
+
+{widths: 10,42}
+| Pin | Signal |
+| 8 | GP0: what the PC sends. |
+| 10 | GP1: what the PC receives. |
+| 9 | Ground. |
+
+These are 3.3 V signals and they are not 5 V tolerant. Connect them to another 3.3 V serial port, such as a 3.3 V USB serial adapter, and not straight to an RS-232 port.
+
+The speed is the one in the configuration file, with 8 data bits, no parity and 1 stop bit. What a program in the PC sets makes no difference, so set the other end to the speed in the file.
+
+There are no handshake lines, and neither the PC nor the Colour Maximite 2 can hold the other end back. What arrives waits in a buffer of 1024 bytes until the PC takes it, and anything more is lost. A program's XOFF goes out as an ordinary character, and stops the other end only if that end obeys it.
+
+- A simple DOS program that took the port by interrupts kept up at 115200 baud.
+- Windows 3.1's Terminal is slower. Choose COM1 when it first asks for a port. Its Transfers menu sent and received files by XModem without a fault at 9600 and 38400 baud, at about 800 and 2,000 bytes a second.
+- Text shown in Terminal, or saved with Receive Text File, goes at only about 260 characters a second. Terminal sends XOFF within about 900 characters, so the other end has to obey it. For a long text, use XModem.
 
 ## The Screen
 

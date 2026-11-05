@@ -2,8 +2,8 @@
 Sound Blaster 16, Adlib, PC speaker) with the CMM2 layer pc386_cmm2.c (Peter, 3 Nov 2026). tiny386 is fetched the first
 time into apps/pc386/tiny386 (git ignores it), at the commit below, patches/*.patch applied to it in order (each a fix to
 tiny386 itself, a candidate for upstream), and built with the files its ESP32 build names, its front ends left out.
-port.h is included first in every file (the clock tiny386 asks of POSIX), and stub/ holds the termios and ioctl headers
-of the host console code it has but the CMM2 does not use.
+port.h is included first in every file (the clock tiny386 asks of POSIX), and stub/ holds the ioctl header of the
+host console code it has but the CMM2 does not use.
 
 tiny386's CPU and the project are BSD-3-Clause, the devices from QEMU and TinyEMU MIT, the Adlib's fmopl LGPL-2.1+; the
 BIOS files it boots (SeaBIOS, LGPL-3) go on the SD card beside the program.
@@ -21,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 SRC = os.path.join(HERE, 'tiny386')
 URL = 'https://github.com/hchunhui/tiny386.git'
-COMMIT = '2ba0f6aaf4d545a3775e9cb44bf721f3f5789367'   # 3 Nov 2026
+COMMIT = '2c1205cf1212c2fdfd4552ff239be0db38b8a666'   # 5 Nov 2026
 FILES = '''adlib fmopl fpu i386 i8042 i8254 i8259 ide ini pc misc pci vga vgafont ne2000 i8257 sb16 pcspk'''.split()
 
 

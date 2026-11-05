@@ -1,0 +1,104 @@
+misc: the 8250 on a host's serial port, and its interrupt identification
+
+--- a/misc.c
++++ b/misc.c
+@@ -77,6 +77,11 @@
+ #endif
+ 
+ /* sysprog21/semu */
++/* A host's serial port for the 8250 in place of tiny386's console: a
++   byte, or -1 if none waits; and a byte to send. NULL: the console. */
++int (*u8250_host_read)(void);
++void (*u8250_host_write)(uint8_t val);
++
+ struct U8250 {
+ 	uint8_t dll, dlh;
+ 	uint8_t lcr;
+@@ -192,6 +197,15 @@
+ 		}
+ 		val = uart->in;
+ 		uart->ioready &= ~1;
++		if (u8250_host_read) {
++			/* the next at once: u8250_update comes only at the
++			   device tick, far slower than a port's bytes */
++			int c = u8250_host_read();
++			if (c >= 0) {
++				uart->in = c;
++				uart->ioready |= 1;
++			}
++		}
+ 		u8250_update_interrupts(uart);
+ 		break;
+ 	case 1:
+@@ -202,7 +216,17 @@
+ 		val = uart->ier;
+ 		break;
+ 	case 2:
+-		val = (uart->ier & uart->ioready) ? 0 : 1;
++		/* what interrupts: received data first, then the transmitter,
++		   which reading this clears, as on an 8250 */
++		if (uart->ier & uart->ioready & 1) {
++			val = 4;
++		} else if (uart->ier & uart->ioready & 2) {
++			val = 2;
++			uart->ioready &= ~2;
++			u8250_update_interrupts(uart);
++		} else {
++			val = 1;
++		}
+ 		break;
+ 	case 3:
+ 		val = uart->lcr;
+@@ -232,6 +256,12 @@
+ 		if (uart->lcr & (1 << 7)) {
+ 			uart->dll = val;
+ 			break;
++		} else if (u8250_host_write) {
++			u8250_host_write(val);
++			if (uart->ier & 2) {
++				uart->ioready |= 2;
++				u8250_update_interrupts(uart);
++			}
+ 		} else {
+ #ifndef __wasm__
+ 			ssize_t r;
+@@ -267,6 +297,17 @@
+ 
+ void u8250_update(U8250 *uart)
+ {
++	if (u8250_host_read) {
++		if (!(uart->ioready & 1)) {
++			int c = u8250_host_read();
++			if (c >= 0) {
++				uart->in = c;
++				uart->ioready |= 1;
++				u8250_update_interrupts(uart);
++			}
++		}
++		return;
++	}
+ #if !defined(_WIN32) && !defined(__wasm__)
+ 	if (IsKBHit()) {
+ 		if (!(uart->ioready & 1)) {
+--- a/misc.h
++++ b/misc.h
+@@ -8,6 +8,8 @@
+ uint8_t u8250_reg_read(U8250 *uart, int off);
+ void u8250_reg_write(U8250 *uart, int off, uint8_t val);
+ void u8250_update(U8250 *uart);
++extern int (*u8250_host_read)(void);
++extern void (*u8250_host_write)(uint8_t val);
+ void CaptureKeyboardInput();
+ 
+ typedef struct CMOS CMOS;
+--- a/pc.c
++++ b/pc.c
+@@ -784,7 +784,7 @@
+ 	pc->cmdline = conf->cmdline;
+ 	pc->enable_serial = conf->enable_serial;
+ #if !defined(_WIN32) && !defined(__wasm__)
+-	if (pc->enable_serial)
++	if (pc->enable_serial && !u8250_host_read)
+ 		CaptureKeyboardInput();
+ #endif
+ 	pc->full_update = 0;
