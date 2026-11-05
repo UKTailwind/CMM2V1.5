@@ -51,6 +51,14 @@ The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h),
 | 10 | `int gfx_box(x, y, w, h, width, colour, fill)` | 10 | `int gfx_write(x, y, w, h, bgr)` |
 | 10 | `int gfx_rbox(x, y, w, h, radius, colour, fill)` | 10 | `int gfx_save(const char *name)` |
 | 10 | `int gfx_circle(x, y, r, width, aspect, c, fill)` | | |
-| 10 | `int gfx_triangle(x1, y1, x2, y2, x3, y3, c, fill)` | | |
+| 10 | `int gfx_triangle(x1, y1, x2, y2, x3, y3, c, fill)` | 10 | `int dir_change(const char *path)` |
+| 10 | `int dir_current(char *buf, uint32_t size)` | 11 | `void *mem_copy(d, s, n)` |
+| 11 | `void *mem_fill(d, c, n)` | 11 | `void *mem_move(d, s, n)` |
+| 11 | `const struct cmm2_libm *libm` | 11 | `int basic_cmd(const char *line)` |
+| 11 | `int gfx_target(cmm2_target *t)` | 11 | `int font_size(font, *w, *h)` |
+| 11 | `int font_define(font, const uint8_t *data)` | 12 | `int basic_eval(expr, char *out)` |
+| 12 | `int sound_state(void)` | 12 | `int basic_prep(line, char *tokens, size)` |
+| 12 | `int basic_exec(char *tokens)` | 12 | `int image_resize(const long long *a)` |
+| 13 | `int gamepad(n, *lx, *ly)` | | |
 
 The console, the clock, files, directories, the system and the FM synthesiser are in the chapter The Services; the screen and drawing in The Screen; the keys and mouse in The Keyboard and Mouse; audio and music in Sound and Music; and the I/O services in The I/O Pins. Inc/cmm2img.h has the full declarations, with a comment on each.

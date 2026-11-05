@@ -160,3 +160,16 @@ These give a program the firmware's emulation of the Yamaha YMF262 (the OPL3 of 
 opl_new makes a chip, reset, that produces 16-bit stereo sound at rate samples a second (44100 for the sound stream), and returns it, or NULL if there is no room (its state, about 18KB, is a block of MMBasic's heap). opl_write writes a register (0 to 0x1FF: 0x100 and above are the OPL3's second bank) at once. opl_generate makes frames samples of interleaved stereo (left, right) into buf, running the chip. opl_free frees it.
 
 The emulation is exact and takes time: about 5,000 processor cycles a sample with all 18 voices sounding, so 1,024 frames take about 10ms on a Generation 2. A program generates the sound in its own code and hands it to the sound stream (see the chapter Sound and Music). A real chip took about 23 microseconds to act on a register write: a program that writes a key off and a key on to the same voice together should generate at least one sample between them, or the note is not struck again. For MIDI music the music_play service is simpler: it plays a MIDI file on the firmware's own chip, as PLAY MIDIFILE does.
+
+## MMBasic's Statements and Expressions
+
+```
+int basic_cmd(const char *line);                         /* version 11 */
+int basic_eval(const char *expr, char *out);             /* version 12 */
+int basic_prep(const char *line, char *tokens, int size);
+int basic_exec(char *tokens);
+```
+
+basic_cmd runs one MMBasic statement, a command with its arguments as text, as the interpreter runs it: it returns 0, or -4 with the message in io_error(), or -3 if the line is too long. It cannot call a SUB. basic_eval works out an expression, for what only the firmware knows, such as MM.INFO(SOUND), and gives its value as text in out, which has to be 256 bytes.
+
+Tokenising a statement takes far longer than most statements take to run: 85 microseconds against 4 for PAGE WRITE. basic_prep does it once, with the character 1 in the line for each value to come, and basic_exec runs the tokens that it made, with the values written in as digits or a quoted string. A compiled MMBasic program uses these for the commands it hands to the firmware. Both use the interpreter, so a program should call them from its main code only.

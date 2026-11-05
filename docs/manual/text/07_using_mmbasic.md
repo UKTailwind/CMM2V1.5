@@ -120,7 +120,7 @@ RUN "doom.app"
 RUN "A:/apps/hello.app", one two "three four"
 ```
 
-A loadable program runs at the full speed of the processor and takes over the computer while it runs: it can use the screen, the keyboard and mouse, the sound output, the files and the I/O pins through services that the firmware gives it. Games, emulators and other programming languages can be written or ported this way: the firmware's distribution includes MicroPython, the game Doom (with the Freedoom game data), ScummVM (which runs many classic adventure games) and pc386, a 386 PC that runs FreeDOS, MS-DOS and Windows 3.1 (described in its own manual, see Appendix O).
+A loadable program runs at the full speed of the processor and takes over the computer while it runs: it can use the screen, the keyboard and mouse, the sound output, the files and the I/O pins through services that the firmware gives it. Games, emulators and other programming languages can be written or ported this way: the firmware's distribution includes MicroPython, the game Doom (with the Freedoom game data), ScummVM (which runs many classic adventure games), pc386, a 386 PC that runs FreeDOS, MS-DOS and Windows 3.1 (described in its own manual, see Appendix O), a NES emulator with two free games, and Heretic, with its shareware episode.
 
 The words after the comma are the program's arguments. When the program ends MMBasic carries on where it was: at the command prompt it returns to the prompt, and in a BASIC program it goes on with the next statement, with the BASIC program and its variables as they were. MMBasic closes the files the program left open, stops its sound, releases the I/O pins it used and restores the video mode, font, colours and palette. Pressing Ctrl-C asks the program to end and also stops the BASIC program that ran it, unless the program uses Ctrl-C itself (MicroPython turns it into a KeyboardInterrupt, as on other computers).
 
@@ -130,7 +130,7 @@ Writing a loadable program needs a PC with the free Arm GNU toolchain and Python
 
 ## The C Compiler
 
-The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. The compiler, cc.app, is a loadable program in the cc folder of the programs that come with the firmware, with the header files in cc/include and examples in cc/examples: copy that folder to the SD card as A:/cc, where CC looks for it. What runs a compiled program, bcrun, is built into the firmware, so a compiled program needs nothing else on the card.
+The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. The compiler, cc.app, is a loadable program in the cc folder of the programs that come with the firmware, with the header files in cc/include and examples in cc/examples: copy that folder to the SD card as A:/cc, where CC looks for it. What runs a compiled program is built into the firmware, so a compiled program needs nothing else on the card.
 
 ```
 CC "hello.c"
@@ -140,7 +140,7 @@ RUN "hello.c"
 
 CC compiles a source file to an object file of the same name ending in .BC, beside it (hello.c makes hello.bc). Errors are listed with the file's name and the line number (hello.c:12 - missing semicolon) and then CC gives the error "hello.c did not compile". RUN "hello.bc" runs a compiled program, and the words after the comma are its arguments, in argv[1] onward. RUN "hello.c" compiles the source first if hello.bc is missing or older than it, and then runs it, so editing the source and running it again is one step. As with a loadable program, MMBasic carries on when the C program ends, and Ctrl-C stops it.
 
-A small program compiles in about a quarter of a second. The compiler translates each function to the processor's own instructions where it can, and the rest to a compact bytecode that bcrun.app interprets, so a program runs at about a fifth of the speed of the same program built on a PC with gcc as a loadable program, and its floating point arithmetic is done by the processor's double precision hardware. Starting a compiled program takes about 16ms.
+A small program compiles in about a quarter of a second. The compiler translates each function to the processor's own instructions where it can, and the rest to a compact bytecode that the firmware interprets, and its floating point arithmetic is done by the processor's double precision hardware. Starting a compiled program takes about 16ms.
 
 The language is C89 (ANSI C) with long long, // comments and declarations after statements. A program is one source file (there is no linker), and bit fields, declarations inside a for statement and local arrays initialised from a string ("static char s[] = ..." works) are not supported. The library has:
 
@@ -166,7 +166,9 @@ gfx_circle(400, 300, 100, 2, 1.0, GREEN, RED);
 gfx_text(400, 300, "Hello", "CM", 1, 2, WHITE, NOFILL);
 ```
 
-The compiler is free software under the GNU General Public License version 3; its source, and that of bcrun, is in Peter Mather's Fuzix repository (github.com/UKTailwind/FUZIX, branch cmm2).
+CC also compiles MMBasic programs. CC "game.bas" translates the program to C and compiles it to game.b.bc, which RUN "game.b.bc" runs; game.bas is not changed, and RUN "game.bas" still runs it with the interpreter. A program that spends its time calculating runs much faster: a 3,200-line calculation that took 6.2 seconds with the interpreter and 1.7 seconds with OPTION COMPILE ON took 0.9 seconds. One that spends its time drawing gains little over OPTION COMPILE ON. The companion manual *Colour Maximite 2 C Compiler* describes it, with what is and is not translated (see Appendix O).
+
+The compiler is free software under the GNU General Public License version 3; its source, and that of the runtime in the firmware, is in Peter Mather's Fuzix repository (github.com/UKTailwind/FUZIX, branch cmm2).
 
 ## Expressions
 

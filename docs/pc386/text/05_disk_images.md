@@ -41,13 +41,74 @@ Note that many USB floppy drives read only 1.44 MB disks and not 720 KB ones. A 
 
 A program whose disk is copy-protected (Lemmings is one) checks for something on the original disk that an image does not keep, so it will not run from an image.
 
-### Making an Image from Files
+## Getting a Program into the PC
 
-An image can also be made from files: an empty 1.44 MB disk with the files copied onto it. This is the way to take files into the PC. On Windows, WinImage does it. On Linux, mtools does:
+A program reaches the PC on a floppy image. You put its files in an image on another computer, give the image to the emulator, and copy the files to the PC's hard disk from DOS.
+
+### Check That It Is a DOS Program
+
+The PC runs programs written for DOS, and programs for Windows 3.1 if that is installed. A program for Windows 95 or later does not run, even one that works in a command window. The name can mislead: a "DOS version" of a modern program is often a Windows program for the Command Prompt. DOS stops such a program with one of these messages:
+
+```
+This program cannot be run in DOS mode.
+This is a Windows NT character-mode executable
+```
+
+### Making the Image
+
+Make an empty 1.44 MB image and copy the files onto it. On Linux, or on Windows with WSL (the Windows Subsystem for Linux), mtools does this. Install it with sudo apt install mtools, then:
 
 ```
 mformat -C -f 1440 -i FILES.IMG ::
 mcopy -i FILES.IMG setup.exe readme.txt ::
+mdir -i FILES.IMG ::
 ```
 
-Put FILES.IMG in the emulator's folder and in the list of floppies. In the PC, put it in drive A: with Ctrl+Alt+Page Down and copy the files from A:.
+The last line lists what is on the image. Run mcopy again to add more files.
+
+DOS file names have up to 8 characters, a dot and up to 3 more. Give a file with a longer name its DOS name as it is copied:
+
+```
+mcopy -i FILES.IMG "Long File Name.exe" ::PROGRAM.EXE
+```
+
+On Windows, WinImage also makes images from files.
+
+An image holds about 1.4 MB. A larger program needs several images, used one after the other.
+
+### Copying the Files to the PC
+
+1. Copy FILES.IMG to the emulator's folder on the SD card.
+
+2. In the configuration file you start the PC with, add its name to the list of floppies, straight after none:
+
+```
+floppies = none FILES.IMG
+```
+
+Keep none first: if the PC starts with a disk in drive A:, it tries to start from that disk (The Configuration File).
+
+3. Start the PC:
+
+```
+CHDIR "A:/pc386"
+RUN "pc386.app", msdosc.ini
+```
+
+4. At the DOS prompt, press Ctrl+Alt+Page Down until the top of the screen shows "A: FILES.IMG".
+
+5. Copy the files to a folder of their own on the hard disk:
+
+```
+MD C:\PROGRAM
+COPY A:\*.* C:\PROGRAM
+```
+
+6. Run the program from there:
+
+```
+CD \PROGRAM
+SETUP
+```
+
+The files are now on the PC's hard disk and stay there. Wait until the PC has stopped writing before you leave the emulator (Leaving, in Getting Started).

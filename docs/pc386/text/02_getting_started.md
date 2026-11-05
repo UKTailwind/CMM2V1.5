@@ -49,3 +49,44 @@ The next time, the same two commands start the same PC with its disks as you lef
 ```
 RUN "pc386.app", msdos.ini
 ```
+
+## Moving a PC to Another Colour Maximite 2
+
+A PC is a few files in a folder, so copying them moves it, with everything installed on its hard disk. A G1 and a G2 use the same files.
+
+### The Files You Need
+
+These five files are the least a PC needs. Copy them into one folder on the other computer's SD card:
+
+{widths: 18,34}
+| File | What it is |
+| pc386.app | The emulator. |
+| bios.bin | The PC's BIOS. |
+| vgabios.bin | The VGA card's BIOS. |
+| The configuration file | The PC's .ini file: pc386.ini for the FreeDOS PC, or your own, such as msdosc.ini. |
+| The hard disk image | The file its hda line names: freedos.img, or your own, such as msdos.img. |
+
+Floppy images are needed only if the configuration file lists them and you want to use them.
+
+### Moving It
+
+1. Leave the emulator (Leaving, above), so that the hard disk image is complete.
+
+2. Check that the other computer has MMBasic 7.00.00RC1 or later. An older firmware stops with "Needs a newer firmware".
+
+3. Copy the five files into a folder such as pc386 on the other computer's SD card. Use a card reader: a 64 MB image takes about half an hour over the serial console.
+
+4. In the configuration file, take out of the floppies line every image you did not copy. If none is left, delete the line.
+
+5. Start the PC, naming its configuration file:
+
+```
+CHDIR "A:/pc386"
+RUN "pc386.app", msdosc.ini
+```
+
+The emulator looks for all its files in the current directory, so CHDIR comes first. If the configuration file is called pc386.ini, RUN "pc386.app" alone is enough.
+
+The OPTIONs of the first computer do not move with the files. Set OPTION SD TIMING FAST on the other computer too, and OPTION OVERCLOCK ON if it is a G1 of revision Y (Using the PC).
+
+A hard disk image holds everything installed on it. FreeDOS can be passed on to other people. MS-DOS, Windows and other commercial programs cannot, so an image with them on it is for your own computers.

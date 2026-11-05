@@ -1,5 +1,5 @@
-[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00RC1 (release candidate) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
-[I]4 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the previous release candidate, 7.00.00RC0, have notes of their own.[/I]
+[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00RC2 (release candidate) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
+[I]5 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC0, have notes of their own.[/I]
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
@@ -7,7 +7,7 @@ The betas added USB touch screens, with the GUI controls, gestures and an on-scr
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
-This is the second release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
+This is the third release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -18,6 +18,10 @@ The same firmware file runs on both the Generation 1 and the Generation 2.
 • [B]Erased:[/B] the program held in flash, and any variables saved with VAR SAVE. A program that ran at power-up has to be run again from its file, and OPTION AUTORUN set again.
 • [B]Not affected:[/B] programs and files on the SD card.
 
+This is what an update from 5.07.02 does. An update from 7.00.00b4 or later keeps all the options, the library and the variables: see the notes for 7.00.00RC2.
+
+[B]From this version on, writing the firmware erases the options.[/B] Use OPTION DISK SAVE before an update and OPTION DISK LOAD after it.
+
 The serial console runs at 115200 baud after the update. A Generation 2 can run it at 460800 (OPTION BAUDRATE 460800), which makes the editor and file transfers much faster; the Generation 1's USB to serial converter cannot run at 460800.
 
 You can go back to an earlier firmware the same way, should you need to.
@@ -27,9 +31,14 @@ You can go back to an earlier firmware the same way, should you need to.
 [SIZE=3][B]Loadable programs[/B][/SIZE]
 • A file ending .APP is a program written in C or C++ and compiled for the processor: [FONT=Courier]RUN "name.app" [, words][/FONT] runs it, at the full speed of the processor, and MMBasic carries on when it ends (at the prompt, or with the BASIC program's next statement), tidying up after it.
 • It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
-• MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse) come with the firmware, in CMM2_Programs_7.00.00RC1.zip.
+• MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse), a NES emulator (frank-nes, with two free games) and Heretic (with the game's data to be added) come with the firmware, in CMM2_Programs_7.00.00RC2.zip.
 • A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 • The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
+
+[SIZE=3][B]The C compiler[/B][/SIZE]
+• CC compiles a program on the Colour Maximite 2, with no PC: the Fuzix Compiler Kit, with the bytecode and Arm code generator written for the Pico Computer 3. [FONT=Courier]CC "hello.c"[/FONT] makes hello.bc, and [FONT=Courier]RUN "hello.bc"[/FONT] runs it. RUN "hello.c" compiles it first if it needs it. A compiled program can use the graphics, sound, keyboard, mouse and I/O pins through cmm2.h.
+• CC compiles MMBasic programs too: [FONT=Courier]CC "game.bas"[/FONT] translates the program to C and compiles it to game.b.bc. The .bas file is not changed. A 3,200-line calculation that took 6.16 seconds with the interpreter and 1.71 seconds with OPTION COMPILE ON took 0.93 seconds.
+• What runs a compiled program is in the firmware. The compiler is in the cc folder of the zip, which goes on the card as A:/cc. The companion manual Colour Maximite 2 C Compiler describes it.
 
 [SIZE=3][B]OPTION PICOMITE[/B][/SIZE]
 • OPTION PICOMITE device [, resolution] makes the Colour Maximite 2 behave as the PicoMite named, by the name its MM.DEVICE$ gives: PicoMiteVGA, PicoMiteVGAUSB, PicoMiteHDMI, PicoMiteHDMIUSB, PicoMitePC3, PicoMiteHDMIBTH or PicoMiteHDMIWEB, with RP2350A or RP2350B where the PicoMite has it. VGA and HDMI are short for PicoMiteVGAUSB RP2350B and PicoMiteHDMIUSB RP2350B. OPTION PICOMITE NONE, the default, turns it off.
@@ -483,7 +492,8 @@ The Colour Maximite 2 User Manual for this release is posted with it. Its chapte
 This release's manual also describes:
 
 • loadable programs, in the commands (RUN) and the chapter Using MMBasic;
-• OPTION SD TIMING and OPTION OVERCLOCK as they now are, in the options;
+• OPTION DISK SAVE and LOAD, OPTION SD TIMING and OPTION OVERCLOCK as they now are, in the options;
+• CC, for C and for MMBasic, in the commands and the chapter Using MMBasic;
 • the FM synthesiser, in the chapter Sound Output and in the commands (PLAY MIDI, PLAY NOTE, PLAY MIDI CMD, PLAY MIDI TEST, PLAY MIDIFILE and PLAY OPL);
 • the touch screens and the on-screen keyboard, in the chapter Keyboard, Mouse and Gamepad;
 • TOUCH(), CLICK(), GUI CURSOR, GUI CLICK, GUI TEST, KEYBOARD and OPTION SCREEN KEYBOARD, in the reference sections;
@@ -492,4 +502,4 @@ This release's manual also describes:
 • variables with a command's name, in the chapters Variables and Expressions and MMBasic Characteristics;
 • MM.MOUSE and the mouse's centring on a mode change, in the chapter Keyboard, Mouse and Gamepad.
 
-STEPPER is described in Stepper_Reference.pdf, writing loadable programs in Colour_Maximite_2_Loadable_Programs.pdf, and pc386 in Colour_Maximite_2_386_PC_Emulator.pdf, all posted with the manual.
+STEPPER is described in Stepper_Reference.pdf, writing loadable programs in Colour_Maximite_2_Loadable_Programs.pdf, compiling C and MMBasic in Colour_Maximite_2_C_Compiler.pdf, and pc386 in Colour_Maximite_2_386_PC_Emulator.pdf, all posted with the manual.

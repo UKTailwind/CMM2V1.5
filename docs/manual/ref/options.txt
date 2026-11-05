@@ -126,6 +126,13 @@ Specifies the video mode for the command prompt, the editor and the file manager
 The characters are the columns and lines of the screen in the editor's font, which this option also sets: NORMAL (8x12 pixels) in modes 1, 8, 10, 12, 14 and 15, MEDIUM (10x16) in modes 9, 11 and 18 and VERY LARGE (16x24) in mode 16.  OPTION EDIT FONT can then change it.
 This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
+=== OPTION DISK SAVE fname$
+=+= OPTION DISK LOAD fname$
+Saves the options to a file, or loads them from one and restarts with them.  ".opt" is added to ‘fname$’ if it has no extension.
+Writing a new version of the firmware erases the options.  OPTION DISK SAVE before it and OPTION DISK LOAD after it put them back, and with them the flash library if one was saved.  (An update from an earlier 7.00 version to 7.00.00RC2 needs neither: its first start finds the options and moves them.)
+A file saved by another version of the firmware may be refused, with the error "File size incorrect".
+This command can only be run from the command line.
+
 === OPTION DS3231 ON
 or
 OPTION DS3231 OFF
@@ -181,7 +188,7 @@ The other function keys (F2 to F4, F10) are fixed.
 --- P keep roomy
 Specifies that programs are to be run from flash memory (the default), so that the program is preserved when the Colour Maximite 2 is powered off or reset.  It undoes OPTION RAM.
 The flash is not written every time a program is run: it is only written if it does not match the newly tokenised program, ie, a different or altered program is being loaded.
-The optional parameter ‘n’ (2 to 6, default 2) specifies where the program starts, in 128KB sectors of the flash: the maximum program size is 512KB for ‘n’ of 2 or 3, 384KB for 4, 256KB for 5 and 128KB for 6.  Moving the program can spread the wear on the flash, although this is unlikely ever to be needed.  A library saved in flash uses sector 6 (see the LIBRARY command), which a program then cannot use (the error is "Library is using flash slot 6").
+The optional parameter ‘n’ (2 to 6, default 2) specifies where the program starts, in 128KB sectors of the flash: the maximum program size is 512KB for ‘n’ of 2 or 3, 384KB for 4, 256KB for 5 and 128KB for 6.  Moving the program can spread the wear on the flash, although this is unlikely ever to be needed.  A library saved in flash uses the last sector, where OPTION FLASH 6 starts (see the LIBRARY command), which a program then cannot use (the error is "Library is using flash slot 6").
 This command can only be run from the command line and will cause a reboot.
 
 === OPTION HORIZONTAL OFFSET mode, offset

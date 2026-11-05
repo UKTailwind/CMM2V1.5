@@ -60,8 +60,8 @@ Below is a summary of how the MMBasic firmware makes use of the memory of the ST
 | 0000 0000 - 0000 FFFF | 64K | ITCM RAM: the interrupt routines and some of the interpreter's code, run from here for speed. |
 | 0800 0000 - 080F FFFF | 1024K | Flash bank 1: the MMBasic firmware and its constant data. |
 | 0810 0000 - 0813 FFFF | 256K | Flash bank 2, sectors 0 and 1: firmware too (the file manager, the editor, the OPL synth and the loader, among others). |
-| 0814 0000 - 081D FFFF | 640K | Flash bank 2, sectors 2 to 6: the program in program memory (see OPTION FLASH) and the library (sector 6, 081C 0000 - 081D FFFF, when one is saved). |
-| 081E 0000 - 081F FFFF | 128K | Flash bank 2, sector 7: the saved options. |
+| 0814 0000 - 0815 FFFF | 128K | Flash bank 2, sector 2: the saved options, and after them the runtime of compiled programs (see The C Compiler). |
+| 0816 0000 - 081F FFFF | 640K | Flash bank 2, sectors 3 to 7: the program in program memory (see OPTION FLASH) and the library (sector 7, 081E 0000 - 081F FFFF, when one is saved). |
 | 2000 0000 - 2001 FFFF | 128K | DTCM RAM: the firmware's own variables and, above them, the C stack (MM.INFO(HEAPEND) is the lowest it may go). |
 | 2400 0000 - 2407 FFFF | 512K | AXI RAM: display page 0 (see the MODE command) and the display of the 4-bit modes. |
 | 3000 0000 - 3003 FFFF | 256K | D2 RAM: the MMBasic heap in RAM, MM.INFO(HEAPI). |

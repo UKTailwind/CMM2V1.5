@@ -28,7 +28,7 @@ A G1 runs at 400MHz if its processor is of revision Y, which makes the PC slower
 
 ## What You Need
 
-- The Colour Maximite 2 firmware with the loadable-program services of version 9 or later.
+- The Colour Maximite 2 firmware, MMBasic 7.00.00RC1 or later (loadable-program services of version 9 or later).
 - The emulator's files on the SD card (the next chapter).
 - For MS-DOS and Windows 3.1, your own copies of their disks, as image files. FreeDOS, which is free, comes ready installed on a disk image.
 - A USB keyboard. A mouse is needed for Windows.
