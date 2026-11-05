@@ -98,10 +98,10 @@ The flash is laid out differently in this version, so the first start after the 
 
 - The regression tests in tests/cmm2 (113 programs) on a Generation 2: the same results as 7.00.00b5. Three programs whose expected output was recorded with OPTION DEFAULT MODE 8 differ with the board's own setting (DEFAULT MODE 1,8).
 - The update itself, on both generations: from RC0 on a Generation 2, with a library and a CSUB program at OPTION FLASH 3, and with OPTION AUTORUN and VAR SAVE; on a Generation 1 from a firmware of the old layout, with its own options; from an options record of the older form; and a second update of this version over itself, with OPTION DISK SAVE and LOAD.
-- The C compiler on both generations: compiling and running C and MMBasic, with Wolfenstein 3D, Into the Darkness and the eclipse program. Its C89 conformance tests gave the same results as the compiler on a PC.
-- The NES emulator on both generations: its speed, a DualShock 3 and a generic pad, Nova the Squirrel, and the CPU test programs nestest, official_only and cpu_timing_test, which it passes.
+- The C compiler on both generations: compiling and running C and MMBasic, with Wolfenstein 3D and the eclipse program on both, and Into the Darkness on a Generation 2. Earlier in its development its C89 conformance tests gave the same results as the compiler on a PC.
+- The NES emulator: its speed on both generations; on a Generation 2, a DualShock 3 and a generic pad, Nova the Squirrel, and the CPU test programs nestest, official_only and cpu_timing_test, which it passes.
 - pc386 on both generations: FreeDOS; MS-DOS 6.2 installed from its Setup disks; Windows 3.1 installed from its six disks and run with sound, a USB mouse and a PS/2 mouse; Turbo Pascal 5.5.
-- Heretic with the shareware episode.
+- Heretic with its shareware episode, on both generations.
 - MicroPython, Doom, ScummVM and pc386 from the zip on this firmware, on both generations.
 
 ## Known problems

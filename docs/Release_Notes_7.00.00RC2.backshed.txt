@@ -60,7 +60,7 @@ RUN "nes.app"[/CODE]
 [CODE]CHDIR "A:/heretic"
 RUN "heretic.app"[/CODE]
 
-    ◦ The game's data is not included: put heretic1.wad, the free shareware episode, or heretic.wad from the full game beside heretic.app. The README in the zip says where the shareware is and how to take the file from it.
+    ◦ It comes with Heretic's shareware episode, in the heretic folder of the zip. If you have the full game, put its heretic.wad in the folder, and it is used in place of the shareware.
 • [B]OPTION DISK SAVE fname$ and OPTION DISK LOAD fname$[/B] save the options to a file and load them back, with the flash library if there is one.
 • [B]OPTION SD TIMING FAST[/B] now drives the SD card with the processor's SPI hardware directly. A 32MB copy on a Generation 2 takes 37 seconds, against 51 seconds with RC0's FAST and 59 seconds with NORMAL.
 • [B]Loadable programs: services version 13.[/B]
@@ -87,10 +87,10 @@ RUN "heretic.app"[/CODE]
 [SIZE=4][COLOR=BLUE][B]The programs tested[/B][/COLOR][/SIZE]
 • The regression tests in tests/cmm2 (113 programs) on a Generation 2: the same results as 7.00.00b5. Three programs whose expected output was recorded with OPTION DEFAULT MODE 8 differ with the board's own setting (DEFAULT MODE 1,8).
 • The update itself, on both generations: from RC0 on a Generation 2, with a library and a CSUB program at OPTION FLASH 3, and with OPTION AUTORUN and VAR SAVE; on a Generation 1 from a firmware of the old layout, with its own options; from an options record of the older form; and a second update of this version over itself, with OPTION DISK SAVE and LOAD.
-• The C compiler on both generations: compiling and running C and MMBasic, with Wolfenstein 3D, Into the Darkness and the eclipse program. Its C89 conformance tests gave the same results as the compiler on a PC.
-• The NES emulator on both generations: its speed, a DualShock 3 and a generic pad, Nova the Squirrel, and the CPU test programs nestest, official_only and cpu_timing_test, which it passes.
+• The C compiler on both generations: compiling and running C and MMBasic, with Wolfenstein 3D and the eclipse program on both, and Into the Darkness on a Generation 2. Earlier in its development its C89 conformance tests gave the same results as the compiler on a PC.
+• The NES emulator: its speed on both generations; on a Generation 2, a DualShock 3 and a generic pad, Nova the Squirrel, and the CPU test programs nestest, official_only and cpu_timing_test, which it passes.
 • pc386 on both generations: FreeDOS; MS-DOS 6.2 installed from its Setup disks; Windows 3.1 installed from its six disks and run with sound, a USB mouse and a PS/2 mouse; Turbo Pascal 5.5.
-• Heretic with the shareware episode.
+• Heretic with its shareware episode, on both generations.
 • MicroPython, Doom, ScummVM and pc386 from the zip on this firmware, on both generations.
 
 
@@ -117,7 +117,7 @@ Appendix O lists the two new companion manuals, Colour_Maximite_2_C_Compiler.pdf
 [SIZE=4][COLOR=BLUE][B]Licences[/B][/COLOR][/SIZE]
 The compiler is free software under the GNU General Public License version 3. It is a separate program, cc.app, and is not part of the firmware. Its source is in github.com/UKTailwind/FUZIX, branch cmm2. The runtime of compiled programs, in the firmware, is not under that licence, and the translator from MMBasic to C and its runtime are under the MMBasic licence.
 
-Heretic is under the GNU General Public License version 2. Its source is github.com/rh1tech/frank-heretic at the commit named in apps/heretic/make.py, with the files in apps/heretic.
+Heretic's program is under the GNU General Public License version 2. Its source is github.com/rh1tech/frank-heretic at the commit named in apps/heretic/make.py, with the files in apps/heretic. The shareware episode is not free software: it is copyright Raven Software and id Software, and comes unchanged, with its LICENSE.DOC, which allows it to be passed on free of charge. It may not be sold.
 
 The NES emulator is under the GNU General Public License version 3, and its QuickNES core under the GNU LGPL 2.1 or later. Its source is github.com/rh1tech/frank-nes at the commit named in apps/nes/make.py, with the patch and the files in apps/nes. Nova the Squirrel's code is under the GNU General Public License version 3 or later, and its graphics and levels under Creative Commons BY-NC-SA 4.0. Thwaite is under the GNU General Public License version 3 or later.
 
