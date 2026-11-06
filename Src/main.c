@@ -1289,7 +1289,7 @@ void SystemClock_Config(void)
   PeriphClkInitStruct.Usart16ClockSelection = RCC_USART16CLKSOURCE_PLL2;
   PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_HSI48;
   PeriphClkInitStruct.I2c123ClockSelection = RCC_I2C123CLKSOURCE_HSI;
-  PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;
+  PeriphClkInitStruct.UsbClockSelection = MAINCLOCKSPEED == 480 ? RCC_USBCLKSOURCE_PLL : RCC_USBCLKSOURCE_HSI48;   // (see below)
   PeriphClkInitStruct.I2c4ClockSelection = RCC_I2C4CLKSOURCE_HSI;
   PeriphClkInitStruct.AdcClockSelection = RCC_ADCCLKSOURCE_PLL2;
   PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
@@ -1302,22 +1302,25 @@ void SystemClock_Config(void)
   /** Enable USB Voltage detector 
   */
   HAL_PWREx_EnableUSBVoltageDetector();
-  /* HSI48, USB's clock, is an RC oscillator, and left to itself it ran 0.94% fast on a G2 and 0.29% slow on a G1 where full speed allows 0.25%: a
-     forgiving device or a hub, which times the signal again, did not show it, but a PicoMite straight in the socket failed its
-     transfers (6 Nov 2026). The CRS trims it from the RTC's crystal, all the time. As a host there is no SOF to take from a
-     device. 1465 of its periods to each of LSE's is 48.005 MHz. FELIM is RM0433's fTARGET/fSYNC * 0.14% step / 2, rounded up: the
-     HAL's default of 34 is for a 1 kHz SOF, and at this rate would leave any error under 2.3% alone. With no crystal running
-     there is no sync, and nothing changes. */
-  {
+  /* USB's 48 MHz. PLL1Q is exactly that from the crystal when the CPU is at 480 MHz. At 400 MHz it is 40, so a G1 has HSI48, an RC
+     oscillator, which left to itself ran 0.94% fast on a G2 and 0.29% slow on a G1, where full speed allows 0.25%: a forgiving device
+     or a hub, which times the signal again, did not show it, but a PicoMite straight in the socket failed its transfers (6 Nov 2026).
+     The CRS trims it from the RTC's crystal, here at the start only, and is then stopped. Left running it kept moving the trim: the
+     average was right but the clock swung, and a CH340 through a hub lost most of its replies and then stopped answering, where with
+     the trim frozen it answered 30 of 30. LSE / 32 is 1024 Hz, the rate the CRS is made for, and 46875 periods of 48 MHz exactly: FELIM
+     stays the default. With no crystal running there is no sync, and the trim stays as it was. */
+  if (MAINCLOCKSPEED != 480) {
     RCC_CRSInitTypeDef crs = {0};
     __HAL_RCC_CRS_CLK_ENABLE();
-    crs.Prescaler = RCC_CRS_SYNC_DIV1;
+    crs.Prescaler = RCC_CRS_SYNC_DIV32;
     crs.Source = RCC_CRS_SYNC_SOURCE_LSE;
     crs.Polarity = RCC_CRS_SYNC_POLARITY_RISING;
-    crs.ReloadValue = 1464;
-    crs.ErrorLimitValue = 2;
+    crs.ReloadValue = 46874;
+    crs.ErrorLimitValue = RCC_CRS_ERRORLIMIT_DEFAULT;
     crs.HSI48CalibrationValue = RCC_CRS_HSI48CALIBRATION_DEFAULT;
     HAL_RCCEx_CRSConfig(&crs);
+    HAL_Delay(30);                      // a correction each ms, and from the middle it is a few steps away
+    CRS->CR &= ~(CRS_CR_AUTOTRIMEN | CRS_CR_CEN);
   }
 }
 

@@ -157,16 +157,17 @@ void CdcGpsFeed(void) {
 static const char *CdcLineSetup(int idx, xfer_result_t *res) {
 	struct s_cdccom *p = &CdcCom[idx];
 	cdc_line_coding_t coding = {p->baud, p->stop_bits, p->parity, p->data_bits};
-	tuh_cdc_rx_enable(idx, true);                                   // the device is read only while its port is open
-	                                                                // (Peter, 22 Oct 2026; CLOSE stops it), armed first:
-	                                                                // what it held while closed comes in during the
-	*res = XFER_RESULT_INVALID;                                     // requests below, and is thrown away after them
+	*res = XFER_RESULT_INVALID;
 	if(!tuh_cdc_set_line_coding(idx, &coding, NULL, (uintptr_t)res) && *res == XFER_RESULT_INVALID)
 		tuh_cdc_set_baudrate(idx, p->baud, NULL, (uintptr_t)res);
 	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "the baud rate";
 	*res = XFER_RESULT_INVALID;
 	tuh_cdc_set_control_line_state(idx, CDC_CONTROL_LINE_STATE_DTR | CDC_CONTROL_LINE_STATE_RTS, NULL, (uintptr_t)res);
 	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "DTR/RTS";
+	/* The device is read only while its port is open (Peter, 22 Oct 2026; CLOSE stops it), and armed only now, after the requests
+	   above: an idle IN is disabled and re-armed on every NAK, and a SETUP sent while that goes on could be halted unsent, leaving
+	   the control transfer waiting for ever (6 Nov 2026). What it held while closed comes in now, and is thrown away. */
+	tuh_cdc_rx_enable(idx, true);
 	for(uint32_t t0 = tusb_time_millis_api(); tusb_time_millis_api() - t0 < 5; ) tuh_task();   // the rest of it: a
 	tuh_cdc_read_clear(idx);                                        // device can send what it held in several transfers
 	return NULL;
@@ -728,7 +729,8 @@ void SerialClose(int comnbr) {
 		p->setup = false;
 		if(tuh_cdc_mounted(idx)) {
 			tuh_cdc_rx_enable(idx, false);                          // the device's IN stopped: not read while closed
-			tuh_cdc_set_control_line_state(idx, 0, NULL, 0);        // DTR and RTS down
+			for(uint32_t t0 = tusb_time_millis_api(); tusb_time_millis_api() - t0 < 5; ) tuh_task();   // and settled, as in CdcLineSetup,
+			tuh_cdc_set_control_line_state(idx, 0, NULL, 0);        // before DTR and RTS go down
 		}
 		FreeMemorySafe((void *)&p->Rx_buf);
 	}
