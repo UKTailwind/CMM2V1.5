@@ -8,6 +8,22 @@ It adds a C compiler on the Colour Maximite 2 itself, which also compiles MMBasi
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
+## Updated on 6 November 2026
+
+The firmware is unchanged. CMM2_Programs_7.00.00RC2.zip has a new spectrum folder. To add it, copy that folder to A:/spectrum.
+
+- **A ZX Spectrum emulator.** It is pico-spec, DnCraptor's port of the ESPectrum emulator, with a front end for the Colour Maximite 2:
+
+  ```
+  CHDIR "A:/spectrum"
+  RUN "spectrum.app"
+  ```
+
+  - It runs at the Spectrum's 50 frames a second on both generations, in MODE 7,8, and passes z80test's full test of the Z80.
+  - The ROMs are built into the program, so it needs nothing else on the card to start. Tapes and snapshots go in A:/spectrum, and F5 opens them.
+  - F1 opens its menu, which also chooses the machine. Ctrl is Symbol Shift, so Ctrl-C does not end the program: Ctrl+Alt+End leaves.
+  - The README in the zip lists its keys, and says whose its ROMs are.
+
 ## Updated on 5 November 2026
 
 The firmware is unchanged. CMM2_Programs_7.00.00RC2.zip has a new pc386.app, and Colour_Maximite_2_386_PC_Emulator.pdf is updated. To update pc386, copy pc386.app from the zip over the one in A:/pc386.
@@ -112,6 +128,7 @@ The flash is laid out differently in this version, so the first start after the 
 - The NES emulator: its speed on both generations; on a Generation 2, a DualShock 3 and a generic pad, Nova the Squirrel, and the CPU test programs nestest, official_only and cpu_timing_test, which it passes.
 - pc386 on both generations: FreeDOS; MS-DOS 6.2 installed from its Setup disks; Windows 3.1 installed from its six disks and run with sound, a USB mouse and a PS/2 mouse; Turbo Pascal 5.5.
 - Heretic with its shareware episode, on both generations.
+- The Spectrum on a Generation 1, from the serial console, in an empty folder: the 48K machine with .tap and .tzx tapes, by F5 and by LOAD ""; snapshots saved and loaded; F11 and F12; and z80test's full test, which it passes (160 tests, the test itself leaving out its 4 for NEC and ST chips). On a Generation 2, the 128K machine with a tape, F11 and F12, its sound by ear, with PLAY and BEEP, the USB keyboard, and a USB gamepad in its menus.
 - MicroPython, Doom, ScummVM and pc386 from the zip on this firmware, on both generations.
 
 ## Known problems
@@ -122,6 +139,7 @@ The flash is laid out differently in this version, so the first start after the 
 - **A very large MMBasic program** (4,300 lines) compiles on a Generation 2 but stops with an error on a Generation 1, which has less memory for the compiler.
 - A compiled Petscii Robots may pause its music at times.
 - **The NES emulator:** a low speed USB pad cannot go through a hub, as the firmware does not support that. A pad already plugged in when the Colour Maximite 2 was restarted by a reset, not a power cycle, has been seen to give no response until it was plugged in again. QuickNES fails the most exacting timing tests (apu_test 4 of 8, ppu_vbl_nmi 3 of 10), which show in few games.
+- **The Spectrum:** a USB gamepad as a joystick in a game, tapes played in real time, TR-DOS disks and the machines other than the 48K and 128K have not been tried.
 
 ## The manual
 
@@ -141,6 +159,8 @@ The compiler is free software under the GNU General Public License version 3. It
 Heretic's program is under the GNU General Public License version 2. Its source is github.com/rh1tech/frank-heretic at the commit named in apps/heretic/make.py, with the files in apps/heretic. The shareware episode is not free software: it is copyright Raven Software and id Software, and comes unchanged, with its LICENSE.DOC, which allows it to be passed on free of charge. It may not be sold.
 
 The NES emulator is under the GNU General Public License version 3, and its QuickNES core under the GNU LGPL 2.1 or later. Its source is github.com/rh1tech/frank-nes at the commit named in apps/nes/make.py, with the patch and the files in apps/nes. Nova the Squirrel's code is under the GNU General Public License version 3 or later, and its graphics and levels under Creative Commons BY-NC-SA 4.0. Thwaite is under the GNU General Public License version 3 or later.
+
+The Spectrum emulator is pico-spec, under the GNU General Public License version 3, with miniz and its WD1793 emulation under the MIT licence and the Helix MP3 decoder under the RealNetworks Public Source License. Its source is github.com/DnCraptor/pico-spec at the commit named in apps/spectrum/make.py, with the patch and the files in apps/spectrum. The ROMs built into it are not under those licences. Of the Sinclair and Amstrad ROMs: Amstrad have kindly given their permission for the redistribution of their copyrighted material but retain that copyright. That permission does not cover the others (TR-DOS, Mr Gluk's reset service, Paul Farrow's ZX81 ROM and the Byte, Pentagon and Profi ROMs), which are as pico-spec has them and belong to their authors.
 
 pc386 is tiny386, under the BSD 3-Clause licence, whose notice follows. Its emulated devices come from QEMU and TinyEMU (MIT licence), its Adlib's FM synthesis is fmopl (GNU LGPL 2.1 or later), its BIOS files are SeaBIOS and SeaVGABIOS (GNU LGPL 3), and FreeDOS is under the licences of its programs, most of them the GNU General Public License.
 

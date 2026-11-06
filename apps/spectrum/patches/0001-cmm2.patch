@@ -1,0 +1,115 @@
+diff --git a/src/ESPectrum.cpp b/src/ESPectrum.cpp
+index 35d86a5..788cfb2 100644
+--- a/src/ESPectrum.cpp
++++ b/src/ESPectrum.cpp
+@@ -824,6 +824,10 @@ void ESPectrum::setup() {
+     // RP2040: page 0 goes to external backing to save heap for framebuffer.
+     // Actual data location at access time is chosen by psram_size() check in
+     // mem_desc_t ops, so label the page with its real backing for honest stats.
++#ifdef CMM2_APP
++    MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);   // (the CMM2 has the room)
++    ++ram_pages;
++#else
+     if (psram_size() >= MEM_PG_SZ) {
+         MemESP::ram[0].assign_vram(0, mem_type_t::PSRAM_SPI);
+         ++psram_pages;
+@@ -831,6 +835,7 @@ void ESPectrum::setup() {
+         MemESP::ram[0].assign_vram(0, mem_type_t::SWAP);
+         ++swap_pages;
+     }
++#endif
+     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
+     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
+     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+diff --git a/src/MemESP.h b/src/MemESP.h
+index bcc48e2..f99209a 100644
+--- a/src/MemESP.h
++++ b/src/MemESP.h
+@@ -47,6 +47,14 @@ visit https://zxespectrum.speccy.org/contacto
+ #include "ChipPackage.h"
+ 
+ #define MEM_PG_SZ 0x4000
++#ifdef CMM2_APP
++// The CMM2 runs the program from RAM, far above the PSRAM's address, so nothing there is below it and a ROM
++// would take the Z80's writes. A ROM is what the linker put in the image's read-only part.
++extern "C" char __image_start[], __fini_array_end[];
++#define MEM_IS_ROM(p) ((char *)(p) >= __image_start && (char *)(p) < __fini_array_end)
++#else
++#define MEM_IS_ROM(p) ((uint8_t *)(p) < (uint8_t *)0x11000000)
++#endif
+ #if PICO_RP2350
+ // with gigascreen
+ #define MEM_REMAIN (14*16*1024)
+@@ -490,7 +498,7 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
+         accessorWrite(page, addr & 0x3fff, data);
+         return;
+     }
+-    if (p < (uint8_t*)0x11000000) return;
++    if (MEM_IS_ROM(p)) return;
+     *mem_desc_t::bank_dirty[page] = true;
+ #if MEM_ACCESS_TRACE
+     *mem_desc_t::bank_access[page] += 1;
+diff --git a/src/OSDMain.cpp b/src/OSDMain.cpp
+index 1713967..68854b7 100644
+--- a/src/OSDMain.cpp
++++ b/src/OSDMain.cpp
+@@ -9601,7 +9601,7 @@ c:
+     VIDEO::vga.print("-Pages-----------");
+     {
+         char pb0[20], pb1[20], pb2[20], pb3[20];
+-        if (MemESP::ramCurrent[0] && MemESP::ramCurrent[0] < (uint8_t*)0x11000000)
++        if (MemESP::ramCurrent[0] && MEM_IS_ROM(MemESP::ramCurrent[0]))
+             snprintf(pb0, 20, "PAGE0 -> ROM#%d", MemESP::romInUse);
+         else if (MemESP::newSRAM)
+             snprintf(pb0, 20, "PAGE0 -> SRAM#%d", MemESP::romLatch);
+@@ -10237,7 +10237,12 @@ extern "C" uint8_t linkVGA01;
+ extern "C" uint8_t link_i2s_code;
+ extern bool is_i2s_enabled;
+ 
++#ifdef CMM2_APP
++extern "C" char *cmm2_heap_limit(void);   // (a program's heap ends where the loader says)
++#define __HeapLimit (*cmm2_heap_limit())
++#else
+ extern char __HeapLimit;
++#endif
+ extern "C" void *sbrk(intptr_t incr);
+ 
+ size_t getFreeHeap(void) {
+@@ -10927,7 +10932,12 @@ void OSD::BoardInfo() {
+ // butter_psram_size/psram_size + page counters, Buffer::poolStat() and Subsystems::feature*.
+ void OSD::MemoryInfo() {
+     extern char __flash_binary_start, __flash_binary_end;  // pico-sdk linker symbols
+-    extern char end, __HeapLimit;                          // heap arena [end, __HeapLimit)
++#ifdef CMM2_APP
++    extern char end;
++#else
++    extern char end, __HeapLimit;
++#endif
++                             // heap arena [end, __HeapLimit)
+ 
+     char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
+     int pos = 0;
+diff --git a/src/main.cpp b/src/main.cpp
+index 1530989..8385472 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -1238,6 +1238,11 @@ void __not_in_flash() flash_timings(int mhz) {
+ }
+ #endif
+ 
++#ifdef CMM2_APP
++/* the RP2040's flash and clocks: the CMM2 has its own */
++static void flash_info() { }
++static bool try_set_sys_clock_khz(uint32_t freq_khz) { return true; }
++#else
+ static void __not_in_flash_func(flash_info)() {
+     if (rx[0] == 0) {
+         uint8_t tx[4] = {0x9f};
+@@ -1481,6 +1486,7 @@ void __not_in_flash_func(board_set_clock_and_timing)(uint32_t mhz) {
+ }
+ #endif
+ 
++#endif /* CMM2_APP */
+ #ifdef VGA_HDMI
+ extern "C" uint8_t linkVGA01;
+ #endif
