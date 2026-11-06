@@ -795,6 +795,11 @@ int SerialCdcWrite(int comnbr, const unsigned char *buf, int n) {
 	return done;
 }
 
+// Is the device of COM4-COM7 there? (An open port stays open while it is away, and tuh_cdc_mount_cb asks for it to be set up again.)
+int SerialCdcConnected(int comnbr) {
+	return tuh_cdc_mounted(comnbr - CDC_FIRST_COM);
+}
+
 /***************************************************************************************************
 Get the status the serial receive buffer.
 Returns the number of characters waiting in the buffer

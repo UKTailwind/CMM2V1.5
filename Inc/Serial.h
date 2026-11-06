@@ -131,6 +131,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern char *CdcInterrupt(void);
 	extern void CdcService(void);
 	extern int SerialCdcWrite(int comnbr, const unsigned char *buf, int n);
+	extern int SerialCdcConnected(int comnbr);
 	extern void CdcGpsFeed(void);
 
 

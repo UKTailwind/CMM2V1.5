@@ -803,6 +803,10 @@ static int ld_comavail(int com) {
     if(!(ldcom & (1 << com))) return -3;
     return SerialRxStatus(com);
 }
+static int ld_comconnected(int com) {
+    if(!LD_COM_OK(com)) return -1;
+    return com >= CDC_FIRST_COM ? SerialCdcConnected(com) : 1;
+}
 
 // what the program set up, undone (its end)
 static void ld_iotidy(void) {
@@ -1213,7 +1217,7 @@ static const struct cmm2_services ldsvc = {
     .libm = &ldlibm,
     .basic_cmd = ld_basic, .gfx_target = ld_gtarget, .font_size = ld_fontsize, .font_define = ld_fontdef,
     .basic_eval = ld_eval, .sound_state = ld_soundstate, .basic_prep = ld_prep, .basic_exec = ld_exec,
-    .image_resize = ld_resize, .gamepad = USBGamepadState,
+    .image_resize = ld_resize, .gamepad = USBGamepadState, .com_connected = ld_comconnected,
 };
 
 /*******************************************************************************************
