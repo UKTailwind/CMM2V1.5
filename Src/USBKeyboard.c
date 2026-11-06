@@ -54,8 +54,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * The STM32 side replaces the ST USB host library.  The H743's USB2_OTG_FS
  * core (PA11 DM, PA12 DP, on-chip full-speed PHY) is TinyUSB's root port 0;
- * its 48 MHz clock is HSI48 and the USB voltage detector is on, both from
- * SystemClock_Config().  VBUS is not switched by software.  Hubs are
+ * its 48 MHz clock is HSI48, trimmed from the RTC's crystal by the CRS, and
+ * the USB voltage detector is on, both from SystemClock_Config().  VBUS is not switched by software.  Hubs are
  * enabled (tusb_config.h), so a keyboard with a built-in hub enumerates.
  *
  * The interrupt only queues events; CheckKeyboard(), called from

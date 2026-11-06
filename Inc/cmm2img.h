@@ -33,13 +33,13 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  13                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  14                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
                                                   10: drawing, by MMBasic's own routines; 11: the firmware's memcpy,
                                                   memset, memmove and libm; 12: an expression's value, the sound's
-                                                  state; 13: the USB gamepads) */
+                                                  state; 13: the USB gamepads; 14: COM4-7, the USB serial devices, by the com_ services) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
@@ -273,8 +273,8 @@ struct cmm2_services {
     int      (*spi_xfer)(int bus, const uint8_t *tx, uint8_t *rx, uint32_t n);   /* n bytes, tx NULL: 0s out, rx
                                                   NULL: what comes in dropped */
     int      (*com_open)(int com, uint32_t baud, int bits, int parity, int stop, uint32_t rxbuf);   /* com 1 (GP0/1)
-                                                  or 2 (GP36/37), as OPEN COMn: bits 7 or 8, parity 0 none, 1 even,
-                                                  2 odd, stop 1 or 2 */
+                                                  or 2 (GP36/37), or 4-7 for a USB serial device (version 14), as OPEN
+                                                  COMn: bits 7 or 8, parity 0 none, 1 even, 2 odd, stop 1 or 2 */
     int      (*com_close)(int com);
     int      (*com_write)(int com, const uint8_t *buf, uint32_t n);   /* queued (waiting while the queue is full) */
     int      (*com_read)(int com, uint8_t *buf, uint32_t n);   /* the bytes waiting, up to n: 0 if none (no wait) */

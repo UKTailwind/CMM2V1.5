@@ -740,32 +740,24 @@ void SerialClose(int comnbr) {
 Add a character to the serial output buffer.
 ****************************************************************************************************/
 unsigned char SerialPutchar(int comnbr, unsigned char c) {
+	/* the interrupt on after every byte, as in SerialConsolePutC: asking first if the transmitter was idle could strand this byte, and report all sent with it still here */
 	if(comnbr == 1) {
-        int empty=(huart2.Instance->ICR & USART_ICR_TCCF) | !(huart2.Instance->CR1 & USART_CR1_TCIE) ;
 		while(com1Tx_tail == ((com1Tx_head + 1) % TX_BUFFER_SIZE)); //wait if buffer full
 		com1Tx_buf[com1Tx_head] = c;							// add the char
 		com1Tx_head = (com1Tx_head + 1) % TX_BUFFER_SIZE;		   // advance the head of the queue
-		if(empty){
-	        huart2.Instance->CR1 |= USART_CR1_TCIE;
-		}
+		huart2.Instance->CR1 |= USART_CR1_TCIE;
 	}
 	else if(comnbr == 2) {
-        int empty=(huart4.Instance->ICR & USART_ICR_TCCF) | !(huart4.Instance->CR1 & USART_CR1_TCIE) ;
 		while(com2Tx_tail == ((com2Tx_head + 1) % TX_BUFFER_SIZE)); //wait if buffer full
 		com2Tx_buf[com2Tx_head] = c;							// add the char
 		com2Tx_head = (com2Tx_head + 1) % TX_BUFFER_SIZE;		   // advance the head of the queue
-		if(empty){
-	        huart4.Instance->CR1 |= USART_CR1_TCIE;
-		}
+		huart4.Instance->CR1 |= USART_CR1_TCIE;
 	}
 	else if(comnbr == 3) {
-        int empty=(huart1.Instance->ICR & USART_ICR_TCCF) | !(huart1.Instance->CR1 & USART_CR1_TCIE) ;
 		while(com3Tx_tail == ((com3Tx_head + 1) % TX_BUFFER_SIZE)); //wait if buffer full
 		com3Tx_buf[com3Tx_head] = c;							// add the char
 		com3Tx_head = (com3Tx_head + 1) % TX_BUFFER_SIZE;		   // advance the head of the queue
-		if(empty){
-	        huart1.Instance->CR1 |= USART_CR1_TCIE;
-		}
+		huart1.Instance->CR1 |= USART_CR1_TCIE;
 	}
 	else if(comnbr >= CDC_FIRST_COM && comnbr < CDC_FIRST_COM + CDC_PORTS) {
 		int idx = comnbr - CDC_FIRST_COM;                           // written as it comes, a byte lost while unplugged
@@ -782,6 +774,24 @@ unsigned char SerialPutchar(int comnbr, unsigned char c) {
 }
 
 
+
+/***************************************************************************************************
+Write to a USB serial device for a loadable program (the com_write service). As SerialPutchar does, but a whole buffer,
+and a Ctrl-C ends the wait for a device that has stopped reading: CheckAbort does nothing while a program runs. Returns the
+bytes taken, which are short if it was unplugged or Ctrl-C was pressed.
+****************************************************************************************************/
+int SerialCdcWrite(int comnbr, const unsigned char *buf, int n) {
+	int idx = comnbr - CDC_FIRST_COM, done = 0;
+	while(done < n && tuh_cdc_mounted(idx)) {
+		done += tuh_cdc_write(idx, buf + done, n - done);
+		tuh_cdc_write_flush(idx);
+		if(done < n) {
+			tuh_task();                                             // the device takes what was written
+			if(MMAbort) break;
+		}
+	}
+	return done;
+}
 
 /***************************************************************************************************
 Get the status the serial receive buffer.

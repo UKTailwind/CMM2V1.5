@@ -1302,6 +1302,23 @@ void SystemClock_Config(void)
   /** Enable USB Voltage detector 
   */
   HAL_PWREx_EnableUSBVoltageDetector();
+  /* HSI48, USB's clock, is an RC oscillator, and left to itself it ran 0.94% fast on a G2 and 0.29% slow on a G1 where full speed allows 0.25%: a
+     forgiving device or a hub, which times the signal again, did not show it, but a PicoMite straight in the socket failed its
+     transfers (6 Nov 2026). The CRS trims it from the RTC's crystal, all the time. As a host there is no SOF to take from a
+     device. 1465 of its periods to each of LSE's is 48.005 MHz. FELIM is RM0433's fTARGET/fSYNC * 0.14% step / 2, rounded up: the
+     HAL's default of 34 is for a 1 kHz SOF, and at this rate would leave any error under 2.3% alone. With no crystal running
+     there is no sync, and nothing changes. */
+  {
+    RCC_CRSInitTypeDef crs = {0};
+    __HAL_RCC_CRS_CLK_ENABLE();
+    crs.Prescaler = RCC_CRS_SYNC_DIV1;
+    crs.Source = RCC_CRS_SYNC_SOURCE_LSE;
+    crs.Polarity = RCC_CRS_SYNC_POLARITY_RISING;
+    crs.ReloadValue = 1464;
+    crs.ErrorLimitValue = 2;
+    crs.HSI48CalibrationValue = RCC_CRS_HSI48CALIBRATION_DEFAULT;
+    HAL_RCCEx_CRSConfig(&crs);
+  }
 }
 
 /**
@@ -3373,33 +3390,25 @@ void PrintStatus(int now){
 	OptionFileErrorAbort = true;
 
 }	// send a character to the Console serial port
+/* The interrupt is turned on after every byte, whether or not it looks needed. Asking first if the transmitter was idle, as this did, left a race: asked with the last byte
+   still going, the interrupt could then find the queue empty and turn itself off before this byte went in, and nothing started it again until the next character came */
 void SerialConsolePutC(int c) {
 	if(!(OptionConsole & 1))return;
-	int empty;
 	if(Option.ConsolePort==3){
-		empty=(huart1.Instance->ICR & USART_ICR_TCCF) | !(huart1.Instance->CR1 & USART_CR1_TCIE) ;
 		while(ConsoleTxBufTail == ((ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE))routinechecks(1); //wait if buffer full
 		ConsoleTxBuf[ConsoleTxBufHead] = c;							// add the char
 		ConsoleTxBufHead = (ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE;		   // advance the head of the queue
-		if(empty){
-			huart1.Instance->CR1 |= USART_CR1_TCIE;
-		}
+		huart1.Instance->CR1 |= USART_CR1_TCIE;
 	} else if(Option.ConsolePort==1){
-		empty=(huart2.Instance->ICR & USART_ICR_TCCF) | !(huart2.Instance->CR1 & USART_CR1_TCIE) ;
 		while(ConsoleTxBufTail == ((ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE))routinechecks(1); //wait if buffer full
 		ConsoleTxBuf[ConsoleTxBufHead] = c;							// add the char
 		ConsoleTxBufHead = (ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE;		   // advance the head of the queue
-		if(empty){
-			huart2.Instance->CR1 |= USART_CR1_TCIE;
-		}
+		huart2.Instance->CR1 |= USART_CR1_TCIE;
 	} else if(Option.ConsolePort==2){
-		empty=(huart4.Instance->ICR & USART_ICR_TCCF) | !(huart4.Instance->CR1 & USART_CR1_TCIE) ;
 		while(ConsoleTxBufTail == ((ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE))routinechecks(1); //wait if buffer full
 		ConsoleTxBuf[ConsoleTxBufHead] = c;							// add the char
 		ConsoleTxBufHead = (ConsoleTxBufHead + 1) % CONSOLE_TX_BUF_SIZE;		   // advance the head of the queue
-		if(empty){
-			huart4.Instance->CR1 |= USART_CR1_TCIE;
-		}
+		huart4.Instance->CR1 |= USART_CR1_TCIE;
 	}
 }
 

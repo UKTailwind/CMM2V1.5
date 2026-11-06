@@ -130,6 +130,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern struct s_cdccom CdcCom[CDC_PORTS];
 	extern char *CdcInterrupt(void);
 	extern void CdcService(void);
+	extern int SerialCdcWrite(int comnbr, const unsigned char *buf, int n);
 	extern void CdcGpsFeed(void);
 
 

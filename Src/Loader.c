@@ -762,9 +762,10 @@ static int ld_spixfer(int bus, const uint8_t *tx, uint8_t *rx, uint32_t n) {
     return 0;
 }
 
-// COM1 (GP0/1) and COM2 (GP36/37), opened as OPEN "COMn:baud,buffer[,EVEN|ODD][,S2][,7BIT]" opens them
+// COM1 (GP0/1), COM2 (GP36/37) and the USB serial devices COM4-COM7 (version 14), opened as OPEN "COMn:baud,buffer[,EVEN|ODD][,S2][,7BIT]" opens them. Not COM3, the console's
+#define LD_COM_OK(com) (((com) >= 1 && (com) <= 2) || ((com) >= CDC_FIRST_COM && (com) < CDC_FIRST_COM + CDC_PORTS))
 static int ld_comclose(int com) {
-    if(com < 1 || com > 2) return -1;
+    if(!LD_COM_OK(com)) return -1;
     if(!(ldcom & (1 << com))) return 0;
     ldcom &= ~(1 << com);
     SerialClose(com);
@@ -773,7 +774,7 @@ static int ld_comclose(int com) {
 static int ld_comopen(int com, uint32_t baud, int bits, int parity, int stop, uint32_t rxbuf) {
     char a[64];
     int r;
-    if(com < 1 || com > 2) return -1;
+    if(!LD_COM_OK(com)) return -1;
     ld_comclose(com);
     sprintf(a, "COM%d:%u,%u%s%s%s", com, (unsigned)baud, (unsigned)(rxbuf ? rxbuf : COM_DEFAULT_BUF_SIZE),
             parity == 1 ? ",EVEN" : parity == 2 ? ",ODD" : "", stop == 2 ? ",S2" : "", bits == 7 ? ",7BIT" : "");
@@ -783,21 +784,22 @@ static int ld_comopen(int com, uint32_t baud, int bits, int parity, int stop, ui
 }
 static int ld_comwrite(int com, const uint8_t *buf, uint32_t n) {
     uint32_t i;
-    if(com < 1 || com > 2) return -1;
+    if(!LD_COM_OK(com)) return -1;
     if(!(ldcom & (1 << com))) return -3;
+    if(com >= CDC_FIRST_COM) return SerialCdcWrite(com, buf, (int)n);
     for(i = 0; i < n; i++) SerialPutchar(com, buf[i]);
     return (int)n;
 }
 static int ld_comread(int com, uint8_t *buf, uint32_t n) {
     uint32_t i = 0;
     int c;
-    if(com < 1 || com > 2) return -1;
+    if(!LD_COM_OK(com)) return -1;
     if(!(ldcom & (1 << com))) return -3;
     while(i < n && (c = SerialGetchar(com)) >= 0) buf[i++] = c;
     return (int)i;
 }
 static int ld_comavail(int com) {
-    if(com < 1 || com > 2) return -1;
+    if(!LD_COM_OK(com)) return -1;
     if(!(ldcom & (1 << com))) return -3;
     return SerialRxStatus(com);
 }
@@ -813,6 +815,7 @@ static void ld_iotidy(void) {
     ld_spiclose(1);
     ld_comclose(1);
     ld_comclose(2);
+    for(ch = 0; ch < CDC_PORTS; ch++) ld_comclose(CDC_FIRST_COM + ch);
     for(gp = 0; gp < 64; gp++)
         if(ldpins & (1ULL << gp)) {
             int pin = GPPinNone(gp);
