@@ -2947,7 +2947,8 @@ void OPTSIZE fun_info(void){
 		targ=T_INT;
 		return;
 	}
-	if(checkstring(ep, "FLASH")){                                   // the slot whose program is running, 0 for none: a RAM
+	if((tp = checkstring(ep, "FLASH"))){                            // the slot whose program is running, 0 for none: a RAM
+		checkend(tp);                                               // (not FLASH ADRESS 1, which gave the slot: as the PicoMite's)
 		iret = FlashLoad > MAXFLASHSLOTS ? FlashLoad - MAXFLASHSLOTS : FlashLoad;   // slot's own number, as the PicoMite's (ImageSlots.c)
 		targ=T_INT;
 		return;
@@ -3001,12 +3002,14 @@ void OPTSIZE fun_info(void){
     tp=checkstring(ep, "FONT ADDRESS");
 		if(tp){
 		iret=(int64_t)((uint32_t)FontTable[getint(tp,1,FONT_TABLE_SIZE)-1]);
+		checkend(skipexpression(tp));                               // (FONT ADDRESS 1,2 was font 1: as the PicoMite's)
 		targ=T_INT;
 		return;
 	}
 	tp=checkstring(ep, "FONT POINTER");
 		if(tp){
 		iret=(int64_t)((uint32_t)&FontTable[getint(tp,1,FONT_TABLE_SIZE)-1]);
+		checkend(skipexpression(tp));
 		targ=T_INT;
 		return;
 	}
@@ -3355,7 +3358,8 @@ void OPTSIZE fun_info(void){
 	} else if(checkstring(ep, "BCOLOUR") || checkstring(ep, "BCOLOR")){
 		iret=gui_bcolour;
 		rettype='I';
-	} else if(checkstring(ep, "FONT")){
+	} else if((tp = checkstring(ep, "FONT"))){
+		checkend(tp);                                               // (not FONT ADRESS 1, which gave the font's number)
 		iret=(gui_font >> 4)+1;
 		rettype='I';
 	} else if(checkstring(ep, "RTC")){

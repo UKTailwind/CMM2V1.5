@@ -121,6 +121,23 @@ void polygon(char *p, int close);
 
                                                 };
 
+// the table with no program's fonts in it: 1 to 9 the built in ones, 10 to 16 empty. PrepareProgram starts from this every
+// time, so a font replaced by DEFINEFONT #2 to #5, #8 or #9 or by LOAD FONT goes with its program: fonts 4 and 5 were put
+// back by nothing, and the next program read what was left where the last one's font had been (CMM2V1.5 #11). OPTION
+// LEGACY's fonts 1 to 3 go too, as every RUN and CHAIN clears CMM1 first: they are for the program that asked for them
+void initFonts(void) {
+    FontTable[0] = (unsigned char *)font1;
+    FontTable[1] = (unsigned char *)Misc_12x20_LE;
+    FontTable[2] = (unsigned char *)Hom_16x24_LE;
+    FontTable[3] = (unsigned char *)Fnt_10x16;
+    FontTable[4] = (unsigned char *)Inconsola;
+    FontTable[5] = (unsigned char *)ArialNumFontPlus;
+    FontTable[6] = (unsigned char *)F_6x8_LE;
+    FontTable[7] = (unsigned char *)TinyFont;
+    FontTable[8] = (unsigned char *)font8x10;
+    for(int i = FONT_BUILTIN_NBR; i < FONT_TABLE_SIZE; i++) FontTable[i] = NULL;
+}
+
 const uint8_t cursor8[]={
 		255,0,0,0,0,0,0,0,0,0,0,0,0,
 		255,255,0,0,0,0,0,0,0,0,0,0,0,

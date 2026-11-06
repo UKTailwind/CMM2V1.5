@@ -143,7 +143,7 @@ MM.INFO(FONT ADDRESS n)
 MM.INFO(FONT POINTER n)
 --- keep
 The number of the current font (see FONT).
-The address in memory of the data of font ‘n’ (1 to 16, 0 if there is no such font), and (POINTER) the address of the entry of MMBasic's font table that holds that address.
+The address in memory of the data of font ‘n’ (1 to 16, 0 if there is no such font), and (POINTER) the address of the entry of MMBasic's font table that holds that address.  The first four bytes at the font's address are its width, height, first character and number of characters.
 
 =+= MM.INFO(FRAMEBUFFER)
 MM.INFO(FRAMEH)
