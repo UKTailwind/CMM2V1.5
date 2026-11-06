@@ -18,6 +18,16 @@ apps/scummvm/out/
 # Heretic (apps/heretic/make.py): frank-heretic fetched at a pinned commit, and the build
 apps/heretic/frank-heretic/
 apps/heretic/out/
+# zeptoforth (apps/zeptoforth/make.py): the kernel fetched at a pinned commit, and the build
+apps/zeptoforth/zeptoforth/
+apps/zeptoforth/out/
+# The Amstrad CPC (apps/cpc/make.py): frank-cpc fetched at a pinned commit, and the build
+apps/cpc/frank-cpc/
+apps/cpc/out/
+# The terminal (apps/vt100/make.py): libvterm and Spleen fetched at pinned commits, and the build
+apps/vt100/libvterm/
+apps/vt100/spleen/
+apps/vt100/out/
 # The Spectrum (apps/spectrum/make.py): pico-spec fetched at a pinned commit, and the build
 apps/spectrum/pico-spec/
 apps/spectrum/out/

@@ -1,0 +1,433 @@
+diff --git a/src/Pico/cpc_boot.c b/src/Pico/cpc_boot.c
+index 7240d44..2172395 100644
+--- a/src/Pico/cpc_boot.c
++++ b/src/Pico/cpc_boot.c
+@@ -28,7 +28,11 @@
+ #include <string.h>
+ #include <stdbool.h>
+ 
++#ifdef CMM2_APP
++#define FB_W 320   /* (graphics_set_buffer spreads it over the 640) */
++#else
+ #define FB_W CPC_FB_WIDTH
++#endif
+ #define FB_H CPC_SCREEN_LINES
+ 
+ extern uint8_t *SCREEN[2];
+diff --git a/src/Pico/cpc_loader.c b/src/Pico/cpc_loader.c
+index 134c7aa..26a29a6 100644
+--- a/src/Pico/cpc_loader.c
++++ b/src/Pico/cpc_loader.c
+@@ -41,8 +41,10 @@ static int is_dsk(const char *name) {
+     char e3 = tolower((unsigned char)name[n-1]);
+     /* .dsk */
+     if (e1 == 'd' && e2 == 's' && e3 == 'k') return 1;
++#ifndef CMM2_APP
+     /* .ipf */
+     if (e1 == 'i' && e2 == 'p' && e3 == 'f') return 1;
++#endif
+     return 0;
+ }
+ 
+diff --git a/src/Pico/cpc_ui.c b/src/Pico/cpc_ui.c
+index e7a4025..08b71a0 100644
+--- a/src/Pico/cpc_ui.c
++++ b/src/Pico/cpc_ui.c
+@@ -402,6 +402,9 @@ static bool handle_disk_browser_key(unsigned int ks) {
+                     } else if (cpc_is_cpr_file(g_cpc_disk_entries[ei].name)) {
+                         /* CPR file → load as cartridge */
+                         if (cpc_cartridge_insert(path) == 0) {
++#ifdef CMM2_APP
++                            cpc_engine_reset();
++#endif
+                             snprintf(s_toast, sizeof(s_toast), "Cartridge loaded");
+                             s_toast_frames = 100;
+                             s_state = UI_HIDDEN;
+diff --git a/src/Pico/platform.c b/src/Pico/platform.c
+index 35c1e1d..3c3a02c 100644
+--- a/src/Pico/platform.c
++++ b/src/Pico/platform.c
+@@ -45,6 +45,10 @@ void cpc_init_palette(void) {
+ }
+ 
+ volatile bool g_screenshot_pending = false;
++#ifdef CMM2_APP
++extern void cmm2_ui_render(uint8_t *dst);
++extern void cmm2_stop(const char *why);
++#endif
+ 
+ void cpc_frame_present(void) {
+ #if !defined(VGA_HSTX) && !defined(VIDEO_COMPOSITE)
+@@ -89,7 +93,11 @@ void cpc_frame_present(void) {
+     }
+ 
+     if (cpc_ui_is_visible())
++#ifdef CMM2_APP
++        cmm2_ui_render(dst);   /* (drawn at 320 x 240, and each pixel put down twice) */
++#else
+         cpc_ui_render(dst, CPC_FB_WIDTH, CPC_SCREEN_LINES);
++#endif
+ 
+     graphics_set_buffer(dst);
+     current_buffer ^= 1u;
+@@ -589,6 +597,10 @@ static const uint8_t ps2_to_cpc_matrix_de[CPC_MATRIX_SIZE][2] = {
+ static const uint8_t (*active_ps2_matrix)[2] = ps2_to_cpc_matrix;
+ 
+ void cpc_set_keyboard_layout(int layout) {
++#ifdef CMM2_APP
++    (void)layout;                   /* the layout is OPTION USBKEYBOARD's (cpc_cmm2.c): the keys reach here by the English places */
++    return;
++#endif
+     switch (layout) {
+         case 1: active_ps2_matrix = ps2_to_cpc_matrix_fr; break;
+         case 2: active_ps2_matrix = ps2_to_cpc_matrix_es; break;
+@@ -757,6 +769,9 @@ void cpc_pico_main(void) {
+ 
+     if (cpc_engine_init() != 0) {
+         printf("Failed to initialize CPC engine\n");
++#ifdef CMM2_APP
++        cmm2_stop("cpc: it needs its ROMs: cpc464.rom, cpc664.rom, cpc6128.rom and amsdos.rom in the folder rom, here");
++#endif
+         while (true) tight_loop_contents();
+     }
+ 
+@@ -798,6 +813,9 @@ void cpc_pico_main(void) {
+             cmd[di] = '\0';
+             printf("autorun: %s\n", g_cpc_settings.autorun);
+             cpc_autotype_set(cmd, 200);
++#ifdef CMM2_APP
++        }   /* a lone disk is mounted, and nothing typed: what follows is for frank-cpc's own test disks (Peter, 6 Nov 2026) */
++#else
+         } else if (cpc_mounted_disk_name(0)) {
+             const char *disk = cpc_mounted_disk_name(0);
+             /* Detect Exolon trainer disk — answer Y to 4 trainer questions */
+@@ -812,6 +830,7 @@ void cpc_pico_main(void) {
+                 cpc_autotype_set("RUN\"PRINCE\r\n\n\n ", 200);
+             }
+         }
++#endif
+     }
+ 
+     printf("CPC initialized. Starting emulation...\n");
+@@ -852,7 +871,9 @@ void cpc_pico_main(void) {
+         uint64_t now = time_us_64();
+         if (fps_last_us == 0) fps_last_us = now;
+         if (now - fps_last_us >= 1000000u) {
++#ifndef CMM2_APP
+             printf("# FPS %u\n", fps_frames);
++#endif
+             fps_frames = 0;
+             fps_last_us = now;
+         }
+diff --git a/src/board_config.h b/src/board_config.h
+index c608e57..404514f 100644
+--- a/src/board_config.h
++++ b/src/board_config.h
+@@ -80,7 +80,11 @@ static inline uint get_psram_pin(void) {
+ #  define PS2_MOUSE_DATA PS2_PIN_DATA
+ #endif
+ 
++#ifdef CMM2_APP
++#define CPC_FB_WIDTH    640   /* every pixel of Mode 2: the CMM2's MODE 8 has the room */
++#else
+ #define CPC_FB_WIDTH    320
++#endif
+ #define CPC_FB_HEIGHT   240   /* CPC logical render height — full screen */
+ /* HDMI.c uses CONTENT_SCANLINES=240*2 and accesses SCREEN[line 0..239].
+  * screen_mem must be exactly CPC_SCREEN_LINES rows tall.
+diff --git a/src/cap32/asic.cpp b/src/cap32/asic.cpp
+index 2b179c5..e297883 100644
+--- a/src/cap32/asic.cpp
++++ b/src/cap32/asic.cpp
+@@ -558,7 +558,13 @@ void asic_draw_sprites() {
+     * Sprite X=0 is the left edge of the active display.
+     * scanline_complete() copies from scanline_buf + crtc_active_display_offset,
+     * so fb column 0 = active display start. No X adjustment needed. */
++#ifdef CMM2_APP
++   const int fb_w = 640;
++#define SPRITE_FB_X(x) (x)
++#else
+    const int fb_w = 320;
++#define SPRITE_FB_X(x) ((x) / 2)
++#endif
+    const int fb_h = 240;
+    const int y_offset = crtc_sl0_scrln - fb_y_start;
+ 
+@@ -575,7 +581,7 @@ void asic_draw_sprites() {
+          /* Early column clip in CPC coords */
+          int cpc_x_base = sx + x * mx;
+          if (cpc_x_base + mx <= 0) continue;
+-         if (cpc_x_base / 2 >= fb_w) break;
++         if (SPRITE_FB_X(cpc_x_base) >= fb_w) break;
+ 
+          for (int y = 0; y < 16; y++) {
+             byte p = asic.sprites[i][x][y];
+@@ -587,7 +593,7 @@ void asic_draw_sprites() {
+                if (py >= fb_h) break;
+ 
+                for (int dx = 0; dx < mx; dx++) {
+-                  int px = (cpc_x_base + dx) / 2;
++                  int px = SPRITE_FB_X(cpc_x_base + dx);
+                   if (px < 0) continue;
+                   if (px >= fb_w) break;
+ 
+diff --git a/src/cap32/crtc.cpp b/src/cap32/crtc.cpp
+index 22df441..d34e74a 100644
+--- a/src/cap32/crtc.cpp
++++ b/src/cap32/crtc.cpp
+@@ -148,6 +148,9 @@ void crtc_update_palette_cache()
+    for (int i = 0; i < 34; i++) {
+       palette_byte[i] = (byte)GateArray.palette[i];
+    }
++#ifdef CMM2_APP
++   return;                                     /* (the lookups below are the half width picture's) */
++#endif
+    /* Rebuild Mode 1 half-width LUT: for each video byte, precompute 4 half-width
+     * palette bytes (pixels 0-3, each taken once instead of doubled).
+     * CPC Mode 1 bit decode (note: MSB of pen comes from LOW bit position):
+@@ -622,8 +625,13 @@ inline void reload_addr()
+ }
+ 
+ 
++#ifdef CMM2_APP
++#define CRTC_ACTIVE_LEFT 64                    /* four characters, at 16 pixels each */
++#else
++#define CRTC_ACTIVE_LEFT 32
++#endif
+ int crtc_sl0_scrln = 0; /* VDU.scrln when sl_count resets to 0 */
+-int crtc_active_display_offset = 32; /* byte offset in scanline_buf where active display starts */
++int crtc_active_display_offset = CRTC_ACTIVE_LEFT; /* byte offset in scanline_buf where active display starts */
+ 
+ inline void restart_frame()
+ {
+@@ -862,7 +870,7 @@ void set_prerender()
+             crtc_active_display_offset = (int)(CPC.scr_pos - CPC.scr_base) & ~3;
+          }
+       } else {
+-         crtc_active_display_offset = 32;
++         crtc_active_display_offset = CRTC_ACTIVE_LEFT;
+       }
+    } else {
+       if (!static_cast<word>(LastPreRend)) {
+@@ -955,6 +963,13 @@ prerender_and_render_normal_8bpp()
+    CPC.scr_pos = out + 8;
+ }
+ 
++#ifdef CMM2_APP
++static inline dword __attribute__((always_inline)) four_pixels(dword pens)
++{
++   return palette_byte[pens & 0xFF] | palette_byte[(pens >> 8) & 0xFF] << 8 | palette_byte[(pens >> 16) & 0xFF] << 16 | palette_byte[pens >> 24] << 24;
++}
++#endif
++
+ void __attribute__((hot, section(".time_critical.crtc"))) crtc_cycle(int repeat_count)
+ {
+    do {
+@@ -963,6 +978,23 @@ void __attribute__((hot, section(".time_critical.crtc"))) crtc_cycle(int repeat_
+             if (__builtin_expect(flags1.combined != LastPreRend, 0)) {
+                set_prerender(); // change pre-renderer if necessary
+             }
++#ifdef CMM2_APP
++            /* All 16 pixels of a character, where Caprice32's two steps would put them: the last HSYNC set scr_pos for the monitor's phase */
++            dword *line = reinterpret_cast<dword *>(CPC.scr_pos);
++            if (__builtin_expect(LastPreRend == 0x03ff0000, 1)) {
++               crtc_scanline_had_active = 1;
++               word wVidMem = getRAMWord(CRTC.next_address);
++               const dword *pens0 = ModeMap + (byte)wVidMem * 2;
++               const dword *pens1 = ModeMap + (wVidMem >> 8) * 2;
++               line[0] = four_pixels(pens0[0]);
++               line[1] = four_pixels(pens0[1]);
++               line[2] = four_pixels(pens1[0]);
++               line[3] = four_pixels(pens1[1]);
++            } else {
++               line[0] = line[1] = line[2] = line[3] = palette_byte[(static_cast<word>(LastPreRend) == 0) ? 16 : 17] * 0x01010101u;
++            }
++            CPC.scr_pos = reinterpret_cast<byte *>(line + 4);
++#else
+             /* Fast path: if in normal display mode, use combined prerender+render */
+             if (__builtin_expect(LastPreRend == 0x03ff0000, 1)) {
+                crtc_scanline_had_active = 1;
+@@ -981,6 +1013,7 @@ void __attribute__((hot, section(".time_critical.crtc"))) crtc_cycle(int repeat_
+                memset(out, borderColor, half);
+                CPC.scr_pos = out + half;
+             }
++#endif
+          }
+       }
+       /* Compute MAXlate inline — prepares next_address for the NEXT iteration's render.
+@@ -1097,7 +1130,11 @@ void __attribute__((hot, section(".time_critical.crtc"))) crtc_cycle(int repeat_
+          }
+          RendOut = reinterpret_cast<byte *>(RendStart);
+          RendWid = &HorzPix[0];
++#ifdef CMM2_APP
++         CPC.scr_pos = CPC.scr_base + (val ? (int)val - 16 : 0);
++#else
+          CPC.scr_pos = CPC.scr_base;
++#endif
+          VDU.scrln++;
+          VDU.scanline++;
+          if (static_cast<dword>(VDU.scrln) >= MAX_DRAWN) {
+diff --git a/src/cpc_adapter.cpp b/src/cpc_adapter.cpp
+index cba5e3b..080b123 100644
+--- a/src/cpc_adapter.cpp
++++ b/src/cpc_adapter.cpp
+@@ -12,7 +12,9 @@
+  */
+ 
+ #include "cpc_adapter.h"
++#ifndef CMM2_APP
+ #include "cpc_ipf.h"
++#endif
+ #include "cpc_cartridge.h"
+ 
+ #include "cap32/cap32.h"
+@@ -99,7 +101,12 @@ int scanline_render_stride = CPC_FB_WIDTH;
+ /* Scanline buffer in internal RAM — CRTC renders here instead of PSRAM.
+  * At each HSYNC, the completed line is copied into cpc_fb.
+  * This avoids all PSRAM writes during rendering. */
++#ifdef CMM2_APP
++static byte scanline_area[16 + CPC_SCR_WIDTH] __attribute__((aligned(4)));   /* (the first character of a line can start up to 12 pixels before it) */
++#define scanline_buf (scanline_area + 16)
++#else
+ static byte scanline_buf[CPC_SCR_WIDTH] __attribute__((aligned(4)));
++#endif
+ /* CPC hardware colour table — 27 colours (3 levels per RGB channel).
+  * Index = CPC hardware colour number (0-31, with gaps).
+  * Values = RGB888. */
+@@ -197,7 +204,14 @@ static void mf2_reset_state(void) {
+     CPC.mf2 = (mf2_rom_loaded && mf2_ram) ? MF2_ACTIVE : 0;
+ }
+ 
++#ifdef CMM2_APP
++static int rom_model = -1;   /* the machine whose ROM is in rom_buffer */
++#endif
++
+ static int load_roms(void) {
++#ifdef CMM2_APP
++    rom_model = CPC.model;
++#endif
+     /* ROM buffers are statically allocated in internal SRAM */
+     std::memset(rom_buffer, 0, 32768);
+     std::memset(amsdos_rom, 0, 16384);
+@@ -380,6 +394,9 @@ static int load_tape_image(const char *path) {
+     pbTapeImageEnd = pbTapeImage + br;
+ 
+     Tape_Rewind();
++#ifdef CMM2_APP
++    CPC.tape_play_button = 0x10;   /* (PLAY stays down: the CPC's motor line starts and stops it. Nothing else in frank-cpc presses it) */
++#endif
+     return 0;
+ }
+ 
+@@ -427,13 +444,13 @@ void __attribute__((section(".time_critical.adapter"))) scanline_complete(int sc
+         /* CPC Plus border-only scanline — fill with true black (index 255)
+          * to hide raster palette artifacts that would flash in the vertical
+          * border area.  Standard CPC border scanlines copy normally below. */
+-        memset(dst, 0xFF, 320);
++        memset(dst, 0xFF, CPC_FB_WIDTH);
+         return;
+     }
+ 
+     const uint32_t *src = (const uint32_t *)(scanline_buf + crtc_active_display_offset);
+     /* Copy 320 bytes = 80 words, unrolled 8× for pipeline efficiency */
+-    for (int i = 0; i < 80; i += 8) {
++    for (int i = 0; i < CPC_FB_WIDTH / 4; i += 8) {
+         uint32_t a = src[i], b = src[i+1], c = src[i+2], d = src[i+3];
+         uint32_t e = src[i+4], f = src[i+5], g = src[i+6], h = src[i+7];
+         dst[i] = a; dst[i+1] = b; dst[i+2] = c; dst[i+3] = d;
+@@ -445,8 +462,13 @@ void __attribute__((section(".time_critical.adapter"))) scanline_complete(int sc
+      * non-standard R2 (e.g., Robocop 2 R2=45, offset=40) leave stale
+      * border content at the left edge that would be hidden by a real CRT bezel.
+      * Mask (offset - 32) bytes to cover the full border leak. */
++#ifdef CMM2_APP
++    if (CPC.model > 2 && crtc_active_display_offset > 64) {
++        int mask_bytes = crtc_active_display_offset - 64;
++#else
+     if (CPC.model > 2 && crtc_active_display_offset > 32) {
+         int mask_bytes = crtc_active_display_offset - 32;
++#endif
+         uint8_t *p = (uint8_t *)dst;
+         uint8_t fill = p[mask_bytes]; /* first real pixel after border */
+         memset(p, fill, mask_bytes);
+@@ -593,9 +615,13 @@ int cpc_engine_init(void) {
+     CPC.max_tracksize = 6144;
+     CPC.limit_speed = 1;
+ 
++#ifdef CMM2_APP
++    cpc_settings_apply();   /* (the memsets above took what cpc_pico_main applied: the machine and memory cpc.ini asks for) */
++#endif
++
+     /* Rendering: CRTC writes into scanline_buf (internal RAM) one line at a time.
+      * The scanline_complete callback copies each line into cpc_fb. */
+-    std::memset(scanline_buf, 0, sizeof(scanline_buf));
++    std::memset(scanline_buf, 0, CPC_SCR_WIDTH);
+     CPC.scr_bps = CPC_SCR_WIDTH;    /* bytes per scanline */
+     CPC.scr_line_offs = 0;          /* DON'T advance — we reuse scanline_buf each line */
+     CPC.scr_base = scanline_buf;
+@@ -609,7 +635,11 @@ int cpc_engine_init(void) {
+     crtc_fb_y_start = fb_y_start;
+ 
+     /* Allocate CPC RAM in PSRAM */
++#ifdef CMM2_APP
++    int ram_bytes = 576 * 1024;   /* (the most: a reset can take the settings' memory, and the heap stays as it is) */
++#else
+     int ram_bytes = CPC.ram_size * 1024;
++#endif
+     pbRAM = (byte *)psram_malloc(ram_bytes);
+     if (!pbRAM) {
+         printf("cpc_adapter: PSRAM alloc failed (%d KB)\n", CPC.ram_size);
+@@ -656,7 +686,17 @@ int cpc_engine_init(void) {
+ }
+ 
+ void cpc_engine_reset(void) {
++#ifdef CMM2_APP
++    /* a change of machine: its ROM, which only cpc_engine_init loaded */
++    if (CPC.model != rom_model && CPC.model <= 2 && !cpc_cartridge_is_loaded() && load_roms() != 0) {
++        printf("cpc_adapter: ROM loading failed\n");
++        exit(1);
++    }
++#endif
+     emulator_reset();
++#ifdef CMM2_APP
++    if (pbTapeImage) CPC.tape_play_button = 0x10;
++#endif
+     mf2_reset_state();
+     z80_sync_ram_shadow();
+     /* Restore standard CPC hardware palette after leaving Plus mode */
+@@ -737,6 +777,10 @@ void cpc_engine_run_frame(void) {
+ 
+         if (exit_code == EC_SOUND_BUFFER) {
+             flush_audio();
++#ifdef CMM2_APP
++            /* Mono: the left is the three channels mixed, the right still the stereo's (z80_wait_states calls the stereo synthesizer whatever the setting) */
++            if (!CPC.snd_stereo) for (int i = 0; i < audio_out_count; i++) audio_out_buf[i * 2 + 1] = audio_out_buf[i * 2];
++#endif
+             audio_ring_push_stereo(audio_out_buf, audio_out_count);
+         }
+         crash_handler_feed();
+@@ -771,11 +815,15 @@ int cpc_disk_insert(int drive, const char *path) {
+     eject_dsk(d);
+ 
+     int rc;
++#ifdef CMM2_APP
++    rc = load_dsk(d, path);
++#else
+     if (cpc_is_ipf_file(path)) {
+         rc = cpc_ipf_load(path, d);
+     } else {
+         rc = load_dsk(d, path);
+     }
++#endif
+ 
+     if (rc == 0) {
+         printf("cpc_adapter: disk %c: %s\n", 'A' + drive, path);
+@@ -1037,6 +1085,9 @@ int cpc_snapshot_load(const char *path) {
+ 
+ void cpc_set_model(int model) {
+     if (model < 0 || model > 3) model = 2;
++#ifdef CMM2_APP
++    if (cpc_cartridge_is_loaded()) model = 3;   /* (cpc_settings_apply would take the Plus away at the menu's reset) */
++#endif
+     CPC.model = model;
+ }
+ 
