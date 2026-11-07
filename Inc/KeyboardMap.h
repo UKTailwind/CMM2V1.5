@@ -86,6 +86,7 @@ void process_kbd_report(hid_keyboard_report_t const *report, uint8_t n);
 /* The lock keys as a boot keyboard's LED output report holds them: bit 0
    Num Lock, bit 1 Caps Lock, bit 2 Scroll Lock. */
 uint8_t kbd_lock_leds(void);
+void USR_KEYBRD_Repeat(uint8_t data);
 
 extern int caps_lock;
 extern int num_lock;

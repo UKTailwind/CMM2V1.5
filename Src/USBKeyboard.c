@@ -224,7 +224,7 @@ static void hid_app_task(void)
 		uint8_t c = KeyDown[0];
 		if (!(c == 0 || c == PDOWN || c == PUP || c == CTRLKEY('P') || c == CTRLKEY('L') || c == 25 || c == F5 || c == F4 || c == CTRLKEY('T')))
 		{
-			USR_KEYBRD_ProcessData(c);
+			USR_KEYBRD_Repeat(c);
 		}
 		keytimer = 0;
 		repeattime = Option.RepeatRate;

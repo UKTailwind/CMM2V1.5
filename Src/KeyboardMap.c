@@ -1086,6 +1086,8 @@ uint8_t APP_MapKeyToUsage(uint8_t keyCode, int modifier)
 		c = CTRLKEY('\\');
 	return c;
 }
+static bool key_is_lf;	/* Ctrl-J: an LF as it stands, where Enter's code 10 becomes what sendCRLF asks for */
+static bool held_is_lf; /* the key held down, for its repeats (USR_KEYBRD_Repeat) */
 void USR_KEYBRD_ProcessData(uint8_t data)
 {
 	static uint8_t lastdata;
@@ -1104,7 +1106,7 @@ void USR_KEYBRD_ProcessData(uint8_t data)
 	}
 	if (PrtScrTake(data))
 		return; // OPTION PRINTSCREEN ON: the running program's screenshot (Console.c), not a key
-	if (data == '\n')
+	if (data == '\n' && !key_is_lf)
 	{
 		if (sendCRLF == 3)
 			USR_KEYBRD_ProcessData('\r');
@@ -1143,6 +1145,14 @@ static void kbd_send_leds(uint8_t n)
 	tuh_hid_set_report(HID[n].Device_address, HID[n].Device_instance, 0, HID_REPORT_TYPE_OUTPUT, (void *)&HID[n].sendlights, 1);
 }
 
+/* the key held down, again (and first, from process_key) */
+void USR_KEYBRD_Repeat(uint8_t data)
+{
+	key_is_lf = held_is_lf;
+	USR_KEYBRD_ProcessData(data);
+	key_is_lf = false;
+}
+
 static void process_key(int key, uint8_t n, int modifier)
 {
 	keytimer = 0;
@@ -1163,7 +1173,8 @@ static void process_key(int key, uint8_t n, int modifier)
 		uint8_t c = APP_MapKeyToUsage(key, modifier);
 		if (c != 0)
 		{
-			USR_KEYBRD_ProcessData(c);
+			held_is_lf = c == '\n' && key != 0x28 && key != 0x58; /* (not Return or the keypad's Enter) */
+			USR_KEYBRD_Repeat(c);
 			repeattime = Option.RepeatStart;
 		}
 	}
