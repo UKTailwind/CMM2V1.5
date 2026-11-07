@@ -67,6 +67,7 @@ On both generations unless it says otherwise:
 • A port held open through 1,990 rounds while Caps Lock was pressed 128 times, which sends requests to the keyboard through the same USB port. None were lost. (Generation 1.)
 • A PicoMite restarted 5 times with its port open, and a lead pulled out and put back. (Generation 2.)
 • The terminal with a real PicoMiteVGA, through a hub and direct: EDIT, the mouse, OPTION DISPLAY, the bell, and XMODEM of 193KB in both directions, the same byte for byte apart from the padding XMODEM adds to a binary file. (Generation 2.)
+• The terminal with a real PicoMite on a Generation 1: the prompt, EDIT, a restart, and XMODEM in both directions.
 • The terminal with vttest, the standard test of a VT100, on a PC with the program's own code: all of a VT100's features pass.
 • Saving and restoring in ScummVM, in the LucasArts, Sierra and other games. (Generation 2.)
 • Each fault in the fonts and MM.INFO, shown on the old firmware and gone on the new.
@@ -77,7 +78,7 @@ On both generations unless it says otherwise:
 • [B]A Generation 1 has less memory for a program[/B] run from a compiled BASIC program, or with OPTION RAM, because the BASIC program's memory is then in the way. If a large program will not start, run it from the command prompt, and use OPTION FLASH in place of OPTION RAM.
 • [B]A device plugged in where a hub was[/B] may not be seen until the Colour Maximite 2 is restarted.
 • [B]A USB serial device that stops answering a request[/B] can still hang a CH340 with no way out but a restart. The fault above no longer causes this, but there is still no time limit on the request.
-• [B]The terminal:[/B] a line made double width loses its right half, which is how libvterm treats it. vttest's tests of the VT220 and later terminals have not been run, COM1 and COM2 have not been tried with a real device, and on a Generation 1 it has only been run with a CH340 looped back, not with a PicoMite.
+• [B]The terminal:[/B] a line made double width loses its right half, which is how libvterm treats it. vttest's tests of the VT220 and later terminals have not been run, and COM1 and COM2 have not been tried with a real device.
 • [B]XMODEM[/B] sends no file length, so a binary file arrives padded to a multiple of 128 bytes. Text files arrive exactly as they were.
 
 The known problems of 7.00.00RC2 remain:
