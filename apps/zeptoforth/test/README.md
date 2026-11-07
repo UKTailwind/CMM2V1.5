@@ -13,3 +13,5 @@ The rest check the words of `cmm2.fs`. Each needs `words_h.fs` first, which has 
 `words_io.fs` looks for the loop-back wires, GP0, 1 and 3-7 to GP8, 9 and 11-15, and leaves out what needs one that is not there.
 
 `words_hold.fs`, then a reboot or Ctrl-C, then `words_free.fs`, shows that what Forth had of the firmware is given back.
+
+`solar_eclipse.fs` is a 1,900-line program, converted from the BASIC at https://github.com/UKTailwind/PicoMite/blob/main/Bas/solar_eclipse.bas with every floating-point operation kept in the same order, so that it can be compared digit for digit. `include solar_eclipse.fs`, then `reference-run`. `solar_eclipse.out` is MMBasic's output for those inputs: from the line `searching for solar eclipse` up to the time line, the two should match byte for byte. It takes about 1.0 s on a G2, and 1.3 s on a G1. The reference records MMBasic taking 6.0 s on the same G2.
