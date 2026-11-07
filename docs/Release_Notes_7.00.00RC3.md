@@ -28,6 +28,15 @@ Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app
 
 ## What is new
 
+- **zeptoforth, added to the zip on 7 November.** Travis Bemann's Forth, in the folder zeptoforth: preemptive tasks, double precision, the zeptoed editor, and words for the screen, sound, files and I/O pins. Its console is the VT100 terminal, so colours and the editor work on the Colour Maximite 2's own screen and keyboard. The firmware has not changed: if you have RC3, copy the folder from the new zip. The new Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
+
+  ```
+  CHDIR "A:/zeptoforth"
+  RUN "zeptoforth.app"
+  ```
+
+  On a Generation 1 the program is zeptoforth_g1.app.
+
 - **A VT100 terminal.** Plug a PicoMite into a USB socket, directly or through a hub, and use its prompt, EDIT and FM on the Colour Maximite 2's screen, in colour and with the mouse:
 
   ```
@@ -76,6 +85,7 @@ On both generations unless it says otherwise:
 - The terminal with a real PicoMiteVGA, through a hub and direct: EDIT, the mouse, OPTION DISPLAY, the bell, and XMODEM of 193KB in both directions, the same byte for byte apart from the padding XMODEM adds to a binary file. (Generation 2.)
 - The terminal with a real PicoMite on a Generation 1: the prompt, EDIT, a restart, and XMODEM in both directions.
 - The terminal with vttest, the standard test of a VT100, on a PC with the program's own code: all of a VT100's features pass.
+- zeptoforth: 313 checks of its words for the firmware's services, 108 of double precision against IEEE bit patterns, and a 1,900-line solar eclipse program whose output is identical to MMBasic's, byte for byte. A real USB keyboard on a Generation 2, and a Generation 1 with OPTION COMPILE ON.
 - Saving and restoring in ScummVM, in the LucasArts, Sierra and other games. (Generation 2.)
 - Each fault in the fonts and MM.INFO, shown on the old firmware and gone on the new.
 - With OPTION COMPILE ON, CC and the NES emulator, each followed by a compiled BASIC program, and a compiled program that runs another program and carries on. (Generation 1.)
@@ -105,4 +115,4 @@ The User Manual says what is at MM.INFO(FONT ADDRESS n), and Appendix O lists th
 
 ## Licences
 
-The terminal uses libvterm, under the MIT licence, and the Spleen fonts, under the BSD 2-Clause licence. Both are in the licences folder of the zip, and its README lists every program's licence.
+zeptoforth is under the MIT licence. The terminal uses libvterm, under the MIT licence, and the Spleen fonts, under the BSD 2-Clause licence. Both are in the licences folder of the zip, and its README lists every program's licence.

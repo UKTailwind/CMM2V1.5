@@ -2,6 +2,21 @@
 
 zeptoforth is Travis Bemann's Forth for ARM microcontrollers. On the Colour Maximite 2 it is a complete Forth system with preemptive tasks, double-precision arithmetic, a screen text editor, and words for the screen, sound, files and I/O pins.
 
+## Why Forth
+
+Forth is a very small language that you extend as you go. A program is a set of words. You build each word from the words you already have, and from then on it is part of the language, no different from the words that came with it. Numbers pass between words on a stack, so a word needs no declarations and no argument lists:
+
+```
+: square  dup * ;
+7 square .
+```
+
+The first line defines a word that squares a number. The second puts 7 on the stack, squares it, and prints 49.
+
+Forth is compiled and interactive at once. Each word becomes ARM machine code the moment you finish typing it, on the Colour Maximite 2 itself, with no PC and no build step, and you can try it at the prompt straight away. You build a program from the bottom up, testing each small word as you go, so a fault is usually in the last thing you typed.
+
+The language is yours to change. The compiler is made of words too, so you can add control structures of your own or change how numbers are read. And nothing stands between you and the machine: words read and write any address, and there is an assembler when you need one.
+
 ## Starting It
 
 Copy the zeptoforth folder to the card, then on a Generation 2:

@@ -35,6 +35,7 @@ You can go back to an earlier firmware the same way, should you need to.
 - It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
 - MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse), a NES emulator (frank-nes, with two free games) and Heretic (with its shareware episode) come with the firmware, in CMM2_Programs_7.00.00RC2.zip.
 - A VT100 terminal (vt100.app) makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer, on COM1, COM2 or a USB serial device. The manual Colour_Maximite_2_App_User_Guide.pdf covers all these programs.
+- zeptoforth (zeptoforth.app, and zeptoforth_g1.app on a Generation 1) is Travis Bemann's Forth, with preemptive tasks, double precision and the zeptoed editor, on the VT100 terminal's console. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
 - A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 - The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
 
