@@ -424,7 +424,10 @@ static int cmm2_keycode(int c, int mods, int *ascii) {
     case 0x09: *ascii = 9; return CABAL_KEY_TAB;
     case 0x1B: *ascii = 27; return CABAL_KEY_ESCAPE;
     }
-    if (c >= 0x91 && c <= 0x9C) return CABAL_KEY_F1 + c - 0x91;
+    if (c >= 0x91 && c <= 0x9C) {                       // (ScummVM's ASCII_F1 up: SCUMM drops a key with no ascii)
+        *ascii = 315 + c - 0x91;
+        return CABAL_KEY_F1 + c - 0x91;
+    }
     if (c < 32 || c > 126) return 0;
     *ascii = c;
     if (c >= 'A' && c <= 'Z') return c + 32;

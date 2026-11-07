@@ -527,6 +527,15 @@ void renderFrame(const QuestGame *games, int count,
 
 } // namespace
 
+// CMM2: for the save menu (frank_quest_savemenu.cpp)
+void frankQuestDrawText(Graphics::Surface *surf, int x, int y, const char *s, uint8_t color) {
+	drawText(surf, x, y, s, color);
+}
+
+void frankQuestFillRect(Graphics::Surface *surf, int x, int y, int w, int h, uint8_t color) {
+	fillRect(surf, x, y, w, h, color);
+}
+
 int frank_quest_scan_games(QuestGame *out, int maxOut) {
 	return scanGames(out, maxOut);
 }

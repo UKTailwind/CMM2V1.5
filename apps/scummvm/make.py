@@ -27,7 +27,7 @@ COMMIT = '949301b'                                       # v1.00, 12 May 2026
 
 # frank-quest's own files, and its drivers that are kept (the allocator, on the loader's heap)
 MAIN = ['src/main.c', 'src/frank_quest_main.cpp', 'src/frank_quest_selector.cpp', 'src/frank_quest_welcome.cpp',
-        'src/frank_quest_new.cpp', 'src/frank_quest_fs.c', 'src/frank_quest_sbrk.c',
+        'src/frank_quest_new.cpp', 'src/frank_quest_fs.c', 'src/frank_quest_sbrk.c', 'src/frank_quest_savemenu.cpp',
         'drivers/psram_allocator.c', 'drivers/dlmalloc_cmm2.c']
 SETS = ['COMMON', 'GRAPHICS', 'GUI', 'VIDEO', 'IMAGE', 'AUDIO', 'BASE', 'ENGINE', 'AGI_ENGINE', 'GOB_ENGINE',
         'KYRA_ENGINE', 'SCI_ENGINE', 'SCUMM_ENGINE', 'SCUMM_7_8', 'BACKEND']
