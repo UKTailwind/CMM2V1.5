@@ -6,6 +6,8 @@ These words give a Forth program what a BASIC program has on the Colour Maximite
 cmm2 import
 ```
 
+This file describes every word this port adds to zeptoforth. The later sections, from Double Precision on, are outside the module `cmm2` and say what to import. For the rest of Forth here, such as `dup`, tasks, `fat32-tools` and `ansi-term`, see zeptoforth's own reference at https://github.com/tabemann/zeptoforth/tree/master/docs/words. It also covers words for its other boards, such as `pin` and `uart`, which are not here: this file's I/O section has their place.
+
 ## How They Work
 
 **Arguments** come in MMBasic's order, left to right, so `LINE x1,y1,x2,y2,width,colour` is `x1 y1 x2 y2 width colour line`.
@@ -276,6 +278,101 @@ A double quote in a string needs `s\"`:
 ```
 : song ( -- ) s\" PLAY WAV \"A:/music/song.wav\"" basic ;
 ```
+
+## Double Precision
+
+These take the place of zeptoforth's single-precision `float32`, with its names, `v` being `dv`. A value is two cells, ( lo hi ) with the high word on top, so `2dup`, `2swap`, `2@`, `2!`, `2constant` and `D:` locals all carry it. In the stacks below, f is a value and takes two cells.
+
+A number has `de` before its exponent, in either case: `1de0`, `1.5de0`, `-2.25de-3`. In `hex`, such a number is an integer, as it would be in any Forth. Angles are in radians. A comparison with a NaN is false, except `dv<>`, which is true.
+
+The words marked * need `float64 import`. The rest are always there.
+
+| Word | Stack | What it does |
+|---|---|---|
+| `dv+` `dv-` `dv*` `dv/` | ( f1 f2 -- f ) | Add, subtract, multiply and divide |
+| `dvnegate` `dvabs` `dvsqrt` | ( f -- f' ) | Negate, absolute value and square root |
+| `dvmin` `dvmax` | ( f1 f2 -- f ) | The smaller or larger |
+| `dvmod` | ( f1 f2 -- f ) | f1 less the nearest whole multiple of f2: `7de0 4de0 dvmod` is -1 |
+| `dvfract` | ( f -- f' ) | The fractional part |
+| `dvnfract` | ( f -- f' ) | The whole part, towards zero |
+| `dvfloor` `dvceil` | ( f -- f' ) | Down or up to a whole number |
+| `dv<` `dv<=` `dv=` `dv<>` `dv>` `dv>=` | ( f1 f2 -- flag ) | Compare two values |
+| `dv0<` `dv0<=` `dv0=` `dv0<>` `dv0>` `dv0>=` * | ( f -- flag ) | Compare a value with zero |
+| `dv>nan?` `dv>infinite?` * | ( f -- flag ) | Is it not a number, or infinite? |
+| `dvsin` `dvcos` `dvtan` | ( f -- f' ) | Sine, cosine and tangent |
+| `dvasin` `dvacos` `dvatan` | ( f -- f' ) | Their inverses |
+| `dvatan2` | ( y x -- f ) | The angle of the point x,y |
+| `dvsinh` `dvcosh` `dvtanh` `dvasinh` `dvacosh` `dvatanh` | ( f -- f' ) | The hyperbolic functions and their inverses |
+| `dvexp` `dvln` | ( f -- f' ) | e to the power f, and the natural logarithm |
+| `dvexpm1` `dvlnp1` | ( f -- f' ) | e to the power f, less 1, and the natural logarithm of 1 + f: exact for a small f |
+| `dvpow` | ( f1 f2 -- f ) | f1 to the power f2, as C's pow |
+| `dv**` * | ( f1 f2 -- f ) | As `dvpow`, raising `x-domain-error` for 0 to the power 0, and for a negative number to a fractional power |
+| `dvi**` * | ( f n -- f' ) | f to the power of an integer |
+| `dvround-half-even` | ( f -- f' ) | To the nearest whole number, a half to the even one: 2.5 is 2, 3.5 is 4 |
+| `dvround-half-away-zero` | ( f -- f' ) | A half away from zero: 2.5 is 3, -2.5 is -3 |
+| `dvround-half-up` `dvround-half-down` * | ( f -- f' ) | A half up or down: 2.5 is 3 or 2, and -2.5 is -2 or -3 |
+| `dvround-half-zero` * | ( f -- f' ) | A half towards zero: 2.5 is 2 |
+| `dvround-half-odd` * | ( f -- f' ) | A half to the odd one: 2.5 is 3, 3.5 is 3 |
+| `dvround-zero` `dvround-away-zero` * | ( f -- f' ) | Towards zero, or away from it: 2.1 is 2 or 3 |
+| `n>dv` `u>dv` | ( n -- f ) | From a signed or unsigned integer |
+| `dv>n` `dv>u` | ( f -- n ) | To a signed or unsigned integer, towards zero |
+| `f64>dv` `dv>f64` | ( lo hi -- f ) ( f -- lo hi ) | From and to zeptoforth's S31.32 fixed point, numbers like `1,5` |
+| `v>dv` `dv>v` | ( v -- f ) ( f -- v ) | From and to a single-precision value in one cell, as float32 has it |
+| `dv.` * | ( f -- ) | Prints a value, to 16 significant digits, then a space |
+| `(dv.)` * | ( f -- ) | Prints it with no space |
+| `format-dv` | ( f addr -- count ) | The value as text at addr, which has 40 bytes |
+| `parse-dv` | ( addr bytes -- f flag ) | Text as a value, 1.5de0 or 1.5e0: flag is true if all of it was a number |
+| `dv1` `dv-1` `dv2` `dvhalf` `dv-half` `dvpi` * | ( -- f ) | 1, -1, 2, 0.5, -0.5 and pi |
+| `dv+infinity` `dv-infinity` * | ( -- f ) | The two infinities |
+| `x-domain-error` * | ( -- ) | What `dv**` raises |
+
+`float64_v.fs` gives a program the names without the d: `include float64_v.fs`, then `float64-v import`, and `v+`, `vsin`, `v.`, `1.5e0` and the rest work as above.
+
+## Blocks
+
+Forth's blocks, in the module `block`: type `block import` for these, though `load`, `list`, `load-range`, `list-range` and `edit` are always there. They are records in blocks.dat in the current directory, up to 4096 of 1024 bytes each, and the file is opened when they are first wanted. An id is any number but -1. `edit` is zeptoforth's block editor: Ctrl-V leaves it.
+
+| Word | Stack | What it does |
+|---|---|---|
+| `block-size` | ( -- bytes ) | 1024 |
+| `block?` | ( id -- flag ) | Is there a block of that id? |
+| `find-block` | ( id -- addr \| 0 ) | A block's contents, or 0 if there is none. They stay good for the next three finds: copy them to keep them. Writing to them changes nothing on the card |
+| `block!` | ( addr id -- flag ) | Writes 1024 bytes from addr as that block. flag is false if there are 4096 blocks already |
+| `delete-block` | ( id -- ) | Deletes a block, if it is there |
+| `delete-blocks` | ( id count -- ) | Deletes count blocks from id up |
+| `erase-all-blocks` | ( -- ) | Deletes them all, and blocks.dat |
+| `free-block-count@` | ( -- count ) | How many more can be written |
+| `copy-block` | ( src-id dest-id -- ) | Copies a block. If there is no src-id, dest-id is deleted |
+| `copy-blocks` | ( src-id dest-id count -- ) | Copies count blocks, which may overlap |
+| `insert-blocks` | ( id count -- ) | Moves blocks from id up by count, as far as the first gap that takes them, leaving count empty ids |
+| `load` | ( id -- ) | Runs a block as Forth, a line of 64 characters at a time |
+| `list` | ( id -- ) | Shows a block, with line numbers |
+| `load-range` `list-range` | ( start-id end-id -- ) | The same for a range, leaving out ids that are not there |
+| `edit` | ( id -- ) | Opens a block in the block editor |
+| `x-block-not-found` | ( -- ) | Raised by `load` and `list` |
+| `x-invalid-block-id` | ( -- ) | Raised by `block!` for an id of -1 |
+| `x-block-write-fail` | ( -- ) | Raised by `copy-block` if the block cannot be written |
+
+## Loading and Keeping Code
+
+These are always there.
+
+| Word | Stack | What it does |
+|---|---|---|
+| `include` | ( "name" -- ) | Runs the file named next as Forth. A file may include another, up to four deep |
+| `included` | ( addr bytes -- ) | The same for a name on the stack |
+| `read-lines` | ( handle -- ) | What `included` runs a file's lines with |
+| `x-cannot-open` | ( -- ) | Raised for a file that cannot be opened |
+| `save-image` | ( -- ) | Saves the flash dictionary to zeptoforth.img, or zeptoforth_g1.img on a Generation 1, in the current directory, for the next start. `compile-to-flash` puts words there, and `compile-to-ram` goes back |
+| `bye` | ( -- ) | Back to MMBasic |
+| `sync-code` | ( -- ) | Makes code just written fit to run, as the memory is cached. The compiler does this itself: it is for code a program writes by hand |
+
+## The Date and Random Numbers
+
+| Word | Stack | What it does |
+|---|---|---|
+| `date-time@` | ( date-time -- ) | In the module `rtc`: the date and time now, from the Colour Maximite 2's clock, into a structure of `date-time-size` bytes. `date-time.` prints it. `rtc` is otherwise zeptoforth's own |
+| `random` | ( -- u ) | In the module `rng`: a random number from the hardware |
 
 ## Exceptions
 

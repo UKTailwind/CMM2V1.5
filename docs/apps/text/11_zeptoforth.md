@@ -1,6 +1,6 @@
 # zeptoforth
 
-zeptoforth is Travis Bemann's Forth for ARM microcontrollers. On the Colour Maximite 2 it is a complete Forth system with preemptive tasks, double-precision arithmetic, a screen text editor, and words for the screen, sound, files and I/O pins.
+zeptoforth is Travis Bemann's Forth for ARM microcontrollers, at https://github.com/tabemann/zeptoforth. On the Colour Maximite 2 it is a complete Forth system with preemptive tasks, double-precision arithmetic, a screen text editor, and words for the screen, sound, files and I/O pins.
 
 ## Why Forth
 
@@ -137,6 +137,19 @@ float64 import
 ```
 
 The words are those of zeptoforth's single-precision float32, with v changed to dv: dv+, dvsin, dv. and so on. A value takes two cells. A program written with the names v+ and numbers like 1.5e0 can type include float64_v.fs and float64-v import.
+
+## Learning More
+
+WORDS.md in the folder describes every word this version adds: the screen, sound, files and I/O, double precision, blocks and the rest. zeptoforth's own reference has everything else, at https://github.com/tabemann/zeptoforth/tree/master/docs/words.
+
+If Forth is new to you, these are good places to start:
+
+{widths: 18,34}
+| Starting Forth | Leo Brodie's classic introduction, free at https://www.forth.com/starting-forth/ |
+| Easy Forth | A short tutorial that runs in your browser, at https://skilldrick.github.io/easyforth/ |
+| Thinking Forth | Leo Brodie's book on how to design programs in Forth, free at https://thinking-forth.sourceforge.net |
+
+Forths differ in their details, so a word in a book may have another name here, or need a module imported.
 
 ## Errors
 
