@@ -1,0 +1,103 @@
+# Colour Maximite 2: MMBasic 7.00.00RC3 (release candidate) release notes
+
+*7 November 2026. Compared with 7.00.00RC2, the last version released. The full notes, from 5.07.02, are in Release_Notes_7.00.00.md.*
+
+This is the fourth release candidate of MMBasic 7.00 for the Colour Maximite 2. Unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum.
+
+It fixes USB serial devices, which a user could not rely on, and adds a VT100 terminal, so that a Colour Maximite 2 can be the screen and keyboard of a PicoMite. Saving a game now works properly in ScummVM. A new guide brings all the programs together.
+
+The same firmware file runs on both the Generation 1 and the Generation 2.
+
+## Before you update
+
+**Writing the firmware erases the options.** Save them first, and load them again afterwards:
+
+```
+OPTION DISK SAVE "A:/myoptions"
+```
+
+Then write the firmware, and:
+
+```
+OPTION DISK LOAD "A:/myoptions"
+```
+
+The console runs at 115200 baud until the options are loaded. The library, the variables saved with VAR SAVE and the files on the SD card are kept.
+
+Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app has changed, and vt100 is new.
+
+## What is new
+
+- **A VT100 terminal.** Plug a PicoMite into a USB socket, directly or through a hub, and use its prompt, EDIT and FM on the Colour Maximite 2's screen, in colour and with the mouse:
+
+  ```
+  CHDIR "A:/vt100"
+  RUN "vt100.app", COM4 115200
+  ```
+
+  - It works on COM1, COM2 and the USB serial devices COM4 to COM7.
+  - When a PicoMite asks for a screen size, at EDIT, FM or OPTION DISPLAY, the terminal changes to it.
+  - It has a setup menu on Shift-F12, scrollback, a log, XMODEM both ways, and a choice of fonts, colours and cursors.
+  - If the device restarts or is unplugged, the status line says so, and the terminal carries on when it comes back, as Tera Term's auto reconnect does.
+  - It is built on libvterm, with the Spleen fonts.
+
+- **A new manual, Colour_Maximite_2_App_User_Guide.pdf,** tells you how to install, start, use and leave each of the programs: MicroPython, Doom, Heretic, ScummVM, the NES, ZX Spectrum and Amstrad CPC emulators, the 386 PC, the C compiler and the terminal.
+
+- **Saving a game in ScummVM.** In the LucasArts games F5 now opens a menu of nine save slots, drawn over the game: S saves, R restores. Alt-1 to 9 save and Ctrl-1 to 9 restore without the menu, and a message says when a game has been saved. The AGI and SCI games now use their own save and restore screens, with a choice of slots.
+
+- **Ctrl-J on a USB keyboard is a line feed,** not Enter, to a program that reads keys. At the prompt and in EDIT it still ends a line.
+
+- **For programmers:** version 14 of the services adds COM4 to COM7 to the com_ services, and version 15 adds com_connected, which says whether a USB serial device is there.
+
+## Fixed since 7.00.00RC2
+
+- **A PicoMite plugged straight into the USB socket connected and then disconnected at once.** USB's 48MHz clock came from an RC oscillator that ran 0.94% fast on a Generation 2 and 0.29% slow on a Generation 1, where USB full speed allows 0.25%. A hub hid it. At 480MHz USB's clock now comes from the crystal, and is exact. At 400MHz the oscillator is trimmed from the RTC's crystal once, at start up, and measured between 47.966 and 48.014MHz.
+- **A USB serial port stopped working after it had been opened and closed a number of times,** after 17 to 111 times on our boards. It then read nothing, or OPEN said that the device did not accept the baud rate, or a CH340 hung for ever. A request to the device met the port's own reads. OPEN and CLOSE now keep them apart.
+- **Output to a serial port could stop,** with a byte waiting until the next output. The interrupt could find its queue empty and turn itself off just as a byte was added, on COM1, COM2 and the serial console.
+- **A font replaced by DEFINEFONT outlived its program.** After a program that replaced font 4 or 5, the next program read what was left where that font had been, as a font 255 pixels square. In MODE 9 that was the console's own font. Fonts 2 and 3 did the same across CHAIN. All the fonts now go back to the built in ones when a program ends.
+- **MM.INFO(FONT ...) and MM.INFO(FLASH ...) ignored what followed them,** so that a misspelt MM.INFO(FONT ADRESS 1) gave a wrong answer and no error.
+- **No function key reached a LucasArts game in ScummVM.** This is why F5 did nothing.
+
+## What behaves differently
+
+- MM.INFO(FONT 5), MM.INFO(FLASH 2) and MM.INFO(FONT ADDRESS 1,2) now give the error "Unexpected text".
+- INKEY$ gives CHR$(10) alone for Ctrl-J. It gave CR and then LF, as Enter does.
+- A program chained from one that used OPTION LEGACY ON has the normal fonts. It kept the legacy ones, with OPTION LEGACY already off.
+
+## The programs tested
+
+On both generations unless it says otherwise:
+
+- A USB serial port opened and closed 480 times in a tight loop, with a PicoMite on a Generation 2 and a CH340 through a hub on a Generation 1. It had failed within seconds.
+- A port held open through 1,990 rounds while Caps Lock was pressed 128 times, which sends requests to the keyboard through the same USB port. None were lost. (Generation 1.)
+- A PicoMite restarted 5 times with its port open, and a lead pulled out and put back. (Generation 2.)
+- The terminal with a real PicoMiteVGA, through a hub and direct: EDIT, the mouse, OPTION DISPLAY, the bell, and XMODEM of 193KB in both directions, the same byte for byte apart from the padding XMODEM adds to a binary file. (Generation 2.)
+- The terminal with vttest, the standard test of a VT100, on a PC with the program's own code: all of a VT100's features pass.
+- Saving and restoring in ScummVM, in the LucasArts, Sierra and other games. (Generation 2.)
+- Each fault in the fonts and MM.INFO, shown on the old firmware and gone on the new.
+
+## Known problems
+
+- **A device plugged in where a hub was** may not be seen until the Colour Maximite 2 is restarted.
+- **A USB serial device that stops answering a request** can still hang a CH340 with no way out but a restart. The fault above no longer causes this, but there is still no time limit on the request.
+- **The terminal:** a line made double width loses its right half, which is how libvterm treats it. vttest's tests of the VT220 and later terminals have not been run.
+- **XMODEM** sends no file length, so a binary file arrives padded to a multiple of 128 bytes. Text files arrive exactly as they were.
+
+The known problems of 7.00.00RC2 remain:
+
+- With a USB touch screen connected, a mouse click can be taken as a swipe by the GUI controls' gestures.
+- An armed interrupt pin slows the program down, because the pin is polled after every statement.
+- In pc386, a program protected by a check of its original floppy disk (Lemmings is one) does not run from a disk image.
+- A very large MMBasic program (4,300 lines) compiles on a Generation 2 but stops with an error on a Generation 1.
+- A compiled Petscii Robots may pause its music at times.
+- The NES emulator: a low speed USB pad cannot go through a hub.
+- The Spectrum: a USB gamepad as a joystick in a game, tapes played in real time, TR-DOS disks and the machines other than the 48K and 128K have not been tried.
+- The Amstrad CPC: a SAVE to a disk is lost when the disk is ejected or the emulator ends. With Fast Tape on, a tape does not load.
+
+## The manual
+
+The User Manual says what is at MM.INFO(FONT ADDRESS n), and Appendix O lists the new Colour_Maximite_2_App_User_Guide.pdf, posted with this release. Colour_Maximite_2_Loadable_Programs.pdf adds services 14 and 15.
+
+## Licences
+
+The terminal uses libvterm, under the MIT licence, and the Spleen fonts, under the BSD 2-Clause licence. Both are in the licences folder of the zip, and its README lists every program's licence.

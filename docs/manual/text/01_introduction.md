@@ -35,4 +35,4 @@ Version 7.00 brings MMBasic on the Colour Maximite 2 up to date with MMBasic ver
 - **Loadable programs**: programs written in C or C++ and compiled for the processor run with RUN "name.app" (see Loadable Programs in the chapter Using MMBasic). MicroPython, Doom, ScummVM and a 386 PC emulator that runs DOS and Windows 3.1 are included with the firmware.
 - **An FM synthesiser** (an emulated OPL3) plays MIDI files, the PicoMite's PLAY MIDI and PLAY NOTE commands without its VS1053 module, and the music of DOS games (see the chapter Sound Output).
 
-!NOTE This manual is for version 7.00.00RC2, the third release candidate of version 7.00. Chapters that have not yet been revised line by line for this version say so at their start.
+!NOTE This manual is for version 7.00.00RC3, the fourth release candidate of version 7.00. Chapters that have not yet been revised line by line for this version say so at their start.

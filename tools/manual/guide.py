@@ -1,6 +1,6 @@
-"""guide.py [loadable|pc386|cc]: a companion manual, made in the user manual's template: Colour Maximite 2 Loadable
-Programs (docs/loadable/, the default), Colour Maximite 2 386 PC Emulator (docs/pc386/) or Colour Maximite 2 C Compiler
-(docs/cc/). Its title page, styles,
+"""guide.py [loadable|pc386|cc|apps]: a companion manual, made in the user manual's template: Colour Maximite 2 Loadable
+Programs (docs/loadable/, the default), Colour Maximite 2 386 PC Emulator (docs/pc386/), Colour Maximite 2 C Compiler
+(docs/cc/) or Colour Maximite 2 App User Guide (docs/apps/). Its title page, styles,
 page size and footer, with the guide's own front matter, a table of contents and a chapter for each file of the
 guide's text/ (written by chapter.py --docx --rawcode). Run it again after an edit; then tools/manual/word.ps1
 docs/loadable/Colour_Maximite_2_Loadable_Programs.docx docs/loadable/...pdf (or the pc386 guide's) makes the PDF.
@@ -23,13 +23,13 @@ MANUAL = os.path.join(ROOT, 'docs', 'manual', 'Colour_Maximite_2_User_Manual.doc
 DIR = os.path.join(ROOT, 'docs', 'loadable')
 OUT = os.path.join(DIR, 'Colour_Maximite_2_Loadable_Programs.docx')
 NAME = 'Colour Maximite 2 Loadable Programs'
-FIRMWARE = '7.00.00RC2'
-DATE = '5 November 2026'
+FIRMWARE = '7.00.00RC3'
+DATE = '7 November 2026'
 
 TITLE = {                                               # the title page: its paragraphs by their start
     'User Manual': 'Loadable Programs',
     'MMBasic Ver': 'Programs in C and C++',
-    'Matches firmware': 'For firmware %s (services version 9)' % FIRMWARE,
+    'Matches firmware': 'For firmware %s (services version 15)' % FIRMWARE,
     'Geoff Graham': 'Peter Mather',
     'For updates to this manual': 'The firmware, this guide and the tools that build a program are at',
     'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
@@ -179,7 +179,7 @@ CC = {                                                  # guide.py cc: the C com
     'DIR': os.path.join(ROOT, 'docs', 'cc'),
     'OUT': os.path.join(ROOT, 'docs', 'cc', 'Colour_Maximite_2_C_Compiler.docx'),
     'NAME': 'Colour Maximite 2 C Compiler',
-    'DATE': '5 November 2026',
+    'DATE': '7 November 2026',
     'TITLE': {
         'User Manual': 'C Compiler',
         'MMBasic Ver': 'Compiling C and MMBasic programs on the Colour Maximite 2',
@@ -203,20 +203,49 @@ CC = {                                                  # guide.py cc: the C com
 }
 
 
+APPS = {                                                # guide.py apps: all the programs of the zip, for users
+    'DIR': os.path.join(ROOT, 'docs', 'apps'),
+    'OUT': os.path.join(ROOT, 'docs', 'apps', 'Colour_Maximite_2_App_User_Guide.docx'),
+    'NAME': 'Colour Maximite 2 App User Guide',
+    'DATE': '7 November 2026',
+    'TITLE': {
+        'User Manual': 'App User Guide',
+        'MMBasic Ver': 'The programs that come with the Colour Maximite 2',
+        'Matches firmware': 'For firmware 7.00.00RC3 and later',
+        'Geoff Graham': 'Peter Mather',
+        'For updates to this manual': 'The firmware, the programs and this guide are at',
+        'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
+    },
+    'ABOUT': ('This guide is for anyone using the programs that come with the Colour Maximite 2: MicroPython, Doom, '
+              'Heretic, ScummVM, the NES, ZX Spectrum and Amstrad CPC emulators, the 386 PC, the C compiler and the VT100 '
+              'terminal. It covers installing each one, starting it, its keys and leaving it. It assumes you can use the '
+              'MMBasic command prompt and copy files to the SD card.'),
+    'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '
+                'and problems with the programs reported as issues of the repository above.'),
+    'COPYRIGHT': ('This guide is copyright 2026 Peter Mather and is distributed under a Creative Commons '
+                  'Attribution-NonCommercial-ShareAlike 3.0 Australia license (CC BY-NC-SA 3.0), as the user manual is. '
+                  'The programs have their own licences (see Appendix A).'),
+    'SUBJECT': 'The programs that come with the Colour Maximite 2',
+    'TITLE_ADD': {},
+}
+
+
 def main():
     which = sys.argv[1] if len(sys.argv) > 1 else 'loadable'
     if which == 'pc386':
         globals().update(PC386)
     elif which == 'cc':
         globals().update(CC)
+    elif which == 'apps':
+        globals().update(APPS)
     elif which != 'loadable':
-        sys.exit('guide.py [loadable|pc386|cc]')
+        sys.exit('guide.py [loadable|pc386|cc|apps]')
     os.makedirs(DIR, exist_ok=True)
     files = sorted(glob.glob(os.path.join(DIR, 'text', '*.md')))
     titles = [open(f, encoding='utf-8').readline()[2:].strip() for f in files]
     skeleton(titles)
     r = subprocess.run([sys.executable, '-I', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'chapter.py'),
-                        '--docx', OUT, '--rawcode'] + files)
+                        '--docx', OUT, '--rawcode'] + (['--keep'] if which == 'apps' else []) + files)
     sys.exit(r.returncode)
 
 

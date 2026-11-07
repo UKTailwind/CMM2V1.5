@@ -128,6 +128,8 @@ On a Generation 2 Colour Maximite 2 a loadable program has 8MB of SDRAM of its o
 
 Writing a loadable program needs a PC with the free Arm GNU toolchain and Python. The process, the services that the firmware gives a program and the tools that build one are described in the companion manual *Colour Maximite 2 Loadable Programs* (see Appendix O).
 
+The programs that come with the firmware, in the file CMM2_Programs that is posted with it, are described in the companion manual Colour_Maximite_2_App_User_Guide.pdf: how to install, start, use and leave each of them.
+
 ## The C Compiler
 
 The Colour Maximite 2 can also compile programs written in C itself, with no PC. The compiler is the Fuzix Compiler Kit, with the bytecode and Arm (Thumb-2) code generator written for the Pico Computer 3. The compiler, cc.app, is a loadable program in the cc folder of the programs that come with the firmware, with the header files in cc/include and examples in cc/examples: copy that folder to the SD card as A:/cc, where CC looks for it. What runs a compiled program is built into the firmware, so a compiled program needs nothing else on the card.

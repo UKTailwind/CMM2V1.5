@@ -79,8 +79,10 @@ The table of services only grows: each version of the firmware keeps the entries
 | 11 | The firmware's own memory routines and maths library (mem_copy, mem_fill, mem_move, libm), and MMBasic's statements and fonts (basic_cmd, gfx_target, font_size, font_define). |
 | 12 | MMBasic's expressions (basic_eval), what is playing (sound_state), a statement tokenised once (basic_prep, basic_exec), and IMAGE RESIZE_FAST (image_resize). |
 | 13 | USB gamepads (gamepad). |
+| 14 | The com_ services reach COM4 to COM7, the USB serial devices. |
+| 15 | Whether a port's device is there (com_connected). |
 
-Firmware 7.00.00RC2 has version 13. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
+Firmware 7.00.00RC3 has version 15. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
 
 ```
 if(cmm2->version >= 4) cmm2->con_screen(0);

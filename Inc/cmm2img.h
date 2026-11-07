@@ -245,7 +245,7 @@ struct cmm2_services {
     int      (*dma2d_copy)(const void *src, uint32_t src_pitch, void *dst, uint32_t dst_pitch, uint32_t width,
                            uint32_t height);   /* width bytes from each of height rows (pitch bytes apart), moved by the
                                                   DMA2D while the program goes on, after any copies before it (the
-                                                  source written from the cache to the SDRAM first): 0, or -1 with 4
+                                                  source written from the cache to the SDRAM first): 0, or -1 with 3
                                                   waiting or a size or address odd */
     int      (*dma2d_busy)(void);              /* the copies not yet done */
     /* version 7: I/O, by the PicoMite's GP numbers: each GP is the connector pin the firmware gives it (External.c's

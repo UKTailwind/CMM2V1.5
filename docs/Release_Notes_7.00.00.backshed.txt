@@ -1,5 +1,5 @@
-[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00RC2 (release candidate) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
-[I]5 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC0, have notes of their own.[/I]
+[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 7.00.00RC3 (release candidate) release notes, from 5.07.02[/B][/COLOR][/SIZE][/CENTER]
+[I]7 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC2, have notes of their own.[/I]
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
@@ -7,7 +7,7 @@ The betas added USB touch screens, with the GUI controls, gestures and an on-scr
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
-This is the third release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
+This is the fourth release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -31,7 +31,8 @@ You can go back to an earlier firmware the same way, should you need to.
 [SIZE=3][B]Loadable programs[/B][/SIZE]
 • A file ending .APP is a program written in C or C++ and compiled for the processor: [FONT=Courier]RUN "name.app" [, words][/FONT] runs it, at the full speed of the processor, and MMBasic carries on when it ends (at the prompt, or with the BASIC program's next statement), tidying up after it.
 • It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
-• MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse), a NES emulator (frank-nes, with two free games) and Heretic (with the game's data to be added) come with the firmware, in CMM2_Programs_7.00.00RC2.zip.
+• MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse), a NES emulator (frank-nes, with two free games) and Heretic (with its shareware episode) come with the firmware, in CMM2_Programs_7.00.00RC2.zip.
+• A VT100 terminal (vt100.app) makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer, on COM1, COM2 or a USB serial device. The manual Colour_Maximite_2_App_User_Guide.pdf covers all these programs.
 • A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 • The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
 

@@ -491,7 +491,7 @@ static int ld_keys(int keys[7]) {
 
 /* a display in the program's memory (version 6): its frame hook called in PendSV after the LTDC's interrupt at the start
    of each frame's blanking (ltdc.c sees LoaderFrameFn and pends it: this bank may not be fetched from there), and the
-   DMA2D's copies, which it may queue there. Up to 4 wait; the DMA2D's interrupt starts each after the one before. The
+   DMA2D's copies, which it may queue there. Up to 3 wait; the DMA2D's interrupt starts each after the one before. The
    firmware leaves the DMA2D alone (CubeMX's init is not called), so it is the program's */
 void (*volatile LoaderFrameFn)(void);
 volatile int LoaderFramePend;
@@ -536,7 +536,7 @@ static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, ui
     uint32_t primask = __get_PRIMASK();
     __disable_irq();
     next = (ldjobin + 1) % LD_JOBS;
-    if(next == ldjobout) { __set_PRIMASK(primask); return -1; }     // (4 waiting)
+    if(next == ldjobout) { __set_PRIMASK(primask); return -1; }     // (3 waiting)
     ldjob[ldjobin].src = s;
     ldjob[ldjobin].dst = d;
     ldjob[ldjobin].fgor = (sp - w) / px;
