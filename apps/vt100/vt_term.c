@@ -1,5 +1,5 @@
-/* vt_term.c: libvterm's screen drawn in an 8-bit mode (vt_term.h). The palette is xterm's 256 colours, so a colour number from the host
-   is a pixel. Damage from libvterm is drawn cell by cell from its own screen, so no copy of the screen is kept here; scrolls are moved in
+/* vt_term.c: libvterm's screen drawn in the frame buffer (vt_term.h). With vtt_open the mode is 8-bit and its palette xterm's 256 colours, so
+   a colour number from the host is a pixel. With vtt_attach the screen is someone else's: pix[] gives each colour number the mode's own pixel. Damage from libvterm is drawn cell by cell from its own screen, so no copy of the screen is kept here; scrolls are moved in
    the frame buffer, merged over each batch of input (VTERM_DAMAGE_SCROLL), so that a fast host costs one move per frame and not one per line.
    The cursor and the mouse pointer are drawn over a cell and put back round every update. MIT License, as cmm2img.h. */
 #define _GNU_SOURCE                                                 /* (memmem) */
@@ -18,10 +18,15 @@ typedef struct __attribute__((packed)) { uint16_t ch; uint8_t fg, bg, at; } sbce
 enum { A_BOLD = 1, A_UNDER = 2, A_REV = 4, A_STRIKE = 8, A_CONCEAL = 16 };
 
 void (*vtt_resize_request)(int rows, int cols);
+void (*vtt_bell_hook)(void);
 
 static vtt_config cfg;
 static void (*sendout)(const char *bytes, size_t n);
 static cmm2_video v;
+static int bp = 1;                                  /* bytes in a pixel */
+static uint16_t pix[256];                           /* a colour number's pixel */
+static int cursor_off;                              /* vtt_cursor_show(0) */
+static int frozen;                                  /* vtt_freeze(1) */
 static const vtt_font *fnt;
 static int cw, ch, stride;                          /* a cell's size, and a glyph row's bytes */
 static int scols, srows;                            /* the screen in cells */
@@ -51,8 +56,9 @@ static const uint8_t *lastg;
 static const uint8_t ansi16[16][3] = {{0, 0, 0}, {205, 0, 0}, {0, 205, 0}, {205, 205, 0}, {0, 0, 238}, {205, 0, 205}, {0, 205, 205}, {229, 229, 229},
     {127, 127, 127}, {255, 0, 0}, {0, 255, 0}, {255, 255, 0}, {92, 92, 255}, {255, 0, 255}, {0, 255, 255}, {255, 255, 255}};
 
-static void palette(void) {
-    static uint8_t rgb[256 * 3];
+static uint8_t rgb[256 * 3];
+
+static void colours(void) {
     static const uint8_t lev[6] = {0, 95, 135, 175, 215, 255};
     int i;
     memcpy(rgb, ansi16, sizeof(ansi16));
@@ -62,7 +68,24 @@ static void palette(void) {
         rgb[(16 + i) * 3 + 2] = lev[i % 6];
     }
     for(i = 0; i < 24; i++) rgb[(232 + i) * 3] = rgb[(232 + i) * 3 + 1] = rgb[(232 + i) * 3 + 2] = 8 + i * 10;
+}
+
+static void palette(void) {                                         /* the mode's palette made xterm's: a colour number is its pixel */
+    int i;
+    colours();
     cmm2->video_palette(0, 256, rgb);
+    for(i = 0; i < 256; i++) pix[i] = i;
+    bp = 1;
+}
+
+static void pixels(void) {                                          /* the screen's own: RGB332 in 8 bits, as MMBasic's colours are there, or RGB565 */
+    int i;
+    colours();
+    bp = v.bpp / 8;
+    for(i = 0; i < 256; i++) {
+        int r = rgb[i * 3], g = rgb[i * 3 + 1], b = rgb[i * 3 + 2];
+        pix[i] = bp == 1 ? ((r * 7 + 127) / 255) << 5 | ((g * 7 + 127) / 255) << 2 | (b * 3 + 127) / 255 : (r >> 3) << 11 | (g >> 2) << 5 | b >> 3;
+    }
 }
 
 static int nearest(int r, int g, int b) {                           /* the cube's colour or the grey ramp's, whichever is the closer */
@@ -99,6 +122,8 @@ static int glyph_index(uint32_t c) {
 static void draw_glyph(int x, int y, uint32_t c, int fg, int bg, int at, int dw, int dh) {
     const uint8_t *g;
     int r, i, w = dw ? cw * 2 : cw;
+    uint32_t pf = pix[fg], pb = pix[bg];
+    if(frozen) return;
     if(x + w > (int)v.width || y + ch > (int)v.height) return;
     if(c == lastc) g = lastg;
     else {
@@ -112,17 +137,32 @@ static void draw_glyph(int x, int y, uint32_t c, int fg, int bg, int at, int dw,
     for(r = 0; r < ch; r++) {
         int gr = dh == 0 ? r : dh == 1 ? r / 2 : (ch + r) / 2;
         const uint8_t *row = g + gr * stride;
-        uint8_t *p = v.fb + (uint32_t)(y + r) * v.pitch + x;
+        uint8_t *p = v.fb + (uint32_t)(y + r) * v.pitch + x * bp;
         uint32_t bits = row[0] << 8 | (stride > 1 ? row[1] : 0);
         if((at & A_UNDER) && gr == ch - 2) bits = 0xFFFF;
         if((at & A_STRIKE) && gr == ch / 2) bits = 0xFFFF;
         if(at & A_CONCEAL) bits = 0;
         if((at & A_BOLD) && cw >= 8) bits |= bits >> 1;
-        if(dw) {
-            for(i = 0; i < cw; i++, bits <<= 1) p[i * 2] = p[i * 2 + 1] = bits & 0x8000 ? fg : bg;
+        if(bp == 2) {
+            uint16_t *q = (uint16_t *)p;
+            if(dw) for(i = 0; i < cw; i++, bits <<= 1) q[i * 2] = q[i * 2 + 1] = bits & 0x8000 ? pf : pb;
+            else for(i = 0; i < cw; i++, bits <<= 1) q[i] = bits & 0x8000 ? pf : pb;
+        } else if(dw) {
+            for(i = 0; i < cw; i++, bits <<= 1) p[i * 2] = p[i * 2 + 1] = bits & 0x8000 ? pf : pb;
         } else {
-            for(i = 0; i < cw; i++, bits <<= 1) p[i] = bits & 0x8000 ? fg : bg;
+            for(i = 0; i < cw; i++, bits <<= 1) p[i] = bits & 0x8000 ? pf : pb;
         }
+        if(v.copies == 2) memcpy(p + v.width * bp, p, (size_t)w * bp);      /* (a line shown twice is stored twice) */
+    }
+}
+
+static void put_pixel(int x, int y, int colour) {
+    uint8_t *p = v.fb + (uint32_t)y * v.pitch + x * bp;
+    uint32_t c;
+    if(frozen) return;
+    for(c = 0; c < v.copies; c++, p += v.width * bp) {
+        if(bp == 2) *(uint16_t *)p = pix[colour];
+        else *p = pix[colour];
     }
 }
 
@@ -188,7 +228,7 @@ static void cover(int on) {                                         /* the curso
         return;
     }
     if(view) return;
-    if(curvis && (!curblink || blinkon)) {
+    if(curvis && !cursor_off && (!curblink || blinkon)) {
         drawn_cpos = curpos;
         if(curpos.row < trows && curpos.col < tcols) {
             drawn_cursor = 1;
@@ -204,7 +244,7 @@ static void cover(int on) {                                         /* the curso
                 w = curshape == VTERM_PROP_CURSORSHAPE_BAR_LEFT ? 2 : cw * dbl;
                 h = curshape == VTERM_PROP_CURSORSHAPE_BAR_LEFT ? ch : 2;
                 if(curshape == VTERM_PROP_CURSORSHAPE_UNDERLINE) y += ch - 2;
-                for(j = 0; j < h; j++) for(i = 0; i < w; i++) v.fb[(uint32_t)(y + j) * v.pitch + x + i] = col;
+                for(j = 0; j < h; j++) for(i = 0; i < w; i++) put_pixel(x + i, y + j, col);
             }
         }
     }
@@ -234,14 +274,19 @@ static int on_damage(VTermRect r, void *user) {
 }
 
 static int on_moverect(VTermRect d, VTermRect s, void *user) {
-    int h = (s.end_row - s.start_row) * ch, w = (s.end_col - s.start_col) * cw, i;
-    uint32_t pitch = v.pitch;
-    uint8_t *from = v.fb + (uint32_t)(oy + s.start_row * ch) * pitch + ox + s.start_col * cw;
-    uint8_t *to = v.fb + (uint32_t)(oy + d.start_row * ch) * pitch + ox + d.start_col * cw;
-    if(view) return 1;
-    if((uint32_t)w == pitch) memmove(to, from, (size_t)h * pitch);
-    else if(to < from) for(i = 0; i < h; i++) memmove(to + i * pitch, from + i * pitch, w);
-    else for(i = h - 1; i >= 0; i--) memmove(to + i * pitch, from + i * pitch, w);
+    int h = (s.end_row - s.start_row) * ch, w = (s.end_col - s.start_col) * cw * bp, i;
+    uint32_t pitch = v.pitch, k;
+    uint8_t *from = v.fb + (uint32_t)(oy + s.start_row * ch) * pitch + (ox + s.start_col * cw) * bp;
+    uint8_t *to = v.fb + (uint32_t)(oy + d.start_row * ch) * pitch + (ox + d.start_col * cw) * bp;
+    if(view || frozen) return 1;
+    if((uint32_t)w * v.copies == pitch) {                           /* whole lines, each one's copy with it */
+        memmove(to, from, (size_t)h * pitch);
+        return 1;
+    }
+    for(k = 0; k < v.copies; k++, from += v.width * bp, to += v.width * bp) {
+        if(to < from) for(i = 0; i < h; i++) memmove(to + i * pitch, from + i * pitch, w);
+        else for(i = h - 1; i >= 0; i--) memmove(to + i * pitch, from + i * pitch, w);
+    }
     return 1;
 }
 
@@ -266,7 +311,8 @@ static int on_termprop(VTermProp p, VTermValue *val, void *user) {
 }
 
 static int on_bell(void *user) {
-    vtt_bell();
+    if(vtt_bell_hook) vtt_bell_hook();
+    else vtt_bell();
     return 1;
 }
 
@@ -382,6 +428,8 @@ void vtt_set(const vtt_config *c) {
     deffg = fgs[cfg.colour];
 }
 
+static int start(const vtt_config *c);
+
 int vtt_open(const vtt_config *c, void (*out)(const char *bytes, size_t n)) {
     int r, same = vt != NULL && c->mode == cfg.mode;                /* (a new mode makes the monitor lock on again: only if it must) */
     cfg = *c;
@@ -392,11 +440,29 @@ int vtt_open(const vtt_config *c, void (*out)(const char *bytes, size_t n)) {
         if(v.copies != 1) return -1;
         palette();
     }
+    return start(c);
+}
+
+int vtt_attach(const vtt_config *c, const cmm2_video *video, void (*out)(const char *bytes, size_t n)) {
+    if(video->bpp != 8 && video->bpp != 16) return -1;
+    cfg = *c;
+    if(out) sendout = out;
+    v = *video;
+    pixels();
+    return start(c);
+}
+
+static int start(const vtt_config *c) {
     vtt_set(c);
     geometry();
     drawn_cursor = drawn_mouse = 0;
     {                                                               /* libvterm does not look at what malloc gives it: its two screens, and room over */
         void *room = malloc((size_t)tcols * trows * 100);
+        if(room == NULL && sb) {                                    /* the screen matters more than what has scrolled off it */
+            free(sb);
+            sb = NULL;
+            room = malloc((size_t)tcols * trows * 100);
+        }
         if(room == NULL) return -3;
         free(room);
     }
@@ -423,7 +489,7 @@ int vtt_open(const vtt_config *c, void (*out)(const char *bytes, size_t n)) {
 
 void vtt_close(void) {
     if(vt) {
-        memset(v.fb, 0, (size_t)v.height * v.pitch);                /* (the prompt comes back on a clear screen) */
+        if(!frozen) memset(v.fb, 0, (size_t)v.height * v.pitch);    /* (the prompt comes back on a clear screen) */
         vterm_free(vt);
     }
     vt = NULL;
@@ -599,8 +665,8 @@ int vtt_key(int key, int mods) {
     case 0xA3: vterm_keyboard_key(vt, VTERM_KEY_RIGHT, VTERM_MOD_SHIFT); break;
     case 0x84: vterm_keyboard_key(vt, VTERM_KEY_INS, VTERM_MOD_NONE); break;
     case 0x7F: case 0xA0: vterm_keyboard_key(vt, VTERM_KEY_DEL, VTERM_MOD_NONE); break;
-    case 0x86: send("\033[1~"); break;
-    case 0x87: send("\033[4~"); break;
+    case 0x86: send(cfg.home_xterm ? "\033[H" : "\033[1~"); break;
+    case 0x87: send(cfg.home_xterm ? "\033[F" : "\033[4~"); break;
     case 0x88: vterm_keyboard_key(vt, VTERM_KEY_PAGEUP, VTERM_MOD_NONE); break;
     case 0x89: vterm_keyboard_key(vt, VTERM_KEY_PAGEDOWN, VTERM_MOD_NONE); break;
     default:
@@ -667,10 +733,27 @@ void vtt_reset(int hard) {
 
 void vtt_redraw(void) {
     drawn_cursor = drawn_mouse = 0;
-    memset(v.fb, defbg, (size_t)v.height * v.pitch);
+    if(frozen) return;
+    if(bp == 1 || pix[defbg] == 0) memset(v.fb, pix[defbg], (size_t)v.height * v.pitch);
+    else {
+        uint16_t *q = (uint16_t *)v.fb;
+        uint32_t i, n = v.height * v.pitch / 2;
+        for(i = 0; i < n; i++) q[i] = pix[defbg];
+    }
     draw_rows(0, trows);
     status_draw();
     cover(1);
+}
+
+void vtt_freeze(int on) {
+    frozen = on;
+    if(on) drawn_cursor = drawn_mouse = 0;
+}
+
+void vtt_cursor_show(int on) {
+    if(cursor_off == !on) return;
+    cursor_off = !on;
+    dirty = 1;
 }
 
 void vtt_size(int *cols, int *rows) {

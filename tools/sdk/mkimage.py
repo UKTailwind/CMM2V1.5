@@ -46,6 +46,7 @@ def main():
     ap.add_argument('--api', type=int, default=1)   # the services' version it uses: older firmware refuses it
     ap.add_argument('--g2', action='store_true')    # CMM2IMG_FLAG_G2: a G1 refuses it (more than a G1's memory)
     ap.add_argument('--vram', action='store_true')  # CMM2IMG_FLAG_VRAM: a G1 lends it its display memory too
+    ap.add_argument('--fixed', action='store_true')  # no relocations: the program moves itself to the address it is linked for
     a = ap.parse_args()
     d = open(a.elf, 'rb').read()
     if d[:4] != b'\x7fELF' or d[4] != 1 or d[5] != 1:
@@ -101,6 +102,8 @@ def main():
                 failed.append('%s: relocation type %d at 0x%08X' % (s['name'], kind, off))
     if failed:
         sys.exit('cannot make a loadable image:\n  ' + '\n  '.join(failed[:20]))
+    if a.fixed:
+        relocs = set()
     rel = b''.join(struct.pack('<I', r) for r in sorted(relocs, key=lambda r: r & 0x0FFFFFFF))
     crc = zlib.crc32(bytes(image) + rel) & 0xFFFFFFFF
     name = (a.name or a.out.replace('\\', '/').split('/')[-1].rsplit('.', 1)[0])[:15].encode()

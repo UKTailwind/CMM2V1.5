@@ -87,6 +87,7 @@ def main():
     ap.add_argument('--api', default='1')
     ap.add_argument('--g2', action='store_true')
     ap.add_argument('--vram', action='store_true')
+    ap.add_argument('--fixed', action='store_true')
     ap.add_argument('--xip', action='store_true')
     ap.add_argument('--xip-base', default='0x08141000')
     ap.add_argument('--no-printf-float', dest='pfloat', action='store_false')
@@ -159,7 +160,7 @@ def main():
         sys.exit(0)
     r = subprocess.run([sys.executable, '-I', os.path.join(SDK, 'mkimage.py'), stem + '.elf', a.out,
                         '--stack', str(int(a.stack, 0)), '--heap', str(int(a.heap, 0)), '--api', a.api] +
-                       (['--g2'] if a.g2 else []) + (['--vram'] if a.vram else []))
+                       (['--g2'] if a.g2 else []) + (['--vram'] if a.vram else []) + (['--fixed'] if a.fixed else []))
     sys.exit(r.returncode)
 
 
