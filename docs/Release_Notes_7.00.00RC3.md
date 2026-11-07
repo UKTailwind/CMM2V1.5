@@ -51,6 +51,7 @@ Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app
 
 ## Fixed since 7.00.00RC2
 
+- **On a Generation 1 with OPTION COMPILE ON, CC stopped with "out of memory" and the NES emulator would not start.** The 1MB OPTION COMPILE keeps for itself stood between the heap and the display memory. From the command prompt a program now has that memory as well, and the next RUN of a BASIC program compiles it again. OPTION COMPILE itself does not change.
 - **A PicoMite plugged straight into the USB socket connected and then disconnected at once.** USB's 48MHz clock came from an RC oscillator that ran 0.94% fast on a Generation 2 and 0.29% slow on a Generation 1, where USB full speed allows 0.25%. A hub hid it. At 480MHz USB's clock now comes from the crystal, and is exact. At 400MHz the oscillator is trimmed from the RTC's crystal once, at start up, and measured between 47.966 and 48.014MHz.
 - **A USB serial port stopped working after it had been opened and closed a number of times,** after 17 to 111 times on our boards. It then read nothing, or OPEN said that the device did not accept the baud rate, or a CH340 hung for ever. A request to the device met the port's own reads. OPEN and CLOSE now keep them apart.
 - **Output to a serial port could stop,** with a byte waiting until the next output. The interrupt could find its queue empty and turn itself off just as a byte was added, on COM1, COM2 and the serial console.
@@ -60,6 +61,7 @@ Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app
 
 ## What behaves differently
 
+- On a Generation 1 the message "Needs n KB, n KB free" is now "Needs n KB, n KB free in one block", and gives the largest block. It named the display memory alone, even with the heap free.
 - MM.INFO(FONT 5), MM.INFO(FLASH 2) and MM.INFO(FONT ADDRESS 1,2) now give the error "Unexpected text".
 - INKEY$ gives CHR$(10) alone for Ctrl-J. It gave CR and then LF, as Enter does.
 - A program chained from one that used OPTION LEGACY ON has the normal fonts. It kept the legacy ones, with OPTION LEGACY already off.
@@ -75,9 +77,11 @@ On both generations unless it says otherwise:
 - The terminal with vttest, the standard test of a VT100, on a PC with the program's own code: all of a VT100's features pass.
 - Saving and restoring in ScummVM, in the LucasArts, Sierra and other games. (Generation 2.)
 - Each fault in the fonts and MM.INFO, shown on the old firmware and gone on the new.
+- With OPTION COMPILE ON, CC and the NES emulator, each followed by a compiled BASIC program, and a compiled program that runs another program and carries on. (Generation 1.)
 
 ## Known problems
 
+- **A Generation 1 has less memory for a program** run from a compiled BASIC program, or with OPTION RAM, because the BASIC program's memory is then in the way. If a large program will not start, run it from the command prompt, and use OPTION FLASH in place of OPTION RAM.
 - **A device plugged in where a hub was** may not be seen until the Colour Maximite 2 is restarted.
 - **A USB serial device that stops answering a request** can still hang a CH340 with no way out but a restart. The fault above no longer causes this, but there is still no time limit on the request.
 - **The terminal:** a line made double width loses its right half, which is how libvterm treats it. vttest's tests of the VT220 and later terminals have not been run.

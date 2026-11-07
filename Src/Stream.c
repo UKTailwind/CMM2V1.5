@@ -5648,6 +5648,13 @@ static uint32_t RBImageCrc(const unsigned char *p, int limit)
     return lfs_crc(0xffffffff, p, n ? n : limit);
 }
 
+// The area lent to a loadable program (a G1: Loader.c): what it holds now is not a stream, and the next RUN compiles again
+void RBForget(void)
+{
+    RBLive = 0;
+    memset(RBSlotBase(), 0, sizeof(rbheader_t));
+}
+
 void RBPrepare(void)
 {
     rbheader_t h;

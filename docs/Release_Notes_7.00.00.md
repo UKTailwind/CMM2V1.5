@@ -513,6 +513,7 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 
 ## Known problems
 
+- A Generation 1 has less memory for a program run from a compiled BASIC program, or with OPTION RAM, because the BASIC program's memory is then in the way. If a large program will not start, run it from the command prompt, and use OPTION FLASH in place of OPTION RAM.
 - A touch monitor that is also the Colour Maximite 2's display may reset its touch controller when the screen's resolution changes (MODE). Touches are not seen for a moment while it reconnects.
 - An armed interrupt pin slows the program down, because the pin is polled after every statement.
 - With a USB touch screen connected, a mouse click can be taken as a swipe by the GUI controls' gestures.

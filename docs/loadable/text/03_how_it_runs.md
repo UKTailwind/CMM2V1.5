@@ -15,7 +15,7 @@ Before loading, MMBasic stops any sound that is playing. It then reads the file'
 | Not a program this firmware can load | The header is of another version, or the file's size does not match it. |
 | Needs a newer firmware | The program uses a later version of the services than this firmware has (its --api option). |
 | Needs a G2 | A program built with --g2, on a Generation 1. |
-| Needs n KB, n KB free | Generation 1: its code, data, stack and least heap do not fit in the memory that is free. |
+| Needs n KB, n KB free in one block | Generation 1: its code, data, stack and least heap do not fit in the memory that is free. The figure is the largest block. |
 | Needs n KB, more than the 8 MB | Generation 2: they do not fit in the 8MB. |
 | Cannot lend the display memory | Generation 1, a program built with --vram: the screen could not be changed to free the display memory (MMBasic has a frame buffer of another colour depth). |
 | The program file is damaged | The CRC of the code and the relocations does not match the header's. |
@@ -46,7 +46,9 @@ A Generation 1 has 8MB of SDRAM in all, most of it used by the display, so it ca
 
 At the command prompt this gives a program about 4.2MB (MicroPython has a 2.3MB heap after its own code and buffers); run from a BASIC program it is what the BASIC program's variables leave free. So a program should never assume the size of its memory: it should size its buffers from cmm2_start->heap_size, as Doom sizes its zone and MicroPython its heap and its SQLite pool.
 
-The program file says the least heap the program can run with (build.py's --heap option). If the memory there is cannot give it, RUN refuses the program before loading it ("Needs n KB, n KB free"), rather than the program failing later.
+With OPTION COMPILE ON or SHADOW, the 1MB kept for the compiled BASIC program, just below the heap, is lent as well when no compiled program is running. The next RUN of a BASIC program compiles it again. A program run from a compiled BASIC program leaves that memory alone, and has 1MB less.
+
+The program file says the least heap the program can run with (build.py's --heap option). If the memory there is cannot give it, RUN refuses the program before loading it ("Needs n KB, n KB free in one block"), rather than the program failing later.
 
 ## The Display Memory Lent
 

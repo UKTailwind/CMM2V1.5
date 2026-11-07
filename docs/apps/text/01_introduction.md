@@ -86,6 +86,6 @@ When a program ends, MMBasic tidies up after it: its files are closed, its sound
 | Not a loadable program | The file is not a program, or is not the one you meant. |
 | The program file is damaged | Copy it to the card again. |
 | Needs a G2 | The program needs a Generation 2. None of the programs in this guide do. |
-| Needs n KB, n KB free | There is not enough memory. Restart the Colour Maximite 2 and try it from the command prompt, not from inside a large BASIC program. |
+| Needs n KB, n KB free in one block | There is not enough memory. Restart the Colour Maximite 2 and try it from the command prompt, not from inside a BASIC program. On a Generation 1, OPTION RAM leaves less: use OPTION FLASH. |
 
 If a program cannot find its files, you have probably started it from the wrong folder. CHDIR to its folder and try again.

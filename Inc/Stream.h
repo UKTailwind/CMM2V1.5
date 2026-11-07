@@ -53,6 +53,7 @@ extern int RBMode; // OPTION COMPILE ON | OFF | SHADOW, as saved in Option.Compi
 // when they differ.
 extern int RBLive;             // a stream matching the program is in the slot
 void RBPrepare(void);          // at the end of a successful PrepareProgram(true)
+void RBForget(void);           // the area given to something else: no stream is in it now
 void RBStatus(char *out);      // MM.INFO$(COMPILE): what the last RUN did
 
 // P1d: the executor, in ITCM.  ExecuteProgram hands over to it while a live

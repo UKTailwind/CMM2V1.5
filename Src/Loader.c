@@ -34,6 +34,7 @@ The loader is in bank 2 (the linker script's .bank2): it runs in the foreground 
 ***********************************************************************************************************************/
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "Stream.h"
 #include "cmm2img.h"
 #include "OPLChip.h"
 #include "Loader.h"
@@ -1433,13 +1434,19 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
     int vram = G1Hardware && (h.flags & CMM2IMG_FLAG_VRAM), invram = 0, joined = 0;
     if(G1Hardware) {
         area = 0;
-        if(vram && SDRAMBASE == LOADER_VRAM_BASE + LOADER_VRAM_SIZE && SbrkUnused()) {
+        // OPTION COMPILE's stream is just below the heap. With nothing running from it, it goes to the program too, and is
+        // compiled again at the next RUN: it had taken 1 MB from a G1's programs and stood between the heap and the display
+        // memory, so that CC stopped with "out of memory" and the NES emulator would not start (two users, 7 Nov 2026)
+        int stream = RBStreamSize && !RBLive && (!vram || RB_STREAM_BASE == LOADER_VRAM_BASE + LOADER_VRAM_SIZE);
+        if(((vram && SDRAMBASE == LOADER_VRAM_BASE + LOADER_VRAM_SIZE) || stream) && SbrkUnused()) {
             room = ((HeapBottomFree() - LD_G1_RESERVE) / RAMPAGESIZE) * RAMPAGESIZE;   // built --vram: one area, as a G2's
             if(room > 0x10000 && (ldarea = HeapClaimBottom(room)) != NULL) {   // 8 MB (Peter): the display memory and the
-                joined = invram = 1;                                // heap's bottom above it, where newlib's arena would
-                base = (char *)LOADER_VRAM_BASE;                    // start, were it ever used (syscalls.c: it may not grow
-                area = (LOADER_VRAM_SIZE + room) & ~7;              // meanwhile). Not with OPTION RAM or COMPILE's stream,
-            }                                                       // which are in between
+                joined = 1;                                         // heap's bottom above it, where newlib's arena would
+                invram = vram;                                      // start, were it ever used (syscalls.c: it may not grow
+                base = (char *)(vram ? LOADER_VRAM_BASE : RB_STREAM_BASE);   // meanwhile). Not with OPTION RAM's program,
+                area = ((vram ? LOADER_VRAM_SIZE : 0) + (stream ? RBStreamSize : 0) + room) & ~7;   // which is in between
+                if(stream) RBForget();
+            }
         }
         if(!joined) {                                               // a G1: the heap's largest free run but the reserve, from
             room = LargestFreeOnHeap() - LD_G1_RESERVE;             // its first 64 KB boundary (the image's relocations
@@ -1482,8 +1489,12 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
     if(place > area || heapsize < h.heap_min) {
         ld_done();
         ld_giveback(oldmin);
-        if(G1Hardware) error("Needs % KB, % KB free", (int)(need / 1024),
-                             (int)(((area ? area : room) + (vram && !invram ? LOADER_VRAM_SIZE : 0)) / 1024));
+        if(G1Hardware) {                                            // the largest block, which is what stops it: this had
+            int most = area ? area : room;                          // named the display memory alone, with the heap free
+            if(vram && most < LOADER_VRAM_SIZE) most = LOADER_VRAM_SIZE;
+            if(invram && !joined && most < room) most = room;
+            error("Needs % KB, % KB free in one block", (int)(need / 1024), most / 1024);
+        }
         error("Needs % KB, more than the 8 MB", (int)(need / 1024));
     }
     ld_screensave();                                                // (BASIC's screen, put back at the end)
