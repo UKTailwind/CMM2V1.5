@@ -35,7 +35,7 @@ Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app
   RUN "vt100.app", COM4 115200
   ```
 
-  - It works on COM1, COM2 and the USB serial devices COM4 to COM7.
+  - It uses the USB serial devices COM4 to COM7, and COM1 and COM2.
   - When a PicoMite asks for a screen size, at EDIT, FM or OPTION DISPLAY, the terminal changes to it.
   - It has a setup menu on Shift-F12, scrollback, a log, XMODEM both ways, and a choice of fonts, colours and cursors.
   - If the device restarts or is unplugged, the status line says so, and the terminal carries on when it comes back, as Tera Term's auto reconnect does.
@@ -84,7 +84,7 @@ On both generations unless it says otherwise:
 - **A Generation 1 has less memory for a program** run from a compiled BASIC program, or with OPTION RAM, because the BASIC program's memory is then in the way. If a large program will not start, run it from the command prompt, and use OPTION FLASH in place of OPTION RAM.
 - **A device plugged in where a hub was** may not be seen until the Colour Maximite 2 is restarted.
 - **A USB serial device that stops answering a request** can still hang a CH340 with no way out but a restart. The fault above no longer causes this, but there is still no time limit on the request.
-- **The terminal:** a line made double width loses its right half, which is how libvterm treats it. vttest's tests of the VT220 and later terminals have not been run.
+- **The terminal:** a line made double width loses its right half, which is how libvterm treats it. vttest's tests of the VT220 and later terminals have not been run, COM1 and COM2 have not been tried with a real device, and on a Generation 1 it has only been run with a CH340 looped back, not with a PicoMite.
 - **XMODEM** sends no file length, so a binary file arrives padded to a multiple of 128 bytes. Text files arrive exactly as they were.
 
 The known problems of 7.00.00RC2 remain:
