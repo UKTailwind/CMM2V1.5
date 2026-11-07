@@ -28,6 +28,13 @@ Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app
 
 ## What is new
 
+- **Quake, added to the zip on 7 November.** id Software's game with its shareware episode, in the folder quake, on a Generation 2. It needs no change to the firmware, and its timed demo runs at about 53 frames a second with the sound on. The App User Guide has a chapter on it.
+
+  ```
+  CHDIR "A:/quake"
+  RUN "quake.app"
+  ```
+
 - **zeptoforth, added to the zip on 7 November.** Travis Bemann's Forth, in the folder zeptoforth: preemptive tasks, double precision, the zeptoed editor, and words for the screen, sound, files and I/O pins. Its console is the VT100 terminal, so colours and the editor work on the Colour Maximite 2's own screen and keyboard. The firmware has not changed: if you have RC3, copy the folder from the new zip. The new Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
 
   ```
@@ -86,6 +93,7 @@ On both generations unless it says otherwise:
 - The terminal with a real PicoMite on a Generation 1: the prompt, EDIT, a restart, and XMODEM in both directions.
 - The terminal with vttest, the standard test of a VT100, on a PC with the program's own code: all of a VT100's features pass.
 - zeptoforth: 313 checks of its words for the firmware's services, 108 of double precision against IEEE bit patterns, and a 1,900-line solar eclipse program whose output is identical to MMBasic's, byte for byte. A real USB keyboard on a Generation 2, and a Generation 1 with OPTION COMPILE ON.
+- Quake on a Generation 2: its timed demo, 969 frames at 53.3 frames a second with the sound on and 57.1 with it off, saving and loading a game, and playing it with a USB keyboard and mouse.
 - Saving and restoring in ScummVM, in the LucasArts, Sierra and other games. (Generation 2.)
 - Each fault in the fonts and MM.INFO, shown on the old firmware and gone on the new.
 - With OPTION COMPILE ON, CC and the NES emulator, each followed by a compiled BASIC program, and a compiled program that runs another program and carries on. (Generation 1.)
@@ -115,4 +123,4 @@ The User Manual says what is at MM.INFO(FONT ADDRESS n), and Appendix O lists th
 
 ## Licences
 
-zeptoforth is under the MIT licence. The terminal uses libvterm, under the MIT licence, and the Spleen fonts, under the BSD 2-Clause licence. Both are in the licences folder of the zip, and its README lists every program's licence.
+Quake is under the GNU GPL version 2, and its shareware data is id Software's, which may be passed on but not sold. zeptoforth is under the MIT licence. The terminal uses libvterm, under the MIT licence, and the Spleen fonts, under the BSD 2-Clause licence. Both are in the licences folder of the zip, and its README lists every program's licence.

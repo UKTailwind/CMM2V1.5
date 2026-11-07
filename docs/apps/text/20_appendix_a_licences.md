@@ -9,6 +9,7 @@ The source of each program is named in the file make.py of its folder in the fir
 | MicroPython | MicroPython, ulab and usqlite: MIT. SQLite: public domain |
 | Doom | GNU GPL version 2. Freedoom: BSD 3-Clause |
 | Heretic | GNU GPL version 2. The shareware game data is copyright Raven Software and id Software, under its own licence (LICENSE.DOC): it is not free software and may not be sold |
+| Quake | GNU GPL version 2. The shareware game data is copyright id Software, under its own licence (SLICNSE.TXT): it is not free software and may not be sold |
 | ScummVM | GNU GPL version 2 or later, with parts under other licences as ScummVM's files say |
 | NES | frank-nes: GNU GPL version 3. QuickNES: GNU LGPL version 2.1 or later. Nova the Squirrel: code GNU GPL version 3 or later, graphics and levels Creative Commons BY-NC-SA 4.0. Thwaite: GNU GPL version 3 or later |
 | ZX Spectrum | pico-spec: GNU GPL version 3. miniz and the WD1793 emulation in it: MIT. The ROMs are not under the GPL (see README.txt) |

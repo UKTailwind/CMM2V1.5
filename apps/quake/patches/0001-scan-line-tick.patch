@@ -1,0 +1,20 @@
+diff --git a/source/r_edge.c b/source/r_edge.c
+index 55009d6..e9b6d9f 100644
+--- a/source/r_edge.c
++++ b/source/r_edge.c
+@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ // r_edge.c
+ 
+ #include "quakedef.h"
++void Sys_Tick (void);
+ #include "r_local.h"
+ 
+ #if 0
+@@ -685,6 +686,7 @@ void R_ScanEdges (void)
+ 
+ 	for (iv=r_refdef.vrect.y ; iv<bottom ; iv++)
+ 	{
++		Sys_Tick ();
+ 		current_iv = iv;
+ 		fv = (float)iv;
+ 

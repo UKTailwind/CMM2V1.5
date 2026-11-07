@@ -1,0 +1,13 @@
+diff --git a/source/menu.c b/source/menu.c
+index 137a28a..8381739 100644
+--- a/source/menu.c
++++ b/source/menu.c
+@@ -1457,6 +1457,8 @@ void M_Keys_Key (int k)
+ 
+ void M_Menu_Video_f (void)
+ {
++	if (!vid_menudrawfn)
++		return;			// (this port has none: the options menu leaves it out, the command did not)
+ 	key_dest = key_menu;
+ 	m_state = m_video;
+ 	m_entersound = true;

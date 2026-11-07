@@ -11,6 +11,7 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | MicroPython | Python, with the screen, sound and I/O pins | A:/ |
 | Doom | The classic game, with the free Freedoom game data | A:/Doom |
 | Heretic | Raven Software's game, with its shareware episode | A:/heretic |
+| Quake | id Software's game, with its shareware episode | A:/quake |
 | ScummVM | Classic adventure games from LucasArts, Sierra and others | A:/quest |
 | NES | A Nintendo Entertainment System emulator, with two free games | A:/nes |
 | ZX Spectrum | A 48K and 128K Spectrum emulator | A:/spectrum |
@@ -20,7 +21,7 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | VT100 terminal | Makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer | A:/vt100 |
 | zeptoforth | A Forth with tasks, double precision and a screen editor | A:/zeptoforth |
 
-All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each.
+All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each, and Quake, which needs a Generation 2.
 
 ## Installing the Programs
 
@@ -60,7 +61,7 @@ Programs differ in how you leave them, as an emulator has to pass most keys on t
 {widths: 16,36}
 | Program | How to leave it |
 | MicroPython | machine.reset() at its prompt |
-| Doom, Heretic | Ctrl-C |
+| Doom, Heretic, Quake | Ctrl-C |
 | ScummVM | Ctrl-C. In a game, Ctrl+Alt+Del goes back to the list of games |
 | NES | Ctrl+Alt+End, or Ctrl-C |
 | ZX Spectrum, Amstrad CPC | Ctrl+Alt+End. Ctrl-C is a key of the emulated machine |
@@ -86,7 +87,7 @@ When a program ends, MMBasic tidies up after it: its files are closed, its sound
 | Needs a newer firmware | The program needs a later version of the firmware than you have. Update it. |
 | Not a loadable program | The file is not a program, or is not the one you meant. |
 | The program file is damaged | Copy it to the card again. |
-| Needs a G2 | The program needs a Generation 2. None of the programs in this guide do. |
+| Needs a G2 | The program needs a Generation 2. Of the programs in this guide, only Quake does. |
 | Needs n KB, n KB free in one block | There is not enough memory. Restart the Colour Maximite 2 and try it from the command prompt, not from inside a BASIC program. On a Generation 1, OPTION RAM leaves less: use OPTION FLASH. |
 
 If a program cannot find its files, you have probably started it from the wrong folder. CHDIR to its folder and try again.
