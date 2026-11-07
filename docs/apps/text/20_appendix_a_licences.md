@@ -16,3 +16,4 @@ The source of each program is named in the file make.py of its folder in the fir
 | 386 PC | tiny386: BSD 3-Clause. Its devices: MIT. inih: BSD 3-Clause. fmopl: GNU LGPL version 2.1 or later. SeaBIOS and SeaVGABIOS: GNU LGPL version 3. FreeDOS: each program under its own licence, most of them the GNU GPL |
 | C compiler | The Fuzix Compiler Kit: GNU GPL version 3. The translator from MMBasic to C: the MMBasic licence |
 | VT100 terminal | libvterm: MIT. The Spleen fonts: BSD 2-Clause |
+| zeptoforth | zeptoforth: MIT. Its console has libvterm: MIT, and the Spleen fonts: BSD 2-Clause |

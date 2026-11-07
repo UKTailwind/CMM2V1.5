@@ -1,0 +1,84 @@
+diff --git a/src/common/forth/task.fs b/src/common/forth/task.fs
+index 977a347..f7a3935 100644
+--- a/src/common/forth/task.fs
++++ b/src/common/forth/task.fs
+@@ -334,7 +334,7 @@ begin-module task
+   : x-current-wait-notify ( -- ) ." currently await notification" cr ;
+ 
+   \ Sleep
+-  : sleep ( -- ) sleep-enabled? @ if sleep then ;
++  : sleep ( -- ) cmm2-idle ;
+ 
+   \ Access a given user variable for a given task
+   : for-task ( task xt -- addr )
+@@ -2190,7 +2190,16 @@ begin-module task
+ 
+     \ Handle PAUSE
+     : do-pause ( -- )
+-      true do-pause? ! true in-multitasker? ! ICSR_PENDSVSET! dmb dsb isb
++      true do-pause? ! true in-multitasker? ! cmm2-switch
++    ;
++
++    \ When the firmware's tick last came
++    variable last-tick
++
++    \ The tick (port/tasks.s): what has passed comes off the time slice
++    : do-tick ( -- )
++      systick-counter dup last-tick @ - negate task-systick-counter +! last-tick !
++      task-systick-counter @ 0<= if true do-pause? ! true in-multitasker? ! then
+     ;
+ 
+     \ Task info structure
+@@ -2630,11 +2639,7 @@ begin-module task
+     disable-int
+     0 task-init-hook !
+     0 watchdog-hook !
+-    NVIC_ICPR_CLRPEND_All!
+     0 pause-enabled !
+-    $00 SHPR3_PRI_15!
+-    $00 SHPR2_PRI_11!
+-    $FF SHPR3_PRI_14!
+     stack-end @ free-end !
+     validate-dict-hook @ saved-validate-dict !
+     attention-hook @ saved-attention-hook !
+@@ -2671,9 +2676,8 @@ begin-module task
+       then
+       0 i cpu-pause-count !
+     loop
+-    ['] execute svcall-vector vector!
+-    ['] switch-tasks pendsv-vector vector!
+-    ['] task-systick-handler systick-vector vector!
++    systick-counter last-tick !
++    ['] do-tick ['] switch-tasks cmm2-hooks!
+     [: cpu-index 0= current-task main-task = and ;] in-main?-hook !
+     [:
+       display-red cr ." *** HARDWARE EXCEPTION, TASK TERMINATED ***"
+@@ -2715,7 +2719,7 @@ begin-module task
+ 
+   \ Force pending operations to execute
+   : force-pending-ops ( -- )
+-    true in-multitasker? ! ICSR_PENDSVSET! dmb dsb isb
++    true in-multitasker? ! cmm2-switch
+   ;
+ 
+   \ Register pending operation on the current CPU
+diff --git a/src/m4_m7/asm.s b/src/m4_m7/asm.s
+index 3cd8571..d645ec5 100644
+--- a/src/m4_m7/asm.s
++++ b/src/m4_m7/asm.s
+@@ -163,6 +163,7 @@ _asm_finalize:
+         ldr r0, =current_unit_start
+         movs r1, #0
+         str r1, [r0]
++	bl _sync_code
+ 	pop {pc}
+ 	end_inlined
+ 	
+@@ -221,6 +222,7 @@ _asm_finalize_no_align:
+         ldr r0, =current_unit_start
+         movs r1, #0
+         str r1, [r0]
++	bl _sync_code
+ 	pop {pc}
+ 	end_inlined
+ 

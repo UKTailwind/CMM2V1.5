@@ -1,0 +1,13 @@
+diff --git a/extra/common/zeptoed.fs b/extra/common/zeptoed.fs
+index fbfebc8..911df2b 100644
+--- a/extra/common/zeptoed.fs
++++ b/extra/common/zeptoed.fs
+@@ -5115,7 +5115,7 @@ end-implement
+       ;] try
+       editor destroy
+       editor my-heap free
+-      display-height 0 go-to-coord cr
++      display-height @ 1- 0 go-to-coord cr
+       ?raise
+     ;] with-aligned-allot
+   ;

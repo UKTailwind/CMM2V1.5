@@ -1,8 +1,8 @@
 # Introduction
 
-Your Colour Maximite 2 can run much more than MMBasic. This guide covers the programs that come with the firmware: games, emulators, a C compiler, MicroPython and a terminal. It tells you how to install each one, start it, use it and leave it.
+Your Colour Maximite 2 can run much more than MMBasic. This guide covers the programs that come with the firmware: games, emulators, a C compiler, MicroPython, Forth and a terminal. It tells you how to install each one, start it, use it and leave it.
 
-You do not need to be a programmer to use any of them, apart from the C compiler and MicroPython. If you want to write programs of this kind yourself, that is what the companion manual *Colour Maximite 2 Loadable Programs* is for.
+You do not need to be a programmer to use any of them, apart from the C compiler, MicroPython and zeptoforth. If you want to write programs of this kind yourself, that is what the companion manual *Colour Maximite 2 Loadable Programs* is for.
 
 ## What Is Here
 
@@ -18,8 +18,9 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | 386 PC | A PC that runs FreeDOS, MS-DOS, Windows 3.1 and Windows 95 | A:/pc386 |
 | C compiler | Compiles C and MMBasic programs on the machine itself | A:/cc |
 | VT100 terminal | Makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer | A:/vt100 |
+| zeptoforth | A Forth with tasks, double precision and a screen editor | A:/zeptoforth |
 
-All of them run on both the Generation 1 and the Generation 2, from the same files.
+All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each.
 
 ## Installing the Programs
 
