@@ -965,8 +965,8 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
     /* The pins' edges are slowed (Peter, 23 Oct 2026, the G1 through a capture device: "line start timing varying"):
        HSYNC and VSYNC LOW, the colours MEDIUM. At HIGH they rang and moved the ground under the syncs; Peter judged
        MEDIUM for the colours the best on the monitor, LOW for them worse. */
-    GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6;
-    GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6;
+    GPIO_InitStruct.Pin = (G1Hardware ? 0 : GPIO_PIN_4)|GPIO_PIN_5|GPIO_PIN_6;   // PE4, LTDC_B0: wired on a G2, and was
+                                                                    // left out by a second line (Peter, 8 Nov 2026: a bug)
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;

@@ -392,6 +392,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 ### Graphics
 
+- A Generation 2 left the lowest bit of blue (PE4) undriven: its set-up for the video named the pin and then left it out.
 - FRAMEBUFFER:
   - CREATE without a size faulted, and CREATE over a framebuffer kept the old backup.
   - Drawing after PAGE WRITE or FRAMEBUFFER WRITE used the page's width as its height.

@@ -28,7 +28,9 @@ Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app
 
 ## What is new
 
-- **AUTOSAVE ends with Ctrl-Z too, from 8 November.** Ctrl-Z now ends AUTOSAVE as F1 does: it saves the file and loads it without running it. This is as the PicoMite does it, so that MMEdit can end a transfer the same way on both. The firmware file CMM2_MMBasic_7.00.00RC3.bin was replaced on 8 November with only this change: if you have the one from 7 November, you need the new one only for this.
+- **Two changes of 8 November.** The firmware file CMM2_MMBasic_7.00.00RC3.bin was replaced on 8 November with only these two. If you have the one from 7 November, you need the new one only for them.
+  - **AUTOSAVE ends with Ctrl-Z too.** Ctrl-Z now ends AUTOSAVE as F1 does: it saves the file and loads it without running it. This is as the PicoMite does it, so that MMEdit can end a transfer the same way on both.
+  - **A Generation 2 drives the lowest bit of blue.** The pin for it (PE4) was left out of the video's set-up, as it had been since the original firmware, although a Generation 2 wires it. The difference on screen is one step in 256 of blue.
 
 - **Quake, added to the zip on 7 November.** id Software's game with its shareware episode, in the folder quake, on a Generation 2. It needs no change to the firmware, and its timed demo runs at about 53 frames a second with the sound on. The App User Guide has a chapter on it.
 
