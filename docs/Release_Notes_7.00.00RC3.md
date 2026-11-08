@@ -32,6 +32,15 @@ Copy the new CMM2_Programs_7.00.00RC3.zip to the card as well: quest/scummvm.app
   - **AUTOSAVE ends with Ctrl-Z too.** Ctrl-Z now ends AUTOSAVE as F1 does: it saves the file and loads it without running it. This is as the PicoMite does it, so that MMEdit can end a transfer the same way on both.
   - **A Generation 2 drives the lowest bit of blue.** The pin for it (PE4) was left out of the video's set-up, as it had been since the original firmware, although a Generation 2 wires it. The difference on screen is one step in 256 of blue.
 
+- **A Commodore 64 emulator, added to the zip on 8 November.** frank-c64, rh1tech's port of Christian Bauer's Frodo, in the folder c64: a PAL C64 with a 1541 disk drive, at its 50 frames a second in MODE 7. It loads programs and disk images from its F10 menu, plays the SID's sound, and has two USB gamepads as its joysticks and a USB mouse as a 1351 mouse. The keys follow OPTION USBKEYBOARD, and the C64's ROMs are built in. The firmware has not changed: if you have RC3, copy the folder from the new zip. The new Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
+
+  ```
+  CHDIR "A:/c64"
+  RUN "c64.app"
+  ```
+
+  It has been tried on a Generation 2 only so far.
+
 - **Quake, added to the zip on 7 November.** id Software's game with its shareware episode, in the folder quake, on a Generation 2. It needs no change to the firmware, and its timed demo runs at about 53 frames a second with the sound on. The App User Guide has a chapter on it.
 
   ```
@@ -98,6 +107,7 @@ On both generations unless it says otherwise:
 - The terminal with vttest, the standard test of a VT100, on a PC with the program's own code: all of a VT100's features pass.
 - zeptoforth: 313 checks of its words for the firmware's services, 108 of double precision against IEEE bit patterns, and a 1,900-line solar eclipse program whose output is identical to MMBasic's, byte for byte. A real USB keyboard on a Generation 2, and a Generation 1 with OPTION COMPILE ON.
 - Quake on a Generation 2: its timed demo, 969 frames at 53.3 frames a second with the sound on and 57.1 with it off, saving and loading a game, and playing it with a USB keyboard and mouse.
+- The Commodore 64 on a Generation 2: BASIC, the USB keyboard, a program and a disk image from the F10 menu, LOAD"$",8 from a disk, the SID's sound, a DualShock 3 and a DualShock 4 as the two joysticks, and Commodore's own 1351 mouse driver moving a sprite with a USB mouse.
 - Saving and restoring in ScummVM, in the LucasArts, Sierra and other games. (Generation 2.)
 - Each fault in the fonts and MM.INFO, shown on the old firmware and gone on the new.
 - With OPTION COMPILE ON, CC and the NES emulator, each followed by a compiled BASIC program, and a compiled program that runs another program and carries on. (Generation 1.)
@@ -109,6 +119,7 @@ On both generations unless it says otherwise:
 - **A USB serial device that stops answering a request** can still hang a CH340 with no way out but a restart. The fault above no longer causes this, but there is still no time limit on the request.
 - **The terminal:** a line made double width loses its right half, which is how libvterm treats it. vttest's tests of the VT220 and later terminals have not been run, and COM1 and COM2 have not been tried with a real device.
 - **XMODEM** sends no file length, so a binary file arrives padded to a multiple of 128 bytes. Text files arrive exactly as they were.
+- **The Commodore 64:** tapes are listed in its menu but cannot be loaded. Saving to a disk image, cartridges and a Generation 1 have not been tried yet.
 
 The known problems of 7.00.00RC2 remain:
 
@@ -127,4 +138,4 @@ The User Manual says what is at MM.INFO(FONT ADDRESS n), and Appendix O lists th
 
 ## Licences
 
-Quake is under the GNU GPL version 2, and its shareware data is id Software's, which may be passed on but not sold. zeptoforth is under the MIT licence. The terminal uses libvterm, under the MIT licence, and the Spleen fonts, under the BSD 2-Clause licence. Both are in the licences folder of the zip, and its README lists every program's licence.
+Quake is under the GNU GPL version 2, and its shareware data is id Software's, which may be passed on but not sold. zeptoforth is under the MIT licence. The Commodore 64 emulator is under the GNU GPL version 2 or later; the C64's ROMs built into it are Commodore's, and are not under the GPL. The terminal uses libvterm, under the MIT licence, and the Spleen fonts, under the BSD 2-Clause licence. Both are in the licences folder of the zip, and its README lists every program's licence.
