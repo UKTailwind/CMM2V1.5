@@ -814,7 +814,8 @@ uint16_t cdch_open(uint8_t rhport, uint8_t daddr, const tusb_desc_interface_t *i
 static void set_config_complete(cdch_interface_t *p_cdc, bool success) {
   // CMM2: the device and the next interface, taken before a failure clears the entry: usbh needs them below. Read
   // after the clearing they were address 0, a NULL device in usbh, whose interface table was then read from address
-  // 0 (ITCM here) and drivers picked from it (seen with a Microbridge, 8 Nov 2026)
+  // 0 (ITCM here) and drivers picked from it (seen with a Microbridge, 8 Nov 2026). Upstream master has the same fix
+  // (65537b155, 25 Oct 2026, after this copy's efab607b8): take theirs at the next update
   const uint8_t daddr    = p_cdc->daddr;
   const uint8_t next_itf = p_cdc->bInterfaceNumber + ((p_cdc->serial_drid == SERIAL_DRIVER_ACM) ? 1 : 0);
   if (success) {
