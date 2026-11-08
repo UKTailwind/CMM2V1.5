@@ -1443,8 +1443,8 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
             if(room > 0x10000 && (ldarea = HeapClaimBottom(room)) != NULL) {   // 8 MB (Peter): the display memory and the
                 joined = 1;                                         // heap's bottom above it, where newlib's arena would
                 invram = vram;                                      // start, were it ever used (syscalls.c: it may not grow
-                base = (char *)(vram ? LOADER_VRAM_BASE : RB_STREAM_BASE);   // meanwhile). Not with OPTION RAM's program,
-                area = ((vram ? LOADER_VRAM_SIZE : 0) + (stream ? RBStreamSize : 0) + room) & ~7;   // which is in between
+                base = (char *)(vram ? LOADER_VRAM_BASE : RB_STREAM_BASE);   // meanwhile). (V8: the program is above the
+                area = ((vram ? LOADER_VRAM_SIZE : 0) + (stream ? RBStreamSize : 0) + room) & ~7;   // heap, out of the way)
                 if(stream) RBForget();
             }
         }

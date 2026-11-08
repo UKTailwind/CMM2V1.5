@@ -1225,7 +1225,7 @@ Both arrays must be the same type (for strings, also the same maximum length) an
 === LIBRARY
 --- tight
 The library is a second program whose subroutines, functions, embedded C routines (CSUBs), fonts, labels and DATA statements are available to every program, as if they were part of MMBasic: they do not show when the program is listed or edited and are not deleted when a new program is loaded or by NEW.  Any code in the library that is not in a subroutine or function is run before each program, which can be used to set constants, options, etc.  See The Library in the chapter Using MMBasic.
-The library is kept in the last 128KB of the program flash memory (flash slot 6, see OPTION FLASH), which cannot then be used for a program, and it can be up to 128KB long.  A program can also load a library of its own into RAM (LIBRARY LOAD with RAM).
+The library is kept in 128KB of the flash memory of its own, so it is kept when the power is removed, and it can be up to 128KB long.  A program can also load a library of its own into RAM (LIBRARY LOAD with RAM).
 
 =+= LIBRARY SAVE
 --- tight
@@ -1233,7 +1233,7 @@ Adds the program in program memory (the program last run, or loaded from the edi
 
 =+= LIBRARY DELETE
 --- tight
-Deletes the library and returns its flash memory for normal use (OPTION RESET does not delete it).  It can only be used at the command prompt.
+Deletes the library, erasing its flash memory (OPTION RESET does not delete it).  It can only be used at the command prompt.
 
 =+= LIBRARY LIST
 or

@@ -11,9 +11,8 @@ OPTION AUTORUN OFF
 or
 OPTION AUTORUN n [, NORESET]
 --- P keep roomy
-Instructs MMBasic to automatically run the program in program memory on power up or restart (for example, by the WATCHDOG timer).  OFF is the default.  The program is not run after the restart that an OPTION command causes.
+Instructs MMBasic to run the file AUTORUN.BAS on the SD card automatically on power up or restart (for example, by the WATCHDOG timer).  The program in program memory does not survive either, as it is held in RAM (see Running Programs in the chapter Using MMBasic).  If there is no SD card, or no AUTORUN.BAS on it, MMBasic goes to the command prompt.  OFF is the default.  Nothing is run after the restart that an OPTION command causes.
 With ‘n’, 1 to 3 (the PicoMite's), the program saved in flash slot ‘n’ (FLASH SAVE n) is run instead, as FLASH RUN n runs it; 0 is the same as OFF.  NORESET, the PicoMite's, is kept and listed by OPTION LIST: on the PicoMite it keeps the option on after a restart caused by a system error, which the Colour Maximite 2 does in any case.  MM.INFO$(OPTION AUTORUN) returns "On", "Off" or the slot's number.
-If the Colour Maximite 2 is set to run programs from RAM (OPTION RAM) MMBasic instead looks for the file AUTORUN.BAS on the SD card on power up or restart and runs it if it is found.
 Entering the break key (default CTRL-C) at the console will interrupt the running program and return to the command prompt.
 The NEW command turns this option off, and so does a firmware upgrade.
 
@@ -184,13 +183,6 @@ If the string ends with a carriage return and line feed the command is run at on
 `OPTION F11 "RUN " + CHR$(34) + "myprog" + CHR$(34) + CHR$(13) + CHR$(10)`
 The other function keys (F2 to F4, F10) are fixed.
 
-=== OPTION FLASH [n]
---- P keep roomy
-Specifies that programs are to be run from flash memory (the default), so that the program is preserved when the Colour Maximite 2 is powered off or reset.  It undoes OPTION RAM.
-The flash is not written every time a program is run: it is only written if it does not match the newly tokenised program, ie, a different or altered program is being loaded.
-The optional parameter ‘n’ (2 to 6, default 2) specifies where the program starts, in 128KB sectors of the flash: the maximum program size is 512KB for ‘n’ of 2 or 3, 384KB for 4, 256KB for 5 and 128KB for 6.  Moving the program can spread the wear on the flash, although this is unlikely ever to be needed.  A library saved in flash uses the last sector, where OPTION FLASH 6 starts (see the LIBRARY command), which a program then cannot use (the error is "Library is using flash slot 6").
-This command can only be run from the command line and will cause a reboot.
-
 === OPTION HORIZONTAL OFFSET mode, offset
 --- P keep roomy
 Since different VGA monitors and HDMI converters interpret the analog sync signals slightly differently, the screen image may appear off-centre (eg, a black bar on one side or the edge of the text being cut off).  This command allows you to calibrate the Colour Maximite 2's signal to match your specific hardware without needing to use the monitor's adjustment buttons every time.
@@ -317,16 +309,9 @@ Turns the profiler on or off.  While it is on, each time a program is run MMBasi
 The counters take 8 bytes of the heap for each line of the program, and collecting them makes the program run a little slower.  MM.INFO(OPTION PROFILING) returns the current setting.
 This command will cause a reboot.  In a program it does nothing: there OPTION PROFILING ON or OFF (with anything after it, such as the PicoMite's ", SAMPLE") is accepted so that programs written for the PicoMite, whose run-time profiler it turns on, run unchanged.
 
-=== OPTION RAM
---- P keep roomy
-Causes programs to be loaded into RAM to run rather than into flash memory.  This makes loading somewhat faster and avoids wearing the flash.  Program performance is similar to running from flash.
-The program is lost when the power is removed, on a reset and when an option that restarts MMBasic is changed.  On the Generation 1 the memory available for variables is reduced by 512KB; on the Generation 2 it is not.
-With OPTION AUTORUN ON, MMBasic runs the file AUTORUN.BAS from the SD card on power up.  OPTION FLASH returns to running programs from flash.
-This command can only be run from the command line and will cause a reboot.
-
 === OPTION RESET
 --- P keep roomy
-Reset all saved options to their default values (those kept through a firmware upgrade too).  The program in program memory and the saved variables are not erased.
+Reset all saved options to their default values (those kept through a firmware upgrade too).  The program in program memory and the saved variables are not erased: the program is kept over the restart as with any option that restarts MMBasic (see Running Programs in the chapter Using MMBasic).
 This command can only be run from the command line and will cause a reboot.
 
 === OPTION RESOLUTION resolution [, speed]

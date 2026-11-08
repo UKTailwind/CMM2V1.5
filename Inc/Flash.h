@@ -68,8 +68,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	#define SAVED_VAR_RAM_ADDR     ((uint32_t)0x38800000)   /* Start of Saved Variables flash area */
    // #define PROGRAMSTARTCODE 0
  	//#define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_0_BANK2   /* Start Basic Program flash area */
-    #define PROGRAMSTARTCODE 2                                   /* OPTION FLASH 2-6: bank 2 sectors 3-7 (main.c progstart:
-                                                                    one sector up from their numbers since 4 Nov 2026) */
+    #define PROGRAMSTARTCODE 2                                   /* OPTION FLASH 2-6 was bank 2 sectors 3-7; V8 has no
+                                                                    OPTION FLASH and the program is in the SDRAM (Memory.h
+                                                                    PROGRAM_RAM): kept for Option.ProgramStartCode's reset */
     #define FLASH_PROGRAM_ADDR       ADDR_FLASH_SECTOR_3_BANK2   /* Start Basic Program flash area (OPTION FLASH 2's) */
     #define FLASH_FIRMWARE_END       ADDR_FLASH_SECTOR_3_BANK2   /* the firmware: bank 1 and bank 2 sectors 0-1 (the linker
                                                                     script's .bank2; sector 0 19 Oct, sector 1 2 Nov 2026),

@@ -10,8 +10,8 @@ top level every program shares.
   LIBRARY DISK SAVE fname$           its image to a file (".lib" if none is given)
   LIBRARY DISK LOAD fname$           an image from a file into the flash library
 
-Where it is.  The flash library is bank 2 sector 7, 128 KB, the last program slot (OPTION FLASH 6), as the PicoMite's
-is its last flash slot.  Option.libflash says it holds a library and Option.libhash which files LIBRARY LOAD made it
+Where it is.  The flash library is bank 2 sector 7, 128 KB, as the PicoMite's is its last flash slot; since V8 no
+program is in the flash, so the sector is the library's alone.  Option.libflash says it holds a library and Option.libhash which files LIBRARY LOAD made it
 from, so loading the same files again touches nothing (the hash is 0 after LIBRARY SAVE or DISK LOAD, which come from
 no files).  A RAM library (LIBRARY LOAD ..., RAM) is a heap block (Peter, 17 Oct: no fixed SDRAM area).  It shadows the
 flash library until END or the next RUN, NEW or program load, which release it, as the PicoMite's RAM slot is released;
@@ -31,8 +31,8 @@ set.  As on the PicoMite only a CSUB's binary is kept, not its hex text, and bla
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 
-#define LIB_FLASH_ADDR  ADDR_FLASH_SECTOR_7_BANK2                   // (OPTION FLASH 6's sector: main.c progstart, 4 Nov 2026)
-#define LIB_FLASH_SLOT  6
+#define LIB_FLASH_ADDR  ADDR_FLASH_SECTOR_7_BANK2                   // (since 4 Nov 2026; V8: the library's alone, as no program
+                                                                    // is in the flash)
 #define LIB_MAX         0x20000                                     // the image's limit: one flash sector
 #define LIB_FLAG        0x4C                                        // Option.libflash: 'L' when sector 7 holds a library
 #define MAXLIBFILES     8
@@ -170,16 +170,8 @@ void LibBoot(void) {
     LibAttach();
 }
 
-// a flash program of 'size' bytes may not reach the flash library's sector (SaveProgramToFlash)
-void LibCheckProgramFlash(int size) {
-    if(Option.ProgramStartCode < 0 || !LibFlashPresent()) return;
-    uint32_t end = (uint32_t)ProgMemory + ((size + 0x1FFFF) & ~0x1FFFF);
-    if(Option.ProgramStartCode == LIB_FLASH_SLOT || end > LIB_FLASH_ADDR)
-        error("Library is using flash slot %", LIB_FLASH_SLOT);
-}
-
 /*********************************************************************************************************************
- The flash sector: erased and written here (the program's writer, flash.c, writes to the SDRAM under OPTION RAM)
+ The flash sector: erased and written here (the program's writer, flash.c, writes to the SDRAM)
 *********************************************************************************************************************/
 
 static int LibFlashErased(void) {
@@ -569,9 +561,7 @@ static void LibLoad(char *tp) {
     if(wantram) {
         if(RamLibMemory != NULL) skiphash = RamLibHash;
     } else {
-        if(!LibFlashPresent()) {
-            if(Option.ProgramStartCode == LIB_FLASH_SLOT || !LibFlashErased()) error("Flash slot % already in use", LIB_FLASH_SLOT);
-        } else skiphash = LibFlashHash();
+        if(LibFlashPresent()) skiphash = LibFlashHash();
     }
     if(!LibLoadFiles(files, nfiles, &hash, &text, &bin, &binlen, &nfix, skiphash, names)) {
         CurrentLinePtr = savedline;
@@ -681,8 +671,6 @@ static void LibSave(void) {
     if(!ImageIsCurrent() || *ProgMemory != T_NEWLINE) error("No program to save");
     ClearRuntime();                                                 // (a RAM library goes: SAVE is to the flash library)
     PrepareProgram(false);                                          // CFunctionFlash and CFunctionLibrary
-    if(!LibFlashPresent() && (Option.ProgramStartCode == LIB_FLASH_SLOT || !LibFlashErased()))
-        error("Flash slot % already in use", LIB_FLASH_SLOT);
     if(LibFlashPresent()) {                                         // the library's files first, then the program's
         for(p = LibMemory; *p == T_NEWLINE && LHDR_LINE(p) == 0 && nnames < MAXLIBNAMES; p = NextLine(p))
             names[nnames++] = p + T_NEWLINE_HDR + IMAGE_NAME;
@@ -787,8 +775,6 @@ void cmd_library(void) {
         unsigned char *img;
         int fnbr, len;
         if(CurrentLinePtr) error("Invalid in a program");
-        if(!LibFlashPresent() && (Option.ProgramStartCode == LIB_FLASH_SLOT || !LibFlashErased()))
-            error("Flash slot % already in use", LIB_FLASH_SLOT);
         strcpy(fp, getFstring(tp));
         if(strchr(&fp[strlen(fp) > 4 ? strlen(fp) - 4 : 0], '.') == NULL) strcat(fp, ".lib");
         if(!InitSDCard()) return;

@@ -109,7 +109,11 @@ The status line can be turned off with the OPTION STATUS OFF command.
 
 A program is set running by the RUN command. You can interrupt MMBasic and the running program at any time by typing CTRL-C on the console input and MMBasic will return to the command prompt. The key used to interrupt a program can be changed with the OPTION BREAK command.
 
-The running program is normally held in non volatile flash memory. This means that it will not be lost if the power is removed and, if you have the AUTORUN feature turned on, the program will automatically run when power is restored (use the OPTION AUTORUN command to turn it on). Normally an SD card holding the original program must be present in order to run a program but this is one of the exceptions and allows you to change the SD card for recording data, etc.
+The running program is held in RAM: 512KB of the SDRAM is set aside for it. Programs are never written to the flash memory, so loading them is quick and editing and running them does not wear the flash. Once it is loaded the program runs from RAM, so the SD card can be changed while it runs, for recording data, etc.
+
+The program is lost when the power is removed and when the Colour Maximite 2 is reset (by the reset button or the WATCHDOG timer). When an option that restarts MMBasic is changed, MMBasic keeps the program: it saves it to a temporary file on the SD card first and loads it back after the restart, so that LIST, RUN and EDIT carry on as before. Without an SD card the program is lost.
+
+To run a program automatically when the power is applied, save it as AUTORUN.BAS in the root of the SD card and turn on the AUTORUN feature (OPTION AUTORUN ON).
 
 ## Loadable Programs
 
@@ -124,7 +128,7 @@ A loadable program runs at the full speed of the processor and takes over the co
 
 The words after the comma are the program's arguments. When the program ends MMBasic carries on where it was: at the command prompt it returns to the prompt, and in a BASIC program it goes on with the next statement, with the BASIC program and its variables as they were. MMBasic closes the files the program left open, stops its sound, releases the I/O pins it used and restores the video mode, font, colours and palette. Pressing Ctrl-C asks the program to end and also stops the BASIC program that ran it, unless the program uses Ctrl-C itself (MicroPython turns it into a KeyboardInterrupt, as on other computers).
 
-On a Generation 2 Colour Maximite 2 a loadable program has 8MB of SDRAM of its own, set aside for it. A Generation 1 has no memory to spare for this, so the program borrows the largest free part of the MMBasic heap (less 256KB) while it runs and gives it back when it ends. At the command prompt that is about 4MB; in a BASIC program it is what the program's variables leave free. A program built to use it, as Doom and ScummVM are, is lent the 3MB of display memory as well, about 7MB in all: the screen changes to MODE 7 as the program starts, and the display memory is cleared when it ends. A program that needs more than the memory there is says so ("Needs n KB, n KB free"), and one built for the Generation 2 alone gives "Needs a G2".
+On a Generation 2 Colour Maximite 2 a loadable program has 8MB of SDRAM of its own, set aside for it. A Generation 1 has no memory to spare for this, so the program borrows the largest free part of the MMBasic heap (less 256KB) while it runs and gives it back when it ends. At the command prompt that is about 3.75MB; in a BASIC program it is what the program's variables leave free. A program built to use it, as Doom and ScummVM are, is lent the 3MB of display memory as well, about 6.75MB in all: the screen changes to MODE 7 as the program starts, and the display memory is cleared when it ends. A program that needs more than the memory there is says so ("Needs n KB, n KB free"), and one built for the Generation 2 alone gives "Needs a G2".
 
 Writing a loadable program needs a PC with the free Arm GNU toolchain and Python. The process, the services that the firmware gives a program and the tools that build one are described in the companion manual *Colour Maximite 2 Loadable Programs* (see Appendix O).
 
@@ -254,7 +258,7 @@ If the serial console is not required it can be disabled with the command OPTION
 
 MMBasic can be reset to its original configuration by placing a link between pins 39 and 40 on the rear I/O connector while power is applied. This will result in the program memory and saved variables being completely erased and all options (security PIN, console baud rate, etc) reset to their initial defaults. The OPTION RESET command resets the options to their defaults from the command prompt (it does not erase the program or the saved variables).
 
-When using pin 40 for general I/O care must be taken so that it does not look like it is shorted to ground on power up. The symptom of this is unexplained sudden losses of all options that have been changed and the erasure of the program held in flash.
+When using pin 40 for general I/O care must be taken so that it does not look like it is shorted to ground on power up. The symptom of this is unexplained sudden losses of all options that have been changed and the erasure of the saved variables.
 
 ## The Library
 
@@ -271,11 +275,11 @@ Some points to note:
 - You can use line numbers in the library but you cannot use a line number on an otherwise empty line as the target for a GOTO, etc. This is because the LIBRARY SAVE command will remove any blank lines.
 - You can use READ commands in the library. DATA statements are searched as a single sequence: the main program first and then the library, so when the program's DATA statements are exhausted (or the program has none) reading continues with the DATA statements in the library. To read the library's DATA from the beginning use the RESTORE command before the first READ; used within library code this resets the pointer to the library space.
 - Labels belong to the library and the program together: a label must not be defined in both, and the program must not have a subroutine or function with the name of one in the library. Either is reported when the program is run (Duplicate label or Duplicate name).
-- The library is saved in the last 128KB of the program flash memory (flash slot 6), which cannot then be used for a program (see OPTION FLASH).
+- The library is saved in 128KB of the flash memory of its own, so it is kept when the power is removed, and it takes nothing from the space for programs.
 - You can see what is in the library by using the LIBRARY LIST command which will list the contents of the library space.
 - The library can be saved to a file using LIBRARY DISK SAVE fname$ and restored using LIBRARY DISK LOAD fname$.
 
-To delete the routines in the library space you use the LIBRARY DELETE command. This will clear the space and return the flash used by the library back to being available for normal programs. OPTION RESET does not delete the library.
+To delete the routines in the library space you use the LIBRARY DELETE command. This will erase the library's flash. OPTION RESET does not delete the library.
 
 A program can install its own library with LIBRARY LOAD fname$, which reads one or more BASIC source files (up to eight) and makes them the library. This is intended for programs that are distributed with a library of their own: the library becomes part of the program rather than something that must be installed first. The command must be the first statement in the program and the program is restarted once the library has been installed, so that the library's initialisation code runs before the program proper. Because the command remembers a hash of the source files it will do nothing at all when the library already matches, so it is safe to leave at the top of a program permanently.
 

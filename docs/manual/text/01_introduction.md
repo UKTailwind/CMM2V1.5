@@ -9,7 +9,7 @@ The Colour Maximite 2 is designed to be simple and fun. The assembly instruction
 The basic features of the Colour Maximite 2 are:
 
 - **Low cost affordable fun.** The firmware (including the BASIC interpreter) is completely free. The main PCB is easy to assemble with thru hole components. The CPU and support circuits are contained on a fully assembled plug in board costing US$30. The firmware can be loaded using free software so a programmer or special equipment is not required to get started.
-- **Instant startup into the BASIC interpreter.** Program space is 516KB, enough for huge and complex programs (typically 25,000 lines or more), while the general RAM used for arrays and buffers is over 5MB on the Generation 1 and over 24MB on the Generation 2 (enough for enormous arrays).
+- **Instant startup into the BASIC interpreter.** Program space is 516KB, enough for huge and complex programs (typically 25,000 lines or more), while the general RAM used for arrays and buffers is over 4MB on the Generation 1 and over 24MB on the Generation 2 (enough for enormous arrays).
 - **Full featured BASIC interpreter** with double precision floating point, 64-bit integers and string variables, long variable names, arrays of floats, integers or strings with multiple dimensions, user defined structures, extensive string handling and user defined subroutines and functions. Typically it will execute a program at 270,000 lines per second.
 - **Rock solid VGA output** (or HDMI with an inexpensive converter), with 18 program selectable video modes from 1920x1080 pixels to 240x216 pixels and up to 24-bit colour (16 million colours).
 - **USB keyboard, mouse and gamepads.** The keyboard can be wireless (with a USB dongle) or wired and have UK, US, DE, FR, ES or BE key mappings. With a USB hub the same socket also takes a mouse, gamepads, USB serial devices and a USB flash drive. A PS2 mouse or a dual USB/PS2 mouse can be used as well.
@@ -35,4 +35,4 @@ Version 7.00 brings MMBasic on the Colour Maximite 2 up to date with MMBasic ver
 - **Loadable programs**: programs written in C or C++ and compiled for the processor run with RUN "name.app" (see Loadable Programs in the chapter Using MMBasic). MicroPython, Doom, ScummVM and a 386 PC emulator that runs DOS and Windows 3.1 are included with the firmware.
 - **An FM synthesiser** (an emulated OPL3) plays MIDI files, the PicoMite's PLAY MIDI and PLAY NOTE commands without its VS1053 module, and the music of DOS games (see the chapter Sound Output).
 
-!NOTE This manual is for version 7.00.00RC3, the fourth release candidate of version 7.00. Chapters that have not yet been revised line by line for this version say so at their start.
+!NOTE This manual is for version 8.00.00b1, the first beta of version 8.00. Chapters that have not yet been revised line by line for this version say so at their start.

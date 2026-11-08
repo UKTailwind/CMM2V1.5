@@ -385,6 +385,55 @@ static void SlotSave(int slot, int overwrite) {
     FreeMemorySafe((void *)&img);
 }
 
+/* The program kept over an option's restart (V8, Peter 8 Nov 2026: "yes as proposed"). Program memory is the SDRAM's,
+   which a restart empties, so before an option restarts MMBasic (MiscSTM32.c saveandreset) ProgramKeep writes its image
+   to a card file, and at the start that follows ProgramKeepRestore (main.c) reads it back and deletes the file, before
+   MM.STARTUP and anything else looks at program memory. The image goes as it is: program memory is at the same address
+   after the restart, so its CSUB records' addresses still hold. Without a card, or if the write fails, the restart goes
+   ahead and the program is lost, as under OPTION RAM before: neither gives an error. */
+#define KEEPFILE SLOTDIR "/restart"
+
+extern int OptionFileErrorAbort;
+void ProgramKeep(void) {
+    FIL f;
+    FILINFO fno;
+    UINT done = 0;
+    FRESULT r;
+    int len, abort = OptionFileErrorAbort;
+    if(!ImageIsCurrentAt(ProgFlash) || (len = ImageLayout((unsigned char *)ProgFlash, PROG_FLASH_SIZE, NULL)) == 0) return;
+    OptionFileErrorAbort = 0;                                       // (no card: InitACard's ErrorThrow is no error)
+    if(InitACard()) {
+        if(f_stat(SLOTDIR, &fno) != FR_OK && f_mkdir(SLOTDIR) == FR_OK) f_chmod(SLOTDIR, AM_HID, AM_HID);
+        if(f_open(&f, KEEPFILE, FA_WRITE | FA_CREATE_ALWAYS) == FR_OK) {
+            r = f_write(&f, ProgFlash, len, &done);
+            if(f_close(&f) != FR_OK || r != FR_OK || (int)done != len) f_unlink(KEEPFILE);   // (not half a program)
+        }
+    }
+    OptionFileErrorAbort = abort;
+}
+
+void ProgramKeepRestore(void) {
+    FIL f;
+    FILINFO fno;
+    UINT got = 0;
+    char *b;
+    int len, abort = OptionFileErrorAbort;
+    OptionFileErrorAbort = 0;
+    if(InitACard() && f_stat(KEEPFILE, &fno) == FR_OK && !(fno.fattrib & AM_DIR)) {
+        len = (int)fno.fsize;
+        if(len > 0 && len <= PROG_FLASH_SIZE && f_open(&f, KEEPFILE, FA_READ) == FR_OK) {
+            b = GetMemory(len);
+            if(f_read(&f, b, len, &got) == FR_OK && (int)got == len && ImageIsCurrentAt(b) &&
+               ImageLayout((unsigned char *)b, len, NULL) == len)
+                ProgramImageToFlash(b, len);                        // (into program memory: main.c)
+            f_close(&f);
+            FreeMemorySafe((void *)&b);
+        }
+        f_unlink(KEEPFILE);
+    }
+    OptionFileErrorAbort = abort;
+}
+
 // RAM SAVE n and RAM OVERWRITE n: the program in memory (in a program, the one running) into RAM slot n
 static void RamSave(int slot, int overwrite) {
     int len;

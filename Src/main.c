@@ -246,15 +246,6 @@ int Overclock;
 int executerun=0;
 char canopen=0;	  //CAN has no pins assigned
 void firstinit(int asktime, int askkeyboard);
-const uint32_t progstart[]={                                        // OPTION FLASH n's sector: n + 1 (4 Nov 2026: sector 2
-		ADDR_FLASH_SECTOR_0_BANK2,                                  // is the options' and mmbrun's, right after the firmware
-		ADDR_FLASH_SECTOR_1_BANK2,                                  // in sectors 0-1; 0 and 1 are never used)
-		ADDR_FLASH_SECTOR_3_BANK2,
-		ADDR_FLASH_SECTOR_4_BANK2,
-		ADDR_FLASH_SECTOR_5_BANK2,   //was missing G.A.
-		ADDR_FLASH_SECTOR_6_BANK2,
-		ADDR_FLASH_SECTOR_7_BANK2,
-};
 char FunKey[NBRPROGKEYS][MAXKEYLEN + 1]= {		// data storage for the function keys
 		{"FM\r\n"},//Run immediately (the file manager: FILES lists, as on the PicoMite, 19 Oct)
 		{"RUN\r\n"},
@@ -310,7 +301,6 @@ extern void rcvr_bitbang_multi (
 	UINT cnt		// Number of bytes to receive
 );
 extern char *firststmt;
-static char staleimage[200];                                        // an image older firmware wrote: the file AUTORUN reloads it from
 extern char *nextstmt;
 
 /* USER CODE END PV */
@@ -725,33 +715,9 @@ MX_I2C4_Init();
 MX_GPIO_Init();
 RAMSETUP();
 FMC_Bank1_R->BTCR[1] = 0x000030D2;
-if(Option.ProgramStartCode>=0){
-	if(Option.ProgramStartCode < PROGRAMSTARTCODE || Option.ProgramStartCode > 6)   // (sectors 0-1 are firmware: options
-		Option.ProgramStartCode = PROGRAMSTARTCODE;             // from another firmware may name them)
-	ProgMemory=(char *)((uint32_t)progstart[Option.ProgramStartCode]);
-	if(!(*ProgMemory==0 || ImageIsCurrent())){                  // erased, or an image from another format
-		char *nm = NULL;                                            // an older firmware's image: the file its first line names
-		if(ProgMemory[0]==T_NEWLINE && ProgMemory[5]=='\'')                                    // with the line header (first:
-			nm = ProgMemory + T_NEWLINE_HDR + (ProgMemory[6] == IMAGE_TAG ? IMAGE_NAME : 1);   // its skip byte can be a ')
-		else if(ProgMemory[0]==T_NEWLINE && ProgMemory[1]=='\'') nm = ProgMemory + 2;         // before it
-		if(nm) {
-			int k=0;
-			while(k < sizeof(staleimage)-1 && nm[k] >= ' ' && nm[k] < 0x7f && nm[k] != '"') {
-				staleimage[k] = nm[k]; k++;
-			}
-			staleimage[k] = 0;
-		}
-		int i=3;
-		while(FlashWriteInit((uint32_t)ProgMemory) && i)i--;                     // erase program memory
-		if(i==0)error("Failed to erase flash memory");
-	    FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
-	    FlashWriteClose();
-	}
-} else {
-	if(G1Hardware)ProgMemory = (char *)0xD0300000;
-	else ProgMemory = (char *)0xD0700000;                              // (below the compiler's stream: Memory.h)
-}
-ProgFlash = ProgMemory;                                             // (ProgMemory is elsewhere while a flash slot's program runs)
+ProgMemory = (char *)PROGRAM_RAM;                                   // V8: the program always runs from the SDRAM, never the
+                                                                    // flash (Memory.h; Option.ProgramStartCode is not used)
+ProgFlash = ProgMemory;                                            // (ProgMemory is elsewhere while a flash slot's program runs)
 {
     int reset=3;
 	  /*Configure RESET  pin : Pin40 */
@@ -854,9 +820,9 @@ if(probereset || brownout) {
 }
 RCC->RSR |= RCC_RSR_RMVF;                                         // clear the reset flags: RMVF is set, then cleared again
 RCC->RSR &= ~RCC_RSR_RMVF;
-if(Option.ProgramStartCode < 0){
-	mymemset(ProgMemory,0xFF,512*1024);
-    FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program in flash
+{                                                                   // program memory (the SDRAM's) an empty program; FlashWriteInit
+	FlashWriteInit((uint32_t)ProgMemory);                           // sets the writer's pointer there as it clears it
+    FlashWriteByte(0); FlashWriteByte(0); FlashWriteByte(0);    // terminate the program
     FlashWriteClose();
 }
 if(Option.profile){                                             // (its counters are made at RUN, from the heap)
@@ -950,6 +916,7 @@ if(setjmp(mark) != 0) {
     }
 } else {
 	MarkSet = true;                                                 // (a longjmp comes back through the branch above)
+	if(_excep_code == RESTART_NOAUTORUN) ProgramKeepRestore();      // an option's restart: the program back from the card
 	ClearProgram();
 	PrepareProgram(true);
 	_excep_cause = CAUSE_MMSTARTUP;
@@ -965,23 +932,9 @@ if(setjmp(mark) != 0) {
 	  executerun=1;
 	  ExecuteProgram(tknbuf);
 	  if(executerun)ImpliedEnd();
-	} else if(Option.Autorun && ImageIsCurrent() && _excep_code != RESTART_NOAUTORUN) {
-	  strcpy(inpbuf,"RUN\r\n");
-	  tokenise(true);                                             // turn into executable code
-	  executerun=1;
-	  ExecuteProgram(tknbuf);                                     // execute the line straight away
-	  if(executerun)ImpliedEnd();                                   // a program without END is cleaned up as from the prompt (Gerry's b14)
-	} else if(Option.Autorun && Option.ProgramStartCode >= 0 && *staleimage && _excep_code != RESTART_NOAUTORUN) {
-	  strcpy(inpbuf,"RUN \"");                                   // the image was erased at boot: load the program again from its file
-	  strcat(inpbuf,staleimage);
-	  strcat(inpbuf,"\"\r\n");
-	  *staleimage = 0;
-	  tokenise(true);                                             // turn into executable code
-	  executerun=1;
-	  ExecuteProgram(tknbuf);                                     // execute the line straight away
-	  if(executerun)ImpliedEnd();
 	}
-	if(Option.Autorun && !AutorunSlot() && Option.ProgramStartCode < 0 && _excep_code != RESTART_NOAUTORUN) {
+	// OPTION AUTORUN ON: A:/AUTORUN.BAS, as program memory (the SDRAM's) is empty after a power up or a reset (V8)
+	if(Option.Autorun && !AutorunSlot() && _excep_code != RESTART_NOAUTORUN) {
 	  FRESULT fr;
 	  FILINFO fno;
 	  OptionFileErrorAbort = 0;
@@ -993,6 +946,7 @@ if(setjmp(mark) != 0) {
 			  tokenise(true);                                             // turn into executable code
 			  executerun=1;
 			  ExecuteProgram(tknbuf);                                     // execute the line straight away
+			  if(executerun)ImpliedEnd();                               // a program without END is cleaned up as from the prompt (Gerry's b14)
 		  }
 	  }
 	  OptionFileErrorAbort = 1;
@@ -2847,7 +2801,7 @@ void OPTSIZE MPU_Config_nCacheable(int jpg)
   static MPU_Region_InitTypeDef MPU_InitStruct4; //  512K main video memory
   static MPU_Region_InitTypeDef MPU_InitStruct5; //  512K main video memory
   static MPU_Region_InitTypeDef MPU_InitStruct6; //  512K main video memory
-  static MPU_Region_InitTypeDef MPU_InitStruct7; //  OPTION RAM memory or first 512Kb of variable space
+  static MPU_Region_InitTypeDef MPU_InitStruct7; //  the first 512Kb of variable space (G1) or video memory (G2)
   static MPU_Region_InitTypeDef MPU_InitStruct8; //  the loadable programs' 8 MB if G2 H/W (2 Nov 2026)
   static MPU_Region_InitTypeDef MPU_InitStruct9; //  4Mb of variable space
   static MPU_Region_InitTypeDef MPU_InitStruct10;//  vartbl
@@ -3037,9 +2991,9 @@ void OPTSIZE MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct0.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct0);
 		  MPU_InitStruct15.Enable = MPU_REGION_ENABLE;
-		  MPU_InitStruct15.BaseAddress = SDRAMEXEC;                 // the executable window at the top of the heap (Memory.h)
-		  MPU_InitStruct15.Size = MPU_REGION_SIZE_512KB;
-		  MPU_InitStruct15.AccessPermission = MPU_REGION_FULL_ACCESS;
+		  MPU_InitStruct15.BaseAddress = SDRAMEXEC;                 // the executable window at the top of the heap and program
+		  MPU_InitStruct15.Size = MPU_REGION_SIZE_1MB;               // memory above it (Memory.h): over region 14, as the higher
+		  MPU_InitStruct15.AccessPermission = MPU_REGION_FULL_ACCESS;   // number (V8: the program's CSUBs run there)
 		  MPU_InitStruct15.IsBufferable = MPU_ACCESS_BUFFERABLE;
 		  MPU_InitStruct15.IsCacheable = MPU_ACCESS_CACHEABLE;
 		  MPU_InitStruct15.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
@@ -3062,8 +3016,9 @@ void OPTSIZE MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct8.SubRegionDisable = 0x00;
 		  MPU_InitStruct8.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct8);
-		  /* Configure the MPU attributes for SDRAM used for program (OPTION RAM's, below the compiler's stream: Memory.h) */
-		  MPU_InitStruct9.Enable = MPU_REGION_ENABLE;
+		  /* Region 9 was OPTION RAM's program at 0xD0700000, executable; the compiler's stream is there now, and the program
+		     is in region 15 (V8, Memory.h), so it is off */
+		  MPU_InitStruct9.Enable = MPU_REGION_DISABLE;
 		  MPU_InitStruct9.BaseAddress = 0xD0700000;
 		  MPU_InitStruct9.Size = MPU_REGION_SIZE_512KB;
 		  MPU_InitStruct9.AccessPermission = MPU_REGION_FULL_ACCESS;
@@ -3148,9 +3103,9 @@ void OPTSIZE MPU_Config_nCacheable(int jpg)
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct9);
 	  }
 	  if(neverrun){
-		  MPU_InitStruct15.Enable = MPU_REGION_ENABLE;               // the executable window at the top of the heap (Memory.h)
-		  MPU_InitStruct15.BaseAddress = SDRAMEXEC;
-		  MPU_InitStruct15.Size = MPU_REGION_SIZE_512KB;
+		  MPU_InitStruct15.Enable = MPU_REGION_ENABLE;               // the executable window at the top of the heap and program
+		  MPU_InitStruct15.BaseAddress = SDRAMEXEC;                 // memory above it (Memory.h): over region 9, as the higher
+		  MPU_InitStruct15.Size = MPU_REGION_SIZE_1MB;               // number (V8: the program's CSUBs run there)
 		  MPU_InitStruct15.AccessPermission = MPU_REGION_FULL_ACCESS;
 		  MPU_InitStruct15.IsBufferable = MPU_ACCESS_BUFFERABLE;
 		  MPU_InitStruct15.IsCacheable = MPU_ACCESS_CACHEABLE;
@@ -3160,22 +3115,6 @@ void OPTSIZE MPU_Config_nCacheable(int jpg)
 		  MPU_InitStruct15.SubRegionDisable = 0x00;
 		  MPU_InitStruct15.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct15);
-		  if(Option.ProgramStartCode==-1){
-		  /* Configure the MPU attributes for SDRAM */
-			  MPU_InitStruct7.Enable = MPU_REGION_ENABLE;
-			  MPU_InitStruct7.BaseAddress = 0xD0300000;
-			  MPU_InitStruct7.Size = MPU_REGION_SIZE_512KB;
-			  MPU_InitStruct7.AccessPermission = MPU_REGION_FULL_ACCESS;
-			  MPU_InitStruct7.IsBufferable = MPU_ACCESS_BUFFERABLE;
-			  MPU_InitStruct7.IsCacheable = MPU_ACCESS_CACHEABLE;
-			  MPU_InitStruct7.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
-			  MPU_InitStruct7.Number = MPU_REGION_NUMBER7;
-			  MPU_InitStruct7.TypeExtField = MPU_TEX_LEVEL0;
-			  MPU_InitStruct7.SubRegionDisable = 0x00;
-			  MPU_InitStruct7.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
-			  HAL_MPU_ConfigRegion(&MPU_InitStruct7);
-		  }
-		  /* Configure the MPU attributes for Variable memory*/
 		  neverrun=0;
 	  }
 	  static int lastexec = 0;                                     // a loadable program in the heap (Loader.c): regions 8
@@ -3894,21 +3833,10 @@ done:
 }
 
 // takes a pointer to RAM containing a program (in clear text) and writes it to program flash in tokenised format
-/* Program memory erased for an image of size bytes: each 128 KB sector it reaches, none of them past bank 2's end
-   (OPTION FLASH 6 is sector 7, the last: progstart) nor the flash library's. (The test here was > where it is >=, which
-   let a program over 128 KB at OPTION FLASH 6, or over 256 KB at 5, erase the options' sector, which was sector 7.)
-   Under OPTION RAM FlashWriteInit clears the SDRAM program area, once. */
+/* Program memory cleared for an image of size bytes, and the writer's pointer put at its start. Program memory is the
+   SDRAM's (V8: Memory.h PROGRAM_RAM), so this never touches the flash; the image's size is checked as it is written. */
 void ProgramFlashErase(int size) {
-    int i, k, n = (size + 0x1FFFF) / 0x20000;
-    if(n < 1 || Option.ProgramStartCode < 0) n = 1;
-    if(Option.ProgramStartCode >= 0 && (uint32_t)ProgMemory + n * 0x20000 > ADDR_FLASH_SECTOR_7_BANK2 + 0x20000)
-        error("OPTION FLASH must be in range % to % for this program", PROGRAMSTARTCODE, 7 - n);
-    LibCheckProgramFlash(size);
-    for(k = 0; k < n; k++) {
-        i = 3;
-        while(FlashWriteInit((uint32_t)ProgMemory + k * 0x20000) && i) i--;
-        if(i == 0) error("Failed to erase flash memory");
-    }
+    FlashWriteInit((uint32_t)ProgMemory);
 }
 
 // a program that could not be written whole is not left part written: program memory an empty program, as the

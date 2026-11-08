@@ -972,8 +972,8 @@ static char *ProgramText(char *fname, char *name) {
 }
 
 int FileLoadProgram(char *fname, int mode) {
-    int size=0, i;
-    char *op, *ip, *buf, name[FF_MAX_LFN]={0}, buff[STRINGSIZE];
+    int size=0;
+    char *buf, name[FF_MAX_LFN]={0}, buff[STRINGSIZE];
 	if(mode & 1){                                                   // (1: fname is an expression, 2: CHAIN, the globals kept)
 		strcpy(buff,getFstring(fname));
 	} else strcpy(buff,fname);
@@ -992,28 +992,8 @@ int FileLoadProgram(char *fname, int mode) {
 	} else
     ClearProgram();												    // clear any leftovers from the previous program
     if((buf = ProgramText(buff, name)) == NULL) return false;
-	int load=0;
-    if(Option.ProgramStartCode>=0){
-		size=SaveProgramToMemory(buf, false, name);
-    	uint32_t *top=(uint32_t *)((uint32_t)SDMemory+512*1024-4);
-    	top--;
-		i=0;
-		ip=(char *)SDMemory;
-		op=(char *)ProgMemory;
-		while(i<size){
-			i++;
-			if(*ip != *op){
-				load=1;
-				break;
-			}
-			op++;
-			ip++;
-		}
-		while(*top-- == 0xFFFFFFFF){};
-		size=(uint32_t)top - (uint32_t)SDMemory+256;
-		FreeMemorySafe((void *)&SDMemory);
-    }
-    if(load || Option.ProgramStartCode<0)SaveProgramToFlash(buf, false, name, size);
+    SaveProgramToFlash(buf, false, name, size);                     // into program memory, the SDRAM's (V8: never the flash, so
+                                                                    // there is no comparing first to spare it a write)
     FreeMemorySafe((void *)&buf);
     FreeMemorySafe((void *)&dlist);
     return true;

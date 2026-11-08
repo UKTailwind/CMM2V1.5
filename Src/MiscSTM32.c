@@ -341,8 +341,6 @@ void printoptions(void){
     if(Option.editfont == 7) PO2Str("EDIT FONT","SMALL",1);
     if(Option.editfont == 4) PO2Str("EDIT FONT","MEDIUM",1);
     if(Option.editfont == 2) PO2Str("EDIT FONT","LARGE",1);
-    if(Option.ProgramStartCode<0)PO2Str("RAM","ON",1);
-    else if(Option.ProgramStartCode>PROGRAMSTARTCODE)PO2Int("FLASH",Option.ProgramStartCode);
     if(Option.Compile == RB_ON || Option.Compile == RB_SHADOW) PO2Str("COMPILE", Option.Compile == RB_ON ? "ON" : "SHADOW", 1);
     if(Option.PrintScreenFormat == 1) PO2Str("PRINTSCREEN FORMAT", "BMP", 1);
     if(Option.SDspeed==1)PO2Str("SD TIMING","FAST",1);
@@ -1623,22 +1621,7 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
         }
         return;
 	}
-    tp = checkstring(cmdline, "RAM");
-	if(tp) {
-	    if(CurrentLinePtr) error("Invalid in a program");
-            Option.ProgramStartCode = (G1Hardware ? -2 : -1);
-            goto saveandreset;
-	}
-    tp = checkstring(cmdline, "FLASH");
-	if(tp) {
-	    if(CurrentLinePtr) error("Invalid in a program");
-		int offset=PROGRAMSTARTCODE;                                // (OPTION FLASH alone: the first program sector, not 0, which
-		getargs(&tp,1,",");                                         // is firmware and only the boot's remap put right)
-		if(argc==1)offset=getint(argv[0],PROGRAMSTARTCODE,6);
-		if(offset == 6 && LibFlashPresent()) error("Library is using flash slot 6");   // (Library.c: LIBRARY DELETE frees it)
-		Option.ProgramStartCode = offset;
-		goto saveandreset;
-	}
+    // (OPTION RAM and OPTION FLASH [n] are gone in V8, Peter 8 Nov 2026: the program always runs from the SDRAM)
 
     tp = checkstring(cmdline, "MOUSE SENSITIVITY");                // a USB mouse's divisor (0: 1), read with each report: the
 	if(tp) {                                                        // mouse is always in the report protocol now, so no restart
@@ -1889,6 +1872,7 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
 saveandreset:
     // used for options that require the cpu to be reset
     SaveOptions(0);
+    ProgramKeep();                                              // the program to the card, to be back after the restart (V8)
     _excep_code = RESTART_NOAUTORUN;                            // otherwise do an automatic reset
 	while(ConsoleTxBufTail != ConsoleTxBufHead);
 	MM_Delay(5);

@@ -17,6 +17,8 @@ uint8_t *ImageSlotAddress(int slot);
 uint8_t *ImageSlotPixels(int slot, int *w, int *h, const char *none);
 void ImageSlotBlit(const uint8_t *src, int srcw, int srch, int sx, int sy, int w, int h, int page, int dx, int dy, int transparent);
 void ImageSlotsForget(void);
+void ProgramKeep(void);                         // program memory to the card before an option's restart (V8)
+void ProgramKeepRestore(void);                  // and back from it after (main.c)
 int ImageRebase(uint8_t *img, int len, int32_t delta);
 void BlitFlash(char *p);
 void TileMapForget(void);

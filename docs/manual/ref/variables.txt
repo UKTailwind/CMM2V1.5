@@ -246,7 +246,7 @@ These are the PicoMite's (OPTION PLATFORM names the board there).  On the Colour
 MM.INFO(STACK)
 MM.INFO(HEAPEND)
 --- keep
-The address in memory of the start of program memory (in the flash memory, or in the SDRAM with OPTION RAM), the current value of the processor's stack pointer, and the lowest the stack may go (the PicoMite's name): below it a program stops with the error "Stack overflow".
+The address in memory of the start of program memory (in the SDRAM), the current value of the processor's stack pointer, and the lowest the stack may go (the PicoMite's name): below it a program stops with the error "Stack overflow".
 
 =+= MM.INFO(PSRAM SIZE)
 --- keep

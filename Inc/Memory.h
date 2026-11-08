@@ -110,24 +110,28 @@ extern uint32_t RAMBASE;
 #define FUNEND				(FUNBASE+36*(MAXSUBFUN+1))   // where funtbl ended (the name index replaced it): the buffers after it stay put; the 18 KB is free
 #define SRAMBASE         	0x38000000
 #define SRAMEND         	0x38010000
-// below the heap on a G2 (Peter, 17 Oct): the OPTION RAM program at 0xD0700000 (MPU region 9: its CSUBs run there),
-// then the compiler's stream (Stream.c), 1 MB, about three times a program of 340 KB. On a G1 (Peter, 20 Oct) the stream
-// takes the bottom 1 MB of the heap, above the OPTION RAM program, while OPTION COMPILE is on: RBStreamSize, set at boot
-// (main.c), is its size, 0 when a G1 does not compile.
+// The SDRAM from its start (V8, Peter 8 Nov 2026: docs/V8_Memory_Plan.md): the display memory, then the compiler's
+// stream (Stream.c, 1 MB, about three times a program of 340 KB: always on a G2, on a G1 only while OPTION COMPILE is on,
+// RBStreamSize being set at boot by main.c and 0 when a G1 does not compile), then the heap, its executable window, and
+// at the top the program (PROGRAM_RAM, 512 KB). The program always runs from there: it is never in the flash. Directly
+// after the display memory, the stream is lent with it to a G1's loadable program (Loader.c), and the window and the
+// program are one megabyte that MPU region 15 makes executable (the program's CSUBs run from it).
 extern uint32_t RBStreamSize;
-#define RB_STREAM_BASE    	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) : 0xD0780000)
+#define RB_STREAM_BASE    	(G1Hardware ? 0xD0300000 : 0xD0700000)
 #define RB_STREAM_SIZE    	RBStreamSize
-#define SDRAMBASE         	(G1Hardware ? (Option.ProgramStartCode<0 ? 0xD0380000: 0xD0300000) + RBStreamSize : 0xD0880000)
-#define SDRAMEND         	(G1Hardware ? 0xD0800000-0x100 : 0xD1800000-0x100)
-// the executable window: the top 512 KB of the SDRAM heap, below SDRAMEND (MPU region 15; the rest of the heap is
-// not executable, which keeps speculative instruction fetches off the FMC).  GetMemory allocates below it, GetExecMemory
-// in it.  At the top, because newlib's _sbrk grows up from SDRAMBASE.
-#define SDRAMEXEC        	(G1Hardware ? 0xD0780000 : 0xD1780000)
+#define SDRAMBASE         	(G1Hardware ? 0xD0300000 + RBStreamSize : 0xD0800000)
+#define SDRAMEND         	(G1Hardware ? 0xD0780000-0x100 : 0xD1780000-0x100)
+// the executable window: the top 512 KB of the SDRAM heap, below SDRAMEND (MPU region 15 with the program above it; the
+// rest of the heap is not executable, which keeps speculative instruction fetches off the FMC).  GetMemory allocates
+// below it, GetExecMemory in it.  At the top, because newlib's _sbrk grows up from SDRAMBASE.
+#define SDRAMEXEC        	(G1Hardware ? 0xD0700000 : 0xD1700000)
 #define SDRAMEXECSIZE    	0x80000
+// program memory: the 512 KB above the heap (PROG_FLASH_SIZE, kept as the name of its size)
+#define PROGRAM_RAM       	(G1Hardware ? 0xD0780000 : 0xD1780000)
 // loadable programs (Peter 2 Nov 2026): on a G2 the top 8 MB of the SDRAM, above the heap, kept for them for good.
 // MPU region 8 makes it executable and write-back cached (main.c); RUN "x.app" loads a program at its start (Loader.c).
 // A G1 has no room to keep: a program borrows the heap's largest free run while it runs, and LoaderExec makes regions
-// 8 and 9 (the heap above 0xD0380000) executable meanwhile (MPU_Config_nCacheable). A program built --vram (3 Nov
+// 8 and 9 (the heap above 0xD0380000; region 7, below it, always is) executable meanwhile (MPU_Config_nCacheable). A program built --vram (3 Nov
 // 2026) is lent the 3 MB of pages at 0xD0000000 too: its code there if it fits, and LoaderVram makes regions 1-6
 // executable meanwhile, execute-never again after.
 #define LOADER_BASE       	0xD1800000

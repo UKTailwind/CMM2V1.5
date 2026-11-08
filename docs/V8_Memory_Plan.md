@@ -13,8 +13,12 @@ built yet.*
 - **Gains:** no flash wear from editing and running programs, and faster loading.
 - **The cost Peter accepts:** a program that runs at power-up needs the SD card (AUTORUN.BAS), as with OPTION RAM now.
 - **The layout:**
-  - In SDRAM: display memory, then the heap, then the program area just below the executable window. That way the
-    space from the start of the SDRAM is cleaner.
+  - In SDRAM: display memory, then the heap, then the program area next to the executable window. That way the space
+    from the start of the SDRAM is cleaner.
+  - **As built (8 Nov):** the program area is at the very top, with the executable window just below it, the reverse
+    of the order first drawn. The heap and its window then stay one range for the allocator, as now (Memory.h), and the
+    program is outside it, as OPTION RAM's was on a G2. Everything else is as decided: display memory then heap from
+    the start, one executable megabyte, and the same room for a G1's apps.
   - The compiler's stream goes directly after the display memory (agreed 8 Nov).
 
 ## What is there already
@@ -33,8 +37,8 @@ built yet.*
 |---|---|---|
 | D0000000 | Display memory, 3 MB | Display memory, 3 MB |
 | D0300000 | OPTION RAM's program (512 KB), if set, then the stream (1 MB) with OPTION COMPILE ON, then the heap | The stream (1 MB) with OPTION COMPILE ON, then the heap |
-| D0700000 | Heap | **Program area, 512 KB** |
-| D0780000 | Executable window, the heap's top 512 KB | Executable window, 512 KB |
+| D0700000 | Heap | Executable window, the heap's top 512 KB |
+| D0780000 | Executable window, the heap's top 512 KB | **Program area, 512 KB** |
 
 A G1's heap for variables:
 
@@ -53,8 +57,8 @@ A G1's heap for variables:
 | D0780000 | Compiler's stream, 1 MB | (stream) |
 | D0800000 | (stream) | Heap |
 | D0880000 | Heap | Heap |
-| D1700000 | Heap | **Program area, 512 KB** |
-| D1780000 | Executable window, 512 KB | Executable window, 512 KB |
+| D1700000 | Heap | Executable window, the heap's top 512 KB |
+| D1780000 | Executable window, 512 KB | **Program area, 512 KB** |
 | D1800000 | Loadable programs, 8 MB | Loadable programs, 8 MB |
 
 The G2's heap for variables stays at 15 MB.
@@ -62,7 +66,8 @@ The G2's heap for variables stays at 15 MB.
 ### The MPU
 
 - **One executable block:** the program area and the executable window together are one megabyte on a megabyte
-  boundary, executable as one MPU region: D0700000 on a G1, D1700000 on a G2. A program's CSUBs run from the program
+  boundary, executable as one MPU region: D0700000 on a G1, D1700000 on a G2. It is region 15, as the highest number
+  wins where regions overlap (on a G2 region 14 covers the heap to D17FFFFF; region 9, OPTION RAM's, is now off). A program's CSUBs run from the program
   area, and the CSUBs of the flash slots and the library run from the executable window.
 - **The heap:** it stays execute-never. The loader's LoaderExec still makes, on a G1, the run it lends executable
   while a program runs.
@@ -143,6 +148,26 @@ From the image headers through Loader.c's rules, with the whole heap free:
      program to flash.
    - **CSUBs:** Mauro's repositories have none, so a program's CSUBs running from the program area are still to be
      tested in step 5.
+   **Steps 2, 3 and most of 5 done 8 Nov on v8-dev, flashed on the G1 and the G2:**
+   - **What works:**
+     - Program memory is at D0780000 (G1) and D1780000 (G2).
+     - The heap for variables is 4 MB on a G1 (3 MB with COMPILE) and 15 MB on a G2.
+     - OPTION RAM and OPTION FLASH give "Unrecognised option".
+   - **The tests:**
+     - CSUBs run from program memory (csubm7 "bad 0", csubabi 68 of 68, on both boards, also compiled on a G1).
+     - The program is kept over an option restart, and FLASH RUN 0 runs the restored image.
+     - AUTORUN.BAS runs at a restart.
+     - The flash-slot test passed 65 of 65 on both boards.
+     - NES and pc386 load on a G1, also with COMPILE ON.
+   - **tests/cmm2 on the G2 against RC2 (5 Nov):** 110 of 113 programs give byte-identical output. Each of the three
+     others is explained:
+     - parity1 prints MM.VER (RC2 to RC3).
+     - osk prints OPTION LIST (the version and the keyboard option).
+     - guictl found no mouse plugged in.
+   - **The G1:** its run differs from the G2's only where a G1 has no 32-bit colour.
+   - **Not tested:** the update from a firmware before RC2 (OldLayoutMove) needs an old firmware on a board.
+   - **Step 4 (the linker):** waits for the first code to go into sectors 3 to 6.
+
 2. **The layout:**
    - Memory.h's SDRAMBASE, SDRAMEND, SDRAMEXEC, RB_STREAM_BASE and the program area, for both boards.
    - main.c's MPU regions.

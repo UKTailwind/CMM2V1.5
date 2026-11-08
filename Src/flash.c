@@ -87,42 +87,15 @@ volatile uint8_t FlashDone=0;
 extern const int xres[MAX_MODES+1];
 extern const int yres[MAX_MODES+1];
 
-// erase the flash and init the variables used to buffer bytes for writing to the flash
+/* The program's writer. Program memory is 512 KB of the SDRAM (V8, Peter 8 Nov 2026: Memory.h PROGRAM_RAM), so these
+   write RAM, never the flash, through the 32-byte buffer that MemWriteByte fills; the "Flash" in their names is
+   history. FlashWriteInit clears program memory and puts the pointer at its start (its argument, once the sector to
+   erase, is not used); 0 means done, as the callers' retry loops expect. */
 int FlashWriteInit(uint32_t sector) {
-//	__IO uint32_t SectorsWRPStatus = 0xFFF;
-    // Unlock the Flash to enable the flash control register access
-	if(Option.ProgramStartCode<0){ realflashpointer=(uint32_t)ProgMemory;mymemset(ProgMemory,0xFF,512*1024); return 0; }
-	if(sector < FLASH_FIRMWARE_END) return 1;                       // (bank 2 sectors 0-1 are firmware: never erased here)
-	int i=0;
-	uint32_t *j;
-    SCB_DisableICache() ;
-    SCB_DisableDCache() ;
-    HAL_FLASH_Unlock();
-	i8p=0;
-	for(i=0;i<8;i++)FlashWord.i32[i]=0xFFFFFFFF;
-	i=0;
-	sectorsave=sector;
-    if(sector >= (uint32_t)ProgMemory){
-		sectorsave=(uint32_t)ProgMemory;
-		realflashpointer=(uint32_t)ProgMemory;
-		EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
-		EraseInitStruct.Banks         = FLASH_BANK_2;
-		EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
-		EraseInitStruct.Sector = GetSector(sector);
-		EraseInitStruct.NbSectors = 1;
-		FlashDone=0;
-		if(HAL_FLASHEx_Erase_IT(&EraseInitStruct)== HAL_OK){
-			while(FlashDone==0){
-				routinechecks(0);
-			}
-			j=(uint32_t *)sector;
-			while(j<(uint32_t *)(sector+0x20000)){
-			  if(*j++ != 0xFFFFFFFF)return 1;
-			}
-		} else return 1;
-	}
-	SCB_EnableICache() ;
-	SCB_EnableDCache() ;
+	(void)sector;
+	realflashpointer = (uint32_t)ProgMemory;
+	mi8p = 0;
+	mymemset(ProgMemory, 0xFF, PROG_FLASH_SIZE);
 	return 0;
 }
 void MemWriteBlock(void){
@@ -133,20 +106,7 @@ void MemWriteBlock(void){
 	for(i=0;i<8;i++)MemWord.i32[i]=0xFFFFFFFF;
 }
 void FlashWriteBlock(void){
-	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteBlock();realflashpointer=realmempointer;return;}
-    int i, tries=0;
-    uint32_t address=realflashpointer-32;
-    uint32_t *there = (uint32_t *)address;
-    if(address % 32)error("Flash write address");
-    if(sectorsave == (uint32_t)ProgMemory && (address<(uint32_t)ProgMemory || address>=(uint32_t)ProgMemory+PROG_FLASH_SIZE))error("PROGRAM_FLASH location");
-//    if(sectorsave == SAVED_OPTIONS_FLASH && (address<FLASH_SAVED_OPTION_ADDR || address>=FLASH_SAVED_OPTION_ADDR+0x20000))error("SAVED_OPTION_FLASH location");
-//    if(sectorsave == SAVED_VARS_FLASH && (address<SAVED_VAR_RAM_ADDR || address>=SAVED_VAR_RAM_ADDR+0x20000))error("SAVED_VARS_FLASH location");
-    for(i=0;i<8;i++){
-    	if(there[i]!=0xFFFFFFFF) error("flash not erased");
-    }
-	while((HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, address, (uint64_t)((uint32_t)FlashWord.i64)) != HAL_OK) && (tries++ < 10));
-	if(tries==10)error("Flash write fail");
-	for(i=0;i<8;i++)FlashWord.i32[i]=0xFFFFFFFF;
+	realmempointer=realflashpointer; MemWriteBlock(); realflashpointer=realmempointer;
 }
 void MemWriteByte(unsigned char b) {
 	realmempointer++;
@@ -160,14 +120,7 @@ void MemWriteByte(unsigned char b) {
 // write a byte to flash
 // this will buffer four bytes so that the write to flash can be a word
 void FlashWriteByte(unsigned char b) {
-	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteByte(b);realflashpointer=realmempointer;return;}
-	realflashpointer++;
-	FlashWord.i8[i8p]=b;
-	i8p++;
-	i8p %= 32;
-	if(i8p==0){
-		FlashWriteBlock();
-	}
+	realmempointer=realflashpointer; MemWriteByte(b); realflashpointer=realmempointer;
 }
 void MemWriteAlign(void) {
 	  while(mi8p != 0) {
@@ -177,11 +130,7 @@ void MemWriteAlign(void) {
 }
 
 void FlashWriteAlign(void) {
-	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteAlign(); realflashpointer=realmempointer; return;}   // (in step, as FlashWriteByte)
-	  while(i8p != 0) {
-		  FlashWriteByte(0x0);
-	  }
-	  FlashWriteWord(0xFFFFFFFF);
+	realmempointer=realflashpointer; MemWriteAlign(); realflashpointer=realmempointer;   // (in step, as FlashWriteByte)
 }
 void MemWriteWord(unsigned int i) {
 	MemWriteByte(i & 0xFF);
@@ -193,11 +142,7 @@ void MemWriteWord(unsigned int i) {
 
 // utility routine used by SaveProgramToFlash() and cmd_var to write a byte to flash while erasing the page if needed
 void FlashWriteWord(unsigned int i) {
-	if(Option.ProgramStartCode<0){realmempointer=realflashpointer; MemWriteWord(i); realflashpointer=realmempointer; return;}
-	FlashWriteByte(i & 0xFF);
-	FlashWriteByte((i>>8) & 0xFF);
-	FlashWriteByte((i>>16) & 0xFF);
-	FlashWriteByte((i>>24) & 0xFF);
+	realmempointer=realflashpointer; MemWriteWord(i); realflashpointer=realmempointer;
 }
 void MemWriteClose(void){
 	  while(mi8p != 0) {
@@ -208,15 +153,9 @@ void MemWriteClose(void){
 
 // flush any bytes in the buffer to flash
 void FlashWriteClose(void) {
-	if(Option.ProgramStartCode<0){                                   // OPTION RAM: the program (and its CSUBs' code) is in write-back cached SDRAM:
-		realmempointer=realflashpointer; MemWriteClose(); realflashpointer=realmempointer;
-		SCB_CleanDCache();                                           // out to SDRAM, so that an instruction fetch sees it
-		SCB_InvalidateICache();
-		return;
-	}
-	  while(i8p != 0) {
-		  FlashWriteByte(0xff);
-	  }
+	realmempointer=realflashpointer; MemWriteClose(); realflashpointer=realmempointer;
+	SCB_CleanDCache();                                               // the program (and its CSUBs' code) is in write-back cached
+	SCB_InvalidateICache();                                          // SDRAM: out to it, so that an instruction fetch sees it
 }
 
 
@@ -598,13 +537,13 @@ void LoadOptions(void) {
 }
 
 /* An update from a firmware before 7.00.00RC2, in which bank 2 held OPTION FLASH n's program in sector n, the library in
-   sector 6 and the options in sector 7. The options are now in sector 2, OPTION FLASH n is sector n + 1 and the library
-   is sector 7. Writing the .bin leaves sectors 3 to 7 as they were, so the first start finds this firmware's options
-   blank and the old ones alone in sector 7, and puts everything where it now belongs: the options first, as the most
-   to lose, then sectors 3 to 6 up one, so that the library and a program at OPTION FLASH 3 to 6 are as they were
-   (ImageRebase: a program's CSUB records hold addresses). OPTION FLASH 2's was in sector 2, which the .bin replaced: RUN
-   loads it again. The AXI SRAM holds the four sectors: 512 KB, and nothing uses it before the LTDC is on (Peter, 5 Nov
-   2026: "move everything") */
+   sector 6 and the options in sector 7. The options are now in sector 2 and the library in sector 7, and since V8 the
+   program is never in the flash (Memory.h PROGRAM_RAM) and sectors 3 to 6 are the firmware's. Writing the .bin leaves
+   sector 7 as it was, so the first start finds this firmware's options blank and the old ones alone in sector 7, and
+   puts them where they now belong, then the old library from sector 6 into sector 7 if sector 6 holds one (else sector
+   7 is erased). Sectors 3 to 6 are only read: an old program there is not wanted, and they may be firmware. The AXI
+   SRAM holds sector 6's copy, as nothing uses it before the LTDC is on (Peter, 5 Nov 2026: "move everything"; 8 Nov,
+   V8: the program no longer moves with it) */
 static int OldOptionsFound(void) {
     const struct option_s *o = (const struct option_s *)ADDR_FLASH_SECTOR_7_BANK2;
     const uint32_t *w;
@@ -648,20 +587,16 @@ static void SectorReplace(uint32_t address, const uint8_t *img) {
 // for a record of 7.00's, its layout byte set, which is kept whole; 2 for an older one (5.07.02's ends before that byte),
 // which the first start's reset has to go through, as only the options it keeps mean the same in both
 int OldLayoutMove(void) {
-    uint8_t *sectors = (uint8_t *)0x24000000;
+    uint8_t *lib = (uint8_t *)0x24000000;
     int n, whole;
     if(!OldOptionsFound()) return 0;
     n = ((const struct option_s *)ADDR_FLASH_SECTOR_7_BANK2)->layout;
     whole = n >= 1 && n <= OPTION_LAYOUT;
-    memcpy(sectors, (void *)ADDR_FLASH_SECTOR_3_BANK2, 4 * 0x20000);
-    if(memcmp(sectors, (void *)ADDR_FLASH_SECTOR_3_BANK2, 4 * 0x20000)) return 0;   // (nothing touched if the copy is not right)
+    memcpy(lib, (void *)ADDR_FLASH_SECTOR_6_BANK2, 0x20000);         // the old library's sector, before anything is written
+    if(memcmp(lib, (void *)ADDR_FLASH_SECTOR_6_BANK2, 0x20000)) return 0;   // (nothing touched if the copy is not right)
     OptionsFrom(ADDR_FLASH_SECTOR_7_BANK2);
     SaveOptions(0);
-    n = Option.ProgramStartCode;
-    if(n > PROGRAMSTARTCODE && n <= 6 && ImageIsCurrentAt((char *)sectors + (n - 3) * 0x20000))
-        ImageRebase(sectors + (n - 3) * 0x20000, (7 - n) * 0x20000, 0x20000);
-    for(n = 7; n > 3; n--) SectorReplace(ADDR_FLASH_SECTOR_3_BANK2 + (n - 3) * 0x20000, sectors + (n - 4) * 0x20000);
-    SectorReplace(ADDR_FLASH_SECTOR_3_BANK2, NULL);
+    SectorReplace(ADDR_FLASH_SECTOR_7_BANK2, LibraryImageValid(lib, 0x20000) ? lib : NULL);
     return whole ? 1 : 2;
 }
 

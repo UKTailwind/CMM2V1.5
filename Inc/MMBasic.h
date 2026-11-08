@@ -394,7 +394,6 @@ void RamLibRelease(void);
 void RamLibEnd(void);
 int RamLibBlock(void **blk, int *size);
 void LibBoot(void);
-void LibCheckProgramFlash(int size);
 int LibFlashPresent(void);
 int LibraryImageValid(const unsigned char *lib, int limit);
 int ImageLayout(const unsigned char *lib, int limit, const unsigned int **records);
