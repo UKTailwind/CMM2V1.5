@@ -16,6 +16,7 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | NES | A Nintendo Entertainment System emulator, with two free games | A:/nes |
 | ZX Spectrum | A 48K and 128K Spectrum emulator | A:/spectrum |
 | Amstrad CPC | A 464, 664 and 6128 emulator | A:/cpc |
+| Commodore 64 | A C64 emulator, with its 1541 disk drive | A:/c64 |
 | 386 PC | A PC that runs FreeDOS, MS-DOS, Windows 3.1 and Windows 95 | A:/pc386 |
 | C compiler | Compiles C and MMBasic programs on the machine itself | A:/cc |
 | VT100 terminal | Makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer | A:/vt100 |
@@ -64,7 +65,7 @@ Programs differ in how you leave them, as an emulator has to pass most keys on t
 | Doom, Heretic, Quake | Ctrl-C |
 | ScummVM | Ctrl-C. In a game, Ctrl+Alt+Del goes back to the list of games |
 | NES | Ctrl+Alt+End, or Ctrl-C |
-| ZX Spectrum, Amstrad CPC | Ctrl+Alt+End. Ctrl-C is a key of the emulated machine |
+| ZX Spectrum, Amstrad CPC, Commodore 64 | Ctrl+Alt+End. Ctrl-C is a key of the emulated machine |
 | 386 PC | Ctrl+Alt+End. See its chapter first, as this switches the PC off |
 | VT100 terminal | Shift-F12, then Quit. Ctrl-C goes to the computer at the other end |
 
@@ -74,7 +75,7 @@ When a program ends, MMBasic tidies up after it: its files are closed, its sound
 
 **The keyboard and mouse.** All the programs use a USB keyboard. Those that use a mouse take a USB mouse, or a PS/2 mouse set up with OPTION MOUSE.
 
-**USB gamepads.** The NES, Spectrum and CPC emulators use them. A DualShock 3 sends nothing until its PS button has been pressed. A generic pad is usually a low speed device, and has to go straight into the Colour Maximite 2, not through a hub.
+**USB gamepads.** The NES, Spectrum, CPC and C64 emulators use them. A DualShock 3 sends nothing until its PS button has been pressed. A generic pad is usually a low speed device, and has to go straight into the Colour Maximite 2, not through a hub.
 
 **The screen.** A program sets the video mode it needs, and MMBasic puts yours back when it ends. Your monitor may take a moment to lock on each time.
 

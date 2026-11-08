@@ -28,6 +28,9 @@ apps/zeptoforth/out/
 # The Amstrad CPC (apps/cpc/make.py): frank-cpc fetched at a pinned commit, and the build
 apps/cpc/frank-cpc/
 apps/cpc/out/
+# The Commodore 64 (apps/c64/make.py): frank-c64 fetched at a pinned commit, and the build
+apps/c64/frank-c64/
+apps/c64/out/
 # The terminal (apps/vt100/make.py): libvterm and Spleen fetched at pinned commits, and the build
 apps/vt100/libvterm/
 apps/vt100/spleen/
