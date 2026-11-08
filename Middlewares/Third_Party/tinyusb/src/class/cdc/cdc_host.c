@@ -812,6 +812,11 @@ uint16_t cdch_open(uint8_t rhport, uint8_t daddr, const tusb_desc_interface_t *i
 }
 
 static void set_config_complete(cdch_interface_t *p_cdc, bool success) {
+  // CMM2: the device and the next interface, taken before a failure clears the entry: usbh needs them below. Read
+  // after the clearing they were address 0, a NULL device in usbh, whose interface table was then read from address
+  // 0 (ITCM here) and drivers picked from it (seen with a Microbridge, 8 Nov 2026)
+  const uint8_t daddr    = p_cdc->daddr;
+  const uint8_t next_itf = p_cdc->bInterfaceNumber + ((p_cdc->serial_drid == SERIAL_DRIVER_ACM) ? 1 : 0);
   if (success) {
     const uint8_t idx = get_idx_by_ptr(p_cdc);
     p_cdc->mounted    = true;
@@ -824,8 +829,7 @@ static void set_config_complete(cdch_interface_t *p_cdc, bool success) {
   }
 
   // notify usbh that driver enumeration is complete
-  const uint8_t itf_offset = (p_cdc->serial_drid == SERIAL_DRIVER_ACM) ? 1 : 0;
-  usbh_driver_set_config_complete(p_cdc->daddr, p_cdc->bInterfaceNumber + itf_offset);
+  usbh_driver_set_config_complete(daddr, next_itf);
 }
 
 bool cdch_set_config(uint8_t daddr, uint8_t itf_num) {
@@ -918,7 +922,11 @@ static bool set_line_state_on_enum(cdch_interface_t *p_cdc, tuh_xfer_t *xfer) {
 static void cdch_process_line_state_on_enum(tuh_xfer_t *xfer) {
   cdch_interface_t *p_cdc = get_itf_by_xfer(xfer);
   TU_ASSERT(p_cdc && p_cdc->serial_drid < SERIAL_DRIVER_COUNT,);
-  if (xfer->result != XFER_RESULT_SUCCESS || !set_line_state_on_enum(p_cdc, xfer)) {
+  // CMM2: a STALL is the device declining a request it does not support, which is no reason to refuse the device:
+  // the next request follows (a Microbridge, the CMM2 G1's USB-serial PIC, stalls SET_CONTROL_LINE_STATE; 8 Nov 2026).
+  // A failed or timed-out transfer, a device in trouble, still ends it.
+  if ((xfer->result != XFER_RESULT_SUCCESS && xfer->result != XFER_RESULT_STALLED) ||
+      !set_line_state_on_enum(p_cdc, xfer)) {
     set_config_complete(p_cdc, false);
   }
 }

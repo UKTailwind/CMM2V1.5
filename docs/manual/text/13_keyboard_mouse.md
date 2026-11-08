@@ -123,7 +123,9 @@ The port is opened and used exactly like the hardware serial ports, eg:
 OPEN "COM4:115200" AS #1
 ```
 
-The baud rate and the 7BIT, EVEN, ODD and S2 options are passed to the USB device (where the device supports them); the DE, INV and OC options do not apply. A receive buffer size, an interrupt subroutine and an interrupt trigger level can be specified exactly as for COM1 to COM3 - see Appendix A (Serial Communications). The DTR and RTS signals are asserted while the port is open. A USB GPS receiver can be opened AS GPS like a GPS receiver on a hardware port.
+The baud rate and the 7BIT, EVEN, ODD and S2 options are passed to the USB device (where the device supports them); the DE, INV and OC options do not apply. A receive buffer size, an interrupt subroutine and an interrupt trigger level can be specified exactly as for COM1 to COM3 - see Appendix A (Serial Communications). The DTR and RTS signals are asserted while the port is open (a device without them, such as the Microbridge on a Generation 1 Colour Maximite 2, is opened without them). A USB GPS receiver can be opened AS GPS like a GPS receiver on a hardware port.
+
+**Warning:** The MCP2221A USB to serial bridge (used on some Generation 1 Colour Maximite 2 boards and other MMBasic computers) only supports speeds up to 57600 baud without data loss. It has no flow control and at higher speeds it loses characters when data arrives continuously.
 
 If the USB device is unplugged while the port is open the port will remain open and communications will resume when the device is plugged back in. The CLOSE command closes the port and frees its receive buffer.
 
