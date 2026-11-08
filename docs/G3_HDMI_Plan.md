@@ -10,6 +10,26 @@ firmware as it stands. Nothing here has been tried on a G3 yet.*
 - The MS7210 is on the same I2C channel as the RTC, which is how a G3 is to be recognised.
 - It comes up in 800x600.
 
+Peter's schematic (8 Nov) confirms the wiring:
+
+| MS7210 | Wired to |
+|---|---|
+| D0-D7 | Blue: PE4 (B0), PG12, PD6, PG11, PI4, PI5, PI6, PI7 (B7) |
+| D8-D15 | Green: PE5 (G0), PE6, PH13, PG10, PH15, PI0, PI1, PI2 (G7) |
+| D16-D23 | Red: PH2 (R0), PH3, PH8, PH9, PH10, PC0, PB1, PG6 (R7) |
+| PCLK | PG7 (LTDC_CLK), through 47 ohms |
+| DE | PF10 (LTDC_DE) |
+| HSYNC, VSYNC | PI10, PI9, each through 47 ohms |
+| SDA, SCL | PD4, PD5: the RTC's bus |
+| RSTN | PG3, with 27K to VCC |
+| INT | PC8, with 27K to VCC |
+| SA | Not connected: the address is 0xB2 |
+| SCLK_MCLK, WS, I2SDATA0 | PD13, PD12, PD11 (phase 2). I2SDATA1-3 are not connected |
+| HPD, DDC, CEC | The HDMI socket. DDC has 1.5K pull-ups to +5V, and CEC 27K to a supply fed through a diode |
+| REXT | 5.6K to ground |
+
+The data lines are in the chip's own order for 24-bit RGB, so no channel swap is needed.
+
 Peter's open questions:
 - Does the MS7210 need configuring again when the resolution changes?
 - Will it cope with the line-duplicated modes, or do we need the PicoMite's pixel doubling as well?
@@ -45,7 +65,8 @@ and DE.
   - INT ("INT#", active low) goes to PC8 on the G3, with a 27K pull-up to VCC (Peter, 8 Nov).
 - **24-bit RGB on the data pins:**
   - D0-D7 take blue (B0-B7), D8-D15 green and D16-D23 red.
-  - If the board's wiring differs, the chip can swap the channels and the bit order (REG_DVIN_SWAP, 0x1201).
+  - The G3 is wired exactly so (the schematic, above), so the chip's channel and bit swaps (REG_DVIN_SWAP, 0x1201)
+    are not needed.
 - **Registers:** a 16-bit register number, sent **low byte first**, then 8 bits of data. A write is: start, B2, low,
   high, value, stop. A read is: start, B2, low, high, repeated start, B3, the byte with no acknowledge, stop.
 - **Recognising it:**
