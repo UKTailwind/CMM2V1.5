@@ -153,7 +153,7 @@ void CdcGpsFeed(void) {
 
 // The line coding and DTR/RTS that OPEN asked for.  The calls block (TinyUSB runs itself until the device answers);
 // a request never sent (an ACM device that declares no line-state support) leaves its result XFER_RESULT_INVALID and
-// is not an error.  Returns what the device refused, or NULL, and *res how it refused it.
+// is not an error, nor is a stalled DTR/RTS.  Returns what the device refused, or NULL, and *res how it refused it.
 static const char *CdcLineSetup(int idx, xfer_result_t *res) {
 	struct s_cdccom *p = &CdcCom[idx];
 	cdc_line_coding_t coding = {p->baud, p->stop_bits, p->parity, p->data_bits};
@@ -163,7 +163,9 @@ static const char *CdcLineSetup(int idx, xfer_result_t *res) {
 	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "the baud rate";
 	*res = XFER_RESULT_INVALID;
 	tuh_cdc_set_control_line_state(idx, CDC_CONTROL_LINE_STATE_DTR | CDC_CONTROL_LINE_STATE_RTS, NULL, (uintptr_t)res);
-	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS) return "DTR/RTS";
+	/* A STALL is the device saying it has no DTR or RTS, and the port opens without them (a Microbridge, the G1's
+	   USB-serial PIC, stalls every SET_CONTROL_LINE_STATE: 8 Nov 2026). A failure or no answer is still refused. */
+	if(*res != XFER_RESULT_INVALID && *res != XFER_RESULT_SUCCESS && *res != XFER_RESULT_STALLED) return "DTR/RTS";
 	/* The device is read only while its port is open (Peter, 22 Oct 2026; CLOSE stops it), and armed only now, after the requests
 	   above: an idle IN is disabled and re-armed on every NAK, and a SETUP sent while that goes on could be halted unsent, leaving
 	   the control transfer waiting for ever (6 Nov 2026). What it held while closed comes in now, and is thrown away. */
