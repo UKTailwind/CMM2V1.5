@@ -1,0 +1,142 @@
+diff --git a/src/SID.h b/src/SID.h
+index b90ad07..9e68643 100644
+--- a/src/SID.h
++++ b/src/SID.h
+@@ -224,12 +224,19 @@ inline void MOS6581::EmulateLine()
+  *  Read from register
+  */
+ 
++#ifdef CMM2_APP
++extern "C" uint8_t cmm2_pot(int y);	// (c64_cmm2.c: POT X and Y, a 1351 mouse's position)
++#endif
+ inline uint8_t MOS6581::ReadRegister(uint16_t adr)
+ {
+ 	bool start_leakage = false;
+ 
+ 	if (adr == 0x19 || adr == 0x1a) {
++#ifdef CMM2_APP
++		last_sid_byte = cmm2_pot(adr == 0x1a);
++#else
+ 		last_sid_byte = 0xff;			// A/D converters are not implemented
++#endif
+ 		start_leakage = true;
+ 	} else if (adr == 0x1b) {
+ 		last_sid_byte = read_osc3();	// Voice 3 oscillator read-back
+diff --git a/src/rp2350/Display_rp2350.cpp b/src/rp2350/Display_rp2350.cpp
+index ec237a5..de02942 100644
+--- a/src/rp2350/Display_rp2350.cpp
++++ b/src/rp2350/Display_rp2350.cpp
+@@ -173,9 +173,16 @@ void Display::NewPrefs(const Prefs *prefs)
+  *  Return pointer to bitmap data ("active" VIC buffer)
+  */
+ 
++#ifdef CMM2_APP
++extern "C" uint8_t *cmm2_vic_bitmap(void);      /* (c64_cmm2.c: the VIC draws each frame in one of two buffers, the other shown) */
++#endif
+ uint8_t * Display::BitmapBase()
+ {
++#ifdef CMM2_APP
++    return cmm2_vic_bitmap();
++#else
+     return vic_pixels;
++#endif
+ }
+ 
+ 
+diff --git a/src/rp2350/Prefs_rp2350.h b/src/rp2350/Prefs_rp2350.h
+index 9dddeed..1586e67 100644
+--- a/src/rp2350/Prefs_rp2350.h
++++ b/src/rp2350/Prefs_rp2350.h
+@@ -109,7 +109,11 @@ public:
+     bool TestBench;             // Enable features for automatic regression tests
+ 
+     std::string LoadProgram;    // BASIC program file to load
++    // The maps of Prefs.h, in its places: every other file is built with that header, and so with this class's layout
++    // (copying ThePrefs, MountDrive8 copied two maps that were never made, read from what lies after it)
++    std::map<std::string, ROMPaths> ROMSetDefs; // Defined ROM sets, indexed by name
+     std::string ROMSet;         // Name of selected ROM set
++    std::map<std::string, ButtonMapping> ButtonMapDefs; // Defined button mappings, indexed by name
+     std::string ButtonMap;      // Name of selected controller button mapping
+     std::string CartridgePath;  // Path for cartridge image file
+     std::string TestScreenshotPath; // Path for test screenshot
+diff --git a/src/rp2350/disk_loader.c b/src/rp2350/disk_loader.c
+index 1d345af..2bc176a 100644
+--- a/src/rp2350/disk_loader.c
++++ b/src/rp2350/disk_loader.c
+@@ -34,7 +34,11 @@
+         #define MAX_DISK_IMAGES (80)
+     #endif
+ #endif
++#ifdef CMM2_APP
++#define MAX_FILENAME_LEN    128                 /* (the CMM2's directories give no 8.3 names: a long name is opened by itself) */
++#else
+ #define MAX_FILENAME_LEN    64
++#endif
+ #define DEFAULT_SCAN_PATH   "/c64"
+ 
+ //=============================================================================
+@@ -216,7 +220,7 @@ int disk_loader_delete(int index)
+ // Returns full path to disk image (static buffer - not thread safe)
+ const char *disk_loader_get_path(int index)
+ {
+-    static char path_buffer[128];
++    static char path_buffer[MAX_FILENAME_LEN + 128];
+ 
+     if (index < 0 || index >= disk_loader.count) {
+         return NULL;
+diff --git a/src/rp2350/input_rp2350.cpp b/src/rp2350/input_rp2350.cpp
+index 2bde5ec..f5f4faa 100644
+--- a/src/rp2350/input_rp2350.cpp
++++ b/src/rp2350/input_rp2350.cpp
+@@ -744,7 +744,7 @@ void input_rp2350_poll_no_c64_acts()
+     unsigned char usb_key;
+     while (usbhid_wrapper_get_key(&usb_pressed, &usb_key)) {
+         if (usb_key == 0xF9) {  // F9
+-            if (pressed && !f9_was_pressed) {
++            if (usb_pressed && !f9_was_pressed) {
+                 input_state.joy_port = (input_state.joy_port == 1) ? 2 : 1;
+                 if (input_state.joy_port == 2) {
+                     MII_DEBUG_PRINTF("Gamepads: Pad1->Port2, Pad2->Port1 (default)\n");
+@@ -752,7 +752,7 @@ void input_rp2350_poll_no_c64_acts()
+                     MII_DEBUG_PRINTF("Gamepads: Pad1->Port1, Pad2->Port2 (swapped)\n");
+                 }
+             }
+-            f9_was_pressed = pressed;
++            f9_was_pressed = usb_pressed;
+             continue;
+         }
+         // F10 toggles disk UI
+@@ -804,15 +804,15 @@ void input_rp2350_poll_no_c64_acts()
+                         disk_ui_select();
+                     } else if (usb_key == 0x1B) {  // Escape - close UI
+                         disk_ui_hide();
+-                    } else if (key == 'D') {
++                    } else if (usb_key == 'D') {
+                         disk_ui_delete();
+-                    } else if (key == 0xE4) {  // Home
++                    } else if (usb_key == 0xE4) {  // Home
+                         disk_ui_home();
+-                    } else if (key == 0xE5) {  // End
++                    } else if (usb_key == 0xE5) {  // End
+                         disk_ui_end();
+-                    } else if (key == 0xE2) {  // PageUp
++                    } else if (usb_key == 0xE2) {  // PageUp
+                         disk_ui_page_up();
+-                    } else if (key == 0xE6) {  // PageDown
++                    } else if (usb_key == 0xE6) {  // PageDown
+                         disk_ui_page_down();
+                     }
+                 } else if (state == DISK_UI_SELECT_ACTION) {
+diff --git a/src/rp2350/startscreen.c b/src/rp2350/startscreen.c
+index 71601d0..b00667b 100644
+--- a/src/rp2350/startscreen.c
++++ b/src/rp2350/startscreen.c
+@@ -442,7 +442,7 @@ int startscreen_show(startscreen_info_t *info) {
+     draw_centered_shadow(text_y, line, COLOR_TEXT_WHITE);
+     text_y += LINE_HEIGHT + 2;
+ 
+-#ifdef PSRAM_MAX_FREQ_MHZ
++#if defined(PSRAM_MAX_FREQ_MHZ) && !defined(CMM2_APP)
+     snprintf(line, sizeof(line), "PSRAM: %lu MHz", (unsigned long)info->psram_mhz);
+     draw_centered_shadow(line, text_y, line, COLOR_TEXT_WHITE);
+     text_y += LINE_HEIGHT + 2;

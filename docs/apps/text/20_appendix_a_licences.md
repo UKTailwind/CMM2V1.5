@@ -14,6 +14,7 @@ The source of each program is named in the file make.py of its folder in the fir
 | NES | frank-nes: GNU GPL version 3. QuickNES: GNU LGPL version 2.1 or later. Nova the Squirrel: code GNU GPL version 3 or later, graphics and levels Creative Commons BY-NC-SA 4.0. Thwaite: GNU GPL version 3 or later |
 | ZX Spectrum | pico-spec: GNU GPL version 3. miniz and the WD1793 emulation in it: MIT. The ROMs are not under the GPL (see README.txt) |
 | Amstrad CPC | frank-cpc: GNU GPL version 3, with Caprice32 and cpc4x under GNU GPL version 2 or later. The ROMs are not under the GPL (see README.txt) |
+| Commodore 64 | frank-c64 and Frodo: GNU GPL version 2 or later. The ROMs are not under the GPL (see README.txt) |
 | 386 PC | tiny386: BSD 3-Clause. Its devices: MIT. inih: BSD 3-Clause. fmopl: GNU LGPL version 2.1 or later. SeaBIOS and SeaVGABIOS: GNU LGPL version 3. FreeDOS: each program under its own licence, most of them the GNU GPL |
 | C compiler | The Fuzix Compiler Kit: GNU GPL version 3. The translator from MMBasic to C: the MMBasic licence |
 | VT100 terminal | libvterm: MIT. The Spleen fonts: BSD 2-Clause |
