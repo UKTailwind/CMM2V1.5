@@ -189,7 +189,9 @@ void fun_version(void){
 	/* Each step skips the separator that stopped the one before it: a '.', the 'b' of a beta, or the "RC" of a
 	   release candidate.  A release has no fourth field, so strtol stops on the terminating NUL and p + 1 would read
 	   past the end of the string literal: check there is something to step over.  A release candidate's number is
-	   offset by 50, so "6.04.00RC1" is 6.040051, above every beta of the same release (the PicoMite's). */
+	   offset by 50, so "6.04.00RC1" is 6.040051, above every beta of the same release.  A release counts as 99, so
+	   "7.00.00" is 7.000099: above its betas and release candidates (a program asking for MM.VER >= 7.000051 runs on
+	   it, which as 7.0 it did not), and below 7.00.01b1's 7.000101 (the PicoMite's). */
 	fret = strtol(VERSION, &p, 10);
 	if(*p) fret += (MMFLOAT)strtol(p + 1, &p, 10) / 100;
 	if(*p) fret += (MMFLOAT)strtol(p + 1, &p, 10) / 10000;
@@ -201,6 +203,7 @@ void fun_version(void){
 		}
 		fret += (MMFLOAT)(strtol(p + 1, &p, 10) + offset) / 1000000;
 	}
+	else fret += (MMFLOAT)99 / 1000000;                               // a release
 	targ = T_NBR;
 }
 

@@ -308,7 +308,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
   - SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 - One mouse is used at a time.
-- MM.VER is 7.000005.
+- MM.VER is 7.000099 for 7.00.00 (it was 7.000053 for RC3). A release counts as 99 in the last two digits, so it is above every beta and release candidate of the same version: a program that asks for MM.VER >= 7.000051 runs on it.
 - Modes 1 and 13 are 800 x 600 at 75Hz (they were 60Hz), and most modes' pixel clocks moved by up to 0.42%.
 - In the 16 and 32-bit colour depths full white is 7/8 of the old level (3/4 with OPTION VGA OUTPUT LOW), as in the 8-bit depth.
 - A variable can have the name of a command, so a program that used a name before it became a command (FLASH, STAR, LOCATION) runs as it did: at the start of a statement, `name = value` (or `name$`, `name%` or `name!`) assigns to the variable. The exceptions are TIMER, TIME$, DATE$, FLAGS and CASE, where `NAME =` is the command itself, and REM, RUN and DATA. An array cannot have a command's name, and a name that is also a keyword or a function (FOR, GOTO, SIN) is still not allowed.
