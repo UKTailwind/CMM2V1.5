@@ -262,6 +262,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 ### The PicoMite's other commands, functions and options
 
 - BLIT COMPRESSED, BLIT RESIZE, SAVE COMPRESSED IMAGE and AUTOSAVE APPEND.
+- AUTOSAVE ends with Ctrl-Z as well as F1, F2 and F6: Ctrl-Z saves and loads the program as F1 does, as on the PicoMite.
 - LIST VARIABLES, LIST OPTIONS, LIST PINS and LIST COLLISIONS.
 - PEEK(BP var), PEEK(WP var) and PEEK(SP var), which step through memory.
 - MM.USB (the last USB key's code), MM.DISPLAY, MM.INFO$(PLATFORM) ("CMM2") and MM.INFO$(USBDRIVE).

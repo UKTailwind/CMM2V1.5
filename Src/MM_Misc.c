@@ -3967,7 +3967,8 @@ void MIPS16 cmd_autosave(void) {
         int first = true;
         int skip_initial_lf = (p == buf);
         uint64_t lastchartime = GetuSec(); // Initialize it!
-        while((c = MMInkey()) != F1 && c!=F2 && c!=F6 ){                    // while waiting for the end of text char
+        while((c = MMInkey()) != 0x1a && c != F1 && c!=F2 && c!=F6 ){       // while waiting for the end of text char: Ctrl-Z
+                                                                            // as F1, as on the PicoMite (Jim, for MMEdit)
         	   //////////////////////////////
         	if(p == buf && c == '\n') continue;         // throw away an initial line feed which can follow the command
         	// Check timeout even when no character received
@@ -3975,7 +3976,7 @@ void MIPS16 cmd_autosave(void) {
         	{
         	  if (noecho)
         	  {
-        	     MMPrintString("Enter F1 ,F2 or F6 to exit\r\n");
+        	     MMPrintString("Enter ctrl-Z, F1, F2 or F6 to exit\r\n");
         	     noecho = false;
         	  }
         	}

@@ -143,12 +143,12 @@ or
 AUTOSAVE APPEND [N] file$
 --- keep
 Enters automatic program entry mode: the lines of text sent to the console are saved to the file ‘file$’ on the SD card or USB flash drive (".BAS" is added if it has no extension).  This is one way of transferring a BASIC program from a computer: the program is pasted into a terminal emulator and this command captures the text.  It can also be used for typing a small program at the console.  The text is echoed back as it arrives, and a tab becomes a space.
-The mode is ended with a function key:
-{l=720}F1 saves the file and, if it is a .BAS file, loads it into program memory, where it becomes the current program (used by RUN, LIST and EDIT without a file name)
+The mode is ended with Control-Z or a function key:
+{l=720}Control-Z or F1 saves the file and, if it is a .BAS file, loads it into program memory, where it becomes the current program (used by RUN, LIST and EDIT without a file name)
 {l=720}F2 does the same and then runs the program
 {l=720}F6 saves the file without loading it
 At any time Control-C abandons the command and nothing is saved.  The text is held in memory until it is saved, up to 512KB: a longer text stops the command with the error "Not enough memory".
-AUTOSAVE N does not echo the text.  After the first character, when there is a pause of more than 100 milliseconds between characters it shows the message "Enter F1 ,F2 or F6 to exit" and echoes what follows.
+AUTOSAVE N does not echo the text.  After the first character, when there is a pause of more than 100 milliseconds between characters it shows the message "Enter ctrl-Z, F1, F2 or F6 to exit" and echoes what follows.
 AUTOSAVE APPEND adds the text to the end of the file instead of replacing it, so that a program can be sent in parts; a file whose last line has no line ending is given one first, and the file is made if there is none.  N may follow APPEND.
 The command can only be used at the command prompt.
 
