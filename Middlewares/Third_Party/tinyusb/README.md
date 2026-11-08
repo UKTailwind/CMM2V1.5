@@ -44,6 +44,18 @@ disconnect, slave-mode periodic scheduling).
   is not Windows and sends its touches only as a mouse's. The strings are still
   read: master added them for 8BitDo pads. Raised as PicoMite issue #141, which
   carries the same patch for its tree, and upstream as TinyUSB issue 4346.
+- `src/class/cdc/cdc_host.c`: a STALL of the line requests sent at enumeration
+  (`CFG_TUH_CDC_LINE_CODING_ON_ENUM`, `CFG_TUH_CDC_LINE_CONTROL_ON_ENUM`) goes on
+  to the next request instead of failing the mount; a failed or timed-out
+  transfer still fails it (d51b3a5, 8 Nov 2026). The Microbridge, the USB-serial
+  PIC of a G1, stalls every SET_CONTROL_LINE_STATE. Still local: master
+  (9ca0a74, 8 Nov 2026) fails the mount. Raised as PicoMite issue #151.
+- `src/class/cdc/cdc_host.c`: `set_config_complete()` takes the device address
+  and interface before its failure branch clears them; it passed address 0, a
+  NULL device, to `usbh_driver_set_config_complete()` (d51b3a5). Upstream fixed
+  the same in master 65537b155 (25 Oct 2026), with a NULL check added to
+  `usbh_driver_set_config_complete()`: at the next update take theirs and drop
+  this one.
 
 ## The low-speed patch
 
