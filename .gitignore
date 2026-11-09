@@ -31,6 +31,9 @@ apps/cpc/out/
 # The Commodore 64 (apps/c64/make.py): frank-c64 fetched at a pinned commit, and the build
 apps/c64/frank-c64/
 apps/c64/out/
+# The Atari 8-bit computers (apps/atari800/make.py): atari800 fetched at a pinned commit, and the build
+apps/atari800/atari800/
+apps/atari800/out/
 # The terminal (apps/vt100/make.py): libvterm and Spleen fetched at pinned commits, and the build
 apps/vt100/libvterm/
 apps/vt100/spleen/

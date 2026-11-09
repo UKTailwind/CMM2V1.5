@@ -1,0 +1,38 @@
+diff --git a/src/esc.c b/src/esc.c
+index edbd6b2..1556da0 100644
+--- a/src/esc.c
++++ b/src/esc.c
+@@ -217,21 +217,28 @@ void ESC_PatchOS(void)
+ 			check_s_1 = 0x03;
+ 			break;
+ #if EMUOS_ALTIRRA
++		/* CassetteOpen's JSR CassetteWait, the leader's wait (cassette.s), followed by LDY #1 and RTS, in the AltirraOS 3.11 of src/roms: the ESC
++		   and RTS put there stand for all three. 0xef91 and 0xee4a, here before, are an LDX #6 and the high byte of a JSR SIOV in it, and the
++		   800's fell through to the XL's: a tape crashed with a CIM at $F259 (Colour Maximite 2 port, 9 Nov 2026) */
+ 		case SYSROM_ALTIRRA_800:
+ 			altirra = TRUE;
+-			addr_l = 0xef91; /* points to CassetteWait */
+-			/* Fall through. */
++			addr_l = 0xeeaf; /* points to JSR CassetteWait */
++			break;
+ 		case SYSROM_ALTIRRA_XL:
+ 			altirra = TRUE;
+-			addr_l = 0xee4a; /* points to CassetteWait */
++			addr_l = 0xed72; /* points to JSR CassetteWait */
+ 			break;
+ #endif /* EMUOS_ALTIRRA */
+ 		default:
+ 			return;
+ 		}
+ #if EMUOS_ALTIRRA
+-		if (altirra)
+-			ESC_AddEscRts(addr_l, ESC_COPENLOAD, CassetteLeaderAltirra);
++		if (altirra) {
++			/* only where the JSR, LDY #1 and RTS are, as the check below does for Atari's */
++			if (MEMORY_dGetByte(addr_l) == 0x20 && MEMORY_dGetByte(addr_l + 3) == 0xa0 && MEMORY_dGetByte(addr_l + 4) == 0x01
++			 && MEMORY_dGetByte(addr_l + 5) == 0x60)
++				ESC_AddEscRts(addr_l, ESC_COPENLOAD, CassetteLeaderAltirra);
++		}
+ 		else
+ #endif /* EMUOS_ALTIRRA */
+ 		{
