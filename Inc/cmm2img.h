@@ -33,14 +33,15 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  15                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  16                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
                                                   10: drawing, by MMBasic's own routines; 11: the firmware's memcpy,
                                                   memset, memmove and libm; 12: an expression's value, the sound's
                                                   state; 13: the USB gamepads; 14: COM4-7, the USB serial devices, by the com_ services;
-                                                  15: com_connected) */
+                                                  15: com_connected; 16: a gamepad's right stick and analogue
+                                                  triggers, gamepad_axes) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
@@ -355,6 +356,11 @@ struct cmm2_services {
                                                   if com is not 1, 2 or 4-7; open or not. COM1 and COM2 are always 1. An open
                                                   port stays open while its device is away, and when it comes back the firmware
                                                   sets the line up again as it was: the program need do nothing */
+    /* version 16: all of a gamepad's axes (Peter, 9 Nov 2026: a twin-stick game's second joystick on one pad) */
+    int      (*gamepad_axes)(int n, int v[6]);   /* gamepad's buttons, and in v DEVICE(GAMEPAD n, ...)'s LX, LY, RX, RY
+                                                  (0-255, 128 centred; always 128 on a pad with no sticks) and L, R
+                                                  (the analogue L2 and R2, 0-255; 0 on a pad without them); -1 if no
+                                                  pad is there */
 };
 
 /* the firmware's libm (services version 11): the 19 functions the PC3's kernel shares with its programs, in the

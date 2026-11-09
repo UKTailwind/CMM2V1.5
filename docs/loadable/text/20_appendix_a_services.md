@@ -60,5 +60,6 @@ The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h),
 | 12 | `int sound_state(void)` | 12 | `int basic_prep(line, char *tokens, size)` |
 | 12 | `int basic_exec(char *tokens)` | 12 | `int image_resize(const long long *a)` |
 | 13 | `int gamepad(n, *lx, *ly)` | 15 | `int com_connected(int com)` |
+| 16 | `int gamepad_axes(n, int v[6])` | | |
 
 The console, the clock, files, directories, the system and the FM synthesiser are in the chapter The Services; the screen and drawing in The Screen; the keys and mouse in The Keyboard and Mouse; audio and music in Sound and Music; and the I/O services in The I/O Pins. Inc/cmm2img.h has the full declarations, with a comment on each.

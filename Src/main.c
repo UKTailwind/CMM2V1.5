@@ -921,7 +921,9 @@ if(setjmp(mark) != 0) {
 		  start_console();
 	  }
 	  OptionConsole=Option.Console;
-	  if(PicoActive) PicoModeEnd();                                  // (OPTION PICOMITE: the program's mode stays, PicoMode.c)
+	  PicoTempEnd();                                                 // a program's own OPTION PICOMITE goes with it
+	  if(PicoActive && PicoFlavour() != PICO_NONE) PicoModeEnd();     // (OPTION PICOMITE: the program's mode stays, PicoMode.c; a
+	                                                                 // mode the program's own gave goes, as the option has)
 	  else setmode(Option.mode,DEFCOLOUR,0,0);
 	  WritePage=ReadPage=0;
 	  if(CurrentY<0)CurrentY=0;

@@ -1218,7 +1218,7 @@ static const struct cmm2_services ldsvc = {
     .libm = &ldlibm,
     .basic_cmd = ld_basic, .gfx_target = ld_gtarget, .font_size = ld_fontsize, .font_define = ld_fontdef,
     .basic_eval = ld_eval, .sound_state = ld_soundstate, .basic_prep = ld_prep, .basic_exec = ld_exec,
-    .image_resize = ld_resize, .gamepad = USBGamepadState, .com_connected = ld_comconnected,
+    .image_resize = ld_resize, .gamepad = USBGamepadState, .com_connected = ld_comconnected, .gamepad_axes = USBGamepadAxes,
 };
 
 /*******************************************************************************************

@@ -596,6 +596,20 @@ int USBGamepadState(int n, int *lx, int *ly) {
     return Pad[n].b;
 }
 
+// the loader's gamepad_axes service (version 16): the buttons, both sticks and the analogue triggers, as DEVICE(GAMEPAD n,
+// B, LX, LY, RX, RY, L, R) give them; the sticks 128 on a generic pad, which has none here (its d-pad is in the bitmap)
+int USBGamepadAxes(int n, int v[6]) {
+    if(n < 1 || n > HID_SLOTS || Pad[n].type == 0) return -1;
+    int sticks = Pad[n].type != GAMEPAD_SNES;
+    v[0] = sticks ? Pad[n].lx : 128;
+    v[1] = sticks ? Pad[n].ly : 128;
+    v[2] = sticks ? Pad[n].rx : 128;
+    v[3] = sticks ? Pad[n].ry : 128;
+    v[4] = Pad[n].l;
+    v[5] = Pad[n].r;
+    return Pad[n].b;
+}
+
 char *GamepadInterrupt(void) {
     for(int n = 1; n <= HID_SLOTS; n++)
         if(Pad[n].interrupt != NULL && Pad[n].found) {
