@@ -23,13 +23,13 @@ MANUAL = os.path.join(ROOT, 'docs', 'manual', 'Colour_Maximite_2_User_Manual.doc
 DIR = os.path.join(ROOT, 'docs', 'loadable')
 OUT = os.path.join(DIR, 'Colour_Maximite_2_Loadable_Programs.docx')
 NAME = 'Colour Maximite 2 Loadable Programs'
-FIRMWARE = '7.00.00RC3'
-DATE = '7 November 2026'
+FIRMWARE = '7.00.00RC4'
+DATE = '9 November 2026'
 
 TITLE = {                                               # the title page: its paragraphs by their start
     'User Manual': 'Loadable Programs',
     'MMBasic Ver': 'Programs in C and C++',
-    'Matches firmware': 'For firmware %s (services version 15)' % FIRMWARE,
+    'Matches firmware': 'For firmware %s (services version 16)' % FIRMWARE,
     'Geoff Graham': 'Peter Mather',
     'For updates to this manual': 'The firmware, this guide and the tools that build a program are at',
     'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
