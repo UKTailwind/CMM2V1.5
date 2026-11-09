@@ -1,0 +1,126 @@
+diff --git a/drivers/psram_allocator.h b/drivers/psram_allocator.h
+index 3ba7b8c..c3b5a8d 100644
+--- a/drivers/psram_allocator.h
++++ b/drivers/psram_allocator.h
+@@ -8,7 +8,13 @@
+ #ifndef MURM_PSRAM_SIZE_BYTES
+ #define MURM_PSRAM_SIZE_BYTES (8u * 1024u * 1024u)
+ #endif
++#ifdef CMM2_APP
++#include <stdint.h>
++extern uint8_t *cmm2_psram;   // the CMM2: no PSRAM, a block of its heap (apps/apple2/apple_cmm2.c)
++#define PSRAM_DATA cmm2_psram
++#else
+ #define PSRAM_DATA ((uint8_t*)(intptr_t)0x11000000)
++#endif
+ 
+ void *psram_malloc(size_t size);
+ void *psram_realloc(void *ptr, size_t size);
+diff --git a/src/disk_loader.c b/src/disk_loader.c
+index a978870..e525958 100644
+--- a/src/disk_loader.c
++++ b/src/disk_loader.c
+@@ -25,9 +25,16 @@
+ #include "debug_log.h"
+ 
+ // Global state
++#ifdef CMM2_APP
++// the CMM2: a list of its own, so that the Apple's memory is not borrowed for it (and saved to the card and back, disk_ui.c)
++#define MAX_DISK_IMAGES 1024
++static disk_entry_t disk_list[MAX_DISK_IMAGES];
++disk_entry_t* g_disk_list = disk_list;
++#else
+ extern uint8_t vram[2 * RAM_PAGES_PER_POOL * RAM_PAGE_SIZE];
+ #define MAX_DISK_IMAGES (sizeof(vram) / sizeof(disk_entry_t))
+ disk_entry_t* g_disk_list = (disk_entry_t*)vram;//[MAX_DISK_IMAGES];
++#endif
+ 
+ #if PICO_RP2350
+ // drive0_cache lives in PSRAM to save 228KB of SRAM.
+@@ -614,7 +621,9 @@ int disk_loader_init(void) {
+         printf("SD card mount failed: %d\n", fr);
+         return -1;
+     }
++#ifndef CMM2_APP // (the CMM2: nothing goes in /tmp, which would be a folder in the disk menu)
+     f_mkdir("/tmp");
++#endif
+     f_mkdir("/apple");
+     /// TODO: is log
+     f_unlink("/apple.log");
+diff --git a/src/disk_ui.c b/src/disk_ui.c
+index 56c8328..de83a23 100644
+--- a/src/disk_ui.c
++++ b/src/disk_ui.c
+@@ -306,6 +306,7 @@ extern char selected_dir[128];
+ 
+ void disk_ui_show(void) {
+     if (ui_state == DISK_UI_HIDDEN) {
++#ifndef CMM2_APP // (the CMM2: the disk list does not borrow the Apple's memory, disk_loader.c)
+         { // TODO: error handling
+             gpio_put(PICO_DEFAULT_LED_PIN, true);
+             f_open(&fp, "/tmp/apple.snap", FA_CREATE_ALWAYS | FA_WRITE);
+@@ -314,6 +315,7 @@ void disk_ui_show(void) {
+             f_close(&fp);
+             gpio_put(PICO_DEFAULT_LED_PIN, false);
+         }
++#endif
+         fb_needs_clear = true;
+ 
+         gpio_put(PICO_DEFAULT_LED_PIN, true);
+@@ -335,6 +337,7 @@ void disk_ui_show(void) {
+ }
+ 
+ void disk_ui_hide(void) {
++#ifndef CMM2_APP
+     { // TODO: error handling
+         gpio_put(PICO_DEFAULT_LED_PIN, true);
+         if (FR_OK == f_open(&fp, "/tmp/apple.snap", FA_READ)) {
+@@ -344,6 +347,7 @@ void disk_ui_hide(void) {
+         }
+         gpio_put(PICO_DEFAULT_LED_PIN, false);
+     }
++#endif
+ 
+     ui_state = DISK_UI_HIDDEN;
+     ui_rendered = false;
+diff --git a/src/mii_dd_stub.c b/src/mii_dd_stub.c
+index 802be87..81f36dd 100644
+--- a/src/mii_dd_stub.c
++++ b/src/mii_dd_stub.c
+@@ -126,6 +126,11 @@ mii_dd_file_load(
+ 			mii_dd_files[flags].size = (PRODOS_MAX_BLOCKS * PRODOS_BLOCK_SIZE); // W/A ~32 MB
+ 		}
+ 	} else {
++#ifdef CMM2_APP
++		// the CMM2: a hard disk only if its image is on the card, not a 32 MB one made for it
++		mii_dd_files[flags].read_only = true;
++		mii_dd_files[flags].size = 0;
++#else
+ 		mii_dd_files[flags].read_only = false;
+ 		mii_dd_files[flags].size = (PRODOS_MAX_BLOCKS * PRODOS_BLOCK_SIZE); // W/A ~32 MB
+ 		f_open(f, pathname, FA_WRITE | FA_OPEN_ALWAYS);
+@@ -133,6 +138,7 @@ mii_dd_file_load(
+ 		UINT bw;
+ 		uint8_t zero = 0;
+ 		f_write(f, &zero, 1, &bw);
++#endif
+ 	}
+ 	mii_dd_files[flags].drive_idx = flags; // reuse flags as drive idx
+ 	return &mii_dd_files[flags];
+diff --git a/src/mii_startscreen.c b/src/mii_startscreen.c
+index 3d3c401..7fbd72e 100644
+--- a/src/mii_startscreen.c
++++ b/src/mii_startscreen.c
+@@ -291,8 +291,12 @@ int mii_startscreen_show(mii_startscreen_info_t *info) {
+     }
+ #endif
+ 
++#ifdef CMM2_APP
++    draw_centered_string(buffer, screen_w, content_y, "Colour Maximite 2", COLOR_TEXT);
++#else
+     snprintf(line, sizeof(line), "Board: M%d", info->board_variant);
+     draw_centered_string(buffer, screen_w, content_y, line, COLOR_TEXT);
++#endif
+ 
+     // Draw copyright at bottom of window
+     content_y = win_y + win_h - LINE_HEIGHT * 2 - 6;

@@ -34,6 +34,9 @@ apps/c64/out/
 # The Atari 8-bit computers (apps/atari800/make.py): atari800 fetched at a pinned commit, and the build
 apps/atari800/atari800/
 apps/atari800/out/
+# The Apple //e (apps/apple2/make.py): frank-apple fetched at a pinned commit, and the build
+apps/apple2/frank-apple/
+apps/apple2/out/
 # The terminal (apps/vt100/make.py): libvterm and Spleen fetched at pinned commits, and the build
 apps/vt100/libvterm/
 apps/vt100/spleen/

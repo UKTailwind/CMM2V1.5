@@ -16,6 +16,7 @@ The source of each program is named in the file make.py of its folder in the fir
 | Amstrad CPC | frank-cpc: GNU GPL version 3, with Caprice32 and cpc4x under GNU GPL version 2 or later. The ROMs are not under the GPL (see README.txt) |
 | Commodore 64 | frank-c64 and Frodo: GNU GPL version 2 or later. The ROMs are not under the GPL (see README.txt) |
 | Atari 8-bit | atari800: GNU GPL version 2 or later. AltirraOS and Altirra BASIC, built in: copyright Avery Lee, and free to copy and pass on with their notice (see README.txt) |
+| Apple //e | frank-apple and MII: MIT. The ROMs are Apple's, and not under the MIT licence (see README.txt) |
 | 386 PC | tiny386: BSD 3-Clause. Its devices: MIT. inih: BSD 3-Clause. fmopl: GNU LGPL version 2.1 or later. SeaBIOS and SeaVGABIOS: GNU LGPL version 3. FreeDOS: each program under its own licence, most of them the GNU GPL |
 | C compiler | The Fuzix Compiler Kit: GNU GPL version 3. The translator from MMBasic to C: the MMBasic licence |
 | VT100 terminal | libvterm: MIT. The Spleen fonts: BSD 2-Clause |
