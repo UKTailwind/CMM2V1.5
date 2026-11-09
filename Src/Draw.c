@@ -2769,7 +2769,7 @@ void cmd_page(void){
 			return;
 		}
 		if(fadd!=-1)PageDisplayOn();
-		if((VideoMode==3 || VideoMode==5 || VideoMode==6 || VideoMode==7 || VideoMode==12 || VideoMode==13 || VideoMode==17) && fadd>(VideoColour==12 ? 2: 1))error(VideoColour==12 ? "Display page limited to 0, 1 and 2 in this mode": "Display page limited to 0 and 1 in this mode");
+		if((VideoMode==3 || VideoMode==5 || VideoMode==6 || VideoMode==7 || VideoMode==12 || VideoMode==13 || VideoMode==17 || VideoMode==19) && fadd>(VideoColour==12 ? 2: 1))error(VideoColour==12 ? "Display page limited to 0, 1 and 2 in this mode": "Display page limited to 0 and 1 in this mode");
     	Address=(uint32_t)PageTable[fadd].address;
     	if(Address>=0x24000000 &&  Address < 0x24000000+512*1024-PageTable[0].size){
 			pagesetdone=0;

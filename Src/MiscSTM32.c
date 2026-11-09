@@ -232,6 +232,7 @@ void printoptions(void){
     else if(Option.mode==15)	PO2Str("Default mode 15","1280x1024",3);
     else if(Option.mode==16)	PO2Str("Default mode 16","1920x1080",3);
     else if(Option.mode==18)	PO2Str("Default mode 18","1024x600",3);
+    else if(Option.mode==19)	PO2Str("Default mode 19","640x512",3);
 	if(VideoMode==1) 	PO2Str("VGA mode 800x600",DepthName(),3);
     else if(VideoMode==2) 	PO2Str("VGA mode 640x400",DepthName(),3);
     else if(VideoMode==3) 	PO2Str("VGA mode 320x200",DepthName(),3);
@@ -248,8 +249,9 @@ void printoptions(void){
     else if(VideoMode==14) 	PO2Str("VGA mode 960x540",DepthName(),3);
     else if(VideoMode==15) 	PO2Str("VGA mode 1280x1024",DepthName(),3);
     else if(VideoMode==16) 	PO2Str("VGA mode 1920x1080",DepthName(),3);
-    else if(VideoMode==17) 	PO2Str("VGA mode 1384x240",DepthName(),3);
+    else if(VideoMode==17) 	PO2Str("VGA mode 384x240",DepthName(),3);
     else if(VideoMode==18) 	PO2Str("VGA mode 1024x600",DepthName(),3);
+    else if(VideoMode==19) 	PO2Str("VGA mode 640x512",DepthName(),3);
     PicoCurrentList();                                              // (OPTION PICOMITE's resolution and mode)
 //    if(Option.Height != 24 || Option.Width != 80){
     	char buff[30]={0};
@@ -299,7 +301,7 @@ void printoptions(void){
     if(!Option.showstatus) PO2Str("STATUS", "OFF",1);
     if(Option.colourmap == 1) PO2Str("VGA OUTPUT", "MEDIUM",1);
     else if(Option.colourmap == 0) PO2Str("VGA OUTPUT", "LOW",1);
-    for(int m = 1; m <= MAX_MODES; m++) if(Option.offsets[m]) {
+    for(int m = 1; m <= OFFSET_MODES; m++) if(Option.offsets[m]) {
     	char buff[40];
     	sprintf(buff,"OPTION HORIZONTAL OFFSET %d,%d\r\n", m, Option.offsets[m]);
     	MMPrintString(buff);
@@ -1547,7 +1549,7 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
     tp = checkstring(cmdline, "HORIZONTAL OFFSET");
 	if(tp) {
 	    getargs(&tp, 3, ",");
-	    int mode=getint(argv[0],1,MAX_MODES);
+	    int mode=getint(argv[0],1,OFFSET_MODES);                       // (MODE 19 uses MODE 15's: Configuration.h)
 		Option.offsets[mode]=getint(argv[2],-128,127);
         goto saveandreset;
 	}
@@ -1824,6 +1826,9 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
         } else if(checkstring(tp, "18")) {
             Option.mode=18;
             Option.editfont=4;
+        } else if(checkstring(tp, "19")) {
+            Option.mode=19;
+            Option.editfont=1;
         } else error("Invalid mode");
         goto saveandreset;
 	}

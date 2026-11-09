@@ -140,7 +140,7 @@ struct option_s {
 	short RepeatRate;
 	uint8_t path[128];
 	uint16_t MaxCtrls;
-	signed char offsets[MAX_MODES+1];
+	signed char offsets[OFFSET_MODES+1];         // (not MAX_MODES: the layout of the saved options stays as it was)
 	uint8_t F15Key[64];                 // OPTION F15, F16, F19, F20: Shift-F3, Shift-F4, Shift-F7, Shift-F8 (Gerry's b14)
 	uint8_t F16Key[64];
 	uint8_t F19Key[64];

@@ -60,9 +60,9 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc);
 LTDC_LayerCfgTypeDef pLayerCfg = {0};
 LTDC_LayerCfgTypeDef pLayerCfg1 = {0};
 LTDC_HandleTypeDef hltdc={0};
-const int xres[MAX_MODES+1]={0,800,640,320,480,240,256,320,640,1024,848,1280,960,400,960,1280,1920,384,1024};
-const int yres[MAX_MODES+1]={0,600,400,200,432,216,240,240,480,768,480,720,540,300,540,1024,1080,240,600};
-const int pageheight[MAX_MODES+1]={0,627,499,499,499,499,499,499,499,805,516,749,1124,627,568,1067,1124,499,637};
+const int xres[MAX_MODES+1]={0,800,640,320,480,240,256,320,640,1024,848,1280,960,400,960,1280,1920,384,1024,640};
+const int yres[MAX_MODES+1]={0,600,400,200,432,216,240,240,480,768,480,720,540,300,540,1024,1080,240,600,512};
+const int pageheight[MAX_MODES+1]={0,627,499,499,499,499,499,499,499,805,516,749,1124,627,568,1067,1124,499,637,1067};
 /* The display's size: the mode's (xres, yres), or under OPTION PICOMITE the PicoMite's (PicoMode.c), smaller. setmode
    takes a size asked for in ModeReqW and ModeReqH (and a font in ModeReqFont) and clears them, so every other call is
    the mode's own size. The pages are that size, and the LTDC shows them as a window at the top left of the screen. */
@@ -76,7 +76,7 @@ int ModeYres(int mode) { return ModeH ? ModeH : yres[mode]; }
 int ModeReqHs, ModeReqVs, ModeHs, ModeVs, DisplayMerged;
 int ModeRowScale(int mode) {
   if(ModeVs) return ModeVs;
-  return (mode==3 || mode==5 || mode==6 || mode==7 || mode==12 || mode==13 || mode==17) ? 2 : 1;
+  return (mode==3 || mode==5 || mode==6 || mode==7 || mode==12 || mode==13 || mode==17 || mode==19) ? 2 : 1;
 }
 
 #define RoundUptoPage8(a)     ((((uint64_t)a) + (uint64_t)(8*1024 - 1)) & (uint64_t)(~(8*1024 - 1)))// round up to the nearest whole integer
@@ -503,6 +503,15 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
+	} else if(VideoMode==19){
+	  pll.PLL3M = 1; //60Hz 54MHz pixel clock, VCO 648 MHz (mode 15's at half the clock: 640x512, each row shown twice.
+	  pll.PLL3N = 81; // Peter, 9 Nov 2026: monitors place VESA 1280x1024 themselves, where a 720x576 or 768x576 timing
+	  pll.PLL3P = 12; // was shown off centre by one without adjustment; an Amiga's PAL picture at whole multiples)
+	  pll.PLL3Q = 12;
+	  pll.PLL3R = 12;
+	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
+	  fnt = ((0 << 4) | 1);
+	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==16){
 	  pll.PLL3M = 1; //60Hz 148.8MHz (148.5 +0.20%) pixel clock, VCO 744 MHz
 	  pll.PLL3N = 93;
@@ -836,6 +845,17 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.AccumulatedActiveW = 1639;
 		  hltdc.Init.AccumulatedActiveH = 1064;
 		  hltdc.Init.TotalWidth = 1687;
+		  hltdc.Init.TotalHeigh = 1065;
+	  } else if(VideoMode==19){ //640x512: mode 15's 1280x1024 at 60Hz, H halved (640 + 24 + 56 + 124), each row twice
+		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AH;
+		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
+		  hltdc.Init.HorizontalSync = 55;
+		  hltdc.Init.VerticalSync = 2;
+		  hltdc.Init.AccumulatedHBP = 179 + Option.offsets[15] / 2;   // (mode 15's offset: its pixels are half as wide)
+		  hltdc.Init.AccumulatedVBP = 40;
+		  hltdc.Init.AccumulatedActiveW = 819;
+		  hltdc.Init.AccumulatedActiveH = 1064;
+		  hltdc.Init.TotalWidth = 843;
 		  hltdc.Init.TotalHeigh = 1065;
 	  } else if(VideoMode==16){ //1920x1080
 	  /* USER CODE END LTDC_Init 1 */

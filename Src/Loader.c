@@ -331,7 +331,7 @@ static int ld_vscaled(int mode, int depth, int scale, cmm2_video *v) {
     if(mode < 1 || mode > MAX_MODES || (depth != 8 && depth != 16) || (scale != 1 && scale != 2)) return -1;
     if(mode == 16 && !(G1Hardware == 0 && HAL_GetREVID() != 0x1003)) return -1;
     if(depth == 16 && (mode == 15 || mode == 16)) return -1;        // (MODE's rule: 8 and 1-bit only)
-    if(scale == 2 && (mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17))
+    if(scale == 2 && (mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17 || mode == 19))
         return -1;                                                  // (their lines shown twice already: ltdc.c's ModeRowScale)
     if(VideoColour != depth && PageTable[WPN].address != NULL) return -2;   // (a FRAMEBUFFER of another depth)
     if(ldlent) {                                                    // the display memory lent: page 0 must be in the internal
