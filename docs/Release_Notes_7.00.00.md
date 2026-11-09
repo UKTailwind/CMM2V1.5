@@ -129,6 +129,7 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 
 ### Graphics
 
+- MODE 19: 640 x 512, the monitor's 1280 x 1024 at 60 Hz at half the pixel clock, each line shown twice, so that any monitor that takes 1280 x 1024 places it; in every colour depth but 4-bit, and as OPTION DEFAULT MODE 19.
 - MODE n,4: a 4-bit colour depth that gives the PicoMite's 16 colour display, with its FRAMEBUFFER, layers and PEEK/POKE addresses, so that PicoMite games run.
 - MODE n,1: a 1-bit colour depth, the PicoMite's MODE 1, with coloured tiles 8 pixels wide: TILE, TILE RESET, TILE HEIGHT and MM.INFO(TILE HEIGHT).
 - RAY and RAY(, the PicoMite's raycasting engine, in every colour depth and in full colour (Appendix P).

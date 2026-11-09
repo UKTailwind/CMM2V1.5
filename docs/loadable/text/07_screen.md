@@ -25,17 +25,18 @@ The modes are MMBasic's:
 |---|---|---|---|---|
 | 1 | 800 x 600 | 10 | 848 x 480 | |
 | 2 | 640 x 400 | 11 | 1280 x 720 | |
-| 3 | 320 x 200 | 12 | 960 x 540 | lines shown twice: 3, 5, 6, 7, 12, 13 and 17 |
+| 3 | 320 x 200 | 12 | 960 x 540 | lines shown twice: 3, 5, 6, 7, 12, 13, 17 and 19 |
 | 4 | 480 x 432 | 13 | 400 x 300 | |
 | 5 | 240 x 216 | 14 | 960 x 540 | |
 | 6 | 256 x 240 | 15 | 1280 x 1024 | 8-bit only |
 | 7 | 320 x 240 | 16 | 1920 x 1080 | Generation 2, 8-bit only |
 | 8 | 640 x 480 | 17 | 384 x 240 | |
 | 9 | 1024 x 768 | 18 | 1024 x 600 | |
+|  |  | 19 | 640 x 512 | mode 15 at half its pixel clock |
 
 Each pixel is a byte in depth 8 and two bytes (red in the top five bits, green in the middle six, blue in the bottom five) in depth 16. Line y starts at v.fb + y * v.pitch.
 
-**Modes whose lines are shown twice.** The low resolution modes (3, 5, 6, 7, 12, 13 and 17) are shown with each line repeated, and their page holds each line twice: v.copies is 2, v.pitch is twice a line's width, and line y must be written at v.fb + y * v.pitch and again just after it. vidtest.c and Doom do it this way:
+**Modes whose lines are shown twice.** Modes 3, 5, 6, 7, 12, 13, 17 and 19 are shown with each line repeated, and their page holds each line twice: v.copies is 2, v.pitch is twice a line's width, and line y must be written at v.fb + y * v.pitch and again just after it. vidtest.c and Doom do it this way:
 
 ```
 static void line(int y, const uint8_t *px) {          /* depth 8 */

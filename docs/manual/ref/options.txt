@@ -123,7 +123,8 @@ Specifies the video mode for the command prompt, the editor and the file manager
 15 = 1280x1024, 160 x 85 characters
 16 = 1920x1080, 120 x 45 characters (widescreen, Generation 2 only)
 18 = 1024x600, 102 x 37 characters
-The characters are the columns and lines of the screen in the editor's font, which this option also sets: NORMAL (8x12 pixels) in modes 1, 8, 10, 12, 14 and 15, MEDIUM (10x16) in modes 9, 11 and 18 and VERY LARGE (16x24) in mode 16.  OPTION EDIT FONT can then change it.
+19 = 640x512, 80 x 42 characters (1280x1024 to the monitor)
+The characters are the columns and lines of the screen in the editor's font, which this option also sets: NORMAL (8x12 pixels) in modes 1, 8, 10, 12, 14, 15 and 19, MEDIUM (10x16) in modes 9, 11 and 18 and VERY LARGE (16x24) in mode 16.  OPTION EDIT FONT can then change it.
 This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
 === OPTION DISK SAVE fname$
@@ -194,7 +195,7 @@ This command can only be run from the command line and will cause a reboot.
 === OPTION HORIZONTAL OFFSET mode, offset
 --- P keep roomy
 Since different VGA monitors and HDMI converters interpret the analog sync signals slightly differently, the screen image may appear off-centre (eg, a black bar on one side or the edge of the text being cut off).  This command allows you to calibrate the Colour Maximite 2's signal to match your specific hardware without needing to use the monitor's adjustment buttons every time.
-For each ‘mode’ (1 to 18), ‘offset’ is an adjustment in pixels to the start of the horizontal lines on the VGA display.  The default is 0 and the allowed range is -128 to 127.
+For each ‘mode’ (1 to 18; mode 19, which is mode 15's timing, uses mode 15's), ‘offset’ is an adjustment in pixels to the start of the horizontal lines on the VGA display.  The default is 0 and the allowed range is -128 to 127.
 This command will cause a reboot.
 
 === OPTION KEYBOARD nn [, capslock] [, numlock] [, repeatstart] [, repeatrate]

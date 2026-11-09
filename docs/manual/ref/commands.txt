@@ -1916,7 +1916,7 @@ MMDEBUG BREAK stops the program and shows the prompt DEBUG>.  Any command can th
 === MODE r [, bits [, bg [, int]]]
 ---
 Sets the resolution and the colour depth of the VGA video output.
-‘r’ is the screen resolution.  It is a number from 1 to 18 as follows:
+‘r’ is the screen resolution.  It is a number from 1 to 19 as follows:
 {b=0 a=0 l=720}1 = 800 x 600 pixels (the default)
 {b=0 a=0 l=720}2 = 640 x 400 pixels
 {b=0 a=0 l=720}3 = 320 x 200 pixels
@@ -1935,6 +1935,7 @@ Sets the resolution and the colour depth of the VGA video output.
 {b=0 a=0 l=720}16 = 1920 x 1080 pixels (widescreen format, Generation 2 with the Rev V processor only)
 {b=0 a=0 l=720}17 = 384 x 240 pixels
 {b=0 a=0 l=720}18 = 1024 x 600 pixels
+{b=0 a=0 l=720}19 = 640 x 512 pixels (mode 15's 1280 x 1024 at half its pixel clock, lines duplicated)
 All resolutions except 10, 11, 12, 14 and 16 work perfectly with monitors that have an aspect ratio of 4:3 or widescreen monitors that can switch to that ratio (most widescreen monitors will do this automatically).
 ‘bits’ is the colour depth.  It can be 1, 4, 8, 12, 16 or 32 and is 8 if it is left out:
 {b=0 a=0 l=720}1 = a bit a pixel, eight pixels to a byte, each in its tile's colours: the PicoMite's MODE 1 (see below)
@@ -1943,7 +1944,7 @@ All resolutions except 10, 11, 12, 14 and 16 work perfectly with monitors that h
 {b=0 a=0 l=720}12 = ARGB4444, 4096 colours with 16 levels of transparency, in two layers over a background colour
 {b=0 a=0 l=720}16 = RGB565, 65,536 colours
 {b=0 a=0 l=720}32 = ARGB8888, 16,777,216 colours (Generation 2 only)
-Not every combination is available: modes 9, 11 and 12 have no 12 or 32-bit depth, modes 15 and 16 have the 8 and 1-bit depths only, and the 4-bit depth is not available in modes 9, 11, 12, 15, 16 and 18.  The 1-bit depth is available in every mode.  With OPTION LEGACY ON only the 8-bit depth can be used.
+Not every combination is available: modes 9, 11 and 12 have no 12 or 32-bit depth, modes 15 and 16 have the 8 and 1-bit depths only, and the 4-bit depth is not available in modes 9, 11, 12, 15, 16, 18 and 19.  The 1-bit depth is available in every mode.  With OPTION LEGACY ON only the 8-bit depth can be used.
 ‘bg’ is the background colour and can be used in the 12-bit depth.  If the pixels in page 0 (the lower layer) are not set to solid (transparency = 15) then the background will show through as determined by the transparency value of the pixel.  This parameter is ignored in the other depths.
 ‘int’ is a subroutine that will be called at the start of each frame blanking (useful for updating the screen without tearing).  A MODE command without it cancels the interrupt.  To give ‘int’ without a background colour leave ‘bg’ out (MODE r, bits, , int) or give 0.
 MODE sets the colours to white on black and the default font for the resolution: font 7 in modes 3, 5, 6, 7, 13 and 17, font 4 in modes 9, 11, 15 and 18, font 3 in mode 16 and font 1 in the others.  When it changes the resolution or the colour depth it also clears the screen and makes page 0 the write page.  It also turns off the GUI cursor (GUI CURSOR ON shows it again) and puts the mouse, and the cursor's position, at the centre of the new screen.  A change of colour depth also closes the sprites and deletes a cursor loaded by GUI CURSOR LOAD, as they are held in the pixel format of the old depth.
@@ -2081,7 +2082,7 @@ Selects the page that is displayed on the screen (this does not change the write
 will display the current contents of page 3.  In the 12-bit depth ‘layer’ can be 1 to select the page that is to be displayed as the top layer, for example:
 {l=720}`PAGE DISPLAY 4, 1`
 ‘layer’ 0, the default, is the lower layer.  The command executes in the next frame blanking period.  When a program ends for any reason page 0 is displayed again.
-In modes 3, 5, 6, 7, 12, 13 and 17 only pages 0 and 1 (pages 0, 1 and 2 in the 12-bit depth) can be displayed, as only they hold each line twice.  A page must also lie in the first 3 MB of the video memory (MM.INFO(PAGE ADDRESS n) plus the size of the page no higher than &HD0300000), so on the Generation 2 the higher pages cannot be displayed (the error "Display page address > &HD0300000 - use a lower page number").
+In modes 3, 5, 6, 7, 12, 13, 17 and 19 only pages 0 and 1 (pages 0, 1 and 2 in the 12-bit depth) can be displayed, as only they hold each line twice.  A page must also lie in the first 3 MB of the video memory (MM.INFO(PAGE ADDRESS n) plus the size of the page no higher than &HD0300000), so on the Generation 2 the higher pages cannot be displayed (the error "Display page address > &HD0300000 - use a lower page number").
 PAGE DISPLAY -1 turns off the display (the monitor no longer receives the synchronisation signals).  It is only valid in a program.  To turn the display back on select a valid display page; the display is also turned back on when the program ends.
 
 =+= PAGE COPY n TO m [, when] [, T]
