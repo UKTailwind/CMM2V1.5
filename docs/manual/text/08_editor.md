@@ -56,7 +56,7 @@ In a program (a .bas file) a line can be at most 255 characters long, and F1 and
 
 Pressing the mark key (F4) will put the editor into mark mode which will allow you to cut or copy text to the clipboard or delete or save text.
 
-When in the mark mode the arrow keys are used to mark the text which will be highlighted in reverse video. If you reach the beginning or end of the screen the arrow keys will continue to mark text as the screen scrolls. This also works with Page Up and Page Down.
+When in the mark mode the arrow keys are used to mark the text which will be highlighted in reverse video. If you reach the beginning or end of the screen the arrow keys will continue to mark text as the screen scrolls. This also works with Page Up and Page Down. Home and End mark to the beginning or end of the line and, as in editing, two End key presses will mark to the end of the program.
 
 In the mark mode the status line will change to show the functions available in this mode. These are:
 

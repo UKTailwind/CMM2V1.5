@@ -130,6 +130,7 @@ static void EdGetInput(char *prompt, char *def);
 void Scroll(void);
 void ScrollDown(void);
 static void EdMarkScroll(int down);
+static void EdStatusBar(void);
 void MarkMode(char *buf);
 void PositionCursor(char *curp);
 static int multilinecomment = false;
@@ -2713,6 +2714,7 @@ void MarkMode(char *buf)
 {
     char *p, *mark, *oldmark;
     int c = -1, x, y, i, oldx, oldy, txtpx, txtpy, errmsg = false;
+    int lastc = -1, prevc;                              // CMM2: this key and the one before (END END, as in edit mode)
     int edx_save = edx, edy_save = edy;
     PrintFunctKeys(MARK);
     oldmark = mark = txtp;
@@ -2729,6 +2731,8 @@ void MarkMode(char *buf)
             continue;
         }
         UiPointer(0);
+        prevc = lastc;
+        lastc = c;
         if (c == EDMOUSE_CELL)
             mark = EdTextAt(mark, EdMouseX, EdMouseY);  // (the selection's end to the pointer)
         if (c != -1 && errmsg)
@@ -2899,10 +2903,23 @@ void MarkMode(char *buf)
         case END:
             if (*mark == 0)
                 break;
-            for (p = mark; *p != 0 && *p != '\n'; p++)
-                ; // move to the end of this line
-            mark = p;
             {
+                int redraw = false;
+                if (prevc == END || prevc == CTRLKEY('K'))
+                {                                       // CMM2: END then END, the selection's end to the end of the
+                    while (*mark)                       // text (as in edit mode), the last line brought into view at
+                        mark++;                         // the screen's bottom
+                    i = EdLineOf(mark, NULL);
+                    if (i >= edy + VHeight)
+                    {
+                        edy = i - VHeight + 1;
+                        redraw = true;
+                    }
+                    cury = i - edy;
+                }
+                for (p = mark; *p != 0 && *p != '\n'; p++)
+                    ; // move to the end of this line
+                mark = p;
                 int abs_col = 0;
                 char *q = mark;
                 while (q > EdBuff && *(q - 1) != '\n')
@@ -2913,12 +2930,15 @@ void MarkMode(char *buf)
                 if (abs_col > VWidth - 1)
                 {
                     edx = abs_col - (VWidth - 1 - SCROLLCHARS);
-                    printScreen();
-                    PrintFunctKeys(MARK);
+                    redraw = true;
                 }
                 else if (edx != 0)
                 {
                     edx = 0;
+                    redraw = true;
+                }
+                if (redraw)
+                {
                     printScreen();
                     PrintFunctKeys(MARK);
                 }
@@ -3139,6 +3159,8 @@ void MarkMode(char *buf)
         if (oldmark < mark)
         {
             p = oldmark;
+            if (p < visStart)                           // CMM2: from the screen's top row if the area starts above it
+                p = visStart;                           // (the row was drawn wherever the cursor was: the status line)
             int col = 0;
             {
                 char *q = p;
@@ -3201,6 +3223,8 @@ void MarkMode(char *buf)
         else if (oldmark > mark)
         {
             p = mark;
+            if (p < visStart)                           // (CMM2: as above)
+                p = visStart;
             int col = 0;
             {
                 char *q = p;
@@ -3325,6 +3349,8 @@ void MarkMode(char *buf)
         oldy = y;
         oldmark = mark;
         PositionCursor(mark);
+        EdStatusBar();                                  // CMM2: the mark's place, after every key as in edit mode (a
+                                                        // redraw's PrintFunctKeys showed the row below the text)
     }
 }
 
