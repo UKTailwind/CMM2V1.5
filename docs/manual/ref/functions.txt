@@ -359,7 +359,7 @@ Examples:	format$(45) will return 45\nformat$(45, “%g”) will return 45\nform
 === GETSCANLINE
 ---
 Reports the line that is currently being drawn on the VGA monitor.  Using this to time updates to the screen can avoid timing effects caused by updates while the screen is being updated.
-The first visible line returns 0 and the last MM.VRES - 1; a larger value is in the frame blanking period.  In the modes whose lines are drawn twice (3, 5, 6, 7, 12, 13 and 17) the count is in the mode's own lines, in every colour depth.  Under OPTION PICOMITE it is in the monitor's lines, as on the PicoMite.
+The first visible line returns 0 and the last MM.VRES - 1; a larger value is in the frame blanking period.  In the modes whose lines are drawn twice (3, 5, 6, 7, 12, 13, 17 and 19) the count is in the mode's own lines, in every colour depth.  Under OPTION PICOMITE it is in the monitor's lines, as on the PicoMite.
 
 === GPS()
 --- keep

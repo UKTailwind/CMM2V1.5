@@ -6,7 +6,7 @@ The video output of the Colour Maximite 2 is set by the MODE command:
 MODE r [, bits [, bg [, int]]]
 ```
 
-'r' is the screen resolution, a number from 1 to 18; 'bits' is the colour depth (see below); 'bg' is the background colour in the 12-bit mode; and 'int' is a subroutine that will be called at the start of the frame blanking (useful for updating the screen without tearing). The default at power up is MODE 1 with an 8-bit colour depth, or the mode set with OPTION DEFAULT MODE.
+'r' is the screen resolution, a number from 1 to 19; 'bits' is the colour depth (see below); 'bg' is the background colour in the 12-bit mode; and 'int' is a subroutine that will be called at the start of the frame blanking (useful for updating the screen without tearing). The default at power up is MODE 1 with an 8-bit colour depth, or the mode set with OPTION DEFAULT MODE.
 
 ## Resolutions
 
@@ -22,12 +22,13 @@ MODE r [, bits [, bg [, int]]]
 | 7 | 320 x 240 pixels | 16 | 1920 x 1080 pixels (widescreen, Generation 2 only) |
 | 8 | 640 x 480 pixels | 17 | 384 x 240 pixels |
 | 9 | 1024 x 768 pixels (no 12-bit mode) | 18 | 1024 x 600 pixels |
+|  |  | 19 | 640 x 512 pixels (mode 15 at half its pixel clock, lines duplicated) |
 
 All resolutions except 10, 11, 12, 14 and 16 work perfectly with monitors that have an aspect ratio of 4:3 or widescreen monitors that can switch to that ratio (most widescreen monitors will do this automatically).
 
-The monitor will see these signals: modes 1 and 13, 800 x 600 at 75Hz; modes 2, 3, 4, 5, 6, 7, 8 and 17, 640 x 480 at 75Hz; mode 9, 1024 x 768 at 60Hz; mode 10, 848 x 480 at 60Hz; mode 11, 1280 x 720 at 60Hz; mode 14, 1920 x 540 at 60Hz; modes 12 and 16, 1920 x 1080 at 60Hz; mode 15, 1280 x 1024 at 60Hz.
+The monitor will see these signals: modes 1 and 13, 800 x 600 at 75Hz; modes 2, 3, 4, 5, 6, 7, 8 and 17, 640 x 480 at 75Hz; mode 9, 1024 x 768 at 60Hz; mode 10, 848 x 480 at 60Hz; mode 11, 1280 x 720 at 60Hz; mode 14, 1920 x 540 at 60Hz; modes 12 and 16, 1920 x 1080 at 60Hz; modes 15 and 19, 1280 x 1024 at 60Hz. Mode 19 is mode 15 with the pixel clock halved and each line shown twice, so each of its pixels is two of the monitor's across and down: any monitor that takes 1280 x 1024 places it itself.
 
-The GETSCANLINE function returns the line of the monitor that is being drawn. Its maximum value in each mode is: mode 1, 627; modes 2, 4 and 8, 499; modes 3, 5, 6, 7 and 17, 249; mode 9, 805; mode 10, 516; mode 11, 749; mode 12, 562; mode 13, 313; mode 14, 568; mode 15, 1065; mode 16, 1124; mode 18, 637. These are the same in every colour depth. Under OPTION PICOMITE the function counts the monitor's lines, as the PicoMite does, so modes 3, 5, 6, 7 and 17 count to 499, mode 12 to 1124 and mode 13 to 627.
+The GETSCANLINE function returns the line of the monitor that is being drawn. Its maximum value in each mode is: mode 1, 627; modes 2, 4 and 8, 499; modes 3, 5, 6, 7 and 17, 249; mode 9, 805; mode 10, 516; mode 11, 749; mode 12, 562; mode 13, 313; mode 14, 568; mode 15, 1065; mode 16, 1124; mode 18, 637; mode 19, 532. These are the same in every colour depth. Under OPTION PICOMITE the function counts the monitor's lines, as the PicoMite does, so modes 3, 5, 6, 7 and 17 count to 499, mode 12 to 1124, mode 13 to 627 and mode 19 to 1065.
 
 ## Colour Depths
 
@@ -75,6 +76,7 @@ The pages available in each mode and colour depth are (Generation 1 / Generation
 | 16 | - | - | - | - / 0-2 | - | - / 0-20 |
 | 17 | 0 to 16 | 0-15 / 0-38 | 0-14 / 0-37 | 0-34 / 0-60 | 0 to 60 | 0-60 / 0-60 |
 | 18 | 0 to 1 | 0-1 / 0-4 | 0-1 / 0-4 | 0-6 / 0-10 | - | 0-35 / 0-60 |
+| 19 | 0 to 2 | 0-1 / 0-8 | 0-1 / 0-7 | 0-6 / 0-19 | - | 0-60 / 0-60 |
 
 A "-" means that the combination is not available. The 4-bit figures are for the Generation 2 (the Generation 1, with less memory, has fewer). MM.INFO(MAX PAGES) returns the highest page number in the current mode.
 
@@ -87,7 +89,7 @@ MM.INFO(PAGE ADDRESS n) and MM.INFO(MAX PAGES) are useful if you wish to PEEK or
 - With the 4-bit colour depth two pixels share a byte, the left pixel in the low four bits: add% = MM.INFO(PAGE ADDRESS n) + y * ((MM.HRES + 1) \ 2) + x \ 2
 - With the 1-bit colour depth eight pixels share a byte, the leftmost in bit 0: add% = MM.INFO(PAGE ADDRESS n) + y * (MM.HRES \ 8) + x \ 8, and the pixel is bit x AND 7
 
-For modes 3, 5, 6, 7, 12, 13 and 17 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4 and 1-bit pages hold each line once). For example, for an 8-bit colour depth:
+For modes 3, 5, 6, 7, 12, 13, 17 and 19 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4 and 1-bit pages hold each line once). For example, for an 8-bit colour depth:
 
 ```
 add1% = MM.INFO(PAGE ADDRESS n) + (y * 2) * MM.HRES + x
