@@ -4,9 +4,7 @@ This is frank-apple, rh1tech's port of Michel Pollet's MII emulator. It is an en
 
 The screen is shown at the Apple's full resolution: 80 columns and double hi-res keep all 560 of their dots across.
 
-It runs on the Generation 1 and the Generation 2.
-
-!TODO tried on a Generation 1 only so far (9 Nov 2026): try it on a Generation 2
+It is for the Generation 1 and the Generation 2, but has been tried on a Generation 1 only so far.
 
 ## Starting It
 
@@ -24,7 +22,9 @@ The program calls the folder it was started in /apple.
 Put disk images (.dsk, .do, .po, .nib, .woz) in A:/apple2, and press **F11**:
 
 1. Choose drive 1 or 2 with the arrows (or press 1 or 2), and press Enter.
+
 2. Choose a disk image with the arrows, Page Up and Page Down, and press Enter. Folders are listed too, and Enter opens one.
+
 3. Choose **Boot** to put the disk in and start the Apple from it, or **Insert** to change the disk without starting again, for a program that asks for its next disk. **Cancel** goes back.
 
 Esc goes back a step. In the first step, D takes the disk out of the drive chosen.
@@ -35,7 +35,7 @@ Take care in the list of disks: D deletes the file chosen from the card, without
 
 Hard disk images in ProDOS order, up to 32MB, can be put in A:/apple2 as drive0.img and drive1.img. They are the two drives of a SmartPort card in slot 5, which the Apple should start from when there is no disk in the Disk II drives.
 
-!TODO saving to a disk, and the hard disks, have not been tried yet
+Saving to a disk, and the hard disks, have not been tried on the Colour Maximite 2 yet.
 
 ## The Keys
 
