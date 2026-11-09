@@ -10,6 +10,8 @@ include float64_test.fs
 
 The rest check the words of `cmm2.fs`. Each needs `words_h.fs` first, which has `check` and `ends`, and they print `CHECKS n FAILS n`. Reboot between them. `words_files.fs`, `words_gfx.fs`, `words_io.fs`, `words_stress.fs` and `words_doc.fs` make no sound. `words_snd.fs` and `words_misc.fs` do. `words_gfx.fs` tests its own `check`, so its first two failures, marked DELIBERATE, are expected and are not counted.
 
+`words_files.fs` opens a program's eight files at once to see the ninth refused, so type it in over the serial console rather than `include` it: an `include` holds one of the eight while it runs.
+
 `words_io.fs` looks for the loop-back wires, GP0, 1 and 3-7 to GP8, 9 and 11-15, and leaves out what needs one that is not there.
 
 `words_hold.fs`, then a reboot or Ctrl-C, then `words_free.fs`, shows that what Forth had of the firmware is given back.
