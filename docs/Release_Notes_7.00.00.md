@@ -1,6 +1,6 @@
-# Colour Maximite 2: MMBasic 7.00.00RC3 (release candidate) release notes, from 5.07.02
+# Colour Maximite 2: MMBasic 7.00.00RC4 (release candidate) release notes, from 5.07.02
 
-*7 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC2, have notes of their own.*
+*9 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC3, have notes of their own.*
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
@@ -8,7 +8,7 @@ The betas added USB touch screens, with the GUI controls, gestures and an on-scr
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
-This is the fourth release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
+This is the fifth release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -36,7 +36,8 @@ You can go back to an earlier firmware the same way, should you need to.
 - MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse), a NES emulator (frank-nes, with two free games) and Heretic (with its shareware episode) come with the firmware, in CMM2_Programs_7.00.00RC2.zip.
 - A VT100 terminal (vt100.app) makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer, on COM1, COM2 or a USB serial device. The manual Colour_Maximite_2_App_User_Guide.pdf covers all these programs.
 - Quake (quake.app, on a Generation 2) is id Software's game with its shareware episode, at about 53 frames a second with the sound on. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
-- zeptoforth (zeptoforth.app, and zeptoforth_g1.app on a Generation 1) is Travis Bemann's Forth, with preemptive tasks, double precision and the zeptoed editor, on the VT100 terminal's console. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
+- zeptoforth 1.17.2 (zeptoforth.app, and zeptoforth_g1.app on a Generation 1) is Travis Bemann's Forth, with preemptive tasks, double precision and the zeptoed editor, on the VT100 terminal's console. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
+- A Commodore 64 (c64.app: frank-c64, a PAL C64 with its 1541 disk drive) and the Atari 8-bit computers and 5200 (atari800.app: atari800 7.2.1, with AltirraOS and Altirra BASIC built in) are emulated. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on each.
 - A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 - The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
 
@@ -70,6 +71,7 @@ You can go back to an earlier firmware the same way, should you need to.
 - MM.INFO(KEYBOARD) reports the on-screen keyboard ("On" or "Off").
 - With no resolution given, OPTION PICOMITE uses OPTION DEFAULT MODE's, and OPTION LIST shows the PicoMite's resolution and mode.
 - Enter is a carriage return alone, as on the PicoMite.
+- Set at the command prompt the option is saved. Set in a program it is for that program alone, and the saved setting is in force again when the program ends.
 - The manual's Running PicoMite Programs (in Video Modes and Pages) and PicoMite Pin Names (in Using the I/O Pins) have the details.
 
 ### The language
@@ -105,7 +107,7 @@ CSUBs built for the PicoMite run unaltered when they use only its call table. Th
 
 ### The editor, the file manager and the console
 
-- **The editor** is the PicoMite's full screen editor, with help on F11, a mouse, Print Screen, a clipboard of any size, and a save that cannot lose your edits (a failed save leaves the editor open with the text).
+- **The editor** is the PicoMite's full screen editor, with help on F11, a mouse, Print Screen, a clipboard of any size, and a save that cannot lose your edits (a failed save leaves the editor open with the text). In mark mode End pressed twice marks to the end of the program, as it moves there in edit mode.
 - **FM** is the PicoMite's two-panel file manager (F1 at the prompt types it). It copies between the SD card and a USB flash drive, and takes the mouse: a click selects, a double click opens, runs or shows, a right click marks, the wheel moves the selection, and the top line's labels can be clicked.
 - **The PS2 mouse**, with OPTION MOUSE 0, is the computer's mouse, as a USB mouse is: it starts with the computer, or when a mouse is first needed, and keeps running when a program ends.
 - **ZMODEM SEND and ZMODEM RECEIVE** transfer files over the serial console, faster than XMODEM.
@@ -120,7 +122,7 @@ The USB socket takes a hub, and these devices:
 - keyboards (a low-speed device must be plugged in directly, not through a hub);
 - a USB mouse, as mouse channel 2: DEVICE(MOUSE ...), MOUSE INTERRUPT, MOUSE SET and OPTION MOUSE SENSITIVITY;
 - gamepads: the DualShock 3 and 4, the Switch Pro controller, Xbox 360 and Xbox One/Series controllers, and generic pads, with GAMEPAD and DEVICE(GAMEPAD ...);
-- USB serial adaptors, as COM4 to COM7 (FTDI, CP210x, CH34x and PL2303);
+- USB serial adaptors, as COM4 to COM7 (FTDI, CP210x, CH34x and PL2303, and the CDC ones such as a PicoMite or a Generation 1's Microbridge);
 - a USB flash drive, as the C: drive (FAT or exFAT).
 
 The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and KILL take wildcards at the prompt.
@@ -308,7 +310,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
   - SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 - One mouse is used at a time.
-- MM.VER is 7.000099 for 7.00.00 (it was 7.000053 for RC3). A release counts as 99 in the last two digits, so it is above every beta and release candidate of the same version: a program that asks for MM.VER >= 7.000051 runs on it.
+- MM.VER is 7.000099 for 7.00.00 (it is 7.000054 for RC4). A release counts as 99 in the last two digits, so it is above every beta and release candidate of the same version: a program that asks for MM.VER >= 7.000051 runs on it.
 - Modes 1 and 13 are 800 x 600 at 75Hz (they were 60Hz), and most modes' pixel clocks moved by up to 0.42%.
 - In the 16 and 32-bit colour depths full white is 7/8 of the old level (3/4 with OPTION VGA OUTPUT LOW), as in the 8-bit depth.
 - A variable can have the name of a command, so a program that used a name before it became a command (FLASH, STAR, LOCATION) runs as it did: at the start of a statement, `name = value` (or `name$`, `name%` or `name!`) assigns to the variable. The exceptions are TIMER, TIME$, DATE$, FLAGS and CASE, where `NAME =` is the command itself, and REM, RUN and DATA. An array cannot have a command's name, and a name that is also a keyword or a function (FOR, GOTO, SIN) is still not allowed.
@@ -523,6 +525,8 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 - With a USB touch screen connected, a mouse click can be taken as a swipe by the GUI controls' gestures.
 - The keyboard layout list names IT, but it cannot be selected.
 - In pc386, a program protected by a check of its original floppy disk (Lemmings is one) does not run from a disk image.
+- In atari800, with its SIO patch off, a tape with a program file after its boot loader stops with a checksum error under AltirraOS (Atari's XL operating system loads it). With the patch on, as it starts, it loads.
+- The MCP2221A USB to serial bridge loses characters above 57600 baud on a USB socket.
 
 ## The manual
 

@@ -20,8 +20,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 SRC = os.path.join(HERE, 'zeptoforth')
 URL = 'https://github.com/tabemann/zeptoforth.git'
-COMMIT = 'b8991416484a73fd6cb4069fa5d3d8ab2dc864d9'   # 1 Nov 2026
-VERSION = '1.17.2-dev'
+COMMIT = '0aca1381f91f54e7a6a4d775d693c608560ac68e'   # v1.17.2, 9 Nov 2026
+VERSION = '1.17.2'
 
 
 def patch():

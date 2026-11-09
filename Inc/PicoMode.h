@@ -23,6 +23,7 @@ int PicoMaxGP(void);                            // and its MM.INFO(MAX GP)
 void PicoModeSet(int mode);
 void PicoModeEnd(void);
 void PicoOption(char *tp);
+void PicoTempEnd(void);                         // a program's OPTION PICOMITE gone (the prompt)
 void PicoOptionList(void);
 void PicoOptionResolution(char *tp);            // OPTION RESOLUTION
 void PicoCurrentList(void);                     // OPTION LIST's CURRENT lines for it

@@ -33,6 +33,14 @@ int PicoModeNow = 1;
 int PicoResNow = -1;                                                // (-1: OPTION PICOMITE's)
 static int PicoFontNow = 1;
 
+/* OPTION PICOMITE in a program: for that program alone (Peter, 9 Nov 2026: "permanent when executed at the command
+   prompt but temporary if executed in a program"). Its device (-1: none given, the saved option's) and resolution are
+   kept here, not in Option, so that an OPTION that saves the options meanwhile cannot save them: they last through
+   CHAIN and a RUN in the program, and go when it ends (END, an error, Ctrl-C: PicoTempEnd, at the prompt) */
+static int PicoTempDev = -1, PicoTempRes;
+static int PicoDev(void) { return PicoTempDev >= 0 ? PicoTempDev : Option.Picomite; }
+static int PicoResOpt(void) { return PicoTempDev >= 0 ? PicoTempRes : Option.PicoRes; }
+
 // the PicoMite's resolutions (OPTION RESOLUTION): the VGA builds have the first four
 static const struct { short w, h; const char *name, *alias; } PicoRes[] = {
     {640, 480, "640x480", "640"}, {720, 400, "720x400", "720"}, {800, 600, "800x600", "800"}, {848, 480, "848x480", "848"},
@@ -60,14 +68,14 @@ static const char *const PicoNames[] = {NULL,
 #define PICO_DEFHDMI 10                                             // OPTION PICOMITE HDMI: PicoMiteHDMIUSB RP2350B
 
 int PicoFlavour(void) {
-    int d = Option.Picomite;                                        // (erased flash: 0xFF, NONE)
+    int d = PicoDev();                                              // (erased flash: 0xFF, NONE)
     if(d < 1 || d >= PICONAMES) return PICO_NONE;
     return d <= PICO_LASTVGA ? PICO_VGA : PICO_HDMI;
 }
 
 // MM.DEVICE$ under OPTION PICOMITE: the PicoMite's name it gives, NULL under NONE
 const char *PicoDeviceName(void) {
-    return PicoFlavour() == PICO_NONE ? NULL : PicoNames[Option.Picomite];
+    return PicoFlavour() == PICO_NONE ? NULL : PicoNames[PicoDev()];
 }
 
 // MM.INFO(MAX GP): under OPTION PICOMITE the PicoMite's highest GP, 47 on an RP2350B and 29 on the others; without it
@@ -91,7 +99,7 @@ static int PicoResFromMode(void) {
 
 static int PicoResolution(void) {
     if(PicoResNow >= 0) return PicoResNow;
-    return Option.PicoRes < PICORES ? Option.PicoRes : PicoResFromMode();   // (PICORES_AUTO, as erased flash)
+    return PicoResOpt() < PICORES ? PicoResOpt() : PicoResFromMode();   // (PICORES_AUTO, as erased flash)
 }
 
 // a resolution as the PicoMite's OPTION RESOLUTION and RESOLUTION take it, for this flavour
@@ -181,11 +189,11 @@ void PicoModeEnd(void) {
     if(VideoColour == 1) MonoTilesReset();
 }
 
-/* OPTION PICOMITE VGA | HDMI | NONE [, resolution]: saved, at the prompt only; no resolution: OPTION DEFAULT MODE's */
+/* OPTION PICOMITE VGA | HDMI | NONE [, resolution]: saved at the prompt; in a program, for that program (PicoTempDev);
+   no resolution: OPTION DEFAULT MODE's */
 void PicoOption(char *tp) {
     int d = -1, res = PICORES_AUTO;
     char *p;
-    if(CurrentLinePtr) error("Invalid in a program");
     getargs(&tp, 3, ",");
     if(argc < 1) error("Syntax");
     if(PicoWord(argv[0], "NONE")) d = 0;
@@ -206,10 +214,28 @@ void PicoOption(char *tp) {
         if(d == 0) error("Syntax");
         res = PicoResArg(argv[2], d <= PICO_LASTVGA ? PICO_VGA : PICO_HDMI);
     }
+    if(CurrentLinePtr) {                                            // in a program: for it alone, not saved, and at once
+        int f = PicoFlavour(), r = PicoResolution();
+        PicoTempDev = d;
+        PicoTempRes = res;
+        PicoResNow = -1;
+        if(PicoFlavour() != f || PicoResolution() != r) {           // (as it is already: the display left alone)
+            if(d) PicoModeSet(1);                                   // the PicoMite's MODE 1, which RUN gives a program under it
+            else setmode(Option.mode, DEFCOLOUR, 0, Option.mode == 12 ? 1 : 0);   // NONE: the CMM2's own, as RUN sets it
+        }
+        return;
+    }
     Option.Picomite = d;
     Option.PicoRes = res;
     PicoResNow = -1;
     SaveOptions(1);
+}
+
+// the prompt, after a program (main.c): its OPTION PICOMITE goes with it, and the saved one is in force again
+void PicoTempEnd(void) {
+    if(PicoTempDev < 0) return;
+    PicoTempDev = -1;
+    PicoResNow = -1;                                                // (a RESOLUTION it gave was under its option)
 }
 
 /* OPTION RESOLUTION res [, speed]: the PicoMite's (VGA and HDMI versions), OPTION PICOMITE's resolution, saved; at the
@@ -229,7 +255,7 @@ void PicoOptionResolution(char *tp) {
 
 // OPTION LIST: the option as it is entered (its resolution only when one was given)
 void PicoOptionList(void) {
-    if(PicoFlavour() == PICO_NONE) return;
+    if(Option.Picomite < 1 || Option.Picomite >= PICONAMES) return;   // (the saved option, not a program's)
     MMPrintString("OPTION PICOMITE ");
     MMPrintString((char *)PicoNames[Option.Picomite]);
     if(Option.PicoRes < PICORES) {

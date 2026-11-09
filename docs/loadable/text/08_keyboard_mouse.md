@@ -104,8 +104,16 @@ There is no service for USB game controllers yet. A program that wants one can r
 
 ```
 int gamepad(int n, int *lx, int *ly);                    /* version 13 */
+int gamepad_axes(int n, int v[6]);                       /* version 16 */
 ```
 
 gamepad gives the buttons of the pad in USB slot n, 1 upward, as a bitmap: the one DEVICE(GAMEPAD n, B) gives in BASIC, which the User Manual describes. If lx and ly are not NULL they are given the left stick, each 0 to 255 with 128 in the centre. A pad with no sticks reads as centred, and its d-pad is in the bitmap. It returns -1 if there is no pad in the slot. poll keeps it up to date, so a program calls poll regularly. A DualShock 3 sends nothing until its PS button is pressed.
+
+gamepad_axes, from version 16 of the services, gives the same buttons, and in v all of the pad's axes as DEVICE(GAMEPAD n, ...) gives them: v[0] and v[1] the left stick (LX, LY), v[2] and v[3] the right stick (RX, RY), each 0 to 255 with 128 in the centre, and v[4] and v[5] the analogue L2 and R2 triggers (L, R), 0 to 255. A pad with no sticks reads as centred, and one without analogue triggers as 0. apps/atari800 makes a single pad's right stick the Atari's second joystick with it, for twin-stick games, and uses gamepad instead on older firmware:
+
+```
+if(cmm2->version >= 16) b = cmm2->gamepad_axes(slot, v);
+else b = cmm2->gamepad(slot, &v[0], &v[1]);
+```
 
 apps/nes/nes_cmm2.c reads the first two pads it finds in this way, and turns them into a NES's buttons.
