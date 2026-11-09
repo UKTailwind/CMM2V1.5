@@ -33,7 +33,7 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  16                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  17                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
@@ -41,7 +41,8 @@
                                                   memset, memmove and libm; 12: an expression's value, the sound's
                                                   state; 13: the USB gamepads; 14: COM4-7, the USB serial devices, by the com_ services;
                                                   15: com_connected; 16: a gamepad's right stick and analogue
-                                                  triggers, gamepad_axes) */
+                                                  triggers, gamepad_axes; 17: video_mode and video_scaled take depth
+                                                  12) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
@@ -192,8 +193,10 @@ struct cmm2_services {
     void     (*opl_free)(void *chip);
     /* version 2: the screen and the keys held. The mode and the palette BASIC had are put back when the program ends. */
     int      (*video_mode)(int mode, int depth, cmm2_video *v);   /* MODE mode,depth (depth 8: 256 colours from the
-                                                  palette; 16 from version 6); 0 with v filled, or negative if the mode
-                                                  can't be set */
+                                                  palette; 16 from version 6; 12 from version 17: ARGB4444 on one layer,
+                                                  each pixel's alpha not used, so a pixel is 0x0RGB, two bytes as in 16,
+                                                  in any mode 16 is); 0 with v filled, or negative if the mode can't be
+                                                  set */
     int      (*video_palette)(int start, int count, const uint8_t *rgb);   /* entries from R,G,B bytes, shown from the
                                                   next frame (it waits for it) */
     void     (*video_wait)(void);              /* until the display starts its next frame */

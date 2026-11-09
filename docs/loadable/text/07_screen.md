@@ -16,7 +16,7 @@ typedef struct {
 } cmm2_video;
 ```
 
-video_mode sets MMBasic's MODE mode,depth, clears the page and fills in v. It returns 0, or -1 if the mode or depth is not valid on this computer (as MODE would refuse it: MODE 16 needs a Generation 2; or, on a Generation 1 that has lent the program its display memory, a mode whose page does not fit in the internal RAM: see The Display Memory Lent in the chapter How a Program Runs), or -2 if MMBasic has a frame buffer of another depth. The depth is 8 (256 colours from the palette) or, from version 6, 16 (RGB565: two bytes a pixel, 65,536 colours; not in modes 15 and 16).
+video_mode sets MMBasic's MODE mode,depth, clears the page and fills in v. It returns 0, or -1 if the mode or depth is not valid on this computer (as MODE would refuse it: MODE 16 needs a Generation 2; or, on a Generation 1 that has lent the program its display memory, a mode whose page does not fit in the internal RAM: see The Display Memory Lent in the chapter How a Program Runs), or -2 if MMBasic has a frame buffer of another depth. The depth is 8 (256 colours from the palette) or, from version 6, 16 (RGB565: two bytes a pixel, 65,536 colours; not in modes 15 and 16), or, from version 17, 12 (ARGB4444: two bytes a pixel, 4,096 colours, in the modes that take 16). In depth 12 the screen is one layer whose pixels' alpha is not used, so a pixel is 0x0RGB, four bits each of red, green and blue, as an Amiga's colour registers hold them; v.bpp is 12 and the page is laid out as in depth 16. It is not MMBasic's 12-bit mode, with its two layers: MMBasic's drawing services and the console on the screen still colour as in depth 16, which shows wrongly but for black and white.
 
 The modes are MMBasic's:
 

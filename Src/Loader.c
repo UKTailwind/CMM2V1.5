@@ -327,15 +327,22 @@ static void ld_frame(void) {                                       // the next f
     while(!pagesetdone && MicrosNow() < end) {}
 }
 static int ld_dma2dbusy(void);
+/* Depth 12 (version 17, Peter 9 Nov 2026, for an Amiga's 12-bit colours): the mode laid out as 16-bit, two bytes a
+   pixel, and the LTDC's layer shown as ARGB4444 with its constant alpha (255) in place of each pixel's, so 0x0RGB is a
+   pixel as it stands. One layer, so the same traffic as 16-bit, where MMBasic's 12-bit mode reads two (its pages 0 and
+   1, and its second page would be laid in a G1's display memory lent to the program). MMBasic's state stays 16-bit:
+   its drawing services and the console on the screen colour in RGB565, which shows wrongly but for black and white.
+   The next setmode (another video_mode, or MMBasic's mode put back when the program ends) sets the layer again. */
 static int ld_vscaled(int mode, int depth, int scale, cmm2_video *v) {
-    if(mode < 1 || mode > MAX_MODES || (depth != 8 && depth != 16) || (scale != 1 && scale != 2)) return -1;
+    if(mode < 1 || mode > MAX_MODES || (depth != 8 && depth != 12 && depth != 16) || (scale != 1 && scale != 2)) return -1;
+    const int lay = depth == 12 ? 16 : depth;                       // (the depth the mode is laid out in)
     if(mode == 16 && !(G1Hardware == 0 && HAL_GetREVID() != 0x1003)) return -1;
-    if(depth == 16 && (mode == 15 || mode == 16)) return -1;        // (MODE's rule: 8 and 1-bit only)
+    if(lay == 16 && (mode == 15 || mode == 16)) return -1;          // (MODE's rule: 8 and 1-bit only)
     if(scale == 2 && (mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17 || mode == 19))
         return -1;                                                  // (their lines shown twice already: ltdc.c's ModeRowScale)
-    if(VideoColour != depth && PageTable[WPN].address != NULL) return -2;   // (a FRAMEBUFFER of another depth)
+    if(VideoColour != lay && PageTable[WPN].address != NULL) return -2;     // (a FRAMEBUFFER of another depth)
     if(ldlent) {                                                    // the display memory lent: page 0 must be in the internal
-        uint32_t bytes = (uint32_t)(xres[mode] / scale) * (yres[mode] / scale) * (depth / 8);   // RAM (pagegen puts it there
+        uint32_t bytes = (uint32_t)(xres[mode] / scale) * (yres[mode] / scale) * (lay / 8);     // RAM (pagegen puts it there
         if(scale == 2 || ModeRowScale(mode) == 2) bytes *= 2;       // while it fits), not in the 3 MB the program has
         if(bytes > 0x80000) return -1;
     }
@@ -347,14 +354,23 @@ static int ld_vscaled(int mode, int depth, int scale, cmm2_video *v) {
         ModeReqH = yres[mode] / scale;                              // PICOMITE makes its modes (PicoMode.c): the pixel clock
         ModeReqHs = ModeReqVs = scale;                              // divided, each row shown twice, the pages holding it twice
     }
-    setmode(mode, depth, 0, 0);
+    setmode(mode, lay, 0, 0);
+    if(depth == 12) {                                               // the layer as ARGB4444, its constant alpha the pixels':
+        extern LTDC_HandleTypeDef hltdc;                            // through the HAL's own copy of the layer, so that a
+        LTDC_LayerCfgTypeDef c = hltdc.LayerCfg[0];                 // later HAL_LTDC_SetAddress keeps it
+        c.PixelFormat = LTDC_PIXEL_FORMAT_ARGB4444;
+        c.Alpha = 255;
+        c.BlendingFactor1 = LTDC_BLENDING_FACTOR1_CA;
+        c.BlendingFactor2 = LTDC_BLENDING_FACTOR2_CA;
+        HAL_LTDC_ConfigLayer(&hltdc, &c, 0);
+    }
     __set_BASEPRI(old);
     v->fb = PageTable[0].address;
     v->width = PageTable[0].xmax;
     v->height = PageTable[0].ymax;
     v->copies = PageTable[0].expand ? 2 : 1;                        // (a doubled mode's page holds each line twice: Draw.c)
     v->bpp = depth;
-    v->pitch = v->width * (depth / 8) * v->copies;
+    v->pitch = v->width * (lay / 8) * v->copies;
     memset(v->fb, 0, v->pitch * v->height);                         // (the same mode again is not cleared by setmode)
     return 0;
 }
