@@ -2,7 +2,7 @@
 
 This is atari800, the Atari800 development team's emulator of the Atari 400 and 800, the XL and XE computers and the 5200 console. It starts as an 800XL with 64K, runs at the Atari's own 50 frames a second (PAL), in MODE 7, and has the emulator's own menus.
 
-It has been tried on a Generation 2 only so far.
+It runs on the Generation 1 and the Generation 2.
 
 ## Starting It
 

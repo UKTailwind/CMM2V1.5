@@ -28,7 +28,7 @@ Copy the new CMM2_Programs_7.00.00RC4.zip to the card as well: atari800 is new, 
 [CODE]CHDIR "A:/atari800"
 RUN "atari800.app"[/CODE]
 
-  It has been tried on a Generation 2 only so far.
+  It runs on the Generation 1 and the Generation 2.
 
 • [B]The Commodore 64 emulator,[/B] added to RC3's zip on 8 November, is in this zip too: frank-c64, a PAL C64 with its 1541 disk drive, in the folder c64.
 
@@ -56,6 +56,7 @@ RUN "atari800.app"[/CODE]
 On a Generation 2 unless it says otherwise:
 
 • atari800: Altirra's own test suite for emulators, Acid800, gives the same result on the Colour Maximite 2 as atari800 on a PC, test for test. BASIC with Altirra's ROMs and with Atari's; a program (.xex), a disk image (.atr), an 8K cartridge (.car) and a 5200 cartridge (Acid5200); a tape saved with CSAVE and loaded back with CLOAD; boot tapes, fast and at real speed. Two USB gamepads, one pad's two sticks in a twin-stick game, and the mouse as paddles. Sound, the keyboard and the menus.
+• atari800 on a Generation 1: Acid800, test for test the same as on the Generation 2; a program, a disk image, a cartridge, two boot tapes, BASIC and the menu, at the Atari's full 50 frames a second with about half the processor spare.
 • zeptoforth 1.17.2: its 108 double-precision checks, the solar eclipse program's output identical to MMBasic's byte for byte, and the checks of its Colour Maximite 2 words (files, graphics, the documentation and a stress test), all passed.
 • OPTION PICOMITE set in a program, with the option saved and not saved: MM.DEVICE$ during and after, and OPTION LIST.
 • gamepad_axes with a DualShock 3 and a DualShock 4.
