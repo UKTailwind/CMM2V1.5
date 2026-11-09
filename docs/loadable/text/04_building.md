@@ -82,8 +82,9 @@ The table of services only grows: each version of the firmware keeps the entries
 | 14 | The com_ services reach COM4 to COM7, the USB serial devices. |
 | 15 | Whether a port's device is there (com_connected). |
 | 16 | All of a gamepad's axes: both sticks and the analogue triggers (gamepad_axes). |
+| 17 | video_mode and video_scaled take depth 12: ARGB4444 on one layer. |
 
-Firmware 7.00.00RC3 has version 15, and 7.00.00RC4 version 16. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
+Firmware 7.00.00RC3 has version 15, 7.00.00RC4 version 16, and the firmware after it version 17. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
 
 ```
 if(cmm2->version >= 4) cmm2->con_screen(0);

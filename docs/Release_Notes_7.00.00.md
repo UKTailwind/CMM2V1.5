@@ -33,6 +33,7 @@ You can go back to an earlier firmware the same way, should you need to.
 
 - A file ending .APP is a program written in C or C++ and compiled for the processor: `RUN "name.app" [, words]` runs it, at the full speed of the processor, and MMBasic carries on when it ends (at the prompt, or with the BASIC program's next statement), tidying up after it.
 - It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
+- Services version 17: video_mode and video_scaled take depth 12, a screen of 4,096 colours as ARGB4444 on one layer (a pixel 0x0RGB), at the cost of depth 16.
 - MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse), a NES emulator (frank-nes, with two free games) and Heretic (with its shareware episode) come with the firmware, in CMM2_Programs_7.00.00RC2.zip.
 - A VT100 terminal (vt100.app) makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer, on COM1, COM2 or a USB serial device. The manual Colour_Maximite_2_App_User_Guide.pdf covers all these programs.
 - Quake (quake.app, on a Generation 2) is id Software's game with its shareware episode, at about 53 frames a second with the sound on. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
