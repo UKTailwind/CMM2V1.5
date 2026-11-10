@@ -32,6 +32,9 @@ DEFINES = ['M68K_NO_BUS_ERROR_TRAP',            # no setjmp at each entry to the
            'AMIGA_ROW_DONE_ALL',                # each finished row to pamiga_cmm2.c's row_done (patches/0001)
            'AMIGA_ROW_RING=4',                  # Denise's rows made in a ring of 4 in the AXI RAM (patches/0001), not 288
            'AMIGA_FAST_FETCH',                 # the 68000's opcodes read inline from plain memory (patches/0001)
+           'AMIGA_SPRITE_IDX',                 # sprite-covered lowres pixels by the line's index caches (patches/0001)
+           'AMIGA_BLIT_STORE',                 # blits store D without reading it first (patches/0001)
+           'AMIGA_FAST_SPREAD',                # spread_planes' lowres doubling by lane masks (patches/0001)
            'AMIGA_SINGLE_CORE',                # Denise's stages' atomics relaxed: no DMBs (patches/0001; one core)
            'AMIGA_NTSC_OPTION',                 # amiga_config_t's ntsc: an NTSC Agnus (patches/0001; pamiga_cmm2.c's default)
            'SLICE_CC=32']                       # the copper and the 68000 take turns each 32 colour clocks, not 16: half the

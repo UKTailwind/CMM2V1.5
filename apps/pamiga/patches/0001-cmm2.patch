@@ -89,6 +89,39 @@ index 4b59e2a..4ad6323 100644
 +extern amiga_bank_t amiga_banks[256];
 +#endif
  bool     cia_keyboard_handshake(void);              // true once the CPU acknowledged
+diff --git a/src/amiga/blitter.c b/src/amiga/blitter.c
+index 6e8f240..768f0d4 100644
+--- a/src/amiga/blitter.c
++++ b/src/amiga/blitter.c
+@@ -98,9 +98,16 @@ AMIGA_HOT static uint32_t area_blit(void) {
+                 // language screen copies and clears the same 40,000 words every
+                 // frame, 89% of them unchanged).
+                 uint8_t *d = cr + (pt[BD] & cm);
++#ifdef AMIGA_BLIT_STORE
++                // CMM2: chip RAM is in the SDRAM behind a write-back cache:
++                // reading the word first cost a line fill, where stores alone
++                // stream (Arte: half a blit's time in those fills).
++                memcpy(d, &v, 2);
++#else
+                 uint16_t o;
+                 memcpy(&o, d, 2);
+                 if (o != v) memcpy(d, &v, 2);
++#endif
+                 pt[BD] += inc;
+                 if (copy && y == h - 1 && x == w - 1) adat = __builtin_bswap16(v);
+             }
+@@ -138,7 +145,11 @@ AMIGA_HOT static uint32_t area_blit(void) {
+             if (dofill) d = fill(d, &carry, excl);
+             if (d) z = false;
+             if (useD) {                     // as above: an unchanged word is not written
++#ifdef AMIGA_BLIT_STORE
++                chip_ww(pt[BD], d);
++#else
+                 if (chip_rw(pt[BD]) != d) chip_ww(pt[BD], d);
++#endif
+                 pt[BD] += inc;
+             }
+             mask = 0xFFFF;
 diff --git a/src/amiga/custom.c b/src/amiga/custom.c
 index 3e03846..b716c38 100644
 --- a/src/amiga/custom.c
@@ -119,7 +152,7 @@ index 3e03846..b716c38 100644
      amiga_update_ipl();
  }
 diff --git a/src/amiga/denise.c b/src/amiga/denise.c
-index 74c845d..bf668d9 100644
+index 74c845d..3332124 100644
 --- a/src/amiga/denise.c
 +++ b/src/amiga/denise.c
 @@ -48,6 +48,13 @@
@@ -136,7 +169,16 @@ index 74c845d..bf668d9 100644
  #ifdef DENISE_DEBUG
  #include <stdio.h>
  #endif
-@@ -110,6 +117,9 @@ static int      r_h;                      // output: rendered up to this colour
+@@ -104,12 +111,18 @@ static bool     spl_dirty;                  // spl[] is stale: compose before th
+ #define PF_RING 4
+ static uint8_t  pf_ring[PF_RING][PF_SIZE];
+ static uint8_t *pf_f = pf_ring[0], *pf_o = pf_ring[0];
++#ifdef AMIGA_FAST_SPREAD
++static int pf_hi;                       // CMM2: pf_f written below this, this line (zeros above)
++#endif
+ static uint8_t  spl[SPL_SIZE];
+ static int      spl_lo, spl_hi;           // dirty range of spl[]
+ static int      r_h;                      // output: rendered up to this colour clock
  static bool     vwin;
  static amiga_row_t *fbrow;              // row being written, or NULL
  static amiga_row_t *fbdest;             // overlay row: where fbrow (the scratch) goes at line end
@@ -146,7 +188,73 @@ index 74c845d..bf668d9 100644
  static amiga_row_t  scratch_row;
  static int          ov_y0[2], ov_y1[2]; // amiga_set_overlay_rows
  static int          fb_x0 = AMIGA_FB_X0_CENTRE;            // DIW x of column 0, this line
-@@ -437,6 +447,9 @@ AMIGA_HOT static void w_begin(amiga_row_t *row, int mode, int field) {
+@@ -262,6 +275,9 @@ AMIGA_HOT static void dma_unit(int k) {
+ // eight pixels at a time, one byte of every plane through spread8.
+ AMIGA_HOT static void spread_planes(const uint16_t wd[6][4], int np, int first, int step, int pos, bool hires) {
+     if (hires) {
++#ifdef AMIGA_FAST_SPREAD
++        if (pos + 32 > pf_hi) pf_hi = pos + 32;
++#endif
+         for (int j = 0; j < 2; j++, pos += 16) {
+             if (pos < 0 || pos + 16 > PF_SIZE) continue;
+             for (int s = 8, o = 0; s >= 0; s -= 8, o += 8) {
+@@ -277,6 +293,30 @@ AMIGA_HOT static void spread_planes(const uint16_t wd[6][4], int np, int first,
+         }
+     } else {
+         if (pos < 0 || pos + 32 > PF_SIZE) return;
++#ifdef AMIGA_FAST_SPREAD
++        // CMM2: each byte twice by 16-bit lane masks (bytes 0 and 2, 1 and 3),
++        // both bytes of a plane's word in one pass, the groups in registers; and
++        // stored, not ORed, above the line's high-water mark (pf_f is zeros
++        // there): the same bytes as below, a third of the instructions (15% of
++        // a frame was this function).
++        uint32_t h0 = 0, h1 = 0, l0 = 0, l1 = 0;
++        for (int p = first; p < np; p += step) {
++            const uint32_t w = wd[p][0];
++            const uint32_t *th = spread8[w >> 8], *tl = spread8[w & 0xFF];
++            h0 |= th[0] << p; h1 |= th[1] << p;
++            l0 |= tl[0] << p; l1 |= tl[1] << p;
++        }
++        uint32_t o8[8];
++#define DBL(q, i) do { uint32_t a_ = (q) & 0x00FF00FFu, b_ = ((q) >> 8) & 0x00FF00FFu; a_ |= a_ << 8; b_ |= b_ << 8; \
++                       o8[i] = (a_ & 0xFFFFu) | (b_ << 16); o8[(i) + 1] = (b_ & 0xFFFF0000u) | (a_ >> 16); } while (0)
++        DBL(h0, 0); DBL(h1, 2); DBL(l0, 4); DBL(l1, 6);
++#undef DBL
++        uint8_t *d = pf_f + pos;
++        if (pos >= pf_hi) memcpy(d, o8, 32);
++        else for (int k = 0; k < 8; k++) or32(d + 4 * k, o8[k]);
++        if (pos + 32 > pf_hi) pf_hi = pos + 32;
++        return;
++#endif
+         for (int s = 8, o = 0; s >= 0; s -= 8, o += 16) {
+             uint32_t q[2] = { 0, 0 };
+             for (int p = first; p < np; p += step) {
+@@ -299,6 +339,9 @@ AMIGA_HOT static void spread_planes(const uint16_t wd[6][4], int np, int first,
+ // Super-hires: a plane's four words (64 pixels) at pf position pos, 32 entries.
+ AMIGA_HOT static void spread_shres(const uint16_t wd[6][4], int np, int first, int step, int pos) {
+     if (pos < 0 || pos + 32 > PF_SIZE) return;
++#ifdef AMIGA_FAST_SPREAD
++    if (pos + 32 > pf_hi) pf_hi = pos + 32;
++#endif
+     for (int k = 0; k < 8; k++) {
+         uint32_t v = 0;
+         for (int p = first; p < np; p += step) {
+@@ -405,7 +448,14 @@ static uint8_t  ilut[64];
+ // Hires IDX8 row whose palette starts with lut[0..15] as entries 0..15 (w_begin)
+ // and whose LUT has not changed since: a pf value is its own index.
+ static bool     ilut_ident;
++#ifdef AMIGA_SPRITE_IDX
++// CMM2: sprite colour (COLOR16-31) -> palette index of the row being written,
++// as ilut is by pf value; reset with it, an entry when its colour changes.
++static uint8_t  sidx[16];
++AMIGA_HOT static void ilut_reset(void) { fill_bytes(ilut, 0xFF, (int)sizeof ilut); fill_bytes(sidx, 0xFF, (int)sizeof sidx); ilut_ident = false; }
++#else
+ AMIGA_HOT static void ilut_reset(void) { fill_bytes(ilut, 0xFF, (int)sizeof ilut); ilut_ident = false; }
++#endif
+ 
+ AMIGA_HOT static void build_lut(void) {
+     for (int v = 0; v < 64; v++) {
+@@ -437,6 +487,9 @@ AMIGA_HOT static void w_begin(amiga_row_t *row, int mode, int field) {
      w_mode = mode; w_field = field; w_n = 0;
      w_base = mode == AMIGA_ROW_LACE4 ? 16 * field : 0;
      w_max = mode == AMIGA_ROW_LACE4 ? 16 : 64;
@@ -156,7 +264,102 @@ index 74c845d..bf668d9 100644
      if (mode == AMIGA_ROW_LACE4 && row->mode != AMIGA_ROW_LACE4) {
          // Entering interlace: the other field's line is unknown until it is drawn.
          int o = field ^ 1;
-@@ -818,7 +831,15 @@ AMIGA_HOT static void c_line_start(uint32_t seq) {
+@@ -519,6 +572,51 @@ AMIGA_HOT static void w_fill(int a, int b, uint16_t c) {
+     for (int x = a; x < b; x++) row->px.rgb[x] = c;
+ }
+ 
++#ifdef AMIGA_SPRITE_IDX
++// CMM2: the low resolution pixels sprites cover, into an IDX8 row, through the
++// line's index caches (ilut by pf value, sidx by sprite colour), not a colour
++// and the 4096-entry map each (w_put): a value or sprite colour first met goes
++// through w_index as before, so the same indices come in the same order. The
++// column it stopped at: wb, or the first whose colour finds the palette full
++// (w_put's path then makes the row DIRECT there, as before). A DIRECT row (more
++// colours on the line than its palette holds: copper colour changes) takes each
++// colour as w_put stores it, without a call a pixel. Arte (Sanity), its sprites
++// over most of the screen and its rows DIRECT: 13% of a frame in w_put.
++AMIGA_HOT static int sprite_lores_idx8(int wa, int wb, int f0) {
++    amiga_row_t *row = fbrow;
++    if (w_mode == AMIGA_ROW_DIRECT) {
++        uint16_t *d = row->px.rgb - f0;
++        for (int x = wa; x < wb; x++) {
++            const uint8_t v = pf_o[2 * x];
++            d[x] = sprite_mix(x, lut[v], lut_pf[v]);
++        }
++        return wb;
++    }
++    if (w_mode != AMIGA_ROW_IDX8) return wa;
++    uint8_t *d = row->px.idx - 2 * f0;
++    const int pri1 = bplcon2 & 7, pri2 = (bplcon2 >> 3) & 7;
++    for (int x = wa; x < wb; x++) {
++        const uint8_t v = pf_o[2 * x], sp = spl[x], which = lut_pf[v];
++        int i;
++        if ((sp & 0x80) && (!which || ((sp >> 4) & 3) < (which == 1 ? pri1 : pri2))) {   // (sprite_mix's test)
++            i = sidx[sp & 15];
++            if (i & 0x80) {
++                if ((i = w_index(row, color[16 + (sp & 15)])) < 0) return x;
++                sidx[sp & 15] = (uint8_t)i;
++            }
++        } else {
++            i = ilut[v];
++            if (i & 0x80) {
++                if ((i = w_index(row, lut[v])) < 0) return x;
++                ilut[v] = (uint8_t)i;
++            }
++        }
++        d[2 * x] = d[2 * x + 1] = (uint8_t)i;
++    }
++    return wb;
++}
++#endif
++
+ // Window pixels [x0, x1) without sprites (DIW coordinates, already clipped to
+ // the framebuffer): the common case, kept free of per-pixel colour lookups.
+ AMIGA_HOT static void w_plain(int x0, int x1, bool hires) {
+@@ -629,7 +727,11 @@ AMIGA_HOT static void output(int x0, int x1) {
+     if (tail < wb) { w_plain(tail, wb, hires); wb = tail; }
+     if (!hires) {
+         {
++#ifdef AMIGA_SPRITE_IDX
++            for (int x = sprite_lores_idx8(wa, wb, f0); x < wb; x++) {
++#else
+             for (int x = wa; x < wb; x++) {
++#endif
+                 uint8_t v = pf_o[2 * x];
+                 uint16_t c = sprite_mix(x, lut[v], lut_pf[v]);
+                 w_put(x - f0, c, c);
+@@ -637,7 +739,20 @@ AMIGA_HOT static void output(int x0, int x1) {
+         }
+     } else {
+         {
++#ifdef AMIGA_SPRITE_IDX
++            int x = wa;
++            if (w_mode == AMIGA_ROW_DIRECT) {                // (CMM2: w_put's DIRECT store, without the call)
++                uint16_t *d = fbrow->px.rgb - f0;
++                for (; x < wb; x++) {
++                    const uint8_t v0 = pf_o[2 * x], v1 = pf_o[2 * x + 1];
++                    const uint16_t c0 = sprite_mix(x, lut[v0], lut_pf[v0]), c1 = sprite_mix(x, lut[v1], lut_pf[v1]);
++                    d[x] = c0 == c1 ? c0 : avg(c0, c1);
++                }
++            }
++            for (; x < wb; x++) {
++#else
+             for (int x = wa; x < wb; x++) {
++#endif
+                 uint8_t v0 = pf_o[2 * x], v1 = pf_o[2 * x + 1];
+                 w_put(x - f0, sprite_mix(x, lut[v0], lut_pf[v0]), sprite_mix(x, lut[v1], lut_pf[v1]));
+             }
+@@ -808,6 +923,9 @@ AMIGA_HOT static void f_line_start(uint32_t seq) {
+     a_line_start(&fetch_st);
+     pf_f = pf_ring[seq % PF_RING];
+     clear_bytes(pf_f, PF_SIZE);
++#ifdef AMIGA_FAST_SPREAD
++    pf_hi = 0;
++#endif
+ }
+ 
+ // Output stage: line `seq`.
+@@ -818,7 +936,15 @@ AMIGA_HOT static void c_line_start(uint32_t seq) {
      ham_in = false;
      fb_x0 = fb_x0_next;
      int row = c_vpos - fb_y0;
@@ -172,7 +375,7 @@ index 74c845d..bf668d9 100644
      fbdest = NULL;
      if (fbrow && ((row >= ov_y0[0] && row < ov_y1[0]) || (row >= ov_y0[1] && row < ov_y1[1]))) {
          // Built off-screen (the interlace writer keeps the other field: start
-@@ -854,6 +875,15 @@ AMIGA_HOT static void c_line_finish(void) {
+@@ -854,6 +980,15 @@ AMIGA_HOT static void c_line_finish(void) {
              fbrow = fbdest;
              fbdest = NULL;
          }
@@ -188,6 +391,16 @@ index 74c845d..bf668d9 100644
      }
  }
  
+@@ -891,6 +1026,9 @@ AMIGA_HOT static void c_apply(uint32_t reg, uint16_t v) {
+         lut[n] = c;
+         lut[n + 32] = (uint16_t)((c >> 1) & 0x777);
+         ilut[n] = ilut[n + 32] = 0xFF;
++#ifdef AMIGA_SPRITE_IDX
++        if (n >= 16 && n < 32) sidx[n - 16] = 0xFF;
++#endif
+         if (n < 16) ilut_ident = false;
+         return;
+     }
 diff --git a/src/amiga/mem.c b/src/amiga/mem.c
 index 0277408..2abecb3 100644
 --- a/src/amiga/mem.c
