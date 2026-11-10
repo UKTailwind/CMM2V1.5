@@ -1,7 +1,7 @@
 /* MmbrunImage.c: mmbrun, bcrun with the BASIC runtime, as the firmware carries it in bank 2's flash (Peter, 4 Nov 2026:
    a compiled program then needs nothing on the card), linked for the place the link script's .xip gives it
    (cmm2img.h), where Loader.c runs it. Made by apps/cc/make.py from apps/cc/out/mmbrunx.bin, built
-   from Peter's Fuzix fork, branch cmm2, at 2ae0eebef:
+   from Peter's Fuzix fork, branch cmm2, at d3c006fbe:
    do not edit, but run make.py and build the firmware again. bcrun is the runtime of the Fuzix Compiler Kit's
    PC3 target, not under the compiler's GPLv3 (the kit's README). */
 #include <stdint.h>
