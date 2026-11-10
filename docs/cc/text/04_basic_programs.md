@@ -30,6 +30,7 @@ Some things are refused with an error that names the line:
 
 - LONGSTRING AES128 and the LONGSTRING BASE64 forms;
 - STRUCT SORT, SAVE, LOAD, PRINT, EXTRACT and INSERT, STRUCT(FIND), a function that returns a structure, and arrays of structures as parameters;
+- an array of structures whose size can change: one that is REDIMmed, or DIMmed with bounds that are not constants (the error is "an array of a TYPE needs constant bounds", at its DIM);
 - a GOSUB inside a SUB to a label in the main program;
 - RESTART, and the SAVE and RESTORE forms of a few drawing commands.
 

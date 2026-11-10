@@ -33,8 +33,8 @@ CC = os.path.join(SRC, 'Applications', 'CC')
 CPP = os.path.join(SRC, 'Applications', 'cpp')
 OUT = os.path.join(HERE, 'out')
 URL = 'https://github.com/UKTailwind/FUZIX'
-COMMIT = 'd3c006fbe5f0d36a73af204977ea248242ab76ed'   # branch cmm2, 10 Nov 2026: a FOR ... NEXT in a single-line IF
-                                                       # (FUZIX #44); from pc3's 6d662a677
+COMMIT = '552517b0a7c049d1277b0c0d4b5df9e05db13036'   # branch cmm2, 10 Nov 2026: a FOR ... NEXT in a single-line IF
+                                                       # (FUZIX #44), MODE n the firmware's; from pc3's 6d662a677
 SPARSE = ['Applications/CC', 'Applications/cpp', 'Applications/mmb2c', 'Library/libs/fnum.c']
 
 # the passes: their sources (Makefile.common and Makefile.host's lists) and flags (the host build's: tables as big as
