@@ -19,16 +19,17 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | Commodore 64 | A C64 emulator, with its 1541 disk drive | A:/c64 |
 | Atari 8-bit | The Atari 400/800, XL/XE and 5200 emulator atari800 | A:/atari800 |
 | Apple //e | An Apple //e emulator, with two Disk II drives | A:/apple2 |
+| Amiga 500 | An Amiga 500 emulator, with your own Kickstart and disks | A:/amiga |
 | 386 PC | A PC that runs FreeDOS, MS-DOS, Windows 3.1 and Windows 95 | A:/pc386 |
 | C compiler | Compiles C and MMBasic programs on the machine itself | A:/cc |
 | VT100 terminal | Makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer | A:/vt100 |
 | zeptoforth | A Forth with tasks, double precision and a screen editor | A:/zeptoforth |
 
-All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each, and Quake, which needs a Generation 2.
+All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each, and Quake and the Amiga, which need a Generation 2.
 
 ## Installing the Programs
 
-The programs are in the file CMM2_Programs_7.00.00RC4.zip, which is posted with the firmware.
+The programs are in the file CMM2_Programs_7.00.00RC5.zip, which is posted with the firmware.
 
 1. Update the firmware first. Some of these programs need the firmware of the same release.
 

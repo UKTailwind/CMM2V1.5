@@ -23,13 +23,13 @@ MANUAL = os.path.join(ROOT, 'docs', 'manual', 'Colour_Maximite_2_User_Manual.doc
 DIR = os.path.join(ROOT, 'docs', 'loadable')
 OUT = os.path.join(DIR, 'Colour_Maximite_2_Loadable_Programs.docx')
 NAME = 'Colour Maximite 2 Loadable Programs'
-FIRMWARE = '7.00.00RC4'
-DATE = '9 November 2026'
+FIRMWARE = '7.00.00RC5'
+DATE = '10 November 2026'
 
 TITLE = {                                               # the title page: its paragraphs by their start
     'User Manual': 'Loadable Programs',
     'MMBasic Ver': 'Programs in C and C++',
-    'Matches firmware': 'For firmware %s (services version 16)' % FIRMWARE,
+    'Matches firmware': 'For firmware %s (services version 18)' % FIRMWARE,
     'Geoff Graham': 'Peter Mather',
     'For updates to this manual': 'The firmware, this guide and the tools that build a program are at',
     'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
@@ -179,7 +179,7 @@ CC = {                                                  # guide.py cc: the C com
     'DIR': os.path.join(ROOT, 'docs', 'cc'),
     'OUT': os.path.join(ROOT, 'docs', 'cc', 'Colour_Maximite_2_C_Compiler.docx'),
     'NAME': 'Colour Maximite 2 C Compiler',
-    'DATE': '7 November 2026',
+    'DATE': '10 November 2026',
     'TITLE': {
         'User Manual': 'C Compiler',
         'MMBasic Ver': 'Compiling C and MMBasic programs on the Colour Maximite 2',
@@ -207,17 +207,17 @@ APPS = {                                                # guide.py apps: all the
     'DIR': os.path.join(ROOT, 'docs', 'apps'),
     'OUT': os.path.join(ROOT, 'docs', 'apps', 'Colour_Maximite_2_App_User_Guide.docx'),
     'NAME': 'Colour Maximite 2 App User Guide',
-    'DATE': '9 November 2026',
+    'DATE': '10 November 2026',
     'TITLE': {
         'User Manual': 'App User Guide',
         'MMBasic Ver': 'The programs that come with the Colour Maximite 2',
-        'Matches firmware': 'For firmware 7.00.00RC3 and later',
+        'Matches firmware': 'For firmware 7.00.00RC5 and later',
         'Geoff Graham': 'Peter Mather',
         'For updates to this manual': 'The firmware, the programs and this guide are at',
         'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
     },
     'ABOUT': ('This guide is for anyone using the programs that come with the Colour Maximite 2: MicroPython, Doom, '
-              'Heretic, Quake, ScummVM, the NES, ZX Spectrum, Amstrad CPC, Commodore 64, Atari 8-bit and Apple //e emulators, '
+              'Heretic, Quake, ScummVM, the NES, ZX Spectrum, Amstrad CPC, Commodore 64, Atari 8-bit, Apple //e and Amiga 500 emulators, '
               'the 386 PC, the C compiler, the VT100 terminal and zeptoforth. It covers installing each one, starting it, its '
               'keys and leaving it. It assumes you can use the MMBasic command prompt and copy files to the SD card.'),
     'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '

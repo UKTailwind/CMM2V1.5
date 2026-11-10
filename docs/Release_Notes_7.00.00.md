@@ -1,6 +1,6 @@
-# Colour Maximite 2: MMBasic 7.00.00RC4 (release candidate) release notes, from 5.07.02
+# Colour Maximite 2: MMBasic 7.00.00RC5 (release candidate) release notes, from 5.07.02
 
-*9 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC3, have notes of their own.*
+*10 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC4, have notes of their own.*
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
@@ -8,7 +8,7 @@ The betas added USB touch screens, with the GUI controls, gestures and an on-scr
 
 This release also takes in Gerry Allardice's work on the 6.00.00 betas (up to 6.00.00b14): his fixes, and the PicoMite features he had brought across.
 
-This is the fifth release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
+This is the sixth release candidate: unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum. The parts that have not yet been tested with real hardware are listed below; reports from people who have that hardware will help most.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -34,11 +34,13 @@ You can go back to an earlier firmware the same way, should you need to.
 - A file ending .APP is a program written in C or C++ and compiled for the processor: `RUN "name.app" [, words]` runs it, at the full speed of the processor, and MMBasic carries on when it ends (at the prompt, or with the BASIC program's next statement), tidying up after it.
 - It uses the computer through services the firmware gives it: the console, files, the screen, the keyboard and mouse, sound, the FM synthesiser and the I/O pins.
 - Services version 17: video_mode and video_scaled take depth 12, a screen of 4,096 colours as ARGB4444 on one layer (a pixel 0x0RGB), at the cost of depth 16.
+- Services version 18: dma2d_copy_nc, a DMA2D copy that does not write its source back from the cache first. The sound stream goes to the DACs by DMA, with no interrupt for each sample, and build.py's --axi and --itcm put a Generation 2 program's hottest code and data in the processor's AXI RAM and in the ITCM above the firmware's code, which the firmware keeps free.
 - MicroPython (as on the Pico Computer 3), Doom (with Freedoom), ScummVM (for classic adventure games) and pc386 (a 386 PC, tiny386 by Chunhui He, which runs FreeDOS, MS-DOS and Windows 3.1 with VGA graphics, a Sound Blaster 16 and a mouse), a NES emulator (frank-nes, with two free games) and Heretic (with its shareware episode) come with the firmware, in CMM2_Programs_7.00.00RC2.zip.
 - A VT100 terminal (vt100.app) makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer, on COM1, COM2 or a USB serial device. The manual Colour_Maximite_2_App_User_Guide.pdf covers all these programs.
 - Quake (quake.app, on a Generation 2) is id Software's game with its shareware episode, at about 53 frames a second with the sound on. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
 - zeptoforth 1.17.2 (zeptoforth.app, and zeptoforth_g1.app on a Generation 1) is Travis Bemann's Forth, with preemptive tasks, double precision and the zeptoed editor, on the VT100 terminal's console. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
 - A Commodore 64 (c64.app: frank-c64, a PAL C64 with its 1541 disk drive) and the Atari 8-bit computers and 5200 (atari800.app: atari800 7.2.1, with AltirraOS and Altirra BASIC built in) are emulated. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on each.
+- An Apple //e (apple2.app: frank-apple, from Michel Pollet's MII, with its ROMs built in) and, on a Generation 2, an Amiga 500 (amiga.app: pico-amiga, with Karl Stenerud's Musashi 68000, a PAL Amiga at its own 50 frames a second in 720 x 576 with its sound, and a menu of the card's disks on F11) are emulated. The Amiga needs a Kickstart ROM and disk images of the user's own, which do not come with it: Cloanto's Amiga Forever is the legal way to get them. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on each.
 - A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 - The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
 
@@ -130,6 +132,7 @@ The SD card is both A: and B:, so PicoMite programs that name B: work. COPY and 
 
 ### Graphics
 
+- MODE 8 is 640 x 480 at 60Hz, the standard VGA timing (it was 75Hz), and its GETSCANLINE counts to 524.
 - MODE 19: 640 x 512, the monitor's 1280 x 1024 at 60 Hz at half the pixel clock, each line shown twice, so that any monitor that takes 1280 x 1024 places it; in every colour depth but 4-bit, and as OPTION DEFAULT MODE 19.
 - MODE n,4: a 4-bit colour depth that gives the PicoMite's 16 colour display, with its FRAMEBUFFER, layers and PEEK/POKE addresses, so that PicoMite games run.
 - MODE n,1: a 1-bit colour depth, the PicoMite's MODE 1, with coloured tiles 8 pixels wide: TILE, TILE RESET, TILE HEIGHT and MM.INFO(TILE HEIGHT).
@@ -283,6 +286,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 ## What behaves differently
 
+- MODE 8 runs at 60Hz (it was 75Hz), so a program that times itself by the frame in MODE 8 (with MODE's frame interrupt or GETSCANLINE) runs at 60 frames a second.
 - OPTION OVERCLOCK ON runs an original Colour Maximite 2 whose processor is of revision Y at 480MHz, in place of 400MHz, and gives an error on other machines, which run at 480MHz already. It no longer runs a machine at 504MHz, beyond the processor's ratings: that stopped a Generation 1 from responding.
 - FILES lists the files, as LIST FILES does; FM is the file manager.
 - The editor's keys are the PicoMite's.
@@ -312,7 +316,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
   - SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 - One mouse is used at a time.
-- MM.VER is 7.000099 for 7.00.00 (it is 7.000054 for RC4). A release counts as 99 in the last two digits, so it is above every beta and release candidate of the same version: a program that asks for MM.VER >= 7.000051 runs on it.
+- MM.VER is 7.000099 for 7.00.00 (it is 7.000055 for RC5). A release counts as 99 in the last two digits, so it is above every beta and release candidate of the same version: a program that asks for MM.VER >= 7.000051 runs on it.
 - Modes 1 and 13 are 800 x 600 at 75Hz (they were 60Hz), and most modes' pixel clocks moved by up to 0.42%.
 - In the 16 and 32-bit colour depths full white is 7/8 of the old level (3/4 with OPTION VGA OUTPUT LOW), as in the 8-bit depth.
 - A variable can have the name of a command, so a program that used a name before it became a command (FLASH, STAR, LOCATION) runs as it did: at the start of a statement, `name = value` (or `name$`, `name%` or `name!`) assigns to the variable. The exceptions are TIMER, TIME$, DATE$, FLAGS and CASE, where `NAME =` is the command itself, and REM, RUN and DATA. An array cannot have a command's name, and a name that is also a keyword or a function (FOR, GOTO, SIN) is still not allowed.
@@ -529,6 +533,7 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 - In pc386, a program protected by a check of its original floppy disk (Lemmings is one) does not run from a disk image.
 - In atari800, with its SIO patch off, a tape with a program file after its boot loader stops with a checksum error under AltirraOS (Atari's XL operating system loads it). With the patch on, as it starts, it loads.
 - The MCP2221A USB to serial bridge loses characters above 57600 baud on a USB socket.
+- The Amiga emulator does not report collisions between sprites and the playfield, which a few games use; it shows interlaced screens a line in two; and what the Amiga writes to a disk is lost when the program ends.
 
 ## The manual
 

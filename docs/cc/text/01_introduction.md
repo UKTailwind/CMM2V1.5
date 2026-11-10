@@ -28,7 +28,7 @@ The chapter Speed has the figures.
 ## What you need
 
 - A Colour Maximite 2, Generation 1 or 2, with firmware 7.00.00RC2 or later.
-- The cc folder of CMM2_Programs_7.00.00RC4.zip, copied to the SD card as A:/cc.
+- The cc folder of CMM2_Programs_7.00.00RC5.zip, copied to the SD card as A:/cc.
 
 The firmware holds the part that runs a compiled program, so a compiled program needs nothing from the card to run. A:/cc is needed only to compile.
 
