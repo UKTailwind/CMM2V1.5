@@ -33,7 +33,21 @@ def sections(d):
     for s in secs:
         end = d.index(b'\0', strtab['offset'] + s['name'])
         s['name'] = d[strtab['offset'] + s['name']:end].decode()
+    # each section's load address (LMA): its run address but in a segment loaded elsewhere (app.ld's .axi: run in the
+    # AXI RAM, carried in the image)
+    phoff, = struct.unpack_from('<I', d, 28)
+    phentsize, phnum = struct.unpack_from('<HH', d, 42)
+    segs = [struct.unpack_from('<8I', d, phoff + i * phentsize) for i in range(phnum)]
+    for s in secs:
+        s['lma'] = s['addr']
+        for p_type, p_offset, p_vaddr, p_paddr, p_filesz, p_memsz, p_flags, p_align in segs:
+            if p_type == 1 and p_vaddr != p_paddr and p_vaddr <= s['addr'] < p_vaddr + p_memsz and s['size']:
+                s['lma'] = p_paddr + s['addr'] - p_vaddr
     return secs
+
+
+AXI = (0x24000000, 0x24080000)                  # the processor's AXI RAM: .axi's run addresses, never moved
+ITCM = (0x0000A000, 0x00010000)                 # the ITCM above the firmware's code: .itcm's, never moved
 
 
 def main():
@@ -56,13 +70,14 @@ def main():
     alloc = [s for s in secs if s['flags'] & SHF_ALLOC and s['size']]
     data = [s for s in alloc if s['type'] != SHT_NOBITS]
     bss = [s for s in alloc if s['type'] == SHT_NOBITS]
-    base = min(s['addr'] for s in data)
-    end = max(s['addr'] + s['size'] for s in data)
+    base = min(s['lma'] for s in data)
+    end = max(s['lma'] + s['size'] for s in data)
     if base & 0xFFFF:
         sys.exit('the image starts at 0x%08X: it must be linked at a multiple of 64 KB' % base)
     image = bytearray(end - base)
     for s in data:
-        image[s['addr'] - base:s['addr'] - base + s['size']] = d[s['offset']:s['offset'] + s['size']]
+        image[s['lma'] - base:s['lma'] - base + s['size']] = d[s['offset']:s['offset'] + s['size']]
+    axi = [i for i, s in enumerate(secs) if s['name'] in ('.axi', '.itcm') and s['size']]
     for s in bss:
         if s['addr'] < end:
             sys.exit('%s (0x%08X) is not above the image' % (s['name'], s['addr']))
@@ -87,10 +102,17 @@ def main():
             if kind in (R_ABS32, R_TARGET1, R_MOVW, R_MOVT) and shndx in (SHN_UNDEF, SHN_ABS):
                 skipped += 1                            # an absolute address (a register, say), or an undefined weak: 0
                 continue
+            if kind in (R_ABS32, R_TARGET1, R_MOVW, R_MOVT) and shndx in axi:
+                skipped += 1                            # an address in the AXI RAM (.axi's): it stays where it is
+                continue
+            off = target['lma'] + off - target['addr']  # (where the place is in the image: .axi's are at its start)
             if not base <= off < end:
                 failed.append('%s: offset 0x%08X outside the image' % (s['name'], off))
             elif kind in (R_ABS32, R_TARGET1):
                 word, = struct.unpack_from('<I', image, off - base)
+                if AXI[0] <= word < AXI[1] or ITCM[0] <= word < ITCM[1]:
+                    skipped += 1                        # (one against a symbol of .axi's or .itcm's, a section's symbol say)
+                    continue
                 if not base <= word <= bss_end:
                     print('warning: %s+0x%X holds 0x%08X, outside the image' % (target['name'], off - target['addr'], word))
                 relocs.add(off - base)

@@ -432,11 +432,11 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==8){
-	  pll.PLL3M = 1; //75Hz 31.385MHz (31.5 -0.37%) pixel clock, VCO 816 MHz
-	  pll.PLL3N = 102;
-	  pll.PLL3P = 26;
-	  pll.PLL3Q = 26;
-	  pll.PLL3R = 26;
+	  pll.PLL3M = 1; //60Hz 25.212MHz (25.175 +0.15%) pixel clock, VCO 832 MHz (VESA 640x480 at 60Hz: it was 75Hz, 31.385MHz,
+	  pll.PLL3N = 104; // N 102 and dividers 26, until Peter, 9 Nov 2026: a 60Hz Amiga shown frame for frame, and half the
+	  pll.PLL3P = 33;  // LTDC's reads of the SDRAM)
+	  pll.PLL3Q = 33;
+	  pll.PLL3R = 33;
 	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((0 << 4) | 1);
 	  Option.DefaultFont = gui_font;
@@ -750,18 +750,18 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.AccumulatedActiveH = 498;
 		  hltdc.Init.TotalWidth = 419;
 		  hltdc.Init.TotalHeigh = 499;
-	  } else if(VideoMode==8){ //640x480
+	  } else if(VideoMode==8){ //640x480 at 60Hz: 640+16+96+48 pixels, 480+10+2+33 lines, both syncs negative (VESA)
 	  /* USER CODE END LTDC_Init 1 */
 		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
-		  hltdc.Init.HorizontalSync = 63;
-		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 183 + Option.offsets[8];
-		  hltdc.Init.AccumulatedVBP = 18;
-		  hltdc.Init.AccumulatedActiveW = 823;
-		  hltdc.Init.AccumulatedActiveH = 498;
-		  hltdc.Init.TotalWidth = 839;
-		  hltdc.Init.TotalHeigh = 499;
+		  hltdc.Init.HorizontalSync = 95;
+		  hltdc.Init.VerticalSync = 1;
+		  hltdc.Init.AccumulatedHBP = 143 + Option.offsets[8];
+		  hltdc.Init.AccumulatedVBP = 34;
+		  hltdc.Init.AccumulatedActiveW = 783;
+		  hltdc.Init.AccumulatedActiveH = 514;
+		  hltdc.Init.TotalWidth = 799;
+		  hltdc.Init.TotalHeigh = 524;
 	  } else if(VideoMode==9){ //1024x768
 	  /* USER CODE END LTDC_Init 1 */
 		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;

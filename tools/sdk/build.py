@@ -90,6 +90,11 @@ def main():
     ap.add_argument('--fixed', action='store_true')
     ap.add_argument('--xip', action='store_true')
     ap.add_argument('--xip-base', default='0x08141000')
+    ap.add_argument('--axi', action='append', default=[])         # a source's name (no folder or extension): its code,
+                                                                    # constants and data in the AXI RAM (app.ld's .axi)
+    ap.add_argument('--itcm', action='append', default=[])        # NAME:f1,f2,... (or NAME: all its code): those
+                                                                    # functions of a source's in the ITCM above the
+                                                                    # firmware's code (app.ld's .itcm)
     ap.add_argument('--no-printf-float', dest='pfloat', action='store_false')
     ap.add_argument('--cflag', action='append', default=[])
     ap.add_argument('--cxxflag', action='append', default=[])
@@ -142,8 +147,23 @@ def main():
     open(keyfile, 'w').write(key)
     rsp = stem + '.rsp'
     open(rsp, 'w').write('\n'.join('"%s"' % o.replace('\\', '/') for o in objs) + '\n')
+    if (a.axi or a.itcm) and (a.xip or not a.g2):
+        sys.exit('--axi and --itcm are for a G2 program (--g2), not --xip: a G1 shows its display from the AXI RAM')
+    # app.ld's .itcm: each function by its section (-ffunction-sections: .text.NAME, and GCC's clones .text.NAME.part.0
+    # and the like); copied with .axi's by cmm2_axi_load
+    itcm = []
+    for spec in a.itcm:                         # (NAME alone: all its code)
+        obj, _, fns = spec.partition(':')
+        secs = ' '.join('.text.%s .text.%s.*' % (f, f) for f in fns.split(',') if f) if fns else '.text .text.*'
+        itcm.append('        */%s_????????.o(%s)\n' % (obj, secs))
+    open(os.path.join(objdir, 'cmm2itcm.ld'), 'w').write(''.join(itcm))
+    # app.ld's .axi: each object named (objname's NAME_xxxxxxxx.o) by its sections (gcc's -ffunction-sections names),
+    # its .bss too, which the image then carries as zeros (cmm2_axi_load copies them with the rest)
+    open(os.path.join(objdir, 'cmm2axi.ld'), 'w').write(''.join(
+        '        */%s_????????.o(.text .text.* .rodata .rodata.* .data .data.* .bss .bss.* COMMON)\n' % n for n in a.axi))
     layout = (['-T', os.path.join(SDK, 'xip.ld'), '-Wl,--defsym=__xip_base=' + a.xip_base] if a.xip else
-              ['-T', os.path.join(SDK, 'app.ld'), '-Wl,--defsym=__app_base=' + a.base, '-Wl,--emit-relocs'])
+              ['-T', os.path.join(SDK, 'app.ld'), '-Wl,--defsym=__app_base=' + a.base, '-Wl,--emit-relocs',
+               '-L' + objdir])
     cmd = ([GXX if cxx else GCC] + FLAGS + a.cflag + ['@' + rsp] +
            ['-nostartfiles'] + layout +
            ['-Wl,--gc-sections', '-Wl,-Map=' + stem + '.map', '-Wl,--no-warn-rwx-segments',

@@ -33,7 +33,7 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  17                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  18                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
@@ -42,7 +42,7 @@
                                                   state; 13: the USB gamepads; 14: COM4-7, the USB serial devices, by the com_ services;
                                                   15: com_connected; 16: a gamepad's right stick and analogue
                                                   triggers, gamepad_axes; 17: video_mode and video_scaled take depth
-                                                  12) */
+                                                  12; 18: dma2d_copy_nc) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
@@ -364,6 +364,12 @@ struct cmm2_services {
                                                   (0-255, 128 centred; always 128 on a pad with no sticks) and L, R
                                                   (the analogue L2 and R2, 0-255; 0 on a pad without them); -1 if no
                                                   pad is there */
+    /* version 18 (V8; Peter, 10 Nov 2026): a copy whose source the program knows is already in the SDRAM */
+    int      (*dma2d_copy_nc)(const void *src, uint32_t src_pitch, void *dst, uint32_t dst_pitch, uint32_t width,
+                              uint32_t height);   /* as dma2d_copy, but the source is not written back from the cache
+                                                  first: the program has seen to it, a dma2d_copy of the same source
+                                                  say, with no write to it since (the Amiga's rows each copied to two
+                                                  lines: the second clean was 1.5% of its time) */
 };
 
 /* the firmware's libm (services version 11): the 19 functions the PC3's kernel shares with its programs, in the

@@ -396,16 +396,33 @@ extern int nchannels;
 extern void i2convert(int16_t *ibuff, int16_t *sbuff, int count);
 static void (*ldfill)(int16_t *buf, uint32_t frames);
 
-static void ld_make(int b) {
-    int16_t *s = (int16_t *)(b == 1 ? sbuff1 : sbuff2);
+/* V8: by DMA (Audio.c's DACDMAStart), not TIM4's interrupt: dacdma's two halves of LD_FRAMES words, each DAC1's two
+   channels as the interrupt wrote them (2000 + 1900 a full sample, stm32h7xx_it.c's MOD branch), the half the DMA has
+   just played made again in PendSV (ld_dmahalf, from its interrupt). The interrupt's buffers, sbuff1 and sbuff2, are kept
+   for the frames as the program, the music and PLAY VOLUME make them */
+extern uint32_t *dacdma;
+extern void DACDMAStart(uint32_t *buf, int frames, void (*half)(int));
+static volatile uint8_t ld_dmafree[2];
+
+static void ld_make_dma(int h) {
+    int16_t *s = (int16_t *)sbuff1;
+    uint32_t *d = dacdma + h * LD_FRAMES;
     ldfill(s, LD_FRAMES);
     OPLStreamMix(s, LD_FRAMES);
     i2convert(s, s, LD_FRAMES * 2);
-    bcount[b] = LD_FRAMES * 2;                                      // (last: the interrupt takes it once counted)
+    for(int i = 0; i < LD_FRAMES; i++) {
+        const int32_t l = s[2 * i], r = s[2 * i + 1];
+        d[i] = (uint32_t)(2000 + (l * 1900) / 32768) | (uint32_t)(2000 + (r * 1900) / 32768) << 16;
+    }
+    SCB_CleanDCache_by_Addr((uint32_t *)d, LD_FRAMES * 4);         // (the DMA reads the SRAM, not the cache)
 }
-void LoaderPendSV(void) {                                           // the buffer the interrupt is not playing, if empty
-    int b = swingbuf == 1 ? 2 : 1;
-    if(CurrentlyPlaying == P_STREAM && ldfill && bcount[b] == 0) ld_make(b);
+static void ld_dmahalf(int h) {                                     // (DMA1 stream 0's interrupt: half h played)
+    ld_dmafree[h] = 1;
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+}
+void LoaderPendSV(void) {                                           // the half the DMA has just played made again
+    if(CurrentlyPlaying == P_STREAM && ldfill && dacdma)
+        for(int h = 0; h < 2; h++) if(ld_dmafree[h]) { ld_dmafree[h] = 0; ld_make_dma(h); }
     if(LoaderFramePend) {                                           // and a frame's start: the program's hook (version 6)
         void (*fn)(void) = LoaderFrameFn;
         LoaderFramePend = 0;
@@ -426,7 +443,10 @@ static int ld_astart(void (*fill)(int16_t *buf, uint32_t frames)) {
     if(CurrentlyPlaying != P_NOTHING) return -2;
     sbuff1 = GetInternalMemoryNull(LD_FRAMES * 4);
     sbuff2 = GetInternalMemoryNull(LD_FRAMES * 4);
-    if(!sbuff1 || !sbuff2) { FreeMemorySafe((void **)&sbuff1); FreeMemorySafe((void **)&sbuff2); return -3; }
+    dacdma = GetInternalMemoryNull(LD_FRAMES * 8);                 // (the D2 SRAM: DMA1 reaches it)
+    if(!sbuff1 || !sbuff2 || !dacdma) {
+        FreeMemorySafe((void **)&sbuff1); FreeMemorySafe((void **)&sbuff2); FreeMemorySafe((void **)&dacdma); return -3;
+    }
     ibuff1 = (uint16_t *)sbuff1;
     ibuff2 = (uint16_t *)sbuff2;
     htim4.Init.Prescaler = (PeripheralBusSpeed / 2) / 44100 - 1;    // (as PLAY OPL sets it: OPLRate is what it gives)
@@ -440,10 +460,12 @@ static int ld_astart(void (*fill)(int16_t *buf, uint32_t frames)) {
     bcount[1] = bcount[2] = 0;
     swingbuf = 1;
     nextbuf = 2;
-    ld_make(1);
+    ld_dmafree[0] = ld_dmafree[1] = 0;
+    ld_make_dma(0);
+    ld_make_dma(1);
     CurrentlyPlaying = P_STREAM;
-    if(HAL_TIM_Base_Start_IT(&htim4) != HAL_OK) { ld_astop(); return -4; }
-    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;                             // (the second buffer)
+    DACDMAStart(dacdma, LD_FRAMES, ld_dmahalf);
+    if(HAL_TIM_Base_Start(&htim4) != HAL_OK) { ld_astop(); return -4; }   // (no interrupt: the DMA's)
     return (int)OPLRate();
 }
 static int ld_mplay(const void *midi, uint32_t size, int loop, const uint8_t *bank) {
@@ -538,13 +560,13 @@ void LoaderDMA2D(void) {                                            // the DMA2D
     if(ldjobout != ldjobin) ld_dma2dgo(ldjobout);
 }
 static int ld_dma2dbusy(void) { return (ldjobin - ldjobout + LD_JOBS) % LD_JOBS; }
-static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h) {
+static int ld_dma2dput(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h, int clean) {
     uint32_t s = (uint32_t)src, d = (uint32_t)dst, px = ((s | d | sp | dp | w) & 3) ? 2 : 4, a, next;
     if(((s | d | sp | dp | w) & 1) || sp < w || dp < w || w / px > 0x3FFF || (sp - w) / px > 0x3FFF ||
        (dp - w) / px > 0x3FFF || h > 0xFFFF) return -1;
     if(w == 0 || h == 0) return 0;
     a = s & ~31u;                                                   // the source from the cache to the SDRAM, which the DMA2D reads
-    SCB_CleanDCache_by_Addr((uint32_t *)a, (int32_t)((s - a + sp * (h - 1) + w + 31) & ~31u));
+    if(clean) SCB_CleanDCache_by_Addr((uint32_t *)a, (int32_t)((s - a + sp * (h - 1) + w + 31) & ~31u));
     if(!(RCC->AHB3ENR & RCC_AHB3ENR_DMA2DEN)) {
         __HAL_RCC_DMA2D_CLK_ENABLE();
         HAL_NVIC_SetPriority(DMA2D_IRQn, 14, 0);                    // (above the frame hook's PendSV, which may wait for it)
@@ -565,6 +587,12 @@ static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, ui
     if(idle) ld_dma2dgo(ldjobout);
     __set_PRIMASK(primask);
     return 0;
+}
+static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h) {
+    return ld_dma2dput(src, sp, dst, dp, w, h, 1);
+}
+static int ld_dma2dcopync(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h) {   // (version 18)
+    return ld_dma2dput(src, sp, dst, dp, w, h, 0);
 }
 static void ld_dma2dstop(void) {                                    // (the program's end: its copies dropped)
     if(!(RCC->AHB3ENR & RCC_AHB3ENR_DMA2DEN)) return;
@@ -1235,6 +1263,7 @@ static const struct cmm2_services ldsvc = {
     .basic_cmd = ld_basic, .gfx_target = ld_gtarget, .font_size = ld_fontsize, .font_define = ld_fontdef,
     .basic_eval = ld_eval, .sound_state = ld_soundstate, .basic_prep = ld_prep, .basic_exec = ld_exec,
     .image_resize = ld_resize, .gamepad = USBGamepadState, .com_connected = ld_comconnected, .gamepad_axes = USBGamepadAxes,
+    .dma2d_copy_nc = ld_dma2dcopync,
 };
 
 /*******************************************************************************************

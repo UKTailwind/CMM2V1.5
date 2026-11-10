@@ -139,6 +139,7 @@ int PWM_FREQ=44100;
 volatile int swingbuf = 0,nextbuf = 0, playreadcomplete = 1;
 volatile int swingbufe = 0,nextbufe = 0, playreadcompletee = 1;
 char *sbuff1=NULL, *sbuff2=NULL;
+uint32_t *dacdma = NULL;                                            // a program's sound stream's DMA buffer (DACDMAStart, Loader.c), freed by CloseAudio
 uint16_t *ibuff1, *ibuff2;
 char *sbuff1e=NULL, *sbuff2e=NULL;
 uint16_t *ibuff1e, *ibuff2e;
@@ -1298,6 +1299,7 @@ void CloseAudio(int all){
 		FreeMemorySafe((void *)&sbuff1e);
 		FreeMemorySafe((void *)&sbuff2e);
 	}
+	FreeMemorySafe((void *)&dacdma);                                // (a program's sound stream's DMA buffer: Loader.c)
 	FreeMemorySafe((void *)&buffer);
 	FreeMemorySafe((void *)&modbuff);
 	OPLClose();                                                     // PLAY OPL's synth (OPL.c)
@@ -2280,8 +2282,58 @@ Used to send data to the DAC
 /******************************************************************************************
 Stop playing the music or tone
 *******************************************************************************************/
+/* The DACs fed by DMA (V8, Peter 10 Nov 2026: "letting the app write direct to the dacs via dma"): a loadable program's
+   sound stream (Loader.c's ld_astart), not a sample at a time by TIM4's interrupt (44,100 interrupts a second through the
+   HAL: 4% of the processor in the Amiga emulator). TIM4's update event (its TRGO) triggers both channels; channel 1's DMA
+   request has DMA1 stream 0 (DMAMUX1 request 67; the firmware uses no other DMA1 stream) write each frame, both
+   channels' 12 bits right-aligned in one word (DHR12RD), from a circular buffer of two halves in the D2 SRAM (DMA1
+   reaches neither TCM); its half and full interrupts call half() with the half just played, to be made again. StopAudio
+   gives the DACs back to the software (no trigger), as MMBasic's own sounds use them, and TIM4 its TRGO */
+static void (*dacdma_half)(int half);
+static uint32_t dacdma_cr2;
+#define DACDMA_CR (DAC_CR_TSEL1 | DAC_CR_TEN1 | DAC_CR_WAVE1 | DAC_CR_MAMP1)
+void DACDMAStart(uint32_t *buf, int frames, void (*half)(int)) {
+    __HAL_RCC_DMA1_CLK_ENABLE();
+    DMA1_Stream0->CR = 0;
+    while(DMA1_Stream0->CR & DMA_SxCR_EN) {}
+    DMA1->LIFCR = 0x3D;                                             // (stream 0's flags)
+    DMAMUX1_Channel0->CCR = DMA_REQUEST_DAC1_CH1;
+    DMA1_Stream0->PAR = (uint32_t)&DAC1->DHR12RD;
+    DMA1_Stream0->M0AR = (uint32_t)buf;
+    DMA1_Stream0->NDTR = 2 * frames;
+    DMA1_Stream0->FCR = 0;                                          // (direct: a word a request)
+    DMA1_Stream0->CR = DMA_SxCR_PL_1 | DMA_SxCR_MSIZE_1 | DMA_SxCR_PSIZE_1 | DMA_SxCR_MINC | DMA_SxCR_CIRC |
+                       DMA_SxCR_DIR_0 | DMA_SxCR_TCIE | DMA_SxCR_HTIE;
+    dacdma_half = half;
+    HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, IRQ_PRI(0), 0);         // (as TIM4's was)
+    HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+    DMA1_Stream0->CR |= DMA_SxCR_EN;
+    dacdma_cr2 = TIM4->CR2;
+    TIM4->CR2 = (TIM4->CR2 & ~TIM_CR2_MMS) | TIM_CR2_MMS_1;         // TRGO: the update event
+    DAC1->CR = (DAC1->CR & ~(DACDMA_CR | DACDMA_CR << 16)) | DAC_TRIGGER_T4_TRGO | DAC_TRIGGER_T4_TRGO << 16 | DAC_CR_DMAEN1;
+}
+void DACDMAStop(void) {
+    if(dacdma_half == NULL) return;
+    DMA1_Stream0->CR &= ~(DMA_SxCR_EN | DMA_SxCR_TCIE | DMA_SxCR_HTIE);
+    while(DMA1_Stream0->CR & DMA_SxCR_EN) {}
+    DMA1->LIFCR = 0x3D;
+    HAL_NVIC_DisableIRQ(DMA1_Stream0_IRQn);
+    DAC1->CR &= ~(DAC_CR_DMAEN1 | DACDMA_CR | DACDMA_CR << 16);     // (a value written goes out at once again)
+    TIM4->CR2 = dacdma_cr2;
+    dacdma_half = NULL;
+}
+void DMA1_Stream0_IRQHandler(void) {
+    const uint32_t f = DMA1->LISR;
+    DMA1->LIFCR = f & 0x3D;
+    if(dacdma_half) {
+        if(f & DMA_LISR_HTIF0) dacdma_half(0);
+        if(f & DMA_LISR_TCIF0) dacdma_half(1);
+    }
+}
+
 void StopAudio(void) {
 
+	DACDMAStop();                                                   // (the stream's DMA first: the ramp below writes the DACs)
 	if(CurrentlyPlaying != P_NOTHING ) {
         HAL_TIM_Base_Stop_IT(&htim4);
         int l = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1) - 2000, r = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_2) - 2000;

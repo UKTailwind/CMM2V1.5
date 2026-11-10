@@ -37,6 +37,9 @@ apps/atari800/out/
 # The Apple //e (apps/apple2/make.py): frank-apple fetched at a pinned commit, and the build
 apps/apple2/frank-apple/
 apps/apple2/out/
+# The Amiga (apps/amiga/make.py): pico-amiga fetched at a pinned commit, and the build
+apps/amiga/pico-amiga/
+apps/amiga/out/
 # The terminal (apps/vt100/make.py): libvterm and Spleen fetched at pinned commits, and the build
 apps/vt100/libvterm/
 apps/vt100/spleen/

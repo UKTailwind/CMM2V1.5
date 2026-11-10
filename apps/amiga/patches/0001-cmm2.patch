@@ -1,0 +1,875 @@
+diff --git a/external/musashi/m68kcpu.h b/external/musashi/m68kcpu.h
+index a743cdb..9cf8d0e 100644
+--- a/external/musashi/m68kcpu.h
++++ b/external/musashi/m68kcpu.h
+@@ -280,7 +280,14 @@ typedef uint32 uint64;
+ #endif /* M68K_INT_GT_32_BIT || M68K_USE_64_BIT */
+ 
+ /* Simulate address lines of 68k family */
++#ifdef AMIGA_NO_ADDR_MASK
++/* CMM2: a 68000 build only, and every consumer masks again (mem.c's callbacks to
++ * 24 bits, amiga_fetch16 by its bank and mask): the load of the mask and the AND
++ * at each of the 68000's accesses dropped (about four instructions each) */
++#define ADDRESS_68K(A) (A)
++#else
+ #define ADDRESS_68K(A) ((A)&CPU_ADDRESS_MASK)
++#endif
+ 
+ 
+ /* Shift & Rotate Macros. */
+@@ -462,8 +469,26 @@ typedef uint32 uint64;
+ 
+ 
+ #if !M68K_SEPARATE_READS
++#ifdef AMIGA_FAST_FETCH
++/* CMM2: the opcode and its extension words read inline from plain memory (the
++ * memory map's banks, mem.c), not by a call to m68k_read_memory_16 each (from
++ * m68k_execute in the ITCM, through a veneer to the AXI RAM): 9% of a frame */
++#include "amiga_int.h"
++static inline unsigned amiga_fetch16(unsigned a) {
++	const amiga_bank_t *b = &amiga_banks[(a >> 16) & 0xFF];
++#ifdef AMIGA_REV16
++	if (b->rd) return amiga_be16(b->rd + (a & b->mask));
++#else
++	if (b->rd) { uint16_t v; memcpy(&v, b->rd + (a & b->mask), 2); return __builtin_bswap16(v); }
++#endif
++	return m68k_read_memory_16(a);
++}
++#define m68k_read_immediate_16(A) amiga_fetch16(A)
++#define m68k_read_immediate_32(A) ((amiga_fetch16(A) << 16) | amiga_fetch16((A) + 2))
++#else
+ #define m68k_read_immediate_16(A) m68ki_read_program_16(A)
+ #define m68k_read_immediate_32(A) m68ki_read_program_32(A)
++#endif
+ 
+ #define m68k_read_pcrelative_8(A) m68ki_read_program_8(A)
+ #define m68k_read_pcrelative_16(A) m68ki_read_program_16(A)
+@@ -1931,7 +1956,13 @@ static inline void m68ki_exception_privilege_violation(void)
+ 
+ extern jmp_buf m68ki_bus_error_jmp_buf;
+ 
++#ifdef M68K_NO_BUS_ERROR_TRAP
++/* CMM2: nothing here raises a bus error (m68k_pulse_bus_error is never called), so no setjmp at each m68k_execute:
++   the core enters it thousands of times a frame (5% of the time) */
++#define m68ki_check_bus_error_trap() 0
++#else
+ #define m68ki_check_bus_error_trap() setjmp(m68ki_bus_error_jmp_buf)
++#endif
+ 
+ /* Exception for bus error */
+ static inline void m68ki_exception_bus_error(void)
+diff --git a/src/amiga/amiga.h b/src/amiga/amiga.h
+index 934f62a..86322eb 100644
+--- a/src/amiga/amiga.h
++++ b/src/amiga/amiga.h
+@@ -86,7 +86,12 @@ bool amiga_render_pump(void);
+ 
+ // ---- Timing (PAL) ----------------------------------------------------------
+ #define AMIGA_CC_PER_LINE    227        // colour clocks per line
++#ifdef AMIGA_NTSC_OPTION
++// CMM2: a long frame's lines as the configuration's Agnus has them (A.cfg.ntsc: 263, else 313); a short frame one less
++#define AMIGA_LINES_LONG     (A.cfg.ntsc ? 263 : 313)
++#else
+ #define AMIGA_LINES_LONG     313        // long frame (LOF=1); short frame 312
++#endif
+ #define AMIGA_CPU_HZ         7093790    // 68000 clock, 2 CPU cycles per colour clock
+ 
+ // Chipsets (amiga_config_t.chipset).  ECS is the A500+'s: Agnus 8375 (21-bit
+@@ -100,6 +105,9 @@ typedef struct {
+     uint8_t  *chip_ram;      uint32_t chip_size;   // 512 KB (A500), 1 MB (A500+); power of two
+     uint8_t  *slow_ram;      uint32_t slow_size;   // 0 or 512 KB "trapdoor" at $C00000
+     uint8_t   chipset;       // AMIGA_OCS / AMIGA_ECS
++#ifdef AMIGA_NTSC_OPTION
++    uint8_t   ntsc;          // CMM2: an NTSC Agnus (263-line frames at 60 Hz, its chip ID), not PAL's (313 at 50)
++#endif
+     const uint8_t *rom;      uint32_t rom_size;    // 256 KB (mirrored) or 512 KB at $F80000
+     const uint8_t *ext_rom;  uint32_t ext_size;    // 0 or 512 KB at $E00000 (AROS ext)
+ 
+diff --git a/src/amiga/amiga_int.h b/src/amiga/amiga_int.h
+index 4b59e2a..0e35311 100644
+--- a/src/amiga/amiga_int.h
++++ b/src/amiga/amiga_int.h
+@@ -159,11 +159,26 @@ bool     mem_overlay(void);
+ // DMA-side chip RAM access (word address, already masked by the caller).
+ // One halfword access each (the address is even): two byte accesses cost
+ // twice on PSRAM.  Chip RAM is big-endian, the hosts are little-endian.
++#ifdef AMIGA_REV16
++// CMM2: a big-endian halfword by LDRH and REV16 (__builtin_bswap16 on a uint16_t
++// adds a UXTH after it; LDRH has made the top half zero, which REV16 keeps).
++static inline uint32_t amiga_be16(const uint8_t *p) {
++    uint16_t v;
++    memcpy(&v, p, 2);
++    uint32_t r;
++    __asm__("rev16 %0, %1" : "=r"(r) : "r"((uint32_t)v));
++    return r;
++}
++static inline uint32_t chip_rw(uint32_t addr) {
++    return amiga_be16(A.cfg.chip_ram + (addr & A.chip_mask & ~1u));
++}
++#else
+ static inline uint16_t chip_rw(uint32_t addr) {
+     uint16_t v;
+     memcpy(&v, A.cfg.chip_ram + (addr & A.chip_mask & ~1u), 2);
+     return __builtin_bswap16(v);
+ }
++#endif
+ static inline void chip_ww(uint32_t addr, uint16_t v) {
+     v = __builtin_bswap16(v);
+     memcpy(A.cfg.chip_ram + (addr & A.chip_mask & ~1u), &v, 2);
+@@ -236,4 +251,25 @@ void     cia_line(void);                            // HSYNC: CIA-B TOD + timers
+ void     cia_vsync(void);                           // VSYNC: CIA-A TOD
+ void     cia_flag(int which);                       // /FLAG input pulse (CIA-B: disk index)
+ void     cia_keyboard_byte(uint8_t sdr);            // CIA-A serial port byte from the keyboard
++#ifdef AMIGA_FAST_FETCH
++// CMM2: the memory map's banks (mem.c), for Musashi's opcode and extension word
++// reads inline (m68kcpu.h's amiga_fetch16): a bank with a direct read base is
++// plain memory (chip, slow, ROM), read there as m68k_read_memory_16 would; any
++// other through it.
++#ifdef AMIGA_FAST_MEM
++typedef struct {         // (the reads' table only: 8 bytes, one indexed load; mem.c has the writes')
++    const uint8_t *rd;   // direct read base, or NULL
++    uint32_t       mask; // read offset mask applied to the full address
++} amiga_bank_t;
++#else
++typedef struct {
++    const uint8_t *rd;   // direct read base, or NULL
++    uint8_t       *wr;   // direct write base, or NULL (writes to ROM are dropped)
++    uint32_t       mask; // read offset mask applied to the full address
++    uint32_t       wmask;// write offset mask (differs from mask under the ROM overlay)
++    uint8_t        io;   // B_* when rd == NULL
++} amiga_bank_t;
++#endif
++extern amiga_bank_t amiga_banks[256];
++#endif
+ bool     cia_keyboard_handshake(void);              // true once the CPU acknowledged
+diff --git a/src/amiga/blitter.c b/src/amiga/blitter.c
+index 6e8f240..410f597 100644
+--- a/src/amiga/blitter.c
++++ b/src/amiga/blitter.c
+@@ -61,6 +61,80 @@ static inline uint16_t shift_desc(uint16_t nw, uint16_t old, int sh) {
+     return (uint16_t)((((uint32_t)nw << 16) | old) >> (16 - sh));
+ }
+ 
++#ifdef AMIGA_BLIT_FAST
++// CMM2: the area blit's word loop with the blitter's registers in locals - a
++// chip RAM store, through a char pointer, may alias any global, so GCC reloaded
++// pt[], adat, bdat, ... each word (114 instructions a word of cookie-cut) - and
++// instanced with the channels, direction and minterm as constants for the
++// common kinds (the minterm folds to its few terms; Arte: E2 over A and C,
++// shifted copies both ways, 0A over C), the rest by one generic instance. Word
++// for word as the loop in area_blit below: the same reads, the same last-word
++// rule for A and C, the same B shifter and the same registers left at the end.
++static inline __attribute__((always_inline)) bool blit_words(const bool useA, const bool useB, const bool useC,
++        const bool useD, const bool desc, const bool dofill, const bool excl, const uint8_t lf, const int w, const int h,
++        const int ash, const int bsh) {
++    const bool needA = (lf >> 4) != (lf & 15);
++    const bool needC = ((lf >> 1) & 0x55) != (lf & 0x55);
++    uint8_t *cr = A.cfg.chip_ram;
++    const uint32_t cm = A.chip_mask & ~1u;
++    const int inc = desc ? -2 : 2;
++    uint32_t pa = pt[BA], pb = pt[BB], pc = pt[BC], pd = pt[BD];
++    const int32_t ma = desc ? -mod[BA] : mod[BA], mb = desc ? -mod[BB] : mod[BB];
++    const int32_t mc = desc ? -mod[BC] : mod[BC], md = desc ? -mod[BD] : mod[BD];
++    uint16_t la = adat, lb = bdat, lc = cdat, lbo = bold, lbh = bhold, aold = 0;
++    const uint16_t fw = afwm, lw = alwm;
++    const bool fci = (con1 & 0x0004) != 0;
++    uint32_t any = 0;
++    for (int y = 0; y < h; y++) {
++        bool carry = fci;
++        uint16_t mask = fw;
++        const bool last_row = y == h - 1;
++        for (int x = 0; x < w; x++) {
++            if (x == w - 1) mask &= lw;
++            const bool last = last_row && x == w - 1;
++            uint16_t t;
++            if (useA) { if (needA || last) { memcpy(&t, cr + (pa & cm), 2); la = __builtin_bswap16(t); } pa += inc; }
++            if (useB) { memcpy(&t, cr + (pb & cm), 2); lb = __builtin_bswap16(t); pb += inc; }
++            if (useC) { if (needC || last) { memcpy(&t, cr + (pc & cm), 2); lc = __builtin_bswap16(t); } pc += inc; }
++            const uint16_t am = la & mask;
++            const uint16_t ahold = desc ? shift_desc(am, aold, ash) : shift_asc(am, aold, ash);
++            aold = am;
++            if (useB) {
++                lbh = desc ? shift_desc(lb, lbo, bsh) : shift_asc(lb, lbo, bsh);
++                lbo = lb;
++            }
++            uint16_t d = minterm(ahold, lbh, lc, lf);
++            if (dofill) d = fill(d, &carry, excl);
++            any |= d;
++            if (useD) {
++                uint8_t *q = cr + (pd & cm);
++                t = __builtin_bswap16(d);
++#ifdef AMIGA_BLIT_STORE
++                memcpy(q, &t, 2);
++#else
++                uint16_t o;
++                memcpy(&o, q, 2);
++                if (o != t) memcpy(q, &t, 2);
++#endif
++                pd += inc;
++            }
++            mask = 0xFFFF;
++        }
++        if (useA) pa += ma;
++        if (useB) pb += mb;
++        if (useC) pc += mc;
++        if (useD) pd += md;
++    }
++    pt[BA] = pa; pt[BB] = pb; pt[BC] = pc; pt[BD] = pd;
++    adat = la; bdat = lb; cdat = lc; bold = lbo; bhold = lbh;
++    return any == 0;
++}
++__attribute__((noinline)) static bool blit_generic(bool useA, bool useB, bool useC, bool useD, bool desc, bool dofill,
++                                                   bool excl, uint8_t lf, int w, int h, int ash, int bsh) {
++    return blit_words(useA, useB, useC, useD, desc, dofill, excl, lf, w, h, ash, bsh);
++}
++#endif
++
+ // In SRAM: run from flash, the blits competed with chip RAM (PSRAM) for the XIP
+ // cache (State of the Art's intro clears and fills ~12,000 words a frame).
+ AMIGA_HOT static uint32_t area_blit(void) {
+@@ -85,6 +159,37 @@ AMIGA_HOT static uint32_t area_blit(void) {
+         const uint32_t cm = A.chip_mask & ~1u;
+         const bool copy = lf == 0xF0;
+         const uint16_t k = lf ? 0xFFFF : 0;
++#ifdef AMIGA_BLIT_FAST
++        // CMM2: pt[BA] and pt[BD] in locals (each store may alias them)
++        uint32_t pa = pt[BA], pd = pt[BD];
++        const int32_t ma = desc ? -mod[BA] : mod[BA], md = desc ? -mod[BD] : mod[BD];
++        uint32_t anyw = 0;
++        for (int y = 0; y < h; y++) {
++            for (int x = 0; x < w; x++) {
++                uint16_t v = k;
++                if (copy) memcpy(&v, cr + (pa & cm), 2);
++                else if (useA && y == h - 1 && x == w - 1) adat = chip_rw(pa);
++                if (useA) pa += inc;
++                anyw |= v;
++                uint8_t *d = cr + (pd & cm);
++#ifdef AMIGA_BLIT_STORE
++                memcpy(d, &v, 2);
++#else
++                uint16_t o;
++                memcpy(&o, d, 2);
++                if (o != v) memcpy(d, &v, 2);
++#endif
++                pd += inc;
++                if (copy && y == h - 1 && x == w - 1) adat = __builtin_bswap16(v);
++            }
++            if (useA) pa += ma;
++            pd += md;
++        }
++        pt[BA] = pa; pt[BD] = pd;
++        zero = !anyw;
++        int chw = useA + useD; if (chw < 2) chw = 2;
++        return (uint32_t)(w * h * chw);
++#endif
+         uint16_t any = 0;
+         for (int y = 0; y < h; y++) {
+             for (int x = 0; x < w; x++) {
+@@ -98,9 +203,16 @@ AMIGA_HOT static uint32_t area_blit(void) {
+                 // language screen copies and clears the same 40,000 words every
+                 // frame, 89% of them unchanged).
+                 uint8_t *d = cr + (pt[BD] & cm);
++#ifdef AMIGA_BLIT_STORE
++                // CMM2: chip RAM is in the SDRAM behind a write-back cache:
++                // reading the word first cost a line fill, where stores alone
++                // stream (Arte: half a blit's time in those fills).
++                memcpy(d, &v, 2);
++#else
+                 uint16_t o;
+                 memcpy(&o, d, 2);
+                 if (o != v) memcpy(d, &v, 2);
++#endif
+                 pt[BD] += inc;
+                 if (copy && y == h - 1 && x == w - 1) adat = __builtin_bswap16(v);
+             }
+@@ -115,6 +227,26 @@ AMIGA_HOT static uint32_t area_blit(void) {
+     // A and C words the minterm does not look at are not read (Hero Quest
+     // clears with A on and minterm 00), except the last: BLTxDAT ends up as
+     // after the DMA.  B is always read, its shifter state outlives the blit.
++#ifdef AMIGA_BLIT_FAST
++    {
++        bool zr;
++        if (dofill)
++            zr = blit_generic(useA, useB, useC, useD, desc, dofill, excl, lf, w, h, ash, bsh);
++        else if (useA && !useB && useC && useD && !desc && lf == 0xE2)
++            zr = blit_words(1, 0, 1, 1, 0, 0, 0, 0xE2, w, h, ash, bsh);
++        else if (useA && !useB && !useC && useD && lf == 0xF0)
++            zr = desc ? blit_words(1, 0, 0, 1, 1, 0, 0, 0xF0, w, h, ash, bsh) : blit_words(1, 0, 0, 1, 0, 0, 0, 0xF0, w, h, ash, bsh);
++        else if (!useA && !useB && useC && useD && !desc && lf == 0x0A)
++            zr = blit_words(0, 0, 1, 1, 0, 0, 0, 0x0A, w, h, ash, bsh);
++        else if (useA && useB && useC && useD && lf == 0xCA)
++            zr = desc ? blit_words(1, 1, 1, 1, 1, 0, 0, 0xCA, w, h, ash, bsh) : blit_words(1, 1, 1, 1, 0, 0, 0, 0xCA, w, h, ash, bsh);
++        else
++            zr = blit_generic(useA, useB, useC, useD, desc, dofill, excl, lf, w, h, ash, bsh);
++        zero = zr;
++        int ch = (useA + useB + useC + useD); if (ch < 2) ch = 2;
++        return (uint32_t)(w * h * ch);
++    }
++#endif
+     const bool needA = (lf >> 4) != (lf & 15);
+     const bool needC = ((lf >> 1) & 0x55) != (lf & 0x55);
+     for (int y = 0; y < h; y++) {
+@@ -138,7 +270,11 @@ AMIGA_HOT static uint32_t area_blit(void) {
+             if (dofill) d = fill(d, &carry, excl);
+             if (d) z = false;
+             if (useD) {                     // as above: an unchanged word is not written
++#ifdef AMIGA_BLIT_STORE
++                chip_ww(pt[BD], d);
++#else
+                 if (chip_rw(pt[BD]) != d) chip_ww(pt[BD], d);
++#endif
+                 pt[BD] += inc;
+             }
+             mask = 0xFFFF;
+diff --git a/src/amiga/custom.c b/src/amiga/custom.c
+index 3e03846..b716c38 100644
+--- a/src/amiga/custom.c
++++ b/src/amiga/custom.c
+@@ -21,7 +21,12 @@ AMIGA_HOT uint16_t custom_read(uint32_t reg) {
+                           (blitter_busy() ? DMAF_BBUSY : 0) |
+                           (blitter_zero() ? DMAF_BZERO : 0));
+     case R_VPOSR:   // Agnus ID: 0 = OCS PAL, $20 = ECS PAL (8372A / 8375)
++#ifdef AMIGA_NTSC_OPTION
++        // CMM2: $10 = OCS NTSC (8361 / 8370), $30 = ECS NTSC
++        return (uint16_t)((A.lof ? 0x8000 : 0) | (A.ecs ? 0x2000 : 0) | (A.cfg.ntsc ? 0x1000 : 0) | ((A.vpos >> 8) & 1));
++#else
+         return (uint16_t)((A.lof ? 0x8000 : 0) | (A.ecs ? 0x2000 : 0) | ((A.vpos >> 8) & 1));
++#endif
+     case R_VHPOSR:
+         return (uint16_t)(((A.vpos & 0xFF) << 8) | amiga_hpos());
+     case R_JOY0DAT: return A.joy0dat;
+@@ -105,7 +110,11 @@ void custom_state(st_t *s) { st_u16(s, &clxcon); }
+ void custom_reset(void) {
+     A.dmacon = 0; A.intena = 0; A.intreq = 0; A.adkcon = 0;
+     A.copcon = 0; A.potgo = 0; A.serper = 0;
++#ifdef AMIGA_NTSC_OPTION
++    A.beamcon0 = A.cfg.ntsc ? 0 : 0x0020;                // CMM2: PAL, or NTSC
++#else
+     A.beamcon0 = 0x0020;                                 // PAL
++#endif
+     clxcon = 0;
+     amiga_update_ipl();
+ }
+diff --git a/src/amiga/denise.c b/src/amiga/denise.c
+index 74c845d..60c2a36 100644
+--- a/src/amiga/denise.c
++++ b/src/amiga/denise.c
+@@ -48,6 +48,13 @@
+ #include <stdatomic.h>
+ #include <string.h>
+ #include "amiga_int.h"
++#ifdef AMIGA_SINGLE_CORE
++// CMM2: one core, never a render core 1 (amiga_render_async is not called): the
++// stages' acquire/release orders, each a DMB on the M7 (some 70 a line, waiting
++// for the stores before them), order nothing, so they are relaxed.
++#define memory_order_acquire memory_order_relaxed
++#define memory_order_release memory_order_relaxed
++#endif
+ #ifdef DENISE_DEBUG
+ #include <stdio.h>
+ #endif
+@@ -102,14 +109,40 @@ static bool     spl_dirty;                  // spl[] is stale: compose before th
+ // Per-line render state.  pf[] is the line's playfield, written by the fetch
+ // stage and read by the output stage a line or more behind: a ring.
+ #define PF_RING 4
++#ifdef AMIGA_PF_ALIGN
++// CMM2: each buffer 2 bytes past a word boundary. A unit's position is 2 mod 4
++// in the common case (x = 2 (2t + 17), or 2 (2t + 9) in hires, t a multiple
++// of 4, the scroll even), so its 32-bit stores and ORs were all unaligned:
++// two accesses each on the M7.
++static uint8_t  pf_ring_[PF_RING][PF_SIZE + 4] __attribute__((aligned(4)));
++#define PF_BUF(i) (pf_ring_[i] + 2)
++#else
+ static uint8_t  pf_ring[PF_RING][PF_SIZE];
+-static uint8_t *pf_f = pf_ring[0], *pf_o = pf_ring[0];
++#define PF_BUF(i) (pf_ring[i])
++#endif
++static uint8_t *pf_f = PF_BUF(0), *pf_o = PF_BUF(0);
++#ifdef AMIGA_FAST_SPREAD
++static int pf_hi;                       // CMM2: pf_f written below this, this line (zeros above)
++#ifdef AMIGA_PF_EXTENT
++// CMM2: and from this up (pf_lo); each buffer's written part kept when the line
++// is done (pf_ext), and only that cleared when the buffer comes round again:
++// outside it the buffer is all zeros already (it was cleared at reset)
++static int pf_lo = PF_SIZE, pf_cur;
++static uint16_t pf_ext_lo[PF_RING], pf_ext_hi[PF_RING];
++#define PF_LO(p) do { const int p_ = (p) < 0 ? 0 : (p); if (p_ < pf_lo) pf_lo = p_; } while (0)
++#else
++#define PF_LO(p) ((void)0)
++#endif
++#endif
+ static uint8_t  spl[SPL_SIZE];
+ static int      spl_lo, spl_hi;           // dirty range of spl[]
+ static int      r_h;                      // output: rendered up to this colour clock
+ static bool     vwin;
+ static amiga_row_t *fbrow;              // row being written, or NULL
+ static amiga_row_t *fbdest;             // overlay row: where fbrow (the scratch) goes at line end
++#ifdef AMIGA_ROW_RING
++static int fbrow_n;                     // CMM2: the row fbrow is (c_line_start)
++#endif
+ static amiga_row_t  scratch_row;
+ static int          ov_y0[2], ov_y1[2]; // amiga_set_overlay_rows
+ static int          fb_x0 = AMIGA_FB_X0_CENTRE;            // DIW x of column 0, this line
+@@ -235,7 +268,11 @@ AMIGA_HOT static void dma_unit(int k) {
+     uint32_t hd = atomic_load_explicit(&ws_head, memory_order_relaxed);
+     for (int p = 0; p < np; p++) {
+         if (nw == 1) {
++#ifdef AMIGA_REV16
++            ws[hd++ & (WS_SIZE - 1)] = (uint16_t)amiga_be16(cr + (bplpt[p] & cm));   // (CMM2: LDRH + REV16, not two LDRBs)
++#else
+             ws[hd++ & (WS_SIZE - 1)] = U16BE(cr + (bplpt[p] & cm));
++#endif
+         } else {
+             for (int j = 0; j < nw; j += 2) {
+                 const uint32_t a = (bplpt[p] + 2u * (uint32_t)j) & cm;
+@@ -262,6 +299,10 @@ AMIGA_HOT static void dma_unit(int k) {
+ // eight pixels at a time, one byte of every plane through spread8.
+ AMIGA_HOT static void spread_planes(const uint16_t wd[6][4], int np, int first, int step, int pos, bool hires) {
+     if (hires) {
++#ifdef AMIGA_FAST_SPREAD
++        if (pos + 32 > pf_hi) pf_hi = pos + 32;
++        PF_LO(pos);
++#endif
+         for (int j = 0; j < 2; j++, pos += 16) {
+             if (pos < 0 || pos + 16 > PF_SIZE) continue;
+             for (int s = 8, o = 0; s >= 0; s -= 8, o += 8) {
+@@ -277,6 +318,43 @@ AMIGA_HOT static void spread_planes(const uint16_t wd[6][4], int np, int first,
+         }
+     } else {
+         if (pos < 0 || pos + 32 > PF_SIZE) return;
++#ifdef AMIGA_FAST_SPREAD
++        // CMM2: each byte twice by 16-bit lane masks (bytes 0 and 2, 1 and 3),
++        // both bytes of a plane's word in one pass, the groups in registers; and
++        // stored, not ORed, above the line's high-water mark (pf_f is zeros
++        // there): the same bytes as below, a third of the instructions (15% of
++        // a frame was this function).
++        uint32_t h0 = 0, h1 = 0, l0 = 0, l1 = 0;
++#define PL(P) do { const uint32_t w = wd[P][0]; const uint32_t *th = spread8[w >> 8], *tl = spread8[w & 0xFF]; \
++                   h0 |= th[0] << (P); h1 |= th[1] << (P); l0 |= tl[0] << (P); l1 |= tl[1] << (P); } while (0)
++        if (first == 0 && step == 1) {          // (one playfield: the planes unrolled, their shifts constants)
++            switch (np) {
++            case 6: PL(5); /* fall through */
++            case 5: PL(4); /* fall through */
++            case 4: PL(3); /* fall through */
++            case 3: PL(2); /* fall through */
++            case 2: PL(1); /* fall through */
++            case 1: PL(0); /* fall through */
++            default: break;
++            }
++        } else
++            for (int p = first; p < np; p += step) PL(p);
++#undef PL
++        uint32_t o8[8];
++        // (the halfwords packed by PKHBT and PKHTB: GCC makes two or three of
++        // each from C; the result is the same)
++#define DBL(q, i) do { uint32_t a_ = (q) & 0x00FF00FFu, b_ = ((q) >> 8) & 0x00FF00FFu, r_; a_ |= a_ << 8; b_ |= b_ << 8; \
++                       __asm__("pkhbt %0, %1, %2, lsl #16" : "=r"(r_) : "r"(a_), "r"(b_)); o8[i] = r_; \
++                       __asm__("pkhtb %0, %1, %2, asr #16" : "=r"(r_) : "r"(b_), "r"(a_)); o8[(i) + 1] = r_; } while (0)
++        DBL(h0, 0); DBL(h1, 2); DBL(l0, 4); DBL(l1, 6);
++#undef DBL
++        uint8_t *d = pf_f + pos;
++        if (pos >= pf_hi) memcpy(d, o8, 32);
++        else for (int k = 0; k < 8; k++) or32(d + 4 * k, o8[k]);
++        if (pos + 32 > pf_hi) pf_hi = pos + 32;
++        PF_LO(pos);
++        return;
++#endif
+         for (int s = 8, o = 0; s >= 0; s -= 8, o += 16) {
+             uint32_t q[2] = { 0, 0 };
+             for (int p = first; p < np; p += step) {
+@@ -299,6 +377,10 @@ AMIGA_HOT static void spread_planes(const uint16_t wd[6][4], int np, int first,
+ // Super-hires: a plane's four words (64 pixels) at pf position pos, 32 entries.
+ AMIGA_HOT static void spread_shres(const uint16_t wd[6][4], int np, int first, int step, int pos) {
+     if (pos < 0 || pos + 32 > PF_SIZE) return;
++#ifdef AMIGA_FAST_SPREAD
++    if (pos + 32 > pf_hi) pf_hi = pos + 32;
++    PF_LO(pos);
++#endif
+     for (int k = 0; k < 8; k++) {
+         uint32_t v = 0;
+         for (int p = first; p < np; p += step) {
+@@ -405,7 +487,14 @@ static uint8_t  ilut[64];
+ // Hires IDX8 row whose palette starts with lut[0..15] as entries 0..15 (w_begin)
+ // and whose LUT has not changed since: a pf value is its own index.
+ static bool     ilut_ident;
++#ifdef AMIGA_SPRITE_IDX
++// CMM2: sprite colour (COLOR16-31) -> palette index of the row being written,
++// as ilut is by pf value; reset with it, an entry when its colour changes.
++static uint8_t  sidx[16];
++AMIGA_HOT static void ilut_reset(void) { fill_bytes(ilut, 0xFF, (int)sizeof ilut); fill_bytes(sidx, 0xFF, (int)sizeof sidx); ilut_ident = false; }
++#else
+ AMIGA_HOT static void ilut_reset(void) { fill_bytes(ilut, 0xFF, (int)sizeof ilut); ilut_ident = false; }
++#endif
+ 
+ AMIGA_HOT static void build_lut(void) {
+     for (int v = 0; v < 64; v++) {
+@@ -437,6 +526,9 @@ AMIGA_HOT static void w_begin(amiga_row_t *row, int mode, int field) {
+     w_mode = mode; w_field = field; w_n = 0;
+     w_base = mode == AMIGA_ROW_LACE4 ? 16 * field : 0;
+     w_max = mode == AMIGA_ROW_LACE4 ? 16 : 64;
++#ifdef AMIGA_ROW_RING
++    row->pad = (uint8_t)field;          /* CMM2: the field drawn, the one line of an interlaced row there is */
++#endif
+     if (mode == AMIGA_ROW_LACE4 && row->mode != AMIGA_ROW_LACE4) {
+         // Entering interlace: the other field's line is unknown until it is drawn.
+         int o = field ^ 1;
+@@ -519,6 +611,51 @@ AMIGA_HOT static void w_fill(int a, int b, uint16_t c) {
+     for (int x = a; x < b; x++) row->px.rgb[x] = c;
+ }
+ 
++#ifdef AMIGA_SPRITE_IDX
++// CMM2: the low resolution pixels sprites cover, into an IDX8 row, through the
++// line's index caches (ilut by pf value, sidx by sprite colour), not a colour
++// and the 4096-entry map each (w_put): a value or sprite colour first met goes
++// through w_index as before, so the same indices come in the same order. The
++// column it stopped at: wb, or the first whose colour finds the palette full
++// (w_put's path then makes the row DIRECT there, as before). A DIRECT row (more
++// colours on the line than its palette holds: copper colour changes) takes each
++// colour as w_put stores it, without a call a pixel. Arte (Sanity), its sprites
++// over most of the screen and its rows DIRECT: 13% of a frame in w_put.
++AMIGA_HOT static int sprite_lores_idx8(int wa, int wb, int f0) {
++    amiga_row_t *row = fbrow;
++    if (w_mode == AMIGA_ROW_DIRECT) {
++        uint16_t *d = row->px.rgb - f0;
++        for (int x = wa; x < wb; x++) {
++            const uint8_t v = pf_o[2 * x];
++            d[x] = sprite_mix(x, lut[v], lut_pf[v]);
++        }
++        return wb;
++    }
++    if (w_mode != AMIGA_ROW_IDX8) return wa;
++    uint8_t *d = row->px.idx - 2 * f0;
++    const int pri1 = bplcon2 & 7, pri2 = (bplcon2 >> 3) & 7;
++    for (int x = wa; x < wb; x++) {
++        const uint8_t v = pf_o[2 * x], sp = spl[x], which = lut_pf[v];
++        int i;
++        if ((sp & 0x80) && (!which || ((sp >> 4) & 3) < (which == 1 ? pri1 : pri2))) {   // (sprite_mix's test)
++            i = sidx[sp & 15];
++            if (i & 0x80) {
++                if ((i = w_index(row, color[16 + (sp & 15)])) < 0) return x;
++                sidx[sp & 15] = (uint8_t)i;
++            }
++        } else {
++            i = ilut[v];
++            if (i & 0x80) {
++                if ((i = w_index(row, lut[v])) < 0) return x;
++                ilut[v] = (uint8_t)i;
++            }
++        }
++        d[2 * x] = d[2 * x + 1] = (uint8_t)i;
++    }
++    return wb;
++}
++#endif
++
+ // Window pixels [x0, x1) without sprites (DIW coordinates, already clipped to
+ // the framebuffer): the common case, kept free of per-pixel colour lookups.
+ AMIGA_HOT static void w_plain(int x0, int x1, bool hires) {
+@@ -629,7 +766,11 @@ AMIGA_HOT static void output(int x0, int x1) {
+     if (tail < wb) { w_plain(tail, wb, hires); wb = tail; }
+     if (!hires) {
+         {
++#ifdef AMIGA_SPRITE_IDX
++            for (int x = sprite_lores_idx8(wa, wb, f0); x < wb; x++) {
++#else
+             for (int x = wa; x < wb; x++) {
++#endif
+                 uint8_t v = pf_o[2 * x];
+                 uint16_t c = sprite_mix(x, lut[v], lut_pf[v]);
+                 w_put(x - f0, c, c);
+@@ -637,7 +778,20 @@ AMIGA_HOT static void output(int x0, int x1) {
+         }
+     } else {
+         {
++#ifdef AMIGA_SPRITE_IDX
++            int x = wa;
++            if (w_mode == AMIGA_ROW_DIRECT) {                // (CMM2: w_put's DIRECT store, without the call)
++                uint16_t *d = fbrow->px.rgb - f0;
++                for (; x < wb; x++) {
++                    const uint8_t v0 = pf_o[2 * x], v1 = pf_o[2 * x + 1];
++                    const uint16_t c0 = sprite_mix(x, lut[v0], lut_pf[v0]), c1 = sprite_mix(x, lut[v1], lut_pf[v1]);
++                    d[x] = c0 == c1 ? c0 : avg(c0, c1);
++                }
++            }
++            for (; x < wb; x++) {
++#else
+             for (int x = wa; x < wb; x++) {
++#endif
+                 uint8_t v0 = pf_o[2 * x], v1 = pf_o[2 * x + 1];
+                 w_put(x - f0, sprite_mix(x, lut[v0], lut_pf[v0]), sprite_mix(x, lut[v1], lut_pf[v1]));
+             }
+@@ -806,19 +960,40 @@ AMIGA_HOT static void a_line_start(agnus_t *f) {
+ // Fetch stage: line `seq`.
+ AMIGA_HOT static void f_line_start(uint32_t seq) {
+     a_line_start(&fetch_st);
+-    pf_f = pf_ring[seq % PF_RING];
++#ifdef AMIGA_PF_EXTENT
++    pf_ext_lo[pf_cur] = (uint16_t)pf_lo;    // (the line done: what it wrote)
++    pf_ext_hi[pf_cur] = (uint16_t)(pf_hi > PF_SIZE ? PF_SIZE : pf_hi);
++    pf_cur = (int)(seq % PF_RING);
++    pf_f = PF_BUF(pf_cur);
++    if (pf_ext_hi[pf_cur] > pf_ext_lo[pf_cur])
++        clear_bytes(pf_f + pf_ext_lo[pf_cur], pf_ext_hi[pf_cur] - pf_ext_lo[pf_cur]);
++    pf_lo = PF_SIZE;
++#else
++    pf_f = PF_BUF(seq % PF_RING);
+     clear_bytes(pf_f, PF_SIZE);
++#endif
++#ifdef AMIGA_FAST_SPREAD
++    pf_hi = 0;
++#endif
+ }
+ 
+ // Output stage: line `seq`.
+ AMIGA_HOT static void c_line_start(uint32_t seq) {
+     vwin = in_vwin(c_vpos, diwstrt, diwstop, diwhigh);
+     r_h = 0;
+-    pf_o = pf_ring[seq % PF_RING];
++    pf_o = PF_BUF(seq % PF_RING);
+     ham_in = false;
+     fb_x0 = fb_x0_next;
+     int row = c_vpos - fb_y0;
++#ifdef AMIGA_ROW_RING
++    /* CMM2: each row made in one of AMIGA_ROW_RING rows (the platform's framebuffer, in its fast RAM), which the
++       platform takes at the line's end (row_done, AMIGA_ROW_DONE_ALL): the 288 rows are never all kept, so an
++       interlaced row's other field is not there (its line is the one drawn: w_begin) */
++    fbrow_n = row;
++    fbrow = (A.cfg.framebuffer && row >= 0 && row < AMIGA_FB_H) ? A.cfg.framebuffer + row % AMIGA_ROW_RING : NULL;
++#else
+     fbrow = (A.cfg.framebuffer && row >= 0 && row < AMIGA_FB_H) ? A.cfg.framebuffer + row : NULL;
++#endif
+     fbdest = NULL;
+     if (fbrow && ((row >= ov_y0[0] && row < ov_y1[0]) || (row >= ov_y0[1] && row < ov_y1[1]))) {
+         // Built off-screen (the interlace writer keeps the other field: start
+@@ -854,6 +1029,15 @@ AMIGA_HOT static void c_line_finish(void) {
+             fbrow = fbdest;
+             fbdest = NULL;
+         }
++#ifdef AMIGA_ROW_DONE_ALL
++        /* CMM2: every finished row to the platform as it is (no overlay: no scratch row copied in and out), which puts
++           it out while the frame goes on */
++#ifdef AMIGA_ROW_RING
++        else if (A.cfg.row_done) A.cfg.row_done(A.cfg.ctx, fbrow_n, fbrow);
++#else
++        else if (A.cfg.row_done) A.cfg.row_done(A.cfg.ctx, (int)(fbrow - A.cfg.framebuffer), fbrow);
++#endif
++#endif
+     }
+ }
+ 
+@@ -891,6 +1075,9 @@ AMIGA_HOT static void c_apply(uint32_t reg, uint16_t v) {
+         lut[n] = c;
+         lut[n + 32] = (uint16_t)((c >> 1) & 0x777);
+         ilut[n] = ilut[n + 32] = 0xFF;
++#ifdef AMIGA_SPRITE_IDX
++        if (n >= 16 && n < 32) sidx[n - 16] = 0xFF;
++#endif
+         if (n < 16) ilut_ident = false;
+         return;
+     }
+@@ -934,8 +1121,16 @@ static void c_reset(void) {
+     memset(sprdata, 0, sizeof sprdata); memset(sprdatb, 0, sizeof sprdatb);
+     memset(spr_armed, 0, sizeof spr_armed);
+     memset(spl, 0, sizeof spl);
++#ifdef AMIGA_PF_ALIGN
++    memset(pf_ring_, 0, sizeof pf_ring_);
++#else
+     memset(pf_ring, 0, sizeof pf_ring);
+-    pf_f = pf_o = pf_ring[0];
++#endif
++    pf_f = pf_o = PF_BUF(0);
++#ifdef AMIGA_PF_EXTENT
++    memset(pf_ext_lo, 0, sizeof pf_ext_lo); memset(pf_ext_hi, 0, sizeof pf_ext_hi);
++    pf_cur = 0; pf_lo = PF_SIZE; pf_hi = 0;
++#endif
+     spl_lo = SPL_SIZE; spl_hi = 0;
+     c_frame_start(AMIGA_FB_Y0);
+ }
+diff --git a/src/amiga/mem.c b/src/amiga/mem.c
+index 0277408..ab6694d 100644
+--- a/src/amiga/mem.c
++++ b/src/amiga/mem.c
+@@ -20,6 +20,74 @@
+ 
+ enum { B_NONE = 0, B_CIA, B_CUSTOM, B_RTC };
+ 
++#ifdef AMIGA_FAST_MEM
++// CMM2 (the review of 10 Nov 2026): the map as three tables - the reads'
++// (amiga_banks, 8 bytes an entry: one indexed load, Musashi's opcode fetch reads
++// it too), the writes' and the I/O kinds - not one of 20-byte entries; the I/O
++// paths out of line with full-width types (a uint16_t return kept the callers
++// from a tail call, and they pushed four and six registers for the plain path);
++// a 32-bit write in one bank by two halfword stores, not two calls.
++amiga_bank_t amiga_banks[256];
++static struct { uint8_t *wr; uint32_t wmask; } wbanks[256];
++static uint8_t iobank[256];
++static bool   overlay;
++
++static void map(int first, int count, const uint8_t *rd, uint8_t *wr, uint32_t mask, int io) {
++    for (int i = first; i < first + count && i < 256; i++) {
++        amiga_banks[i].rd = rd; amiga_banks[i].mask = mask;
++        wbanks[i].wr = wr; wbanks[i].wmask = mask;
++        iobank[i] = (uint8_t)io;
++    }
++}
++
++static void map_low(void) {
++    const amiga_config_t *c = &A.cfg;
++    map(0x00, 0x20, c->chip_ram, c->chip_ram, c->chip_size - 1, B_NONE);
++    if (overlay) {
++        for (int i = 0; i < 8; i++) {
++            amiga_banks[i].rd = c->rom;
++            amiga_banks[i].mask = c->rom_size - 1;   // wr/wmask stay chip RAM
++        }
++    }
++}
++
++void mem_init(void) {
++    const amiga_config_t *c = &A.cfg;
++    memset(amiga_banks, 0, sizeof amiga_banks);
++    memset(wbanks, 0, sizeof wbanks);
++    memset(iobank, 0, sizeof iobank);
++    map(0xA0, 0x20, NULL, NULL, 0, B_CIA);
++    map(0xC0, 0x18, NULL, NULL, 0, B_CUSTOM);
++    map(0xDF, 0x01, NULL, NULL, 0, B_CUSTOM);
++    if (c->rtc_time) map(0xDC, 0x01, NULL, NULL, 0, B_RTC);
++    if (c->slow_ram && c->slow_size)
++        map(0xC0, (int)(c->slow_size >> 16), c->slow_ram, c->slow_ram, c->slow_size - 1, B_NONE);
++    if (c->ext_rom && c->ext_size)
++        map(0xE0, 0x08, c->ext_rom, NULL, c->ext_size - 1, B_NONE);
++    map(0xF8, 0x08, c->rom, NULL, c->rom_size - 1, B_NONE);
++    overlay = true;
++    map_low();
++}
++
++void mem_set_overlay(bool on) {
++    if (on == overlay) return;
++    overlay = on;
++    map_low();
++}
++
++bool mem_overlay(void) { return overlay; }
++
++void mem_state(st_t *s) {
++    bool ov = overlay;
++    st_bool(s, &ov);
++    if (s->mode == ST_LOAD) mem_set_overlay(ov);
++}
++#else
++#ifdef AMIGA_FAST_FETCH
++typedef amiga_bank_t bank_t;                    // (amiga_int.h: Musashi reads them too)
++bank_t amiga_banks[256];
++#define banks amiga_banks
++#else
+ typedef struct {
+     const uint8_t *rd;   // direct read base, or NULL
+     uint8_t       *wr;   // direct write base, or NULL (writes to ROM are dropped)
+@@ -29,6 +97,7 @@ typedef struct {
+ } bank_t;
+ 
+ static bank_t banks[256];
++#endif
+ static bool   overlay;
+ 
+ static void map(int first, int count, const uint8_t *rd, uint8_t *wr, uint32_t mask, int io) {
+@@ -82,6 +151,8 @@ void mem_state(st_t *s) {
+     if (s->mode == ST_LOAD) mem_set_overlay(ov);
+ }
+ 
++#endif
++
+ // ---- I/O banks --------------------------------------------------------------
+ static uint8_t io_read8(uint32_t a, int io) {
+     switch (io) {
+@@ -150,6 +221,86 @@ static void io_write16(uint32_t a, uint16_t v, int io) {
+     }
+ }
+ 
++#ifdef AMIGA_FAST_MEM
++#ifdef AMIGA_REV16
++#define ld16(p) amiga_be16(p)
++#else
++static inline uint32_t ld16(const uint8_t *p) {
++    uint16_t v; memcpy(&v, p, 2);
++    return __builtin_bswap16(v);
++}
++#endif
++static inline void st16(uint8_t *p, uint32_t v) {
++    const uint16_t t = __builtin_bswap16((uint16_t)v); memcpy(p, &t, 2);
++}
++__attribute__((noinline)) static unsigned io_rd8(unsigned a)  { return io_read8(a, iobank[a >> 16]); }
++__attribute__((noinline)) static unsigned io_rd16(unsigned a) { return io_read16(a, iobank[a >> 16]); }
++__attribute__((noinline)) static void io_wr8(unsigned a, unsigned v)  { io_write8(a, (uint8_t)v, iobank[a >> 16]); }
++__attribute__((noinline)) static void io_wr16(unsigned a, unsigned v) { io_write16(a, (uint16_t)v, iobank[a >> 16]); }
++
++AMIGA_HOT unsigned int m68k_read_memory_8(unsigned int a) {
++    a &= 0xFFFFFF;
++    const amiga_bank_t *b = &amiga_banks[a >> 16];
++    if (b->rd) return b->rd[a & b->mask];
++    return io_rd8(a);
++}
++
++AMIGA_HOT unsigned int m68k_read_memory_16(unsigned int a) {
++    a &= 0xFFFFFF;
++    const amiga_bank_t *b = &amiga_banks[a >> 16];
++    if (b->rd) return ld16(b->rd + (a & b->mask));
++    return io_rd16(a);
++}
++
++AMIGA_HOT unsigned int m68k_read_memory_32(unsigned int a) {
++    a &= 0xFFFFFF;
++    const amiga_bank_t *b = &amiga_banks[a >> 16];
++    if (b->rd && ((a + 2) & 0xFFFF) >= 2) {           // both halves in this bank
++        const uint8_t *p = b->rd + (a & b->mask);
++        return (ld16(p) << 16) | ld16(p + 2);
++    }
++    const uint32_t hi = m68k_read_memory_16(a);
++    return (hi << 16) | m68k_read_memory_16(a + 2);
++}
++
++AMIGA_HOT void m68k_write_memory_8(unsigned int a, unsigned int v) {
++    a &= 0xFFFFFF;
++    const unsigned i = a >> 16;
++    uint8_t *w = wbanks[i].wr;
++    if (w) { w[a & wbanks[i].wmask] = (uint8_t)v; return; }
++    if (!amiga_banks[i].rd) io_wr8(a, v);
++}
++
++AMIGA_HOT void m68k_write_memory_16(unsigned int a, unsigned int v) {
++    a &= 0xFFFFFF;
++    const unsigned i = a >> 16;
++    uint8_t *w = wbanks[i].wr;
++    if (w) { st16(w + (a & wbanks[i].wmask), v); return; }
++    if (!amiga_banks[i].rd) io_wr16(a, v);
++}
++
++AMIGA_HOT void m68k_write_memory_32(unsigned int a, unsigned int v) {
++    const unsigned b = a & 0xFFFFFF, i = b >> 16;
++    uint8_t *w = wbanks[i].wr;
++    if (w && ((b + 2) & 0xFFFF) >= 2) {               // both halves in this bank, as m68k_read_memory_32
++        uint8_t *p = w + (b & wbanks[i].wmask);
++        st16(p, v >> 16);
++        st16(p + 2, v);
++        return;
++    }
++    m68k_write_memory_16(a, v >> 16);
++    m68k_write_memory_16(a + 2, v & 0xFFFF);
++}
++
++unsigned int m68k_read_disassembler_16(unsigned int a) {
++    a &= 0xFFFFFF;
++    const amiga_bank_t *b = &amiga_banks[a >> 16];
++    return b->rd ? ld16(b->rd + (a & b->mask)) : 0;
++}
++unsigned int m68k_read_disassembler_32(unsigned int a) {
++    return (m68k_read_disassembler_16(a) << 16) | m68k_read_disassembler_16(a + 2);
++}
++#else
+ // ---- Musashi callbacks ------------------------------------------------------
+ static inline uint16_t ld16(const uint8_t *p) {
+     uint16_t v; memcpy(&v, p, 2);
+@@ -227,3 +378,4 @@ unsigned int m68k_read_disassembler_16(unsigned int a) {
+ unsigned int m68k_read_disassembler_32(unsigned int a) {
+     return (m68k_read_disassembler_16(a) << 16) | m68k_read_disassembler_16(a + 2);
+ }
++#endif
