@@ -1,0 +1,214 @@
+diff --git a/external/musashi/m68kcpu.h b/external/musashi/m68kcpu.h
+index a743cdb..710c2f6 100644
+--- a/external/musashi/m68kcpu.h
++++ b/external/musashi/m68kcpu.h
+@@ -462,8 +462,22 @@ typedef uint32 uint64;
+ 
+ 
+ #if !M68K_SEPARATE_READS
++#ifdef AMIGA_FAST_FETCH
++/* CMM2: the opcode and its extension words read inline from plain memory (the
++ * memory map's banks, mem.c), not by a call to m68k_read_memory_16 each (from
++ * m68k_execute in the ITCM, through a veneer to the AXI RAM): 9% of a frame */
++#include "amiga_int.h"
++static inline unsigned amiga_fetch16(unsigned a) {
++	const amiga_bank_t *b = &amiga_banks[(a >> 16) & 0xFF];
++	if (b->rd) { uint16_t v; memcpy(&v, b->rd + (a & b->mask), 2); return __builtin_bswap16(v); }
++	return m68k_read_memory_16(a);
++}
++#define m68k_read_immediate_16(A) amiga_fetch16(A)
++#define m68k_read_immediate_32(A) ((amiga_fetch16(A) << 16) | amiga_fetch16((A) + 2))
++#else
+ #define m68k_read_immediate_16(A) m68ki_read_program_16(A)
+ #define m68k_read_immediate_32(A) m68ki_read_program_32(A)
++#endif
+ 
+ #define m68k_read_pcrelative_8(A) m68ki_read_program_8(A)
+ #define m68k_read_pcrelative_16(A) m68ki_read_program_16(A)
+@@ -1931,7 +1945,13 @@ static inline void m68ki_exception_privilege_violation(void)
+ 
+ extern jmp_buf m68ki_bus_error_jmp_buf;
+ 
++#ifdef M68K_NO_BUS_ERROR_TRAP
++/* CMM2: nothing here raises a bus error (m68k_pulse_bus_error is never called), so no setjmp at each m68k_execute:
++   the core enters it thousands of times a frame (5% of the time) */
++#define m68ki_check_bus_error_trap() 0
++#else
+ #define m68ki_check_bus_error_trap() setjmp(m68ki_bus_error_jmp_buf)
++#endif
+ 
+ /* Exception for bus error */
+ static inline void m68ki_exception_bus_error(void)
+diff --git a/src/amiga/amiga.h b/src/amiga/amiga.h
+index 934f62a..86322eb 100644
+--- a/src/amiga/amiga.h
++++ b/src/amiga/amiga.h
+@@ -86,7 +86,12 @@ bool amiga_render_pump(void);
+ 
+ // ---- Timing (PAL) ----------------------------------------------------------
+ #define AMIGA_CC_PER_LINE    227        // colour clocks per line
++#ifdef AMIGA_NTSC_OPTION
++// CMM2: a long frame's lines as the configuration's Agnus has them (A.cfg.ntsc: 263, else 313); a short frame one less
++#define AMIGA_LINES_LONG     (A.cfg.ntsc ? 263 : 313)
++#else
+ #define AMIGA_LINES_LONG     313        // long frame (LOF=1); short frame 312
++#endif
+ #define AMIGA_CPU_HZ         7093790    // 68000 clock, 2 CPU cycles per colour clock
+ 
+ // Chipsets (amiga_config_t.chipset).  ECS is the A500+'s: Agnus 8375 (21-bit
+@@ -100,6 +105,9 @@ typedef struct {
+     uint8_t  *chip_ram;      uint32_t chip_size;   // 512 KB (A500), 1 MB (A500+); power of two
+     uint8_t  *slow_ram;      uint32_t slow_size;   // 0 or 512 KB "trapdoor" at $C00000
+     uint8_t   chipset;       // AMIGA_OCS / AMIGA_ECS
++#ifdef AMIGA_NTSC_OPTION
++    uint8_t   ntsc;          // CMM2: an NTSC Agnus (263-line frames at 60 Hz, its chip ID), not PAL's (313 at 50)
++#endif
+     const uint8_t *rom;      uint32_t rom_size;    // 256 KB (mirrored) or 512 KB at $F80000
+     const uint8_t *ext_rom;  uint32_t ext_size;    // 0 or 512 KB at $E00000 (AROS ext)
+ 
+diff --git a/src/amiga/amiga_int.h b/src/amiga/amiga_int.h
+index 4b59e2a..4ad6323 100644
+--- a/src/amiga/amiga_int.h
++++ b/src/amiga/amiga_int.h
+@@ -236,4 +236,18 @@ void     cia_line(void);                            // HSYNC: CIA-B TOD + timers
+ void     cia_vsync(void);                           // VSYNC: CIA-A TOD
+ void     cia_flag(int which);                       // /FLAG input pulse (CIA-B: disk index)
+ void     cia_keyboard_byte(uint8_t sdr);            // CIA-A serial port byte from the keyboard
++#ifdef AMIGA_FAST_FETCH
++// CMM2: the memory map's banks (mem.c), for Musashi's opcode and extension word
++// reads inline (m68kcpu.h's amiga_fetch16): a bank with a direct read base is
++// plain memory (chip, slow, ROM), read there as m68k_read_memory_16 would; any
++// other through it.
++typedef struct {
++    const uint8_t *rd;   // direct read base, or NULL
++    uint8_t       *wr;   // direct write base, or NULL (writes to ROM are dropped)
++    uint32_t       mask; // read offset mask applied to the full address
++    uint32_t       wmask;// write offset mask (differs from mask under the ROM overlay)
++    uint8_t        io;   // B_* when rd == NULL
++} amiga_bank_t;
++extern amiga_bank_t amiga_banks[256];
++#endif
+ bool     cia_keyboard_handshake(void);              // true once the CPU acknowledged
+diff --git a/src/amiga/custom.c b/src/amiga/custom.c
+index 3e03846..b716c38 100644
+--- a/src/amiga/custom.c
++++ b/src/amiga/custom.c
+@@ -21,7 +21,12 @@ AMIGA_HOT uint16_t custom_read(uint32_t reg) {
+                           (blitter_busy() ? DMAF_BBUSY : 0) |
+                           (blitter_zero() ? DMAF_BZERO : 0));
+     case R_VPOSR:   // Agnus ID: 0 = OCS PAL, $20 = ECS PAL (8372A / 8375)
++#ifdef AMIGA_NTSC_OPTION
++        // CMM2: $10 = OCS NTSC (8361 / 8370), $30 = ECS NTSC
++        return (uint16_t)((A.lof ? 0x8000 : 0) | (A.ecs ? 0x2000 : 0) | (A.cfg.ntsc ? 0x1000 : 0) | ((A.vpos >> 8) & 1));
++#else
+         return (uint16_t)((A.lof ? 0x8000 : 0) | (A.ecs ? 0x2000 : 0) | ((A.vpos >> 8) & 1));
++#endif
+     case R_VHPOSR:
+         return (uint16_t)(((A.vpos & 0xFF) << 8) | amiga_hpos());
+     case R_JOY0DAT: return A.joy0dat;
+@@ -105,7 +110,11 @@ void custom_state(st_t *s) { st_u16(s, &clxcon); }
+ void custom_reset(void) {
+     A.dmacon = 0; A.intena = 0; A.intreq = 0; A.adkcon = 0;
+     A.copcon = 0; A.potgo = 0; A.serper = 0;
++#ifdef AMIGA_NTSC_OPTION
++    A.beamcon0 = A.cfg.ntsc ? 0 : 0x0020;                // CMM2: PAL, or NTSC
++#else
+     A.beamcon0 = 0x0020;                                 // PAL
++#endif
+     clxcon = 0;
+     amiga_update_ipl();
+ }
+diff --git a/src/amiga/denise.c b/src/amiga/denise.c
+index 74c845d..bf668d9 100644
+--- a/src/amiga/denise.c
++++ b/src/amiga/denise.c
+@@ -48,6 +48,13 @@
+ #include <stdatomic.h>
+ #include <string.h>
+ #include "amiga_int.h"
++#ifdef AMIGA_SINGLE_CORE
++// CMM2: one core, never a render core 1 (amiga_render_async is not called): the
++// stages' acquire/release orders, each a DMB on the M7 (some 70 a line, waiting
++// for the stores before them), order nothing, so they are relaxed.
++#define memory_order_acquire memory_order_relaxed
++#define memory_order_release memory_order_relaxed
++#endif
+ #ifdef DENISE_DEBUG
+ #include <stdio.h>
+ #endif
+@@ -110,6 +117,9 @@ static int      r_h;                      // output: rendered up to this colour
+ static bool     vwin;
+ static amiga_row_t *fbrow;              // row being written, or NULL
+ static amiga_row_t *fbdest;             // overlay row: where fbrow (the scratch) goes at line end
++#ifdef AMIGA_ROW_RING
++static int fbrow_n;                     // CMM2: the row fbrow is (c_line_start)
++#endif
+ static amiga_row_t  scratch_row;
+ static int          ov_y0[2], ov_y1[2]; // amiga_set_overlay_rows
+ static int          fb_x0 = AMIGA_FB_X0_CENTRE;            // DIW x of column 0, this line
+@@ -437,6 +447,9 @@ AMIGA_HOT static void w_begin(amiga_row_t *row, int mode, int field) {
+     w_mode = mode; w_field = field; w_n = 0;
+     w_base = mode == AMIGA_ROW_LACE4 ? 16 * field : 0;
+     w_max = mode == AMIGA_ROW_LACE4 ? 16 : 64;
++#ifdef AMIGA_ROW_RING
++    row->pad = (uint8_t)field;          /* CMM2: the field drawn, the one line of an interlaced row there is */
++#endif
+     if (mode == AMIGA_ROW_LACE4 && row->mode != AMIGA_ROW_LACE4) {
+         // Entering interlace: the other field's line is unknown until it is drawn.
+         int o = field ^ 1;
+@@ -818,7 +831,15 @@ AMIGA_HOT static void c_line_start(uint32_t seq) {
+     ham_in = false;
+     fb_x0 = fb_x0_next;
+     int row = c_vpos - fb_y0;
++#ifdef AMIGA_ROW_RING
++    /* CMM2: each row made in one of AMIGA_ROW_RING rows (the platform's framebuffer, in its fast RAM), which the
++       platform takes at the line's end (row_done, AMIGA_ROW_DONE_ALL): the 288 rows are never all kept, so an
++       interlaced row's other field is not there (its line is the one drawn: w_begin) */
++    fbrow_n = row;
++    fbrow = (A.cfg.framebuffer && row >= 0 && row < AMIGA_FB_H) ? A.cfg.framebuffer + row % AMIGA_ROW_RING : NULL;
++#else
+     fbrow = (A.cfg.framebuffer && row >= 0 && row < AMIGA_FB_H) ? A.cfg.framebuffer + row : NULL;
++#endif
+     fbdest = NULL;
+     if (fbrow && ((row >= ov_y0[0] && row < ov_y1[0]) || (row >= ov_y0[1] && row < ov_y1[1]))) {
+         // Built off-screen (the interlace writer keeps the other field: start
+@@ -854,6 +875,15 @@ AMIGA_HOT static void c_line_finish(void) {
+             fbrow = fbdest;
+             fbdest = NULL;
+         }
++#ifdef AMIGA_ROW_DONE_ALL
++        /* CMM2: every finished row to the platform as it is (no overlay: no scratch row copied in and out), which puts
++           it out while the frame goes on */
++#ifdef AMIGA_ROW_RING
++        else if (A.cfg.row_done) A.cfg.row_done(A.cfg.ctx, fbrow_n, fbrow);
++#else
++        else if (A.cfg.row_done) A.cfg.row_done(A.cfg.ctx, (int)(fbrow - A.cfg.framebuffer), fbrow);
++#endif
++#endif
+     }
+ }
+ 
+diff --git a/src/amiga/mem.c b/src/amiga/mem.c
+index 0277408..2abecb3 100644
+--- a/src/amiga/mem.c
++++ b/src/amiga/mem.c
+@@ -20,6 +20,11 @@
+ 
+ enum { B_NONE = 0, B_CIA, B_CUSTOM, B_RTC };
+ 
++#ifdef AMIGA_FAST_FETCH
++typedef amiga_bank_t bank_t;                    // (amiga_int.h: Musashi reads them too)
++bank_t amiga_banks[256];
++#define banks amiga_banks
++#else
+ typedef struct {
+     const uint8_t *rd;   // direct read base, or NULL
+     uint8_t       *wr;   // direct write base, or NULL (writes to ROM are dropped)
+@@ -29,6 +34,7 @@ typedef struct {
+ } bank_t;
+ 
+ static bank_t banks[256];
++#endif
+ static bool   overlay;
+ 
+ static void map(int first, int count, const uint8_t *rd, uint8_t *wr, uint32_t mask, int io) {

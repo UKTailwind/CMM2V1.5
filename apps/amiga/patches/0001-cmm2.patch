@@ -1,0 +1,512 @@
+diff --git a/common/amiga/Host.h b/common/amiga/Host.h
+index aaa35f7..5f4e258 100644
+--- a/common/amiga/Host.h
++++ b/common/amiga/Host.h
+@@ -8,6 +8,13 @@
+ 
+ #pragma once
+ #include <stdint.h>
++
++// CMM2: the raster's pixels are 0x0RGB, 16 bits (the screen's ARGB4444); elsewhere 32-bit ARGB.
++#ifdef CMM2_PIXEL16
++typedef uint16_t host_pixel_t;
++#else
++typedef uint32_t host_pixel_t;
++#endif
+ #include "../omega/VideoStandard.h"
+ 
+ // Screen dimensions that the Omega DMA engine renders into
+@@ -57,11 +64,11 @@ extern Host_t host;
+ // [min, max) columns per raster row, so the raster never needs clearing, or
+ // converts the pixels straight to RGB332 into the SRAM scanout frame.
+ #ifdef PICO_BUILD
+-uint32_t *hostRasterPixels(int row, int x);
++host_pixel_t *hostRasterPixels(int row, int x);
+ void hostRasterWritten(int row, int x, int width);
+ #else
+-static inline uint32_t *hostRasterPixels(int row, int x) {
+-    return &((uint32_t *)host.pixels)[row * HOST_RASTER_W + x];
++static inline host_pixel_t *hostRasterPixels(int row, int x) {
++    return &((host_pixel_t *)host.pixels)[row * HOST_RASTER_W + x];
+ }
+ static inline void hostRasterWritten(int row, int x, int width) {
+     (void)row; (void)x; (void)width;
+@@ -136,12 +143,12 @@ static inline void hostDirectLores(int row, int x, uint16_t p1, uint16_t p2,
+ #endif
+ 
+ // ── Pixel-conversion helpers (same signature as the SDL version) ──────────
+-void hiresPlanar2Chunky(uint32_t *pixBuff,
++void hiresPlanar2Chunky(host_pixel_t *pixBuff,
+                         uint16_t p1, uint16_t p2, uint16_t p3, uint16_t p4);
+-void loresPlanar2Chunky(uint32_t *pixBuff,
++void loresPlanar2Chunky(host_pixel_t *pixBuff,
+                         uint16_t p1, uint16_t p2, uint16_t p3, uint16_t p4,
+                         uint16_t p5, uint16_t p6);
+-void loresHAM2Chunky(uint32_t *pixBuff,
++void loresHAM2Chunky(host_pixel_t *pixBuff,
+                      uint16_t p1, uint16_t p2, uint16_t p3, uint16_t p4,
+                      uint16_t p5, uint16_t p6);
+ // ── Keyboard / mouse ──────────────────────────────────────────────────────
+diff --git a/native/memory_native.c b/native/memory_native.c
+index f053982..605c0a9 100644
+--- a/native/memory_native.c
++++ b/native/memory_native.c
+@@ -26,14 +26,14 @@
+ #include "Expansion.h"
+ #include "Picasso2.h"
+ 
+-unsigned char low16Meg[16777216];
++/* low16Meg: amiga_map.h (CMM2) */
+ 
+-//Chipset_t* chipset = (Chipset_t*)&low16Meg[0xDFF000];
++//Chipset_t* chipset = (Chipset_t*)&AM(0xDFF000);
+ 
+ void loadROM(){
+     
+     for(int i=0;i<524288;++i){
+-//         low16Meg[0xF80000+i] = kick13[i];
++//         AM(0xF80000+i) = kick13[i];
+     }
+ }
+ 
+@@ -56,7 +56,7 @@ static inline unsigned int customMirror(unsigned int address){
+ // the Fast RAM is low16Meg at its own addresses, the Picasso II+'s VRAM
+ // p2Vram (omega/Picasso2.c). Elsewhere 0x200000-0x9FFFFF is open bus.
+ static unsigned int fastBase, fastSize, vramBase, vramSize, regsBase, regsSize;
+-static uint8_t p2Vram[P2_VRAM_SIZE];
++static uint8_t p2Vram[0x10000];   /* (CMM2: no RTG card) */
+ // frank-amiga: OMEGA_A500=1 (main_native.c) makes the machine an A500 like
+ // the board's default: chip RAM mirrors every 512 KB (nativeChipMask) and
+ // 512 KB of slow RAM sits at 0xC00000 (served like Fast RAM, from low16Meg).
+@@ -69,7 +69,7 @@ uint32_t nativeSlowSize;
+ void memoryNativeInit(void){
+     static uint32_t state[P2_STATE_BYTES / 4];
+     p2Init(p2Vram, expansionPicasso2Vram ? expansionPicasso2Vram
+-                                         : P2_VRAM_SIZE, state);
++                                         : 0x10000, state);
+ }
+ 
+ // The window draws the card's picture straight from VRAM.
+@@ -130,17 +130,18 @@ int extRomPresent;
+ #define IN_EXT_ROM(a) (extRomPresent && (a) >= 0xE00000u && (a) < 0xE80000u)
+ 
+ unsigned int chipReadByte(unsigned int address){
++    if (address < 0x200000u) return AM(address & nativeChipMask);   /* (CMM2: chip RAM first, as the board's Memory.c) */
+     if (IN_EXT_ROM(address))
+-        return low16Meg[address];
++        return AM(address);
+     if (address > 0xFFFFFFu)
+         return 0xFF;
+     if (IN_FAST_RAM(address))
+-        return low16Meg[address];
++        return AM(address);
+     if (IN_VRAM(address))
+         return p2Vram[address - vramBase];
+     //ROM
+     if(address>=0xF80000){
+-        return low16Meg[address];
++        return AM(address);
+     }
+     
+     //Autoconfig space
+@@ -208,15 +209,16 @@ unsigned int chipReadByte(unsigned int address){
+ 
+     //RAM
+     address &= nativeChipMask;
+-    return low16Meg[address];
++    return AM(address);
+ }
+ unsigned int chipReadWord(unsigned int address){
++    if (address < 0x200000u) { uint16_t v = *(uint16_t *)&AM(address & nativeChipMask); return (uint16_t)(v << 8 | v >> 8); }   /* (CMM2: chip RAM first, as the board's Memory.c) */
+     if (address > 0xFFFFFFu)
+         return 0xFFFF;
+     if (IN_EXT_ROM(address))
+-        return (unsigned int)low16Meg[address] << 8 | low16Meg[address + 1];
++        return (unsigned int)AM(address) << 8 | AM(address + 1);
+     if (IN_FAST_RAM(address))
+-        return (unsigned int)low16Meg[address] << 8 | low16Meg[address + 1];
++        return (unsigned int)AM(address) << 8 | AM(address + 1);
+     if (IN_VRAM(address))
+         return (unsigned int)p2Vram[address - vramBase] << 8 |
+                p2Vram[(address + 1 - vramBase) & (P2_VRAM_SIZE - 1)];
+@@ -225,7 +227,7 @@ unsigned int chipReadWord(unsigned int address){
+     //ROM
+     if(address>0xF7FFFF){
+         //return READ_WORD(chipset.rom,address-0xF80000);
+-        uint16_t value = *(uint16_t*)&low16Meg[address];
++        uint16_t value = *(uint16_t*)&AM(address);
+         value = (value << 8) | (value >> 8);
+         return value;
+         
+@@ -287,21 +289,22 @@ unsigned int chipReadWord(unsigned int address){
+     address &= nativeChipMask;
+     
+     //return READ_WORD(chipset.chipram,address);
+-    uint16_t value = *(uint16_t*)&low16Meg[address];
++    uint16_t value = *(uint16_t*)&AM(address);
+     value = (value << 8) | (value >> 8);
+     return value;
+ }
+ unsigned int chipReadLong(unsigned int address){
++    if (address < 0x200000u) { uint32_t a = address & nativeChipMask; if (a + 2u <= nativeChipMask) { uint32_t v = *(uint32_t *)&AM(a); v = ((v << 8) & 0xFF00FF00u) | ((v >> 8) & 0xFF00FFu); return v << 16 | v >> 16; } }   /* (CMM2: chip RAM first, as the board's Memory.c) */
+     if (IN_EXT_ROM(address))
+-        return (unsigned int)low16Meg[address] << 24 |
+-               (unsigned int)low16Meg[address + 1] << 16 |
+-               (unsigned int)low16Meg[address + 2] << 8 | low16Meg[address + 3];
++        return (unsigned int)AM(address) << 24 |
++               (unsigned int)AM(address + 1) << 16 |
++               (unsigned int)AM(address + 2) << 8 | AM(address + 3);
+     if (address > 0xFFFFFFu)
+         return 0xFFFFFFFFu;
+     if (IN_FAST_RAM(address))
+-        return (unsigned int)low16Meg[address] << 24 |
+-               (unsigned int)low16Meg[address + 1] << 16 |
+-               (unsigned int)low16Meg[address + 2] << 8 | low16Meg[address + 3];
++        return (unsigned int)AM(address) << 24 |
++               (unsigned int)AM(address + 1) << 16 |
++               (unsigned int)AM(address + 2) << 8 | AM(address + 3);
+     if (IN_VRAM(address) || IN_P2_REGS(address))
+         return chipReadWord(address) << 16 | chipReadWord(address + 2);
+     // KickSmash ROM switcher protocol (omega/KickSmash.c)
+@@ -314,7 +317,7 @@ unsigned int chipReadLong(unsigned int address){
+     //ROM
+     if(address>0xF7FFFF){
+         //return READ_LONG(chipset.rom,address-0xF80000);
+-        uint32_t value = *(uint32_t*)&low16Meg[address];
++        uint32_t value = *(uint32_t*)&AM(address);
+         value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
+         return value << 16 | value >> 16;
+     }
+@@ -372,7 +375,7 @@ unsigned int chipReadLong(unsigned int address){
+         return chipReadWord(address) << 16 | chipReadWord((address + 2u) & nativeChipMask);
+     
+     //return READ_LONG(chipset.chipram,address);
+-    uint32_t value = *(uint32_t*)&low16Meg[address];
++    uint32_t value = *(uint32_t*)&AM(address);
+     value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
+     return value << 16 | value >> 16;
+ }
+@@ -400,6 +403,7 @@ static void watchWrite(unsigned address, unsigned size, unsigned value) {
+ }
+ 
+ void chipWriteByte(unsigned int address,unsigned int value){
++    if (address < 0x200000u) { AM(address & nativeChipMask) = (uint8_t)value; return; }   /* (CMM2: chip RAM first, as the board's Memory.c) */
+     watchWrite(address & 0xffffff, 1, value & 0xff);   //ROM
+     // Catch any byte write into tc_SigRecvd (0xC00C22..0xC00C25)
+     if (address >= 0xC00C22u && address <= 0xC00C25u && sig_byte_hook_count < 20) {
+@@ -419,7 +423,7 @@ void chipWriteByte(unsigned int address,unsigned int value){
+         }
+     }
+     if (IN_FAST_RAM(address)) {
+-        low16Meg[address] = (uint8_t)value;
++        AM(address) = (uint8_t)value;
+         return;
+     }
+     if (IN_VRAM(address)) {
+@@ -497,13 +501,14 @@ void chipWriteByte(unsigned int address,unsigned int value){
+     
+     //RAM - Incomplete address decding means chip addresses below 2meg wrap around
+     address &= nativeChipMask;
+-    low16Meg[address] = value;
++    AM(address) = value;
+ }
+ 
+ static int dsklen_hook_count = 0;
+ static int intena_hook_count = 0;
+ static int dmacon_hook_count = 0;
+ void chipWriteWord(unsigned int address,unsigned int value){
++    if (address < 0x200000u) { *(uint16_t *)&AM(address & nativeChipMask) = (uint16_t)((value << 8) | ((value >> 8) & 0xFFu)); return; }   /* (CMM2: chip RAM first, as the board's Memory.c) */
+     watchWrite(address & 0xffffff, 2, value & 0xffff);
+     // DSKLEN write (0xDFF024): disk DMA start
+     if (address == 0xDFF024u && dsklen_hook_count < 30) {
+@@ -551,8 +556,8 @@ void chipWriteWord(unsigned int address,unsigned int value){
+         }
+     }
+     if (IN_FAST_RAM(address)) {
+-        low16Meg[address] = (uint8_t)(value >> 8);
+-        low16Meg[address + 1] = (uint8_t)value;
++        AM(address) = (uint8_t)(value >> 8);
++        AM(address + 1) = (uint8_t)value;
+         return;
+     }
+     if (IN_VRAM(address) && IN_VRAM(address + 1)) {
+@@ -622,7 +627,7 @@ void chipWriteWord(unsigned int address,unsigned int value){
+     address &= nativeChipMask;
+     
+     //WRITE_WORD(chipset.chipram,address,value);
+-    uint16_t* dest = (uint16_t*)&low16Meg[address];
++    uint16_t* dest = (uint16_t*)&AM(address);
+     value = (value << 8) | (value >> 8);
+     *dest = value;return;
+ 
+@@ -636,6 +641,7 @@ static int execlib_sig_count = 0; // tc_SigRecvd of exec.library task @C01570
+ static int condev_sig_count  = 0; // tc_SigRecvd of console.device @C0A7E0
+ static int tdsig_hook_count  = 0; // tc_SigRecvd of trackdisk.device @C0485E
+ void chipWriteLong(unsigned int address,unsigned int value){
++    if (address < 0x200000u) { uint32_t a = address & nativeChipMask; if (a + 2u <= nativeChipMask) { uint32_t v = value; v = ((v << 8) & 0xFF00FF00u) | ((v >> 8) & 0xFF00FFu); *(uint32_t *)&AM(a) = v << 16 | v >> 16; return; } }   /* (CMM2: chip RAM first, as the board's Memory.c) */
+     watchWrite(address & 0xffffff, 4, value);
+     // Catch Signal() to trackdisk.device @C0485E: tc_SigRecvd at +0x1A = 0xC04878
+     if (address == 0xC04878u && tdsig_hook_count < 40) {
+@@ -695,10 +701,10 @@ void chipWriteLong(unsigned int address,unsigned int value){
+         fflush(stdout);
+     }
+     if (IN_FAST_RAM(address)) {
+-        low16Meg[address] = (uint8_t)(value >> 24);
+-        low16Meg[address + 1] = (uint8_t)(value >> 16);
+-        low16Meg[address + 2] = (uint8_t)(value >> 8);
+-        low16Meg[address + 3] = (uint8_t)value;
++        AM(address) = (uint8_t)(value >> 24);
++        AM(address + 1) = (uint8_t)(value >> 16);
++        AM(address + 2) = (uint8_t)(value >> 8);
++        AM(address + 3) = (uint8_t)value;
+         return;
+     }
+     if (IN_VRAM(address) || IN_P2_REGS(address)) {
+@@ -777,7 +783,7 @@ void chipWriteLong(unsigned int address,unsigned int value){
+     }
+     
+     //WRITE_LONG(chipset.chipram,address,value);
+-    uint32_t* dest = (uint32_t*)&low16Meg[address];
++    uint32_t* dest = (uint32_t*)&AM(address);
+     value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
+     value = value << 16 | value >> 16;
+     *dest = value; return;
+diff --git a/slave/src/platform/Memory.h b/slave/src/platform/Memory.h
+index f9fe3c1..b3ae2f0 100644
+--- a/slave/src/platform/Memory.h
++++ b/slave/src/platform/Memory.h
+@@ -34,16 +34,16 @@
+ #endif
+ 
+ // ── Direct chip RAM access helpers (used by Chipset.c and DMA.c) ─────────
+-// On desktop, chip RAM is the start of the low16Meg array.
++// On desktop, chip RAM is the start of the amiga_chip array.
+ // On RP2350, it is memory-mapped PSRAM.
+ #ifdef PICO_BUILD
+ #include "psram.h"
+ // Byte pointer to the start of chip RAM (PSRAM-backed, memory-mapped)
+ #define CHIPRAM_BASE_PTR  ((uint8_t*)(BOARD_CHIPRAM_BASE + PSRAM_CHIPRAM_OFFSET))
+ #else
+-// low16Meg is declared by the desktop Memory.c
+-extern unsigned char low16Meg[16777216];
+-#define CHIPRAM_BASE_PTR  ((uint8_t*)low16Meg)
++// amiga_chip is declared by the desktop Memory.c
++/* amiga_chip: amiga_map.h (CMM2) */
++#define CHIPRAM_BASE_PTR  ((uint8_t*)amiga_chip)
+ #endif
+ 
+ // ── Chip RAM banks (frank-amiga) ─────────────────────────────────────────
+@@ -70,11 +70,11 @@ static inline uint8_t *chip_ptr(uint32_t a) {
+ static inline uint8_t *chip_ptr(uint32_t a) {
+     static unsigned reported;
+     if (a > CHIPTOP && reported < 10) { reported++; fprintf(stderr, "CHIP OOR %08x\n", a); }
+-    return &low16Meg[a & CHIPTOP];
++    return &amiga_chip[a & CHIPTOP];
+ }
+ #else
+ extern uint32_t nativeChipMask;     // memory_native.c (OMEGA_A500: 512 KB)
+-static inline uint8_t *chip_ptr(uint32_t a) { return &low16Meg[a & nativeChipMask]; }
++static inline uint8_t *chip_ptr(uint32_t a) { return &amiga_chip[a & nativeChipMask]; }
+ #endif
+ #endif
+ // Once per frame: chip RAM addresses in use and their weights; moves hot
+diff --git a/slave/src/platform/Planar.c b/slave/src/platform/Planar.c
+index 844f833..80372d8 100644
+--- a/slave/src/platform/Planar.c
++++ b/slave/src/platform/Planar.c
+@@ -3,7 +3,7 @@
+ 
+ // Shared planar-to-chunky conversion for native and RP2350 hosts.
+ 
+-void hiresPlanar2Chunky(uint32_t *pixBuff,
++void hiresPlanar2Chunky(host_pixel_t *pixBuff,
+                         uint16_t plane1, uint16_t plane2,
+                         uint16_t plane3, uint16_t plane4) {
+     int counter = 0;
+@@ -25,7 +25,7 @@ void hiresPlanar2Chunky(uint32_t *pixBuff,
+     }
+ }
+ 
+-void loresPlanar2Chunky(uint32_t *pixBuff,
++void loresPlanar2Chunky(host_pixel_t *pixBuff,
+                         uint16_t plane1, uint16_t plane2,
+                         uint16_t plane3, uint16_t plane4,
+                         uint16_t plane5, uint16_t plane6) {
+@@ -57,7 +57,7 @@ void loresPlanar2Chunky(uint32_t *pixBuff,
+     }
+ }
+ 
+-void loresHAM2Chunky(uint32_t *pixBuff,
++void loresHAM2Chunky(host_pixel_t *pixBuff,
+                      uint16_t plane1, uint16_t plane2,
+                      uint16_t plane3, uint16_t plane4,
+                      uint16_t plane5, uint16_t plane6) {
+@@ -74,12 +74,20 @@ void loresHAM2Chunky(uint32_t *pixBuff,
+         if (c1 & 0xF0) {
+             int      ctrl  = c1 >> 4;
+             uint32_t col   = c1 & 0xF;
++#ifndef CMM2_PIXEL16
+             col = (col << 4) | col;
++#endif
+             uint32_t prev  = (counter > 0) ? pixBuff[counter - 1] : 0;
+             switch (ctrl) {
++#ifdef CMM2_PIXEL16
++                case 1: prev = (prev & 0xFF0u) |  col;        break;
++                case 2: prev = (prev & 0x0FFu) | (col << 8);  break;
++                case 3: prev = (prev & 0xF0Fu) | (col << 4);  break;
++#else
+                 case 1: prev = (prev & 0xFFFFFF00u) |  col;          break;
+                 case 2: prev = (prev & 0xFF00FFFFu) | (col << 16);   break;
+                 case 3: prev = (prev & 0xFFFF00FFu) | (col <<  8);   break;
++#endif
+             }
+             pixBuff[counter++] = prev;
+             pixBuff[counter++] = prev;
+@@ -103,12 +111,20 @@ void loresHAM2Chunky(uint32_t *pixBuff,
+         if (c2 & 0xF0) {
+             int      ctrl  = c2 >> 4;
+             uint32_t col   = c2 & 0xF;
++#ifndef CMM2_PIXEL16
+             col = (col << 4) | col;
++#endif
+             uint32_t prev  = pixBuff[counter + 15];
+             switch (ctrl) {
++#ifdef CMM2_PIXEL16
++                case 1: prev = (prev & 0xFF0u) |  col;        break;
++                case 2: prev = (prev & 0x0FFu) | (col << 8);  break;
++                case 3: prev = (prev & 0xF0Fu) | (col << 4);  break;
++#else
+                 case 1: prev = (prev & 0xFFFFFF00u) |  col;          break;
+                 case 2: prev = (prev & 0xFF00FFFFu) | (col << 16);   break;
+                 case 3: prev = (prev & 0xFFFF00FFu) | (col <<  8);   break;
++#endif
+             }
+             pixBuff[counter + 16] = prev;  counter++;
+             pixBuff[counter + 16] = prev;  counter++;
+diff --git a/third_party/omega/Audio.h b/third_party/omega/Audio.h
+index db6ec75..d5dcf16 100644
+--- a/third_party/omega/Audio.h
++++ b/third_party/omega/Audio.h
+@@ -13,7 +13,9 @@
+ 
+ #include <stdint.h>
+ 
++#ifndef AUDIO_RATE   /* (CMM2: 44100, the firmware's stream) */
+ #define AUDIO_RATE 48000
++#endif
+ 
+ // DMACON was written (old value of DMACONR); starts/stops channels.
+ void audioDmaconChanged(uint16_t old);
+diff --git a/third_party/omega/CPU.c b/third_party/omega/CPU.c
+index fe2ff0b..9c86dec 100644
+--- a/third_party/omega/CPU.c
++++ b/third_party/omega/CPU.c
+@@ -148,7 +148,7 @@ void cpu_execute(){
+         //disass =1;
+     }
+     
+-    uint32_t* guru = low16Meg;
++    uint32_t* guru = (uint32_t*)amiga_chip;
+  */
+     
+     m68k_execute(16);
+diff --git a/third_party/omega/Chipset.c b/third_party/omega/Chipset.c
+index faddf4a..dae907e 100644
+--- a/third_party/omega/Chipset.c
++++ b/third_party/omega/Chipset.c
+@@ -89,6 +89,9 @@ void ChipsetInit(){
+ }
+ 
+ uint32_t OCS2ARGB(uint16_t color){
++#ifdef CMM2_PIXEL16
++    return color & 0xFFFu;               /* (CMM2: 0x0RGB, the screen's ARGB4444) */
++#endif
+     
+     uint32_t value  =  ((color <<12)& 0xF00000) | ((color <<8)&0xF000) | ((color << 4)&0xF0); // high nybble.
+     value |= (value >> 4);// low nyble
+@@ -97,6 +100,9 @@ uint32_t OCS2ARGB(uint16_t color){
+ }
+ 
+ uint32_t EHB2ARGB(uint16_t color){
++#ifdef CMM2_PIXEL16
++    return (color >> 1) & 0x777u;        /* (CMM2: half of each 4-bit channel) */
++#endif
+ 
+     int red = (((color <<12)& 0xF00000) >> 1) & 0xFF0000;
+     int green = (((color <<8)& 0xF000) >> 1 ) & 0xFF00;
+diff --git a/third_party/omega/DMA.c b/third_party/omega/DMA.c
+index 43bae43..5aafedf 100644
+--- a/third_party/omega/DMA.c
++++ b/third_party/omega/DMA.c
+@@ -2204,7 +2204,7 @@ static void spriteDrawArgb(int row, int x, int colour_base, int attached,
+                 px -= HOST_RASTER_W;
+             if (px < 0 || px >= HOST_RASTER_W)
+                 continue;
+-            uint32_t *p = hostRasterPixels(row, px);
++            host_pixel_t *p = hostRasterPixels(row, px);
+             if (behind && *p != internal.palette[0])
+                 continue;
+             *p = colour;
+@@ -2454,7 +2454,7 @@ static inline void loresPlane1Fetch(void){
+             diwLineWindow(host.rasterRow, 0);
+         hostDirectLoresFast(host.rasterRow, host.rasterX, chipset.bpl1dat, chipset.bpl2dat, chipset.bpl3dat, chipset.bpl4dat, chipset.bpl5dat, chipset.bpl6dat, chipset.bplcon0 & 0x800);
+     } else {
+-        uint32_t *pixels = hostRasterPixels(host.rasterRow, host.rasterX);
++        host_pixel_t *pixels = hostRasterPixels(host.rasterRow, host.rasterX);
+         paletteArgbSync();
+         if(chipset.bplcon0 & 0x800){
+             loresHAM2Chunky(pixels, chipset.bpl1dat, chipset.bpl2dat, chipset.bpl3dat, chipset.bpl4dat,chipset.bpl5dat, chipset.bpl6dat);
+@@ -2615,7 +2615,7 @@ static inline void hiresPlane1Fetch(void){
+             diwLineWindow(raster_row, 1);
+         hostDirectHiresFast(raster_row, host.rasterX, chipset.bpl1dat, chipset.bpl2dat, chipset.bpl3dat, chipset.bpl4dat);
+     } else {
+-        uint32_t *line = hostRasterPixels(raster_row, host.rasterX);
++        host_pixel_t *line = hostRasterPixels(raster_row, host.rasterX);
+         paletteArgbSync();
+         hiresPlanar2Chunky(line, chipset.bpl1dat, chipset.bpl2dat, chipset.bpl3dat, chipset.bpl4dat);
+         hostRasterWritten(raster_row, host.rasterX, 16);
+diff --git a/third_party/omega/Floppy.c b/third_party/omega/Floppy.c
+index 5025cb5..e8e8fa5 100644
+--- a/third_party/omega/Floppy.c
++++ b/third_party/omega/Floppy.c
+@@ -318,7 +318,8 @@ Fd_t df[4];
+ 
+ #ifndef PICO_BUILD
+ // Native builds keep DF0's whole disk as MFM (tracks * sides).
+-static uint8_t df0_mfm_image[FLOPPY_MFM_TRACK_SIZE * 82 * 2];
++extern uint8_t *cmm2_mfm_image;   /* (CMM2: 2.1 MB, in MMBasic's heap: amiga_cmm2.c) */
++#define df0_mfm_image cmm2_mfm_image
+ #endif
+ 
+ #ifdef PICO_BUILD
+diff --git a/third_party/omega/m68kops.c b/third_party/omega/m68kops.c
+index a2964d3..117e81c 100644
+--- a/third_party/omega/m68kops.c
++++ b/third_party/omega/m68kops.c
+@@ -28,8 +28,10 @@ unsigned short m68ki_opcode_blocks[M68KI_MAX_BLOCKS][M68KI_BLOCK_SIZE];
+ static unsigned short *m68ki_instruction_index;
+ #else
+ #define M68KI_HANDLER_TABLE_CONST
++#ifndef AXI_TABLE
+ void  (*m68ki_instruction_jump_table[0x10000])(void); /* opcode handler jump table */
+ #endif
++#endif
+ #ifndef PICO_BUILD
+ unsigned char m68ki_cycles[NUM_CPU_TYPES][0x10000]; /* Cycles used by CPU type */
+ #endif
+diff --git a/third_party/omega/m68kops.h b/third_party/omega/m68kops.h
+index 0ef5aa1..3b48d28 100644
+--- a/third_party/omega/m68kops.h
++++ b/third_party/omega/m68kops.h
+@@ -1997,7 +1997,11 @@ void m68ki_set_handler_cycles(int type);
+ #define m68ki_call_instruction(ir) \
+ 	m68ki_handler_ptrs[m68ki_handler_index(ir)]()
+ #else
++#ifdef AXI_TABLE
++#define m68ki_instruction_jump_table ((void (**)(void))0x24000000u)
++#else
+ extern void (*m68ki_instruction_jump_table[0x10000])(void); /* opcode handler jump table */
++#endif
+ #define m68ki_call_instruction(ir) m68ki_instruction_jump_table[ir]()
+ #endif
+ #ifndef PICO_BUILD

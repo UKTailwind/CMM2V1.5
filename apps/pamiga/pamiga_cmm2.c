@@ -1,0 +1,680 @@
+/* pamiga_cmm2.c: an Amiga 500 on the Colour Maximite 2, pico-amiga's emulator (drewpo28's line-based core for the
+   RP2350: Musashi's 68000, the OCS chipset a line at a time) on one core, by the loader's services. This file is the
+   platform, what src/pico is on the RP2350 boards (Peter, 9 Nov 2026: "what about taking the emulator from the other
+   source").
+
+     RUN "pamiga.app" [, disk.adf [disk2.adf ...]] [-kick file] [-ext file] [-pal] [-sound] [-click frame] [-fast]
+                       [-stats] [-keys] [-nowa] [-dt N] [-qos N]
+
+   - The machine: an A500 with 512 KB of chip RAM and 512 KB of slow RAM, NTSC (-pal: PAL), its Kickstart from the folder
+     (amiga-os-130.rom, Amiga Forever's Kickstart 1.3, or -kick; 256 or 512 KB, a user's own: none is built in). The
+     disks are DF0's, the first in it at power-on; F11 puts the next one in (the last back to the first). A disk is held
+     in MMBasic's heap: what the Amiga writes to it is lost when the next goes in or the program ends.
+   - The display, NTSC: MODE 8 (640 x 480 at 60 Hz, the Amiga's own rate) in depth 12, ARGB4444 on one layer, cut to a
+     window of 640 x 474: the core's picture (237 rows of the NTSC beam, each two of the monitor's lines, 640 of its 720
+     pixels: a low resolution pixel two wide), each frame shown at the monitor's next. -pal: 576p, 720 x 576 at 50 Hz (the
+     program's own timing over MODE 1's page: below), all 288 rows, each frame shown once too. As the frame is made its rows are put out as 0x0RGB
+     pixels (the core's amiga_fb_line), in batches in the AXI RAM, and the DMA2D copies each batch into the page not
+     shown, each row on two lines (below); the frame hook shows that page at a blanking once its copies are done.
+     Outside the window, the LTDC's background colour: the colour at the picture's top left, the border's. MODE 19 and
+     MODE 1's 800 x 600 at 75 Hz read too much from the SDRAM for the LTDC to keep up, and the monitors lost their sync;
+     MODE 8 at 60 Hz (Peter, 9 Nov 2026: "If we change to NTSC mode then everything can work in 640x480 with massively
+     reduced bus bandwidth") has not lost it. An interlaced row's second line is shown as its first (for now).
+   - The sound (-sound; off until it is better): Paula at 31,528 Hz NTSC, 31,300 PAL (the core's two samples a line),
+     stereo, taken from its ring at the stream's 44.1 kHz.
+   - The keyboard: by place, the HID codes of the keys held (keys_raw) to the Amiga's raw codes; Insert is HELP, the left
+     and right Windows keys the Amiga keys. F11 the next disk, F12 (or Ctrl+Alt+End) back to MMBasic. The serial console
+     types too: letters, digits, space, Enter; Ctrl-N the next disk, Ctrl-] back to MMBasic.
+   - The mouse in port 1, the first USB gamepad (of the firmware's HID slots 1-8) a joystick in port 2, a second one in
+     port 1 (any face button fire).
+   - -click N: the left button pressed at frame N. -fast: no pacing. -stats: the time a frame takes, each 50, and where
+     it went (the core's buckets), on the console. -keys: each key's codes on the console. -nowa, -dt, -qos: below. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "cmm2.h"
+#include "amiga.h"
+
+/* The processor's AXI RAM (512 KB at 0x24000000) holds the emulator's code and constants: Musashi's handlers, their
+   index and cycle tables, and the chips' (make.py's AXI list, build.py --axi), copied there by cmm2_axi_load() once the
+   display is in the SDRAM (Peter, 9 Nov 2026: "put the opcode tables and handlers in the 512K of video memory and run
+   the display from sdram"). In the SDRAM they missed the M7's caches at nearly every 68000 instruction. */
+
+/* Write-allocate (-nowa: not; Peter found that worse, 9 Nov 2026): the program's 8 MB (the loader's MPU region at 0xD1800000) write-back with write-allocate (TEX 1) for the run, in
+   place of no write-allocate (TEX 0): a store that misses the cache brings the line in, so the framebuffer's row Denise
+   has just written is in the cache when it is put out. Put back, the cache written back, at the end */
+#define MPU_RNR  (*(volatile uint32_t *)0xE000ED98u)
+#define MPU_RBAR (*(volatile uint32_t *)0xE000ED9Cu)
+#define MPU_RASR (*(volatile uint32_t *)0xE000EDA0u)
+#define DCCMVAC  (*(volatile uint32_t *)0xE000EF68u)
+static int wa_region = -1;
+static uint32_t wa_rasr;
+static void wa_on(void) {
+    for (int r = 0; r < 16; r++) {
+        MPU_RNR = (uint32_t)r;
+        if ((MPU_RBAR & ~0x1Fu) == 0xD1800000u && (MPU_RASR & 1u)) wa_region = r;
+    }
+    if (wa_region < 0) return;
+    MPU_RNR = (uint32_t)wa_region;
+    wa_rasr = MPU_RASR;
+    __asm volatile ("dsb 0xF" ::: "memory");
+    MPU_RASR = (wa_rasr & ~(7u << 19)) | (1u << 19);
+    __asm volatile ("dsb 0xF\n isb 0xF" ::: "memory");
+}
+static void wa_off(void) {
+    if (wa_region < 0) return;
+    for (uint32_t a = 0xD1800000u; a < 0xD2000000u; a += 32) DCCMVAC = a;
+    __asm volatile ("dsb 0xF" ::: "memory");
+    MPU_RNR = (uint32_t)wa_region;
+    MPU_RASR = wa_rasr;
+    __asm volatile ("dsb 0xF\n isb 0xF" ::: "memory");
+    wa_region = -1;
+}
+
+/* ---- options ---- */
+#define MAXDISKS 8
+static const char *disk[MAXDISKS];
+static int ndisks, curdisk, opt_fast, opt_stats, opt_keys, opt_wa = 1, opt_sound;
+/* -noprof: -stats's frame times without the core's buckets (its clock read at each of their changes, some 15 a
+   line, costs time of its own); -mute: the sound made and sent but each sample 0 (its cost measured in silence) */
+static int opt_noprof, opt_mute;
+/* -crc N: each N frames the finished page's checksum (FNV-1a of its pixels) on the console: the same in two builds if
+   a change made for speed changed nothing the Amiga shows */
+static int opt_crc;
+/* -dt N: the DMA2D waits N of its clock's cycles between its transfers on the bus (its AMTCR; 0: none), so that its
+   copies of a batch, 63 KB written as fast as it can, leave the LTDC its share of the SDRAM: without, the LTDC ran dry
+   while Lotus's demo turned its car, and the monitor lost its sync (Peter, 9 Nov 2026). The DMA2D is the program's */
+static int opt_dt = 32;
+#define DMA2D_AMTCR (*(volatile uint32_t *)0x5200104Cu)
+static uint32_t amtcr_saved;
+/* -qos N: the LTDC's reads first at the AXI interconnect (its INI 6 read QoS, 0-15; all are 0 from reset) */
+static int opt_qos = -1;
+#define AXI_INI6_READ_QOS (*(volatile uint32_t *)0x51047100u)
+static uint32_t qos_saved;
+static long opt_click = -1;
+static const char *kick = "amiga-os-130.rom", *ext;   /* Kickstart 1.3 by Amiga Forever's name for it */
+static volatile int quit;
+static unsigned long frame;
+
+/* ---- the machine's memory ---- */
+static uint8_t chip_ram[512 * 1024] __attribute__((aligned(32)));
+static uint8_t slow_ram[512 * 1024] __attribute__((aligned(32)));
+/* the core's framebuffer: AMIGA_ROW_RING rows in the AXI RAM after the batches (patches/0001: each row made in one of
+   them and put out at its line's end), not 288 rows (245 KB) in the SDRAM, where a finished row had left the cache by
+   the time it was read (2.5 ms a frame to read them) */
+static amiga_row_t *ring;
+static amiga_row_t blank;                       /* a row a frame does not draw (a short frame's last): the border's */
+static uint16_t track[AMIGA_TRACK_WORDS];
+#define AFRAMES 8192                            /* the core's sound ring, stereo frames (a power of 2) */
+static int16_t aring[AFRAMES * 2];
+
+/* ---- the display ---- */
+/* The window and the page. NTSC (the default): MODE 8, 640 x 480 at 60 Hz, the Amiga's own rate (each frame shown once,
+   at a blanking), the window 640 x 474: 237 rows (an NTSC frame's lines 26 to 262), each row's 640 pixels from its 41st
+   (the standard screen's 320 low resolution pixels and no more). PAL (-pal): 576p over MODE 1's page (timing_576p),
+   the whole screen, all 288 rows of 720 pixels (Peter, 9 Nov 2026: "If we change to NTSC mode then everything can work in
+   640x480 with massively reduced bus bandwidth": the LTDC reads 36 MB/s, 50 at most, where MODE 1's read 62 and 99) */
+/* -pal60: a PAL Amiga on the NTSC display, as pico-amiga's 640 x 480 at 60 Hz (Peter, 10 Nov 2026: "we should try the
+   pico-amiga approach next 640x512 windowed onto 640x480 as an experiment"): one PAL frame (313 lines) a display frame,
+   so 20% faster than a real one, the window the standard 320 x 256 screen's middle 240 rows (the framebuffer's 26 to 265:
+   its row 18 is the screen's first) and 320 columns. A PAL title's waits for a line past NTSC's 262 come to an end */
+static int opt_pal, opt_576;                    /* a PAL Amiga; shown in 576p (-pal), not MODE 8 (-pal60) */
+static int PW = 640, PH = 474, ROWS = 237, SX = 40, SY = 0, SCR_W = 640, SCR_H = 480, VMODE = 8;
+#define LTDC_BPCR     (*(volatile uint32_t *)0x5000100Cu)
+#define LTDC_SRCR     (*(volatile uint32_t *)0x50001024u)
+#define LTDC_BCCR     (*(volatile uint32_t *)0x5000102Cu)
+#define LTDC_L1WHPCR  (*(volatile uint32_t *)0x50001088u)
+#define LTDC_L1WVPCR  (*(volatile uint32_t *)0x5000108Cu)
+#define LTDC_L1CFBAR  (*(volatile uint32_t *)0x500010ACu)
+#define LTDC_L1CFBLR  (*(volatile uint32_t *)0x500010B0u)
+#define LTDC_L1CFBLNR (*(volatile uint32_t *)0x500010B4u)
+static uint32_t ltdc_saved[6];
+static volatile uint32_t border_rgb;
+#define NPAGES 3
+static uint16_t *page[NPAGES];
+static int npages = 2;
+static volatile int shown, flip_to = -1;
+static volatile uint32_t issued;                /* the copies given to the DMA2D, ever */
+static volatile uint32_t frame_mark;            /* issued, once the copies of the page waiting to be shown were */
+static uint32_t completed(void) {               /* the copies done, ever (issued first: a copy issued meanwhile makes it
+                                                   less, never more) */
+    const uint32_t i = issued;
+    return i - (uint32_t)cmm2->dma2d_busy();
+}
+
+static volatile uint32_t flips, late_flips, late_max;   /* (-stats: flips made in the picture's lines, not the blanking) */
+static void hook(void) {                        /* the start of each frame's blanking (PendSV): a finished page shown */
+    LTDC_BCCR = border_rgb;
+    if (flip_to >= 0 && (int32_t)(completed() - frame_mark) >= 0) {
+        const uint32_t y = *(volatile uint32_t *)0x50001044u & 0xFFFF;   /* (LTDC_CPSR's line) */
+        const uint32_t avbp = LTDC_BPCR & 0x7FF, aah = *(volatile uint32_t *)0x50001010u & 0x7FF;
+        LTDC_L1CFBAR = (uint32_t)page[flip_to];
+        LTDC_SRCR = 1;                          /* (reload now: in the blanking) */
+        shown = flip_to;
+        flip_to = -1;
+        flips++;
+        if (y > avbp && y <= aah) { late_flips++; if (y - avbp > late_max) late_max = y - avbp; }
+    }
+}
+static void window_on(void) {                   /* the layer cut to the window, page 0 in it */
+    ltdc_saved[0] = LTDC_L1WHPCR; ltdc_saved[1] = LTDC_L1WVPCR; ltdc_saved[2] = LTDC_L1CFBAR;
+    ltdc_saved[3] = LTDC_L1CFBLR; ltdc_saved[4] = LTDC_L1CFBLNR; ltdc_saved[5] = LTDC_BCCR;
+    const uint32_t ahbp = LTDC_BPCR >> 16 & 0xFFF, avbp = LTDC_BPCR & 0x7FF;
+    const uint32_t x0 = ahbp + 1 + (SCR_W - PW) / 2, y0 = avbp + 1 + (SCR_H - PH) / 2;
+    LTDC_L1WHPCR = (x0 + PW - 1) << 16 | x0;
+    LTDC_L1WVPCR = (y0 + PH - 1) << 16 | y0;
+    LTDC_L1CFBLR = (uint32_t)(PW * 2) << 16 | (PW * 2 + 7);
+    LTDC_L1CFBLNR = PH;
+    LTDC_L1CFBAR = (uint32_t)page[0];
+    LTDC_BCCR = 0;
+    LTDC_SRCR = 1;
+}
+static void window_off(void) {                  /* and as MMBasic's mode had it */
+    LTDC_L1WHPCR = ltdc_saved[0]; LTDC_L1WVPCR = ltdc_saved[1]; LTDC_L1CFBAR = ltdc_saved[2];
+    LTDC_L1CFBLR = ltdc_saved[3]; LTDC_L1CFBLNR = ltdc_saved[4]; LTDC_BCCR = ltdc_saved[5];
+    LTDC_SRCR = 1;
+}
+
+/* -pal: 576p, 720 x 576 at 50.00 Hz (CEA-861's: 864 x 625, 27.000 MHz, both syncs low), the PAL picture's own size and
+   rate, set over MODE 1's page by the program itself, as vtest.app did (Peter, 10 Nov 2026: "Try the 720x576"): each
+   frame shown once, as NTSC's are. In MODE 1 (800 x 600 at 75 Hz, twice the SDRAM's reads) the emulation fell 5% behind
+   and the sound with it. PLL3 (the pixel clock: 8 MHz x 81 / 24, its input as MODE 1 has it) and the timing are put
+   back at the end. The firmware's frame interrupt stays at MODE 1's line 624 (ltdc.c: its AccumulatedActiveH + 1),
+   576p's last, in its blanking */
+#define LTDC_SSCR     (*(volatile uint32_t *)0x50001008u)
+#define LTDC_AWCR     (*(volatile uint32_t *)0x50001010u)
+#define LTDC_TWCR     (*(volatile uint32_t *)0x50001014u)
+#define LTDC_GCR      (*(volatile uint32_t *)0x50001018u)
+#define LTDC_CPSR     (*(volatile uint32_t *)0x50001044u)
+#define RCC_CR        (*(volatile uint32_t *)0x58024400u)
+#define RCC_PLL3DIVR  (*(volatile uint32_t *)0x58024440u)
+static uint32_t tm_saved[6];                    /* SSCR, BPCR, AWCR, TWCR, GCR, PLL3DIVR */
+static int tm_set;
+static int pll3_set(uint32_t divr) {            /* PLL3 off, its dividers, on again (as ltdc.c's PLL3_Config) */
+    RCC_CR &= ~(1u << 28);
+    for (int i = 0; RCC_CR & (1u << 29); i++) if (i > 1000000) return 0;
+    RCC_PLL3DIVR = divr;
+    RCC_CR |= 1u << 28;
+    for (int i = 0; !(RCC_CR & (1u << 29)); i++) if (i > 1000000) return 0;
+    return 1;
+}
+static void blank_wait(void) {                  /* (the LTDC's line past the picture, or 40 ms) */
+    const uint64_t end = cmm2->micros() + 40000;
+    while (cmm2->micros() < end && (LTDC_CPSR & 0xFFFF) <= (LTDC_AWCR & 0x7FF)) { }
+}
+static int timing_576p(void) {
+    tm_saved[0] = LTDC_SSCR; tm_saved[1] = LTDC_BPCR; tm_saved[2] = LTDC_AWCR; tm_saved[3] = LTDC_TWCR;
+    tm_saved[4] = LTDC_GCR; tm_saved[5] = RCC_PLL3DIVR;
+    const uint32_t hsw = 64, hbp = 68, hfp = 12, vsw = 5, vbp = 39, vfp = 5, w = 720, h = 576;
+    const uint32_t ahbp = hsw + hbp - 1, avbp = vsw + vbp - 1, aaw = ahbp + w, aah = avbp + h;
+    blank_wait();
+    if (!pll3_set((tm_saved[5] & ~(0x1FFu | (0x7Fu << 24))) | (81u - 1) | ((24u - 1) << 24))) { pll3_set(tm_saved[5]); return 0; }
+    LTDC_SSCR = (hsw - 1) << 16 | (vsw - 1);
+    LTDC_BPCR = ahbp << 16 | avbp;
+    LTDC_AWCR = aaw << 16 | aah;
+    LTDC_TWCR = (aaw + hfp) << 16 | (aah + vfp);
+    LTDC_GCR &= ~(3u << 30);                    /* (HSync and VSync active low) */
+    LTDC_SRCR = 1;
+    tm_set = 1;
+    return 1;
+}
+static void timing_back(void) {
+    if (!tm_set) return;
+    blank_wait();
+    pll3_set(tm_saved[5]);
+    LTDC_SSCR = tm_saved[0]; LTDC_BPCR = tm_saved[1]; LTDC_AWCR = tm_saved[2]; LTDC_TWCR = tm_saved[3];
+    LTDC_GCR = tm_saved[4];
+    LTDC_SRCR = 1;
+    tm_set = 0;
+}
+
+/* The rows put out as the frame goes on: as Denise finishes each (row_done: patches/0001's AMIGA_ROW_DONE_ALL), its 720
+   pixels go into one of two batches of 22 rows in the AXI RAM after the code and variables (62 KB), and a full batch
+   goes to the page being made by two DMA2D copies, each row on the page's even line and on its odd one, while the
+   emulation goes on; a batch's buffer is written again once its copies are done. The rows a frame does not reach (a short
+   frame's last) go out as the border at its end. Room in the DMA2D's queue (three) is looked for
+   first: dma2d_copy writes the source back from the cache before it looks */
+extern char __axi_end[];
+#define CH 22                                   /* rows a batch */
+static uint16_t *batch[2];
+static uint32_t buf_mark[2];                    /* issued, once the last copies from each buffer were */
+static int next_row;                            /* the frame's next row to put out */
+static int back_pg = 1;                         /* the page the frame goes to */
+static uint64_t us_wait, us_out, us_queue, us_copy, us_read;
+#define T() (*(volatile uint32_t *)0xE0001004u)   /* (the cycle counter: micros(), a service, cost 5% at each row) */
+static void copy_out(const uint16_t *src, int row0, int n) {
+    for (int k = 0; k < 2; k++) {
+        uint32_t t0 = T();
+        while (cmm2->dma2d_busy() >= 3) { }
+        us_queue += T() - t0;
+        t0 = T();
+        cmm2->dma2d_copy(src + SX, AMIGA_OUT_W * 2, page[back_pg] + (2 * row0 + k) * PW, 2 * PW * 2, PW * 2, (uint32_t)n);
+        us_copy += T() - t0;
+        issued++;
+    }
+}
+/* a row's 720 pixels, as amiga_fb_line makes them (its first line), but 32 bits at a time for the two kinds of row most
+   screens are: a low resolution row (each 0x0RGB twice) and a high resolution one (each index through the row's
+   palette); the interlaced kind by amiga_fb_line. The row (852 bytes, the framebuffer 32-aligned) and its pixels are
+   4-aligned, as out is */
+static void fb_line_fast(const amiga_row_t *row, uint16_t *out) {
+    uint32_t *o = (uint32_t *)out;
+    if (row->mode == AMIGA_ROW_DIRECT) {
+        const uint32_t *s = (const uint32_t *)row->px.rgb;
+        for (int x = 0; x < AMIGA_FB_W / 2; x++) {
+            const uint32_t v = s[x], a = v & 0xFFFF, b = v >> 16;
+            o[2 * x] = a | a << 16;
+            o[2 * x + 1] = b | b << 16;
+        }
+    } else if (row->mode == AMIGA_ROW_IDX8) {
+        const uint32_t *s = (const uint32_t *)row->px.idx;
+        const uint16_t *pal = row->pal;
+        for (int x = 0; x < AMIGA_OUT_W / 4; x++) {
+            const uint32_t v = s[x];
+            o[2 * x] = pal[v & 63] | (uint32_t)pal[v >> 8 & 63] << 16;
+            o[2 * x + 1] = pal[v >> 16 & 63] | (uint32_t)pal[v >> 24 & 63] << 16;
+        }
+    } else
+        amiga_fb_line(row, row->pad & 1, out);  /* (interlaced: the line of the field drawn, patches/0001's w_begin) */
+}
+static uint16_t border_px;                      /* the border's colour, 0x0RGB: the picture's top left */
+static const amiga_row_t *blank_row(void) {
+    blank.mode = AMIGA_ROW_DIRECT;
+    for (int x = 0; x < AMIGA_FB_W; x++) blank.px.rgb[x] = border_px;
+    return &blank;
+}
+static void put_row(int row, const amiga_row_t *r) {
+    const int b = (row / CH) & 1, i = row % CH;
+    if (i == 0) {                               /* a batch begins: its buffer's last copies done */
+        const uint32_t t0 = T();
+        while ((int32_t)(completed() - buf_mark[b]) < 0) { }
+        us_wait += T() - t0;
+    }
+    uint16_t *dst = batch[b] + i * AMIGA_OUT_W;
+#ifdef ROW_READ_TEST
+    {                                           /* (a test: the time to read the row alone, before it is put out) */
+        static volatile uint32_t sink;
+        const uint32_t t0 = T(), *w = (const uint32_t *)r;
+        uint32_t s = 0;
+        for (unsigned k = 0; k < sizeof *r / 4; k++) s += w[k];
+        sink = s;
+        us_read += T() - t0;
+    }
+#endif
+    fb_line_fast(r, dst);
+    if (row == 0) {                             /* the border: the picture's top left */
+        border_px = dst[0];
+        border_rgb = (uint32_t)((dst[0] >> 8 & 15) * 17) << 16 | (uint32_t)((dst[0] >> 4 & 15) * 17) << 8 | (uint32_t)((dst[0] & 15) * 17);
+    }
+    if (i == CH - 1 || row == ROWS - 1) {
+        copy_out(batch[b], row - i, i + 1);
+        buf_mark[b] = issued;
+    }
+}
+static void row_done(void *ctx, int row, amiga_row_t *r) {
+    (void)ctx;
+    row -= SY;                                  /* (the window's first row: -pal60's) */
+    if (row < next_row || row >= ROWS) return;
+    const uint32_t t0 = T();
+    while (next_row < row) { put_row(next_row, blank_row()); next_row++; }   /* (rows not drawn: the border) */
+    put_row(row, r);
+    next_row = row + 1;
+    us_out += T() - t0;
+}
+static void present(void) {                     /* the frame's end: its last rows out, its page shown once copied */
+    uint32_t t0 = T();
+    while (next_row < ROWS) { put_row(next_row, blank_row()); next_row++; }
+    us_out += T() - t0;
+    t0 = T();
+    /* The frame before shown first (at a blanking), so that none is dropped and the emulation goes no faster than
+       the display's 60 a second (576p's 50 with -pal); this one is made while that one waits, in the third page, so that a frame which takes
+       longer than a display frame is shown at the next blanking and costs only its own overrun (waiting for each frame to
+       be shown before the next was begun made each such frame take two: Lotus's race at 30 frames a second) */
+    if (!opt_fast) while (flip_to >= 0 && !quit) { }
+    if (opt_crc > 0 && frame % (unsigned long)opt_crc == 0) {
+        while ((int32_t)(completed() - issued) < 0) { }
+        const uint32_t *w = (const uint32_t *)page[back_pg];
+        uint32_t h = 2166136261u;
+        for (int i = 0; i < PW * PH / 2; i++) h = (h ^ w[i]) * 16777619u;
+        printf("pamiga: frame %lu crc %08lX\n", frame, (unsigned long)h);
+    }
+    frame_mark = issued;
+    __asm volatile ("dmb 0xF" ::: "memory");
+    flip_to = back_pg;                          /* (PAL: one not shown yet when this comes is not shown) */
+    if (npages == 2) while (flip_to >= 0 && !opt_fast) { }   /* (two pages: the next frame's is the one shown till then) */
+    int pg = 0;
+    while (pg == shown || pg == flip_to) pg++;  /* (a page neither shown nor waiting to be) */
+    back_pg = pg;
+    next_row = 0;
+    us_wait += T() - t0;
+}
+
+/* ---- the sound: the core's ring (two samples a line: 31,300 Hz PAL, 31,528 NTSC) to the stream (44.1 kHz), each sample
+   between two of the ring's ---- */
+static int audio_rate, core_rate = 31528;
+/* The ring's frame the stream is at: its whole part (as the core's count, which goes on for ever) and its fraction (16
+   bits) apart. As one 16.16 word the whole part went round at 65,536, two seconds in, and from then on each sample was
+   "too far behind" and the ring's newest but 1,500 taken for the whole of the stream's block: a low crackle and no
+   music (Peter, 10 Nov 2026) */
+static uint32_t a_k, a_f;
+static int a_started;
+#define A_LAG 1500                              /* frames behind the core: 48 ms */
+static void fill(int16_t *buf, uint32_t frames) {   /* the stream's (PendSV) */
+    const uint32_t wp = amiga_audio_write_pos();
+    if (!a_started) {
+        if (wp < A_LAG) { memset(buf, 0, frames * 4); return; }
+        a_k = wp - A_LAG; a_f = 0;
+        a_started = 1;
+    }
+    /* the core makes its samples at the display's rate (NTSC: 2 x 263 lines x 60.03 frames, 31,576 a second), not quite
+       core_rate's: the step is trimmed (up to 0.4%) to hold the lag near A_LAG, or the ring went round each two minutes */
+    int32_t err = (int32_t)(wp - a_k) - A_LAG;
+    if (err > 1600) err = 1600; if (err < -1600) err = -1600;
+    const uint32_t step = (uint32_t)((((uint64_t)core_rate << 16) / (uint32_t)audio_rate) + err / 8);
+    static int16_t last_l, last_r;
+    for (uint32_t i = 0; i < frames; i++) {
+        if (wp - a_k > AFRAMES - 512) { a_k = wp - A_LAG; a_f = 0; }   /* (too far behind: the ring went round) */
+        if ((int32_t)(wp - a_k) < 2) { buf[2 * i] = last_l; buf[2 * i + 1] = last_r; continue; }   /* (caught up: the core is slow) */
+        const uint32_t j0 = a_k & (AFRAMES - 1), j1 = (a_k + 1) & (AFRAMES - 1);
+        buf[2 * i] = last_l = (int16_t)(aring[2 * j0] + (((aring[2 * j1] - aring[2 * j0]) * (int32_t)a_f) >> 16));
+        buf[2 * i + 1] = last_r = (int16_t)(aring[2 * j0 + 1] + (((aring[2 * j1 + 1] - aring[2 * j0 + 1]) * (int32_t)a_f) >> 16));
+        a_f += step;
+        a_k += a_f >> 16;
+        a_f &= 0xFFFF;
+    }
+    if (opt_mute) memset(buf, 0, frames * 4);
+}
+
+/* ---- the keyboard ---- */
+/* HID usage (4-0x65) to the Amiga's raw key code, by place (0: none, but ` is the Amiga's 0: below) */
+static const uint8_t hid2amiga[0x66] = {
+    [0x04] = 0x20, [0x05] = 0x35, [0x06] = 0x33, [0x07] = 0x22, [0x08] = 0x12, [0x09] = 0x23, [0x0A] = 0x24, [0x0B] = 0x25,   /* A-H */
+    [0x0C] = 0x17, [0x0D] = 0x26, [0x0E] = 0x27, [0x0F] = 0x28, [0x10] = 0x37, [0x11] = 0x36, [0x12] = 0x18, [0x13] = 0x19,   /* I-P */
+    [0x14] = 0x10, [0x15] = 0x13, [0x16] = 0x21, [0x17] = 0x14, [0x18] = 0x16, [0x19] = 0x34, [0x1A] = 0x11, [0x1B] = 0x32,   /* Q-X */
+    [0x1C] = 0x15, [0x1D] = 0x31,                                                                                          /* Y, Z */
+    [0x1E] = 0x01, [0x1F] = 0x02, [0x20] = 0x03, [0x21] = 0x04, [0x22] = 0x05, [0x23] = 0x06, [0x24] = 0x07, [0x25] = 0x08,   /* 1-8 */
+    [0x26] = 0x09, [0x27] = 0x0A,                                                                                          /* 9, 0 */
+    [0x28] = 0x44, [0x29] = 0x45, [0x2A] = 0x41, [0x2B] = 0x42, [0x2C] = 0x40,                                             /* Return Esc BS Tab Space */
+    [0x2D] = 0x0B, [0x2E] = 0x0C, [0x2F] = 0x1A, [0x30] = 0x1B, [0x31] = 0x0D, [0x32] = 0x2B,                              /* - = [ ] \ # */
+    [0x33] = 0x29, [0x34] = 0x2A, [0x36] = 0x38, [0x37] = 0x39, [0x38] = 0x3A, [0x39] = 0x62,                              /* ; ' , . / Caps */
+    [0x3A] = 0x50, [0x3B] = 0x51, [0x3C] = 0x52, [0x3D] = 0x53, [0x3E] = 0x54, [0x3F] = 0x55, [0x40] = 0x56, [0x41] = 0x57,   /* F1-F8 */
+    [0x42] = 0x58, [0x43] = 0x59,                                                                                          /* F9, F10 */
+    [0x49] = 0x5F, [0x4C] = 0x46,                                                                                          /* Insert: HELP, Delete */
+    [0x4F] = 0x4E, [0x50] = 0x4F, [0x51] = 0x4D, [0x52] = 0x4C,                                                            /* the arrows */
+    [0x54] = 0x5C, [0x55] = 0x5D, [0x56] = 0x4A, [0x57] = 0x5E, [0x58] = 0x43,                                             /* keypad / * - + Enter */
+    [0x59] = 0x1D, [0x5A] = 0x1E, [0x5B] = 0x1F, [0x5C] = 0x2D, [0x5D] = 0x2E, [0x5E] = 0x2F, [0x5F] = 0x3D, [0x60] = 0x3E,   /* keypad 1-8 */
+    [0x61] = 0x3F, [0x62] = 0x0F, [0x63] = 0x3C, [0x64] = 0x30, [0x65] = 0x67,                                             /* 9 0 . <> Menu */
+};
+static const uint8_t mod2amiga[8] = {0x63, 0x60, 0x64, 0x66, 0x63, 0x61, 0x65, 0x67};   /* HID's modifier bits */
+static uint8_t held[0x68];                      /* the Amiga keys held, as keys_raw gave them */
+
+static void next_disk(void);
+static void keyboard(void) {
+    uint8_t r[8], now[0x68];
+    memset(now, 0, sizeof now);
+    static int f11_was;
+    int f11 = 0;
+    const int n = cmm2->keys_raw(r);
+    if (opt_keys) {                             /* (-keys: each change of the report on the console) */
+        static uint8_t last[8];
+        static int last_n = -99;
+        if (n != last_n || memcmp(r, last, 8)) {
+            printf("pamiga: keys_raw %d: %02X %02X %02X %02X %02X %02X %02X %02X\n", n, r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]);
+            memcpy(last, r, 8); last_n = n;
+        }
+    }
+    if (n >= 0) {
+        for (int b = 0; b < 8; b++) if (r[0] & (1 << b)) now[mod2amiga[b]] = 1;
+        for (int i = 2; i < 8; i++) {
+            const uint8_t u = r[i];
+            if (u == 0x44) { f11 = 1; continue; }                                               /* F11: the next disk */
+            if (u == 0x45 || (u == 0x4D && (r[0] & 0x11) && (r[0] & 0x44))) { quit = 1; continue; }   /* F12, Ctrl+Alt+End */
+            if (u == 0x35) now[0x00] = 1;       /* (` is the Amiga's code 0) */
+            else if (u < sizeof hid2amiga && hid2amiga[u]) now[hid2amiga[u]] = 1;
+        }
+    }
+    if (f11 && !f11_was) next_disk();
+    f11_was = f11;
+    for (int c = 0; c < 0x68; c++)
+        if (now[c] != held[c]) { amiga_key((uint8_t)c, now[c] != 0); held[c] = now[c]; }
+    /* the serial console: letters, digits, space, Enter; Ctrl-N the next disk, Ctrl-] back to MMBasic. A USB key's
+       character reaches the console's queue as well (KeyboardMap.c): the queue is emptied, not read, while a USB key is
+       held and at the poll after, as the C64 and Atari apps do (Peter, 9 Nov 2026: in Notepad "every keypress on the
+       keyboard repeated twice") */
+    static int quiet;
+    const int ok = n <= 0 && quiet;
+    quiet = n <= 0;
+    for (int k; (k = cmm2->con_getc()) >= 0; ) {
+        if (!ok) continue;
+        static const char *row1 = "1234567890", *rowq = "qwertyuiop", *rowa = "asdfghjkl", *rowz = "zxcvbnm";
+        int code = -1;
+        if (k == 0x1D) { quit = 1; continue; }
+        if (k == 0x0E) { next_disk(); continue; }
+        if (k >= 'A' && k <= 'Z') k += 32;
+        const char *p;
+        if (k && (p = strchr(row1, k))) code = 0x01 + (int)(p - row1);
+        else if (k && (p = strchr(rowq, k))) code = 0x10 + (int)(p - rowq);
+        else if (k && (p = strchr(rowa, k))) code = 0x20 + (int)(p - rowa);
+        else if (k && (p = strchr(rowz, k))) code = 0x31 + (int)(p - rowz);
+        else if (k == ' ') code = 0x40;
+        else if (k == '\r' || k == '\n') code = 0x44;
+        else if (k == 8 || k == 127) code = 0x41;
+        else if (k == 27) code = 0x45;
+        if (code >= 0) { amiga_key((uint8_t)code, true); amiga_key((uint8_t)code, false); }
+    }
+}
+
+/* ---- the mouse (port 1) and a joystick (port 2) ---- */
+static int mouse_here, click_down;
+static void ports(void) {
+    int m[4], dx = 0, dy = 0, buttons = 0;
+    if (cmm2->mouse(m)) {
+        if (!mouse_here) mouse_here = 1;
+        else {
+            dx = m[0] - 320; dy = m[1] - 256;
+            if (dx > 100) dx = 100; if (dx < -100) dx = -100;
+            if (dy > 100) dy = 100; if (dy < -100) dy = -100;
+        }
+        if (dx || dy || mouse_here == 1) { cmm2->mouse_set(320, 256); mouse_here = 2; }
+        buttons = m[2];
+    }
+    amiga_mouse(dx, dy, (buttons & 1) || click_down, (buttons & 2) != 0);
+    /* the pads: the first in the firmware's HID slots (1-8: the keyboard and the mouse have slots too) the joystick in
+       port 2, a second one the joystick in port 1 (a two-player game's), each the d-pad or the left stick, any face
+       button fire (DEVICE(GAMEPAD n, B)'s bitmap: up 7, down 5, left 8, right 6, the face buttons 10-13) */
+    int n = 0;
+    for (int slot = 1; slot <= 8 && n < 2; slot++) {
+        int lx = 128, ly = 128, dirs = 0;
+        const int b = cmm2->gamepad(slot, &lx, &ly);
+        if (b < 0) continue;
+        if ((b >> 7 & 1) || ly < 64) dirs |= 1;
+        if ((b >> 5 & 1) || ly > 192) dirs |= 2;
+        if ((b >> 8 & 1) || lx < 64) dirs |= 4;
+        if ((b >> 6 & 1) || lx > 192) dirs |= 8;
+        amiga_joystick(n == 0 ? 1 : 0, (uint8_t)dirs, (b >> 10 & 15) != 0);
+        n++;
+    }
+    if (n == 0) amiga_joystick(1, 0, false);
+}
+
+/* ---- the disks: the image in MMBasic's heap, read and written there ---- */
+static uint8_t *dimg;
+static uint32_t dsize;
+static int disk_read(void *ctx, uint32_t off, void *dst, uint32_t len) {
+    (void)ctx;
+    if (off + len > dsize) return -1;
+    memcpy(dst, dimg + off, len);
+    return 0;
+}
+static int disk_write(void *ctx, uint32_t off, const void *src, uint32_t len) {
+    (void)ctx;
+    if (off + len > dsize) return -1;
+    memcpy(dimg + off, src, len);
+    return 0;
+}
+static int load_disk(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) { printf("pamiga: cannot open %s\n", path); return 0; }
+    const size_t n = fread(dimg, 1, 1802240, f);
+    fclose(f);
+    if (n < 901120) { printf("pamiga: %s is %u bytes, not an ADF\n", path, (unsigned)n); return 0; }
+    dsize = (uint32_t)n;
+    return 1;
+}
+static long swap_at = -1;
+static void next_disk(void) {
+    if (ndisks < 2 || swap_at >= 0) return;
+    curdisk = (curdisk + 1) % ndisks;
+    amiga_eject_disk(0);
+    swap_at = (long)frame + 25;                 /* in again half a second later */
+    printf("pamiga: DF0 %s\n", disk[curdisk]);
+}
+
+/* ---- the Kickstart ---- */
+static uint8_t *load_rom(const char *path, uint32_t *size) {
+    FILE *f = fopen(path, "rb");
+    if (!f) { printf("pamiga: no %s\n", path); return NULL; }
+    uint8_t *p = malloc(0x80000);
+    const size_t n = p ? fread(p, 1, 0x80000, f) : 0;
+    fclose(f);
+    if (n != 0x40000 && n != 0x80000) { printf("pamiga: %s is %u bytes (256 or 512 KB)\n", path, (unsigned)n); return NULL; }
+    *size = (uint32_t)n;
+    return p;
+}
+
+/* the profile's clock: the M7's cycle counter */
+#define DEMCR      (*(volatile uint32_t *)0xE000EDFCu)
+#define DWT_CTRL   (*(volatile uint32_t *)0xE0001000u)
+#define DWT_CYCCNT (*(volatile uint32_t *)0xE0001004u)
+static uint32_t cycles(void) { return DWT_CYCCNT; }
+
+int main(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-kick") && i + 1 < argc) kick = argv[++i];
+        else if (!strcmp(argv[i], "-ext") && i + 1 < argc) ext = argv[++i];
+        else if (!strcmp(argv[i], "-click") && i + 1 < argc) opt_click = atol(argv[++i]);
+        else if (!strcmp(argv[i], "-fast")) opt_fast = 1;
+        else if (!strcmp(argv[i], "-stats")) opt_stats = 1;
+        else if (!strcmp(argv[i], "-noprof")) opt_noprof = 1;
+        else if (!strcmp(argv[i], "-mute")) opt_mute = 1;
+        else if (!strcmp(argv[i], "-crc") && i + 1 < argc) opt_crc = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-keys")) opt_keys = 1;
+        else if (!strcmp(argv[i], "-nowa")) opt_wa = 0;
+        else if (!strcmp(argv[i], "-dt") && i + 1 < argc) opt_dt = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-qos") && i + 1 < argc) opt_qos = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-sound")) opt_sound = 1;
+        else if (!strcmp(argv[i], "-pal")) opt_pal = opt_576 = 1;
+        else if (!strcmp(argv[i], "-pal60")) opt_pal = 1, opt_576 = 0;
+        else if (argv[i][0] != '-' && ndisks < MAXDISKS) disk[ndisks++] = argv[i];
+    }
+    if (opt_576) { PW = AMIGA_OUT_W; PH = 2 * AMIGA_FB_H; ROWS = AMIGA_FB_H; SX = 0; SCR_W = 720; SCR_H = 576; VMODE = 1; core_rate = 31300; }
+    else if (opt_pal) { PH = 480; ROWS = 240; SY = 26; core_rate = (int)(2LL * 313 * 25212000 / (800 * 525)); }   /* (37,578 a second: the pitch 20% up, as the tempo) */
+    printf("pamiga: pico-amiga on the Colour Maximite 2 (%s)\n", opt_576 ? "PAL" : opt_pal ? "PAL at 60 Hz" : "NTSC");
+    amiga_config_t cfg;
+    memset(&cfg, 0, sizeof cfg);
+    if (!(cfg.rom = load_rom(kick, &cfg.rom_size))) return 1;
+    if (ext && !(cfg.ext_rom = load_rom(ext, &cfg.ext_size))) return 1;
+    if (ndisks && !(dimg = cmm2->alloc(1802240))) { printf("pamiga: no room for the disk\n"); return 1; }
+    if (ndisks && !load_disk(disk[0])) return 1;
+
+    cmm2_video v;
+    if (cmm2->video_mode(VMODE, 12, &v) < 0) { printf("pamiga: MODE %d in depth 12 needs services version 17 (firmware after 7.00.00RC4)\n", VMODE); return 1; }
+    page[0] = (uint16_t *)v.fb;                 /* (MMBasic's page 0, the screen's size, holds the window's page) */
+    /* The other two pages from MMBasic's heap, not this program's 8 MB: that is the SDRAM's fourth bank (8 MB each), where
+       the Amiga's chip and slow RAM are, and the LTDC reading a page there while the 68000 works in them made each change
+       of row in the bank wait (Lotus's turning car: the LTDC ran dry). This program's memory only if the heap has no room */
+    for (int i = 1; i < NPAGES; i++) {
+        void *b = cmm2->alloc(PW * PH * 2 + 32);
+        if (!b && i == 1) b = malloc(PW * PH * 2 + 32);
+        if (!b) { printf("pamiga: two pages (no room for a third)\n"); break; }
+        page[i] = (uint16_t *)(((uintptr_t)b + 31) & ~(uintptr_t)31);
+        memset(page[i], 0, PW * PH * 2);
+        npages = i + 1;
+    }
+    if (npages < 2) { printf("pamiga: no memory for the second page\n"); return 1; }
+    if (opt_stats) printf("pamiga: pages at %p %p %p\n", (void *)page[0], (void *)page[1], (void *)page[2]);
+    if (cmm2_axi_load()) { printf("pamiga: the AXI RAM is not free\n"); return 1; }
+    batch[0] = (uint16_t *)(((uintptr_t)__axi_end + 31) & ~(uintptr_t)31);
+    batch[1] = batch[0] + CH * AMIGA_OUT_W;
+    ring = (amiga_row_t *)(batch[1] + CH * AMIGA_OUT_W); /* (32-aligned: 2 x 22 x 1440 bytes after the 32-aligned batches) */
+    if ((uintptr_t)(ring + AMIGA_ROW_RING) > 0x24080000u) { cmm2_axi_unload(); printf("pamiga: no room in the AXI RAM for the rows\n"); return 1; }
+    if (opt_576 && !timing_576p()) { cmm2_axi_unload(); printf("pamiga: PLL3 did not lock for 576p\n"); return 1; }
+    window_on();
+    if (opt_wa) wa_on();
+    qos_saved = AXI_INI6_READ_QOS;
+    if (opt_qos >= 0) AXI_INI6_READ_QOS = (uint32_t)(opt_qos & 15);
+    amtcr_saved = DMA2D_AMTCR;
+    DMA2D_AMTCR = opt_dt > 0 ? (uint32_t)(opt_dt > 255 ? 255 : opt_dt) << 8 | 1u : 0u;
+
+    DEMCR |= 1u << 24;                          /* (the cycle counter on, for the profile) */
+    DWT_CTRL |= 1u;
+    cfg.chip_ram = chip_ram; cfg.chip_size = sizeof chip_ram;
+    cfg.slow_ram = slow_ram; cfg.slow_size = sizeof slow_ram;
+    cfg.chipset = AMIGA_OCS;
+    cfg.ntsc = !opt_pal;
+    memset(ring, 0, sizeof *ring * AMIGA_ROW_RING);
+    cfg.framebuffer = ring;
+    cfg.audio_ring = aring; cfg.audio_frames = AFRAMES;
+    cfg.track = track;
+    cfg.row_done = row_done;
+    if (opt_stats && !opt_noprof) cfg.prof_clock = cycles;
+    amiga_init(&cfg);
+    if (ndisks) {
+        amiga_disk_t d = { disk_read, disk_write, NULL, dsize };
+        amiga_insert_disk(0, &d);
+    }
+    amiga_reset(true);
+
+    if (opt_sound) {                            /* (off unless asked: Peter, 9 Nov 2026, "the sound is dire. I suggest you turn
+                                                   that off until the other performance is where we want") */
+        audio_rate = cmm2->audio_start(fill);
+        if (audio_rate < 8000) printf("pamiga: no sound (%d)\n", audio_rate);
+    }
+    cmm2->con_screen(0);                        /* (the console's text to the serial port only: the screen is the Amiga's) */
+    cmm2->frame_hook(hook);
+    const uint32_t hz = cmm2->cpu_hz();
+    uint64_t t_next = cmm2->micros(), t_last = t_next, frame_us = 0;
+    int nstats = 0;
+    while (!quit) {
+        amiga_run_frame();
+        frame++;
+        present();
+        cmm2->poll();                           /* the USB devices seen to (the keyboard, the mouse, the pads) */
+        cmm2->break_take();                     /* (Ctrl-C is the Amiga's Ctrl and C, not the end of the program) */
+        keyboard();
+        if (opt_click >= 0) click_down = (long)frame >= opt_click && (long)frame < opt_click + 10;
+        ports();
+        if (swap_at >= 0 && (long)frame >= swap_at) {
+            if (load_disk(disk[curdisk])) { amiga_disk_t d = { disk_read, disk_write, NULL, dsize }; amiga_insert_disk(0, &d); }
+            swap_at = -1;
+        }
+        uint64_t now = cmm2->micros();
+        if (opt_stats) {
+            frame_us += now - t_last;
+            if (++nstats == 50) {
+                amiga_profile_t pr;
+                amiga_get_profile(&pr, true);
+                const double k = 1000.0 / hz / (pr.frames ? pr.frames : 1);   /* (ticks a frame to ms) */
+                const double budget_ms = opt_576 ? 20.0 : 800.0 * 525 / 25212.0;   /* (a display frame: 576p's, MODE 8's) */
+                printf("pamiga: frame %lu, %.2f ms a frame (%.1f%% of %.2f): cpu %.2f copper %.2f render %.2f (fetch %.2f) blit %.2f"
+                       " paula %.2f line %.2f disk %.2f other %.2f; waiting %.2f, rows out %.2f (queue %.2f, copy calls %.2f, read %.2f); flips %u, %u late (line %u)\n", frame, frame_us / 50000.0,
+                       frame_us / 500.0 / budget_ms, budget_ms, pr.ticks[AMIGA_PROF_CPU] * k, pr.ticks[AMIGA_PROF_COPPER] * k, pr.ticks[AMIGA_PROF_RENDER] * k,
+                       pr.ticks[AMIGA_PROF_BPL] * k, pr.ticks[AMIGA_PROF_BLIT] * k, pr.ticks[AMIGA_PROF_PAULA] * k,
+                       pr.ticks[AMIGA_PROF_LINE] * k, pr.ticks[AMIGA_PROF_DISK] * k, pr.ticks[AMIGA_PROF_OTHER] * k,
+                       us_wait * k, us_out * k, us_queue * k, us_copy * k, us_read * k, (unsigned)flips, (unsigned)late_flips, (unsigned)late_max);
+                nstats = 0; frame_us = 0; us_wait = us_out = us_queue = us_copy = us_read = 0; flips = late_flips = late_max = 0;
+            }
+        }
+        t_last = cmm2->micros();
+    }
+    cmm2->frame_hook(NULL);
+    while (cmm2->dma2d_busy()) { }
+    window_off();
+    timing_back();
+    wa_off();
+    DMA2D_AMTCR = amtcr_saved;
+    AXI_INI6_READ_QOS = qos_saved;
+    cmm2_axi_unload();
+    printf("pamiga: %lu frames\n", frame);
+    return 0;
+}
