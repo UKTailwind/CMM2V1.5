@@ -14,7 +14,7 @@ then put out/amiga.app in A:/amiga with a Kickstart (amiga-os-130.rom, Amiga For
     CHDIR "A:/amiga"
     RUN "amiga.app", game.adf
 """
-import glob, hashlib, os, subprocess, sys
+import glob, hashlib, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -61,6 +61,23 @@ def patch():
     open(stamp, 'w').write(want + '\n')
 
 
+def menu_font():
+    """out/uifont.h: pico-amiga's own menu font (src/pico/ui/UiFont.cpp's 6 x 10, 0x20-0x87) for amiga_cmm2.c's disk
+    menu, its table as UiFont.cpp has it (the rest of that file is C++, for pico-amiga's own menu)"""
+    src = open(os.path.join(SRC, 'src', 'pico', 'ui', 'UiFont.cpp'), encoding='utf-8', errors='replace').read()
+    body = src[src.index('ui_font6x10[UI_FONT_COUNT * UI_FONT_H] = {'):]
+    body = re.sub(r'//[^\n]*', '', body[body.index('{') + 1:body.index('};')])
+    data = [int(v, 16) for v in re.findall(r'0x[0-9A-Fa-f]{2}', body)]
+    if len(data) != (0x87 - 0x20 + 1) * 10:
+        sys.exit('UiFont.cpp: %d bytes of font, not %d' % (len(data), (0x87 - 0x20 + 1) * 10))
+    out = ('/* made by make.py from pico-amiga\'s src/pico/ui/UiFont.cpp: its 6 x 10 menu font, 0x20-0x87, a byte a row (bit 5\n'
+           '   the leftmost pixel) */\nstatic const unsigned char ui_font6x10[%d] = {\n' % len(data))
+    out += ''.join('    ' + ','.join('0x%02X' % v for v in data[i:i + 20]) + ',\n' for i in range(0, len(data), 20)) + '};\n'
+    f = os.path.join(HERE, 'out', 'uifont.h')
+    if not os.path.exists(f) or open(f).read() != out:
+        open(f, 'w', newline='\n').write(out)
+
+
 def sources():
     """cmake/amiga_core.cmake's AMIGA_CORE_SRC, and the platform"""
     out = [os.path.join(SRC, 'src', 'amiga', f + '.c') for f in ('amiga', 'blitter', 'cia', 'copper', 'custom', 'denise', 'fb',
@@ -81,10 +98,11 @@ def main():
         sys.exit('%s is at %s, not %s' % (SRC, head, COMMIT))
     patch()
     os.makedirs(os.path.join(HERE, 'out'), exist_ok=True)
+    menu_font()
     listfile = os.path.join(HERE, 'out', 'sources.txt')
     open(listfile, 'w').write('\n'.join(sources()) + '\n')
     M = os.path.join(SRC, 'external', 'musashi')
-    inc = [os.path.join(SRC, 'src', 'amiga'), M, os.path.join(M, 'gen')]
+    inc = [os.path.join(SRC, 'src', 'amiga'), M, os.path.join(M, 'gen'), os.path.join(HERE, 'out')]
     cmd = [sys.executable, '-I', os.path.join(REPO, 'tools', 'sdk', 'build.py'), os.path.join(HERE, 'out', 'amiga.app'),
            '--sources', listfile, '--api', '18', '--g2', '--stack', '0x10000', '--heap', str(2560 << 10)]
     for d in inc:
