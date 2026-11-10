@@ -38,7 +38,7 @@ You can go back to an earlier firmware the same way, should you need to.
 • Quake (quake.app, on a Generation 2) is id Software's game with its shareware episode, at about 53 frames a second with the sound on. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
 • zeptoforth 1.17.2 (zeptoforth.app, and zeptoforth_g1.app on a Generation 1) is Travis Bemann's Forth, with preemptive tasks, double precision and the zeptoed editor, on the VT100 terminal's console. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on it.
 • A Commodore 64 (c64.app: frank-c64, a PAL C64 with its 1541 disk drive) and the Atari 8-bit computers and 5200 (atari800.app: atari800 7.2.1, with AltirraOS and Altirra BASIC built in) are emulated. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on each.
-• An Apple //e (apple2.app: frank-apple, from Michel Pollet's MII, with its ROMs built in) and, on a Generation 2, an Amiga 500 (amiga.app: pico-amiga, with Karl Stenerud's Musashi 68000, a PAL Amiga at its own 50 frames a second in 720 x 576 with its sound, and a menu of the card's disks on F11) are emulated. The Amiga needs a Kickstart ROM and disk images of the user's own, which do not come with it: Cloanto's Amiga Forever is the legal way to get them. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on each.
+• An Apple //e (apple2.app: frank-apple, from Michel Pollet's MII, with its ROMs built in) and, on a Generation 2, an Amiga 500 (amiga.app: pico-amiga, with Karl Stenerud's Musashi 68000, a PAL Amiga at its own 50 frames a second in 720 x 576 with its sound, a menu of the card's disks on F11, and two drives whose disks are written to their files on the card) are emulated. The Amiga needs a Kickstart ROM and disk images of the user's own, which do not come with it: Cloanto's Amiga Forever is the legal way to get them. The manual Colour_Maximite_2_App_User_Guide.pdf has a chapter on each.
 • A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 • The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
 
@@ -500,7 +500,7 @@ The PicoMite's FRAME command, YMODEM, OPTION DISK SAVE/LOAD, I2C SLAVE, SAVE PER
 • In pc386, a program protected by a check of its original floppy disk (Lemmings is one) does not run from a disk image.
 • In atari800, with its SIO patch off, a tape with a program file after its boot loader stops with a checksum error under AltirraOS (Atari's XL operating system loads it). With the patch on, as it starts, it loads.
 • The MCP2221A USB to serial bridge loses characters above 57600 baud on a USB socket.
-• The Amiga emulator does not report collisions between sprites and the playfield, which a few games use; it shows interlaced screens a line in two; and what the Amiga writes to a disk is lost when the program ends.
+• The Amiga emulator does not report collisions between sprites and the playfield, which a few games use; and it shows interlaced screens a line in two.
 
 
 [SIZE=4][COLOR=BLUE][B]The manual[/B][/COLOR][/SIZE]

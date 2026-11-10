@@ -57,7 +57,7 @@ RUN "amiga.app", games/arkanoid.adf
 
 The screen stays blank for a few seconds while the disk is read and the display set up.
 
-A disk is held in the emulator's memory while it runs. What the Amiga writes to it is lost when another disk goes in or the program ends, so a game's saved positions and high scores do not last.
+What the Amiga writes to a disk goes into its .adf file on the card, as it would onto a real floppy disk, so saved games, high scores and your own work last (see Saving Your Work, below).
 
 Disks load about four times as fast as on a real Amiga.
 
@@ -76,11 +76,14 @@ The menu lists the disk images (.adf) and the folders in a folder of the card. A
 | Esc, F11 | Back to the Amiga as it was |
 | F12 | Back to MMBasic |
 
-A disk chosen offers three things:
+A disk chosen offers four things:
 
 - **Boot it**: the Amiga restarted, as if it had been switched off and on, with the disk in DF0. Use this to change to another game.
 - **Put it in DF0 (a disk change)**: the disk changed, as by hand. Use this when a game asks for its next disk. The drive stays empty for two seconds first, so that the Amiga sees the change.
+- **Put it in DF1, the second drive**: the Amiga has an external drive, DF1, as many Amiga 500s had. Put a work disk there, beside the Workbench disk in DF0.
 - **Cancel**.
+
+The menu also lists **[ A new blank disk, made here ]**. Choose it to make an empty disk in the folder shown, ready for the Amiga to use: work1.adf, named Work1 on the Amiga, then work2.adf and so on. The menu then offers to put it in a drive.
 
 A gamepad works the menu too: up and down move, and a face button chooses.
 
@@ -94,6 +97,8 @@ Add any of these after the disks:
 | -pal60 | The PAL Amiga, shown at 60 frames a second in 640 x 480, for a monitor that does not take 50 Hz. It then runs 20% fast, music too |
 | -nosound | No sound |
 | -kick file | Another Kickstart, such as -kick amiga-os-120.rom |
+| -df1 file | That disk in DF1, the second drive, at the start |
+| -wp | Every disk write-protected: nothing is written to the card |
 
 For example:
 
@@ -130,6 +135,22 @@ Ctrl-C is the Amiga's Ctrl and C here, so it does not end the program.
 
 Workbench 1.3 starts with the American key layout. On a British keyboard, open a Shell and type SetMap gb to have the symbols where your keys show them.
 
+## Saving Your Work
+
+What the Amiga writes to a disk goes into the disk's .adf file on the SD card as it is written, as it would onto a real floppy disk, and stays there. This is true of a game's saved positions and high scores, and of anything you save from Workbench or a Shell.
+
+To work on your own programs or files:
+
+1. Start with the Workbench disk in DF0.
+2. Press F11, choose **[ A new blank disk, made here ]**, and put it in DF1.
+3. Save your work to it. It is called Work1 on the Amiga, so a file saved as Work1:myprog is in work1.adf.
+
+A disk whose .adf file is read-only (set on a PC) is a write-protected disk: the Amiga says so if it tries to write to it, and the file is never changed. Start the program with -wp to protect every disk, for example to keep a game's disk exactly as it came.
+
+The RAM DISK is in the Amiga's memory, as on a real Amiga, so what is there is lost at a reset or when the program ends.
+
+The Amiga has no BASIC in its ROM. AmigaBASIC came on the Extras disk of Workbench 1.3, which is not among Amiga Forever's Value Edition files.
+
 ## The Mouse and Joysticks
 
 A USB mouse is the Amiga's mouse, in port 1.
@@ -148,6 +169,7 @@ On a Generation 2 with firmware 7.00.00RC5, the PAL Amiga in 576p:
 - **Workbench 1.3**, with the mouse and the keyboard.
 - **Games from Amiga Forever**, each for a minute: Arkanoid, Aunt Arctic Adventure, Blasteroids, Datastorm, Exile, Gotcha, Lethal Xcess, Obsession Pinball, Pac-Mania, Rage, Statix, Toobin and Zoom! load and run at 50 frames a second. X-Balls and Logic load slowly through AmigaDOS, and had not finished in that minute. Tie Break shows only a black screen.
 - **The keyboard, the mouse and a gamepad**, by hand, in Workbench and in games, and the disk menu.
+- **Saving:** a blank disk made from the menu and put in DF1; AmigaDOS wrote a file and a folder to it, and the .adf file, copied from the card to a PC, has them. With -wp the Amiga reported the disk write-protected, and the file was unchanged.
 
 Titles made for later Amigas (the A1200 and A4000), and those on hard disk images, do not run.
 

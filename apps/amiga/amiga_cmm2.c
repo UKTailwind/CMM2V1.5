@@ -3,7 +3,7 @@
    platform, what src/pico is on the RP2350 boards (Peter, 9 Nov 2026: "what about taking the emulator from the other
    source").
 
-     RUN "amiga.app" [, disk.adf [disk2.adf ...]] [-kick file] [-ext file] [-ntsc | -pal60] [-nosound]
+     RUN "amiga.app" [, disk.adf [disk2.adf ...]] [-df1 disk.adf] [-wp] [-kick file] [-ext file] [-ntsc | -pal60] [-nosound]
                        [-click frame] [-fast] [-stats] [-keys] [-nowa] [-dt N] [-qos N]
 
    By default (Peter, 10 Nov 2026: "Ensure that the default when you run the app makes sense PAL, sound on etc."): a
@@ -14,8 +14,9 @@
    - The machine: an A500 with 512 KB of chip RAM and 512 KB of slow RAM, PAL (-ntsc: NTSC), its Kickstart from the folder
      (amiga-os-130.rom, Amiga Forever's Kickstart 1.3, or -kick; 256 or 512 KB, a user's own: none is built in). The
      first disk given is in DF0 at power-on. F11 brings up the disk menu (below) at any time, and a program started
-     with no disk starts with it. A disk is held in MMBasic's heap: what the Amiga writes to it is lost when the next
-     goes in or the program ends.
+     with no disk starts with it. DF1, an external drive, takes a second disk (-df1, or the menu). What the Amiga writes to
+     a disk goes into its .adf file on the card as well, so it lasts, as on a real disk; a read-only file, or any with
+     -wp, is a write-protected disk.
    - The display, NTSC: MODE 8 (640 x 480 at 60 Hz, the Amiga's own rate) in depth 12, ARGB4444 on one layer, cut to a
      window of 640 x 474: the core's picture (237 rows of the NTSC beam, each two of the monitor's lines, 640 of its 720
      pixels: a low resolution pixel two wide), each frame shown at the monitor's next. -pal: 576p, 720 x 576 at 50 Hz (the
@@ -557,38 +558,46 @@ static void ports(void) {
     if (n == 0) amiga_joystick(1, 0, false);
 }
 
-/* ---- the disks: the image in MMBasic's heap, read and written there ---- */
-static uint8_t *dimg;
-static uint32_t dsize;
+/* ---- the disks (Peter, 10 Nov 2026: "We say that anything saved is lost. This would be very bad for someone doing any
+   program development - can this be solved"): DF0 and DF1, each image held in memory for the reads, and what the Amiga
+   writes put into the image and into its .adf file on the card too, as pico-amiga's own platform does
+   (src/pico/machine.cpp's adf_write), so that it lasts, as on a real disk. The file is synced once the frame is done
+   (sync_disks), not at each of a track's eleven sectors. A file that cannot be opened for writing (read-only), or any
+   with -wp, is a write-protected disk. One file is never in both drives: two writers ---- */
+#define DISK_BYTES 901120                       /* an ADF: 80 cylinders, 2 sides, 11 sectors of 512 bytes */
+typedef struct { uint8_t *img; int fh, dirty; char path[256]; } drive_t;   /* fh: the file open for writing (-1: none) */
+static drive_t drv[2] = { { NULL, -1, 0, "" }, { NULL, -1, 0, "" } };
+static int opt_wp;
+static const char *opt_df1;
+static char mmsg[64];                           /* the disk menu's message (a disk that did not load) */
+static char cwd0[192] = "A:/";                  /* the folder the program started in */
 static int disk_read(void *ctx, uint32_t off, void *dst, uint32_t len) {
-    (void)ctx;
-    if (off + len > dsize) return -1;
-    memcpy(dst, dimg + off, len);
+    const drive_t *d = ctx;
+    if (off + len > DISK_BYTES) return -1;
+    memcpy(dst, d->img + off, len);
     return 0;
 }
 static int disk_write(void *ctx, uint32_t off, const void *src, uint32_t len) {
-    (void)ctx;
-    if (off + len > dsize) return -1;
-    memcpy(dimg + off, src, len);
+    drive_t *d = ctx;
+    if (off + len > DISK_BYTES) return -1;
+    memcpy(d->img + off, src, len);
+    if (d->fh >= 0) {
+        if (cmm2->file_seek(d->fh, off) < 0 || cmm2->file_write(d->fh, src, len) != (int32_t)len) {
+            printf("amiga: DF%d: writing to %s failed\n", (int)(d - drv), d->path);
+            return -1;
+        }
+        d->dirty = 1;
+    }
     return 0;
 }
-static char mmsg[64];                           /* the disk menu's message (a disk that did not load) */
-static char df0_path[256];                      /* the disk in DF0, its name in full ("": none) */
-static char cwd0[192] = "A:/";                  /* the folder the program started in */
-static int load_disk(const char *path) {
-    const char *b = strrchr(path, '/');
-    b = b ? b + 1 : path;
-    FILE *f = fopen(path, "rb");
-    if (!f) { printf("amiga: cannot open %s\n", path); snprintf(mmsg, sizeof mmsg, "Cannot open %s", b); return 0; }
-    const size_t n = fread(dimg, 1, 1802240, f);
-    fclose(f);
-    if (n < 901120) {
-        printf("amiga: %s is %u bytes, not an ADF\n", path, (unsigned)n);
-        snprintf(mmsg, sizeof mmsg, "%s is not a disk image", b);
-        return 0;
-    }
-    dsize = (uint32_t)n;
-    return 1;
+static void sync_disks(void) {
+    for (int i = 0; i < 2; i++)
+        if (drv[i].dirty) { cmm2->file_sync(drv[i].fh); drv[i].dirty = 0; }
+}
+static void drives_close(void) {                /* (the files only: at the end, when the core's code may have gone) */
+    sync_disks();
+    for (int i = 0; i < 2; i++)
+        if (drv[i].fh >= 0) { cmm2->file_close(drv[i].fh); drv[i].fh = -1; }
 }
 static void path_join(char *out, size_t n, const char *dir, const char *name) {
     const size_t l = strlen(dir);
@@ -605,39 +614,133 @@ static const char *path_dir(char *dir, size_t n, const char *path) {   /* path's
     snprintf(dir, n, "%.*s", (int)(s - path) + (s == path + 2), path);
     return s + 1;
 }
-/* path in DF0: as a disk change (the core keeps the drive empty for 2 s first if a disk was in, for Kickstart to see
-   it), or (boot) the Amiga restarted with it, as at power-on */
-static int disk_in(const char *path, int boot) {
-    amiga_eject_disk(0);
-    df0_path[0] = 0;
-    if (!load_disk(path)) return 0;
-    path_abs(df0_path, sizeof df0_path, path);
-    amiga_disk_t d = { disk_read, disk_write, NULL, dsize };
-    amiga_insert_disk(0, &d);
+static void drive_out(int n) {                  /* drive n's disk out, its file closed */
+    drive_t *d = &drv[n];
+    amiga_eject_disk(n);
+    if (d->fh >= 0) {
+        if (d->dirty) cmm2->file_sync(d->fh);
+        cmm2->file_close(d->fh);
+    }
+    d->fh = -1;
+    d->dirty = 0;
+    d->path[0] = 0;
+}
+/* path in drive n: as a disk change (the core keeps the drive empty for 2 s first if a disk was in, for Kickstart to see
+   it), or (boot) the Amiga restarted with it in DF0, as at power-on */
+static int drive_in(int n, const char *path, int boot) {
+    char full[256];
+    path_abs(full, sizeof full, path);
+    const char *b = strrchr(full, '/');
+    b = b ? b + 1 : full;
+    if (drv[1 - n].path[0] && !strcasecmp(drv[1 - n].path, full)) drive_out(1 - n);   /* (out of the other drive) */
+    drive_out(n);
+    drive_t *d = &drv[n];
+    if (!d->img && !(d->img = cmm2->alloc(DISK_BYTES)) && !(d->img = malloc(DISK_BYTES))) {
+        printf("amiga: no room for a disk in DF%d\n", n);
+        snprintf(mmsg, sizeof mmsg, "No room for a disk in DF%d", n);
+        return 0;
+    }
+    int fh = opt_wp ? -1 : cmm2->file_open(full, CMM2_O_READ | CMM2_O_WRITE);
+    const int rw = fh >= 0;
+    if (!rw) fh = cmm2->file_open(full, CMM2_O_READ);
+    if (fh < 0) {
+        printf("amiga: cannot open %s\n", full);
+        snprintf(mmsg, sizeof mmsg, "Cannot open %s", b);
+        return 0;
+    }
+    if (cmm2->file_size(fh) < DISK_BYTES || cmm2->file_read(fh, d->img, DISK_BYTES) != DISK_BYTES) {
+        cmm2->file_close(fh);
+        printf("amiga: %s is not an ADF (880 KB)\n", full);
+        snprintf(mmsg, sizeof mmsg, "%s is not a disk image", b);
+        return 0;
+    }
+    if (rw) d->fh = fh;
+    else cmm2->file_close(fh);
+    snprintf(d->path, sizeof d->path, "%s", full);
+    amiga_disk_t ad = { disk_read, rw ? disk_write : NULL, d, DISK_BYTES };
+    amiga_insert_disk(n, &ad);
     if (boot) amiga_reset(true);
-    printf("amiga: DF0 %s%s\n", df0_path, boot ? ", the Amiga restarted" : "");
+    printf("amiga: DF%d %s%s%s\n", n, full, rw ? "" : " (write-protected)", boot ? ", the Amiga restarted" : "");
     return 1;
 }
-static void next_disk(void) {                   /* (Ctrl-N on the serial console: the next disk given) */
+static void next_disk(void) {                   /* (Ctrl-N on the serial console: the next disk given, in DF0) */
     if (ndisks < 2) return;
     curdisk = (curdisk + 1) % ndisks;
-    disk_in(disk[curdisk], 0);
+    drive_in(0, disk[curdisk], 0);
+}
+
+/* A blank disk, pico-amiga's machine_format_adf (src/pico/machine.cpp): AmigaDOS's OFS, not bootable, its root block and
+   bitmap made, the volume named, dated by the clock; written 22 blocks at a time */
+static void put32(uint8_t *b, int off, uint32_t v) {
+    b[off] = (uint8_t)(v >> 24); b[off + 1] = (uint8_t)(v >> 16);
+    b[off + 2] = (uint8_t)(v >> 8); b[off + 3] = (uint8_t)v;
+}
+static void block_sum(uint8_t *b, int off) {    /* AmigaDOS block checksum: the longs sum to 0 */
+    uint32_t s = 0;
+    for (int i = 0; i < 512; i += 4)
+        s += ((uint32_t)b[i] << 24) | ((uint32_t)b[i + 1] << 16) | ((uint32_t)b[i + 2] << 8) | b[i + 3];
+    put32(b, off, (uint32_t)-s);
+}
+static uint32_t amiga_days(int y, int m, int d) {   /* days since 1 January 1978, AmigaDOS's dates */
+    static const int before[12] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
+    if (y < 1978 || m < 1 || m > 12 || d < 1) return 0;
+    uint32_t days = 0;
+    for (int i = 1978; i < y; i++) days += 365 + ((i % 4 == 0 && i % 100 != 0) || i % 400 == 0);
+    return days + (uint32_t)(before[m - 1] + d - 1) + (m > 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0));
+}
+static int format_adf(const char *path, const char *volume) {
+    const int fh = cmm2->file_open(path, CMM2_O_WRITE | CMM2_O_CREATE);
+    if (fh < 0) return 0;
+    int t[6];
+    cmm2->datetime(t);
+    const uint32_t days = amiga_days(t[0], t[1], t[2]), mins = (uint32_t)(t[3] * 60 + t[4]), ticks = (uint32_t)t[5] * 50;
+    const size_t vlen = strlen(volume) < 30 ? strlen(volume) : 30;
+    static const int dates[3] = { 0x1A4, 0x1D8, 0x1E4 };   /* root, volume, creation */
+    static uint8_t chunk[22 * 512];
+    int ok = 1;
+    for (int n = 0; n < 1760 && ok; n++) {
+        uint8_t *blk = chunk + (n % 22) * 512;
+        memset(blk, 0, 512);
+        if (n == 0) {
+            memcpy(blk, "DOS", 4);                          /* DOS\0: OFS, not bootable */
+            put32(blk, 8, 880);
+        } else if (n == 880) {                              /* the root block */
+            put32(blk, 0x000, 2);                           /* T_HEADER */
+            put32(blk, 0x00C, 72);                          /* hash table size */
+            put32(blk, 0x138, 0xFFFFFFFFu);                 /* bitmap valid */
+            put32(blk, 0x13C, 881);                         /* bitmap block */
+            for (int i = 0; i < 3; i++) { put32(blk, dates[i], days); put32(blk, dates[i] + 4, mins); put32(blk, dates[i] + 8, ticks); }
+            blk[0x1B0] = (uint8_t)vlen;
+            memcpy(blk + 0x1B1, volume, vlen);
+            put32(blk, 0x1FC, 1);                           /* ST_ROOT */
+            block_sum(blk, 0x014);
+        } else if (n == 881) {                              /* the bitmap: 1 = free */
+            for (int b = 2; b < 1760; b++)
+                if (b != 880 && b != 881) blk[4 + (b - 2) / 32 * 4 + 3 - ((b - 2) % 32) / 8] |= (uint8_t)(1u << ((b - 2) % 8));
+            block_sum(blk, 0);
+        }
+        if (n % 22 == 21) ok = cmm2->file_write(fh, chunk, sizeof chunk) == (int32_t)sizeof chunk;
+    }
+    cmm2->file_close(fh);
+    if (!ok) cmm2->file_remove(path);
+    return ok;
 }
 
 /* ---- the disk menu (Peter, 10 Nov 2026: "Can we modify the app so that a function key gives a dropdown of disks. This
    would be much more user friendly. The commodore 64 emulator does this well", "And, of course a way to return to the
-   menu after playing a game"): F11 at any time, and at the start when no disk was given. The Amiga stops while it is
+   menu after playing a game"): F11 at any time, and at the start when DF0 has no disk. The Amiga stops while it is
    up, and its sound with it. It lists a folder's disk images (.adf) and folders, the folder it was left in (at first
-   DF0's, or the one the program started in), DF0's disk marked; a disk chosen is booted (the Amiga restarted with it in
-   DF0, as at power-on) or put in DF0 as a disk change, for a game's second disk. Drawn over the picture on the page
-   shown, a line at a time (each pixel written once: no flicker), in pico-amiga's own menu font (its 6 x 10, out/uifont.h)
-   at twice its size, in Workbench 1.3's colours. Its keys come from the console's queue: the USB keyboard's codes,
-   with their repeat, and the serial console's bytes (a terminal's arrows as ESC [ A ...); the first gamepad's up, down
-   and fire too ---- */
+   DF0's, or the one the program started in), the disks in DF0 and DF1 marked, and a new blank disk to make there. A
+   disk chosen is booted (the Amiga restarted with it in DF0, as at power-on), put in DF0 as a disk change (a game's
+   next disk), or put in DF1 (a work disk beside Workbench). Drawn over the picture on the page shown, a line at a time
+   (each pixel written once: no flicker), in pico-amiga's own menu font (its 6 x 10, out/uifont.h) at twice its size, in
+   Workbench 1.3's colours. Its keys come from the console's queue: the USB keyboard's codes, with their repeat, and
+   the serial console's bytes (a terminal's arrows as ESC [ A ...); the first gamepad's up, down and fire too ---- */
 #define MENU_MAX 300
-typedef struct { char name[100]; uint8_t dir; } ment_t;   /* dir: 1 a folder, 2 the folder above (..) */
+enum { E_FILE, E_DIR, E_NEW, E_UP };            /* (sorted the other way: .., a new disk, the folders, the disks) */
+typedef struct { char name[100]; uint8_t kind; } ment_t;
 static ment_t ments[MENU_MAX];
-static int ment_n, msel, mtop, menu_on, mdirty, mact, mact_sel, menu_hold_f11, mpad_was;
+static int ment_n, ment_disks, msel, mtop, menu_on, mdirty, mact, mact_sel, menu_hold_f11, mpad_was;
 static char mdir[192];
 #define MFW 12                                  /* a character's cell: the font's 6 x 10, twice */
 #define MFH 20
@@ -655,7 +758,7 @@ static int is_root(const char *d) { return d[0] && d[1] == ':' && (!d[2] || (d[2
 static int is_adf(const char *n) { const size_t l = strlen(n); return l > 4 && !strcasecmp(n + l - 4, ".adf"); }
 static int ment_cmp(const void *a, const void *b) {
     const ment_t *x = a, *y = b;
-    if (x->dir != y->dir) return (int)y->dir - (int)x->dir;   /* (.. first, then the folders, then the disks) */
+    if (x->kind != y->kind) return (int)y->kind - (int)x->kind;
     return strcasecmp(x->name, y->name);
 }
 static void menu_scroll(void) {
@@ -667,8 +770,10 @@ static void menu_scroll(void) {
     if (mtop < 0) mtop = 0;
 }
 static void menu_list(const char *select) {     /* mdir's folders and disk images, select (a name in it) chosen */
-    ment_n = 0;
-    if (!is_root(mdir)) { strcpy(ments[0].name, ".."); ments[0].dir = 2; ment_n = 1; }
+    ment_n = ment_disks = 0;
+    if (!is_root(mdir)) { strcpy(ments[ment_n].name, ".."); ments[ment_n++].kind = E_UP; }
+    ments[ment_n].name[0] = 0;
+    ments[ment_n++].kind = E_NEW;
     const int h = cmm2->dir_open(mdir);
     if (h < 0) snprintf(mmsg, sizeof mmsg, "Cannot read that folder");
     else {
@@ -676,13 +781,15 @@ static void menu_list(const char *select) {     /* mdir's folders and disk image
         while (ment_n < MENU_MAX && cmm2->dir_read(h, &e) > 0) {
             if (e.name[0] == '.' || (!e.is_dir && !is_adf(e.name)) || strlen(e.name) >= sizeof ments->name) continue;   /* (._ files a Mac leaves) */
             strcpy(ments[ment_n].name, e.name);
-            ments[ment_n++].dir = e.is_dir ? 1 : 0;
+            ments[ment_n++].kind = e.is_dir ? E_DIR : E_FILE;
+            ment_disks++;
         }
         cmm2->dir_close(h);
     }
     qsort(ments, (size_t)ment_n, sizeof *ments, ment_cmp);
-    msel = ment_n > 1 && ments[0].dir == 2;     /* (the first in the folder, not ..) */
-    if (select) for (int i = 0; i < ment_n; i++) if (!strcasecmp(ments[i].name, select)) { msel = i; break; }
+    msel = 0;
+    for (int i = 0; i < ment_n; i++) if (ments[i].kind <= E_DIR) { msel = i; break; }   /* (the first folder or disk) */
+    if (select) for (int i = 0; i < ment_n; i++) if (ments[i].kind <= E_DIR && !strcasecmp(ments[i].name, select)) { msel = i; break; }
     mtop = 0;
     mact = 0;
     menu_scroll();
@@ -690,7 +797,7 @@ static void menu_list(const char *select) {     /* mdir's folders and disk image
 static void menu_size(void) {                   /* the box: as much of the page as fits, centred */
     mcols = (PW - 64) / MFW; if (mcols > 56) mcols = 56;
     mlines = (PH - 40) / MFH; if (mlines > 26) mlines = 26;
-    mrows = mlines - 6;
+    mrows = mlines - 7;
     mbw = mcols * MFW + 16; mbh = mlines * MFH + 12;
     mbx = (PW - mbw) / 2; mby = (PH - mbh) / 2;
 }
@@ -711,22 +818,25 @@ static void mglyphs(int gy, const char *s, int col, int end, uint16_t fg) {   /*
 }
 static void menu_draw(void) {
     char t[128];
-    /* the lines: the title, DF0, a gap, the list (or what to do with the disk chosen), a gap, two of help */
+    /* the lines: the title, DF0, DF1, a gap, the list (or what to do with the disk chosen), a gap, two of help */
     const char *d = mdir;
     const int dmax = mcols - 18;
     if ((int)strlen(d) > dmax) d += strlen(d) - dmax;
     snprintf(t, sizeof t, " Amiga disks in %s%s", d != mdir ? "..." : "", d);
     mset(0, M_WHITE, M_BLUE, t, NULL);
-    const char *df = strrchr(df0_path, '/');
-    snprintf(t, sizeof t, " DF0: %s", df0_path[0] ? (df ? df + 1 : df0_path) : "empty");
-    mset(1, M_BLUE, M_LIGHT, t, NULL);
-    mset(2, M_BLUE, M_WHITE, NULL, NULL);
-    static const char *const act[3] = { "Boot it: the Amiga restarted with it in DF0", "Put it in DF0 (a disk change)", "Cancel" };
+    for (int n = 0; n < 2; n++) {
+        const char *p = drv[n].path, *b = strrchr(p, '/');
+        snprintf(t, sizeof t, " DF%d: %s%s", n, p[0] ? (b ? b + 1 : p) : "empty", p[0] && drv[n].fh < 0 ? " (write-protected)" : "");
+        mset(1 + n, M_BLUE, M_LIGHT, t, NULL);
+    }
+    mset(3, M_BLUE, M_WHITE, NULL, NULL);
+    static const char *const act[4] = { "Boot it: the Amiga restarted with it in DF0", "Put it in DF0 (a disk change)",
+                                        "Put it in DF1, the second drive", "Cancel" };
     for (int k = 0; k < mrows; k++) {
-        const int i = 3 + k;
+        const int i = 4 + k;
         if (mact) {
             if (k == 1) { snprintf(t, sizeof t, "  %s", ments[msel].name); mset(i, M_BLUE, M_WHITE, t, NULL); }
-            else if (k >= 3 && k < 6) {
+            else if (k >= 3 && k < 7) {
                 const int on = k - 3 == mact_sel;
                 snprintf(t, sizeof t, "  %s", act[k - 3]);
                 mset(i, on ? M_ORANGE : M_BLUE, on ? M_BLACK : M_WHITE, t, NULL);
@@ -735,15 +845,18 @@ static void menu_draw(void) {
         }
         const int j = mtop + k;
         if (j >= ment_n) {
-            mset(i, M_BLUE, M_LIGHT, k == 1 && ment_n - (ment_n && ments[0].dir == 2) == 0 ? "  No disk images (.adf) or folders here" : NULL, NULL);
+            mset(i, M_BLUE, M_LIGHT, j == ment_n && !ment_disks ? "  No disk images (.adf) or folders here" : NULL, NULL);
             continue;
         }
         const ment_t *e = &ments[j];
         char full[300];
         path_join(full, sizeof full, mdir, e->name);
-        const int on = j == msel, in_df0 = !e->dir && !strcasecmp(full, df0_path);
-        snprintf(t, sizeof t, "  %s%s", e->dir == 2 ? ".. (the folder above)" : e->name, e->dir == 1 ? "/" : "");
-        mset(i, on ? M_ORANGE : M_BLUE, on ? M_BLACK : e->dir ? M_LIGHT : M_WHITE, t, in_df0 ? "DF0" : NULL);
+        const char *tag = e->kind != E_FILE ? NULL : !strcasecmp(full, drv[0].path) ? "DF0" : !strcasecmp(full, drv[1].path) ? "DF1" : NULL;
+        if (e->kind == E_UP) snprintf(t, sizeof t, "  .. (the folder above)");
+        else if (e->kind == E_NEW) snprintf(t, sizeof t, "  [ A new blank disk, made here ]");
+        else snprintf(t, sizeof t, "  %s%s", e->name, e->kind == E_DIR ? "/" : "");
+        const int on = j == msel;
+        mset(i, on ? M_ORANGE : M_BLUE, on ? M_BLACK : e->kind == E_FILE ? M_WHITE : M_LIGHT, t, tag);
     }
     mset(mlines - 3, M_BLUE, M_WHITE, NULL, NULL);
     if (mmsg[0]) { snprintf(t, sizeof t, " %s", mmsg); mset(mlines - 2, M_BLUE, M_ORANGE, t, NULL); }
@@ -777,14 +890,14 @@ static void menu_open(void) {
     while (cmm2->con_getc() >= 0) { }           /* (F11's own code in the console's queue) */
     menu_hold_f11 = 1;                          /* (F11's repeat is not F11 again) */
     mpad_was = 7;                               /* (a button held already is not pressed) */
-    mmsg[0] = 0;
     menu_size();
     char keep[100] = "", dd[192];
-    if (!mdir[0]) snprintf(mdir, sizeof mdir, "%s", cwd0);
-    else if (ment_n && msel < ment_n) snprintf(keep, sizeof keep, "%s", ments[msel].name);
-    if (df0_path[0]) {                          /* (DF0's disk chosen when it is in the folder: at first, its folder) */
-        const char *nm = path_dir(dd, sizeof dd, df0_path);
-        if (!menu_on && !ment_n) snprintf(mdir, sizeof mdir, "%s", dd);
+    const int first = !mdir[0];
+    if (first) snprintf(mdir, sizeof mdir, "%s", cwd0);
+    else if (ment_n && msel < ment_n && ments[msel].kind <= E_DIR) snprintf(keep, sizeof keep, "%s", ments[msel].name);
+    if (drv[0].path[0]) {                       /* (DF0's disk chosen when it is in the folder: at first, its folder) */
+        const char *nm = path_dir(dd, sizeof dd, drv[0].path);
+        if (first) snprintf(mdir, sizeof mdir, "%s", dd);
         if (!strcasecmp(dd, mdir)) snprintf(keep, sizeof keep, "%s", nm);
     }
     menu_list(keep[0] ? keep : NULL);
@@ -793,6 +906,7 @@ static void menu_open(void) {
 }
 static void menu_close(void) {
     menu_on = 0;
+    mmsg[0] = 0;
     mute_all = 1;                               /* (the keys held now are not the Amiga's till let go) */
     f11_was = 1;
     while (cmm2->con_getc() >= 0) { }
@@ -805,11 +919,29 @@ static void menu_up(void) {
     snprintf(mdir, sizeof mdir, "%s", dd);
     menu_list(name);
 }
-static void menu_use(int boot) {
+static void menu_new(void) {                    /* a blank disk, workN.adf named WorkN, in the folder; then where to put it */
+    char name[32], vol[16], full[300];
+    cmm2_stat st;
+    int n;
+    for (n = 1; n < 100; n++) {
+        snprintf(name, sizeof name, "work%d.adf", n);
+        path_join(full, sizeof full, mdir, name);
+        if (cmm2->file_stat(full, &st) < 0) break;
+    }
+    if (n == 100) { snprintf(mmsg, sizeof mmsg, "work1.adf to work99.adf are all here"); return; }
+    snprintf(vol, sizeof vol, "Work%d", n);
+    if (!format_adf(full, vol)) { snprintf(mmsg, sizeof mmsg, "Could not make %s here", name); return; }
+    printf("amiga: made %s, a blank disk named %s\n", full, vol);
+    menu_list(name);
+    mact = 1;
+    mact_sel = drv[0].path[0] ? 2 : 1;          /* (DF1 beside the disk in DF0, else DF0) */
+    snprintf(mmsg, sizeof mmsg, "Made %s, a blank disk named %s", name, vol);
+}
+static void menu_use(int act) {                 /* 0: boot it; 1: in DF0; 2: in DF1 */
     char p[300];
     path_join(p, sizeof p, mdir, ments[msel].name);
     mact = 0;
-    if (disk_in(p, boot)) menu_close();
+    if (drive_in(act == 2, p, act == 0)) menu_close();
 }
 static void menu_do(int k) {                    /* a key: the console's codes (0x80-0x83 the arrows, 0x86-0x89 Home End PgUp PgDn) */
     if (!k) return;
@@ -820,9 +952,9 @@ static void menu_do(int k) {                    /* a key: the console's codes (0
     const int enter = k == '\r' || k == '\n';
     if (mact) {
         if (k == 0x80 && mact_sel > 0) mact_sel--;
-        else if (k == 0x81 && mact_sel < 2) mact_sel++;
+        else if (k == 0x81 && mact_sel < 3) mact_sel++;
         else if (k == 27 || k == 8 || k == 0x7F || k == 0x82) mact = 0;
-        else if (enter || k == 0x83) { if (mact_sel == 2) mact = 0; else menu_use(mact_sel == 0); }
+        else if (enter || k == 0x83) { if (mact_sel == 3) mact = 0; else menu_use(mact_sel); }
         return;
     }
     if (k == 0x80) msel--;
@@ -834,10 +966,12 @@ static void menu_do(int k) {                    /* a key: the console's codes (0
     else if (k == 27) { menu_close(); return; }
     else if (k == 8 || k == 0x7F || k == 0x82) menu_up();
     else if ((enter || k == 0x83) && ment_n) {
-        if (ments[msel].dir == 2) menu_up();
-        else if (ments[msel].dir) {
+        const ment_t *e = &ments[msel];
+        if (e->kind == E_UP) menu_up();
+        else if (e->kind == E_NEW) menu_new();
+        else if (e->kind == E_DIR) {
             char sub[192];
-            path_join(sub, sizeof sub, mdir, ments[msel].name);
+            path_join(sub, sizeof sub, mdir, e->name);
             snprintf(mdir, sizeof mdir, "%s", sub);
             menu_list(NULL);
         } else { mact = 1; mact_sel = 0; }
@@ -944,6 +1078,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "-qos") && i + 1 < argc) opt_qos = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-sound")) opt_sound = 1;
         else if (!strcmp(argv[i], "-nosound")) opt_sound = 0;
+        else if (!strcmp(argv[i], "-wp")) opt_wp = 1;
+        else if (!strcmp(argv[i], "-df1") && i + 1 < argc) opt_df1 = argv[++i];
         else if (!strcmp(argv[i], "-pal")) opt_pal = opt_576 = 1;
         else if (!strcmp(argv[i], "-pal60")) opt_pal = 1, opt_576 = 0;
         else if (!strcmp(argv[i], "-ntsc")) opt_pal = opt_576 = 0;
@@ -957,9 +1093,7 @@ int main(int argc, char **argv) {
     if (!(cfg.rom = load_rom(kick, &cfg.rom_size))) return 1;
     if (ext && !(cfg.ext_rom = load_rom(ext, &cfg.ext_size))) return 1;
     if (!getcwd(cwd0, sizeof cwd0)) strcpy(cwd0, "A:/");
-    if (!(dimg = cmm2->alloc(1802240))) { printf("amiga: no room for a disk\n"); return 1; }
-    if (ndisks && !load_disk(disk[0])) return 1;
-    if (ndisks) path_abs(df0_path, sizeof df0_path, disk[0]);
+    if (!(drv[0].img = cmm2->alloc(DISK_BYTES))) { printf("amiga: no room for a disk\n"); return 1; }
 
     cmm2_video v;
     if (cmm2->video_mode(VMODE, 12, &v) < 0) { printf("amiga: MODE %d in depth 12 refused\n", VMODE); return 1; }
@@ -1003,10 +1137,10 @@ int main(int argc, char **argv) {
     cfg.row_done = row_done;
     if (opt_stats && !opt_noprof) cfg.prof_clock = cycles;
     amiga_init(&cfg);
-    if (ndisks) {
-        amiga_disk_t d = { disk_read, disk_write, NULL, dsize };
-        amiga_insert_disk(0, &d);
-    }
+    amiga_set_drives(2);                        /* DF0 and DF1: the A500's own drive and an external one */
+    cmm2->con_screen(0);                        /* (the console's text to the serial port only: the screen is the Amiga's) */
+    if (ndisks) drive_in(0, disk[0], 0);        /* (one that will not load: the menu comes up, and says why) */
+    if (opt_df1) drive_in(1, opt_df1, 0);
     amiga_reset(true);
 
     if (opt_sound) {                            /* (on unless -nosound: off on 9 Nov 2026 while it was "dire", Peter; its
@@ -1014,18 +1148,18 @@ int main(int argc, char **argv) {
         audio_rate = cmm2->audio_start(fill);
         if (audio_rate < 8000) printf("amiga: no sound (%d)\n", audio_rate);
     }
-    cmm2->con_screen(0);                        /* (the console's text to the serial port only: the screen is the Amiga's) */
     cmm2->frame_hook(hook);
     const uint32_t hz = cmm2->cpu_hz();
     poll_cyc = hz / 500;                        /* (the mouse and the USB each 2 ms: mid_frame_poll) */
     uint64_t t_next = cmm2->micros(), t_last = t_next, frame_us = 0;
     int nstats = 0;
-    if (!ndisks) menu_open();                   /* (no disk given: the menu first) */
+    if (!drv[0].path[0]) menu_open();           /* (no disk in DF0: the menu first) */
     while (!quit) {
         if (menu_on) { menu_frame(); t_last = cmm2->micros(); continue; }
         amiga_run_frame();
         frame++;
         present();
+        sync_disks();                           /* (what the Amiga wrote this frame, on the card) */
         cmm2->poll();                           /* the USB devices seen to (the keyboard, the mouse, the pads) */
         cmm2->break_take();                     /* (Ctrl-C is the Amiga's Ctrl and C, not the end of the program) */
         keyboard();
@@ -1052,6 +1186,7 @@ int main(int argc, char **argv) {
     }
     cmm2->frame_hook(NULL);
     while (cmm2->dma2d_busy()) { }
+    drives_close();
     window_off();
     timing_back();
     wa_off();

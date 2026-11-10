@@ -23,7 +23,7 @@ Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga and app
 
 
 [SIZE=4][COLOR=BLUE][B]What is new[/B][/COLOR][/SIZE]
-• [B]An Amiga 500 emulator[/B] (Generation 2), in the folder amiga: pico-amiga, drewpo28's emulator for the RP2350, with Karl Stenerud's Musashi 68000. It is an Amiga 500 with 1MB of memory and its original chipset, a PAL Amiga at its own 50 frames a second in 720 x 576, with its sound; -ntsc gives an NTSC Amiga at 60 frames a second in 640 x 480. The mouse is the Amiga's mouse and USB gamepads its joysticks. F11 brings up a menu of the disks on the card at any time, to boot one or to put it in the drive when a game asks for its next disk, and Ctrl+Alt+Del resets the Amiga. The heaviest demos tried keep up, with the sound on.
+• [B]An Amiga 500 emulator[/B] (Generation 2), in the folder amiga: pico-amiga, drewpo28's emulator for the RP2350, with Karl Stenerud's Musashi 68000. It is an Amiga 500 with 1MB of memory and its original chipset, a PAL Amiga at its own 50 frames a second in 720 x 576, with its sound; -ntsc gives an NTSC Amiga at 60 frames a second in 640 x 480. The mouse is the Amiga's mouse and USB gamepads its joysticks. F11 brings up a menu of the disks on the card at any time, to boot one, to put it in the drive when a game asks for its next disk, or to put it in DF1, the second drive; it makes blank disks too. What the Amiga writes to a disk goes into its .adf file on the card, as onto a real disk, so saved games and your own work last; a read-only file, or -wp, is a write-protected disk. Ctrl+Alt+Del resets the Amiga. The heaviest demos tried keep up, with the sound on.
 
   It needs a Kickstart ROM and disk images of your own: Kickstart is still copyright and does not come with it. If you have no Amiga of your own to take them from, Cloanto's Amiga Forever (www.amigaforever.com) is the legal way to get them, and costs little: its Value Edition has Kickstart 1.3, the Workbench 1.3 disk and over 50 games and demos. Copy Shared\rom\amiga-os-130.rom from its Amiga Files folder to A:/amiga, keeping its name, and the .adf disk images you want, then choose a disk from the menu:
 
@@ -57,6 +57,7 @@ On a Generation 2 unless it says otherwise:
     ◦ Games from Amiga Forever, each for a minute: Arkanoid, Aunt Arctic Adventure, Blasteroids, Datastorm, Exile, Gotcha, Lethal Xcess, Obsession Pinball, Pac-Mania, Rage, Statix, Toobin and Zoom! load and run at 50 frames a second. X-Balls and Logic load slowly through AmigaDOS, and had not finished in that minute. Tie Break shows only a black screen (not looked into yet).
     ◦ Demos: 242 (Virtual Dreams and Fairlight) at 50 frames a second; D.O.S. (Andromeda) falls just short in a few places, at worst 21.9ms for a 20ms frame.
     ◦ The keyboard, the mouse and a gamepad by hand, in Workbench and in games, and the disk menu.
+    ◦ Saving: a blank disk made from the menu and put in DF1; AmigaDOS wrote a file and a folder to it, and the .adf file, copied from the card to a PC, has them. With -wp the Amiga reported the disk write-protected, and the file was unchanged.
     ◦ Its picture's checksum, taken every 500 frames through 8,000 frames of Arte, is the same on this firmware as on the development version it was measured on.
 • [B]apple2:[/B] on a Generation 1 with this firmware, Applesoft and hi-res graphics, with the Apple at its full speed (1,023kHz); before, on 7.00.00RC4, lo-res, mixed, 80 columns and double hi-res (a2audit's video tests find their colours right), the disk menu and a Disk II boot.
 • [B]The sound by DMA[/B] on a Generation 1: Doom's timed demo with its music and effects at 38.4 frames a second, as before; the DACs given back to MMBasic after a program (PLAY TONE), on both generations.
@@ -67,7 +68,6 @@ On a Generation 2 unless it says otherwise:
 [SIZE=4][COLOR=BLUE][B]Known problems[/B][/COLOR][/SIZE]
 • [B]amiga:[/B]
     ◦ It runs on a Generation 2 only.
-    ◦ What the Amiga writes to a disk is lost when the next disk goes in or the program ends.
     ◦ Interlaced screens show every other line.
     ◦ The chipset does not report collisions between sprites and the playfield, which a few games use.
     ◦ Titles made for later Amigas (the A1200 and A4000) and those on hard disk images do not run.
