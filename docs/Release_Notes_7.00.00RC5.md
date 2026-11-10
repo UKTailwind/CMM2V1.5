@@ -4,7 +4,7 @@
 
 This is the sixth release candidate of MMBasic 7.00 for the Colour Maximite 2. Unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum.
 
-It adds two emulators to the programs, an Amiga 500 and an Apple //e. For the Amiga, the firmware gives loadable programs their sound by DMA, a copy without the cache's write-back, and the fast internal memory. MODE 8 now runs at 60Hz, and MODE 19 is new.
+It adds two emulators to the programs, an Amiga 500 and an Apple //e. For the Amiga, the firmware gives loadable programs their sound by DMA, a copy without the cache's write-back, and the fast internal memory. MODE 8 now runs at 60Hz.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -42,8 +42,6 @@ Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga and app
 - **An Apple //e emulator,** in the folder apple2: frank-apple, rh1tech's port of Michel Pollet's MII. An enhanced Apple //e with 128K, an 80-column card, two Disk II drives and two hard disks, at the Apple's 60 frames a second in MODE 8, with its screen at full resolution. The Apple's ROMs are built in. The App User Guide has a chapter on it.
 
 - **MODE 8 is 640 x 480 at 60Hz,** the standard VGA timing, where it was 75Hz. Its GETSCANLINE counts to 524. The other modes are unchanged.
-
-- **MODE 19, 640 x 512:** the monitor's 1280 x 1024 at 60Hz at half the pixel clock, each line shown twice, so that any monitor that takes 1280 x 1024 places it itself. It takes every colour depth but 4-bit, and OPTION DEFAULT MODE 19.
 
 - **For programmers:**
   - Version 17 of the services: video_mode and video_scaled take depth 12, a screen of 4,096 colours as ARGB4444 on one layer, each pixel 0x0RGB as an Amiga's colour registers hold them.
@@ -87,7 +85,7 @@ The known problems of 7.00.00RC4 remain.
 
 ## The manual
 
-The User Manual gives MODE 8's new timing and MODE 19. Colour_Maximite_2_Loadable_Programs.pdf adds services versions 17 and 18, the sound by DMA, and --axi and --itcm, and Colour_Maximite_2_App_User_Guide.pdf the Amiga and Apple //e emulators.
+The User Manual gives MODE 8's new timing. Colour_Maximite_2_Loadable_Programs.pdf adds services versions 17 and 18, the sound by DMA, and --axi and --itcm, and Colour_Maximite_2_App_User_Guide.pdf the Amiga and Apple //e emulators.
 
 ## Licences
 
