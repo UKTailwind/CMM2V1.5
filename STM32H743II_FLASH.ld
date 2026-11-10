@@ -217,6 +217,9 @@ SECTIONS
     _eITCM = .;        /* create a global symbol at ITCM end */
 
  } >ITCMRAM AT> FLASH
+  /* the ITCM from 0xA000 up is the loadable programs' (tools/sdk/app.ld's .itcm, the Amiga app's hot code): the
+     firmware's own ITCM code must stay below it (V8, 10 Nov 2026) */
+  ASSERT(_eITCM <= 0xA000, "the firmware's ITCM code reaches 0xA000, which the loadable programs use")
   
   /* Constant data goes into FLASH */
   .rodata :

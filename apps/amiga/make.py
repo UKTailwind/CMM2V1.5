@@ -1,14 +1,16 @@
-"""make.py: builds apps/amiga/out/amiga.app, an Amiga 500 for the CMM2: frank-amiga (rh1tech's port of Matt Parsons's Omega,
-the 68000 by Musashi and the OCS chipset slot by slot) fetched the first time into apps/amiga/frank-amiga (git ignores it) at
-the commit below, patches/*.patch applied to it in order. The native (desktop) build of its core is used, as its
-native/build.sh makes it (no PICO_BUILD: the RP2350 board's two halves and their link are not), with amiga_cmm2.c as the
-host in place of native/main_native.c, host_native.c and Presentation.c (Peter, 9 Nov 2026).
+"""make.py: builds apps/amiga/out/amiga.app, an Amiga 500 for the CMM2: pico-amiga (drewpo28's line-based emulator for the
+RP2350, Musashi's 68000 and its own OCS/ECS chipset) fetched the first time into apps/amiga/pico-amiga (git ignores it) at
+the commit below. Its core (src/amiga and Musashi, as its cmake/amiga_core.cmake builds them) is built as it is;
+amiga_cmm2.c is the platform (what src/pico is on the RP2350 boards): the display, the sound, the keyboard, the mouse,
+the joystick and the disks on the loader's services (Peter, 9 Nov 2026: "what about taking the emulator from the other
+source").
 
-GPL-3.0-or-later, as frank-amiga is (its third_party/omega under MPL-2.0, Musashi under its own licence): its source must go
-with any copy given out (frank-amiga's, at that commit, and this directory). No Kickstart is built in: the user's own.
+GPL-3.0, as pico-amiga is (Musashi under its own licence): its source must go with any copy given out (pico-amiga's, at
+that commit, and this directory). No Kickstart is built in: the user's own.
 
     python apps/amiga/make.py
-then put out/amiga.app in A:/amiga with a Kickstart (kick.rom) and disk images (.adf), and at the CMM2's prompt:
+then put out/amiga.app in A:/amiga with a Kickstart (amiga-os-130.rom, Amiga Forever's Kickstart 1.3, or another by
+-kick) and disk images (.adf), and at the CMM2's prompt:
     CHDIR "A:/amiga"
     RUN "amiga.app", game.adf
 """
@@ -16,16 +18,34 @@ import glob, hashlib, os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-SRC = os.path.join(HERE, 'frank-amiga')
-URL = 'https://github.com/rh1tech/frank-amiga.git'
-COMMIT = '00da6a6d6975da2d1ae527135d4f973700ef452a'
-
-DEFINES = ['OMEGA_VIDEO_STANDARD=1',            # PAL (native/build.sh's VIDEO=PAL)
-           'OMEGA_SCREENSHOT_REGRESSION',       # (main_native.c's boot sampler out: not built here anyway)
-           'P2_DEBUG_BLITS',                    # (as native/build.sh: the variable it defines; the card is off)
-           'CMM2_PIXEL16',                      # 0x0RGB pixels, the screen's ARGB4444 (patches/0001)
-           'AUDIO_RATE=44100',                  # Paula mixed at the firmware's stream rate
-           'AXI_TABLE']                         # the 68000's opcode table in the AXI RAM (amiga_cmm2.c)
+SRC = os.path.join(HERE, 'pico-amiga')
+URL = 'https://github.com/drewpo28/pico-amiga.git'
+COMMIT = '46f86e988abd8fd96e20f278b25e99a2984b00bb'
+# the ITCM's 24 KB above the firmware's code (build.py --itcm; Peter, 9 Nov 2026: "There is also a bit of itcm ram left for
+# really hot routines"): Denise, the line scheduler, the copper, Paula, Musashi's loop and the blitter's two busiest, 21.9
+# KB with -funroll-loops (below). Measured on Mental Hangover's frames 1500-2500 (pm_bench, 10 Nov), ms a frame: 17.06 as
+# it was; 15.97 with the memory map and the whole blitter in too; 15.82 the memory map left out (each of the 68000's
+# reads from the AXI RAM's handlers came through a veneer); 14.51 unrolled, as here
+ITCM = ['denise', 'amiga', 'copper', 'paula', 'm68kcpu:m68k_execute', 'blitter:line_blit,blitter_poll']
+AXI = ['m68kops', 'm68kcpu', 'amiga', 'blitter', 'cia', 'copper', 'custom', 'denise', 'fb', 'floppy', 'mem', 'paula']
+DEFINES = ['M68K_NO_BUS_ERROR_TRAP',            # no setjmp at each entry to the 68000 (patches/0001)
+           'AMIGA_ROW_DONE_ALL',                # each finished row to amiga_cmm2.c's row_done (patches/0001)
+           'AMIGA_ROW_RING=4',                  # Denise's rows made in a ring of 4 in the AXI RAM (patches/0001), not 288
+           'AMIGA_FAST_FETCH',                 # the 68000's opcodes read inline from plain memory (patches/0001)
+           'AMIGA_SPRITE_IDX',                 # sprite-covered lowres pixels by the line's index caches (patches/0001)
+           'AMIGA_BLIT_STORE',                 # blits store D without reading it first (patches/0001)
+           'AMIGA_FAST_SPREAD',                # spread_planes' lowres doubling by lane masks (patches/0001)
+           'AMIGA_PF_ALIGN',                   # the playfield buffers 2 past a word: units' stores aligned (patches/0001)
+           'AMIGA_BLIT_FAST',                  # the area blit's registers in locals, its common kinds instanced (patches/0001)
+           'AMIGA_FAST_MEM',                   # the memory map as three tables, the I/O paths out of line (patches/0001)
+           'AMIGA_NO_ADDR_MASK',               # Musashi's 24-bit mask left to the callbacks, which mask again (patches/0001)
+           'AMIGA_REV16',                      # big-endian halfwords by LDRH + REV16, no UXTH (patches/0001)
+           'AMIGA_PF_EXTENT',                  # a playfield buffer cleared over its last line's writes only (patches/0001)
+           'AMIGA_SINGLE_CORE',                # Denise's stages' atomics relaxed: no DMBs (patches/0001; one core)
+           'AMIGA_NTSC_OPTION',                 # amiga_config_t's ntsc: an NTSC Agnus (patches/0001; amiga_cmm2.c's default)
+           'SLICE_CC=32']                       # the copper and the 68000 take turns each 32 colour clocks, not 16: half the
+                                                # entries to Musashi (its amiga.c: what is drawn is exact either way, each
+                                                # display write carrying its own beam position); 1 ms a frame less
 
 
 def patch():
@@ -42,14 +62,11 @@ def patch():
 
 
 def sources():
-    """native/build.sh's sources, but for main_native.c, host_native.c and Presentation.c (amiga_cmm2.c is the host)"""
-    O = os.path.join(SRC, 'third_party', 'omega')
-    N = os.path.join(SRC, 'native')
-    out = [os.path.join(N, f) for f in ('memory_native.c', 'hdf_native.c', 'kicksmash_native.c')]
-    out += [os.path.join(SRC, 'slave', 'src', 'platform', 'Planar.c'), os.path.join(SRC, 'common', 'amiga', 'Collision.c')]
-    out += [os.path.join(O, f + '.c') for f in ('Audio', 'AudioMix', 'Blitter', 'Chipset', 'CIA', 'CPU', 'debug', 'DMA', 'Floppy',
-                                                'Expansion', 'Gayle', 'Picasso2', 'KickSmash', 'm68kcpu', 'm68kdasm', 'm68kopac',
-                                                'm68kopdm', 'm68kopnz', 'm68kops')]
+    """cmake/amiga_core.cmake's AMIGA_CORE_SRC, and the platform"""
+    out = [os.path.join(SRC, 'src', 'amiga', f + '.c') for f in ('amiga', 'blitter', 'cia', 'copper', 'custom', 'denise', 'fb',
+                                                                'floppy', 'mem', 'paula', 'rtc', 'state')]
+    M = os.path.join(SRC, 'external', 'musashi')
+    out += [os.path.join(M, 'm68kcpu.c'), os.path.join(M, 'gen', 'm68kops.c'), os.path.join(M, 'softfloat', 'softfloat.c')]
     out += [os.path.join(HERE, 'amiga_cmm2.c')]
     return out
 
@@ -66,16 +83,20 @@ def main():
     os.makedirs(os.path.join(HERE, 'out'), exist_ok=True)
     listfile = os.path.join(HERE, 'out', 'sources.txt')
     open(listfile, 'w').write('\n'.join(sources()) + '\n')
-    N = os.path.join(SRC, 'native')
-    inc = [HERE, N, os.path.join(SRC, 'common', 'amiga'), os.path.join(SRC, 'slave', 'src', 'platform'), os.path.join(SRC, 'third_party', 'omega')]
+    M = os.path.join(SRC, 'external', 'musashi')
+    inc = [os.path.join(SRC, 'src', 'amiga'), M, os.path.join(M, 'gen')]
     cmd = [sys.executable, '-I', os.path.join(REPO, 'tools', 'sdk', 'build.py'), os.path.join(HERE, 'out', 'amiga.app'),
-           '--sources', listfile, '--api', '17', '--g2', '--stack', '0x10000', '--heap', str(3584 << 10)]
+           '--sources', listfile, '--api', '18', '--g2', '--stack', '0x10000', '--heap', str(2560 << 10)]
     for d in inc:
         cmd += ['-I', d]
-    cmd += ['--cflag=-include', '--cflag=sys/types.h',                      # (newlib's dirent.h needs ssize_t)
-            '--cflag=-include', '--cflag=' + os.path.join(N, 'sdl_shim.h'),   # (the native code's SDL atomics, no SDL)
-            '--cflag=-include', '--cflag=' + os.path.join(HERE, 'amiga_mem.h')]
-    cmd += ['--cflag=-D' + d for d in DEFINES] + ['--cflag=-std=gnu11', '--cflag=-w', '--cflag=-O2']
+    # into the processor's AXI RAM (Peter, 9 Nov 2026: "put the opcode tables and handlers in the 512K of video memory and
+    # run the display from sdram"): Musashi's (its handlers, their 128 KB index and 64 KB cycle table) and the chips'
+    cmd += ['--axi=' + n for n in AXI]
+    itcm = os.environ.get('AMIGA_ITCM')         # (trials: NAME[:f,...] by spaces)
+    cmd += ['--itcm=' + n for n in (itcm.split() if itcm is not None else ITCM)]
+    # (-funroll-loops: 8% off a frame, Denise's and the platform's pixel loops; -O3 was too big for the ITCM)
+    off = os.environ.get('AMIGA_OFF', '').split()   # (trials: DEFINES left out, by name)
+    cmd += ['--cflag=-D' + d for d in DEFINES if d.split('=')[0] not in off] + ['--cflag=-std=gnu11', '--cflag=-w', '--cflag=-O2', '--cflag=-funroll-loops']
     cmd += ['--cflag=' + a for a in sys.argv[1:] if a.startswith('-')]
     sys.exit(subprocess.run(cmd).returncode)
 

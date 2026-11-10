@@ -560,13 +560,13 @@ void LoaderDMA2D(void) {                                            // the DMA2D
     if(ldjobout != ldjobin) ld_dma2dgo(ldjobout);
 }
 static int ld_dma2dbusy(void) { return (ldjobin - ldjobout + LD_JOBS) % LD_JOBS; }
-static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h) {
+static int ld_dma2dput(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h, int clean) {
     uint32_t s = (uint32_t)src, d = (uint32_t)dst, px = ((s | d | sp | dp | w) & 3) ? 2 : 4, a, next;
     if(((s | d | sp | dp | w) & 1) || sp < w || dp < w || w / px > 0x3FFF || (sp - w) / px > 0x3FFF ||
        (dp - w) / px > 0x3FFF || h > 0xFFFF) return -1;
     if(w == 0 || h == 0) return 0;
     a = s & ~31u;                                                   // the source from the cache to the SDRAM, which the DMA2D reads
-    SCB_CleanDCache_by_Addr((uint32_t *)a, (int32_t)((s - a + sp * (h - 1) + w + 31) & ~31u));
+    if(clean) SCB_CleanDCache_by_Addr((uint32_t *)a, (int32_t)((s - a + sp * (h - 1) + w + 31) & ~31u));
     if(!(RCC->AHB3ENR & RCC_AHB3ENR_DMA2DEN)) {
         __HAL_RCC_DMA2D_CLK_ENABLE();
         HAL_NVIC_SetPriority(DMA2D_IRQn, 14, 0);                    // (above the frame hook's PendSV, which may wait for it)
@@ -587,6 +587,12 @@ static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, ui
     if(idle) ld_dma2dgo(ldjobout);
     __set_PRIMASK(primask);
     return 0;
+}
+static int ld_dma2dcopy(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h) {
+    return ld_dma2dput(src, sp, dst, dp, w, h, 1);
+}
+static int ld_dma2dcopync(const void *src, uint32_t sp, void *dst, uint32_t dp, uint32_t w, uint32_t h) {   // (version 18)
+    return ld_dma2dput(src, sp, dst, dp, w, h, 0);
 }
 static void ld_dma2dstop(void) {                                    // (the program's end: its copies dropped)
     if(!(RCC->AHB3ENR & RCC_AHB3ENR_DMA2DEN)) return;
@@ -1257,6 +1263,7 @@ static const struct cmm2_services ldsvc = {
     .basic_cmd = ld_basic, .gfx_target = ld_gtarget, .font_size = ld_fontsize, .font_define = ld_fontdef,
     .basic_eval = ld_eval, .sound_state = ld_soundstate, .basic_prep = ld_prep, .basic_exec = ld_exec,
     .image_resize = ld_resize, .gamepad = USBGamepadState, .com_connected = ld_comconnected, .gamepad_axes = USBGamepadAxes,
+    .dma2d_copy_nc = ld_dma2dcopync,
 };
 
 /*******************************************************************************************
