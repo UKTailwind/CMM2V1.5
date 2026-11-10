@@ -149,7 +149,9 @@ A disk whose .adf file is read-only (set on a PC) is a write-protected disk: the
 
 The RAM DISK is in the Amiga's memory, as on a real Amiga, so what is there is lost at a reset or when the program ends.
 
-The Amiga has no BASIC in its ROM. AmigaBASIC came on the Extras disk of Workbench 1.3, which is not among Amiga Forever's Value Edition files.
+The Amiga has no BASIC in its ROM. AmigaBASIC, Microsoft's BASIC for the Amiga, came on the Extras disk of Workbench 1.3, which is not among Amiga Forever's Value Edition files. If you have that disk, put it in DF1 with Workbench in DF0, open its icon (Extras 1.3) and then AmigaBASIC's. Its folder BasicDemos has Microsoft's example programs.
+
+If you do not have it, a copy of the Extras 1.3 disk with AmigaBASIC is on the Internet Archive, at archive.org/details/amiga_extras1.3_basic1.2: download and use it at your own risk. Copy its .adf file to A:/amiga.
 
 ## The Mouse and Joysticks
 
@@ -169,6 +171,7 @@ On a Generation 2 with firmware 7.00.00RC5, the PAL Amiga in 576p:
 - **Workbench 1.3**, with the mouse and the keyboard.
 - **Games from Amiga Forever**, each for a minute: Arkanoid, Aunt Arctic Adventure, Blasteroids, Datastorm, Exile, Gotcha, Lethal Xcess, Obsession Pinball, Pac-Mania, Rage, Statix, Toobin and Zoom! load and run at 50 frames a second. X-Balls and Logic load slowly through AmigaDOS, and had not finished in that minute. Tie Break shows only a black screen.
 - **The keyboard, the mouse and a gamepad**, by hand, in Workbench and in games, and the disk menu.
+- **AmigaBASIC**, from a Workbench 1.3 Extras disk in DF1, running its Demo program.
 - **Saving:** a blank disk made from the menu and put in DF1; AmigaDOS wrote a file and a folder to it, and the .adf file, copied from the card to a PC, has them. With -wp the Amiga reported the disk write-protected, and the file was unchanged.
 
 Titles made for later Amigas (the A1200 and A4000), and those on hard disk images, do not run.

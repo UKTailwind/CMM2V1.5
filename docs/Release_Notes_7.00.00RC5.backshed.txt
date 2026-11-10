@@ -57,6 +57,7 @@ On a Generation 2 unless it says otherwise:
     ◦ Games from Amiga Forever, each for a minute: Arkanoid, Aunt Arctic Adventure, Blasteroids, Datastorm, Exile, Gotcha, Lethal Xcess, Obsession Pinball, Pac-Mania, Rage, Statix, Toobin and Zoom! load and run at 50 frames a second. X-Balls and Logic load slowly through AmigaDOS, and had not finished in that minute. Tie Break shows only a black screen (not looked into yet).
     ◦ Demos: 242 (Virtual Dreams and Fairlight) at 50 frames a second; D.O.S. (Andromeda) falls just short in a few places, at worst 21.9ms for a 20ms frame.
     ◦ The keyboard, the mouse and a gamepad by hand, in Workbench and in games, and the disk menu.
+    ◦ AmigaBASIC, from a Workbench 1.3 Extras disk in DF1, running its Demo program.
     ◦ Saving: a blank disk made from the menu and put in DF1; AmigaDOS wrote a file and a folder to it, and the .adf file, copied from the card to a PC, has them. With -wp the Amiga reported the disk write-protected, and the file was unchanged.
     ◦ Its picture's checksum, taken every 500 frames through 8,000 frames of Arte, is the same on this firmware as on the development version it was measured on.
 • [B]apple2:[/B] on a Generation 1 with this firmware, Applesoft and hi-res graphics, with the Apple at its full speed (1,023kHz); before, on 7.00.00RC4, lo-res, mixed, 80 columns and double hi-res (a2audit's video tests find their colours right), the disk menu and a Disk II boot.
