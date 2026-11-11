@@ -51,11 +51,11 @@ int main(int argc, char **argv) {
 
 ## Code Called From an Interrupt
 
-fill (and a frame hook, in the chapter The Screen) is called from an interrupt, PendSV, at the lowest priority of all the firmware's interrupts, while the program's own code is stopped. So it must follow some rules:
+From version 18 of the services (7.00.00RC5) the stream goes to the DACs by DMA, with no interrupt for each sample: its cost to the program is then the fill and the music alone. fill (and a frame hook, in the chapter The Screen) is called from an interrupt, PendSV, at the lowest priority of all the firmware's interrupts, while the program's own code is stopped. So it must follow some rules:
 
 - **Be quick.** Its time comes off the program's: a fill that takes 5ms of each 23ms buffer takes over a fifth of the processor. It must always finish well within 23ms, or the sound breaks up.
 - **Keep its local variables small.** It runs on MMBasic's stack, not the program's, and that has a few kilobytes to spare at most. Large tables belong in static memory.
-- **Call no services** (but dma2d_copy and dma2d_busy from a frame hook), and no malloc(), free(), printf() or other C library function that keeps state. Calculation (string.h, math.h) is fine.
+- **Call no services** (but dma2d_copy, dma2d_copy_nc and dma2d_busy from a frame hook), and no malloc(), free(), printf() or other C library function that keeps state. Calculation (string.h, math.h) is fine.
 - **Share data with care.** A variable that both fill and the program change should be volatile. When the program changes more than one thing that fill reads (a voice's start, length and step, say), it does so between audio_lock() and audio_unlock(), which hold fill off: briefly, as the buffers run on meanwhile.
 
 Doom's sound effects are mixed this way: its fill adds up sixteen voices of 8-bit samples, and its sound functions set up a voice inside audio_lock() and audio_unlock().

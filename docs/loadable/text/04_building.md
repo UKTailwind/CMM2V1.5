@@ -30,6 +30,8 @@ The options:
 | --stack BYTES | The size of the program's stack (default 64KB). |
 | --vram | A Generation 1 lends the program its display memory too, about 7MB in all, and limits its video modes while it runs (see The Display Memory Lent in the chapter How a Program Runs). Use it with --api 8: firmware before version 8 ignores it. A Generation 2 ignores it too. |
 | --g2 | The program runs on a Generation 2 only: a Generation 1 refuses it with "Needs a G2". |
+| --axi NAME | The code, constants and data of the source NAME (its file name without folder or extension) linked to run in the processor's 512KB of AXI RAM, which a Generation 2's display leaves free when its page is in the SDRAM. cmm2_axi_load() copies them there. Repeat it for more sources. Needs --g2. See Code in the Fast Memories in the chapter Performance. |
+| --itcm NAME[:F1,F2,...] | The functions named of the source NAME, or all its code if none are named, linked to run in the ITCM from 0xA000 to 0xFFFF, the 24KB above the firmware's own code, also copied there by cmm2_axi_load(). Needs --g2, and --api 18: older firmware does not keep that memory free. |
 | --cflag FLAG | A flag for the compiler, for C and C++ (eg, --cflag=-DDEBUG, --cflag=-O3). Repeat it for more. |
 | --cxxflag FLAG | A flag for C++ sources only. |
 | --ldflag FLAG | A flag for the link. |
@@ -83,8 +85,9 @@ The table of services only grows: each version of the firmware keeps the entries
 | 15 | Whether a port's device is there (com_connected). |
 | 16 | All of a gamepad's axes: both sticks and the analogue triggers (gamepad_axes). |
 | 17 | video_mode and video_scaled take depth 12: ARGB4444 on one layer. |
+| 18 | A DMA2D copy without writing the source back from the cache first (dma2d_copy_nc). The ITCM from 0xA000 is kept for programs (--itcm), and the sound stream goes to the DACs by DMA. |
 
-Firmware 7.00.00RC3 has version 15, 7.00.00RC4 version 16, and the firmware after it version 17. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
+Firmware 7.00.00RC3 has version 15, 7.00.00RC4 version 16, and 7.00.00RC5 version 18. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
 
 ```
 if(cmm2->version >= 4) cmm2->con_screen(0);

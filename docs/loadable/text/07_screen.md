@@ -76,6 +76,8 @@ void frame_hook(void (*fn)(void));
 int  dma2d_copy(const void *src, uint32_t src_pitch, void *dst, uint32_t dst_pitch,
                 uint32_t width, uint32_t height);
 int  dma2d_busy(void);
+int  dma2d_copy_nc(const void *src, uint32_t src_pitch, void *dst, uint32_t dst_pitch,
+                   uint32_t width, uint32_t height);                 /* version 18 */
 ```
 
 video_scaled is video_mode with each pixel shown scale times in each direction (scale is 1 or 2). With 2 the display is half the mode's width and height (MODE 18 at 2 gives 512 x 300), and its page holds each line twice, as in the modes whose lines are shown twice (v.copies is 2). It is refused in those modes, which are doubled already.
@@ -103,6 +105,8 @@ int main(int argc, char **argv) {
     return 0;
 }
 ```
+
+dma2d_copy_nc, from version 18 of the services, is dma2d_copy without the source written from the data cache first. It is for a second copy of a source that a dma2d_copy has just written back, with nothing written to it since: writing a large source back takes time, and doing it twice is wasted. The Amiga emulator copies each batch of its rows to two lines of its page this way, the first copy by dma2d_copy and the second by dma2d_copy_nc.
 
 A copy in progress while the program draws the next frame shows a mixture of the two: double buffering (two frames, drawing one while the other is copied) avoids that.
 
