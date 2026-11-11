@@ -57,3 +57,6 @@ apps/pc386/out/
 apps/cc/fuzix/
 apps/cc/out/
 .claude/settings.local.json
+# The TRS-80 (apps/trs80/make.py): sdltrs fetched at a pinned commit, and the build
+apps/trs80/sdltrs/
+apps/trs80/out/

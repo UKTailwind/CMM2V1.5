@@ -207,7 +207,7 @@ APPS = {                                                # guide.py apps: all the
     'DIR': os.path.join(ROOT, 'docs', 'apps'),
     'OUT': os.path.join(ROOT, 'docs', 'apps', 'Colour_Maximite_2_App_User_Guide.docx'),
     'NAME': 'Colour Maximite 2 App User Guide',
-    'DATE': '10 November 2026',
+    'DATE': '11 November 2026',
     'TITLE': {
         'User Manual': 'App User Guide',
         'MMBasic Ver': 'The programs that come with the Colour Maximite 2',
@@ -217,7 +217,7 @@ APPS = {                                                # guide.py apps: all the
         'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
     },
     'ABOUT': ('This guide is for anyone using the programs that come with the Colour Maximite 2: MicroPython, Doom, '
-              'Heretic, Quake, ScummVM, the NES, ZX Spectrum, Amstrad CPC, Commodore 64, Atari 8-bit, Apple //e and Amiga 500 emulators, '
+              'Heretic, Quake, ScummVM, the NES, ZX Spectrum, Amstrad CPC, Commodore 64, Atari 8-bit, Apple //e, Amiga 500 and TRS-80 emulators, '
               'the 386 PC, the C compiler, the VT100 terminal and zeptoforth. It covers installing each one, starting it, its '
               'keys and leaving it. It assumes you can use the MMBasic command prompt and copy files to the SD card.'),
     'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '

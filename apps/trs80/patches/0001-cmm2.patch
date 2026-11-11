@@ -1,0 +1,145 @@
+diff --git a/src/main.c b/src/main.c
+index e0ef1fd..eef2970 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -42,10 +42,13 @@
+ #include "trs.h"
+ #include "trs_state_save.h"
+ 
+-int main(int argc, char *argv[])
++int sdltrs_main(int argc, char *argv[]) /* CMM2: the program's main is sdl_cmm2.c's, which calls this */
+ {
++  extern void cmm2_trs_start(void); /* CMM2: sdl_cmm2.c's */
+   int const zbx = trs_parse_command_line(argc, argv);
+ 
++  cmm2_trs_start(); /* CMM2: a model whose ROM is there, if none was asked for */
++
+   trs_sdl_init();
+   trs_reset(1);
+ 
+diff --git a/src/trs_memory.c b/src/trs_memory.c
+index f4b88c8..15b6007 100644
+--- a/src/trs_memory.c
++++ b/src/trs_memory.c
+@@ -63,7 +63,12 @@
+ 
+ #define MAX_ROM_SIZE       (18432)  /* Holmes VID-80 (VX-3) */
+ #define MAX_VIDEO_SIZE     (3072)   /* CP-500 M80 has 3K */
+-#define MAX_MEMORY_SIZE    (4 * 1024 * 1024) + 65536
++/* CMM2: the memory is not in the program (4 MB of its 8) but a block the port gives (sdl_cmm2.c): the whole 4 MB
++   and 64 KB from MMBasic's heap on a G2; 1 MB and 64 KB on a G1, where only the MegaMem, which is above 1 MB, is
++   lost: megamem_out leaves it unmapped */
++extern Uint8 *cmm2_trs_memory(Uint32 *size); /* size + 1 bytes */
++static Uint32 memory_size;
++#define MAX_MEMORY_SIZE    memory_size
+ /* Start MegaMem > 1MB to leave space for SuperMem or HyperMem */
+ #define MEGAMEM_START      (1 * 1024 * 1024) + 65536
+ 
+@@ -93,8 +98,9 @@ int xmem80;   /* X-MEM/80 16K page Model I */
+ /* private data */
+ 
+ /* +1 so strings from mem_pointer are NUL-terminated */
+-static Uint8 memory[MAX_MEMORY_SIZE + 1];
++static Uint8 *memory; /* CMM2: set by mem_init */
+ static Uint8 video[MAX_VIDEO_SIZE + 1];
++Uint8 *cmm2_trs_video(void) { return video; } /* CMM2: the screen's text, for the port to read a DOS's questions */
+ static Uint8 rom[MAX_ROM_SIZE + 1];
+ static int memory_map;
+ static int video_addr = -VIDEO_START;
+@@ -435,6 +441,10 @@ void megamem_out(int mem_slot, Uint8 value)
+     megamem_base = ((value & 0x3F) * 16
+                  + (mem_slot * 1024)) * 1024
+                  + MEGAMEM_START;
++    if (megamem_base + 0x4000 > MAX_MEMORY_SIZE) { /* CMM2: there is no memory there */
++      megamem_addr = 0;
++      megamem_base = 0;
++    }
+   }
+ }
+ 
+@@ -598,7 +608,10 @@ int xmem80_in(int port)
+ static void mem_init(void)
+ {
+   /* Initialize RAM & ROM */
+-  int i;
++  Uint32 i; /* CMM2: as memory_size */
++
++  if (memory == NULL)
++    memory = cmm2_trs_memory(&memory_size);
+ 
+   for (i = 0; i < MAX_MEMORY_SIZE - 1;) {
+     memory[i++] = 0xFF;
+@@ -613,8 +626,11 @@ static void mem_init(void)
+ 
+ /* Handle reset button if poweron=0;
+    handle hard reset or initial poweron if poweron=1 */
++extern void cmm2_trs_reset(void); /* CMM2: sdl_cmm2.c's */
++
+ void trs_reset(int poweron)
+ {
++  cmm2_trs_reset(); /* CMM2: with no disk in drive 0, no disk controller: BASIC, not a wait for a disk */
+   bank_base = 0x10000;
+   bank_offset[0] = 0;
+   bank_offset[1] = 0;
+@@ -790,7 +806,7 @@ int trs80_model3_mem_read(int address)
+ 
+ int mem_peek(int address)
+ {
+-  if (address < MAX_MEMORY_SIZE)
++  if ((Uint32)address < MAX_MEMORY_SIZE)
+     return memory[address];
+   else
+     return 0xFF;
+@@ -798,7 +814,7 @@ int mem_peek(int address)
+ 
+ void mem_poke(int address, int value)
+ {
+-  if (address < MAX_MEMORY_SIZE)
++  if ((Uint32)address < MAX_MEMORY_SIZE)
+     memory[address] = value;
+ }
+ 
+diff --git a/src/trs_options.c b/src/trs_options.c
+index e5d856b..d360319 100644
+--- a/src/trs_options.c
++++ b/src/trs_options.c
+@@ -43,7 +43,7 @@
+ #include "trs_stringy.h"
+ #include "trs_uart.h"
+ 
+-#define MAX_SCALE   4
++#define MAX_SCALE   1 /* CMM2: as trs_sdl_interface.c's */
+ #define OPTIONS     (int)(sizeof(options) / sizeof(options[0]))
+ 
+ #define BLACK       0
+@@ -822,7 +822,7 @@ int trs_load_config_file(void)
+   trs_cassette_insert("");
+ 
+   background = BLACK;
+-  border_width = 2;
++  border_width = 0; /* CMM2: the Model III's and 4's screen is 640 x 480, the whole of MODE 8 */
+   cassette_default_sample_rate = MAX_SAMPLE_RATE;
+   /* Disk Sizes are 5" or 8"
+      Corrected by Larry Kraemer 08-01-2011 */
+@@ -899,7 +899,7 @@ int trs_load_config_file(void)
+   trs_mem_size = Z80_ADDRESS_LIMIT;
+   trs_model = 1;
+   trs_printer = 0;
+-  trs_show_led = 1;
++  trs_show_led = 0; /* CMM2: the drive lights' strip would make the window taller than MODE 8 (Alt+B shows it) */
+   trs_sound = 1;
+   trs_uart_switches = 0x7 | TRS_UART_NOPAR | TRS_UART_WORD8;
+   trs_year = 0;
+diff --git a/src/trs_sdl_interface.c b/src/trs_sdl_interface.c
+index 944b75b..6a9d8ea 100644
+--- a/src/trs_sdl_interface.c
++++ b/src/trs_sdl_interface.c
+@@ -52,7 +52,7 @@
+ #include "trs_uart.h"
+ 
+ #define MAX_RECTS   2048
+-#define MAX_SCALE   4
++#define MAX_SCALE   1 /* CMM2: the screen as it is (640 x 480 at most); 4 is 4 MB of hi-res buffer and 32 MB of characters */
+ #define SCREEN_SIZE 2048
+ 
+ /* TRS-80 character sizes */
