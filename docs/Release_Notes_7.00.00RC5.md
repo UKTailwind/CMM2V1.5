@@ -39,6 +39,8 @@ Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga, apple2
 
   The App User Guide has a chapter on it, with how to take Amiga Forever's games and demos out of their .rp9 files.
 
+  On 11 November 2026 the zip's amiga.app was replaced (the firmware is unchanged): a jump to an odd address now gives the 68000's address error, as some copy protections expect, and a disk's data now arrives as the disk turns, as some loaders expect. Super Cars (Gremlin), which stopped with Guru Meditation #0000000B, now loads.
+
 - **An Apple //e emulator,** in the folder apple2: frank-apple, rh1tech's port of Michel Pollet's MII. An enhanced Apple //e with 128K, an 80-column card, two Disk II drives and two hard disks, at the Apple's 60 frames a second in MODE 8, with its screen at full resolution. The Apple's ROMs are built in. The App User Guide has a chapter on it.
 
 - **A TRS-80 emulator,** in the folder trs80 (added to the programs on 11 November 2026: the firmware is unchanged): sdltrs, Mark Grebe's and Jens Guenther's emulator, from Tim Mann's xtrs. It is the TRS-80 Model I, III, 4 and 4P, with floppy and hard disks, cassettes, sound, a joystick, a mouse, a serial port and sdltrs's own menu (F7), on both generations. The Model 4's 80 x 24 screen fills MODE 8. What the TRS-80 writes to a disk goes into its file on the card. The ROM's MEMORY SIZE? and a DOS's date and time are answered for you, the last two from the clock.
@@ -78,6 +80,7 @@ On a Generation 2 unless it says otherwise:
   - AmigaBASIC, from a Workbench 1.3 Extras disk in DF1, running its Demo program.
   - Saving: a blank disk made from the menu and put in DF1; AmigaDOS wrote a file and a folder to it, and the .adf file, copied from the card to a PC, has them. With -wp the Amiga reported the disk write-protected, and the file was unchanged.
   - Its picture's checksum, taken every 500 frames through 8,000 frames of Arte, is the same on this firmware as on the development version it was measured on.
+  - Super Cars (Gremlin), with the amiga.app of 11 November: its title screen and results desk on pico-amiga's own PC build, and its intro on a Generation 2, where it had stopped with the guru. Ten other games and demos show the same screens, frame for frame, as before.
 - **apple2:** on a Generation 1 with this firmware, Applesoft and hi-res graphics, with the Apple at its full speed (1,023kHz); before, on 7.00.00RC4, lo-res, mixed, 80 columns and double hi-res (a2audit's video tests find their colours right), the disk menu and a Disk II boot.
 - **trs80:** on both generations, Level II BASIC on the Model I, Model III BASIC, LDOS 5.3.1 from disk on the Models I and III, and LS-DOS 6.3.1 on the Model 4 and on the Model 4P with the free boot ROM; the menu and its list of disks; sound; a USB keyboard, the mouse and a gamepad by hand; the MegaMem on a Generation 2. On a Generation 1 with this firmware as released, the Model I, the Model III with LDOS and the Model 4P with LS-DOS; and a BASIC program saved to a disk and loaded again after leaving.
 - **The sound by DMA** on a Generation 1: Doom's timed demo with its music and effects at 38.4 frames a second, as before; the DACs given back to MMBasic after a program (PLAY TONE), on both generations.
