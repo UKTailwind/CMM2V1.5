@@ -2154,6 +2154,31 @@ static int RBBareJustify(unsigned char *p, unsigned char *ae, unsigned char *sym
     return GetJustificationArg(sym, &jh, &jv, &jo) ? sl : 0;
 }
 
+/* The CMM2's BLIT forms that go through the splice: WRITE #n, x, y [, mode], READ #n, x, y, w, h and CLOSE #n, whose
+   every argument cmd_blit reads with getint or getinteger (11 Nov 2026: fire.bas's 1,900 BLIT WRITEs a frame, each
+   one's array elements evaluated from the text, took 24 us apiece).  Its other forms stay text: the CMM2's own (the
+   plain BLIT, MEMORY, COMPRESSED, its sprite forms: SPRITE is the same handler, and a word alone such as SPRITE MOVE
+   would be compiled as a variable), CLOSE ALL, and READ with its page, which may be the word FRAMEBUFFER.  In .extra,
+   at the end of .text: added code moves the code after it, and with it what shares the I-cache (statements 5-8%
+   slower with this in its place, 11 Nov 2026). */
+static int __attribute__((section(".extra"), noinline)) RBBlitForm(unsigned char *p)
+{
+    unsigned char *q;
+    int n = 1;
+    if (checkstring(p, (unsigned char *)"CLOSE ALL"))
+        return 0;
+    if (checkstring(p, (unsigned char *)"WRITE") || checkstring(p, (unsigned char *)"CLOSE"))
+        return 1;
+    if ((q = checkstring(p, (unsigned char *)"READ")) == NULL)
+        return 0;
+    while (*(q = RBArgEnd(q, 0)) == ',')
+    {
+        q++;
+        n++;
+    }
+    return n <= 5;
+}
+
 static int RBCompileSplice(unsigned char *entry, unsigned char *cmdl, CommandToken ct, uint16_t *code)
 {
     rbcx_t x;
@@ -2163,8 +2188,10 @@ static int RBCompileSplice(unsigned char *entry, unsigned char *cmdl, CommandTok
     if (!RB_SPLICE)
         return 0;
     if (fn != cmd_box && fn != cmd_line && fn != cmd_pixel && fn != cmd_colour && fn != cmd_text && fn != cmd_circle &&
-        fn != cmd_triangle && fn != cmd_arc && fn != cmd_rbox)
-        return 0; // (the CMM2 has no BLIT MEMORY, and its BLIT's forms are its own: both stay text)
+        fn != cmd_triangle && fn != cmd_arc && fn != cmd_rbox && fn != cmd_blit)
+        return 0; // (the CMM2 has no BLIT MEMORY command: its BLIT MEMORY is a form of BLIT, which stays text)
+    if (fn == cmd_blit && !RBBlitForm(p))
+        return 0;
     if (fn == cmd_blit)
     { // BLIT FLASH slot, buffer, ...; BLIT FRAMEBUFFER from, to, ...; BLIT READ, WRITE
       // and CLOSE #n, ...; and the plain BLIT x1, y1, x2, y2, w, h.  cmd_blit reads

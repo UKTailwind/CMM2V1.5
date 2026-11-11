@@ -630,7 +630,8 @@ void blithide(int bnbr, int free){
 // transparent value bc is drawn, every pixel with mode 8. mode 0: a redraw (the old place is not restored), 1: SHOW (it
 // is, if the sprite is shown), 2: SWAP (the saved background is kept), 4: WRITE (not restored, not made shown); | 8.
 // The image is colour words, converted as they are drawn; the background is the depth's pixels, a byte each in the 8-bit
-// and 4-bit depths (the 4-bit one's RGB121 in the low nibble), two in the 12-bit and 16-bit, four in the 32-bit.
+// and 4-bit depths (the 4-bit one's RGB121 in the low nibble), two in the 12-bit and 16-bit, four in the 32-bit. With
+// mode 8 and 4 (WRITE, every pixel) no background is read: store is NULL and the loop does not touch it.
 #define SHOWLOOP(T, NATIVE) { \
     uint32_t *img = (uint32_t *)b->blitbuffptr, mask = SpriteMask(), key = SpriteNative(SpriteKey) & mask; \
     T *bg = (T *)store, *out = (T *)rr; \
@@ -638,8 +639,8 @@ void blithide(int bnbr, int free){
         uint32_t *row = img + (rotation & 2 ? h - 1 - y : y) * w; \
         for(x = 0; x < w; x++) { \
             uint32_t a = rotation & 1 ? row[w - 1 - x] : row[x]; \
-            T n = (T)(NATIVE(a)), s = *bg++; \
-            *out++ = ((n & mask) != key || (mode & 8)) ? n : s; \
+            T n = (T)(NATIVE(a)); \
+            *out++ = ((mode & 8) || (n & mask) != key) ? n : bg[y * w + x]; \
         } \
     } \
 }
@@ -675,12 +676,14 @@ void BlitShowBuff(int bnbr, int x1, int y1, int mode){
     if(b->blitbuffptr == NULL) return;
     if(!(mode == 0 || mode & 4) && b->active)
         DrawBufferFast(b->x, b->y, b->x + w - 1, b->y + h - 1, b->blitstoreptr);
-    if(mode & 4) store = GetTempMemory(w * h * SPRITEBG);           // WRITE: a sprite showing keeps its place and its
+    int all = (mode & 12) == 12;                                    // WRITE, every pixel: no background to read (BLIT WRITE's
+                                                                    // usual mode 0, which fire.bas makes 1,900 times a frame)
+    if(mode & 4) store = all ? NULL : GetTempMemory(w * h * SPRITEBG);   // WRITE: a sprite showing keeps its place and its
     else {                                                          // background (they were overwritten: the PicoMite's too)
         b->x = x1;
         b->y = y1;
     }
-    if(mode != 2) ReadBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, store);
+    if(mode != 2 && !all) ReadBufferFast(x1, y1, x1 + w - 1, y1 + h - 1, store);
     // the old screen is now stored, with its place
     if((rr = ShowBuffer(w * h * bpp)) == NULL) rr = GetMemory(w * h * bpp);
     switch(VideoColour){
@@ -1287,12 +1290,45 @@ int blitother(void){
     return 0;
 }
 
+// BLIT WRITE and SPRITE WRITE #n, x, y [, mode]: cmd_blit's first test, ahead of its 30 other keywords, as a program may
+// draw a buffer thousands of times a frame (fire.bas, 11 Nov 2026). In .extra, at the end of .text, so as not to move
+// the code after it (and how it shares the I-cache: Stream.c's RBBlitForm)
+static void __attribute__((section(".extra"), noinline)) blitwrite(char *p){
+    int mode=4, bnbr, x1, y1;
+    int maxW=PageTable[WritePage].xmax;
+    int maxH=PageTable[WritePage].ymax;
+    getargs(&p, 7,",");
+    if(!(argc ==5 || argc==7)) error("Syntax");
+    if(*argv[0] == '#') argv[0]++;
+    bnbr = getint(argv[0],1,MAXBLITBUF-1);									// get the number
+    if(blitbuff[bnbr].blitbuffptr!=NULL){
+        x1 = getint(argv[2], -blitbuff[bnbr].w+1, maxW);
+        y1 = getint(argv[4], -blitbuff[bnbr].h+1, maxH);
+        int keep = blitbuff[bnbr].rotation, r = argc == 7 ? getint(argv[6], 0, 7) : SpriteCommand() ? 4 : 0;
+        if((r & 4) == 0) mode |= 8;                              // (0-3 every pixel, 4-7 not the transparent ones;
+                                                                // the PicoMite's defaults: BLIT 0, SPRITE 4)
+        blitbuff[bnbr].rotation = r & 3;                         // for this draw only: a sprite showing keeps its own
+        int cursorhidden=0;
+        if(cursoron){
+           hidecursor(0);
+           cursorhidden=1;
+        }
+        BlitShowBuffer(bnbr, x1, y1, mode);
+        blitbuff[bnbr].rotation = keep;
+        if(cursorhidden)showcursor(0, xcursor,ycursor);
+    } else error("Buffer not in use");
+}
+
 void cmd_blit(void) {
     int x1, y1, x2, y2, w, h, bnbr;
     int new=0;
     int maxW=PageTable[WritePage].xmax;
 	int maxH=PageTable[WritePage].ymax;
     char *p, *q;
+    if((p = checkstring(cmdline, "WRITE"))) {
+        blitwrite(p);
+        return;
+    }
     if(blitother())return;
     if((p = checkstring(cmdline, "SHOW SAFE"))) {
 		int layer;
@@ -1712,32 +1748,7 @@ void cmd_blit(void) {
         blitbuff[bnbr].next_x = getint(argv[2],-blitbuff[bnbr].w+1,maxW-1);
         blitbuff[bnbr].next_y = getint(argv[4],-blitbuff[bnbr].h+1,maxH-1);
 //
-    } else if((p = checkstring(cmdline, "WRITE"))) {
-    	int mode=4;
-        getargs(&p, 7,",");
-        if(!(argc ==5 || argc==7)) error("Syntax");
-        if(*argv[0] == '#') argv[0]++;
-        bnbr = getint(argv[0],1,MAXBLITBUF-1);									// get the number
-        if(blitbuff[bnbr].blitbuffptr!=NULL){
-            x1 = getint(argv[2], -blitbuff[bnbr].w+1, maxW);
-            y1 = getint(argv[4], -blitbuff[bnbr].h+1, maxH);
-            int keep = blitbuff[bnbr].rotation, r = argc == 7 ? getint(argv[6], 0, 7) : SpriteCommand() ? 4 : 0;
-            if((r & 4) == 0) mode |= 8;                              // (0-3 every pixel, 4-7 not the transparent ones;
-                                                                    // the PicoMite's defaults: BLIT 0, SPRITE 4)
-            blitbuff[bnbr].rotation = r & 3;                         // for this draw only: a sprite showing keeps its own
-            q=blitbuff[bnbr].blitbuffptr;
-            w=blitbuff[bnbr].w;
-            h=blitbuff[bnbr].h;
-  		    int cursorhidden=0;
-  		    if(cursoron){
-  			   hidecursor(0);
-  			   cursorhidden=1;
-  		    }
-            BlitShowBuffer(bnbr, x1, y1, mode);
-            blitbuff[bnbr].rotation = keep;
-  		    if(cursorhidden)showcursor(0, xcursor,ycursor);
-        } else error("Buffer not in use");
-    } else if((p = checkstring(cmdline, "MOVE"))) {
+    } else if((p = checkstring(cmdline, "MOVE"))) {                // (WRITE: blitwrite, tested first)
 		if(hideall)error("Sprites are hidden");
         int i;
 		int cursorhidden=0;
