@@ -1,0 +1,109 @@
+diff --git a/src/amiga/floppy.c b/src/amiga/floppy.c
+--- a/src/amiga/floppy.c
++++ b/src/amiga/floppy.c
+@@ -10,10 +10,16 @@
+ // trackdisk.device's normal "read a whole revolution and find the sectors"
+ // logic works unchanged.  Write DMA decodes the MFM back into sectors.
+ //
+-// The data moves at DMA start; DSKBLK is raised after the transfer time scaled
+-// by FLOPPY_TURBO (1 = real speed, 32 us per word), and while a DMA runs the
+-// index pulses come FLOPPY_TURBO times as often too: a drive that spins faster,
+-// so a transfer still spans as many revolutions as on hardware.  Barbarian
++// A read's words reach chip RAM as the disk turns, FLOPPY_TURBO times as fast as
++// on hardware (1 = real speed, 32 us per word): 2 * FLOPPY_TURBO a line; DSKBLK
++// is raised when the last is in, and while a DMA runs the index pulses come
++// FLOPPY_TURBO times as often too: a drive that spins faster, so a transfer
++// still spans as many revolutions as on hardware.  (They all moved at the DMA's
++// start once: Super Cars' loader reads the sectors up to the gap one word more
++// than it needs, decodes the last as soon as that word is in, and starts the
++// read for the rest at once - with every word there at the start, that came
++// before the read had run, the head went back to where it really was, and the
++// rest began at sector 10 instead of sector 0.)  Barbarian
+ // (Palace) starts a two-revolution read on an index pulse and stops it on the
+ // third, its DSKBLK handler only a fallback; with the index at real speed the
+ // read ended first, the loader returned with its index handler still on the
+@@ -71,6 +77,7 @@
+ // its time in lines - to put the head where it is when the read is cut short.
+ static uint32_t rd_pos0, rd_words, rd_lines;
+ static bool     rd_active;
++static uint32_t rd_copied;               // its words in chip RAM so far
+ static uint32_t dma_end_frame;           // A.frame when the last DMA ended (amiga_floppy_status)
+ static int      last_drive = -1;
+ static uint8_t  last_sector = 11;        // where the last DMA started (amiga_floppy_status)
+@@ -183,13 +190,27 @@
+ // its header as soon as it is in, and restarts at once for a sector it does not
+ // want - with the head at the read's end it found every other sector only, and
+ // waited forever for the odd ones.
++// The running read's words up to `upto` into chip RAM, the head after them.
++static void rd_copy(uint32_t upto) {
++    if (upto > rd_words) upto = rd_words;
++    if (upto > rd_copied) {
++        if (trk_drive != dma_drive) ensure_track(dma_drive);   // after a snapshot load
++        const uint16_t *track = A.cfg.track;
++        uint32_t pos = (rd_pos0 + rd_copied) % TRACK_WORDS;
++        for (uint32_t n = rd_copied; n < upto; n++) {
++            chip_ww(dskpt + n * 2, track[pos]);
++            if (++pos == TRACK_WORDS) pos = 0;
++        }
++        rd_copied = upto;
++    }
++    rot_pos = (rd_pos0 + rd_copied) % TRACK_WORDS;
++}
++
+ static void abort_read(void) {
+     if (!rd_active) return;
+-    rd_active = false;
+     const uint32_t ran = rd_lines - dma_lines_left;
+-    uint32_t done = ran * 2 * FLOPPY_TURBO;
+-    if (done > rd_words) done = rd_words;
+-    rot_pos = (rd_pos0 + done) % TRACK_WORDS;
++    rd_copy(ran * 2 * FLOPPY_TURBO);
++    rd_active = false;
+ }
+ 
+ static void dma_start_(void) {
+@@ -218,11 +239,8 @@
+     }
+     last_sector = (uint8_t)(pos / SECTOR_WORDS);
+     rd_pos0 = pos; rd_words = words; rd_lines = dma_lines_left; rd_active = true;
+-    for (uint32_t n = 0; n < words; n++) {
+-        chip_ww(dskpt + n * 2, track[pos]);
+-        if (++pos == TRACK_WORDS) pos = 0;
+-    }
+-    rot_pos = pos;
++    rd_copied = 0;
++    rot_pos = pos;                      // the words follow line by line (floppy_line)
+ }
+ 
+ static void dma_finish(void) {
+@@ -267,15 +285,16 @@
+         if (dv->inserted || dv->empty_lines >= SWAP_LINES) continue;
+         if (++dv->empty_lines == SWAP_LINES && dv->pending) put_in(d, &dv->next);
+     }
+-    // 32 us per word, 64 us per line.  Not while a read DMA is running: its words
+-    // were handed over at the start and rot_pos is already at their end, where the
+-    // head is when the transfer completes.  Turning on meanwhile (the wait is
++    // 32 us per word, 64 us per line.  Not while a read DMA is running: rd_copy
++    // puts the head after the words handed over so far.  Turning on meanwhile (the wait is
+     // FLOPPY_TURBO-scaled, the turning was not) carried the head past the gap:
+     // Hero Quest's loader reads a sector header, then "the sectors up to the gap",
+     // then "the next sector" - expected to be sector 0 - and kept getting 2.
+     if (!(dma_on && !dma_write)) rot_pos += 2;
+-    if (dma_on && dma_drive >= 0 && drv[dma_drive].inserted && drv[dma_drive].motor) {
+-        if (dma_lines_left && --dma_lines_left == 0) dma_finish();
++    if (dma_on && dma_drive >= 0 && drv[dma_drive].inserted && drv[dma_drive].motor && dma_lines_left) {
++        --dma_lines_left;
++        if (rd_active) rd_copy(dma_lines_left ? (rd_lines - dma_lines_left) * 2 * FLOPPY_TURBO : rd_words);
++        if (dma_lines_left == 0) dma_finish();
+     }
+     // One index pulse per revolution on CIA-B /FLAG while a selected drive spins
+     // (FLOPPY_TURBO times as often during a transfer, as the transfer itself).
+@@ -400,6 +419,8 @@
+         if (sel < -1 || sel >= NDRIVES) sel = -1;
+         if (dma_drive < -1 || dma_drive >= NDRIVES) dma_drive = -1;
+         rot_pos %= TRACK_WORDS;
++        rd_copied = rd_active ? (rd_lines - dma_lines_left) * 2 * FLOPPY_TURBO : 0;   // in the saved chip RAM
++        if (rd_copied > rd_words) rd_copied = rd_words;
+     }
+ }
+ 
