@@ -1,0 +1,65 @@
+diff --git a/external/musashi/m68kcpu.c b/external/musashi/m68kcpu.c
+--- a/external/musashi/m68kcpu.c
++++ b/external/musashi/m68kcpu.c
+@@ -971,6 +971,30 @@
+ 	}
+ }
+ 
++/* CMM2: a branch, jump or return to an odd address.  The 68000 faults on the
++ * prefetch at the target inside that instruction: an address error, not a
++ * trace exception, with the 68000's 7-word frame (the fault address, the
++ * instruction's opcode, the PC 2 past the instruction's start).  Copy
++ * protections use it (Super Cars' trace decoder branches to an odd address
++ * and finds its way on from the stacked PC); without it the 68000 ran on at
++ * the odd address into garbage (a Line-F guru).  Odd data accesses are still
++ * not checked (M68K_EMULATE_ADDRESS_ERROR's setjmp at each entry is too dear).
++ * Out of line and cold: m68k_execute, in the CMM2's ITCM, only tests the PC */
++__attribute__((noinline, cold)) void m68ki_exception_odd_pc(void)
++{
++	uint fault = REG_PC;
++	uint sr = m68ki_init_exception();
++
++	m68ki_push_32(REG_PPC + 2);
++	m68ki_push_16(sr);
++	m68ki_push_16(REG_IR);
++	m68ki_push_32(fault);
++	m68ki_push_16(MODE_READ | INSTRUCTION_YES |
++		((sr & 0x2000) ? FUNCTION_CODE_SUPERVISOR_PROGRAM : FUNCTION_CODE_USER_PROGRAM));
++	m68ki_jump_vector(EXCEPTION_ADDRESS_ERROR);
++	USE_CYCLES(CYC_EXCEPTION[EXCEPTION_ADDRESS_ERROR]);
++}
++
+ /* Execute some instructions until we use up num_cycles clock cycles */
+ /* ASG: removed per-instruction interrupt checks */
+ M68KI_HOT int m68k_execute(int num_cycles)
+@@ -1041,8 +1065,14 @@
+ 			USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
+ #endif
+ 
+-			/* Trace m68k_exception, if necessary */
+-			m68ki_exception_if_trace(); /* auto-disable (see m68kcpu.h) */
++			/* CMM2: a branch to an odd address faults in that instruction (no trace) */
++			if(REG_PC & 1)
++				m68ki_exception_odd_pc();
++			else
++			{
++				/* Trace m68k_exception, if necessary */
++				m68ki_exception_if_trace(); /* auto-disable (see m68kcpu.h) */
++			}
+ 		} while(GET_CYCLES() > 0);
+ 
+ 		/* set previous PC to current PC for the next entry into the loop */
+diff --git a/external/musashi/m68kcpu.h b/external/musashi/m68kcpu.h
+--- a/external/musashi/m68kcpu.h
++++ b/external/musashi/m68kcpu.h
+@@ -2085,6 +2085,10 @@
+ 	USE_CYCLES(CYC_EXCEPTION[EXCEPTION_FORMAT_ERROR] - CYC_INSTRUCTION[REG_IR]);
+ }
+ 
++/* CMM2: the 68000's address error for a branch, jump or return to an odd
++ * address (m68kcpu.c) */
++void m68ki_exception_odd_pc(void);
++
+ /* Exception for address error */
+ static inline void m68ki_exception_address_error(void)
+ {
