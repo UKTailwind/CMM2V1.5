@@ -1069,6 +1069,74 @@ static int RBInfoType(unsigned char *txt)
     return 0;
 }
 
+/* RGB(name) and RGB(r, g, b) of three whole numbers 0-255 as the constant fun_rgb gives, p after the bracket: T_INT,
+   or 0 to leave it to fun_rgb.  Its names' colours do not depend on the mode (the mask it applies in a mode other
+   than 32-bit clears bits none of them has); NOTBLACK, which does, is left to it, and so are a name it does not know
+   and a number out of range, for its errors.  11 Nov 2026: RGB(red) cost 2.1 us a time, RGB(255,0,0) 3.7 us, through
+   the splice; 101 of them in loops in the CMM2 Welcome Tape and four games.  In .extra (see RBCmm2Form). */
+static int __attribute__((section(".extra"), noinline)) RBRgbConst(rbcx_t *x, unsigned char *p, unsigned char **pp, int *op)
+{
+    static const struct
+    {
+        const char *name;
+        uint32_t colour;
+    } names[] = {{"WHITE", WHITE}, {"BLACK", BLACK}, {"BLUE", BLUE}, {"GREEN", GREEN}, {"CYAN", CYAN}, {"RED", RED},
+                 {"MAGENTA", MAGENTA}, {"YELLOW", YELLOW}, {"BROWN", BROWN}, {"GRAY", GRAY}, {"GREY", GRAY},
+                 {"LIGHTGRAY", LITEGRAY}, {"LIGHTGREY", LITEGRAY}, {"ORANGE", ORANGE}, {"PINK", PINK}, {"GOLD", GOLD},
+                 {"SALMON", SALMON}, {"LILAC", LILAC}, {"FUCHSIA", FUCHSIA}, {"RUST", RUST}, {"CERULEAN", CERULEAN},
+                 {"MIDGREEN", MIDGREEN}, {"COBALT", COBALT}, {"MYRTLE", MYRTLE}, {"BEIGE", BEIGE}};
+    union
+    {
+        long long i;
+        uint16_t w[4];
+    } k;
+    unsigned char *q = p;
+    int v[3], n, j, sl;
+    skipspace(q);
+    if (issymbol(*q))
+    { // a name alone
+        const unsigned char *sp = SymSpelling(q, &sl);
+        q += symbolsize(*q);
+        skipspace(q);
+        if (*q != ')')
+            return 0;
+        for (j = 0; j < (int)(sizeof(names) / sizeof(names[0])); j++)
+        {
+            for (n = 0; n < sl && names[j].name[n] && names[j].name[n] == toupper(sp[n]); n++)
+                ;
+            if (n == sl && names[j].name[n] == 0)
+                break;
+        }
+        if (j == (int)(sizeof(names) / sizeof(names[0])))
+            return 0;
+        k.i = names[j].colour;
+    }
+    else
+    { // three whole numbers
+        for (n = 0; n < 3; n++)
+        {
+            skipspace(q);
+            if (!isdigit(*q))
+                return 0;
+            for (v[n] = 0; isdigit(*q); q++)
+                if ((v[n] = v[n] * 10 + (*q - '0')) > 255)
+                    return 0;
+            skipspace(q);
+            if (*q != (n < 2 ? ',' : ')'))
+                return 0;
+            if (n < 2)
+                q++;
+        }
+        k.i = rgb(v[0], v[1], v[2], 15);
+    }
+    RBOp(x, RC_LK, 1);
+    x->lk = x->n + 1;
+    for (j = 0; j < 4; j++)
+        RBOp(x, k.w[j], 0);
+    *pp = RBNextOp(q + 1, op);
+    return T_INT;
+}
+
 static int RBFnSplice(rbcx_t *x, unsigned char **pp, int *op)
 {
     unsigned char *p = *pp, c = *p, *ae, txt[2 * RB_MAXLIT];
@@ -1235,6 +1303,8 @@ static int RBFnSplice(rbcx_t *x, unsigned char **pp, int *op)
         txt[len++] = ',';
         p += 2;
     }
+    if (fn == fun_rgb && (t = RBRgbConst(x, p, pp, op)) != 0)
+        return t; // (a constant: RBRgbConst)
     if (fn == fun_rgb)
     { // RGB(name): fun_rgb reads its one argument as a colour's name, which getvalue
       // would spell out for it: the spelling goes in the text, with no values
@@ -2154,29 +2224,62 @@ static int RBBareJustify(unsigned char *p, unsigned char *ae, unsigned char *sym
     return GetJustificationArg(sym, &jh, &jv, &jo) ? sl : 0;
 }
 
-/* The CMM2's BLIT forms that go through the splice: WRITE #n, x, y [, mode], READ #n, x, y, w, h and CLOSE #n, whose
-   every argument cmd_blit reads with getint or getinteger (11 Nov 2026: fire.bas's 1,900 BLIT WRITEs a frame, each
-   one's array elements evaluated from the text, took 24 us apiece).  Its other forms stay text: the CMM2's own (the
-   plain BLIT, MEMORY, COMPRESSED, its sprite forms: SPRITE is the same handler, and a word alone such as SPRITE MOVE
-   would be compiled as a variable), CLOSE ALL, and READ with its page, which may be the word FRAMEBUFFER.  In .extra,
-   at the end of .text: added code moves the code after it, and with it what shares the I-cache (statements 5-8%
-   slower with this in its place, 11 Nov 2026). */
-static int __attribute__((section(".extra"), noinline)) RBBlitForm(unsigned char *p)
+/* The CMM2's forms of BLIT, SPRITE (BLIT's handler) and IMAGE that go through the splice, each of whose arguments
+   cmd_blit or cmd_image reads with getint or getinteger:
+     BLIT and SPRITE WRITE #n, x, y [, mode], READ #n, x, y, w, h [, page], CLOSE #n, SHOW [SAFE] #n, x, y, layer
+     [, orientation [, new]], HIDE [SAFE] #n and NEXT #n, x, y;
+     the plain BLIT x1, y1, x2, y2, w, h [, page] [, orientation] (BLIT's: SPRITE has none);
+     IMAGE RESIZE_FAST x, y, w, h, nx, ny, nw, nh [, page] [, flag] (a raycaster's every column).
+   Returns the keyword's end (p for the plain BLIT), *hash 1 where a '#' may come before the first value; NULL leaves
+   the statement text: the other forms (a word alone such as SPRITE MOVE would be compiled as a variable), CLOSE ALL,
+   HIDE ALL, a plain BLIT starting with a word of cmd_blit's (in the text that is that form too), and a page given as
+   the word FRAMEBUFFER.  11 Nov 2026: as text, fire.bas's BLIT WRITEs took 24 us apiece, 7 us spliced; a plain BLIT
+   or SPRITE SHOW of array elements 28 us.  In .extra, at the end of .text: added code moves the code after it, and
+   with it what shares the I-cache (statements 5-8% slower with the first of these in its place). */
+static unsigned char *__attribute__((section(".extra"), noinline)) RBCmm2Form(unsigned char *p, void (*fn)(void), CommandToken ct, int *hash)
 {
-    unsigned char *q;
-    int n = 1;
-    if (checkstring(p, (unsigned char *)"CLOSE ALL"))
-        return 0;
-    if (checkstring(p, (unsigned char *)"WRITE") || checkstring(p, (unsigned char *)"CLOSE"))
-        return 1;
-    if ((q = checkstring(p, (unsigned char *)"READ")) == NULL)
-        return 0;
-    while (*(q = RBArgEnd(q, 0)) == ',')
+    static const char *const kw[] = {"WRITE", "READ", "CLOSE", "SHOW SAFE", "SHOW", "HIDE SAFE", "HIDE", "NEXT", NULL};
+    static const char *const words[] = {"FLASH", "FRAMEBUFFER", "RESIZE", "COMPRESSED", "MEMORY", "SHOW", "HIDE", "RESTORE",
+                                        "SWAP", "READ", "COPY", "LOADARRAY", "LOADPNG", "LOADBMP", "LOAD", "SET", "STATIC",
+                                        "STINTERRUPT", "NOSTINTERRUPT", "INTERRUPT", "NOINTERRUPT", "CLOSE", "TRANSPARENCY",
+                                        "NEXT", "WRITE", "MOVE", "SCROLLR", "SCROLL", NULL}; // (blitother's and cmd_blit's)
+    static int sprite = -1;
+    unsigned char *q = NULL, *a, *e;
+    int k;
+    *hash = 0;
+    if (fn == cmd_image)
+        q = checkstring(p, (unsigned char *)"RESIZE_FAST");
+    else if (checkstring(p, (unsigned char *)"CLOSE ALL") || checkstring(p, (unsigned char *)"HIDE ALL"))
+        return NULL;
+    else
     {
-        q++;
-        n++;
+        for (k = 0; kw[k] != NULL && (q = checkstring(p, (unsigned char *)kw[k])) == NULL; k++)
+            ;
+        if (q != NULL)
+            *hash = 1;
+        else
+        { // the plain BLIT
+            if (sprite < 0)
+                sprite = GetCommandValue("Sprite");
+            if (ct == sprite)
+                return NULL;
+            for (k = 0; words[k] != NULL; k++)
+                if (checkstring(p, (unsigned char *)words[k]))
+                    return NULL;
+            q = p;
+        }
     }
-    return n <= 5;
+    if (q == NULL)
+        return NULL;
+    for (a = q;; a = e + 1)
+    { // no argument the word FRAMEBUFFER (READ's, the plain BLIT's and RESIZE_FAST's page)
+        e = RBArgEnd(a, 0);
+        if ((unsigned char *)checkstring(a, (unsigned char *)"FRAMEBUFFER") == e)
+            return NULL;
+        if (*e != ',')
+            break;
+    }
+    return q;
 }
 
 static int RBCompileSplice(unsigned char *entry, unsigned char *cmdl, CommandToken ct, uint16_t *code)
@@ -2188,10 +2291,19 @@ static int RBCompileSplice(unsigned char *entry, unsigned char *cmdl, CommandTok
     if (!RB_SPLICE)
         return 0;
     if (fn != cmd_box && fn != cmd_line && fn != cmd_pixel && fn != cmd_colour && fn != cmd_text && fn != cmd_circle &&
-        fn != cmd_triangle && fn != cmd_arc && fn != cmd_rbox && fn != cmd_blit)
+        fn != cmd_triangle && fn != cmd_arc && fn != cmd_rbox && fn != cmd_blit && fn != cmd_image)
         return 0; // (the CMM2 has no BLIT MEMORY command: its BLIT MEMORY is a form of BLIT, which stays text)
-    if (fn == cmd_blit && !RBBlitForm(p))
-        return 0;
+    if (fn == cmd_blit || fn == cmd_image)
+    { // the CMM2's forms (RBCmm2Form): the keyword stays in the text as it is (cmd_blit's and cmd_image's checkstring
+      // takes a symbol), a '#' before a number too
+        unsigned char *q = RBCmm2Form(p, fn, ct, &hash);
+        if (q == NULL || q - p > (int)sizeof(txt) / 2)
+            return 0;
+        memcpy(txt, p, q - p);
+        len = q - p;
+        p = q;
+    }
+#if 0 // the PicoMite's BLIT forms, its buffer letters among them: the CMM2's are RBCmm2Form's
     if (fn == cmd_blit)
     { // BLIT FLASH slot, buffer, ...; BLIT FRAMEBUFFER from, to, ...; BLIT READ, WRITE
       // and CLOSE #n, ...; and the plain BLIT x1, y1, x2, y2, w, h.  cmd_blit reads
@@ -2219,6 +2331,7 @@ static int RBCompileSplice(unsigned char *entry, unsigned char *cmdl, CommandTok
         len = q - p;
         p = q;
     }
+#endif
     if (fn == cmd_line && (checkstring(p, (unsigned char *)"PLOT") || checkstring(p, (unsigned char *)"GRAPH") || checkstring(p, (unsigned char *)"AA")))
         return 0; // the forms whose arguments are arrays or keywords
     if (fn == cmd_triangle && (checkstring(p, (unsigned char *)"SAVE") || checkstring(p, (unsigned char *)"RESTORE")))
