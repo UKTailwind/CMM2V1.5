@@ -43,7 +43,7 @@ Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga, apple2
 
 - **A TRS-80 emulator,** in the folder trs80 (added to the programs on 11 November 2026: the firmware is unchanged): sdltrs, Mark Grebe's and Jens Guenther's emulator, from Tim Mann's xtrs. It is the TRS-80 Model I, III, 4 and 4P, with floppy and hard disks, cassettes, sound, a joystick, a mouse, a serial port and sdltrs's own menu (F7), on both generations. The Model 4's 80 x 24 screen fills MODE 8. What the TRS-80 writes to a disk goes into its file on the card. The ROM's MEMORY SIZE? and a DOS's date and time are answered for you, the last two from the clock.
 
-  No Tandy ROM comes with it. The Model 4P needs none: its free boot ROM is built in, and starts a Model 4 system disk such as LS-DOS 6.3.1, which may be copied freely and is at www.tim-mann.org/trs80.html. The Models I, III and 4 need level2.rom or model3.rom of your own in the folder:
+  No Tandy ROM comes with it. The Model 4P needs none: its free boot ROM is built in, and starts a Model 4 system disk such as LS-DOS 6.3.1, which may be copied freely and is at www.tim-mann.org/trs80.html. The Models I, III and 4 need level2.rom or model3.rom of your own in the folder; copies are at github.com/asig/xtrs-roms (level2rom.hex and romimage.m3, to be renamed), to download and use at your own risk:
 
   ```
   CHDIR "A:/trs80"
