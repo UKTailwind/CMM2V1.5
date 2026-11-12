@@ -430,15 +430,27 @@ int chdir(const char *path) {                   /* (CHDIR's statuses: -3 too lon
     return 0;
 }
 
+/* getcwd(NULL, size) gives a block from malloc, of size bytes or, size 0, enough for any name, as glibc's and the
+   BSDs' do: WordGrinder asks so, and its file browser failed with no name (12 Nov 2026) */
 char *getcwd(char *buf, size_t size) {
+    char *mine = NULL;
     if(cmm2->version < 10) { fail(ENOSYS); return NULL; }
-    if(cmm2->dir_current(buf, size) < 0) { fail(ERANGE); return NULL; }
+    if(buf == NULL) {
+        if(size == 0) size = PATH_LEN;
+        if((buf = mine = malloc(size)) == NULL) { fail(ENOMEM); return NULL; }
+    }
+    if(cmm2->dir_current(buf, size) < 0) {
+        free(mine);
+        fail(ERANGE);
+        return NULL;
+    }
     return buf;
 }
 
-/* readdir gives ".." first in a directory below a drive's root, as Linux's does (FatFs gives neither "." nor ".."):
-   the file browsers of programs ported from Linux go up by it, and had no way up without it (atari800's and sdltrs's,
-   12 Nov 2026). "." is not given: they leave it out anyway */
+/* readdir gives "." first, and then ".." in a directory below a drive's root, as Linux's does (FatFs gives neither):
+   the file browsers of programs ported from Linux go up by "..", and had no way up without it (atari800's and
+   sdltrs's, 12 Nov 2026), and WordGrinder's tests look for both. A drive's root has no "..", so that a browser stops
+   there */
 DIR *opendir(const char *path) {
     DIR *d;
     char full[PATH_LEN];
@@ -447,15 +459,17 @@ DIR *opendir(const char *path) {
     if(h < 0) { fail(fr_errno(h)); return NULL; }
     if((d = malloc(sizeof(DIR))) == NULL) { cmm2->dir_close(h); fail(ENOMEM); return NULL; }
     d->handle = h;
+    d->dot = 1;
     d->dotdot = whole && full[3] != 0;          /* (full is "A:/" at a root) */
     return d;
 }
 
 struct dirent *readdir(DIR *d) {
     static cmm2_dirent e;
-    if(d->dotdot) {
-        d->dotdot = 0;
-        strcpy(d->entry.d_name, "..");
+    if(d->dot || d->dotdot) {
+        strcpy(d->entry.d_name, d->dot ? "." : "..");
+        if(d->dot) d->dot = 0;
+        else d->dotdot = 0;
         d->entry.d_type = DT_DIR;
         d->entry.d_ino = 0;
         return &d->entry;
