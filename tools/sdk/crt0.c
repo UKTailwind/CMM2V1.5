@@ -71,6 +71,11 @@ void cmm2_axi_unload(void) {
 }
 #endif
 
+/* The whole newlib (build.py --libc full) has a constructor that gives this to atexit, so that exit() would run the
+   destructors (and _fini, which -nostartfiles leaves out): _start runs them itself, as with newlib-nano, so here it
+   does nothing, and they run once (12 Nov 2026) */
+void __libc_fini_array(void) {}
+
 int _start(cmm2img_start *s) {
     void (**f)(void);
     int r;

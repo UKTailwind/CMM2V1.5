@@ -1,6 +1,6 @@
 # The C Library
 
-A loadable program has the standard C library (newlib-nano) and the maths library. syscalls.c joins them to the firmware's services, so the usual functions work: printf and the rest of stdio, files through fopen, malloc and free, time(), and the functions of string.h, stdlib.h, ctype.h and math.h. This chapter says how each part behaves on the Colour Maximite 2.
+A loadable program has the standard C library (newlib-nano, or the whole newlib with build.py's --libc full) and the maths library. syscalls.c joins them to the firmware's services, so the usual functions work: printf and the rest of stdio, files through fopen, malloc and free, time(), and the functions of string.h, stdlib.h, ctype.h and math.h. This chapter says how each part behaves on the Colour Maximite 2.
 
 ## The Console
 
@@ -24,7 +24,9 @@ The file system is FAT (FAT16, FAT32 or exFAT) with long names, and names are no
 
 The POSIX calls under stdio work too: open(), creat(), read(), write(), lseek() and close(), with descriptors 0, 1 and 2 the console and 3 upwards the files. dup2(fd, 0), dup2(fd, 1) or dup2(fd, 2) puts a file in the console's place as standard input, output or error, as a shell's < and > do, so that a program written as a Unix filter reads and writes files; closing that descriptor gives the console back. The C compiler's passes run that way.
 
-The C library has no functions for directories or for a file's details by its name (opendir, stat). The services do these: dir_open, dir_read and dir_close list a directory, and file_stat gives a file's size, kind and date (see the chapter The Services). The services' file functions can be used directly too, without stdio's buffering.
+opendir(), readdir() and closedir() list a directory, with ".." first below a drive's root, as Linux gives it. stat() gives a file's size, kind and date, rmdir() removes an empty directory, and chdir() and getcwd() are MMBasic's CHDIR and CWD$. The services' file functions (see the chapter The Services) can be used directly too, without stdio's buffering.
+
+A call that fails sets errno: ENOENT for a name or path that is not there, EEXIST for one that is (mkdir() of a drive's root too, as POSIX has it), EACCES for a file that is read-only or a directory that is full or not empty, EROFS for a write-protected card, EMFILE when eight files are open, ENODEV for a drive with no card or no file system, and EIO for the card itself.
 
 ## Memory
 
@@ -42,7 +44,7 @@ The alloc and release services give blocks of MMBasic's heap instead, outside th
 
 ## Time
 
-time() and gettimeofday() read MMBasic's clock (DATE$ and TIME$), with the microseconds from the processor's timer. localtime() and strftime() work, with no time zone: the clock's time is taken as local. For timing, the micros service is better: a 64-bit count of microseconds since the computer started.
+time() and gettimeofday() read MMBasic's clock (DATE$ and TIME$) the first time, and add the microseconds since, so that they never go back. localtime() and strftime() work, with no time zone: the clock's time is taken as local. clock_gettime(CLOCK_MONOTONIC), clock() and times() count the microseconds since the computer started, and nanosleep() waits as usleep() does. For timing, the micros service is simplest: a 64-bit count of microseconds since the computer started.
 
 ```
 uint64_t t0 = cmm2->micros();
@@ -63,4 +65,4 @@ float and double are done in hardware, and the maths library (sin, sqrt, pow...)
 
 ## What Is Not There
 
-There is no operating system, so there are no processes (system(), fork(), exec()), threads, signals, sockets or environment variables (getenv() returns NULL). clock() and times() are not provided: use micros. A program runs alone, with the firmware's interrupts under it, until it ends.
+There is no operating system, so there are no processes (system(), fork(), exec()), threads, signals or sockets. No environment variables are set at the start (getenv() returns NULL), but setenv() sets one for the program to read: a library that is configured by them, as PDCurses is, can be given them so. A program runs alone, with the firmware's interrupts under it, until it ends.

@@ -1,5 +1,5 @@
 """build.py OUT.app SOURCE.c|.cpp|.o [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
-            [--xip] [--xip-base ADDR] [--no-printf-float] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
+            [--xip] [--xip-base ADDR] [--no-printf-float] [--libc nano|full] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
 CMakePresets.json's, else the PATH's): compiles the sources with crt0.c and syscalls.c for the M7 (double-precision
@@ -11,6 +11,10 @@ linked with xip.ld at --xip-base (default cmm2img.h's CMM2XIP_FLASH, mmbrun's pl
 the flash's bytes, for a C file the firmware is built with. It takes the firmware's libm (fwlibm.c), not its own.
 --no-printf-float leaves out newlib's printf of floats (dtoa, 4 KB), which a program that formats its own does not
 need: printf's %f is otherwise always there.
+--libc full links the whole newlib instead of newlib-nano (the default): its wide-character printf and file functions
+(swprintf, fwprintf, fgetws), which newlib-nano leaves out, for a program that needs them (sc-im). It costs some code
+space. Neither newlib converts UTF-8 as STM32CubeIDE's toolchain builds them (no _MB_CAPABLE): setlocale takes "C"
+only, and a byte is a character, as Latin-1 (12 Nov 2026).
 The ELF and its map are left beside OUT.app. --base 0x60000000 makes a copy that the loader must relocate (a pointer
 it missed would then fault at once, the FMC bank there being unused): the test of the relocations.
 
@@ -49,7 +53,8 @@ tooldir = toolchain()
 GCC = os.path.join(tooldir, 'arm-none-eabi-gcc' + EXE)
 GXX = os.path.join(tooldir, 'arm-none-eabi-g++' + EXE)
 
-FLAGS = ['-mcpu=cortex-m7', '-mfpu=fpv5-d16', '-mfloat-abi=hard', '-mthumb', '--specs=nano.specs',
+NANO = ['--specs=nano.specs']                   # the C library, unless --libc full: newlib-nano's headers and archive
+FLAGS = ['-mcpu=cortex-m7', '-mfpu=fpv5-d16', '-mfloat-abi=hard', '-mthumb',
          '-O2', '-g0', '-Wall', '-ffunction-sections', '-fdata-sections',
          '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '-I', SDK]
 CFLAGS = FLAGS + ['-std=gnu11']
@@ -96,12 +101,14 @@ def main():
                                                                     # functions of a source's in the ITCM above the
                                                                     # firmware's code (app.ld's .itcm)
     ap.add_argument('--no-printf-float', dest='pfloat', action='store_false')
+    ap.add_argument('--libc', choices=('nano', 'full'), default='nano')
     ap.add_argument('--cflag', action='append', default=[])
     ap.add_argument('--cxxflag', action='append', default=[])
     ap.add_argument('--ldflag', action='append', default=[])
     ap.add_argument('-I', dest='incs', action='append', default=[])
     ap.add_argument('-j', dest='jobs', type=int, default=os.cpu_count() or 4)
     a = ap.parse_args()
+    libc = NANO if a.libc == 'nano' else []                         # (compile and link alike: the headers match the archive)
     if a.xip:                                                       # (in the flags' key: a change rebuilds everything)
         a.cflag += ['-DCMM2_XIP', '-DCMM2_XIP_API=' + a.api, '-DCMM2_XIP_STACK=' + str(int(a.stack, 0)),
                     '-DCMM2_XIP_HEAP=' + str(int(a.heap, 0))]
@@ -116,7 +123,7 @@ def main():
     if a.xip:
         sources.append(os.path.join(SDK, 'fwlibm.c'))
     # the flags as they were: a change rebuilds everything
-    key = hashlib.md5(json.dumps([CFLAGS, CXXFLAGS, a.cflag, a.cxxflag, incs]).encode()).hexdigest()
+    key = hashlib.md5(json.dumps([CFLAGS, CXXFLAGS, libc, a.cflag, a.cxxflag, incs]).encode()).hexdigest()
     keyfile = os.path.join(objdir, 'flags.md5')
     same = os.path.exists(keyfile) and open(keyfile).read() == key
     cxx = any(s.lower().endswith(('.cpp', '.cc')) for s in sources)
@@ -130,7 +137,7 @@ def main():
         o = objname(objdir, s)
         objs.append(o)
         if not same or stale(o):
-            cmd = (([GCC] + CFLAGS) if isc else ([GXX] + CXXFLAGS + a.cxxflag)) + a.cflag + incs + \
+            cmd = (([GCC] + CFLAGS) if isc else ([GXX] + CXXFLAGS + a.cxxflag)) + libc + a.cflag + incs + \
                   ['-MMD', '-MF', o[:-2] + '.d', '-c', s, '-o', o]
             jobs.append((s, cmd))
     if jobs:
@@ -164,7 +171,7 @@ def main():
     layout = (['-T', os.path.join(SDK, 'xip.ld'), '-Wl,--defsym=__xip_base=' + a.xip_base] if a.xip else
               ['-T', os.path.join(SDK, 'app.ld'), '-Wl,--defsym=__app_base=' + a.base, '-Wl,--emit-relocs',
                '-L' + objdir])
-    cmd = ([GXX if cxx else GCC] + FLAGS + a.cflag + ['@' + rsp] +
+    cmd = ([GXX if cxx else GCC] + FLAGS + libc + a.cflag + ['@' + rsp] +
            ['-nostartfiles'] + layout +
            ['-Wl,--gc-sections', '-Wl,-Map=' + stem + '.map', '-Wl,--no-warn-rwx-segments',
             '-o', stem + '.elf'] + (['-u', '_printf_float'] if a.pfloat else []) + a.ldflag +

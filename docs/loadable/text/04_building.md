@@ -32,6 +32,7 @@ The options:
 | --g2 | The program runs on a Generation 2 only: a Generation 1 refuses it with "Needs a G2". |
 | --axi NAME | The code, constants and data of the source NAME (its file name without folder or extension) linked to run in the processor's 512KB of AXI RAM, which a Generation 2's display leaves free when its page is in the SDRAM. cmm2_axi_load() copies them there. Repeat it for more sources. Needs --g2. See Code in the Fast Memories in the chapter Performance. |
 | --itcm NAME[:F1,F2,...] | The functions named of the source NAME, or all its code if none are named, linked to run in the ITCM from 0xA000 to 0xFFFF, the 24KB above the firmware's own code, also copied there by cmm2_axi_load(). Needs --g2, and --api 18: older firmware does not keep that memory free. |
+| --libc full | The whole C library, newlib, in place of newlib-nano: its wide-character printf and file functions (swprintf, fwprintf, fgetws), which newlib-nano leaves out. The program is larger: hello.c is 27KB in place of 16KB. Neither library converts UTF-8 as STM32CubeIDE's tools build them: setlocale() takes only "C", and a byte is a character, as in Latin-1. |
 | --cflag FLAG | A flag for the compiler, for C and C++ (eg, --cflag=-DDEBUG, --cflag=-O3). Repeat it for more. |
 | --cxxflag FLAG | A flag for C++ sources only. |
 | --ldflag FLAG | A flag for the link. |
@@ -52,7 +53,7 @@ The flags are those of the firmware, for the STM32H743:
 
 C is compiled as gnu11 and C++ as gnu++14, without exceptions or run-time type information (-fno-rtti), and without the locks for local static variables (-fno-threadsafe-statics). The floating point unit does single and double precision in hardware, and float and double are both fast; long double is double.
 
-The link uses the C library newlib-nano, with printf's floating point included, the maths library and libgcc:
+--specs=nano.specs, which selects newlib-nano's headers and library, is left out with --libc full. The link uses the C library, with printf's floating point included, the maths library and libgcc:
 
 ```
 -nostartfiles -T app.ld -Wl,--defsym=__app_base=0xD1800000

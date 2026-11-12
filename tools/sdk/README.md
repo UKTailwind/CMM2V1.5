@@ -29,6 +29,7 @@ Options:
 | `--base 0x60000000` | Link elsewhere, so the loader has to relocate every address. This tests the relocations: a missed one faults, because that FMC bank is unused. |
 | `--xip` | Not a `.app`, but a runtime the firmware carries in its own flash and runs in place: linked with `xip.ld` (code at 0x08141000 by default, `--xip-base` to move it; `.data` and `.bss` in the 16 KB of D2 RAM at 0x30004000), and OUT is the flash's bytes. It calls the firmware's libm (`fwlibm.c`, services version 11) instead of carrying its own. Only mmbrun, the C compiler's runtime with the BASIC runtime, is built this way (`apps/cc/make.py`, into `Src/MmbrunImage.c`). |
 | `--no-printf-float` | Leave out newlib's `printf` of floats (dtoa, about 4 KB), for a program that formats its own. |
+| `--libc full` | Link the whole newlib in place of newlib-nano: its wide-character `printf` and file functions (`swprintf`, `fwprintf`, `fgetws`), which newlib-nano leaves out. Larger: `hello.c` is 27 KB in place of 16 KB. Neither newlib converts UTF-8 as STM32CubeIDE's toolchain builds them: `setlocale` takes only `"C"`, and a byte is a character, as Latin-1. |
 | `--cflag`, `--cxxflag`, `--ldflag` | Extra flags for the compiler (C and C++, or C++ only) and the link. |
 | `-I DIR`, `--sources FILE`, `-j JOBS` | Include directories, a file listing the sources, parallel jobs. |
 

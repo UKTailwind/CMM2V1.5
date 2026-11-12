@@ -24,7 +24,7 @@ DIR = os.path.join(ROOT, 'docs', 'loadable')
 OUT = os.path.join(DIR, 'Colour_Maximite_2_Loadable_Programs.docx')
 NAME = 'Colour Maximite 2 Loadable Programs'
 FIRMWARE = '7.00.00RC5'
-DATE = '10 November 2026'
+DATE = '12 November 2026'
 
 TITLE = {                                               # the title page: its paragraphs by their start
     'User Manual': 'Loadable Programs',

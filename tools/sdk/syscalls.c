@@ -6,9 +6,11 @@
    up are the services' file handles 0-7. The console has a termios (sys/termios.h): ECHO, ICRNL, ONLCR, and with
    ICANON off VMIN and VTIME, so that a read can return at once with no key, as an INKEY$ does. The heap (malloc) is
    the start block's, between the program's .bss and its stack. time() and gettimeofday() read MMBasic's clock (DATE$
-   and TIME$), with the microseconds since start-up for the fraction. opendir and the rest (sys/dirent.h), stat, chdir and getcwd are the
-   services' (versions 5 and 10); fork, exec and wait refuse, as one program cannot start another. memcpy, memset and
-   memmove are the firmware's (version 11). */
+   and TIME$) once and add the microseconds since; clock_gettime's CLOCK_MONOTONIC, times() and clock() count the
+   microseconds since start-up (time.h declares what newlib leaves out). opendir and the rest (sys/dirent.h), stat,
+   chdir and getcwd are the services' (versions 5 and 10); fork, exec and wait refuse, as one program cannot start
+   another. An error sets errno as a program reads it (fail()). memcpy, memset and memmove are the firmware's
+   (version 11). */
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -16,6 +18,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <time.h>
+#include <sys/times.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <stdlib.h>
@@ -26,6 +30,33 @@
 
 #undef errno
 extern int errno;
+
+/* An error: errno set where each reader looks for it. newlib's reentrant wrappers (_open_r and the rest, under open,
+   read, stat...) copy the plain global errno into the program's own, which is errno.h's *__errno(); but the calls a
+   program makes here directly (mkdir, rename, opendir, chdir, dup2...) have no wrapper, so their errno never reached
+   it. Both are set (12 Nov 2026). */
+static int fail(int e) {
+    errno = e;
+    *__errno() = e;
+    return -1;
+}
+
+/* a service's status (minus FatFs's FRESULT) as errno */
+static int fr_errno(int r) {
+    switch(-r) {
+    case 4: case 5: return ENOENT;                  /* FR_NO_FILE, FR_NO_PATH */
+    case 6: case 19: return EINVAL;                 /* FR_INVALID_NAME, FR_INVALID_PARAMETER */
+    case 7: return EACCES;                          /* FR_DENIED: read-only, a directory not empty, or no room */
+    case 8: return EEXIST;                          /* FR_EXIST */
+    case 9: return EBADF;                           /* FR_INVALID_OBJECT */
+    case 10: return EROFS;                          /* FR_WRITE_PROTECTED */
+    case 11: case 12: case 13: return ENODEV;       /* FR_INVALID_DRIVE, FR_NOT_ENABLED, FR_NO_FILESYSTEM */
+    case 16: return EBUSY;                          /* FR_LOCKED */
+    case 17: return ENOMEM;                         /* FR_NOT_ENOUGH_CORE */
+    case 18: return EMFILE;                         /* FR_TOO_MANY_OPEN_FILES */
+    default: return EIO;                            /* the card or drive itself */
+    }
+}
 
 #define FD_FILE 3                                       /* the first file's descriptor: handle 0 */
 #define HANDLES 8                                       /* the services' file handles */
@@ -95,11 +126,9 @@ int _write(int fd, const char *p, int n) {
     }
     if(h >= 0) {
         if((r = cmm2->file_write(h, p, n)) >= 0) return r;
-        errno = EIO;
-        return -1;
+        return fail(fr_errno(r));
     }
-    errno = EBADF;
-    return -1;
+    return fail(EBADF);
 }
 
 int _read(int fd, char *p, int n) {
@@ -125,11 +154,9 @@ int _read(int fd, char *p, int n) {
     }
     if(h >= 0) {
         if((r = cmm2->file_read(h, p, n)) >= 0) return r;
-        errno = EIO;
-        return -1;
+        return fail(fr_errno(r));
     }
-    errno = EBADF;
-    return -1;
+    return fail(EBADF);
 }
 
 int _open(const char *name, int flags, int mode) {
@@ -141,10 +168,7 @@ int _open(const char *name, int flags, int mode) {
         if(flags & O_APPEND) m |= CMM2_O_APPEND;
         else if(flags & (O_CREAT | O_TRUNC)) m |= CMM2_O_CREATE;
     }
-    if((h = cmm2->file_open(name, m)) < 0) {
-        errno = (h == -4 || h == -5) ? ENOENT : EIO;    /* (FatFs's FR_NO_FILE, FR_NO_PATH) */
-        return -1;
-    }
+    if((h = cmm2->file_open(name, m)) < 0) return fail(fr_errno(h));
     if(h < HANDLES) refs[h] = 1;
     return h + FD_FILE;
 }
@@ -153,12 +177,12 @@ int creat(const char *name, mode_t mode) { return _open(name, O_WRONLY | O_CREAT
                                                                                                     // it, defines none)
 
 int _close(int fd) {
-    int h = handle(fd);
+    int h = handle(fd), r;
     if(fd >= 0 && fd < FD_FILE) stdh[fd] = -1;          /* (the console again) */
     if(h < 0) return 0;
     if(h < HANDLES && refs[h] > 1) { refs[h]--; return 0; }   /* still open on another descriptor */
     if(h < HANDLES) refs[h] = 0;
-    if(cmm2->file_close(h) < 0) { errno = EBADF; return -1; }
+    if((r = cmm2->file_close(h)) < 0) return fail(fr_errno(r));
     return 0;
 }
 
@@ -166,7 +190,7 @@ int _close(int fd) {
    the console's descriptors can be made so: a file's are the services' handles. */
 int dup2(int fd, int fd2) {
     int h = handle(fd);
-    if(fd < 0 || fd2 < 0 || fd2 >= FD_FILE || h >= HANDLES) { errno = EBADF; return -1; }
+    if(fd < 0 || fd2 < 0 || fd2 >= FD_FILE || h >= HANDLES) return fail(EBADF);
     if(fd == fd2) return fd2;
     _close(fd2);
     if(h >= 0) {
@@ -183,7 +207,7 @@ off_t _lseek(int fd, off_t off, int whence) {
     if(whence == SEEK_SET) pos = off;
     else if(whence == SEEK_CUR) pos = cmm2->file_tell(h) + off;
     else pos = cmm2->file_size(h) + off;
-    if(pos < 0 || cmm2->file_seek(h, pos) < 0) { errno = EINVAL; return -1; }
+    if(pos < 0 || cmm2->file_seek(h, pos) < 0) return fail(EINVAL);
     return pos;
 }
 
@@ -199,20 +223,20 @@ int _fstat(int fd, struct stat *st) {
 int _isatty(int fd) { return handle(fd) < 0 && fd >= 0 && fd < FD_FILE; }
 
 int tcgetattr(int fd, struct termios *tp) {
-    if(!_isatty(fd)) { errno = ENOTTY; return -1; }
+    if(!_isatty(fd)) return fail(ENOTTY);
     *tp = contio;
     return 0;
 }
 
 int tcsetattr(int fd, int when, const struct termios *tp) {
     (void)when;
-    if(!_isatty(fd)) { errno = ENOTTY; return -1; }
+    if(!_isatty(fd)) return fail(ENOTTY);
     contio = *tp;
     return 0;
 }
 
 int tcflush(int fd, int which) {
-    if(!_isatty(fd)) { errno = ENOTTY; return -1; }
+    if(!_isatty(fd)) return fail(ENOTTY);
     if(which != TCOFLUSH) while(cmm2->con_getc() >= 0) {}         // (the keys typed and not read)
     return 0;
 }
@@ -248,7 +272,7 @@ void *_sbrk(ptrdiff_t incr) {
     char *prev;
     if(brk == NULL) brk = cmm2_start->heap;
     if(brk + incr > (char *)cmm2_start->heap + cmm2_start->heap_size || brk + incr < (char *)cmm2_start->heap) {
-        errno = ENOMEM;
+        fail(ENOMEM);
         return (void *)-1;
     }
     prev = brk;
@@ -261,19 +285,18 @@ void _exit(int code) {
     for(;;) {}
 }
 
-int _kill(int pid, int sig) { (void)pid; (void)sig; errno = EINVAL; return -1; }
+int _kill(int pid, int sig) { (void)pid; (void)sig; return fail(EINVAL); }
 int _getpid(void) { return 1; }
-int _fork(void) { errno = ENOSYS; return -1; }                       // (one program cannot start another)
+int _fork(void) { return fail(ENOSYS); }                       // (one program cannot start another)
 int _execve(const char *name, char *const argv[], char *const env[]) {
     (void)name; (void)argv; (void)env;
-    errno = ENOSYS;
-    return -1;
+    return fail(ENOSYS);
 }
-int _wait(int *status) { (void)status; errno = ECHILD; return -1; }
-pid_t waitpid(pid_t pid, int *status, int options) { (void)pid; (void)status; (void)options; errno = ECHILD; return -1; }
+int _wait(int *status) { (void)status; return fail(ECHILD); }
+pid_t waitpid(pid_t pid, int *status, int options) { (void)pid; (void)status; (void)options; return fail(ECHILD); }
 int execv(const char *name, char *const argv[]) { return _execve(name, argv, NULL); }
 int execvp(const char *name, char *const argv[]) { return _execve(name, argv, NULL); }
-int pipe(int fd[2]) { (void)fd; errno = ENOSYS; return -1; }
+int pipe(int fd[2]) { (void)fd; return fail(ENOSYS); }
 
 /* us microseconds, with the USB devices looked after every 10ms meanwhile (and a Ctrl-C there seen), as MMBasic's
    PAUSE does */
@@ -287,23 +310,37 @@ int usleep(useconds_t us) {
 }
 
 int fsync(int fd) {
-    int h = handle(fd);
+    int h = handle(fd), r;
     if(h < 0) return 0;
-    if(cmm2->file_sync(h) < 0) { errno = EIO; return -1; }
+    if((r = cmm2->file_sync(h)) < 0) return fail(fr_errno(r));
     return 0;
 }
 
 void sync(void) {}                                                  // (each file is written out as it is closed)
-int rmdir(const char *name) { return cmm2->file_remove(name) < 0 ? (errno = ENOENT, -1) : 0; }   // (FatFs: an empty one)
-int statvfs(const char *path, struct statvfs *buf) { (void)path; (void)buf; errno = ENOSYS; return -1; }
-int _unlink(const char *name) { return cmm2->file_remove(name) < 0 ? (errno = ENOENT, -1) : 0; }
-int mkdir(const char *name, mode_t mode) { (void)mode; return cmm2->dir_make(name) < 0 ? (errno = EIO, -1) : 0; }
+int rmdir(const char *name) { int r = cmm2->file_remove(name); return r < 0 ? fail(fr_errno(r)) : 0; }   // (FatFs: an empty one)
+int statvfs(const char *path, struct statvfs *buf) { (void)path; (void)buf; return fail(ENOSYS); }
+int _unlink(const char *name) { int r = cmm2->file_remove(name); return r < 0 ? fail(fr_errno(r)) : 0; }
+/* a drive's root ("A:", "A:/", "/") is there already, as POSIX's mkdir("/") says: FatFs calls it an invalid name, and
+   a program that makes each folder of a path in turn (WordGrinder's Mkdirs) stopped at the first */
+static int is_root(const char *name) {
+    if(name[0] && name[1] == ':') name += 2;
+    else if(*name != '/' && *name != '\\') return 0;
+    while(*name == '/' || *name == '\\') name++;
+    return *name == 0;
+}
+
+int mkdir(const char *name, mode_t mode) {
+    int r;
+    (void)mode;
+    if(is_root(name)) return fail(EEXIST);
+    return (r = cmm2->dir_make(name)) < 0 ? fail(fr_errno(r)) : 0;
+}
 /* rename itself (newlib's would link and unlink): FatFs renames, and a file already called 'to' is replaced, as POSIX
    has it (FR_EXIST, 8, then the file removed and the rename tried again) */
 int rename(const char *from, const char *to) {
     int r = cmm2->file_rename(from, to);
     if(r == -8 && cmm2->file_remove(to) == 0) r = cmm2->file_rename(from, to);
-    return r < 0 ? (errno = r == -4 ? ENOENT : EIO, -1) : 0;
+    return r < 0 ? fail(fr_errno(r)) : 0;
 }
 
 /* days from 1 Jan 1970 to the date (Howard Hinnant's days_from_civil) */
@@ -377,24 +414,25 @@ int _stat(const char *name, struct stat *st) {
     char full[PATH_LEN];
     int r;
     memset(st, 0, sizeof(*st));
-    if(cmm2->version < 5) { errno = ENOSYS; return -1; }
+    if(cmm2->version < 5) return fail(ENOSYS);
     if(dot_part(name) && whole_path(name, full) == 0) name = full;
-    if((r = cmm2->file_stat(name, &s)) < 0) { errno = (r == -4 || r == -5) ? ENOENT : EIO; return -1; }
+    if((r = cmm2->file_stat(name, &s)) < 0) return fail(fr_errno(r));
     st->st_mode = s.is_dir ? S_IFDIR | 0755 : S_IFREG | 0644;
     st->st_size = s.size;
     st->st_mtime = (time_t)days(s.year, s.month, s.day) * 86400 + s.hour * 3600 + s.minute * 60 + s.second;
     return 0;
 }
 
-int chdir(const char *path) {
-    if(cmm2->version < 10) { errno = ENOSYS; return -1; }
-    if(cmm2->dir_change(path) < 0) { errno = ENOENT; return -1; }
+int chdir(const char *path) {                   /* (CHDIR's statuses: -3 too long, else -4 with its message) */
+    int r;
+    if(cmm2->version < 10) return fail(ENOSYS);
+    if((r = cmm2->dir_change(path)) < 0) return fail(r == -3 ? ENAMETOOLONG : ENOENT);
     return 0;
 }
 
 char *getcwd(char *buf, size_t size) {
-    if(cmm2->version < 10) { errno = ENOSYS; return NULL; }
-    if(cmm2->dir_current(buf, size) < 0) { errno = ERANGE; return NULL; }
+    if(cmm2->version < 10) { fail(ENOSYS); return NULL; }
+    if(cmm2->dir_current(buf, size) < 0) { fail(ERANGE); return NULL; }
     return buf;
 }
 
@@ -406,8 +444,8 @@ DIR *opendir(const char *path) {
     char full[PATH_LEN];
     int whole = whole_path(path, full) == 0, h;
     h = cmm2->dir_open(whole && dot_part(path) ? full : path);
-    if(h < 0) { errno = ENOENT; return NULL; }
-    if((d = malloc(sizeof(DIR))) == NULL) { cmm2->dir_close(h); errno = ENOMEM; return NULL; }
+    if(h < 0) { fail(fr_errno(h)); return NULL; }
+    if((d = malloc(sizeof(DIR))) == NULL) { cmm2->dir_close(h); fail(ENOMEM); return NULL; }
     d->handle = h;
     d->dotdot = whole && full[3] != 0;          /* (full is "A:/" at a root) */
     return d;
@@ -433,14 +471,80 @@ struct dirent *readdir(DIR *d) {
 int closedir(DIR *d) {
     int r = cmm2->dir_close(d->handle);
     free(d);
-    return r < 0 ? (errno = EBADF, -1) : 0;
+    return r < 0 ? fail(fr_errno(r)) : 0;
 }
 
+/* The time: MMBasic's clock (DATE$ and TIME$) read at the first call, and the microseconds since then added to it, so
+   that it never goes back. It was the clock's seconds with micros' fraction, read together each time: their seconds
+   do not turn together, so it went back up to a second whenever the clock's turned first, and a program timing by it
+   (PDCurses: its keys, clicks and cursor's blink) waited a second too long or not at all (12 Nov 2026). */
 int _gettimeofday(struct timeval *tv, void *tz) {
-    int t[6];
+    static time_t base_s;
+    static uint64_t base_us;
+    static int set;
+    uint64_t now = cmm2->micros(), e;
     (void)tz;
-    cmm2->datetime(t);
-    tv->tv_sec = (time_t)days(t[0], t[1], t[2]) * 86400 + t[3] * 3600 + t[4] * 60 + t[5];
-    tv->tv_usec = (suseconds_t)(cmm2->micros() % 1000000);
+    if(!set) {
+        int t[6];
+        cmm2->datetime(t);
+        base_s = (time_t)days(t[0], t[1], t[2]) * 86400 + t[3] * 3600 + t[4] * 60 + t[5];
+        base_us = now;
+        set = 1;
+    }
+    e = now - base_us;
+    tv->tv_sec = base_s + (time_t)(e / 1000000);
+    tv->tv_usec = (suseconds_t)(e % 1000000);
+    return 0;
+}
+
+/* times(), and so clock(): the program's time is all the processor's since start-up (it has the processor to
+   itself), in CLOCKS_PER_SEC ticks. Weak, as clock_gettime */
+__attribute__((weak)) clock_t _times(struct tms *t) {
+    const clock_t c = (clock_t)(cmm2->micros() * (uint64_t)CLOCKS_PER_SEC / 1000000);
+    if(t) {
+        t->tms_utime = c;
+        t->tms_stime = t->tms_cutime = t->tms_cstime = 0;
+    }
+    return c;
+}
+
+/* POSIX's clocks, which newlib leaves to the system: CLOCK_MONOTONIC (and the process's and thread's CPU time, the
+   program having the processor to itself) the microseconds since start-up, CLOCK_REALTIME gettimeofday's. Weak, as a
+   program may have its own (apps/pc386, from before these) */
+__attribute__((weak)) int clock_gettime(clockid_t id, struct timespec *ts) {
+    struct timeval tv;
+    uint64_t us;
+    if(id == CLOCK_REALTIME) {
+        _gettimeofday(&tv, NULL);
+        ts->tv_sec = tv.tv_sec;
+        ts->tv_nsec = tv.tv_usec * 1000L;
+        return 0;
+    }
+    if(id != CLOCK_MONOTONIC && id != CLOCK_PROCESS_CPUTIME_ID && id != CLOCK_THREAD_CPUTIME_ID) return fail(EINVAL);
+    us = cmm2->micros();
+    ts->tv_sec = (time_t)(us / 1000000);
+    ts->tv_nsec = (long)(us % 1000000) * 1000L;
+    return 0;
+}
+
+__attribute__((weak)) int clock_getres(clockid_t id, struct timespec *res) {
+    (void)id;
+    if(res) {
+        res->tv_sec = 0;
+        res->tv_nsec = 1000;                            /* (a microsecond) */
+    }
+    return 0;
+}
+
+__attribute__((weak)) int nanosleep(const struct timespec *req, struct timespec *rem) {
+    uint64_t us;
+    if(req->tv_sec < 0 || req->tv_nsec < 0 || req->tv_nsec >= 1000000000L) return fail(EINVAL);
+    us = (uint64_t)req->tv_sec * 1000000 + (uint64_t)(req->tv_nsec + 999) / 1000;
+    while(us) {                                         /* (usleep's argument is 32 bits) */
+        uint32_t step = us > 1000000 ? 1000000 : (uint32_t)us;
+        usleep(step);
+        us -= step;
+    }
+    if(rem) rem->tv_sec = 0, rem->tv_nsec = 0;
     return 0;
 }
