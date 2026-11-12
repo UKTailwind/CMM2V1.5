@@ -10,31 +10,38 @@
 
    At the first start, with no settings of its own yet, WordGrinder is given Look and Feel on: the text at most 80
    columns wide on the large screens it is mostly used on, and dense paragraphs, indented with no blank line between
-   (Peter, 12 Nov 2026). Its own saved settings are never touched. */
+   (Peter, 12 Nov 2026); and, if it is beside the program, the British dictionary as the system dictionary (Peter, 12
+   Nov), used when a document's spelling is turned on (a G2 has the memory for it; a G1 has not). Its own saved
+   settings are never touched. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "pdccmm2.h"
 
 int wg_main(int argc, const char *argv[]);
 
-/* folder/.wordgrinder/settings.dat, in WordGrinder's own form (fileio.lua's SaveToStream), if there is none: the add-ons
-   fill in the rest of their settings as they start (MergeTables) */
+/* folder/.wordgrinder/settings.dat, in WordGrinder's own form (fileio.lua's SaveToStream, its keys in order), if there
+   is none: the add-ons fill in the rest of their settings as they start (MergeTables) */
 static void first_settings(const char *folder) {
-    char dir[320], file[340];
+    char dir[320], file[340], dict[340];
+    const char *sep = folder[strlen(folder) - 1] == '/' ? "" : "/";
     FILE *f;
-    snprintf(dir, sizeof(dir), "%s%s.wordgrinder", folder, folder[strlen(folder) - 1] == '/' ? "" : "/");
+    snprintf(dir, sizeof(dir), "%s%s.wordgrinder", folder, sep);
     snprintf(file, sizeof(file), "%s/settings.dat", dir);
     if((f = fopen(file, "r")) != NULL) {
         fclose(f);
         return;
     }
+    snprintf(dict, sizeof(dict), "%s%sbritish.dictionary", folder, sep);
     mkdir(dir, 0777);
     if((f = fopen(file, "w")) == NULL) return;
     fputs("WordGrinder dumpfile v3: this is a text file; diff me!\n"
           ".globalSettings.lookandfeel.denseparagraphs: true\n"
           ".globalSettings.lookandfeel.enabled: true\n", f);
+    if(access(dict, R_OK) == 0 && strpbrk(dict, "\"\\") == NULL)  /* (a name WordGrinder's dump need not escape) */
+        fprintf(f, ".globalSettings.systemdictionary.filename: \"%s\"\n", dict);
     fclose(f);
 }
 

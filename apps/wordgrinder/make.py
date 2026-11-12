@@ -12,8 +12,11 @@ case, as FAT does; cmm2_main.c gives it the variables that need (Peter, 12 Nov 2
 Built without --vram, so that a G1 keeps its modes above 960 x 540 (about 4.5 MB for the program there).
 
     python apps/wordgrinder/make.py
-then put out/wordgrinder.app in A:/wordgrinder and, at the CMM2's prompt:
+then put out/sd/wordgrinder on the SD card as A:/wordgrinder (wordgrinder.app, and WordGrinder's British and
+American/Canadian dictionaries, from SCOWL, with SCOWL's licence) and, at the CMM2's prompt:
     RUN "A:/wordgrinder/wordgrinder.app" [, document.wg] [mode=N] [font=WxH]
+A G2 holds a whole dictionary, in memory MMBasic's heap lends (tools/sdk malloc.c); cmm2_main.c names the British one
+at the first start (Peter, 12 Nov 2026), and a document's spelling is turned on in its settings.
 """
 import glob, hashlib, os, subprocess, sys
 
@@ -28,6 +31,7 @@ COMMIT = 'ada51b4d4192fcfaf53f778f126b81e9b901ad94'          # the 0.8 release, 
 ZLIB = os.path.join(HERE, 'zlib')
 ZLIB_URL = 'https://github.com/madler/zlib.git'
 ZLIB_COMMIT = '51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf'     # 1.3.1
+DICTIONARIES = ('british.dictionary', 'american-canadian.dictionary')
 OUT = os.path.join(HERE, 'out')
 VERSION, FILEFORMAT = '0.8', '8'                             # (WordGrinder's Makefile's)
 
@@ -134,7 +138,23 @@ def main():
            '-I', c, '-I', os.path.join(emu, 'lua-5.1.5'), '-I', os.path.join(emu, 'luabitop'),
            '-I', os.path.join(emu, 'uthash'), '-I', os.path.join(emu, 'minizip'), '-I', os.path.join(emu, 'lpeg'),
            '-I', ZLIB] + ['--cflag=' + d for d in defines] + pdcurses.flags()
-    sys.exit(subprocess.run(cmd).returncode)
+    r = subprocess.run(cmd).returncode
+    if r == 0:
+        card()
+    sys.exit(r)
+
+
+def card():
+    """out/sd/wordgrinder, the SD card's A:/wordgrinder: the program, the dictionaries WordGrinder ships for Windows
+    (extras/), and SCOWL's licence for them (licenses/COPYING.Scowl)"""
+    import shutil
+    sd = os.path.join(OUT, 'sd', 'wordgrinder')
+    os.makedirs(sd, exist_ok=True)
+    shutil.copy(os.path.join(OUT, 'wordgrinder.app'), sd)
+    for f in DICTIONARIES:
+        shutil.copy(os.path.join(SRC, 'extras', f), sd)
+    shutil.copy(os.path.join(SRC, 'licenses', 'COPYING.Scowl'), sd)
+    print('%s: %s' % (sd, ' '.join(sorted(os.listdir(sd)))))
 
 
 if __name__ == '__main__':

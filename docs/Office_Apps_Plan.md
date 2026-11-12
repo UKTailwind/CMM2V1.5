@@ -526,22 +526,75 @@ Step 1 is done.
     checked on A: and on C:. It must be turned on (`> NO` to YES with Space), and the document saved under a name
     first.
 - **The final build on the G1:** WordGrinder's tests 63 of 65, the same two as before.
+- **The G2 (12 Nov, V8):** WordGrinder's tests 64 of 65. The Markdown import passes with the G2's memory; only the
+  Windows path test fails. The 60 rounds of editing stay under 2 MB. MODE 16 (1920 x 1080) chose 12x24 by itself, and
+  the first-start Look and Feel gave 80 centred columns with dense paragraphs.
+- **Committed 12 Nov:** main bf7d564 (SDK) and cc5be0c (WordGrinder, the back end), merged into v8-dev 2c6fe82; not
+  pushed.
+- **Reported upstream (Peter: yes):** WordGrinder #324 (the export's double underline close), #325 (drive letters in
+  the file browser); PDCursesMod #395 (8-bit A_REVERSE with the default colours).
 - **Look and Feel on from the first start (Peter, 12 Nov: yes).** `cmm2_main.c` writes `.wordgrinder/settings.dat`
   when there is none, in WordGrinder's own form: `lookandfeel.enabled` and `denseparagraphs` true. The add-ons fill in
   the rest of their settings (`MergeTables`), and a user's saved settings are never touched. Checked in a new folder,
   `A:/wgtest`: the text is centred, 80 columns wide, with dense paragraphs.
-- **Spelling: the system dictionary cannot be loaded on a CMM2.** WordGrinder reads the whole word list into a Lua
-  table, keyed in lower case. The British list it ships (`extras/british.dictionary`, 171,840 words, 1.7 MB) would
-  take about 14 MB of Lua memory (2^18 table slots and the strings), and a G2 lends 7 MB. The automated test passed
-  only because it sets a two-word dictionary itself. The user dictionary (words added with `^M`) works. Open: Peter's
-  choice of a short list, a lookup on the card, or none.
+- **Spelling: the whole dictionary on a G2, from MMBasic's heap (12 Nov).** WordGrinder reads the whole word list
+  into a Lua table, keyed in lower case: the British list it ships (`extras/british.dictionary`, 171,840 words, 1.7 MB)
+  takes about 16 MB. I first wrote that a G2 lends a program 7 MB; Peter: "The G2 should have memory you can use in the
+  MMBasic heap. Other apps do this" (the alloc service: Quake, the Amiga). So the SDK's malloc now goes on in blocks of
+  MMBasic's heap when the program's own is used up: on a G2 22.5 MB in all (7.8 + 14.7), with 512 KB always left to
+  MMBasic. It was done first in `_sbrk` under newlib-nano's malloc, and the dictionary loaded and Ctrl+L found misspelt
+  words. But quitting then never ended: WordGrinder's `atexit` closes its Lua state, freeing some 350,000 objects, and
+  newlib-nano's free() searches its whole free list for each one (the G2's PC sat in `_free_r`). Dropping a loaded
+  dictionary would have frozen the editor the same way. Peter chose dlmalloc in the SDK for every program:
+  - `tools/sdk/dlmalloc.c`: Doug Lea's dlmalloc 2.8.6, byte for byte the published file (public domain);
+    `tools/sdk/malloc.c` configures it (no mmap, sbrk pieces anywhere, never trimmed) and gives newlib its reentrant
+    entry points, so newlib's own allocator is never linked, nano or full;
+  - `syscalls.c` `_sbrk`: the start block's heap, then blocks of 1 MB (or the size asked for, or half and so on when
+    there is no megabyte; a program has 64 blocks), each piece from where the last one ended if there is room, else
+    the start block's heap, else the block, else a new block, so the start block's heap is used whatever the first
+    request; `sbrk(0)` answers where the last piece ended, as dlmalloc needs.
+  - **Tests on the G2:** a memory test (an 8 MB request beyond the program's own heap, then small ones until none are
+    left, every block's contents checked, frees and reuse, mallinfo): all pass with nano and with full newlib, 22.5 MB
+    reached, MMBasic's heap whole again at the prompt. The SDK test 13 of 13 with each library. All 19 apps build,
+    with no new warnings.
+  - **WordGrinder:** started on a document with spelling on, it is ready with the dictionary in 6.2 s (17.1 MB in
+    use). Under nano's malloc the dictionary alone took over 40 s. Quitting takes 0.2 s to the exit report and 0.7 s more
+    to the prompt, where before it never ended.
+  - **Misspelt words were not shown:** WordGrinder marks them only with `A_DIM`, and PDCursesMod's 8-bit path left
+    `A_DIM` out (its 32-bit path dims, but not the default colours). PDCursesMod patch 0002: the palette entry
+    nearest the colour with a third off each of red, green and blue (white to grey 247), worked out once for each entry.
+    Now misspelt words are grey on the G2.
+  - The dictionary is chosen with File, Global settings, Load new system dictionary (its file beside the program) and
+    shown with Document settings, Spellchecker, Display misspelt words.
+  - **Peter's answers (12 Nov): 1 yes, 2 yes, 3 OK.**
+    - **1, the G1:** with spelling turned on, WordGrinder 0.8 ended with "not enough memory" and the document was lost:
+      the part of the dictionary loaded stayed referenced, so the "Internal error" dialogue had no memory either (Lua
+      5.1 calls no handler for a memory error). WordGrinder patch 0005 loads the dictionary into a table of its own in
+      a `pcall`, and on failure drops it, collects, and says "Failed to load system dictionary: not enough memory".
+      Checked on the G1: the document stays, typing goes on, memory in use back to 1.1 MB; and with a 4,304-word list
+      the misspelt word alone is grey.
+    - **2, the dictionaries ship:** `make.py` makes `out/sd/wordgrinder` (the program, `british.dictionary`,
+      `american-canadian.dictionary` and SCOWL's licence), and `cmm2_main.c` names the British one in the first-start
+      settings when it is beside the program (checked on the G1 in a new folder).
+    - **3, mmbrun:** the firmware's copy (`Src/MmbrunImage.c`) is made again with this SDK, from the same Fuzix
+      commit (552517b): 94,752 bytes before (the SDK before 12 Nov), 104,528 now, in its 128 KB sector. The firmware's
+      own malloc is not the SDK's and is unchanged.
+  - **Peter asked whether the core firmware is touched: no.** It builds Drivers, Middlewares, Src and startup, with its
+    own `_sbrk` (`Src/syscalls.c`) and newlib-nano's malloc; only `MmbrunImage.c`'s bytes come from the SDK.
+  - **`sbrk` and `cmm2_heap_take` moved into `malloc.c`,** so that a build with its own make file that leaves
+    `malloc.c` out fails to link (undefined reference to `_sbrk`) instead of putting newlib-nano's malloc on the new
+    `sbrk`, whose pieces its last-chunk growth would join wrongly. MicroPython's make file (WSL) compiles only crt0.c
+    and syscalls.c, from the CMM2V1.5-loader checkout's SDK: it needs malloc.o when it moves to this SDK.
+  - **Which apps use malloc (12 Nov):** all of them, through the SDK's dlmalloc now. Most take a few large buffers at
+    the start (the emulators' memory and disks, Doom's zone, the curses screen); WordGrinder (Lua), ScummVM, libvterm
+    (vt100, zeptoforth), the C compiler's passes and the 386 emulator allocate and free all the time.
 - **ODT in Word (Peter, 12 Nov): "perfect".** Both files were exported on the G1 and copied to the PC: a short
   document with underlined words followed by plain ones (patch 0002's case), bold, italic and café £5 naïve, and
   WordGrinder's 14-page manual with its headings and lists. Their XML parses.
 - **Still to do:**
-  - the G2;
-  - the Markdown import's memory;
-  - whether to turn Look and Feel's 80 columns on by default.
+  - the G2 with the final build (patch 0005, the first-start dictionary), when Peter frees it;
+  - the firmware with the new `MmbrunImage.c` flashed and checked (a compiled C program, a translated BASIC one);
+  - commit when Peter asks: main, then merged into v8-dev.
 
 ### Step 3: sc-im
 1. `make.py`, with the grammar generated in WSL, and `cmm2_main.c`.
@@ -555,6 +608,8 @@ Step 1 is done.
    - PDCursesMod's public domain notice;
    - WordGrinder's MIT and its bundled components' licences;
    - Spleen's and zlib's;
+   - SCOWL's, for the dictionaries if they ship (WordGrinder's `licenses/COPYING.Scowl`);
+   - dlmalloc's public domain notice is in the SDK (Loadable Programs guide, Appendix C);
    - sc-im's BSD-4. Its advertising clause needs the line "This product includes software developed by Andrés
      Martinelli" in the guide.
 3. A line in the release notes. The apps go into a release zip when Peter says.
