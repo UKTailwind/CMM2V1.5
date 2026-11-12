@@ -1,0 +1,77 @@
+diff --git a/src/amiga/custom.c b/src/amiga/custom.c
+index b716c38..cfa0825 100644
+--- a/src/amiga/custom.c
++++ b/src/amiga/custom.c
+@@ -10,6 +10,7 @@ AMIGA_HOT static bool display_reg(uint32_t reg) {
+     return (reg >= R_DIWSTRT && reg <= R_DDFSTOP) ||
+            (reg >= R_BPL1PTH && reg < R_BPL1PTH + 24) ||
+            (reg >= R_BPLCON0 && reg <= R_BPL2MOD) ||
++           reg == R_BPL1DAT + 8 || reg == R_BPL1DAT + 10 ||      // (CMM2: BPL5DAT, BPL6DAT, for HAM7)
+            (reg >= R_SPR0PTH && reg < R_COLOR00 + 64) ||
+            (reg == R_DIWHIGH && A.ecs);
+ }
+diff --git a/src/amiga/denise.c b/src/amiga/denise.c
+index 60c2a36..e83fb50 100644
+--- a/src/amiga/denise.c
++++ b/src/amiga/denise.c
+@@ -78,6 +78,7 @@ typedef struct {
+     int      r_h;                           // done up to this colour clock
+     int      vpos;
+     uint16_t dmacon;
++    uint16_t bpldat[6];                     // CMM2: BPL1DAT-BPL6DAT as written (HAM7's planes 5 and 6)
+ } agnus_t;
+ #define AGNUS_INIT { .diwstrt = 0x2C81, .diwstop = 0xF4C1, .ddfstrt = 0x38, .ddfstop = 0xD0 }
+ static agnus_t  dma_st = AGNUS_INIT, fetch_st = AGNUS_INIT;
+@@ -184,6 +185,17 @@ AMIGA_HOT static inline int planes(uint16_t con0) {
+     return np > max ? max : np;
+ }
+ 
++// CMM2: "HAM7".  For BPU = 7 in lores an OCS Agnus fetches four planes, while
++// Denise shows six: its planes 5 and 6 are BPL5DAT and BPL6DAT as the CPU or
++// the copper last wrote them, which no DMA reloads.  HAM with a fixed control
++// pattern (Desire's Inside the Machine: 7777 and CCCC, red, green, blue, blue
++// every four pixels: a chunky picture from four planes).
++#define HAM7(con0) (((con0) & 0xF000) == 0x7000)            // (BPU 7, lores)
++static __attribute__((noinline)) void ham7_planes(uint16_t wd[6][4], const uint16_t *bpldat) {
++    wd[4][0] = bpldat[4];
++    wd[5][0] = bpldat[5];
++}
++
+ // The display window (DIW coordinates; vertical: beam lines).  OCS: start
+ // H8 = 0, V8 = 0; stop H8 = 1, V8 = NOT V7.  ECS: DIWHIGH gives those bits
+ // (V8-V10 as well) once written, until the next DIWSTRT/DIWSTOP write
+@@ -262,7 +274,7 @@ AMIGA_HOT static void compute_ddf(agnus_t *f) {
+ // are one 32-bit read when they share a word.
+ AMIGA_HOT static void dma_unit(int k) {
+     const int nw = 1 << res(dma_st.bplcon0);            // words per plane
+-    const int np = planes(dma_st.bplcon0);
++    const int np = HAM7(dma_st.bplcon0) ? 4 : planes(dma_st.bplcon0);   // (CMM2: HAM7 fetches four)
+     const uint8_t *cr = A.cfg.chip_ram;
+     const uint32_t cm = A.chip_mask & ~1u;
+     uint32_t hd = atomic_load_explicit(&ws_head, memory_order_relaxed);
+@@ -396,7 +408,8 @@ AMIGA_HOT static void fetch_unit(int k) {
+     const agnus_t *f = &fetch_st;
+     int t = f->ds + k * f->unit_cc;
+     const int r = res(f->bplcon0), nw = 1 << r;
+-    int np = planes(f->bplcon0);
++    const bool ham7 = HAM7(f->bplcon0);                 // (CMM2: four fetched, planes 5 and 6 BPLxDAT)
++    int np = ham7 ? 4 : planes(f->bplcon0);
+     int x = 2 * (2 * t + (r == LORES ? 17 : r == HIRES ? 9 : 5));   // hires-pixel coordinate
+     int d1 = 2 * (f->bplcon1 & 15), d2 = 2 * ((f->bplcon1 >> 4) & 15);
+     uint16_t wd[6][4];
+@@ -404,6 +417,7 @@ AMIGA_HOT static void fetch_unit(int k) {
+     for (int p = 0; p < np; p++)
+         for (int j = 0; j < nw; j++) wd[p][j] = ws[tl++ & (WS_SIZE - 1)];
+     atomic_store_explicit(&ws_tail, tl, memory_order_release);
++    if (ham7) { ham7_planes(wd, f->bpldat); np = 6; }
+     if (r == SHRES) {
+         if (d1 == d2) spread_shres(wd, np, 0, 1, x + d1);
+         else {
+@@ -1053,6 +1067,7 @@ AMIGA_HOT static void a_apply(agnus_t *f, uint32_t reg, uint16_t v) {
+     case R_DIWHIGH: f->diwhigh = (uint16_t)(v | DIWHIGH_ON); break;
+     case R_DDFSTRT: f->ddfstrt = v; if (f->fetch_k == 0) compute_ddf(f); break;
+     case R_DDFSTOP: f->ddfstop = v; if (f->fetch_k == 0) compute_ddf(f); break;
++    case R_BPL1DAT + 8: case R_BPL1DAT + 10: f->bpldat[(reg - R_BPL1DAT) >> 1] = v; break;   // (CMM2: HAM7's BPL5DAT, BPL6DAT)
+     default: break;
+     }
+ }

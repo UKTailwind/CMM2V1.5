@@ -25,8 +25,13 @@ COMMIT = '46f86e988abd8fd96e20f278b25e99a2984b00bb'
 # really hot routines"): Denise, the line scheduler, the copper, Paula, Musashi's loop and the blitter's two busiest, 21.9
 # KB with -funroll-loops (below). Measured on Mental Hangover's frames 1500-2500 (pm_bench, 10 Nov), ms a frame: 17.06 as
 # it was; 15.97 with the memory map and the whole blitter in too; 15.82 the memory map left out (each of the 68000's
-# reads from the AXI RAM's handlers came through a veneer); 14.51 unrolled, as here
-ITCM = ['denise', 'amiga', 'copper', 'paula', 'm68kcpu:m68k_execute', 'blitter:line_blit,blitter_poll']
+# reads from the AXI RAM's handlers came through a veneer); 14.51 unrolled, as here.
+# Denise by its functions, all but denise_reset (1 KB, once at a reset) and HAM7's ham7_planes (patches/0004): it was 8 bytes
+# short of full, and HAM7's handling in its hot paths took 256 more (12 Nov 2026)
+DENISE_ITCM = ['o_to', 'w_plain', 'dma_to', 'o_step', 'f_to', 'spread_planes', 'w_begin', 'denise_line_start', 'build_lut', 'fill_bytes',
+               'w_put', 'w_to_direct', 'f_step', 'denise_write', 'w_fill', 'a_apply', 'push', 'denise_frame_start', 'a_line_start', 'c_help',
+               'spread_shres', 'denise_sync', 'denise_line_end', 'denise_lace', 'denise_core1_ticks']
+ITCM = ['denise:' + ','.join(DENISE_ITCM), 'amiga', 'copper', 'paula', 'm68kcpu:m68k_execute', 'blitter:line_blit,blitter_poll']
 AXI = ['m68kops', 'm68kcpu', 'amiga', 'blitter', 'cia', 'copper', 'custom', 'denise', 'fb', 'floppy', 'mem', 'paula']
 DEFINES = ['M68K_NO_BUS_ERROR_TRAP',            # no setjmp at each entry to the 68000 (patches/0001)
            'AMIGA_ROW_DONE_ALL',                # each finished row to amiga_cmm2.c's row_done (patches/0001)
