@@ -218,7 +218,7 @@ APPS = {                                                # guide.py apps: all the
     },
     'ABOUT': ('This guide is for anyone using the programs that come with the Colour Maximite 2: MicroPython, Doom, '
               'Heretic, Quake, ScummVM, the NES, ZX Spectrum, Amstrad CPC, Commodore 64, Atari 8-bit, Apple //e, Amiga 500, TRS-80 and BBC Micro emulators, '
-              'the 386 PC, the C compiler, the VT100 terminal and zeptoforth. It covers installing each one, starting it, its '
+              'the 386 PC, the C compiler, the VT100 terminal, zeptoforth and the WordGrinder word processor. It covers installing each one, starting it, its '
               'keys and leaving it. It assumes you can use the MMBasic command prompt and copy files to the SD card.'),
     'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '
                 'and problems with the programs reported as issues of the repository above.'),

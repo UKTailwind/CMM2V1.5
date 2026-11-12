@@ -24,3 +24,4 @@ The source of each program is named in the file make.py of its folder in the fir
 | C compiler | The Fuzix Compiler Kit: GNU GPL version 3. The translator from MMBasic to C: the MMBasic licence |
 | VT100 terminal | libvterm: MIT. The Spleen fonts: BSD 2-Clause |
 | zeptoforth | zeptoforth: MIT. Its console has libvterm: MIT, and the Spleen fonts: BSD 2-Clause |
+| WordGrinder | WordGrinder, Lua, lpeg, LuaBitOp, Lunamark and xpattern: MIT. MiniZip and zlib: the zlib licence. uthash: BSD. wcwidth: free to use, copy and change. PDCursesMod and dlmalloc: public domain. The Spleen fonts: BSD 2-Clause. The dictionaries, from SCOWL: free to use, copy and change with their notice |
