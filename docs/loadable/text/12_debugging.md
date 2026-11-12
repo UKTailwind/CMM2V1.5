@@ -31,7 +31,7 @@ The PC and LR registers it shows are looked up with addr2line as above.
 
 ## Memory
 
-Running out of memory shows as malloc() returning NULL (check it), or as a stack overflow, which corrupts the top of the heap without any message. Print cmm2_start->heap_size at the start to see what the program has, and give a program with deep recursion or large local arrays more stack with --stack.
+Running out of memory shows as malloc() returning NULL (check it), or as a stack overflow, which corrupts the top of the heap without any message. Print cmm2_start->heap_size at the start to see what the program has (malloc() can also go on in MMBasic's heap: see Memory in the chapter The C Library), or mallinfo() as it runs, and give a program with deep recursion or large local arrays more stack with --stack.
 
 The map file shows what takes the space in the image: the sizes of the sections of each object file, and of each function with -ffunction-sections, which build.py uses.
 
