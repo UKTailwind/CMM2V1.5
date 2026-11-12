@@ -63,3 +63,7 @@ apps/cc/out/
 # The TRS-80 (apps/trs80/make.py): sdltrs fetched at a pinned commit, and the build
 apps/trs80/sdltrs/
 apps/trs80/out/
+# curses for the apps (apps/pdcurses/pdcurses.py): PDCursesMod and Spleen fetched at pinned commits, and the build
+apps/pdcurses/PDCursesMod/
+apps/pdcurses/spleen/
+apps/pdcurses/out/
