@@ -15,7 +15,7 @@ python build.py out/oplbench.app examples/oplbench.c examples/nuked/opl3.c -I ex
 python build.py out/oplplay.app examples/oplplay/oplplay.c examples/nuked/opl3.c examples/oplplay/emu8950/emu8950.c examples/oplplay/emu8950/emuadpcm.c ../../Src/OPLChip.cpp ../../Src/ymfm/ymfm_opl.cpp ../../Src/ymfm/ymfm_adpcm.cpp ../../Src/ymfm/ymfm_pcm.cpp -I examples/nuked -I examples/oplplay/emu8950 --cflag=-Wno-format
 ```
 
-`build.py` compiles the sources with `crt0.c`, `syscalls.c` and `malloc.c`, links them with `app.ld`, and calls `mkimage.py`. `malloc.c` makes dlmalloc the program's `malloc` in place of newlib's, and `syscalls.c`'s `_sbrk` gives it the program's heap and then, when that is used up, blocks of MMBasic's heap (about 15 MB more on a G2). `syscalls.c` also gives a program the firmware's `memcpy`, `memset` and `memmove` (services version 11; they run from ITCM a word at a time) in place of newlib-nano's byte loops, so rebuilding a program speeds up its copies on a firmware from 4 Nov 2026 on. It finds `arm-none-eabi-gcc` in `ARM_TOOLCHAIN_DIR`, else in the folder `CMakePresets.json` names, else on the PATH; use GCC 13.3, as the firmware does. The `.elf` and `.map` are left beside the `.app` in `tools/sdk/out/`, which git ignores.
+`build.py` compiles the sources with `crt0.c` and `syscalls.c`, links them with `app.ld`, and calls `mkimage.py`. `syscalls.c` gives a program the firmware's `memcpy`, `memset` and `memmove` (services version 11; they run from ITCM a word at a time) in place of newlib-nano's byte loops, so rebuilding a program speeds up its copies on a firmware from 4 Nov 2026 on. It finds `arm-none-eabi-gcc` in `ARM_TOOLCHAIN_DIR`, else in the folder `CMakePresets.json` names, else on the PATH; use GCC 13.3, as the firmware does. The `.elf` and `.map` are left beside the `.app` in `tools/sdk/out/`, which git ignores.
 
 Options:
 
@@ -47,7 +47,7 @@ The words become `argv[1]` onward. A non-zero exit code is printed. Run from a p
 
 ## Licences
 
-`cmm2img.h`, `cmm2.h`, `crt0.c`, `syscalls.c`, `malloc.c`, `app.ld` and the examples are MIT, so a program under any licence can use them. `dlmalloc.c`, the allocator `malloc.c` includes, is Doug Lea's dlmalloc 2.8.6, unchanged, in the public domain (CC0). Third-party code beside the examples keeps its own licence:
+`cmm2img.h`, `cmm2.h`, `crt0.c`, `syscalls.c`, `app.ld` and the examples are MIT, so a program under any licence can use them. Third-party code beside the examples keeps its own licence:
 - `examples/nuked` (Nuked-OPL3) is LGPL-2.1-or-later, so a program built with it, such as `oplbench.app` or `oplplay.app`, is LGPL as a whole.
 - emu8950 is MIT.
 - ymfm, in `Src/ymfm`, is BSD-3-Clause.

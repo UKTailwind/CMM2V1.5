@@ -539,27 +539,33 @@ Step 1 is done.
   `A:/wgtest`: the text is centred, 80 columns wide, with dense paragraphs.
 - **Spelling: the whole dictionary on a G2, from MMBasic's heap (12 Nov).** WordGrinder reads the whole word list
   into a Lua table, keyed in lower case: the British list it ships (`extras/british.dictionary`, 171,840 words, 1.7 MB)
-  takes about 16 MB. I first wrote that a G2 lends a program 7 MB; Peter: "The G2 should have memory you can use in the
-  MMBasic heap. Other apps do this" (the alloc service: Quake, the Amiga). So the SDK's malloc now goes on in blocks of
-  MMBasic's heap when the program's own is used up: on a G2 22.5 MB in all (7.8 + 14.7), with 512 KB always left to
-  MMBasic. It was done first in `_sbrk` under newlib-nano's malloc, and the dictionary loaded and Ctrl+L found misspelt
-  words. But quitting then never ended: WordGrinder's `atexit` closes its Lua state, freeing some 350,000 objects, and
-  newlib-nano's free() searches its whole free list for each one (the G2's PC sat in `_free_r`). Dropping a loaded
-  dictionary would have frozen the editor the same way. Peter chose dlmalloc in the SDK for every program:
-  - `tools/sdk/dlmalloc.c`: Doug Lea's dlmalloc 2.8.6, byte for byte the published file (public domain);
-    `tools/sdk/malloc.c` configures it (no mmap, sbrk pieces anywhere, never trimmed) and gives newlib its reentrant
-    entry points, so newlib's own allocator is never linked, nano or full;
-  - `syscalls.c` `_sbrk`: the start block's heap, then blocks of 1 MB (or the size asked for, or half and so on when
-    there is no megabyte; a program has 64 blocks), each piece from where the last one ended if there is room, else
-    the start block's heap, else the block, else a new block, so the start block's heap is used whatever the first
-    request; `sbrk(0)` answers where the last piece ended, as dlmalloc needs.
-  - **Tests on the G2:** a memory test (an 8 MB request beyond the program's own heap, then small ones until none are
-    left, every block's contents checked, frees and reuse, mallinfo): all pass with nano and with full newlib, 22.5 MB
-    reached, MMBasic's heap whole again at the prompt. The SDK test 13 of 13 with each library. All 19 apps build,
-    with no new warnings.
-  - **WordGrinder:** started on a document with spelling on, it is ready with the dictionary in 6.2 s (17.1 MB in
-    use). Under nano's malloc the dictionary alone took over 40 s. Quitting takes 0.2 s to the exit report and 0.7 s more
-    to the prompt, where before it never ended.
+  takes about 16 MB: 2^18 table slots of 32 bytes (one 8 MB request), the words' strings and Lua's string table. I
+  first wrote that a G2 lends a program 7 MB; Peter: "The G2 should have memory you can use in the MMBasic heap. Other
+  apps do this" (the alloc service: Quake, the Amiga). Done first in the SDK's `_sbrk` under newlib-nano's malloc, the
+  dictionary loaded, but quitting never ended: WordGrinder's `atexit` closes its Lua state, freeing some 350,000
+  objects, and newlib-nano's free() searches its whole free list for each one (the G2's PC sat in `_free_r`).
+  - **dlmalloc in the SDK, then reverted (12 Nov).** Peter first chose dlmalloc 2.8.6 as the SDK's malloc for every
+    program (main 8063a78), with the SDK's sbrk going on into MMBasic's heap. Then zeptoforth's solar eclipse ran 8%
+    slower: 0.928 s with the SDK before (three runs each, alternated) against 1.002 s, output identical. Not the
+    allocator's speed: counted, no malloc, free or realloc is called during the run (2, 2 and 12 callocs, all at the
+    start); not the code moved by dlmalloc's 7 KB (the same 7 KB of padding under nano's malloc ran 0.920 s); so where
+    its start-up buffers (libvterm's screens, the scrollback) were placed. Peter: "Everything worked before and the
+    new evidence suggests that the new allocator can be slower in addition it can be wasteful of memory ... build
+    this allocator into the wordgrinder app only and revert the other apps." The SDK, the guide and `MmbrunImage.c`
+    are as they were at cc5be0c (the image the same blob, 94,752 bytes: no flash test needed); 22 builds link
+    newlib-nano's allocator again, and zeptoforth is byte for byte the 0.928 s build.
+  - **WordGrinder's own malloc, `apps/wordgrinder/wg_malloc.c`:** dlmalloc (`dlmalloc.c`, Doug Lea's file byte for
+    byte, public domain), its memory from a function of its own: the program's heap through the SDK's unchanged sbrk,
+    then blocks of MMBasic's heap of 1 MB (or the size asked for, or half and so on; 64 blocks at most), 512 KB always
+    left to MMBasic, `sbrk(0)` answering where the last piece ended. It gives newlib its reentrant entry points: the
+    map has newlib's plain wrappers (malloc.o, calloc.o, realloc.o, mstats.o) and none of nano's allocator. A damaged
+    block (dlmalloc's ABORT) now puts the console back and says so before code 1, where abort() said nothing (Peter's
+    review). The 8 MB request needs one 8 MB block of MMBasic's heap: there at the prompt (15.8 MB free); from a BASIC
+    program holding arrays perhaps not, and then patch 0005 below says so and editing goes on.
+  - **Tests on the G2 (V7, 12 Nov):** the memory test linked with `wg_malloc.c` (an 8 MB request, small ones until
+    none are left, every block checked, reuse, mallinfo) all pass, 22.5 MB, MMBasic's heap whole after; a free of a
+    block never given gives the message. WordGrinder ready with the dictionary in 6.0 s (17.1 MB in use; over 40 s
+    under nano's malloc), quits in 0.9 s, MMBasic's heap the same before and after.
   - **Misspelt words were not shown:** WordGrinder marks them only with `A_DIM`, and PDCursesMod's 8-bit path left
     `A_DIM` out (its 32-bit path dims, but not the default colours). PDCursesMod patch 0002: the palette entry
     nearest the colour with a third off each of red, green and blue (white to grey 247), worked out once for each entry.
@@ -576,25 +582,20 @@ Step 1 is done.
     - **2, the dictionaries ship:** `make.py` makes `out/sd/wordgrinder` (the program, `british.dictionary`,
       `american-canadian.dictionary` and SCOWL's licence), and `cmm2_main.c` names the British one in the first-start
       settings when it is beside the program (checked on the G1 in a new folder).
-    - **3, mmbrun:** the firmware's copy (`Src/MmbrunImage.c`) is made again with this SDK, from the same Fuzix
-      commit (552517b): 94,752 bytes before (the SDK before 12 Nov), 104,528 now, in its 128 KB sector. The firmware's
-      own malloc is not the SDK's and is unchanged.
+    - **3, mmbrun:** made again with dlmalloc (104,528 bytes), then put back with the revert: unchanged.
   - **Peter asked whether the core firmware is touched: no.** It builds Drivers, Middlewares, Src and startup, with its
     own `_sbrk` (`Src/syscalls.c`) and newlib-nano's malloc; only `MmbrunImage.c`'s bytes come from the SDK.
-  - **`sbrk` and `cmm2_heap_take` moved into `malloc.c`,** so that a build with its own make file that leaves
-    `malloc.c` out fails to link (undefined reference to `_sbrk`) instead of putting newlib-nano's malloc on the new
-    `sbrk`, whose pieces its last-chunk growth would join wrongly. MicroPython's make file (WSL) compiles only crt0.c
-    and syscalls.c, from the CMM2V1.5-loader checkout's SDK: it needs malloc.o when it moves to this SDK.
-  - **Which apps use malloc (12 Nov):** all of them, through the SDK's dlmalloc now. Most take a few large buffers at
-    the start (the emulators' memory and disks, Doom's zone, the curses screen); WordGrinder (Lua), ScummVM, libvterm
-    (vt100, zeptoforth), the C compiler's passes and the 386 emulator allocate and free all the time.
+  - **Which apps use malloc (12 Nov):** all of them. Most take a few large buffers at the start (the emulators' memory
+    and disks, Doom's zone, the curses screen); WordGrinder (Lua), ScummVM, libvterm (vt100, zeptoforth), the C
+    compiler's passes and the 386 emulator allocate and free all the time.
+  - **V7's firmware no longer linked** (bank 1 40 bytes over at cc5be0c, with or without anything of this): Peter,
+    "modify V7 to take another page of flash". LOAD JPG's decoder went into bank 2 beside BMP's (main 4a97126): no
+    OPTION FLASH sector taken. V7 with it ran zeptoforth's solar eclipse on the G2 byte for byte as MMBasic.
 - **ODT in Word (Peter, 12 Nov): "perfect".** Both files were exported on the G1 and copied to the PC: a short
   document with underlined words followed by plain ones (patch 0002's case), bold, italic and café £5 naïve, and
   WordGrinder's 14-page manual with its headings and lists. Their XML parses.
-- **Still to do:**
-  - the G2 with the final build (patch 0005, the first-start dictionary), when Peter frees it;
-  - the firmware with the new `MmbrunImage.c` flashed and checked (a compiled C program, a translated BASIC one);
-  - commit when Peter asks: main, then merged into v8-dev.
+- **Still to do:** the G2's firmware (V7 since the eclipse run, with 8063a78's mmbrun: to be V8 again, or the final
+  V7, as Peter says).
 
 ### Step 3: sc-im
 1. `make.py`, with the grammar generated in WSL, and `cmm2_main.c`.
