@@ -316,11 +316,69 @@ static int32_t days(int y, int m, int d) {
     return era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
 }
 
+/* names with "." and ".." in them. FatFs takes them on a FAT card, but not on an exFAT one, which has no dot entries
+   (f_stat calls "A:/GAMES/.." an origin directory and fails), and the programs that list a directory stat each name
+   in it, readdir's ".." too. So stat and opendir make such a name whole first, as the services would take it
+   (Loader.c's ld_path: "A:..." is from A:'s root, "/..." from the current drive's, anything else from the current
+   directory), with "." left out and ".." taking the part before it off: "A:/GAMES/.." is "A:/" (12 Nov 2026) */
+#define PATH_LEN 264                            /* (the services' longest name: FatFs's 255 with "A:/" and the end) */
+
+static int dot_part(const char *name) {        /* 1 if a part of the name is "." or ".." */
+    const char *p = name, *s;
+    if(p[0] && p[1] == ':') p += 2;
+    while(*p) {
+        while(*p == '/' || *p == '\\') p++;
+        for(s = p; *p && *p != '/' && *p != '\\'; p++) {}
+        if((p - s == 1 && s[0] == '.') || (p - s == 2 && s[0] == '.' && s[1] == '.')) return 1;
+    }
+    return 0;
+}
+
+static int add_parts(char *out, size_t *n, const char *p) {   /* after out's "A:" and its parts: each "/part" */
+    const char *s;
+    size_t len;
+    while(*p) {
+        while(*p == '/' || *p == '\\') p++;
+        for(s = p; *p && *p != '/' && *p != '\\'; p++) {}
+        len = p - s;
+        if(len == 0 || (len == 1 && s[0] == '.')) continue;
+        if(len == 2 && s[0] == '.' && s[1] == '.') {
+            while(*n > 2 && out[--*n] != '/') {}   /* (at the root it stays there) */
+            continue;
+        }
+        if(*n + 1 + len >= PATH_LEN) return -1;
+        out[(*n)++] = '/';
+        memcpy(out + *n, s, len);
+        *n += len;
+    }
+    return 0;
+}
+
+static int whole_path(const char *name, char *out) {    /* out: PATH_LEN. 0, or -1 if too long or no getcwd (version 10) */
+    char cwd[PATH_LEN];
+    size_t n = 2;
+    if(name[0] && name[1] == ':') {
+        out[0] = name[0];
+        name += 2;
+    } else {
+        if(cmm2->version < 10 || cmm2->dir_current(cwd, sizeof(cwd)) < 0 || !cwd[0] || cwd[1] != ':') return -1;
+        out[0] = cwd[0];
+        if(*name != '/' && *name != '\\' && add_parts(out, &n, cwd + 2) < 0) return -1;
+    }
+    out[1] = ':';
+    if(add_parts(out, &n, name) < 0) return -1;
+    if(n == 2) out[n++] = '/';
+    out[n] = 0;
+    return 0;
+}
+
 int _stat(const char *name, struct stat *st) {
     cmm2_stat s;
+    char full[PATH_LEN];
     int r;
     memset(st, 0, sizeof(*st));
     if(cmm2->version < 5) { errno = ENOSYS; return -1; }
+    if(dot_part(name) && whole_path(name, full) == 0) name = full;
     if((r = cmm2->file_stat(name, &s)) < 0) { errno = (r == -4 || r == -5) ? ENOENT : EIO; return -1; }
     st->st_mode = s.is_dir ? S_IFDIR | 0755 : S_IFREG | 0644;
     st->st_size = s.size;
@@ -340,17 +398,30 @@ char *getcwd(char *buf, size_t size) {
     return buf;
 }
 
+/* readdir gives ".." first in a directory below a drive's root, as Linux's does (FatFs gives neither "." nor ".."):
+   the file browsers of programs ported from Linux go up by it, and had no way up without it (atari800's and sdltrs's,
+   12 Nov 2026). "." is not given: they leave it out anyway */
 DIR *opendir(const char *path) {
     DIR *d;
-    int h = cmm2->dir_open(path);
+    char full[PATH_LEN];
+    int whole = whole_path(path, full) == 0, h;
+    h = cmm2->dir_open(whole && dot_part(path) ? full : path);
     if(h < 0) { errno = ENOENT; return NULL; }
     if((d = malloc(sizeof(DIR))) == NULL) { cmm2->dir_close(h); errno = ENOMEM; return NULL; }
     d->handle = h;
+    d->dotdot = whole && full[3] != 0;          /* (full is "A:/" at a root) */
     return d;
 }
 
 struct dirent *readdir(DIR *d) {
     static cmm2_dirent e;
+    if(d->dotdot) {
+        d->dotdot = 0;
+        strcpy(d->entry.d_name, "..");
+        d->entry.d_type = DT_DIR;
+        d->entry.d_ino = 0;
+        return &d->entry;
+    }
     if(cmm2->dir_read(d->handle, &e) != 1) return NULL;
     strncpy(d->entry.d_name, e.name, sizeof(d->entry.d_name) - 1);
     d->entry.d_name[sizeof(d->entry.d_name) - 1] = 0;
