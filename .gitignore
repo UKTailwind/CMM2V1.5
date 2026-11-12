@@ -67,3 +67,7 @@ apps/trs80/out/
 apps/pdcurses/PDCursesMod/
 apps/pdcurses/spleen/
 apps/pdcurses/out/
+# WordGrinder (apps/wordgrinder/make.py): WordGrinder 0.8 and zlib fetched at pinned commits, and the build
+apps/wordgrinder/wordgrinder/
+apps/wordgrinder/zlib/
+apps/wordgrinder/out/

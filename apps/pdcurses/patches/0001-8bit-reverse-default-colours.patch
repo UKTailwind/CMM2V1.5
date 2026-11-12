@@ -1,0 +1,27 @@
+diff --git a/fb/pdcdisp.c b/fb/pdcdisp.c
+index 8d0a217..69734d7 100644
+--- a/fb/pdcdisp.c
++++ b/fb/pdcdisp.c
+@@ -476,14 +476,20 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
+                 if( SP->blink_state)
+                     reverse_colors ^= 1;
+             }
++                  /* The default colours (-1) are made colours before any swap, */
++                  /* as the 32-bit path does: swapped first, -1 with -1, A_REVERSE */
++                  /* did nothing to text in them (a program that never calls */
++                  /* start_color(): WordGrinder's selection and menus) */
++            if( integer_fg_idx == -1)
++               integer_fg_idx = 255;
++            if( integer_bg_idx == -1)
++               integer_bg_idx = 0;
+             if( reverse_colors)
+             {
+                 const int swapval = integer_fg_idx;
+                 integer_fg_idx = integer_bg_idx;
+                 integer_bg_idx = swapval;
+             }
+-            if( integer_bg_idx == -1)
+-               integer_bg_idx = 0;
+             fg_idx = (uint8_t)integer_fg_idx;
+             bg_idx = (uint8_t)integer_bg_idx;
+             for( i = 0; i < run_len; i++)

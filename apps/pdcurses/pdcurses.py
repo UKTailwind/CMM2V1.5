@@ -107,6 +107,37 @@ def shade(w, h, n):
     return rows
 
 
+def poly(w, h, pts, filled):
+    """a polygon in the cell, its corners as fractions of it: filled, or its outline a pixel wide"""
+    p = [(x * (w - 1), y * (h - 1)) for x, y in pts]
+    rows = [0] * h
+
+    def put(x, y):
+        if 0 <= x < w and 0 <= y < h:
+            rows[y] |= 1 << (w - 1 - x)
+    if filled:
+        for y in range(h):
+            for x in range(w):
+                inside = False
+                for i in range(len(p)):
+                    (x1, y1), (x2, y2) = p[i], p[i - 1]
+                    if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+                        inside = not inside
+                if inside:
+                    put(x, y)
+    for i in range(len(p)):                     # the edges, so that a small shape keeps its corners
+        (x1, y1), (x2, y2) = p[i - 1], p[i]
+        n = int(max(abs(x2 - x1), abs(y2 - y1))) + 1
+        for j in range(n + 1):
+            put(round(x1 + (x2 - x1) * j / n), round(y1 + (y2 - y1) * j / n))
+    return rows
+
+
+# shapes WordGrinder draws (its document's ends, its menus' and file browser's marks) that some sizes lack
+SHAPES = {0x25B2: ([(.5, .25), (.85, .7), (.15, .7)], True), 0x25BC: ([(.15, .3), (.85, .3), (.5, .75)], True),
+          0x25B6: ([(.2, .2), (.8, .5), (.2, .8)], True), 0x25BA: ([(.2, .3), (.8, .5), (.2, .7)], True),
+          0x25B7: ([(.2, .2), (.8, .5), (.2, .8)], False), 0x25C7: ([(.5, .2), (.85, .5), (.5, .8), (.15, .5)], False)}
+
 # characters curses draws with (its ACS and WACS, and fb/pdcdisp.c's cursors: the half and full blocks, the square)
 # that a Spleen size lacks: made, or another of its glyphs used, as ncurses falls back for a terminal without them
 DOUBLES = {0x2550: 0x2500, 0x2551: 0x2502}
@@ -114,15 +145,19 @@ for _lo, _single in ((0x2552, 0x250C), (0x2555, 0x2510), (0x2558, 0x2514), (0x25
                      (0x2561, 0x2524), (0x2564, 0x252C), (0x2567, 0x2534), (0x256A, 0x253C)):
     for _i in range(3):
         DOUBLES[_lo + _i] = _single
-STANDINS = {0x2190: '<', 0x2191: '^', 0x2192: '>', 0x2193: 'v', 0x3C0: '*', 0x2264: '<', 0x2265: '>', 0x25AA: 0x25A0}
+STANDINS = {0x2190: '<', 0x2191: '^', 0x2192: '>', 0x2193: 'v', 0x3C0: '*', 0x2264: '<', 0x2265: '>', 0x25AA: 0x25A0,
+            0x2013: '-', 0x2014: '-', 0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"', 0x2022: 0xB7, 0x2026: '_'}
 
 
 def complete(g, w, h):
     made = {0x2580: block(w, h, 0, 0, 1, .5), 0x2584: block(w, h, 0, .5, 1, 1), 0x2588: block(w, h, 0, 0, 1, 1),
             0x258C: block(w, h, 0, 0, .5, 1), 0x2590: block(w, h, .5, 0, 1, 1), 0x25A0: block(w, h, .25, .25, .75, .75),
-            0x2591: shade(w, h, 1), 0x2592: shade(w, h, 2), 0x2593: shade(w, h, 3)}
+            0x2591: shade(w, h, 1), 0x2592: shade(w, h, 2), 0x2593: shade(w, h, 3), 0x2594: block(w, h, 0, 0, 1, .125)}
     for cp, rows in made.items():
         g.setdefault(cp, rows)
+    for cp, (pts, filled) in SHAPES.items():
+        if cp not in g:
+            g[cp] = poly(w, h, pts, filled)
     if 0x2260 not in g and ord('=') in g and ord('/') in g:     # not equal: = with / through it
         g[0x2260] = [a | b for a, b in zip(g[ord('=')], g[ord('/')])]
     for cp, to in list(DOUBLES.items()) + list(STANDINS.items()):

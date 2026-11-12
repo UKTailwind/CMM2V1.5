@@ -1,0 +1,39 @@
+diff --git a/src/lua/export.lua b/src/lua/export.lua
+index 19d9dbe..2a6c46e 100644
+--- a/src/lua/export.lua
++++ b/src/lua/export.lua
+@@ -41,8 +41,12 @@ function ExportFileUsingCallbacks(document, cb)
+ 		end
+ 
+ 		-- Underline is stopping, so do so *before* the space
++		-- (and only there: it was closed again after the space, which made the
++		-- HTML and ODT ill-formed: </u></u>, a </text:span> too many)
++		local underlineclosed = false
+ 		if wordbreak and not underline and oldunderline then
+ 			cb.underline_off()
++			underlineclosed = true
+ 		end
+ 
+ 		if wordbreak then
+@@ -50,7 +54,7 @@ function ExportFileUsingCallbacks(document, cb)
+ 			wordbreak = false
+ 		end
+ 
+-		if not wordbreak and oldunderline then
++		if oldunderline and not underlineclosed then
+ 			cb.underline_off()
+ 		end
+ 		if oldbold then
+diff --git a/tests/import-from-opendocument.lua b/tests/import-from-opendocument.lua
+index f2df10e..9d84d0e 100644
+--- a/tests/import-from-opendocument.lua
++++ b/tests/import-from-opendocument.lua
+@@ -13,7 +13,7 @@ local expected = [[
+ \author{(no author)}
+ \maketitle
+ \section{Heading 1}
+-This is \textbf{bold }\textit{\textbf{bolditalic }}\textit{\textbf{\underline{bolditalicunderline }}}\textit{\underline{italicunderline }}\underline{underline} }plain
++This is \textbf{bold }\textit{\textbf{bolditalic }}\textit{\textbf{\underline{bolditalicunderline }}}\textit{\underline{italicunderline }}\underline{underline} plain
+ 
+ normal text
+ 

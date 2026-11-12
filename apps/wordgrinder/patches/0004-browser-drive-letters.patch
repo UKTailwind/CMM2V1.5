@@ -1,0 +1,36 @@
+diff --git a/src/lua/browser.lua b/src/lua/browser.lua
+index bdeb39a..b49369e 100644
+--- a/src/lua/browser.lua
++++ b/src/lua/browser.lua
+@@ -29,6 +29,13 @@ local function compare_filenames(f1, f2)
+ 	end
+ end
+ 
++-- A name that does not need the current directory: one from the root and,
++-- on Windows, one with a drive letter ("c:/letter.wg" was saved as the
++-- current directory's "c:/letter.wg").
++local function IsWholePath(f)
++	return f:find("^[/\\]") or ((ARCH == "windows") and f:find("^%a:"))
++end
++
+ function FileBrowser(title, message, saving)
+ 	local files = {}
+ 	for _, filename in ipairs(ReadDir(".")) do
+@@ -105,13 +112,16 @@ function FileBrowser(title, message, saving)
+ 		if (r == nil) then
+ 			return nil
+ 		elseif r then
++			if IsWholePath(f) then
++				return f
++			end
+ 			return GetCwd().."/"..f
+ 		else
+ 			return FileBrowser(title, message, saving)
+ 		end
+ 	end
+ 	
+-	if not f:find("^[/\\]") then
++	if not IsWholePath(f) then
+ 		return GetCwd().."/"..f
+ 	else
+ 		return f

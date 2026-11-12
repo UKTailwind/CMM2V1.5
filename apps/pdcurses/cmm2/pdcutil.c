@@ -44,6 +44,19 @@ void PDC_napms(int ms) {
     } while(remains > 0);
 }
 
+/* The USB keyboard is seen to only by poll(): a key pressed and let go while it is not called is never seen. PDCurses
+   calls it as it waits for a key, but a program may compute for long between its keys (WordGrinder: its Lua, laying
+   out and drawing a long document); such a program calls this often (WordGrinder from a Lua hook), and the keyboard
+   is seen to every 4 ms at most (12 Nov 2026: typed letters were lost on a G1) */
+void PDC_cmm2_poll(void) {
+    static uint64_t last;
+    const uint64_t now = cmm2->micros();
+    if(now - last >= 4000) {
+        last = now;
+        cmm2->poll();
+    }
+}
+
 const char *PDC_sysname(void) { return "Colour Maximite 2"; }
 
 enum PDC_port PDC_port_val = PDC_PORT_LINUX_FB; /* (the port it is built from: an 8-bit framebuffer) */

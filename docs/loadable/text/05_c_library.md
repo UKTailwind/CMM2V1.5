@@ -24,7 +24,7 @@ The file system is FAT (FAT16, FAT32 or exFAT) with long names, and names are no
 
 The POSIX calls under stdio work too: open(), creat(), read(), write(), lseek() and close(), with descriptors 0, 1 and 2 the console and 3 upwards the files. dup2(fd, 0), dup2(fd, 1) or dup2(fd, 2) puts a file in the console's place as standard input, output or error, as a shell's < and > do, so that a program written as a Unix filter reads and writes files; closing that descriptor gives the console back. The C compiler's passes run that way.
 
-opendir(), readdir() and closedir() list a directory, with ".." first below a drive's root, as Linux gives it. stat() gives a file's size, kind and date, rmdir() removes an empty directory, and chdir() and getcwd() are MMBasic's CHDIR and CWD$. The services' file functions (see the chapter The Services) can be used directly too, without stdio's buffering.
+opendir(), readdir() and closedir() list a directory, with "." first and then, below a drive's root, "..", as Linux gives them. stat() gives a file's size, kind and date, rmdir() removes an empty directory, and chdir() and getcwd() are MMBasic's CHDIR and CWD$. The services' file functions (see the chapter The Services) can be used directly too, without stdio's buffering.
 
 A call that fails sets errno: ENOENT for a name or path that is not there, EEXIST for one that is (mkdir() of a drive's root too, as POSIX has it), EACCES for a file that is read-only or a directory that is full or not empty, EROFS for a write-protected card, EMFILE when eight files are open, ENODEV for a drive with no card or no file system, and EIO for the card itself.
 

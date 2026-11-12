@@ -12,9 +12,11 @@
    &HA0-&HA4 and &HB1-&HBC are also a layout's Latin-1 characters (the French layout's pound sign, 163, is Shift with
    Right, &HA3): the special key if it, or its unshifted form, is held as it is taken; otherwise the character
    (docs/Office_Apps_Plan.md, "System services"). */
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <malloc.h>
 #include "curspriv.h"
 #include "common/mouse.c"
 #include "cmm2.h"
@@ -156,11 +158,23 @@ void PDC_flushinp(void) {
     while(check_key(&thrown_away_char)) {}
 }
 
-static bool held(const int *keys, int n, int a, int b) {        /* a or b among the keys held */
+static bool held(const int *keys, int n, int a, int b) {        /* a or b among the keys held (any of the six:
+                                                                   a key need not be in the first n) */
     int i;
-    for(i = 0; i < n && i < 6; i++)
+    (void)n;
+    for(i = 0; i < 6; i++)
         if(keys[i] == a || keys[i] == b) return TRUE;
     return FALSE;
+}
+
+/* 1 if the key with that HID usage is held (keys_raw, version 9), 0 if not, -1 if it cannot be known */
+static int usage_held(int usage) {
+    uint8_t r[8];
+    int i;
+    if(cmm2->version < 9 || cmm2->keys_raw(r) < 0) return -1;
+    for(i = 2; i < 8; i++)
+        if(r[i] == usage) return 1;
+    return 0;
 }
 
 /* MMBasic's key code, with the keys held, as PDCurses's key; *m its modifiers (PDC_KEY_MODIFIER_*); -1 for a key
@@ -201,12 +215,17 @@ static int translate(int k, const int *keys, int n, int *m) {
     case 0x88: return ctrl ? CTL_PGUP : alt ? ALT_PGUP : shift ? KEY_SPREVIOUS : KEY_PPAGE;
     case 0x89: return ctrl ? CTL_PGDN : alt ? ALT_PGDN : shift ? KEY_SNEXT : KEY_NPAGE;
     case 0x9F: *m |= PDC_KEY_MODIFIER_SHIFT; return KEY_BTAB;
-    case 9: return ctrl ? CTL_TAB : alt ? ALT_TAB : 9;
-    case 13: return ctrl ? CTL_ENTER : alt ? ALT_ENTER : 13;
+    /* Tab, Enter, Backspace and Esc give the codes Ctrl gives with I, M, H and [ (9, 13, 8, 27), as on a terminal:
+       with Ctrl held, the key itself (keys_raw's HID usage: Tab 0x2B, Enter 0x28 or the keypad's 0x58, Backspace
+       0x2A) is CTL_TAB, CTL_ENTER or CTL_BKSP, and Ctrl with the letter is the control character (WordGrinder's
+       Ctrl+I, italic, 12 Nov 2026) */
+    case 9: return ctrl ? (usage_held(0x2B) == 1 ? CTL_TAB : 9) : alt ? ALT_TAB : 9;
+    case 13: return ctrl ? (usage_held(0x28) == 1 || usage_held(0x58) == 1 ? CTL_ENTER : 13) : alt ? ALT_ENTER : 13;
     case 27: return alt ? ALT_ESC : 27;
-    case 8:                                     /* Backspace, unless it is Ctrl with H */
-        if(held(keys, n, 'h', 'H')) return 8;
-        return ctrl ? CTL_BKSP : alt ? ALT_BKSP : KEY_BACKSPACE;
+    case ' ': return ctrl && !alt ? 0 : ' ';   /* Ctrl with Space: NUL, as a terminal sends it (WordGrinder's mark) */
+    case 8:                                     /* Backspace, or Ctrl with H */
+        if(ctrl) return usage_held(0x2A) == 1 ? CTL_BKSP : 8;
+        return alt ? ALT_BKSP : KEY_BACKSPACE;
     }
     if(k >= 0x91 && k <= 0x9C) {                /* F1-F12, and with modifiers as ncurses numbers them */
         f = k - 0x90;
@@ -243,6 +262,16 @@ int PDC_get_key(void) {
     memset(keys, 0, sizeof(keys));
     n = cmm2->keys_held(keys);
     rval = translate(k, keys, n, &mods);
+    {
+        static int debug = -1;                  /* debug=1 after RUN's comma: each key, and the heap, on the serial
+                                                   console (stderr is there while curses has the screen) */
+        if(debug < 0) debug = getenv("PDC_DEBUG") && atoi(getenv("PDC_DEBUG")) > 0;
+        if(debug) {
+            struct mallinfo mi = mallinfo();
+            fprintf(stderr, "key %02X held %02X %02X %02X mods %02X -> %d (%lX) heap in use %u of %u\n", k, keys[0],
+                    keys[1], keys[2], keys[6], rval, (unsigned long)mods, (unsigned)mi.uordblks, (unsigned)mi.arena);
+        }
+    }
     if(rval == ALT_EQUAL) {
         PDC_cmm2_cycle_mode();
         return -1;

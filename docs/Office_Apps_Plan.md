@@ -133,8 +133,9 @@ for the larger modes. In exchange, the app gets only the largest free part of BA
 in step 2.
 
 **What a wide screen gives each program:**
-- WordGrinder keeps its text at most 80 columns wide (its Look and Feel setting, `maxwidth = 80`, which the user can
-  change), so a wide screen gives margins, not 240-character lines.
+- WordGrinder uses the full width by default. Its Look and Feel setting (File, Global settings) limits the text to
+  80 columns (`maxwidth`, which the user can change), but it is off unless the user turns it on (corrected 12 Nov,
+  from the code: `enabled = false`).
 - sc-im uses every column: the higher the resolution, the more cells are visible.
 
 **Drawing cost:** 1920x1080 at 8x16 is 16,080 cells (about 2 MB of pixels), against 3,700 at 800x600. PDCurses
@@ -449,6 +450,98 @@ Step 1 is done.
 1. `make.py`, zlib, `luascripts.c`, patch 0001 and `cmm2_main.c`.
 2. The 66 tests compared with WSL, then the checks by hand.
 3. Note the Lua heap for a 50-page document.
+
+**Step 2 results so far (12 Nov, on the G1 only: Peter needed the G2):**
+- **Build:** `wordgrinder.app` is 780 KB, from WordGrinder 0.8 and zlib 1.3.1.
+- **Patch 0001** (`dpy.c`, all under `#if defined PDCURSES`):
+  - the key names for PDCurses's codes and modifiers;
+  - italics from the screen, not from terminfo;
+  - `wtimeout()` in place of `timeout()`, which the argument of that name hides;
+  - Latin-1 characters taken as text, not as keys: newlib's C locale prints only ASCII;
+  - Alt with a letter or digit given as Esc and then the key, as a terminal sends it.
+- **Patch 0002** (WordGrinder's own bug, in 0.8 and in master): the exporter closed an underline twice when an
+  underlined word was followed by a plain one.
+  - The HTML had `</u></u>`, and the ODT had a `</text:span>` too many, so its XML did not parse.
+  - `tests/import-from-opendocument.lua` expected the bug's extra `}` in its LaTeX; the patch corrects that too.
+  - Not yet reported upstream: Peter's say first.
+- **`main` renamed in WordGrinder's `main.c` only** (`out/wg_main.c` includes it). A global `-Dmain=wg_main` reached
+  the SDK's `crt0.c`, which build.py builds with the same flags, and `cmm2_main.c` never ran.
+- **SDK fixes it needed:**
+  - `getcwd(NULL, 0)` allocates, as glibc's does: the file browser failed without a folder's name.
+  - `readdir` gives `.` as well as `..`, as Linux does.
+- **Back end fixes it showed:**
+  - Console output goes to the serial port only while curses has the screen (`con_screen(0)`). A Lua error's report
+    on stderr had been drawn over the screen, and scrolled it.
+  - The fonts gained ▲ ▼ ▷ ◇ ▔ where a size lacked them, and the 6x12 its dashes and quotes.
+  - Ctrl with Space gives NUL, as a terminal sends it (WordGrinder's "toggle mark", `^@`).
+- **WordGrinder's 65 tests, run on the G1 as its build runs them** (`--lua tests/NAME.lua`, self-checking): 63 pass.
+  - `windows-installdir` wants `C:\` with a backslash. The CMM2's paths are `A:/`, so this is a difference of
+    platform.
+  - `import-from-markdown`: "not enough memory". The G1 lends 3.76 MB (with OPTION COMPILE ON), and WordGrinder's
+    Lua already uses 1.29 MB once its scripts are loaded. The Markdown importer (lunamark on LPeg) needs more, and
+    Lua 5.1, unlike 5.2 on, does not collect garbage before it gives up. To run on the G2 (about 7 MB).
+- **By hand on the G1:**
+  - typing, é £ ï from the keyboard's codes, the menus, the file browser (folder, `..`, the hidden `.wordgrinder`);
+  - Save As, `^S`, bold, underline and italic;
+  - export to ODT, HTML and Markdown, the files checked on the PC;
+  - WordGrinder's 14-page manual (`README-v0.7.2.wg`) opened from the RUN line, paged, and shown in MODE 15
+    (160 x 64).
+- **From Peter's checks (12 Nov):**
+  - **Shift-selections did not show.** The selection was made but not drawn. PDCursesMod's `fb/pdcdisp.c` swapped the
+    colours for A_REVERSE before it turned the default colours (-1) into colours, so -1 swapped with -1 and reverse
+    video did nothing. WordGrinder never calls `start_color()`, so its selections, menus and file browser showed no
+    highlight; testcurs sets its colours, which hid the bug. Fixed in `apps/pdcurses/patches/0001` (an upstream
+    candidate).
+  - **Ctrl+I did not italicise.** The keyboard gives 9 for Ctrl+I and for Tab, as a terminal does, and the back end
+    made 9 with Ctrl held CTL_TAB. Tab, Enter and Backspace are now told from Ctrl+I, M and H by the key itself
+    (keys_raw's HID usage, version 9).
+  - **WordGrinder ended with code 1 while editing `test.wg` (14 pages) on the G1.** Lua ran out of memory, and its
+    panic message went to the serial console only.
+    - Reproduced: the heap in use climbed from 1.44 to 2.98 MB in about 20 rounds of marking, styling and moving.
+    - It was garbage, not a leak. Lua's GC pause of 200 lets the heap reach twice its use, and Lua 5.1 does not
+      collect when an allocation fails.
+    - Patch 0003 sets the pause to 110 (`-DWG_GC_PAUSE=110`). The same 60 rounds then finish with the heap under
+      2 MB.
+    - The Markdown import still needs more than a G1 has.
+  - **Crash reports are now shown.** What a program writes while curses has the screen (to the serial console only)
+    is kept, its last kilobyte. When the program ends having written some, the screen shows it with "Press a key for
+    MMBasic", before the loader clears it.
+- **Typing lost letters on the G1, fixed.** The USB keyboard is seen to only when the program calls `poll()`, and a
+  key pressed and let go while WordGrinder's Lua was busy (laying out a long document) was never seen. Serial input
+  arrives by interrupt, so the tests over the serial console could not show it. The back end's `PDC_cmm2_poll()`
+  calls `poll()` every 4 ms at most, and patch 0003 calls it from a Lua count hook, every 5000 instructions. Peter:
+  "Typing OK now".
+- **Enter "steps two lines"**: as designed. WordGrinder puts a blank line between paragraphs. CR LF from the
+  keyboard gives one new paragraph (checked: `P: 2/2`). Look and Feel's dense paragraphs drops the blank line.
+- **The mouse: none in 0.8**, which never asks curses for mouse events. WordGrinder 0.9 (Luau) has it: a click puts
+  the cursor there, a drag selects, and menus and dialogs take clicks (its `navigate.lua`'s `Cmd.GotoXYPosition`,
+  which 0.8 lacks, and a few lines in `main.lua`, `menu.lua`, `forms.lua` and the curses front end). A backport to
+  0.8 is possible later; Peter, 12 Nov: "That's fine - just asking".
+- **Peter's checks (12 Nov):** Shift and Ctrl+Shift selection, Ctrl+I, Alt+F, Alt+= and Alt+Minus (redrawn at the new
+  size, and back in it next time), cut, copy and paste, and saving to C: by typing `c:`: all OK.
+  - A full name such as `c:/test.wg` was saved under the current folder (`A:/wordgrinder/c:/test.wg.new`).
+    WordGrinder's browser took only `/` or `\` as a whole path, and on Windows a drive letter only when typed alone.
+    Fixed in patch 0004, which also fixes the overwrite branch: an upstream bug.
+  - Autosave (Document settings, not Global settings): a copy `NAME.autosave.DATE.TIME.wg` beside the document,
+    checked on A: and on C:. It must be turned on (`> NO` to YES with Space), and the document saved under a name
+    first.
+- **The final build on the G1:** WordGrinder's tests 63 of 65, the same two as before.
+- **Look and Feel on from the first start (Peter, 12 Nov: yes).** `cmm2_main.c` writes `.wordgrinder/settings.dat`
+  when there is none, in WordGrinder's own form: `lookandfeel.enabled` and `denseparagraphs` true. The add-ons fill in
+  the rest of their settings (`MergeTables`), and a user's saved settings are never touched. Checked in a new folder,
+  `A:/wgtest`: the text is centred, 80 columns wide, with dense paragraphs.
+- **Spelling: the system dictionary cannot be loaded on a CMM2.** WordGrinder reads the whole word list into a Lua
+  table, keyed in lower case. The British list it ships (`extras/british.dictionary`, 171,840 words, 1.7 MB) would
+  take about 14 MB of Lua memory (2^18 table slots and the strings), and a G2 lends 7 MB. The automated test passed
+  only because it sets a two-word dictionary itself. The user dictionary (words added with `^M`) works. Open: Peter's
+  choice of a short list, a lookup on the card, or none.
+- **ODT in Word (Peter, 12 Nov): "perfect".** Both files were exported on the G1 and copied to the PC: a short
+  document with underlined words followed by plain ones (patch 0002's case), bold, italic and café £5 naïve, and
+  WordGrinder's 14-page manual with its headings and lists. Their XML parses.
+- **Still to do:**
+  - the G2;
+  - the Markdown import's memory;
+  - whether to turn Look and Feel's 80 columns on by default.
 
 ### Step 3: sc-im
 1. `make.py`, with the grammar generated in WSL, and `cmm2_main.c`.
