@@ -1,0 +1,33 @@
+diff --git a/src/lua/addons/spillchocker.lua b/src/lua/addons/spillchocker.lua
+index 8a3bad8..115af3f 100644
+--- a/src/lua/addons/spillchocker.lua
++++ b/src/lua/addons/spillchocker.lua
+@@ -114,10 +114,25 @@ function GetSystemDictionary()
+ 				.. settings.filename .. "'")
+ 			local fp, e = io.open(settings.filename, "r")
+ 			if fp then
+-				for s in fp:lines() do
+-					system_dictionary_cache[s:lower()] = s
+-				end
++				-- Loaded into a table of its own, so that if memory runs out
++				-- (a whole dictionary is some megabytes) the part loaded can be
++				-- dropped and WordGrinder goes on without it: else it stayed,
++				-- and the error dialogue then had no memory either.
++				local dict = {}
++				local ok, err = pcall(
++					function()
++						for s in fp:lines() do
++							dict[s:lower()] = s
++						end
++					end)
+ 				fp:close()
++				if ok then
++					system_dictionary_cache = dict
++				else
++					dict = nil
++					collectgarbage("collect")
++					NonmodalMessage("Failed to load system dictionary: " .. tostring(err))
++				end
+ 			else
+ 				NonmodalMessage("Failed to load system dictionary: " .. e)
+ 			end

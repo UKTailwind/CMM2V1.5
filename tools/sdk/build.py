@@ -2,7 +2,7 @@
             [--xip] [--xip-base ADDR] [--no-printf-float] [--libc nano|full] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
-CMakePresets.json's, else the PATH's): compiles the sources with crt0.c and syscalls.c for the M7 (double-precision
+CMakePresets.json's, else the PATH's): compiles the sources with crt0.c, syscalls.c and malloc.c for the M7 (double-precision
 hard float; C++ as C++14 without exceptions or RTTI, and then linked by g++ for its library), links them with app.ld at
 --base (default 0xD1800000, where the G2 loads a program, so nothing is moved; a G1 moves it), and makes OUT.app with
 mkimage.py.
@@ -119,7 +119,7 @@ def main():
     sources = list(a.sources)
     if a.listfile:
         sources += [l.strip() for l in open(a.listfile) if l.strip() and not l.startswith('#')]
-    sources += [os.path.join(SDK, 'crt0.c'), os.path.join(SDK, 'syscalls.c')]
+    sources += [os.path.join(SDK, 'crt0.c'), os.path.join(SDK, 'syscalls.c'), os.path.join(SDK, 'malloc.c')]
     if a.xip:
         sources.append(os.path.join(SDK, 'fwlibm.c'))
     # the flags as they were: a change rebuilds everything

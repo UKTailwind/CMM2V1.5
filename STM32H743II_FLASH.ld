@@ -129,6 +129,8 @@ SECTIONS
     *BmpDecoder.c.obj(.text .text* .rodata .rodata*)
     *PngEncoder.o(.text .text* .rodata .rodata*)
     *PngEncoder.c.obj(.text .text* .rodata .rodata*)
+    *picojpeg.o(.text .text* .rodata .rodata*)           /* LOAD JPG's decoder (12 Nov 2026: V7's bank 1 was over) */
+    *picojpeg.c.obj(.text .text* .rodata .rodata*)
     *OSK.o(.text .text* .rodata .rodata*)                /* the on-screen keyboard (the PicoMite's: OSK.c); the 1 mS tick */
     *OSK.c.obj(.text .text* .rodata .rodata*)            /* reads only its osk_state, which is in RAM (27 Oct 2026: for its
                                                             room UiMouse.c, EDIT's and FM's mouse, went back to bank 1) */
