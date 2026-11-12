@@ -15,8 +15,9 @@ Built without --vram, so that a G1 keeps its modes above 960 x 540 (about 4.5 MB
 then put out/sd/wordgrinder on the SD card as A:/wordgrinder (wordgrinder.app, and WordGrinder's British and
 American/Canadian dictionaries, from SCOWL, with SCOWL's licence) and, at the CMM2's prompt:
     RUN "A:/wordgrinder/wordgrinder.app" [, document.wg] [mode=N] [font=WxH]
-A G2 holds a whole dictionary, in memory MMBasic's heap lends (tools/sdk malloc.c); cmm2_main.c names the British one
-at the first start (Peter, 12 Nov 2026), and a document's spelling is turned on in its settings.
+A G2 holds a whole dictionary, in memory MMBasic's heap lends to WordGrinder's own malloc (wg_malloc.c: dlmalloc, Doug
+Lea's, public domain, in dlmalloc.c); cmm2_main.c names the British one at the first start (Peter, 12 Nov 2026), and a
+document's spelling is turned on in its settings.
 """
 import glob, hashlib, os, subprocess, sys
 
@@ -127,6 +128,7 @@ def main():
     srcs += [os.path.join(emu, 'lpeg', f + '.c') for f in ('lpvm', 'lpcap', 'lptree', 'lpcode', 'lpprint')]
     srcs += [os.path.join(ZLIB, f + '.c') for f in ZLIB_FILES]
     srcs.append(os.path.join(HERE, 'cmm2_main.c'))
+    srcs.append(os.path.join(HERE, 'wg_malloc.c'))              # (which includes dlmalloc.c)
     srcs += pdcurses.sources()
     listfile = os.path.join(OUT, 'sources.txt')
     open(listfile, 'w').write('\n'.join(srcs) + '\n')

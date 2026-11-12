@@ -1,6 +1,6 @@
 # The C Library
 
-A loadable program has the standard C library (newlib-nano, or the whole newlib with build.py's --libc full), with dlmalloc as its malloc, and the maths library. syscalls.c joins them to the firmware's services, so the usual functions work: printf and the rest of stdio, files through fopen, malloc and free, time(), and the functions of string.h, stdlib.h, ctype.h and math.h. This chapter says how each part behaves on the Colour Maximite 2.
+A loadable program has the standard C library (newlib-nano, or the whole newlib with build.py's --libc full) and the maths library. syscalls.c joins them to the firmware's services, so the usual functions work: printf and the rest of stdio, files through fopen, malloc and free, time(), and the functions of string.h, stdlib.h, ctype.h and math.h. This chapter says how each part behaves on the Colour Maximite 2.
 
 ## The Console
 
@@ -30,9 +30,7 @@ A call that fails sets errno: ENOENT for a name or path that is not there, EEXIS
 
 ## Memory
 
-malloc(), calloc(), realloc(), free(), and C++'s new and delete use the program's heap: all the memory between its .bss and its stack (cmm2_start->heap and cmm2_start->heap_size). When that is used up, malloc() goes on in blocks of MMBasic's own heap, taken with the alloc service and freed when the program ends. On a Generation 2 at the command prompt that is about 15MB more, besides the program's 7MB or so; a Generation 1 has already lent the program nearly all of its heap. The blocks are of 1MB, or of the size asked for if that is more, and 512KB of MMBasic's heap is always left free, for the services and MMBasic. malloc() returns NULL when there is no more.
-
-The allocator is dlmalloc (Doug Lea's, version 2.8.6, in tools/sdk/dlmalloc.c and malloc.c), with either C library: newlib's own is left out. It keeps its free blocks in bins by size, so malloc() and free() take about the same time however many blocks a program has. (newlib-nano's free() searched a list of every free block: WordGrinder, freeing the 350,000 objects of a Lua state that held a dictionary, did not finish.) mallinfo() counts all of the memory: arena is what malloc() has been given, uordblks the part in use, and fordblks the part free for reuse.
+malloc(), calloc(), realloc(), free(), and C++'s new and delete use the program's heap: all the memory between its .bss and its stack (cmm2_start->heap and cmm2_start->heap_size). malloc() returns NULL when the heap is used up.
 
 A program that has its own memory manager, or needs one large block, takes it from the top of the heap with:
 

@@ -52,7 +52,7 @@ compiling 3 of 3 sources, 24 at a time
 out/first.app: 12540 bytes of image at 0xD1800000, 348 of .bss, entry +0x1, 152 relocations (1 absolute left alone), CRC DB38C447
 ```
 
-build.py compiled first.c with three files of the tools, crt0.c (the program's start), syscalls.c (what joins the C library to the services) and malloc.c (the memory allocator), linked them for the address where a Generation 2 loads a program, and wrote the program file out/first.app (the sources are compiled in parallel, as many at a time as the PC has processor threads). The ELF file and a map of the program are beside it (out/first.elf and out/first.map), for debugging.
+build.py compiled first.c with two files of the tools, crt0.c (the program's start) and syscalls.c (what joins the C library to the services), linked them for the address where a Generation 2 loads a program, and wrote the program file out/first.app (the sources are compiled in parallel, as many at a time as the PC has processor threads). The ELF file and a map of the program are beside it (out/first.elf and out/first.map), for debugging.
 
 ## Copying It to the SD Card
 

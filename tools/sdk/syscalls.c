@@ -4,12 +4,13 @@
    File descriptors 0-2 are the console (a newline goes out as CR LF while OPOST and ONLCR are on; a read waits for
    one key, echoes it, and gives Enter as a newline), or a file put in its place by dup2, as a shell's < and > would; 3
    up are the services' file handles 0-7. The console has a termios (sys/termios.h): ECHO, ICRNL, ONLCR, and with
-   ICANON off VMIN and VTIME, so that a read can return at once with no key, as an INKEY$ does. malloc, sbrk and
-   cmm2_heap_take are malloc.c's. time() and gettimeofday() read MMBasic's clock (DATE$ and TIME$) once and add the
-   microseconds since; clock_gettime's CLOCK_MONOTONIC, times() and clock() count the microseconds since start-up
-   (time.h declares what newlib leaves out). opendir and the rest (sys/dirent.h), stat, chdir and getcwd are the
-   services' (versions 5 and 10); fork, exec and wait refuse, as one program cannot start another. An error sets
-   errno as a program reads it (fail()). memcpy, memset and memmove are the firmware's (version 11). */
+   ICANON off VMIN and VTIME, so that a read can return at once with no key, as an INKEY$ does. The heap (malloc) is
+   the start block's, between the program's .bss and its stack. time() and gettimeofday() read MMBasic's clock (DATE$
+   and TIME$) once and add the microseconds since; clock_gettime's CLOCK_MONOTONIC, times() and clock() count the
+   microseconds since start-up (time.h declares what newlib leaves out). opendir and the rest (sys/dirent.h), stat,
+   chdir and getcwd are the services' (versions 5 and 10); fork, exec and wait refuse, as one program cannot start
+   another. An error sets errno as a program reads it (fail()). memcpy, memset and memmove are the firmware's
+   (version 11). */
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -253,6 +254,31 @@ speed_t cfgetispeed(const struct termios *tp) { (void)tp; return B115200; }
 speed_t cfgetospeed(const struct termios *tp) { (void)tp; return B115200; }
 int cfsetispeed(struct termios *tp, speed_t s) { (void)tp; (void)s; return 0; }
 int cfsetospeed(struct termios *tp, speed_t s) { (void)tp; (void)s; return 0; }
+
+static char *brk;                                                   // malloc's heap: from the start block's, upward
+
+/* size bytes (rounded up to 8) taken from the top of the heap, for a program's own allocator; malloc keeps the rest.
+   NULL if malloc has already taken too much. */
+void *cmm2_heap_take(uint32_t size) {
+    char *top = (char *)cmm2_start->heap + cmm2_start->heap_size;
+    size = (size + 7) & ~7u;
+    if(brk == NULL) brk = cmm2_start->heap;
+    if(size > (uint32_t)(top - brk)) return NULL;
+    cmm2_start->heap_size -= size;
+    return top - size;
+}
+
+void *_sbrk(ptrdiff_t incr) {
+    char *prev;
+    if(brk == NULL) brk = cmm2_start->heap;
+    if(brk + incr > (char *)cmm2_start->heap + cmm2_start->heap_size || brk + incr < (char *)cmm2_start->heap) {
+        fail(ENOMEM);
+        return (void *)-1;
+    }
+    prev = brk;
+    brk += incr;
+    return prev;
+}
 
 void _exit(int code) {
     cmm2->leave(code);

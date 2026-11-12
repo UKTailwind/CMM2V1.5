@@ -2,7 +2,7 @@
 
 ## The Tools
 
-The files that are built into every program, tools/sdk/crt0.c, syscalls.c, malloc.c, cmm2.h and app.ld, and the header Inc/cmm2img.h, are under the MIT licence, as are the examples (hello.c, vidtest.c, nopoll.c, oplbench.c and oplplay.c):
+The files that are built into every program, tools/sdk/crt0.c, syscalls.c, cmm2.h and app.ld, and the header Inc/cmm2img.h, are under the MIT licence, as are the examples (hello.c, vidtest.c, nopoll.c, oplbench.c and oplplay.c):
 
 Copyright (c) 2026 Peter Mather.
 
@@ -10,7 +10,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 
 THE FILE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE FILE OR THE USE OR OTHER DEALINGS IN IT.
 
-So a program built with them can have whatever licence its author chooses. The C library linked into it is newlib's, under its own permissive licences (BSD-style). Its memory allocator, tools/sdk/dlmalloc.c (included by malloc.c, which is MIT), is Doug Lea's dlmalloc, which he has put in the public domain (CC0).
+So a program built with them can have whatever licence its author chooses. The C library linked into it is newlib's, under its own permissive licences (BSD-style).
 
 ## Code Beside the Examples
 

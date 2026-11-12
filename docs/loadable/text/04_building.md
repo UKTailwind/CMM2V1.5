@@ -8,7 +8,7 @@ A program file is made in three steps: the sources are compiled for the Cortex-M
 python build.py OUT.app SOURCE.c|.cpp [...] [options]
 ```
 
-From tools/sdk, or with a path to it. Each source is compiled to an object file in a directory named after OUT (out/first.obj for out/first.app), and the objects are linked together with crt0.c, syscalls.c and malloc.c. The files it leaves are:
+From tools/sdk, or with a path to it. Each source is compiled to an object file in a directory named after OUT (out/first.obj for out/first.app), and the objects are linked together with crt0.c and syscalls.c. The files it leaves are:
 
 {widths: 22,78}
 | File | What it is |
@@ -110,7 +110,7 @@ Point build.py at the sources, the include directories and the flags the project
 A project with its own make files can be built without build.py. It needs:
 
 - the compiler flags above, with -I for tools/sdk;
-- crt0.c, syscalls.c and malloc.c from tools/sdk, compiled with the same flags (malloc.c includes dlmalloc.c, and has sbrk, so a link without it fails: undefined reference to `_sbrk');
+- crt0.c and syscalls.c from tools/sdk, compiled with the same flags;
 - the link flags above, with the linker script tools/sdk/app.ld;
 - then mkimage.py to make the program file from the ELF.
 
