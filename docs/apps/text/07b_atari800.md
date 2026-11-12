@@ -47,6 +47,8 @@ BASIC is off at first, as atari800 has it, because most programs load into the m
 | Alt+J | Controller Configuration: what the mouse is |
 | Alt+S, Alt+L | Save and load the machine's state |
 
+In the list of files, Enter opens a folder, shown in square brackets, or chooses a file. [..] at the top, or Backspace, goes up a folder, as far as the card's top folder, A:/. Esc goes back without choosing.
+
 Inserting a cartridge starts the Atari again in it, and removing it starts the Atari again without it.
 
 Run Atari Program with a tape (.cas) boots it, as holding START while switching on does. A tape loads at once, as a disk does, because atari800's SIO patch (Emulator Configuration) passes each record straight to the operating system. With the SIO patch off a tape loads at its real speed, 600 baud, with the operating system's tone. RUN "atari800.app", -boottape name.cas boots a tape from MMBasic's prompt.
