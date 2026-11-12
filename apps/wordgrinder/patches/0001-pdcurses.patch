@@ -1,0 +1,119 @@
+diff --git a/src/c/arch/unix/cursesw/dpy.c b/src/c/arch/unix/cursesw/dpy.c
+index d8a2fad..3dae3fa 100644
+--- a/src/c/arch/unix/cursesw/dpy.c
++++ b/src/c/arch/unix/cursesw/dpy.c
+@@ -16,6 +16,46 @@
+ static bool has_italics = false;
+ #endif
+ 
++#if defined PDCURSES
++/* PDCurses (the CMM2's port, apps/pdcurses) gives Ctrl and Alt with the arrows and the editing keys codes of their
++ * own (CTL_LEFT, ALT_HOME...), not the terminfo names ncurses's keyname() gives, which dpy_getkeyname() decodes, and
++ * reports Shift, Ctrl and Alt by PDC_get_key_modifiers(): the same names, made from those. */
++static unsigned long key_modifiers;
++
++static const char* pdcurses_keyname(int k)
++{
++	enum { S = PDC_KEY_MODIFIER_SHIFT, A = PDC_KEY_MODIFIER_ALT, C = PDC_KEY_MODIFIER_CONTROL };
++	static const struct { int key; const char* name; int mods; } keys[] = {
++		{ KEY_UP, "UP", 0 }, { KEY_DOWN, "DOWN", 0 }, { KEY_LEFT, "LEFT", 0 }, { KEY_RIGHT, "RIGHT", 0 },
++		{ KEY_HOME, "HOME", 0 }, { KEY_END, "END", 0 }, { KEY_PPAGE, "PGUP", 0 }, { KEY_NPAGE, "PGDN", 0 },
++		{ KEY_IC, "INSERT", 0 }, { KEY_DC, "DELETE", 0 },
++		{ KEY_SR, "UP", S }, { KEY_SF, "DOWN", S }, { KEY_SLEFT, "LEFT", S }, { KEY_SRIGHT, "RIGHT", S },
++		{ KEY_SHOME, "HOME", S }, { KEY_SEND, "END", S }, { KEY_SPREVIOUS, "PGUP", S }, { KEY_SNEXT, "PGDN", S },
++		{ KEY_SIC, "INSERT", S }, { KEY_SDC, "DELETE", S },
++		{ CTL_UP, "UP", C }, { CTL_DOWN, "DOWN", C }, { CTL_LEFT, "LEFT", C }, { CTL_RIGHT, "RIGHT", C },
++		{ CTL_HOME, "HOME", C }, { CTL_END, "END", C }, { CTL_PGUP, "PGUP", C }, { CTL_PGDN, "PGDN", C },
++		{ CTL_INS, "INSERT", C }, { CTL_DEL, "DELETE", C }, { CTL_TAB, "TAB", C },
++		{ ALT_UP, "UP", A }, { ALT_DOWN, "DOWN", A }, { ALT_LEFT, "LEFT", A }, { ALT_RIGHT, "RIGHT", A },
++		{ ALT_HOME, "HOME", A }, { ALT_END, "END", A }, { ALT_PGUP, "PGUP", A }, { ALT_PGDN, "PGDN", A },
++		{ ALT_INS, "INSERT", A }, { ALT_DEL, "DELETE", A },
++	};
++	static char buffer[32];
++	unsigned i;
++
++	for (i = 0; i < sizeof(keys)/sizeof(*keys); i++)
++		if (keys[i].key == k)
++		{
++			int m = keys[i].mods | (int)(key_modifiers & (S|A|C));
++			if (!m)
++				return NULL; /* the plain key: dpy_getkeyname's own */
++			sprintf(buffer, "KEY_%s%s%s%s", (m & S) ? "S" : "", (m & A) ? "A" : "", (m & C) ? "^" : "",
++				keys[i].name);
++			return buffer;
++		}
++	return NULL;
++}
++#endif
++
+ void dpy_init(const char* argv[])
+ {
+ }
+@@ -35,7 +75,12 @@ void dpy_start(void)
+ 	keypad(stdscr, TRUE);
+ 
+ 	#if defined A_ITALIC
+-		has_italics = !!tigetstr("sitm");
++		#if defined PDCURSES
++			/* (no terminfo: the screen says what it can show) */
++			has_italics = !!(termattrs() & A_ITALIC);
++		#else
++			has_italics = !!tigetstr("sitm");
++		#endif
+ 	#endif
+ }
+ 
+@@ -132,10 +177,12 @@ uni_t dpy_getchar(double timeout)
+ 			if (delay <= 0)
+ 				return -KEY_TIMEOUT;
+ 
+-			timeout(delay);
++			/* (wtimeout: PDCurses's timeout() is a function, which the argument named timeout hides; ncurses's is
++			 * a macro for this) */
++			wtimeout(stdscr, delay);
+ 		}
+ 		else
+-			timeout(-1);
++			wtimeout(stdscr, -1);
+ 
+ 		wint_t c;
+ 		int r = get_wch(&c);
+@@ -143,8 +190,23 @@ uni_t dpy_getchar(double timeout)
+ 		if (r == ERR) /* timeout */
+ 			return -KEY_TIMEOUT;
+ 
++		#if defined PDCURSES
++			key_modifiers = PDC_get_key_modifiers();
++			/* Alt with a letter or digit: Esc and then the key, as a terminal sends it (Alt+F opens the File
++			 * menu); PDCurses gives it as one key, ALT_F */
++			if ((r == KEY_CODE_YES) && (((c >= ALT_A) && (c <= ALT_Z)) || ((c >= ALT_0) && (c <= ALT_9))))
++			{
++				unget_wch((c >= ALT_A) && (c <= ALT_Z) ? 'a' + (c - ALT_A) : '0' + (c - ALT_0));
++				return -27;
++			}
++			/* (newlib's C locale prints ASCII only: a character above Latin-1's controls, as a keyboard's
++			 * layout gives é or £, is emu_wcwidth's to judge, below) */
++			if ((r == KEY_CODE_YES) || ((c < 0x80) && !iswprint(c)) || ((c >= 0x80) && (c < 0xA0)))
++				return -c;
++		#else
+ 		if ((r == KEY_CODE_YES) || !iswprint(c)) /* function key */
+ 			return -c;
++		#endif
+ 
+ 		if (emu_wcwidth(c) > 0)
+ 			return c;
+@@ -185,6 +247,14 @@ const char* dpy_getkeyname(uni_t k)
+ {
+ 	k = -k;
+ 
++	#if defined PDCURSES
++	{
++		const char* name = pdcurses_keyname(k);
++		if (name)
++			return name;
++	}
++	#endif
++
+ 	switch (k)
+ 	{
+ 		case 127: /* Some misconfigured terminals produce this */

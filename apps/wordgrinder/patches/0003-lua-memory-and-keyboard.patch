@@ -1,0 +1,40 @@
+diff --git a/src/c/lua.c b/src/c/lua.c
+index 47e07d4..37f47c5 100644
+--- a/src/c/lua.c
++++ b/src/c/lua.c
+@@ -70,11 +70,35 @@ void script_deinit(void)
+ 	lua_close(L);
+ }
+ 
++#if defined WG_POLL_HOOK
++/* A machine whose keyboard is seen to only when the program asks (the CMM2's
++ * USB keyboard: poll()): Lua may run for long between keys, laying out and
++ * drawing a long document, and a key pressed and let go meanwhile was lost.
++ * Every few thousand instructions the hook lets it be seen to. */
++extern void WG_POLL_HOOK(void);
++
++static void poll_hook(lua_State* L, lua_Debug* ar)
++{
++	WG_POLL_HOOK();
++}
++#endif
++
+ void script_init(void)
+ {
+ 	L = luaL_newstate();
+ 	luaL_openlibs(L);
+ 
++#if defined WG_GC_PAUSE
++	/* A machine with a few megabytes (the CMM2's G1 lends 3.7): Lua's default
++	 * pause, 200, lets the heap reach twice what is in use before it collects,
++	 * and Lua 5.1 does not collect when an allocation fails. Editing a 14-page
++	 * document ran it out of memory; at 110 the heap stays near its use. */
++	lua_gc(L, LUA_GCSETPAUSE, WG_GC_PAUSE);
++#endif
++#if defined WG_POLL_HOOK
++	lua_sethook(L, poll_hook, LUA_MASKCOUNT, 5000);
++#endif
++
+ #if LUA_VERSION_NUM == 501
+ 	luaopen_bit(L);
+ #endif

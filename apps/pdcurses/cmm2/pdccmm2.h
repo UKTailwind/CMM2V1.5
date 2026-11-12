@@ -10,6 +10,10 @@ void PDC_cmm2_cycle_font(void);
 /* pdcmouse.c: the pointer shown only while the program asks for mouse events (mousemask), and its position */
 void PDC_cmm2_mouse_show(int on);
 
+/* pdcutil.c: the USB keyboard seen to (poll), every 4 ms at most, for a program to call while it computes for long
+   between keys: a key pressed and let go while poll() is not called is lost */
+void PDC_cmm2_poll(void);
+
 /* pdcargs.c: words after RUN's comma that are the port's, not the program's: mode=N, font=WxH. Each is taken out of
    argv (argc returned less them) and set as PDC_MODE or PDC_FONT; PDC_CONFIG is set to the settings file beside the
    program (argv[0]'s folder, else the current directory), before the program can change directory. A program's

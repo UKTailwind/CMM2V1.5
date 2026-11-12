@@ -158,7 +158,79 @@ void PDC_cmm2_cycle_font(void) {
     changed();
 }
 
+/* What the program writes to stdout and stderr while curses has the screen goes to the serial console only
+   (con_screen(0)), not drawn over the screen, which it would scroll; after endwin, to both again. The last kilobyte of
+   what it writes so is kept: when the program ends having written some (an error that stops it: WordGrinder out of
+   memory, 12 Nov 2026), at_exit clears the screen, shows that text and waits for a key, so the reason is where the
+   user is looking (the loader puts BASIC's mode back, and clears the screen, when the program ends). It goes by what
+   was written, not by curses being open still: a program's own exit handler may close curses first (WordGrinder's
+   screen_deinit, registered after initscr, runs before this one) */
+#define TAIL 1024
+static char tail[TAIL];
+static unsigned tail_len, tail_end;             /* bytes kept (at most TAIL), and where the next goes */
+static int on_screen;                           /* curses has the screen: from PDC_reset_prog_mode to PDC_scr_close */
+static _READ_WRITE_RETURN_TYPE (*std_write[2])(struct _reent *, void *, const char *, _READ_WRITE_BUFSIZE_TYPE);
+
+static _READ_WRITE_RETURN_TYPE tee_write(struct _reent *r, void *cookie, const char *buf, _READ_WRITE_BUFSIZE_TYPE n) {
+    _READ_WRITE_BUFSIZE_TYPE i;
+    for(i = 0; on_screen && i < n; i++) {
+        tail[tail_end] = buf[i];
+        tail_end = (tail_end + 1) % TAIL;
+        if(tail_len < TAIL) tail_len++;
+    }
+    return std_write[cookie == (void *)stderr](r, cookie, buf, n);  /* (a std stream's cookie is the FILE) */
+}
+
+static int debug(void) {                        /* debug=1 after RUN's comma (pdcargs.c) */
+    const char *d = getenv("PDC_DEBUG");
+    return d && atoi(d) > 0;
+}
+
+static void at_exit(void) {
+    unsigned i;
+    int k;
+    if(debug()) {
+        char m[80];
+        snprintf(m, sizeof(m), "pdcurses at_exit: on_screen %d, %u bytes kept\r\n", on_screen, tail_len);
+        cmm2->con_puts(m);
+    }
+    stdout->_write = std_write[0];
+    stderr->_write = std_write[1];
+    on_screen = 0;
+    if(tail_len == 0) return;
+    if(cmm2->version >= 4) cmm2->con_screen(1);
+    if(cmm2->version >= 10) cmm2->gfx_cls(0);
+    else PDC_draw_rectangle(0, 0, PDC_fb.xres, PDC_fb.yres, 0);
+    for(i = tail_len < TAIL ? 0 : tail_end; tail_len; tail_len--, i = (i + 1) % TAIL) {
+        if(tail[i] == '\n') cmm2->con_putc('\r');
+        cmm2->con_putc(tail[i]);
+    }
+    cmm2->con_puts("\r\n[The program wrote this while its screen was up. Press a key for MMBasic.]\r\n");
+    while((k = cmm2->con_getc()) < 0 && !cmm2->break_take()) cmm2->poll();
+}
+
+static void tee_install(void) {
+    static int done;
+    if(done) return;
+    fputs("", stdout);                          /* (stdio set up first, or newlib would put its own _write back: */
+    fputs("", stderr);                          /*  newlib-nano's fflush leaves a stream not yet used as it is) */
+    std_write[0] = stdout->_write;
+    std_write[1] = stderr->_write;
+    if(std_write[0] == NULL || std_write[1] == NULL) {
+        if(debug()) cmm2->con_puts("pdcurses: stdio's _write not set\r\n");
+        return;
+    }
+    stdout->_write = tee_write;
+    stderr->_write = tee_write;
+    atexit(at_exit);
+    done = 1;
+    if(debug()) cmm2->con_puts("pdcurses: stdout and stderr kept, at_exit set\r\n");
+}
+
 void PDC_reset_prog_mode(void) {
+    tee_install();
+    on_screen = 1;
+    if(cmm2->version >= 4) cmm2->con_screen(0);
     SP->_trap_mbe = _stored_trap_mbe;
     PDC_mouse_set();
     PDC_resize_occurred = FALSE;
@@ -180,6 +252,8 @@ void PDC_scr_close(void) {                      /* (the loader puts BASIC's mode
     SP->_trap_mbe = 0;
     PDC_mouse_set();
     PDC_draw_rectangle(0, 0, PDC_fb.xres, PDC_fb.yres, 0);
+    on_screen = 0;
+    if(cmm2->version >= 4) cmm2->con_screen(1);
 }
 
 void PDC_scr_free(void) {

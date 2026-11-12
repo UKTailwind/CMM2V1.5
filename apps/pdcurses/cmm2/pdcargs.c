@@ -3,7 +3,7 @@
        RUN "A:/office/wordgrinder.app", mode=9 font=12x24 letter.wg
 
    mode=N and font=WxH are taken out of argv and set as PDC_MODE and PDC_FONT, which pdcscrn.c reads; the program sees
-   the rest. PDC_CONFIG, the settings file pdcscrn.c keeps the last mode and font in, is set to pdcurses.cfg beside the
+   the rest. debug=1 (PDC_DEBUG) has pdckbd.c report each key and the heap on the serial console. PDC_CONFIG, the settings file pdcscrn.c keeps the last mode and font in, is set to pdcurses.cfg beside the
    program (argv[0]'s folder, made whole from the current directory), before the program can change directory. */
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +43,7 @@ int PDC_cmm2_args(int argc, char **argv) {
     for(i = j = 1; i < argc; i++) {
         if(strncasecmp(argv[i], "mode=", 5) == 0) setenv("PDC_MODE", argv[i] + 5, 1);
         else if(strncasecmp(argv[i], "font=", 5) == 0) setenv("PDC_FONT", argv[i] + 5, 1);
+        else if(strncasecmp(argv[i], "debug=", 6) == 0) setenv("PDC_DEBUG", argv[i] + 6, 1);
         else argv[j++] = argv[i];
     }
     if(argc > 0) argv[j] = NULL;
