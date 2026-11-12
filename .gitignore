@@ -28,6 +28,9 @@ apps/zeptoforth/out/
 # The Amstrad CPC (apps/cpc/make.py): frank-cpc fetched at a pinned commit, and the build
 apps/cpc/frank-cpc/
 apps/cpc/out/
+# The BBC Micro (apps/bbc/make.py): frank-micro fetched at a pinned commit, and the build
+apps/bbc/frank-micro/
+apps/bbc/out/
 # The Commodore 64 (apps/c64/make.py): frank-c64 fetched at a pinned commit, and the build
 apps/c64/frank-c64/
 apps/c64/out/

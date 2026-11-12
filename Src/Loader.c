@@ -321,6 +321,7 @@ static void ld_oplfree(void *chip) { if(chip) { OPLChipDone(chip); LoaderRelease
 // the screen (version 2): MODE's checks made here, so setmode raises no error; the mode and palette BASIC had are put
 // back by LoaderRun when the program ends
 static int ldpalette;                                               // the program changed the palette
+static int ldvmode;                                                 // the program set a mode: the screen was its
 static void ld_frame(void) {                                       // the next frame's start, or 50 ms
     uint64_t end = MicrosNow() + 50000;
     pagesetdone = 0;
@@ -372,6 +373,7 @@ static int ld_vscaled(int mode, int depth, int scale, cmm2_video *v) {
     v->bpp = depth;
     v->pitch = v->width * (lay / 8) * v->copies;
     memset(v->fb, 0, v->pitch * v->height);                         // (the same mode again is not cleared by setmode)
+    ldvmode = 1;
     return 0;
 }
 static int ld_vmode(int mode, int depth, cmm2_video *v) { return ld_vscaled(mode, depth, 1, v); }
@@ -1330,7 +1332,7 @@ static void ld_screensave(void) {
     ldoldmode = VideoMode; ldoldcolour = VideoColour; ldoldpico = PicoActive;
     ldoldfont = gui_font; ldoldfc = gui_fcolour; ldoldbc = gui_bcolour;
     memcpy(ldoldclut, CLUT, sizeof(ldoldclut));
-    ldpalette = 0;
+    ldpalette = ldvmode = 0;
     ldsaved = 1;
 }
 static void ld_screenback(void) {
@@ -1349,6 +1351,11 @@ static void ld_screenback(void) {
         SetFont(ldoldfont);
         gui_fcolour = ldoldfc;
         gui_bcolour = ldoldbc;
+    } else if(ldvmode) {                                            // BASIC's own mode, which setmode would not clear: what the
+        gui_fcolour = ldoldfc;                                      // program left on the screen cleared, as a MODE clears it
+        gui_bcolour = ldoldbc;                                      // (Peter, 12 Nov 2026: bbc.app's last picture, left in a G1's
+        ClearScreen(gui_bcolour);                                   // MODE 1,8 page, came back in BASIC's palette, in blue)
+        CurrentX = CurrentY = 0;
     }
     if(ldoldcolour == 8 && (changed || ldpalette)) {
         memcpy(CLUT, ldoldclut, sizeof(CLUT));

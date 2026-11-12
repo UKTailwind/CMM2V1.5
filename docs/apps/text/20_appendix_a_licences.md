@@ -19,6 +19,7 @@ The source of each program is named in the file make.py of its folder in the fir
 | Apple //e | frank-apple and MII: MIT. The ROMs are Apple's, and not under the MIT licence (see README.txt) |
 | Amiga 500 | pico-amiga: GNU GPL version 3. Musashi: MIT. No Kickstart, Workbench or other Amiga software comes with it |
 | TRS-80 | sdltrs: BSD 2-Clause. xtrs, which it grew from: its own licence, free to use, copy and change. The free Model 4P boot ROM built in: copyright Peter Cervasio, free to copy and use with its notice. No Tandy ROM comes with it |
+| BBC Micro | frank-micro: GNU GPL version 3, with B-em under GNU GPL version 2 or later. The ROMs are not under the GPL (see README.txt) |
 | 386 PC | tiny386: BSD 3-Clause. Its devices: MIT. inih: BSD 3-Clause. fmopl: GNU LGPL version 2.1 or later. SeaBIOS and SeaVGABIOS: GNU LGPL version 3. FreeDOS: each program under its own licence, most of them the GNU GPL |
 | C compiler | The Fuzix Compiler Kit: GNU GPL version 3. The translator from MMBasic to C: the MMBasic licence |
 | VT100 terminal | libvterm: MIT. The Spleen fonts: BSD 2-Clause |
