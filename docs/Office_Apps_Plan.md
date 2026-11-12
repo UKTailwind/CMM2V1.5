@@ -594,8 +594,12 @@ Step 1 is done.
 - **ODT in Word (Peter, 12 Nov): "perfect".** Both files were exported on the G1 and copied to the PC: a short
   document with underlined words followed by plain ones (patch 0002's case), bold, italic and café £5 naïve, and
   WordGrinder's 14-page manual with its headings and lists. Their XML parses.
-- **Still to do:** the G2's firmware (V7 since the eclipse run, with 8063a78's mmbrun: to be V8 again, or the final
-  V7, as Peter says).
+- **The G2 on the final V7 (Peter, 12 Nov: "v7"):** main 1468d08 flashed, options saved, loaded back and the same.
+  WordGrinder's tests 64 of 65 on the final build (as before); mmbrun from the flash runs the C test ("C OK 42") and
+  the translated BASIC one as the interpreter does; LOAD JPG's decoder, now in bank 2, passes tests/cmm2/jpgdec.bas
+  (17 lines as jpgdec.expected, with bd_bad.bmp beside it; the console's ESC 7 codes left out of the comparison); the
+  solar eclipse in the rebuilt zeptoforth identical, 0.929 s. A:/zeptoforth has the rebuilt zeptoforth.app back (the
+  test copies zf_old, zf_pre, zf_pad and zf_cnt beside it). The G1 stays on V8.
 
 ### Step 3: sc-im
 1. `make.py`, with the grammar generated in WSL, and `cmm2_main.c`.
