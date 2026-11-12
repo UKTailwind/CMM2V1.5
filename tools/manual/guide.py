@@ -207,7 +207,7 @@ APPS = {                                                # guide.py apps: all the
     'DIR': os.path.join(ROOT, 'docs', 'apps'),
     'OUT': os.path.join(ROOT, 'docs', 'apps', 'Colour_Maximite_2_App_User_Guide.docx'),
     'NAME': 'Colour Maximite 2 App User Guide',
-    'DATE': '11 November 2026',
+    'DATE': '12 November 2026',
     'TITLE': {
         'User Manual': 'App User Guide',
         'MMBasic Ver': 'The programs that come with the Colour Maximite 2',

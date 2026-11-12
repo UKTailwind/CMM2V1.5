@@ -54,6 +54,8 @@ Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga, apple2
 
   The App User Guide has a chapter on it.
 
+- **Going up a folder in the Atari's and the TRS-80's lists of files** (on 12 November 2026 the zip's atari800.app and trs80.app were replaced: the firmware is unchanged). [..] at the top of each folder's list (<..> on the TRS-80) now goes up a folder, as far as A:/. Before, once in a folder, the Atari could go up only with Backspace, and the TRS-80 not at all.
+
 - **MODE 8 is 640 x 480 at 60Hz,** the standard VGA timing, where it was 75Hz. Its GETSCANLINE counts to 524. The other modes are unchanged.
 
 - **For programmers:**
@@ -61,6 +63,7 @@ Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga, apple2
   - Version 18: dma2d_copy_nc, a DMA2D copy that does not write its source back from the cache first, for a second copy of the same rows.
   - The sound stream (audio_start) now goes to the DACs by DMA, with no interrupt for each sample: in the Amiga emulator the sound's cost fell from 0.75ms a frame to 0.15. Programs need no change.
   - build.py's new options --axi and --itcm put a program's hottest code and data in the processor's AXI RAM and in the ITCM above the firmware's code (0xA000 to 0xFFFF), on a Generation 2. The firmware keeps that ITCM free from this version on.
+  - From 12 November the tools' readdir gives ".." first in a folder below a drive's top folder, as Linux's does, and stat and opendir take names with "." and ".." in them, on exFAT cards too.
 
 ## What behaves differently
 
@@ -83,6 +86,7 @@ On a Generation 2 unless it says otherwise:
   - Super Cars (Gremlin), with the amiga.app of 11 November: its title screen and results desk on pico-amiga's own PC build, and its intro on a Generation 2, where it had stopped with the guru. Ten other games and demos show the same screens, frame for frame, as before.
 - **apple2:** on a Generation 1 with this firmware, Applesoft and hi-res graphics, with the Apple at its full speed (1,023kHz); before, on 7.00.00RC4, lo-res, mixed, 80 columns and double hi-res (a2audit's video tests find their colours right), the disk menu and a Disk II boot.
 - **trs80:** on both generations, Level II BASIC on the Model I, Model III BASIC, LDOS 5.3.1 from disk on the Models I and III, and LS-DOS 6.3.1 on the Model 4 and on the Model 4P with the free boot ROM; the menu and its list of disks; sound; a USB keyboard, the mouse and a gamepad by hand; the MegaMem on a Generation 2. On a Generation 1 with this firmware as released, the Model I, the Model III with LDOS and the Model 4P with LS-DOS; and a BASIC program saved to a disk and loaded again after leaving.
+- **atari800 and trs80,** with the apps of 12 November, on a Generation 2 running the development firmware (the change is in the programs alone): [..] and <..> at the top of each folder below A:/, going up a folder at a time to A:/, and none in A:/ itself; Backspace in the Atari's list.
 - **The sound by DMA** on a Generation 1: Doom's timed demo with its music and effects at 38.4 frames a second, as before; the DACs given back to MMBasic after a program (PLAY TONE), on both generations.
 - **MODE 8** on a Generation 1: 800 x 525 at 25.2MHz, 60.03Hz, and GETSCANLINE up to 524.
 - Every other program in the zip is unchanged: rebuilt with this version's tools, they are the same files.
