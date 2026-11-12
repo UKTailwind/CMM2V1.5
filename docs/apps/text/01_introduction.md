@@ -1,6 +1,6 @@
 # Introduction
 
-Your Colour Maximite 2 can run much more than MMBasic. This guide covers the programs that come with the firmware: games, emulators, a C compiler, MicroPython, Forth and a terminal. It tells you how to install each one, start it, use it and leave it.
+Your Colour Maximite 2 can run much more than MMBasic. This guide covers the programs that come with the firmware: games, emulators, a C compiler, MicroPython, Forth, a terminal and a word processor. It tells you how to install each one, start it, use it and leave it.
 
 You do not need to be a programmer to use any of them, apart from the C compiler, MicroPython and zeptoforth. If you want to write programs of this kind yourself, that is what the companion manual *Colour Maximite 2 Loadable Programs* is for.
 
@@ -26,6 +26,7 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | C compiler | Compiles C and MMBasic programs on the machine itself | A:/cc |
 | VT100 terminal | Makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer | A:/vt100 |
 | zeptoforth | A Forth with tasks, double precision and a screen editor | A:/zeptoforth |
+| WordGrinder | A word processor, with spelling on a Generation 2 | A:/wordgrinder |
 
 All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each, and Quake and the Amiga, which need a Generation 2.
 
@@ -74,6 +75,7 @@ Programs differ in how you leave them, as an emulator has to pass most keys on t
 | TRS-80 | Ctrl+Alt+End, or F8, which asks first. Ctrl-C is a key of the TRS-80 |
 | 386 PC | Ctrl+Alt+End. See its chapter first, as this switches the PC off |
 | VT100 terminal | Shift-F12, then Quit. Ctrl-C goes to the computer at the other end |
+| WordGrinder | Ctrl+Q, which asks first if anything is not saved. Ctrl-C copies |
 
 When a program ends, MMBasic tidies up after it: its files are closed, its sound is stopped, its I/O pins are released, and the video mode, font, colours and palette are put back.
 
