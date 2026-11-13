@@ -1,0 +1,232 @@
+diff --git a/src/conf.c b/src/conf.c
+index 9823eb2..e87cc49 100644
+--- a/src/conf.c
++++ b/src/conf.c
+@@ -127,8 +127,8 @@ const char default_config[] =
+ void store_default_config_values() {
+     parse_str(user_conf_d, default_config, 0);
+ 
+-    // Calculate GMT offset (not on Solaris, doesn't have tm_gmtoff)
+-#if defined(USELOCALE) && !defined(__sun)
++    // Calculate GMT offset (not on Solaris or newlib, which have no tm_gmtoff)
++#if defined(USELOCALE) && !defined(__sun) && !defined(__NEWLIB__)
+     time_t t = time(NULL);
+     struct tm * lt = localtime(&t);
+     char strgmtoff[7];
+diff --git a/src/help.c b/src/help.c
+index 035b153..7729adf 100644
+--- a/src/help.c
++++ b/src/help.c
+@@ -164,7 +164,7 @@ void help() {
+     ui_refresh_pad(0);
+ 
+ 
+-    wbkgd(main_win, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
++    wbkgd(main_win, COLOR_PAIR(ui_default_pair()));
+     ui_set_ucolor(main_win, &ucolors[NORMAL], DEFAULT_COLOR);
+     ui_set_ucolor(input_win, &ucolors[NORMAL], DEFAULT_COLOR);
+     wtimeout(input_win, -1);
+diff --git a/src/input.c b/src/input.c
+index da7159c..85c062d 100644
+--- a/src/input.c
++++ b/src/input.c
+@@ -122,6 +122,14 @@ void handle_input(struct block * buffer) {
+             return;
+         }
+ #endif
++#ifdef KEY_RESIZE
++        // a curses that gives a new screen size as a key (PDCurses, or
++        // ncurses without a SIGWINCH handler): redraw at the new size
++        if (d == KEY_RESIZE && return_value == KEY_CODE_YES) {
++            sig_winchg(0);
++            return;
++        }
++#endif
+ 
+         if ( (d == OKEY_ESC || d == ctl('g')) && curmode != EDIT_MODE) {
+             break_waitcmd_loop(buffer);
+diff --git a/src/macros.h b/src/macros.h
+index 43feb80..5e7324d 100644
+--- a/src/macros.h
++++ b/src/macros.h
+@@ -70,17 +70,19 @@
+ #define OKEY_TAB         '\011'
+ #define OKEY_ENTER       10
+ #define OKEY_SPACE       L' '
+-#define OKEY_LEFT        0x104
+-#define OKEY_RIGHT       0x105
+-#define OKEY_DOWN        0x102
+-#define OKEY_UP          0x103
+-#define OKEY_DEL         0x14a
+-#define OKEY_BS          0x107
++// curses.h's names, which are these numbers in ncurses (0x104...); a curses with its keys elsewhere
++// (PDCurses built for wide characters: from 0xec00) has them right too
++#define OKEY_LEFT        KEY_LEFT
++#define OKEY_RIGHT       KEY_RIGHT
++#define OKEY_DOWN        KEY_DOWN
++#define OKEY_UP          KEY_UP
++#define OKEY_DEL         KEY_DC
++#define OKEY_BS          KEY_BACKSPACE
+ #define OKEY_BS2         0x7f   // some BSDs, Linux distros, SSH/tmux configs
+-#define OKEY_HOME        0x106
+-#define OKEY_END         0x168
+-#define OKEY_PGUP        0x153
+-#define OKEY_PGDOWN      0x152
++#define OKEY_HOME        KEY_HOME
++#define OKEY_END         KEY_END
++#define OKEY_PGUP        KEY_PPAGE
++#define OKEY_PGDOWN      KEY_NPAGE
+ #define OKEY_F(x)        KEY_F(x)
+ 
+ //#define metak(x) ((x) | 0x80)
+diff --git a/src/main.c b/src/main.c
+index 9a7886a..93ae851 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -309,7 +309,7 @@ int main (int argc, char ** argv) {
+     }
+ 
+     // initiate ui
+-    FILE * f;
++    FILE * f = NULL;
+     if ( ! get_conf_int("nocurses")) {
+         // we show welcome screen if no spreadsheet was passed to sc-im
+         // and no input was sent throw pipeline
+@@ -325,11 +325,8 @@ int main (int argc, char ** argv) {
+     } else {
+         f = fopen("/dev/tty", "rw");
+         if (f == NULL) {
+-            if (!isatty(STDIN_FILENO)) {
+-                f = stdin;
+-            } else {
+-                sc_error("fatal error loading stdin");
+-            }
++            // no /dev/tty: stdin, a pipe or a file, or the terminal itself on a system without /dev/tty
++            f = stdin;
+         }
+     }
+ 
+@@ -413,6 +410,8 @@ void create_structures() {
+  */
+ void read_stdin() {
+     //sc_debug("reading stdin from pipeline");
++    // stdin a terminal: there is no pipeline to read, and no need to reopen /dev/tty (which a system may not have)
++    if (isatty(STDIN_FILENO)) return;
+     fd_set readfds;
+     FD_ZERO(&readfds);
+     FD_SET(STDIN_FILENO, &readfds);
+diff --git a/src/maps.c b/src/maps.c
+index e2e1c32..c5853bb 100644
+--- a/src/maps.c
++++ b/src/maps.c
+@@ -45,6 +45,7 @@
+ #include <stdlib.h>
+ #include <ctype.h>
+ #include <string.h>
++#include <curses.h>         // the KEY_ names macros.h's OKEY_ keys are
+ #include "maps.h"
+ #include "string.h"
+ #include "macros.h"
+diff --git a/src/tui.c b/src/tui.c
+index 1d9d8d1..3d24e1c 100644
+--- a/src/tui.c
++++ b/src/tui.c
+@@ -216,6 +216,9 @@ void ui_stop_screen() {
+  */
+ 
+ int ui_getch(wint_t * wd) {
++    // no key until one is read: a curses may leave *wd as it was when the read times out (PDCurses does), and
++    // handle_input would then take the last key again (is_idchar: an arrow kept on moving)
++    *wd = 0;
+     return wget_wch(input_pad, wd);
+ }
+ 
+@@ -323,9 +326,9 @@ void ui_do_welcome() {
+     int i;
+ 
+     #ifdef USECOLORS
+-    wbkgd(main_win, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
+-    wbkgd(input_win, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
+-    wbkgd(input_pad, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
++    wbkgd(main_win, COLOR_PAIR(ui_default_pair()));
++    wbkgd(input_win, COLOR_PAIR(ui_default_pair()));
++    wbkgd(input_pad, COLOR_PAIR(ui_default_pair()));
+     #endif
+ 
+     // show headings
+@@ -408,10 +411,10 @@ void ui_update(int header) {
+     if (get_conf_int("nocurses")) return;
+ 
+     #ifdef USECOLORS
+-    wbkgd(main_win, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
++    wbkgd(main_win, COLOR_PAIR(ui_default_pair()));
+     // comment this to prevent bold to be reset
+-    wbkgd(input_win, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
+-    wbkgd(input_pad, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
++    wbkgd(input_win, COLOR_PAIR(ui_default_pair()));
++    wbkgd(input_pad, COLOR_PAIR(ui_default_pair()));
+     #endif
+ 
+     if (header) {
+@@ -612,11 +615,11 @@ void ui_clr_header(int i) {
+     if (col_orig > COLS) col_orig = COLS - 1;
+ 
+     if (i == 0) {
+-        wbkgd(input_win, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
++        wbkgd(input_win, COLOR_PAIR(ui_default_pair()));
+         wmove(input_win, 0, 0);
+         wclrtoeol(input_win);
+     } else {
+-        wbkgd(input_pad, COLOR_PAIR((ucolors[DEFAULT].fg+1) * (COLORS) + ucolors[DEFAULT].bg + 2));
++        wbkgd(input_pad, COLOR_PAIR(ui_default_pair()));
+         getyx(input_pad, row_orig, col_orig);
+         wmove(input_pad, 0, 0);
+         wclrtoeol(input_pad);
+@@ -997,8 +1000,14 @@ int ui_show_content(WINDOW * win, int nb_mobile_rows, int nb_mobile_cols) {
+                 for (i = 0; i < fieldlen; ) {
+                     w = L' ';
+                     j = mvwin_wchnstr (win, winrow+k, wincol+i, cht, 1);
+-                    if (j == OK && cht[0].chars[0] != L'\0')
+-                        w = cht[0].chars[0];
++                    if (j == OK) {
++                        // the character by getcchar, as cchar_t's members are ncurses's own (PDCurses: an integer)
++                        wchar_t wch[8];
++                        attr_t attrs;
++                        short pair;
++                        if (getcchar(&cht[0], wch, &attrs, &pair, NULL) == OK && wch[0] != L'\0')
++                            w = wch[0];
++                    }
+                     //mvwprintw(win, winrow+k, wincol+i, "%lc", L'*');//w
+                     mvwprintw(win, winrow+k, wincol+i, "%lc", w);
+                     i += wcwidth(w);
+@@ -1502,6 +1511,18 @@ char * ui_query(char * initial_msg) {
+  * \param[in} bg_override
+  * \return none
+  */
++/**
++ * \brief The colour pair of ucolors[DEFAULT], numbered as ui_start_colors() makes them (by def, as
++ * ui_set_ucolor numbers them): wbkgd's pair was (fg+1) * COLORS + bg + 2, a pair never made (which ncurses's
++ * 8-bit pair field happened to take as pair 1; a curses with a wider field gave it no colours of its own)
++ * \return the pair
++ */
++int ui_default_pair(void) {
++    int def = 9;
++    if (COLORS > 8) def = 33;
++    return (ucolors[DEFAULT].fg+1)*def + ucolors[DEFAULT].bg + 2;
++}
++
+ void ui_set_ucolor(WINDOW * w, struct ucolor * uc, int bg_override) {
+     short color;
+     long attr = A_NORMAL;
+diff --git a/src/tui.h b/src/tui.h
+index 16d03ed..dd62528 100644
+--- a/src/tui.h
++++ b/src/tui.h
+@@ -91,6 +91,7 @@ void ui_start_colors();
+ void ui_sc_msg(char * s, int type, ...);
+ 
+ void ui_set_ucolor(WINDOW * w, struct ucolor * uc, int bg_override);
++int ui_default_pair(void);
+ int ui_show_content(WINDOW * win, int mxrow, int mxcol);
+ void ui_show_sc_row_headings(WINDOW * win, int mxrow);
+ void ui_show_sc_col_headings(WINDOW * win, int mxcol);

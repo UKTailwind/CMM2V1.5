@@ -71,3 +71,8 @@ apps/pdcurses/out/
 apps/wordgrinder/wordgrinder/
 apps/wordgrinder/zlib/
 apps/wordgrinder/out/
+# sc-im (apps/scim/make.py): sc-im fetched at a pinned commit, newlib 4.4.0's regex files (each checked by its hash),
+# and the build; gen/ (the grammar's files) is kept
+apps/scim/sc-im/
+apps/scim/regex/
+apps/scim/out/
