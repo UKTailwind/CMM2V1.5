@@ -1114,7 +1114,9 @@ The same set of commands as for I2C (above) but applying to the third I^^2^^C ch
 or
 IF expr THEN stmt ELSE stmt
 --- keep
-Evaluates the expression ‘expr' and performs the statement following the THEN keyword if it is true or skips to the next line if false.  If there are more statements on the line (separated by colons (:) they will also be executed if true or skipped if false.  The ELSE keyword is optional and if present the statement(s) following it will be executed if 'expr' resolved to be false.  
+Evaluates the expression ‘expr' and performs the statement following the THEN keyword if it is true or skips to the next line if false.  If there are more statements on the line (separated by colons (:)) they will also be executed if true or skipped if false.
+The ELSE keyword is optional.  When it is used, exactly one statement can follow THEN and exactly one statement can follow ELSE: the statement after THEN is executed if ‘expr' is true and the statement after ELSE if it is false.  Any statements after that on the same line (separated by colons) are not part of the IF and are always executed, whether ‘expr' was true or false.  For example:  `IF A = 1 THEN PRINT "one" ELSE PRINT "other" : PRINT "done"`  prints "one" or "other" and then always prints "done".
+With ELSE, a colon cannot be used between THEN and ELSE to give the true part a second statement:  `IF A THEN B = 1 : C = 2 ELSE D = 3`  sets B and then gives an error when A is true, and does nothing at all when A is false.  Use the multiline IF … ENDIF (below) when either part needs more than one statement.  The statement after ELSE can itself be a single line IF, so that  `IF A = 1 THEN PRINT "one" ELSE IF A = 2 THEN PRINT "two" ELSE PRINT "other"`  chooses between several cases.
 The ‘THEN statement’ construct can be also replaced with:\nGOTO linenumber | label’.
 This type of IF statement is all on one line.
 
