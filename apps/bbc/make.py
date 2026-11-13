@@ -165,7 +165,12 @@ def main():
            '--sources', listfile, '--api', '13', '--vram', '--stack', '0x10000', '--heap', str(2 << 20)]
     for d in inc:
         cmd += ['-I', d]
-    cmd += ['--cflag=-D' + d for d in DEFINES] + ['--cflag=-w', '--cflag=-O3', '--cflag=-fno-strict-aliasing']
+    # -fwrapv: the Thumb 6502's event times (cpu_mem.c's cycle_timestamp_t) are signed 32-bit counts of the BBC's 2 MHz cycles, compared
+    # wrap-safe as (a - b) > 0; without it GCC, taking a signed overflow as impossible, makes that a > b, and when the count passes
+    # 0x7FFFFFFF, 17.9 minutes after the start (2^31 / 2 MHz), events fire early, an assert fails (via.c's t1_reached) and the program
+    # ends with the screen still in its 576p (a user's G1 report, 13 Nov 2026: gibberish at the top of the screen after up to an hour at
+    # the BBC's prompt). Asserts off, as frank-micro's own build has them, the emulation freezes there instead (rh1tech/frank-micro#6)
+    cmd += ['--cflag=-D' + d for d in DEFINES] + ['--cflag=-w', '--cflag=-O3', '--cflag=-fno-strict-aliasing', '--cflag=-fwrapv']
     cmd += ['--cflag=' + a for a in sys.argv[1:] if a.startswith('-')]
     sys.exit(subprocess.run(cmd).returncode)
 
