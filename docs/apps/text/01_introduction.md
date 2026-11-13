@@ -27,6 +27,7 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | VT100 terminal | Makes the Colour Maximite 2 the screen and keyboard of a PicoMite or other computer | A:/vt100 |
 | zeptoforth | A Forth with tasks, double precision and a screen editor | A:/zeptoforth |
 | WordGrinder | A word processor, with spelling on a Generation 2 | A:/wordgrinder |
+| sc-im | A spreadsheet, worked from the keyboard as the vi editor is | A:/scim |
 
 All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each, and Quake and the Amiga, which need a Generation 2.
 
@@ -76,6 +77,7 @@ Programs differ in how you leave them, as an emulator has to pass most keys on t
 | 386 PC | Ctrl+Alt+End. See its chapter first, as this switches the PC off |
 | VT100 terminal | Shift-F12, then Quit. Ctrl-C goes to the computer at the other end |
 | WordGrinder | Ctrl+Q, which asks first if anything is not saved. Ctrl-C copies |
+| sc-im | :q and Enter, which refuses if the sheet is not saved (:q! leaves without saving). Ctrl-C does nothing |
 
 When a program ends, MMBasic tidies up after it: its files are closed, its sound is stopped, its I/O pins are released, and the video mode, font, colours and palette are put back.
 
