@@ -93,7 +93,7 @@ def main():
     ap.add_argument('--g2', action='store_true')
     ap.add_argument('--vram', action='store_true')
     ap.add_argument('--fixed', action='store_true')
-    ap.add_argument('--module', action='store_true')               # a module (CMM2IMG_KIND_MODULE, V8): crt0.c's
+    ap.add_argument('--module', action='store_true')               # a module (CMM2IMG_KIND_MODULE): crt0.c's
                                                                     # entry calls module_main(), not main()
     ap.add_argument('--xip', action='store_true')
     ap.add_argument('--xip-base', default='0x08141000')

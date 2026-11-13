@@ -77,7 +77,7 @@ static int c_write(sqlite3_file *f, const void *buf, int amt, sqlite3_int64 off)
     return put < amt ? SQLITE_FULL : SQLITE_OK;   /* (FatFs writes less when the card is full) */
 }
 
-/* A file cut short by file_truncate (services version 19, V8). Before it there was no such service: emptied, a file
+/* A file cut short by file_truncate (services version 19, from 7.00.00RC6). Before it there was no such service: emptied, a file
    is opened again created; cut short otherwise, it is left longer: SQLite takes a database's size from its header, so
    the pages after it are never read, and are written over as the database grows again. */
 static int c_truncate(sqlite3_file *f, sqlite3_int64 size) {

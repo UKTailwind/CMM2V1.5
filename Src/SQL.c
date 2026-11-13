@@ -3,7 +3,7 @@ CMM2 MMBasic
 
 SQL.c
 
-The SQL command and the SQL( function: an SQL database (SQLite) for BASIC programs (V8, docs/SQL_Plan.md). SQLite is
+The SQL command and the SQL( function: an SQL database (SQLite) for BASIC programs (7.00.00RC6, docs/SQL_Plan.md). SQLite is
 the module A:/sql/sql.mod (apps/sql: sql_mod.c over sqlcore.c), loaded into the heap by the first SQL OPEN and kept
 until the heap goes (RUN, NEW, CHAIN: Loader.c's LoaderModuleForget). This file is the BASIC side: the commands, the
 values bound to a statement's parameters, the rows into variables, arrays and structures.

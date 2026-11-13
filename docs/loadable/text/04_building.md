@@ -32,6 +32,7 @@ The options:
 | --g2 | The program runs on a Generation 2 only: a Generation 1 refuses it with "Needs a G2". |
 | --axi NAME | The code, constants and data of the source NAME (its file name without folder or extension) linked to run in the processor's 512KB of AXI RAM, which a Generation 2's display leaves free when its page is in the SDRAM. cmm2_axi_load() copies them there. Repeat it for more sources. Needs --g2. See Code in the Fast Memories in the chapter Performance. |
 | --itcm NAME[:F1,F2,...] | The functions named of the source NAME, or all its code if none are named, linked to run in the ITCM from 0xA000 to 0xFFFF, the 24KB above the firmware's own code, also copied there by cmm2_axi_load(). Needs --g2, and --api 18: older firmware does not keep that memory free. |
+| --module | A module, not a program: crt0.c's entry calls module_main(), which returns a table of functions (a cmm2mod_head first, Inc/cmm2img.h) for the firmware to call, and RUN refuses it. The firmware loads modules for its own commands only: the SQL command's SQLite, A:/sql/sql.mod (apps/sql), is the one there is. Needs --api 19. |
 | --libc full | The whole C library, newlib, in place of newlib-nano: its wide-character printf and file functions (swprintf, fwprintf, fgetws), which newlib-nano leaves out. The program is larger: hello.c is 27KB in place of 16KB. Neither library converts UTF-8 as STM32CubeIDE's tools build them: setlocale() takes only "C", and a byte is a character, as in Latin-1. |
 | --cflag FLAG | A flag for the compiler, for C and C++ (eg, --cflag=-DDEBUG, --cflag=-O3). Repeat it for more. |
 | --cxxflag FLAG | A flag for C++ sources only. |
@@ -89,7 +90,7 @@ The table of services only grows: each version of the firmware keeps the entries
 | 18 | A DMA2D copy without writing the source back from the cache first (dma2d_copy_nc). The ITCM from 0xA000 is kept for programs (--itcm), and the sound stream goes to the DACs by DMA. |
 | 19 | A file cut short (file_truncate, and the C library's ftruncate()). |
 
-Firmware 7.00.00RC3 has version 15, 7.00.00RC4 version 16, and 7.00.00RC5 version 18. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
+Firmware 7.00.00RC3 has version 15, 7.00.00RC4 version 16, 7.00.00RC5 version 18, and 7.00.00RC6 version 19. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
 
 ```
 if(cmm2->version >= 4) cmm2->con_screen(0);

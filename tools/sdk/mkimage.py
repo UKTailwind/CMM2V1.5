@@ -60,7 +60,7 @@ def main():
     ap.add_argument('--api', type=int, default=1)   # the services' version it uses: older firmware refuses it
     ap.add_argument('--g2', action='store_true')    # CMM2IMG_FLAG_G2: a G1 refuses it (more than a G1's memory)
     ap.add_argument('--vram', action='store_true')  # CMM2IMG_FLAG_VRAM: a G1 lends it its display memory too
-    ap.add_argument('--module', action='store_true')  # CMM2IMG_KIND_MODULE: loaded beside a BASIC program (V8)
+    ap.add_argument('--module', action='store_true')  # CMM2IMG_KIND_MODULE: loaded beside a BASIC program
     ap.add_argument('--fixed', action='store_true')  # no relocations: the program moves itself to the address it is linked for
     a = ap.parse_args()
     d = open(a.elf, 'rb').read()

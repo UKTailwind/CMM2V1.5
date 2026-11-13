@@ -44,7 +44,7 @@
                                                   triggers, gamepad_axes; 17: video_mode and video_scaled take depth
                                                   12; 18: dma2d_copy_nc; 19: file_truncate) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
-#define CMM2IMG_KIND_MODULE  2                 /* a module (V8, docs/SQL_Plan.md): loaded into MMBasic's heap beside the
+#define CMM2IMG_KIND_MODULE  2                 /* a module (7.00.00RC6, docs/SQL_Plan.md): loaded into MMBasic's heap beside the
                                                   BASIC program and kept there, its functions called by the firmware
                                                   (the SQL command's SQLite); forgotten with the heap (RUN, NEW, CHAIN).
                                                   Its entry, called once with the start block (argc 0, its own heap),
@@ -375,7 +375,7 @@ struct cmm2_services {
                                                   first: the program has seen to it, a dma2d_copy of the same source
                                                   say, with no write to it since (the Amiga's rows each copied to two
                                                   lines: the second clean was 1.5% of its time) */
-    /* version 19 (V8; 13 Nov 2026, docs/SQL_Plan.md: SQLite cuts a database back when a transaction that made it
+    /* version 19 (7.00.00RC6; 13 Nov 2026, docs/SQL_Plan.md: SQLite cuts a database back when a transaction that made it
        longer is rolled back) */
     int      (*file_truncate)(int h);          /* the file ends at its position (FatFs's f_truncate): 0, or an error
                                                   (-7, FR_DENIED, if it was not opened for writing) */

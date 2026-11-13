@@ -25,7 +25,7 @@ SQL OPEN opens the database file, and makes it (empty) if it is not there. Only 
 
 The database stays open until SQL CLOSE, or until the program is run again (RUN), cleared (NEW) or another one loaded (or CHAIN): each of these closes it, and any transaction not finished is undone. A program that ends without SQL CLOSE leaves it open at the command prompt.
 
-On a Generation 2 the engine uses the memory where loadable programs (.app files) run. A BASIC program that has a database open cannot run one: RUN "name.app" gives the error "SQL CLOSE first". At the command prompt, running a loadable program closes a database a program left open.
+On a Generation 2 the engine uses the memory where loadable programs (.app files) run. A BASIC program that has a database open cannot run one: RUN "name.app" gives the error "SQL CLOSE first". At the command prompt, running a loadable program closes a database a program left open. On a Generation 1 the engine is in BASIC's own memory, so a loadable program can run while a database is open, in the memory that is left; one that needs more does not start ("Needs 1608 KB, 1595 KB free in one block").
 
 SQL OPEN can also be given the engine's memory, in kilobytes, and how much of it to use as the cache of the database's pages: SQL OPEN f$, poolKB, cacheKB. Neither is normally needed.
 

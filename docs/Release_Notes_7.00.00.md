@@ -1,6 +1,6 @@
-# Colour Maximite 2: MMBasic 7.00.00RC5 (release candidate) release notes, from 5.07.02
+# Colour Maximite 2: MMBasic 7.00.00RC6 (release candidate) release notes, from 5.07.02
 
-*10 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC4, have notes of their own.*
+*13 November 2026. Compared with MMBasic 5.07.02, the last official release. The changes since the last version released, 7.00.00RC5, have notes of their own.*
 
 MMBasic 7.00 brings the Colour Maximite 2 up to the PicoMite's MMBasic version 7. The language is the same on both computers apart from the hardware one of them lacks, so most PicoMite programs run with few changes (and with OPTION PICOMITE, those written for a PicoMite with a VGA or HDMI screen run unchanged), and most Colour Maximite 2 programs run unchanged. Everything the Colour Maximite 2 already did is kept: the 18 video modes and their colour depths, pages, IMAGE, BLIT and sprites, the 3D engine, CAN, the DAC and ADC commands, the Wii controllers, speech and the GUI controls.
 
@@ -47,6 +47,11 @@ You can go back to an earlier firmware the same way, should you need to.
 - A program that sets a screen mode leaves BASIC's screen clear when it ends, as a MODE does, even when the mode it used was BASIC's own: its last picture stayed there before, in BASIC's colours. A program that sets no mode leaves its output on the screen.
 - A Generation 2 keeps 8MB of its memory for loadable programs; a Generation 1 lends a program the largest free part of MMBasic's heap while it runs, and a program built for it (Doom and ScummVM are) the display memory as well. The same program file runs on both.
 - The companion manual Colour Maximite 2 Loadable Programs describes how to write them, with the tools in the repository's tools/sdk, and Colour Maximite 2 386 PC Emulator how to use pc386.
+
+### SQL databases
+
+- **SQL and SQL(** give BASIC programs SQL databases (new in RC6): a database is a file on the SD card or USB flash drive, opened with SQL OPEN and worked on with statements in SQL. SQL EXEC runs statements, with values from the program bound to their ? parameters; SQL QUERY with SQL(NEXT) and SQL(n) reads a query's rows, and SQL(SELECT puts them into an array. Rows go into and out of MMBasic structures by matching the members' names with the columns' (SQL CREATE from a TYPE, SQL INSERT of a structure or an array of them, SQL(FETCH), and :name parameters from a structure. Errors are MMBasic errors ("SQL: " and the database's message).
+- **The database engine,** SQLite 3.47.0, is the module A:/sql/sql.mod in the programs zip's sql folder, loaded by SQL OPEN and unloaded by SQL CLOSE. A Generation 2 runs it in the memory kept for loadable programs (about 7MB for it; BASIC keeps all its own); a Generation 1 gives it 1MB of BASIC's memory, and is slow with large databases. The User Manual's chapter SQL Databases explains, with an example and a sample database (computers.db).
 
 ### The C compiler
 
@@ -290,6 +295,8 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
 
 ## What behaves differently
 
+- SQL( is a function from RC6, so an old program with an array named SQL() must rename it.
+
 - MODE 8 runs at 60Hz (it was 75Hz), so a program that times itself by the frame in MODE 8 (with MODE's frame interrupt or GETSCANLINE) runs at 60 frames a second.
 - OPTION OVERCLOCK ON runs an original Colour Maximite 2 whose processor is of revision Y at 480MHz, in place of 400MHz, and gives an error on other machines, which run at 480MHz already. It no longer runs a machine at 504MHz, beyond the processor's ratings: that stopped a Generation 1 from responding.
 - FILES lists the files, as LIST FILES does; FM is the file manager.
@@ -320,7 +327,7 @@ FatFs R0.16 (with exFAT and its security fixes), current dr_wav, dr_mp3 and dr_f
   - BLIT LOAD loads a BMP file; SPRITE LOAD loads a sprite file, as before.
   - SPRITE(A) gives the address of an image of four bytes a pixel in every colour depth.
 - One mouse is used at a time.
-- MM.VER is 7.000099 for 7.00.00 (it is 7.000055 for RC5). A release counts as 99 in the last two digits, so it is above every beta and release candidate of the same version: a program that asks for MM.VER >= 7.000051 runs on it.
+- MM.VER is 7.000099 for 7.00.00 (it is 7.000056 for RC6). A release counts as 99 in the last two digits, so it is above every beta and release candidate of the same version: a program that asks for MM.VER >= 7.000051 runs on it.
 - Modes 1 and 13 are 800 x 600 at 75Hz (they were 60Hz), and most modes' pixel clocks moved by up to 0.42%.
 - In the 16 and 32-bit colour depths full white is 7/8 of the old level (3/4 with OPTION VGA OUTPUT LOW), as in the 8-bit depth.
 - A variable can have the name of a command, so a program that used a name before it became a command (FLASH, STAR, LOCATION) runs as it did: at the start of a statement, `name = value` (or `name$`, `name%` or `name!`) assigns to the variable. The exceptions are TIMER, TIME$, DATE$, FLAGS and CASE, where `NAME =` is the command itself, and REM, RUN and DATA. An array cannot have a command's name, and a name that is also a keyword or a function (FOR, GOTO, SIN) is still not allowed.

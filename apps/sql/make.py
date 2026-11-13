@@ -68,7 +68,7 @@ def main():
     core = [os.path.join(HERE, 'sqlite_unit.c'), os.path.join(HERE, 'sqlcore.c')]
     # sql.app: services version 10 (dir_current, for names after the current directory); 1 MB of heap at least
     build(os.path.join(out, 'sql.app'), core + [os.path.join(HERE, 'sql_app.c')], ['--api', '10', '--heap', str(1 << 20)])
-    # sql.mod, the SQL command's module (V8: version 19, the file cut short), in a folder of its own (build.py's objects
+    # sql.mod, the SQL command's module (services version 19: the file cut short), in a folder of its own (build.py's objects
     # and map are named after it); its heap is what SQL OPEN gives it
     build(os.path.join(out, 'mod', 'sql.mod'), core + [os.path.join(HERE, 'sql_mod.c')], ['--api', '19', '--module'])
 
