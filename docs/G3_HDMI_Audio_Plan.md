@@ -19,8 +19,9 @@ screen as I2S through the MS7210, beside the DAC sound the G2 has now. Nothing h
   - PD12 goes to WS (pin 6).
   - PD11 goes to I2SDATA0 (pin 5).
   - I2SDATA1 to I2SDATA3 are not connected, which suits two channels.
-- **The peripheral:** those three pins should be SAI2's block A, at AF10: PD11 SD_A, PD12 FS_A, PD13 SCK_A. The HAL
-  has GPIO_AF10_SAI2. This is to be checked against the H743 datasheet's alternate-function table.
+- **The peripheral:** those three pins are SAI2's block A, at AF10: PD11 SD_A, PD12 FS_A, PD13 SCK_A. The HAL has
+  GPIO_AF10_SAI2. Checked on 13 Nov: the H743 datasheet's pin list gives SAI2_SD_A, SAI2_FS_A and SAI2_SCK_A on
+  those pins, and the Linux kernel's H743 pin table puts them on AF10.
 - **Nothing in the way:**
   - The firmware does not use SAI2 or those pins.
   - Of the DMA controllers' streams, the firmware uses only DMA2 stream 0, for memory-to-memory copies. DMA1 is free.
@@ -87,6 +88,25 @@ SAI2 has to make the I2S bit clock, and so needs a clock that divides down to 64
 The channel status says 44.1 kHz, and the sink rebuilds the clock from what the chip measures.
 - PLL1Q is 48 MHz only on a board running at 480 MHz. At 400 MHz, USB takes HSI48 instead.
 - A G3 runs at 480 MHz, as a G2 of revision V does. If a G3 ever runs at 400 MHz, this choice is made again.
+
+**Beside the video's SAI1** (13 Nov). The video plan may use SAI1 to put a clock at twice the pixel clock on PG7
+for the halved modes (G3_HDMI_Plan.md, "What the H743 can do itself"). That takes nothing from this plan:
+- **Separate peripherals:** SAI1 block A gives only its master clock on PG7 (AF6), and SAI2 block A is the sound on
+  PD11-13 (AF10).
+- **Separate clock selectors and PLLs:** SAI1's clock is chosen by RCC_D2CCIP1R's SAI1SEL (bits 2-0, pll3_p, which
+  changes with every mode). SAI2's is chosen by SAI23SEL (bits 8-6, pll1_q here, which never changes).
+- **What it rules out:**
+  - SAI1 for sound, both of its blocks, as they share pll3_p.
+  - DFSDM1's audio clock, which also follows SAI1SEL. The firmware does not use DFSDM1.
+  - SAI3 (which shares SAI23SEL with SAI2) and SAI4 (with its own selectors) stay free.
+- **Keep SAI2 asynchronous:** never synchronise it to SAI1 (SAI_GCR SYNCIN), whose clock stops at every mode change.
+  Asynchronous is the reset state.
+- **Write RCC_D2CCIP1R a field at a time** (read, modify, write), as both selectors are in it.
+- **The chip's audio clock regeneration is unchanged:** the MS7210 measures the rate from SCK and counts its CTS
+  against the pixel clock it is given. In a halved mode that is PG7's doubled clock, which is a standard pixel clock
+  to HDMI. PLL1 and PLL3 run from the same 8 MHz crystal, so CTS is steady.
+- **Room for the sound:** the doubled modes' blanking is twice as many of the chip's clocks too, so a halved mode has
+  the audio room of the standard mode it becomes, such as 640x480 at 75 Hz.
 
 **TIM4 locked to the SAI.** The two clocks share PLL1:
 - **The SAI's clock:** PLL1Q, from PLL1's 960 MHz VCO (PLLN 120, PLLQ 20).
