@@ -1,5 +1,5 @@
 """build.py OUT.app SOURCE.c|.cpp|.o [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
-            [--xip] [--xip-base ADDR] [--no-printf-float] [--libc nano|full] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
+            [--module] [--xip] [--xip-base ADDR] [--no-printf-float] [--libc nano|full] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
 CMakePresets.json's, else the PATH's): compiles the sources with crt0.c and syscalls.c for the M7 (double-precision
@@ -93,6 +93,8 @@ def main():
     ap.add_argument('--g2', action='store_true')
     ap.add_argument('--vram', action='store_true')
     ap.add_argument('--fixed', action='store_true')
+    ap.add_argument('--module', action='store_true')               # a module (CMM2IMG_KIND_MODULE): crt0.c's
+                                                                    # entry calls module_main(), not main()
     ap.add_argument('--xip', action='store_true')
     ap.add_argument('--xip-base', default='0x08141000')
     ap.add_argument('--axi', action='append', default=[])         # a source's name (no folder or extension): its code,
@@ -112,6 +114,8 @@ def main():
     if a.xip:                                                       # (in the flags' key: a change rebuilds everything)
         a.cflag += ['-DCMM2_XIP', '-DCMM2_XIP_API=' + a.api, '-DCMM2_XIP_STACK=' + str(int(a.stack, 0)),
                     '-DCMM2_XIP_HEAP=' + str(int(a.heap, 0))]
+    if a.module:
+        a.cflag += ['-DCMM2_MODULE']
     stem = os.path.splitext(a.out)[0]
     objdir = stem + '.obj'
     os.makedirs(objdir, exist_ok=True)
@@ -187,7 +191,8 @@ def main():
         sys.exit(0)
     r = subprocess.run([sys.executable, '-I', os.path.join(SDK, 'mkimage.py'), stem + '.elf', a.out,
                         '--stack', str(int(a.stack, 0)), '--heap', str(int(a.heap, 0)), '--api', a.api] +
-                       (['--g2'] if a.g2 else []) + (['--vram'] if a.vram else []) + (['--fixed'] if a.fixed else []))
+                       (['--g2'] if a.g2 else []) + (['--vram'] if a.vram else []) + (['--fixed'] if a.fixed else []) +
+                       (['--module'] if a.module else []))
     sys.exit(r.returncode)
 
 

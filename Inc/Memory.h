@@ -138,7 +138,7 @@ extern uint32_t RBStreamSize;
 // G2's 15.5 MB heap. The 16 KB above it, to RAMBASE's 0x30008000, is the RAM of the runtime the firmware runs in place
 // from its flash (cmm2img.h CMM2XIP_RAM: bcrun's .data and .bss, Peter 4 Nov 2026)
 #define SDMAP_SIZE        	0x4000
-extern int LoaderExec, LoaderVram, LoaderNoSbrk;
+extern int LoaderExec, LoaderVram, LoaderNoSbrk, LoaderModExec;   // (LoaderModExec: a module in the heap, Loader.h)
 extern volatile int LoaderActive;
 extern int LargestFreeOnHeap(void);
 extern int HeapBottomFree(void);

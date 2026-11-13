@@ -128,6 +128,7 @@ void cmd_locate(void);
 void cmd_flash(void);
 void cmd_ram(void);
 void cmd_cc(void);
+void cmd_sql(void);
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -323,6 +324,7 @@ void fun_ctrlval(void);
 void fun_mmhpos(void);
 void fun_mmvpos(void);
 void fun_touch(void);
+void fun_sql(void);
 void fun_click(void);
 void fun_math(void);
 void fun_timer(void);
@@ -572,6 +574,7 @@ void op_inv(void);
 	{ "TMC22xx",	    T_CMD,				0, cmd_TMC22xx	},      // TMC22xx ...: TMC2208/2209 drivers set up over their UART
 	{ "Keyboard",	    T_CMD,				0, cmd_keyboard	},      // KEYBOARD ON|OFF: the on-screen keyboard (MM_Misc.c, OSK.c)
 	{ "CC",			    T_CMD,				0, cmd_cc		},      // CC file$ [, options$]: the C compiler, cc.app (Loader.c)
+	{ "SQL",		    T_CMD,				0, cmd_sql		},      // SQL OPEN|CLOSE|EXEC|QUERY|CREATE|INSERT: SQLite, A:/sql/sql.mod (SQL.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
@@ -712,6 +715,7 @@ void op_inv(void);
 	{ "Device(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_device_fn	},      // DEVICE(MOUSE n, k), DEVICE(GAMEPAD n, k): the PicoMite's (RAW is a string)
 	{ "Tilemap(",	    T_FUN | T_INT,		0, fun_tilemap	},      // TILEMAP(TILE|COLLISION|ATTR|VIEWX|VIEWY|COLS|ROWS|SPRITE ...) (TileMap.c)
 	{ "Touch(",	    T_FUN | T_INT,		0, fun_touch	},      // the PicoMite's TOUCH(: a USB touch screen, the mouse and GUI CLICK (GUI.c)
+	{ "SQL(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_sql	},      // SQL(NEXT|FETCH|SELECT|n|...): 0xFE, the last one-byte function token (SQL.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

@@ -1084,7 +1084,10 @@ uint32_t HeapGen = 0;                                               // HeapWipe'
 static void HeapWipe(void **keep, int *size, int n) {
     extern void stepper_close_subsystem(void);
     extern void StepperForgetRetired(void);
+    extern void LoaderModuleForget(void);
     HeapGen++;
+    LoaderModuleForget();                                           // a module in this heap (Loader.c: SQL's SQLite) gone
+                                                                    // first, its database closed while its code is there
     stepper_close_subsystem();                                      // the stepper's buffers are in this heap and its 100 kHz
     StepperForgetRetired();                                         // tick reads them: off and freed while the map is valid,
                                                                     // so RUN, NEW, a load or CHAIN never leave it running on

@@ -8,7 +8,7 @@
    the start block's, between the program's .bss and its stack. time() and gettimeofday() read MMBasic's clock (DATE$
    and TIME$) once and add the microseconds since; clock_gettime's CLOCK_MONOTONIC, times() and clock() count the
    microseconds since start-up (time.h declares what newlib leaves out). opendir and the rest (sys/dirent.h), stat,
-   chdir and getcwd are the services' (versions 5 and 10); fork, exec and wait refuse, as one program cannot start
+   chdir and getcwd are the services' (versions 5 and 10), ftruncate version 19's; fork, exec and wait refuse, as one program cannot start
    another. An error sets errno as a program reads it (fail()). memcpy, memset and memmove are the firmware's
    (version 11). */
 #include <errno.h>
@@ -313,6 +313,26 @@ int fsync(int fd) {
     int h = handle(fd), r;
     if(h < 0) return 0;
     if((r = cmm2->file_sync(h)) < 0) return fail(fr_errno(r));
+    return 0;
+}
+
+/* the file made len bytes long (services version 19): cut short by file_truncate, or made longer by a seek past its end
+   (FatFs's f_lseek, which adds clusters to a file open for writing). Its position stays where it was, or goes to len
+   if it was past that (a seek past the end would make the file longer again). */
+int ftruncate(int fd, off_t len) {
+    int h = handle(fd), r;
+    int32_t pos, size;
+    if(h < 0 || len < 0) return fail(EINVAL);
+    if(cmm2->version < 19) return fail(ENOSYS);
+    pos = cmm2->file_tell(h);
+    size = cmm2->file_size(h);
+    if((r = cmm2->file_seek(h, (uint32_t)len)) < 0) return fail(fr_errno(r));
+    if(len < size && (r = cmm2->file_truncate(h)) < 0) return fail(fr_errno(r));
+    if(len > size && cmm2->file_size(h) < len) {                    // (open for reading only: the seek stopped at the end)
+        cmm2->file_seek(h, (uint32_t)pos);
+        return fail(EBADF);
+    }
+    if(pos < len) cmm2->file_seek(h, (uint32_t)pos);
     return 0;
 }
 

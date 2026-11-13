@@ -33,7 +33,7 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  18                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  19                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
@@ -42,8 +42,13 @@
                                                   state; 13: the USB gamepads; 14: COM4-7, the USB serial devices, by the com_ services;
                                                   15: com_connected; 16: a gamepad's right stick and analogue
                                                   triggers, gamepad_axes; 17: video_mode and video_scaled take depth
-                                                  12; 18: dma2d_copy_nc) */
+                                                  12; 18: dma2d_copy_nc; 19: file_truncate) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
+#define CMM2IMG_KIND_MODULE  2                 /* a module (7.00.00RC6, docs/SQL_Plan.md): loaded into MMBasic's heap beside the
+                                                  BASIC program and kept there, its functions called by the firmware
+                                                  (the SQL command's SQLite); forgotten with the heap (RUN, NEW, CHAIN).
+                                                  Its entry, called once with the start block (argc 0, its own heap),
+                                                  returns its table of functions, which begins with a cmm2mod_head */
 #define CMM2IMG_FLAG_G2      0x01              /* needs a G2: a G1 refuses it (mkimage --g2) */
 #define CMM2IMG_FLAG_VRAM    0x02              /* a G1 lends it its display memory too (mkimage --vram): the 3 MB of
                                                   pages at 0xD0000000, which holds the program if it fits there (else
@@ -370,7 +375,19 @@ struct cmm2_services {
                                                   first: the program has seen to it, a dma2d_copy of the same source
                                                   say, with no write to it since (the Amiga's rows each copied to two
                                                   lines: the second clean was 1.5% of its time) */
+    /* version 19 (7.00.00RC6; 13 Nov 2026, docs/SQL_Plan.md: SQLite cuts a database back when a transaction that made it
+       longer is rolled back) */
+    int      (*file_truncate)(int h);          /* the file ends at its position (FatFs's f_truncate): 0, or an error
+                                                  (-7, FR_DENIED, if it was not opened for writing) */
 };
+
+/* the start of a module's table of functions (CMM2IMG_KIND_MODULE): what the loader itself calls */
+typedef struct {
+    uint32_t magic;                            /* CMM2MOD_MAGIC */
+    uint32_t version;                          /* the table's version, the firmware command's to check */
+    void     (*forget)(void);                  /* called before the module goes: its files closed, its work given up */
+} cmm2mod_head;
+#define CMM2MOD_MAGIC        0x444F4D43u       /* "CMOD" */
 
 /* the firmware's libm (services version 11): the 19 functions the PC3's kernel shares with its programs, in the
    order of bcrun's maths table. Pure functions only: the firmware's strtod and printf allocate from its own heap,

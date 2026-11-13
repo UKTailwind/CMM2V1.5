@@ -125,6 +125,8 @@ SECTIONS
     *libm.a:libm_a-e_acos.o(.text .text* .rodata .rodata*)
     *stepper.o(.text .text* .rodata .rodata*)            /* STEPPER and TMC22xx (its 200 kHz tick is in ITCM: .itcm) */
     *stepper.c.obj(.text .text* .rodata .rodata*)
+    *SQL.o(.text .text* .rodata .rodata*)                /* SQL and SQL( (the module's side in the firmware) */
+    *SQL.c.obj(.text .text* .rodata .rodata*)
     *BmpDecoder.o(.text .text* .rodata .rodata*)         /* LOAD BMP's decoder (26 Oct 2026: bank 1 was full) */
     *BmpDecoder.c.obj(.text .text* .rodata .rodata*)
     *PngEncoder.o(.text .text* .rodata .rodata*)

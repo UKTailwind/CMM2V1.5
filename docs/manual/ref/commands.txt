@@ -2876,6 +2876,20 @@ The background that is overwritten is not stored so SPRITE WRITE is inherently h
 {l=720}&B100 = don't copy transparent pixels
 Written as BLIT WRITE the default is 0, every pixel copied (see BLIT).  A sprite that is displayed can be written too: the copy is drawn, and the sprite shown, its orientation and its stored background are left as they were.
 
+=== SQL OPEN file$ [, poolKB [, cacheKB]]
+=+= SQL CLOSE [QUERY]
+=+= SQL EXEC sql$ [, value ...]
+=+= SQL QUERY sql$ [, value ...]
+=+= SQL CREATE type [, table$]
+=+= SQL INSERT var [, table$]
+---
+An SQL database (SQLite) in a file on the SD card or USB flash drive: see the chapter SQL Databases. The database engine is the module A:/sql/sql.mod, which SQL OPEN loads and SQL CLOSE unloads. On a Generation 1 the engine has 1MB and is slow with large databases (see the chapter).
+SQL OPEN opens the database ‘file$', and makes it if it is not there; it closes one already open. ‘poolKB' and ‘cacheKB' set the engine's memory and its cache, in kilobytes (normally not needed). SQL CLOSE closes it and unloads the engine; SQL CLOSE QUERY only ends the current query. RUN, NEW and CHAIN close it too. On a Generation 2 a BASIC program with a database open cannot run a loadable program (.app).
+SQL EXEC runs one or more SQL statements, separated by semicolons. Each ? in a statement is replaced by the next ‘value' after it (a number or a string); a structure among the values gives the statement's :name parameters from its members of those names.
+SQL QUERY starts a query (one statement): SQL(NEXT) moves to each of its rows and SQL(n) gives its columns.
+SQL CREATE makes a table, named after the structure type ‘type' or ‘table$', with a column for each of the type's members. SQL INSERT adds a row from the structure ‘var', or a row for each element of an array of structures ‘var()', matching the members' names with the columns'; an INTEGER member ID that is 0 is given the new row's key.
+A statement the database cannot run is an error "SQL: " with SQLite's message.
+
 === STAR body alt, az [, ra, dec]
 or
 STAR alt, az, ra2000, dec2000 [, pm_ra, pm_dec] [, ra, dec]

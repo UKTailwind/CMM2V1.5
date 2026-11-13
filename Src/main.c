@@ -3181,12 +3181,13 @@ void OPTSIZE MPU_Config_nCacheable(int jpg)
 		  neverrun=0;
 	  }
 	  static int lastexec = 0;                                     // a loadable program in the heap (Loader.c): regions 8
-	  if(LoaderExec != lastexec) {                                  // and 9 executable while it runs (region 7 always is);
+	  int exec = LoaderExec || LoaderModExec;                      // (or a module kept in the heap: Loader.c)
+	  if(exec != lastexec) {                                       // and 9 executable while it runs (region 7 always is);
 		  MPU_InitStruct8.DisableExec = MPU_InitStruct9.DisableExec = // here, since every mode change comes this way
-				  (LoaderExec ? MPU_INSTRUCTION_ACCESS_ENABLE : MPU_INSTRUCTION_ACCESS_DISABLE);
+				  (exec ? MPU_INSTRUCTION_ACCESS_ENABLE : MPU_INSTRUCTION_ACCESS_DISABLE);
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct8);
 		  HAL_MPU_ConfigRegion(&MPU_InitStruct9);
-		  lastexec = LoaderExec;
+		  lastexec = exec;
 	  }
 	  static int lastvram = 0;                                     // a loadable program's code in the display memory (Loader.c,
 	  if(LoaderVram != lastvram || LoaderVram) {                   // CMM2IMG_FLAG_VRAM): regions 1-6 executable only while it

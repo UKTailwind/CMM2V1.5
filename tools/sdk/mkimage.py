@@ -60,6 +60,7 @@ def main():
     ap.add_argument('--api', type=int, default=1)   # the services' version it uses: older firmware refuses it
     ap.add_argument('--g2', action='store_true')    # CMM2IMG_FLAG_G2: a G1 refuses it (more than a G1's memory)
     ap.add_argument('--vram', action='store_true')  # CMM2IMG_FLAG_VRAM: a G1 lends it its display memory too
+    ap.add_argument('--module', action='store_true')  # CMM2IMG_KIND_MODULE: loaded beside a BASIC program
     ap.add_argument('--fixed', action='store_true')  # no relocations: the program moves itself to the address it is linked for
     a = ap.parse_args()
     d = open(a.elf, 'rb').read()
@@ -130,7 +131,7 @@ def main():
     crc = zlib.crc32(bytes(image) + rel) & 0xFFFFFFFF
     name = (a.name or a.out.replace('\\', '/').split('/')[-1].rsplit('.', 1)[0])[:15].encode()
     flags = (0x01 if a.g2 else 0) | (0x02 if a.vram else 0)
-    hdr = HEADER.pack(b'CMM2IMG\0', 1, a.api, 1, flags, 0, base, len(image), bss_end - end, entry - base, a.stack, a.heap,
+    hdr = HEADER.pack(b'CMM2IMG\0', 1, a.api, 2 if a.module else 1, flags, 0, base, len(image), bss_end - end, entry - base, a.stack, a.heap,
                       len(relocs), crc, name)
     open(a.out, 'wb').write(hdr + bytes(image) + rel)
     print('%s: %d bytes of image at 0x%08X, %d of .bss, entry +0x%X, %d relocations (%d absolute left alone), '
