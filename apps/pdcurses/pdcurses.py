@@ -21,7 +21,7 @@ import glob, hashlib, os, re, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PDC = os.path.join(HERE, 'PDCursesMod')
 PDC_URL = 'https://github.com/Bill-Gray/PDCursesMod.git'
-PDC_COMMIT = 'd494b49c29706802a0095d64333a45a3295c89a0'       # 4.5.4, 30 Sep 2026
+PDC_COMMIT = '0b262da44c861c0012a735d3456f5a33e53b9708'       # 13 Nov 2026: 4.5.4 and the 8-bit A_REVERSE fix (#395)
 SPLEEN = os.path.join(HERE, 'spleen')
 SPLEEN_URL = 'https://github.com/fcambus/spleen.git'
 SPLEEN_COMMIT = '5116f8eac7f65da2cfa169626ec43b5d041665fe'    # as apps/vt100's
