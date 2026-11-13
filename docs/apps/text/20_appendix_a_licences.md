@@ -25,3 +25,4 @@ The source of each program is named in the file make.py of its folder in the fir
 | VT100 terminal | libvterm: MIT. The Spleen fonts: BSD 2-Clause |
 | zeptoforth | zeptoforth: MIT. Its console has libvterm: MIT, and the Spleen fonts: BSD 2-Clause |
 | WordGrinder | WordGrinder, Lua, lpeg, LuaBitOp, Lunamark and xpattern: MIT. MiniZip and zlib: the zlib licence. uthash: BSD. wcwidth: free to use, copy and change. PDCursesMod and dlmalloc: public domain. The Spleen fonts: BSD 2-Clause. The dictionaries, from SCOWL: free to use, copy and change with their notice |
+| sc-im | sc-im: BSD 4-Clause, which asks for the line "This product includes software developed by Andrés G. Martinelli". Its regular expressions, from newlib: BSD (Henry Spencer, the University of California and Andrey Chernov). PDCursesMod: public domain. The Spleen fonts: BSD 2-Clause |

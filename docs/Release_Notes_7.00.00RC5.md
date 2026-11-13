@@ -4,7 +4,7 @@
 
 This is the sixth release candidate of MMBasic 7.00 for the Colour Maximite 2. Unless problems are found in it, it will become 7.00.00. Please report problems on the Back Shed forum.
 
-It adds two emulators to the programs, an Amiga 500 and an Apple //e, from 11 November 2026 a third, the TRS-80, from 12 November a fourth, the BBC Micro, and on 12 November a word processor, WordGrinder. For the Amiga, the firmware gives loadable programs their sound by DMA, a copy without the cache's write-back, and the fast internal memory. MODE 8 now runs at 60Hz.
+It adds two emulators to the programs, an Amiga 500 and an Apple //e, from 11 November 2026 a third, the TRS-80, from 12 November a fourth, the BBC Micro, on 12 November a word processor, WordGrinder, and on 13 November a spreadsheet, sc-im. For the Amiga, the firmware gives loadable programs their sound by DMA, a copy without the cache's write-back, and the fast internal memory. MODE 8 now runs at 60Hz.
 
 The same firmware file runs on both the Generation 1 and the Generation 2.
 
@@ -24,7 +24,7 @@ OPTION DISK LOAD "A:/myoptions"
 
 The console runs at 115200 baud until the options are loaded. The library, the variables saved with VAR SAVE and the files on the SD card are kept.
 
-Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga, apple2, trs80, bbc and wordgrinder folders are new.
+Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga, apple2, trs80, bbc, wordgrinder and scim folders are new.
 
 ## What is new
 
@@ -74,6 +74,15 @@ Copy the new CMM2_Programs_7.00.00RC5.zip to the card as well: the amiga, apple2
 
   The App User Guide has a chapter on it.
 
+- **A spreadsheet, sc-im,** in the folder scim (added to the programs on 13 November 2026: the firmware is unchanged): Andrés Martinelli's sc-im 0.8.6, a spreadsheet worked from the keyboard as the vi editor is. It has formulas with over 60 functions, several sheets in a file, number and date formats, sorting, filters, undo and colours. It keeps its sheets in its own text format (.sc), formulas and all, and reads and writes CSV files from and to Microsoft Excel and LibreOffice (CSV UTF-8 or Excel's plain CSV), tab-separated files and Markdown tables. A USB mouse moves to a cell with a click, types a cell's name into a formula, and scrolls with its wheel. Like WordGrinder, it uses the video mode MMBasic is in, and Alt+= and Alt+Minus change the mode and the font. Its CSV reading and writing were mended for Excel's files: the mark at the start of a CSV UTF-8 file, quotes inside text, and the accented letters of a plain CSV file:
+
+  ```
+  CHDIR "A:/scim"
+  RUN "scim.app", budget.sc
+  ```
+
+  The App User Guide has a chapter on it, with a first sheet to make step by step.
+
 - **Going up a folder in the Atari's and the TRS-80's lists of files** (on 12 November 2026 the zip's atari800.app and trs80.app were replaced: the firmware is unchanged). [..] at the top of each folder's list (<..> on the TRS-80) now goes up a folder, as far as A:/. Before, once in a folder, the Atari could go up only with Backspace, and the TRS-80 not at all.
 
 - **MODE 8 is 640 x 480 at 60Hz,** the standard VGA timing, where it was 75Hz. Its GETSCANLINE counts to 524. The other modes are unchanged.
@@ -110,6 +119,7 @@ On a Generation 2 unless it says otherwise:
 - **atari800 and trs80,** with the apps of 12 November, on a Generation 2 running the development firmware (the change is in the programs alone): [..] and <..> at the top of each folder below A:/, going up a folder at a time to A:/, and none in A:/ itself; Backspace in the Atari's list.
 - **bbc,** on both generations running the development firmware (it needs nothing new from it): BASIC; MODE 0, 2 and 7; Elite; Chuckie Egg with the keyboard and a gamepad; the sound; Wordwise-Plus 1.4F editing, previewing and saving its text to a disc; BASIC programs saved and loaded; *FORM; the roms folder and *SRLOAD on both models; changing the model; a UK USB keyboard.
 - **wordgrinder,** on both generations running the development firmware (it needs nothing new from it): its own 65 tests, of which 64 pass (the other looks for a Windows install folder); typing, selecting with Shift and Ctrl, the menus and styles with a USB keyboard; documents saved and loaded on A: and C:, autosave, and an ODT export opened in Microsoft Word; changing the video mode and font with Alt+= and Alt+Minus; and, on a Generation 2, spelling with the whole British dictionary (ready in 6 seconds), and on a Generation 1 the message that it does not fit, with the document kept.
+- **scim,** on both generations running the development firmware (it needs nothing new from it), with a USB keyboard and mouse: the chapter's first sheet; formulas, functions, dates and formats; text with accented letters, and Greek letters with Ctrl+K; the arrows, Page Up and Page Down, Home and End; a click to a cell and into a formula, and the wheel; Alt+= and Alt+Minus; a settings file (scimrc) and the history of what was typed; sheets saved and loaded as .sc and CSV; CSV files saved by Microsoft Excel (CSV UTF-8 and plain CSV, with dates, percentages, quotes and accented letters) opened, and sc-im's CSV files opened in Excel; :help; and the shell's commands (:!, :plot) saying they cannot run.
 - **The sound by DMA** on a Generation 1: Doom's timed demo with its music and effects at 38.4 frames a second, as before; the DACs given back to MMBasic after a program (PLAY TONE), on both generations.
 - **MODE 8** on a Generation 1: 800 x 525 at 25.2MHz, 60.03Hz, and GETSCANLINE up to 524.
 - Every other program in the zip is unchanged: rebuilt with this version's tools, they are the same files.
@@ -127,13 +137,14 @@ On a Generation 2 unless it says otherwise:
 - **trs80:** cassette files, /CMD files, hard disks, the hi-res graphics boards, the printer, the serial port, saved states and games with a joystick have not been tried yet. A disk cannot be write-protected from its menu. The MegaMem needs a Generation 2.
 - **bbc:** ADFS discs, the Printer DAC and screenshots have not been tried yet. The Model B runs the Master's 65C12, so a program that uses the original 6502's undocumented instructions may not run. Some early ROMs made for the Model B, Wordwise-Plus 1.4A among them, do not run on the Master.
 - **wordgrinder:** it has no mouse (WordGrinder 0.8 has none) and does not print: export a document and print it from a PC. Ctrl+I and Ctrl+M need a USB keyboard, as a terminal on the serial console sends them as Tab and Enter. Checking spelling with a whole dictionary needs a Generation 2.
+- **scim:** it has no charts, cannot run other programs, has no clipboard, cannot read or write .xlsx, .xls or .ods files (use CSV), and does not print. A CSV file holds each number as it is shown, so give a column the decimal places it needs before saving; numbers with a thousands separator, percentages and dates in a CSV file come in as text. The fonts lack many of the Greek and maths characters Ctrl+K can enter. Sorting, filters and subtotals have not been tried yet.
 
 The known problems of 7.00.00RC4 remain.
 
 ## The manual
 
-The User Manual gives MODE 8's new timing. Colour_Maximite_2_Loadable_Programs.pdf adds services versions 17 and 18, the sound by DMA, and --axi and --itcm, and Colour_Maximite_2_App_User_Guide.pdf the Amiga, Apple //e, TRS-80 and BBC Micro emulators and WordGrinder.
+The User Manual gives MODE 8's new timing. Colour_Maximite_2_Loadable_Programs.pdf adds services versions 17 and 18, the sound by DMA, and --axi and --itcm, and Colour_Maximite_2_App_User_Guide.pdf the Amiga, Apple //e, TRS-80 and BBC Micro emulators, WordGrinder and sc-im.
 
 ## Licences
 
-pico-amiga is under the GNU GPL version 3, and Musashi under the MIT licence. frank-apple and MII are under the MIT licence, and the Apple's ROMs built into them are Apple's. No Amiga software comes with the emulator. sdltrs is under the BSD 2-Clause licence, xtrs under its own, and the Model 4P boot ROM built in is Peter Cervasio's, free to copy with its notice; no Tandy ROM comes with it. frank-micro is under the GNU GPL version 3 and B-em under version 2 or later, and the BBC's ROMs built into it are Acorn's. WordGrinder is under the MIT licence, as are Lua and its other Lua parts; MiniZip and zlib are under the zlib licence, uthash under a BSD licence, PDCursesMod and dlmalloc are in the public domain, and its dictionaries, from SCOWL, are free to use with their notice. The licences folder of the zip has them, and its README lists every program's licence.
+pico-amiga is under the GNU GPL version 3, and Musashi under the MIT licence. frank-apple and MII are under the MIT licence, and the Apple's ROMs built into them are Apple's. No Amiga software comes with the emulator. sdltrs is under the BSD 2-Clause licence, xtrs under its own, and the Model 4P boot ROM built in is Peter Cervasio's, free to copy with its notice; no Tandy ROM comes with it. frank-micro is under the GNU GPL version 3 and B-em under version 2 or later, and the BBC's ROMs built into it are Acorn's. WordGrinder is under the MIT licence, as are Lua and its other Lua parts; MiniZip and zlib are under the zlib licence, uthash under a BSD licence, PDCursesMod and dlmalloc are in the public domain, and its dictionaries, from SCOWL, are free to use with their notice. sc-im is under the BSD 4-Clause licence (this product includes software developed by Andrés G. Martinelli), and the regular expressions it has from newlib under BSD licences. The licences folder of the zip has them, and its README lists every program's licence.

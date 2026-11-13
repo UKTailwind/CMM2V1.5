@@ -83,10 +83,15 @@ static void *morecore(ptrdiff_t incr) {
 
 /* dlmalloc's ABORT, when it finds a block damaged, or is given one it never gave out: newlib's abort() ended the
    program with code 1 and nothing said (Peter's review, 12 Nov 2026). The console is put back over curses' screen
-   first, so that the message is seen. */
+   first, so that the message is seen, and it waits for a key, as apps/pdcurses' at_exit does: WordGrinder set a
+   video mode, so the firmware clears the screen as the program ends (Loader.c's ld_screenback), and the message would
+   go with it (13 Nov 2026, review of 1468d08). _exit, not exit: the heap is damaged, so atexit's work is skipped. */
 static void __attribute__((noreturn)) heap_damaged(void) {
     if(cmm2->version >= 4) cmm2->con_screen(1);
-    cmm2->con_puts("\r\nWordGrinder: its memory is damaged (dlmalloc found a bad block), so it stops here.\r\n");
+    if(cmm2->version >= 10) cmm2->gfx_cls(0);
+    cmm2->con_puts("\r\nWordGrinder: its memory is damaged (dlmalloc found a bad block), so it stops here.\r\n"
+                   "Press a key for MMBasic.\r\n");
+    while(cmm2->con_getc() < 0 && !cmm2->break_take()) cmm2->poll();
     _exit(1);
 }
 #define ABORT heap_damaged()

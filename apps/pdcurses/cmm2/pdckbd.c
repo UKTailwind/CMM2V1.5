@@ -17,6 +17,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <malloc.h>
+#include <assert.h>                             /* (before common/mouse.c, which asserts: built without NDEBUG, as
+                                                    sc-im is, it was an undeclared function) */
 #include "curspriv.h"
 #include "common/mouse.c"
 #include "cmm2.h"

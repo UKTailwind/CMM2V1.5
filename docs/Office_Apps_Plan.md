@@ -606,6 +606,79 @@ Step 1 is done.
 2. The tests compared with WSL, then the checks by hand.
 3. Check that each shell feature fails cleanly.
 
+**Progress (12 Nov, uncommitted in wt_office):**
+- **The character set (Peter, 12 Nov): UTF-8, built with the Arm GNU Toolchain** (13.3 rel1, its full newlib has
+  `_MB_CAPABLE`): `make.py` sets `ARM_TOOLCHAIN_DIR` for sc-im alone (`SCIM_TOOLCHAIN_DIR` overrides it);
+  `cmm2_main.c` sets `LANG=C.UTF-8` for sc-im's `setlocale(LC_CTYPE, "")`, and `HOME` (the app's folder: `scimrc`,
+  `sc-iminfo`, and the help as `sc-im_help` by `HELP_PATH=getenv("HOME")`).
+- **The grammar:** WSL had no bison and no root: `apt-get download bison m4` and `dpkg -x` into `~/tools/bison`.
+  `gen.sh` makes `gen/` (gram.c, y.tab.h, experres.h, statres.h: bison 3.8.2), kept in the repository, made again only
+  when gram.y or the sed scripts change; `make.py` copies the headers beside sc-im's sources (`../y.tab.h`).
+- **compat/:** `curses.h` (PDC_NCMOUSE for sc-im's files alone: PDCursesMod's mouse.c does not build with it, and its
+  files define CURSES_LIBRARY first; `set_escdelay` declared), `dlfcn.h` (C triggers fail with a message),
+  `sys/ioctl.h` (included, unused), `compat.c` (popen, pclose, dup, execl fail; getpwnam finds no one; realpath;
+  select; set_escdelay; `__collate_load_error`).
+- **regex:** newlib ships `<regex.h>` but not the code for this target: newlib 4.4.0's own (Henry Spencer's, BSD) is
+  fetched from sourceware at the tag's commit, each file checked by SHA-256 (sourceware gives 429 to a quick
+  series of requests: a second build uses the files it has).
+- **patches/0001-cmm2.patch** (each portable, for upstream): conf.c (no `tm_gmtoff` in newlib); tui.c (the character
+  by `getcchar`, not ncurses's `cchar_t.chars`; `ui_getch` clears `wd` first: PDCurses leaves it on a timeout, and
+  the last arrow key was taken again and again; wbkgd's pair by `ui_default_pair()`, numbered as the pairs are made:
+  `(fg+1) * COLORS + bg + 2` named a pair never made, which ncurses's 8-bit field wrapped to pair 1, and here was
+  blue); macros.h (`OKEY_*` from curses.h's `KEY_*`: PDCurses's wide keys start at 0xec00; maps.c includes curses.h);
+  main.c (no pipeline to read when stdin is a terminal, and stdin when there is no /dev/tty).
+- **The back end:** pdckbd.c includes `<assert.h>` before `common/mouse.c`, which asserts (built without NDEBUG,
+  sc-im's, it was an undefined function).
+- **On the boards:** `scim.app` 569 KB. G2 (V7): the welcome screen ("Andrés"), `=1+2`, a label "Café" typed as the
+  keyboard's Latin-1 é, `=A0*2`, the arrows one cell at a time, `:w` to .sc and .csv, `RUN "scim.app", t1.sc` loads
+  it, `:help`, `:q`; MMBasic's heap whole after. G1 (V8): `=100/7`, "été", `@sqrt(490)`, the mouse pointer, `:q!`.
+- **13 Nov:** patch 0001 also redraws on KEY_RESIZE (input.c): sc-im redraws only on SIGWINCH or Ctrl+L, and the back
+  end gives Alt+= and Alt+Minus as KEY_RESIZE (scim.app CRC D09F742F, on both cards). The shell features fail
+  cleanly: `:!` "Error creating pipe" then a key; `:plot` "Gnuplot was not installed"; `:e xlsx` / `:w x.xlsx` "XLSX
+  export support not compiled in"; `:ccopy`/`:cpaste`/gf do nothing (no message); newlib's `system()` is the NO_EXEC
+  one (-1). Checked on the G2: a PC CSV (CRLF, quoted comma, UTF-8) loads; `:w x.csv` writes LF, UTF-8 without BOM,
+  values as shown; `.sc` keeps formulas; missing file = "New file"; `:q` refuses unsaved; p keeps references, Pc
+  moves them; `<>` and `~` (sc-im's `!=` is commented out of gram.y); `@now` = the RTC; `:datefmt "%d/%m/%Y"`; Ctrl+D
+  is C locale `%m/%d/%y` only; PgDn is half a screen (`half_page_scroll=1` by default, the help says 0); history in
+  sc-iminfo; no heap lost over runs. Fonts: 41 of the 89 digraph characters in 8x16, 1 in 6x12.
+- **patches/0002-cmm2-plain-text.patch (13 Nov, Peter):** no bold in sc-im's default colours (the formula, cell name,
+  sheet, mode, messages and the whole help were bold, and PDCursesMod's fb bold, each stroke drawn twice, was hard to
+  read). A CMM2 choice, not for upstream; the back end's bold is unchanged (WordGrinder's bold text needs it); `:color`
+  and `:cellcolor` still take bold=1. scim.app CRC 141240E8, on both cards.
+- **Peter's checks (13 Nov, G2):** USB keyboard and mouse work (a first "no keys" was text looked for on the top line:
+  typing is on the second line, now said in the chapter); Alt+= and Alt+Minus redraw; a click moves to a cell and
+  types its name in a formula; the wheel scrolls. Checked on the G1 by serial: scimrc read (CR LF lines; MMBasic's EDIT
+  adds .BAS to a new name with no ending, so the chapter makes the file first); Up after : and after = brings back
+  sc-iminfo's entries; Ctrl+K a * gives α (the USB keyboard's Ctrl+K is 11, as by serial), a space between gives "a*",
+  and a character the font lacks shows as ?. The chapter now spells these out.
+- **CSV with Excel (13 Nov, G1; Excel 16 by COM, hidden: scratchpad csvt/excel_make.ps1, excel_read.ps1).** In:
+  Excel's CSV UTF-8 has a BOM, kept in A0 ("﻿Item", shown ?Item); plain CSV (cp1252) drops each cell with an
+  accented letter (syntax error); "" inside quotes (He said ""hi"") is a syntax error and the cell is cut; "1,234.50",
+  "5.0%" and dates come in as labels; 00123 as 123; numbers keep full precision. Each load error is shown alone on an
+  empty screen until a key. Out: values as shown (3.14159265 in a 2-place column = 3.14), "1,234,567.89" quoted, 12.5%,
+  dates as formatted; quotes as \" (not ""); an error cell as "       ERROR"; LF, UTF-8, no BOM. Excel: double-click
+  garbles é (CafÃ©), OpenText 65001 right; dates, 1,234,567.89 and 12.5% become numbers. sc-im reads its own CSV back
+  (\" right; formatted numbers as text). The chapter's CSV sections say all of this.
+- **patches/0003-csv-quotes-bom.patch (13 Nov, Peter "fix them"; upstream candidate):** import_csv skips a UTF-8 BOM
+  on the first line; a quoted field is whole when its quotes are even (it was "ends with a quote", which cut
+  "a,""b"",c"); "" inside the quotes is one "; a " in a label goes to the parser as \" (sc-im's own form; an old \"
+  is left); the #816 strip only after a leading space. unspecial() for CSV (delim ',') quotes a field with a " and
+  writes each as "" (RFC 4180). scim.app CRC C5DA394A on the G1 (G2 still 141240E8). Checked on the G1: Excel's CSV
+  UTF-8 loads clean (A0 Item, D2 He said "hi"); a hard CSV (a,"b",c / " / "hi" / 5" pipe / spaced / old \" / Café,
+  "quoted") imports right, exports as RFC 4180, and Excel (both ways) and sc-im read it back the same. GCC's "pid may
+  be used uninitialized" in export_delim is upstream's (stdout export), shown now as unspecial inlines differently.
+  Then (Peter "yes"), the patch renamed 0003-csv-import-export.patch: a line that is not valid UTF-8 is read as
+  Windows-1252 (Excel's plain CSV: 0x80-0x9F by table, the rest Latin-1) into a malloc'd 3x buffer; an error cell is
+  exported as ERROR, unpadded. scim.app CRC 1BC3CC4E on the G1: excel_ansi.csv shows Café; a cp1252 file with £, €,
+  crème brûlée and curly quotes is stored as UTF-8; UTF-8 files unchanged; heap whole. G2 still 141240E8.
+- **App User Guide chapter (13 Nov):** docs/apps/text/13_scim.md, rewritten after Peter's checks ("Before You
+  Start", a first sheet tested on the G1, the keys while typing, CSV from and to a PC); sc-im is in the guide's
+  introduction, its ABOUT text and its licences appendix, the User Manual's introduction and Appendix O, and RC5's
+  notes and the full 7.00.00 notes. Committed on 13 Nov at Peter's request, and released in the RC5 zip with
+  WordGrinder (step 4 for both apps).
+- **Still to do:** sc-im's own tests (tests/*.sh) against a WSL build; sorting, filters and subtotals tried on the
+  boards; the upstream reports (patches 0001 and 0003 to sc-im, PDCursesMod's A_DIM fix) when Peter agrees.
+
 ### Step 4: documents and release
 1. A chapter for each app in the App User Guide: starting it, `mode=` and `font=`, the keys, files to and from a PC,
    what it lacks (printing, shell commands, charts).

@@ -1,0 +1,16 @@
+diff --git a/src/color.c b/src/color.c
+index 654d9fb..e78124d 100644
+--- a/src/color.c
++++ b/src/color.c
+@@ -162,6 +162,11 @@ void start_default_ucolors() {
+     ucolors[ FILENM          ].fg = GREEN;
+     ucolors[ FILENM          ].bg = DEFAULT_COLOR;
+ 
++    // the Colour Maximite 2: no bold in the default colours. Its curses makes bold by drawing
++    // each character's strokes twice, which is hard to read in its small fonts. :color and
++    // :cellcolor can still ask for bold=1
++    for (i=0; i < N_INIT_PAIRS; i++) ucolors[ i ].bold = 0;
++
+     ui_start_colors(); // call specific ui startup routine
+ }
+ 
