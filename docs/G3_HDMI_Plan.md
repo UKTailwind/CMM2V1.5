@@ -1,7 +1,7 @@
 # Colour Maximite 2 G3: HDMI through an MS7210
 
-*8 November 2026. A plan for recognising a G3 and configuring its MS7210, from the MS7210's published drivers and the
-firmware as it stands. Nothing here has been tried on a G3 yet.*
+*8 November 2026; full colour levels on a G3 added 13 November. A plan for recognising a G3 and configuring its MS7210,
+from the MS7210's published drivers and the firmware as it stands. Nothing here has been tried on a G3 yet.*
 
 ## The G3, as Peter describes it
 
@@ -213,6 +213,70 @@ As Peter says, which group-3 approach each mode gets is a matter of experiment o
 | Pin speed | Colours MEDIUM and syncs LOW, slowed on 23 Oct for the G1's VGA | HIGH or VERY_HIGH for the clock and data, to meet 148.5 MHz |
 | PE4, LTDC_B0 | Left unconfigured by a second line in HAL_LTDC_MspInit, a bug as the G2 wires it (Peter, 8 Nov); fixed on 8 Nov for a G2 | Driven (AF14), as on a G2: the G3 wires it to the MS7210 |
 | Option.offsets (OPTION VGA's centring) | Moves the picture | Should be 0: DE places the picture, and a shift only moves DE within the line |
+| Colour levels (OPTION VGA OUTPUT) | HIGH (the default) and MEDIUM top each colour at 0xE0, LOW at 0xC0 | Full, 0xFF, whatever the option says (below) |
+
+### Full colour levels on a G3
+
+OPTION VGA OUTPUT never lets the outputs reach full level. HIGH and MEDIUM top each colour at 0xE0, and LOW at 0xC0.
+- The reason is the resistor DAC. Its current into the monitor's 75 ohm loads grows with the brightness, and a screen
+  of white moved the supply enough to jitter the picture (Peter, 23 Oct; the comment above VgaLevel in ltdc.c).
+- On a G3 the LTDC's pins drive the MS7210's digital inputs, which draw no current that depends on the colour.
+- **So a G3 drives every colour to its full level, whatever OPTION VGA OUTPUT says.**
+- This assumes the G3 has no VGA resistors left on the same lines. If it keeps them for a VGA socket, the jitter
+  could come back on that socket.
+
+**One switch, at the root:**
+- A fourth map, FULL (3), beside LOW (0), MEDIUM (1) and HIGH (2).
+- One function in ltdc.c, `VgaMap()`, gives the map in use: FULL when G3Hardware is set, otherwise Option.colourmap.
+- Every place that reads Option.colourmap for the levels calls it instead. These are all of them:
+
+| Where | What it sets | With FULL |
+|---|---|---|
+| reset_CLUT and setmode (ltdc.c) | The 8-bit CLUT | The RGB332 levels: red and green 00 24 49 6D 92 B6 DB FF, blue 00 55 AA FF. Filled by a loop, not a fourth 1 KB table, as flash is tight. The two copies of the table choice become one routine |
+| VgaLevel (ltdc.c) | The 4-bit modes' 16 colours (Rgb121Clut, MAP) and the 1-bit tiles' (MonoClut) | The colour unchanged. Its cache (VgaCurveFor) is keyed on VgaMap() |
+| VgaAlpha (ltdc.c) | The 16 and 32-bit layers' constant alpha | 255 |
+| InitDisplayOther (OtherDisplays.c) | The BIT and RBIT tables of the 16 and 12-bit depths, and through them the sprites' (SpriteLevels) | HIGH's, which are already 1:1 |
+| ReadBuffer8 (OtherDisplays.c) | The divisor that scales a CLUT colour back for PIXEL(, SAVE IMAGE and Print Screen | 255 |
+
+The 12-bit depth needs nothing: it never had the option's alpha, and HIGH's BIT_4 is already 1:1.
+
+The loadable programs need nothing either. Their palettes (the video_palette service) go into the CLUT as given, and
+their 16 and 32-bit modes get the layer's alpha from setmode.
+
+**When it takes effect:**
+- G3Hardware is set by the probe, after the first setmode (below).
+- The probe goes in InitDisplayOther, between its setmode and its choice of the BIT tables, so the tables come out
+  right.
+- If it finds a G3, setmode runs once more, forced, to load the full CLUT and the layers' alpha.
+- Nothing has reached the HDMI monitor by then, as the MS7210 is set up only after the probe.
+
+**What a program sees:**
+- Drawing, MAP and COLOUR MAP are unchanged, and so is PIXEL( in the 4, 1, 16 and 32-bit depths: those hold or
+  return the colours as the program gave them.
+- PIXEL( in an 8-bit mode returns the CLUT's colour, scaled back. Under HIGH that is the table's own, so white reads
+  &HE0E0E0.
+- On a G3 white reads &HFFFFFF, as LOW and MEDIUM already give it. The mid levels move a little: &H68 to &H6D, &HB0
+  to &HB6, &HD0 to &HDB.
+- SAVE IMAGE and Print Screen of an 8-bit screen get the brighter colours, which is what the monitor shows.
+- Recommended: leave it so, as these are the colours on the screen. A golden that reads 8-bit pixels back then needs a
+  G3 result of its own.
+- The other way, ReadBuffer8 giving HIGH's levels on a G3, keeps every program's results the same as a G2's but
+  reports colours the screen does not show. Peter's choice.
+
+**OPTION VGA OUTPUT on a G3:**
+- Still accepted and saved, so a set of options moved to a G2 (OPTION DISK SAVE and LOAD) keeps its meaning.
+- It has no effect on the G3 itself.
+
+**On a TV: the quantisation range.**
+- HDMI carries RGB as full range (0 to 255) or limited range (16 to 235).
+- A sink assumes full range for the IT formats: VESA, and video code 0, which the FPGA boards send.
+- It assumes limited range for the CE formats, 720p and 1080p among them, unless the AVI infoframe's Q field (data
+  byte 3, bits 3-2) says full.
+- Taken as limited, the full levels are stretched: in the 16 and 32-bit depths everything under 16 shows as black and
+  everything over 235 as white, and the 8-bit depth's colours look harsher.
+- So when step 3 gives 720p and 1080p their codes (4 and 16), the infoframe is to say full range as well. Where the
+  MS7210 keeps that field is to be found in the SDK's AVI code.
+- Only a TV whose EDID says so obeys Q. Others have a menu setting, such as "HDMI black level" or "RGB range".
 
 ## Recognising a G3
 
@@ -238,7 +302,8 @@ As Peter says, which group-3 approach each mode gets is a matter of experiment o
 
 Things to report it, to be agreed:
 - MM.DEVICE$ ("Colour Maximite 2 G3"), the start-up banner and OPTION LIST.
-- VGA-only options (OPTION VGA OUTPUT, the offsets) noted as having no effect on a G3.
+- VGA-only options noted as having no effect on a G3: OPTION VGA OUTPUT, as a G3 always drives full levels (above),
+  and the offsets.
 
 ## The plan
 
@@ -298,6 +363,9 @@ It would:
    2. Plug and unplug the cable.
    3. Watch PC8 and the interrupt register (0x0500).
    4. Find how a write to 0x0500 clears it.
+5. Show colour bars at full level, through the video_palette service, which puts colours into the CLUT as given:
+   - 24 bars, each with one of the 24 data bits set. That checks every data line's wiring.
+   - Full white, &HFFFFFF, beside the firmware's &HE0E0E0. That shows the full levels before the firmware has them.
 
 **Done when:** there's a stable 800x600 picture on Peter's monitor, and we know whether the chip needs a clock.
 
@@ -315,8 +383,10 @@ It would:
 2. Then with only the PLL re-trigger.
 3. Then with the full sequence: band, re-trigger and infoframe.
 4. Keep the least that is reliable across 20 changes each way, between the high and low bands as well.
+5. On the TV, in 720p and 1080p, check the darkest and brightest greys of a 32-bit ramp. If they are lost in black
+   and white, the infoframe's quantisation range needs setting to full (above).
 
-**Done when:** group 1 works on a monitor, and 720p and 1080p on a TV.
+**Done when:** group 1 works on a monitor, and 720p and 1080p on a TV with black and white where they should be.
 
 ### Step 4: the chip's pixel repetition
 
@@ -348,9 +418,13 @@ it, the software doubling is the fallback, and it is decided mode by mode.
     - PC8 read in the main loop, which is one GPIO read. The chip's status is read over I2C only when INT is low.
     - If INT does not report a plug (step 1), HPD is polled over I2C about every 500 ms instead.
 - **The G3's settings in ltdc.c** (from the table above), under G3Hardware.
+- **The full colour levels:** VgaMap(), the FULL CLUT and the places in its table (above).
 - **Regression:** the G2 and the G1 must be unchanged. The goldens run on both, and the existing modes are checked by
-  eye on the G2's VGA.
-- **The manual:** the G3 in the hardware chapter, and which modes look different on HDMI.
+  eye on the G2's VGA, under OPTION VGA OUTPUT LOW, MEDIUM and HIGH. On those boards VgaMap() returns Option.colourmap,
+  so nothing should change.
+- **The manual:**
+  - The G3 in the hardware chapter, and which modes look different on HDMI.
+  - OPTION VGA OUTPUT: no effect on a G3, which always drives full levels.
 
 ### Later
 
