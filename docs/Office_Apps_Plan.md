@@ -532,7 +532,10 @@ Step 1 is done.
 - **Committed 12 Nov:** main bf7d564 (SDK) and cc5be0c (WordGrinder, the back end), merged into v8-dev 2c6fe82; not
   pushed.
 - **Reported upstream (Peter: yes):** WordGrinder #324 (the export's double underline close), #325 (drive letters in
-  the file browser); PDCursesMod #395 (8-bit A_REVERSE with the default colours).
+  the file browser); PDCursesMod #395 (8-bit A_REVERSE with the default colours). Bill Gray fixed #395 on 13 Nov
+  with our change as it was (0b262da): `pdcurses.py` now pins 0b262da and patch 0001 is gone; pdcdemo, WordGrinder
+  and sc-im build byte for byte as before (checked in one worktree, the pin's drawing code recompiled). The A_DIM
+  patch (0002, regenerated against 0b262da) is PDCursesMod #396 (Peter: yes, 13 Nov).
 - **Look and Feel on from the first start (Peter, 12 Nov: yes).** `cmm2_main.c` writes `.wordgrinder/settings.dat`
   when there is none, in WordGrinder's own form: `lookandfeel.enabled` and `denseparagraphs` true. The add-ons fill in
   the rest of their settings (`MergeTables`), and a user's saved settings are never touched. Checked in a new folder,
@@ -677,7 +680,8 @@ Step 1 is done.
   notes and the full 7.00.00 notes. Committed on 13 Nov at Peter's request, and released in the RC5 zip with
   WordGrinder (step 4 for both apps).
 - **Still to do:** sc-im's own tests (tests/*.sh) against a WSL build; sorting, filters and subtotals tried on the
-  boards; the upstream reports (patches 0001 and 0003 to sc-im, PDCursesMod's A_DIM fix) when Peter agrees.
+  boards; the upstream reports (patches 0001 and 0003 to sc-im) when Peter agrees; PDCursesMod #396 (A_DIM) to
+  follow.
 
 ### Step 4: documents and release
 1. A chapter for each app in the App User Guide: starting it, `mode=` and `font=`, the keys, files to and from a PC,

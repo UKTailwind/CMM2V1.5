@@ -1,6 +1,8 @@
+diff --git a/fb/pdcdisp.c b/fb/pdcdisp.c
+index a23d280..5f9825e 100644
 --- a/fb/pdcdisp.c
 +++ b/fb/pdcdisp.c
-@@ -347,6 +347,54 @@
+@@ -347,6 +347,54 @@ order from what the other platforms expect : */
  
  #define SWAP_RED_AND_BLUE( rgb) (((rgb) & 0xff00) | ((rgb) >> 16) | (((rgb) & 0xff) << 16))
  
@@ -55,7 +57,7 @@
  void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
  {
      const int font_char_size_in_bytes = (PDC_font_info.width + 7) >> 3;
-@@ -484,6 +532,13 @@
+@@ -480,6 +528,13 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
                 integer_fg_idx = 255;
              if( integer_bg_idx == -1)
                 integer_bg_idx = 0;
