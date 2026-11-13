@@ -280,6 +280,8 @@ For example, this will execute different actions when the temperature is under 2
 IF Temp < 25 THEN PRINT "Cold" ELSE PRINT "Hot"
 ```
 
+In a single line IF that has an ELSE, only one statement can follow THEN and only one can follow ELSE. A further statement after a colon is not part of the IF: it is always executed, whether the condition was true or false.
+
 The previous examples all used single line IF statements but you can also use a multiline IF statement. They look like this:
 
 ```

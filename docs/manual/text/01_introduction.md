@@ -32,6 +32,7 @@ Version 7.00 brings MMBasic on the Colour Maximite 2 up to date with MMBasic ver
 - **The full screen editor** is the PicoMite's, with the Colour Maximite 2's mouse support and extra keys.
 - **Files** can be transferred with the ZModem protocol as well as XModem.
 - **Graphics** gain the PicoMite's tile maps (TILEMAP), image slots, its 16 colour display (MODE n,4) and its MODE 1 (MODE n,1), so that games written for the PicoMite need few changes.
+- **SQL databases**: SQLite, the database engine, through the SQL command and the SQL( function, its rows into variables, arrays and structures (see the chapter SQL Databases). On a Generation 1 it is slow with large databases.
 - **Loadable programs**: programs written in C or C++ and compiled for the processor run with RUN "name.app" (see Loadable Programs in the chapter Using MMBasic). MicroPython, Doom, Quake, ScummVM, a C compiler, a word processor (WordGrinder), a spreadsheet (sc-im), a 386 PC emulator that runs DOS and Windows, and emulators of the home computers of the time (the ZX Spectrum, Amstrad CPC, Commodore 64, Atari 8-bit, Apple //e, Amiga 500, TRS-80 and BBC Micro) are among those posted with the firmware: the companion manual Colour Maximite 2 App User Guide covers them all.
 - **An FM synthesiser** (an emulated OPL3) plays MIDI files, the PicoMite's PLAY MIDI and PLAY NOTE commands without its VS1053 module, and the music of DOS games (see the chapter Sound Output).
 
