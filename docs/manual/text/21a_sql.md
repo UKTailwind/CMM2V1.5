@@ -9,7 +9,7 @@ The firmware's commands for it are SQL and the function SQL(, described below an
 
 ## Generation 1: Smaller and Slower
 
-**On a Generation 1 the database engine has only 1MB of memory, so it is fast only with small databases.** A database of up to about 1MB (roughly 8,000 to 12,000 rows of 100 characters, with one index) works well. Above that, finding a row by its key or an index stays quick (a few milliseconds), but anything that has to look at the whole of a large table (an unindexed sort, GROUP BY, DISTINCT, a join of two big tables, PRAGMA integrity_check) reads the SD card all over again and can take minutes: with a Generation 1's memory, count(DISTINCT) over a 50,000 row table took over seven minutes, where a Generation 2 took 34 seconds. The engine and its memory also take about 1.7MB of the 3.3MB that a Generation 1 has for BASIC's variables and arrays, while the database is open.
+**On a Generation 1 the database engine has only 1MB of memory, so it is fast only with small databases.** A database of up to about 1MB (roughly 8,000 to 12,000 rows of 100 characters, with one index) works well. Above that, finding a row by its key or an index stays quick (a few milliseconds), but anything that has to look at the whole of a large table (an unindexed sort, GROUP BY, DISTINCT, a join of two big tables, PRAGMA integrity_check) reads the SD card all over again and can take minutes: with a Generation 1's memory, count(DISTINCT) over a 50,000 row table took over seven minutes, where a Generation 2 took 34 seconds. The engine and its memory also take about 1.7MB of the 3.7MB that a Generation 1 has for BASIC's variables and arrays, while the database is open.
 
 A Generation 2 runs the engine in the memory kept for loadable programs, with about 7MB for it, and leaves BASIC all of its own memory.
 
@@ -25,7 +25,7 @@ SQL OPEN opens the database file, and makes it (empty) if it is not there. Only 
 
 The database stays open until SQL CLOSE, or until the program is run again (RUN), cleared (NEW) or another one loaded (or CHAIN): each of these closes it, and any transaction not finished is undone. A program that ends without SQL CLOSE leaves it open at the command prompt.
 
-On a Generation 2 the engine uses the memory where loadable programs (.app files) run. A BASIC program that has a database open cannot run one: RUN "name.app" gives the error "SQL CLOSE first". At the command prompt, running a loadable program closes a database a program left open.
+On a Generation 2 the engine uses the memory where loadable programs (.app files) run. A BASIC program that has a database open cannot run one: RUN "name.app" gives the error "SQL CLOSE first". At the command prompt, running a loadable program closes a database a program left open. On a Generation 1 the engine is in BASIC's own memory, so a loadable program can run while a database is open, in the memory that is left; one that needs more does not start ("Needs 1608 KB, 1595 KB free in one block").
 
 SQL OPEN can also be given the engine's memory, in kilobytes, and how much of it to use as the cache of the database's pages: SQL OPEN f$, poolKB, cacheKB. Neither is normally needed.
 

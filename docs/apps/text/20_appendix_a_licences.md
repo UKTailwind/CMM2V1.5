@@ -1,6 +1,6 @@
 # Appendix A: Licences
 
-The programs have their own licences, which are in the licences folder of CMM2_Programs_7.00.00RC5.zip. README.txt in the same zip gives each in full, with the permissions for the ROMs. Keep the licences folder with the programs if you pass them on.
+The programs have their own licences, which are in the licences folder of CMM2_Programs_7.00.00RC6.zip. README.txt in the same zip gives each in full, with the permissions for the ROMs. Keep the licences folder with the programs if you pass them on.
 
 The source of each program is named in the file make.py of its folder in the firmware's repository, https://github.com/UKTailwind/CMM2V1.5, with the changes made for the Colour Maximite 2 beside it.
 
