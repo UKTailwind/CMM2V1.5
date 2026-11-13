@@ -1041,6 +1041,18 @@ Returns the X-coordinate of sprite ‘n’.  This function is only active when t
 --- keep
 Returns the Y-coordinate of sprite ‘n’.  This function is only active when the sprite is currently displayed (active).  Returns 10000 otherwise.
 
+=== SQL( NEXT )
+=+= SQL( n )
+=+= SQL( FETCH var )
+=+= SQL( SELECT sql$, array() [, value ...] )
+=+= SQL( COLUMNS ) or SQL( NAME n ) or SQL( ISNULL n ) or SQL( ROWS ) or SQL( ID )
+---
+The SQL database's results (see the chapter SQL Databases and the SQL command).
+SQL(NEXT) moves the query SQL QUERY started to its next row and returns 1, or returns 0 when there are no more rows (the query then ends). SQL(n) returns column ‘n' of the row (the first is 1) as an integer, a floating point number or a string, as the column holds it; a column with no value (NULL) gives 0, or an empty string for a text column.
+SQL(FETCH var) is as SQL(NEXT), and puts the row into the structure ‘var', each member from the column of its name.
+SQL(SELECT sql$, array() [, value ...]) runs a query and puts its rows into ‘array()' (one or two dimensions: row, column; or an array of structures), returning the number of rows; it stops when the array is full. Each ? in the statement is replaced by the next ‘value'.
+SQL(COLUMNS) returns the number of columns of the query, SQL(NAME n) the name of column ‘n', SQL(ISNULL n) 1 if column ‘n' of the row has no value, SQL(ROWS) the number of rows the last INSERT, UPDATE or DELETE changed and SQL(ID) the key of the last row inserted.
+
 === SQR( number )
 ---
 Returns the square root of the argument 'number'.

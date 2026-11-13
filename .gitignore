@@ -76,3 +76,6 @@ apps/wordgrinder/out/
 apps/scim/sc-im/
 apps/scim/regex/
 apps/scim/out/
+# SQL (apps/sql/make.py): the SQLite amalgamation fetched from sqlite.org, and the build
+apps/sql/sqlite/
+apps/sql/out/
