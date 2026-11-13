@@ -1,7 +1,8 @@
 # Colour Maximite 2 G3: HDMI through an MS7210
 
-*8 November 2026; full colour levels on a G3 added 13 November. A plan for recognising a G3 and configuring its MS7210,
-from the MS7210's published drivers and the firmware as it stands. Nothing here has been tried on a G3 yet.*
+*8 November 2026; full colour levels on a G3, and the H743's own options for the narrow modes (measured on a G1), added
+13 November. A plan for recognising a G3 and configuring its MS7210, from the MS7210's published drivers and the
+firmware as it stands. Nothing here has been tried on a G3 yet.*
 
 ## The G3, as Peter describes it
 
@@ -137,7 +138,8 @@ Yes, but only a little:
 
 **The horizontal size is the problem.**
 - The narrow modes get their wide pixels by running the LTDC at a fraction of the clock. Mode 7's line is 420 clocks
-  at 15.7 MHz, exactly half of mode 8's 840 at 31.4 MHz.
+  at 15.7 MHz, exactly half of VESA 640x480 at 75 Hz (840 at 31.5 MHz). That was mode 8's timing until 9 Nov; mode 8
+  is now 640x480 at 60 Hz.
 - A VGA monitor just sees wider pixels.
 - HDMI cannot carry a pixel clock under 25 MHz, and a sink checks the timing it is given.
 
@@ -169,7 +171,7 @@ from simulation, not measurement). Feeding the chip the narrow modes' own clocks
 | 5 | 240x216, doubled | 11.8 MHz | 314 x 500, DE 432 lines | Clock too low | Still under 25 MHz |
 | 6 | 256x240, doubled | 12.6 MHz | 336 x 500 | Clock too low | 672 total: not standard |
 | 7 | 320x240, doubled | 15.7 MHz | 420 x 500 | Clock too low | **640x480 at 75 Hz** |
-| 8 | 640x480 | 31.4 MHz | 840 x 500, 75 Hz | VESA, fine | |
+| 8 | 640x480 | 25.2 MHz | 800 x 525, 60 Hz (since 9 Nov) | VESA, fine | |
 | 9 | 1024x768 | 64.7 MHz | 1344 x 806, 60 Hz | VESA, fine | |
 | 10 | 848x480 | 33.7 MHz | 1088 x 517, 60 Hz | VESA, fine | |
 | 11 | 1280x720 | 74.2 MHz | 1650 x 750, 60 Hz | CEA 720p, fine | |
@@ -186,8 +188,8 @@ position as modes 3 and 7.
 
 **So the modes fall into three groups:**
 1. **Already standard (1, 8, 9, 10, 11, 15, 16):** nothing beyond the PHY's band and the infoframe.
-2. **Exactly half a standard clock (7, 12, 13, and 3 apart from its height):** the chip's x2 repetition should make
-   them standard. The firmware's drawing is unchanged.
+2. **Exactly half a standard clock (7, 12, 13, and 3 apart from its height):** a clock at twice the pixel clock on
+   PG7 (below), or the chip's x2 repetition, should make them standard. The firmware's drawing is unchanged.
 3. **The rest (2, 3, 4, 5, 6, 14, 17, 18):** odd widths, odd clocks, or a DE that covers only part of the frame. For
    each, try these in order:
    - **Send it as it is.** Many monitors take odd timings over HDMI as they do over VGA, but not under 25 MHz, and
@@ -197,20 +199,143 @@ position as modes 3 and 7.
      repetition, mode 6 would show as 512x480 inside 640x480, and mode 5 as 480x432 inside it. That changes how big
      the picture looks compared with VGA, which stretched it to fill the screen.
    - **Double the pixels in software, as the PicoMite does.**
-     - It is the last resort, as it costs the most: a full-width page made from the narrow one at every frame.
+     - It is the last resort, as it costs the most: a full-width page made from the narrow one at every frame
+       (measured below).
      - The firmware already has something of the kind in the merge of the 4-bit and 1-bit modes (Rgb121.c).
 
 As Peter says, which group-3 approach each mode gets is a matter of experiment on real monitors and a TV.
+
+### What the H743 can do itself (measured on a G1, 13 Nov)
+
+The PicoMite makes its narrow modes in its line interrupt: it steps the frame pointer every second line and doubles
+the pixels in software. The question was what the LTDC offers for the same.
+
+**The LTDC has no scaling of any kind.**
+- Its registers (`stm32h743xx.h`) are:
+  - The timings.
+  - Two layers, each with a window, a pitch and a line count.
+  - Eight pixel formats, none under 8 bits a pixel: ARGB8888, RGB888, RGB565, ARGB1555, ARGB4444, L8, AL44 and AL88.
+  - A CLUT, colour keying, blending and dithering.
+  - A line interrupt, and shadow registers reloaded at the vertical blanking or at once.
+  - The current position (CPSR) and status (CDSR).
+- There is no pixel repetition, line repetition or scaler, and no format that turns one byte into two pixels.
+- So the horizontal doubling cannot come from the LTDC itself.
+
+**How it was measured.** `tools/sdk/examples/ltdctest.c` runs in MODE 7,8 on a G1, without a monitor.
+- It reads the colour pins' GPIO input registers beside LTDC_CPSR, so it knows the colour of every line the LTDC
+  sends.
+- Each line of a test buffer is one colour, so a line's source is known from its colour.
+- The same program reads SAI1's clock on PG7, and times the DMA2D and the CPU.
+
+**What the LTDC does, as measured:**
+- **A pitch of 0 repeats one line** for the whole frame, with no FIFO underrun or transfer error. (The flags were
+  read inside the frame, as the firmware's LTDC handler clears them.) The manual sets no minimum on the pitch: it is
+  "the increment from the start of one line of pixels to the start of the next".
+- **After CFBLNR lines the LTDC fetches no more and shows the last line again** for the rest of the window. CFBLNR 1
+  repeats line 0, and 240 in a 480-line window gives lines 0-239 and then line 239 again. The manual says too few
+  lines gives a FIFO underrun, but none was flagged.
+- **Each line's address is CFBAR + n x pitch**, where n is the line within the layer. A new CFBAR reloaded at once
+  (SRCR IMR) mid-frame is used from the next line the LTDC fetches.
+- **The LTDC fetches line n + 1 during line n.** This is with 8-bit pixels, 320 bytes a line, from the SDRAM. Of mode
+  7's 420 clocks a line:
+  - A write between about clocks 220 and 310 of line n lands cleanly on line n + 2.
+  - An earlier write splits line n + 1.
+  - A later one splits line n + 2.
+- **Lines doubled from a page that holds each line once works.**
+  - Pitch 0, with CFBAR set once every two lines in that window, gave 480 lines, each source line exactly twice, and
+    no line split.
+  - So the PicoMite's way of stepping the pointer every second line works on the LTDC.
+  - **The line interrupt comes at the wrong moment.** Its flag is set at clock 0-15 of the line, during HSYNC, every
+    time (LIPCR counts in CPSR's lines). That is while the next line is being fetched, so a write from it splits
+    that line.
+  - The line interrupt can also trigger the MDMA (`ltdc_li_it`, MDMA request 16), so the write would need no CPU, but
+    it would still come at the wrong moment.
+  - So each pair of lines would need a second, timed write: a busy wait of half a line, or a timer or DMA locked to
+    the frame. The window also depends on the depth and on where the page is.
+- **HDMI does not need this.** The doubled modes already store each line twice (`copies` 2), so the LTDC sends
+  full-height frames. Single-copy pages would halve their memory and drawing time, which is a project of its own.
+
+**Pixel doubling, the options measured:**
+1. **A sampling clock at twice the pixel clock, on PG7. Recommended, and new.**
+   - **The idea:**
+     - PG7 has SAI1_MCLK_A on AF6 as well as LTDC_CLK on AF14 (the Linux kernel's H743 pin table, and the
+       datasheet's pin list).
+     - SAI1's kernel clock can be PLL3's P output, and PLL3's P divider can be set to half of R. The LTDC's pixel
+       clock is R.
+     - So PG7 can carry a clock at exactly twice the LTDC's pixel clock, from the same VCO, and the MS7210 samples
+       each LTDC pixel twice.
+     - DE, HSYNC and VSYNC come from the LTDC, so they are twice as long in the MS7210's clocks. Mode 7's 420 x 500 at
+       15.7 MHz arrives as 840 x 500 at 31.4 MHz, which is VESA 640x480 at 75 Hz.
+     - It costs no CPU and no memory, works in every colour depth, and leaves the firmware's drawing as it is. The
+       chip's input clock stays inside its 25-300 MHz range.
+     - It leaves the HDMI sound alone. That is SAI2, on its own clock selector from PLL1Q (G3_HDMI_Audio_Plan.md,
+       "Beside the video's SAI1"). SAI1 is then not available for sound.
+   - **Measured on the G1:**
+     - **MCLK runs only while the SAI block is enabled.**
+       - The H743 has no MCKEN. RM0433 never mentions it; the CMSIS header defines bit 27 for later H7 parts, and on
+         this chip it reads back 0.
+       - The clock generator runs with the block a master and NOMCK (bit 19) 0, which the header calls NODIV.
+       - Block A as a master transmitter with nothing to send gives a steady MCLK, and its FIFO underruns harmlessly.
+       - PG7 is the only SAI1 pin given a function.
+     - **PLL3's P output is off** (PLLCFGR DIVP3EN 0) as the firmware leaves it, and it can be switched on only with
+       PLL3 stopped, so PLL3_Config in setmode would do it.
+     - **MCLK is pll3_p / MCKDIV, and both 0 and 1 mean undivided.** With an 8 MHz kernel clock it counted 7.9995 MHz
+       at MCKDIV 0 and 1, 2.6665 at 3, and 0.1270 at 63. The manual says the same ("MCKDIV = 0 gives the same result
+       as MCKDIV = 1"), and that an odd MCKDIV makes MCLK's duty cycle other than 50%.
+     - **It is phase-locked to the pixel clock.** With MCLK's period set to 21 pixels, its rising edges fell at the
+       same place in every frame for 3 million samples. That held with P = R, and with P = R/2 (32.0 and 16.0 MHz).
+   - **Not measurable on a G1:**
+     - Where MCLK's edges fall against the LTDC's data. The G3 sets the MS7210's sampling edge with register 0x1281,
+       as in step 2.
+     - Whether that phase is the same after every restart of PLL3, which is every mode change.
+   - **Limits:**
+     - **SAI1's kernel clock may run at up to 150 MHz**, the same as the LTDC's (RM0433 table 60, VOS0 and VOS1). So
+       every mode's doubled clock is allowed, mode 12's 148.5 MHz included.
+     - The datasheet characterises MCLK only as an audio clock, up to 256 x Fs (49.152 MHz at 192 kHz). Modes 3 and 7
+       need 31.4 MHz, mode 4 47.1 and mode 13 49.5; mode 12's 148.5 is beyond what is characterised, though not beyond
+       what is allowed. PG7 carries 148.8 MHz as LTDC_CLK in mode 16 anyway.
+     - **The PLL's dividers must be even for a duty cycle close to 50%** (table 60's note: "(DIV[P/Q/R] + 1) shall be
+       even", the register value plus 1). The MS7210 asks for 40-60%. P passes through the SAI undivided, so:
+       - Modes 3 and 7: VCO 816, R 52, 15.69 MHz (-0.37%), P 26 (31.385 MHz, the old mode 8's).
+       - Mode 13: R 32 and P 16 (49.5 MHz) as they are.
+       - Mode 5's 11.8 MHz is still under 25 MHz when doubled, so it needs P = R/4 with P even: VCO 664, R 56
+         (11.857 MHz, +0.38%), P 14 (47.4 MHz).
+       - Mode 12 on PG7: VCO 592, R 8 (74.0 MHz, -0.34%), P 4 (148.0 MHz).
+2. **The MS7210's own repetition** (above): the chip is fed the narrow clock, under its 25 MHz minimum for every mode
+   but 12. For mode 12 it is inside every specification, so it is tried there beside the clock on PG7. It is also
+   the alternative if the clock on PG7 will not sample cleanly.
+3. **The DMA2D, for the 8-bit modes only.**
+   - The trick: the DMA2D converts L8 to RGB565 through a CLUT whose entry i is the RGB565 colour whose two bytes are
+     both i, so each byte comes out twice.
+   - Two passes, each writing every other line, make a 640x480 L8 display buffer from the 320x240 page.
+   - Measured: 1.6 ms a frame, bit for bit right, with no CPU. The DMA2D's conversion to RGB565 truncates: the manual
+     does not say so, but the result is exact.
+   - The cost is a 300 KB buffer, the SDRAM's bandwidth, and the LTDC at the full clock. It is like the Rgb121.c
+     merge.
+4. **The CPU**, a frame at a time, from the SDRAM to the SDRAM:
+   - 3.3 ms for an 8-bit page and 6.4 ms for a 16-bit one. That is 25% and 48% of the CPU at 75 Hz.
+   - The DMA2D cannot double 16-bit pixels usefully: with lines of one pixel it took 68 ms a frame.
+5. **The firmware drawing a full 640x480 page** (Peter's alternative):
+   - Every routine writes four pixels for one, and pages double in size, so there are half as many.
+   - PEEK and POKE of the page's memory change, and so does the loadable programs' layout (`copies` 2).
+   - It is the most invasive, and is needed only if 1 and 2 both fail.
+
+**So, in step 4, try the clock on PG7 first.** Try the chip's repetition beside it for mode 12, and keep it as the
+alternative. The DMA2D is the fallback for the 8-bit modes.
+
+*The behaviour above was measured on a G1 with RM0433 Rev 9 (October 2026) beside it. Where the two differ (the
+line count), the measurement is given.*
 
 ## What changes on a G3's LTDC
 
 | Setting | Today (VGA) | G3 (HDMI) |
 |---|---|---|
-| PG7, LTDC_CLK | Driven only in mode 18 (kept off otherwise, as noise beside the video lines) | Always driven |
+| PG7, LTDC_CLK | Driven only in mode 18 (kept off otherwise, as noise beside the video lines) | Always driven: LTDC_CLK (AF14), or SAI1_MCLK_A (AF6) at twice the pixel clock in the halved modes (above) |
 | PF10, LTDC_DE | Mapped | Always driven |
 | DE polarity | Active low (LTDC_DEPOLARITY_AL) | Active high: the SDK declares DRM_BUS_FLAG_DE_HIGH |
 | Clock edge | LTDC_PCPOLARITY_IPC | To be found. The SDK samples on the falling edge. Register 0x1281 (REG_PA_S) inverts the clock (bit 2) and delays it by 0 to 3 steps (bits 1-0); the FPGA boards write 0x04, inverted with no delay, which is the place to start. The datasheet asks for 0.879 ns of setup and 0.22 ns of hold, and a clock duty of 40-60%. Tuned on the board at the highest clock, 148.5 MHz, where a pixel is 6.7 ns |
 | Pin speed | Colours MEDIUM and syncs LOW, slowed on 23 Oct for the G1's VGA | HIGH or VERY_HIGH for the clock and data, to meet 148.5 MHz |
+| Clock duty | Any: VGA has no use for the clock | 40-60% (MS7210). An odd PLL3 divider is not 50% (RM0433 table 60). Mode 16's R 5 is about 40/60 at 148.8 MHz, at the limit, so on a G3 use VCO 592 with R 4 (148.0 MHz, -0.34%). Modes 3, 4, 7, 8, 9, 11 and 12 have odd dividers of 11 or more (45/55 or closer) |
 | PE4, LTDC_B0 | Left unconfigured by a second line in HAL_LTDC_MspInit, a bug as the G2 wires it (Peter, 8 Nov); fixed on 8 Nov for a G2 | Driven (AF14), as on a G2: the G3 wires it to the MS7210 |
 | Option.offsets (OPTION VGA's centring) | Moves the picture | Should be 0: DE places the picture, and a shift only moves DE within the line |
 | Colour levels (OPTION VGA OUTPUT) | HIGH (the default) and MEDIUM top each colour at 0xE0, LOW at 0xC0 | Full, 0xFF, whatever the option says (below) |
@@ -350,7 +475,8 @@ A test program (`apps/ms7210test`) can do all the bring-up while the firmware st
 - It changes modes through the video_mode service.
 
 Each experiment is then a quick rebuild and copy, not a firmware flash, and the findings go into the firmware once.
-It would:
+`tools/sdk/examples/ltdctest.c` already drives the LTDC, PLL3, SAI1, PG7 and the DMA2D this way (above), so the test
+program can start from it. It would:
 1. Read the ID bytes with and without the clock on PG7. This answers the clock question.
 2. Write the FPGA table, with the PHY's low band for 800x600, and turn the picture on.
 3. Dump the status registers:
@@ -388,17 +514,27 @@ It would:
 
 **Done when:** group 1 works on a monitor, and 720p and 1080p on a TV with black and white where they should be.
 
-### Step 4: the chip's pixel repetition
+### Step 4: the halved modes
 
-1. Modes 7, 13 and 12, and OPTION PICOMITE's halved modes, with x2 repetition. Try the AVI's repetition field both
-   set and clear.
-   - Mode 12 feeds the chip 74.25 MHz, within its range.
-   - Modes 7 and 13 feed it 15.7 and 24.75 MHz, below the datasheet's 25 MHz, so watch them for a picture that
-     breaks up or drops out, especially on a cold board.
-2. Then mode 3, with DE widened to 480 lines and the picture in the middle.
+1. **Modes 7 and 13 with the clock on PG7 at twice the pixel clock** (SAI1_MCLK_A, measured on the G1 above):
+   - PLL3's P output on, with P = R/2. Mode 7 takes VCO 816, R 52 and P 26.
+   - SAI1 from pll3_p, block A enabled as a master transmitter with MCKDIV 0, and PG7 on AF6.
+   - Step the MS7210's sampling edge (0x1281) as in step 2. Each LTDC pixel is two of its clocks, so one edge should
+     be clean.
+   - Check that the edge stays right over 20 mode changes, as PLL3 restarts each time.
+   - Then OPTION PICOMITE's halved modes, mode 3, and mode 5 with P = R/4.
+2. **Mode 12, and anything the clock on PG7 will not do, with the chip's x2 repetition.** Try the AVI's repetition
+   field both set and clear.
+   - Mode 12 feeds the chip 74.25 MHz, within its range. Doubled on PG7 it needs 148.0 MHz from the SAI (VCO 592,
+     R 8, P 4). That is within SAI1's 150 MHz kernel clock, but beyond the 49.152 MHz the datasheet characterises
+     for MCLK, so try both.
+   - Fed this way, modes 7 and 13 give the chip 15.7 and 24.75 MHz, below the datasheet's 25 MHz. Watch them for a
+     picture that breaks up or drops out, especially on a cold board.
+3. Then mode 3, with DE widened to 480 lines and the picture in the middle.
 
-**Done when:** they show as 640x480, 800x600 and 1080p on a monitor and a TV. If the chip's repetition will not do
-it, the software doubling is the fallback, and it is decided mode by mode.
+**Done when:** they show as 640x480, 800x600 and 1080p on a monitor and a TV. If neither the clock on PG7 nor the
+chip's repetition will do it, the DMA2D doubling is the fallback for the 8-bit modes, and the rest is decided mode by
+mode.
 
 ### Step 5: group 3
 

@@ -19,8 +19,9 @@ screen as I2S through the MS7210, beside the DAC sound the G2 has now. Nothing h
   - PD12 goes to WS (pin 6).
   - PD11 goes to I2SDATA0 (pin 5).
   - I2SDATA1 to I2SDATA3 are not connected, which suits two channels.
-- **The peripheral:** those three pins should be SAI2's block A, at AF10: PD11 SD_A, PD12 FS_A, PD13 SCK_A. The HAL
-  has GPIO_AF10_SAI2. This is to be checked against the H743 datasheet's alternate-function table.
+- **The peripheral:** those three pins are SAI2's block A, at AF10: PD11 SD_A, PD12 FS_A, PD13 SCK_A. The HAL has
+  GPIO_AF10_SAI2. Checked on 13 Nov: the H743 datasheet's pin list gives SAI2_SD_A, SAI2_FS_A and SAI2_SCK_A on
+  those pins, and the Linux kernel's H743 pin table puts them on AF10.
 - **Nothing in the way:**
   - The firmware does not use SAI2 or those pins.
   - Of the DMA controllers' streams, the firmware uses only DMA2 stream 0, for memory-to-memory copies. DMA1 is free.
@@ -35,8 +36,15 @@ screen as I2S through the MS7210, beside the DAC sound the G2 has now. Nothing h
   - 44.1 kHz for MOD, SOUND, tones and the program stream;
   - 22.05 kHz for speech;
   - PLAY ARRAY's and SAMPLE's own rates.
-- **Ready for the DAC:** the samples reach the interrupt already as DAC values. They are 12-bit, centred on 2000,
-  with PLAY VOLUME applied (iconvert, i2convert and the mapping table in Audio.c).
+- **Where the 16 bits go:** the samples are 16-bit when they are decoded, and are cut to 12 bits before the interrupt
+  sees them. How depends on the source:
+  - **WAV, MP3 and FLAC:** iconvert (Audio.c) turns each buffer's signed 16-bit samples into DAC values in the same
+    buffer as it is filled. These are 12-bit, centred on 2000, with PLAY VOLUME applied (the mapping table), so the
+    16 bits are gone before the interrupt runs.
+  - **MOD, PLAY OPL and a program's stream:** i2convert keeps them signed 16-bit, but at half level, so that a sound
+    effect (PLAY EFFECT's WAV) can be added to them. The interrupt adds the two and makes the DAC value.
+  - **Made at 12 bits, with no 16 bits to keep:** PLAY TONE, SOUND, the BBC sound, speech, and PLAY ARRAY and SAMPLE,
+    whose arrays hold DAC values.
 - **Other DAC uses:** the DAC also has uses that are not sound, and these stay on the DAC:
   - the DAC command's output and waveform (MM_Custom.c, and the d1point table in the interrupt);
   - the level set at power-up (main.c).
@@ -81,16 +89,76 @@ The channel status says 44.1 kHz, and the sink rebuilds the clock from what the 
 - PLL1Q is 48 MHz only on a board running at 480 MHz. At 400 MHz, USB takes HSI48 instead.
 - A G3 runs at 480 MHz, as a G2 of revision V does. If a G3 ever runs at 400 MHz, this choice is made again.
 
+**Beside the video's SAI1** (13 Nov). The video plan may use SAI1 to put a clock at twice the pixel clock on PG7
+for the halved modes (G3_HDMI_Plan.md, "What the H743 can do itself"). That takes nothing from this plan:
+- **Separate peripherals:** SAI1 block A gives only its master clock on PG7 (AF6), and SAI2 block A is the sound on
+  PD11-13 (AF10).
+- **Separate clock selectors and PLLs:** SAI1's clock is chosen by RCC_D2CCIP1R's SAI1SEL (bits 2-0, pll3_p, which
+  changes with every mode). SAI2's is chosen by SAI23SEL (bits 8-6, pll1_q here, which never changes).
+- **What it rules out:**
+  - SAI1 for sound, both of its blocks, as they share pll3_p.
+  - DFSDM1's audio clock, which also follows SAI1SEL. The firmware does not use DFSDM1.
+  - SAI3 (which shares SAI23SEL with SAI2) and SAI4 (with its own selectors) stay free.
+- **Keep SAI2 asynchronous:** never synchronise it to SAI1 (SAI_GCR SYNCIN), whose clock stops at every mode change.
+  Asynchronous is the reset state.
+- **Write RCC_D2CCIP1R a field at a time** (read, modify, write), as both selectors are in it.
+- **The chip's audio clock regeneration is unchanged:** the MS7210 measures the rate from SCK and counts its CTS
+  against the pixel clock it is given. In a halved mode that is PG7's doubled clock, which is a standard pixel clock
+  to HDMI. PLL1 and PLL3 run from the same 8 MHz crystal, so CTS is steady.
+- **Room for the sound:** the doubled modes' blanking is twice as many of the chip's clocks too, so a halved mode has
+  the audio room of the standard mode it becomes, such as 640x480 at 75 Hz.
+
+**TIM4 locked to the SAI.** The two clocks share PLL1:
+- **The SAI's clock:** PLL1Q, from PLL1's 960 MHz VCO (PLLN 120, PLLQ 20).
+- **TIM4's clock:** the timer clock comes from the same VCO through the system clock. TIM4 counts at 120 MHz
+  (PSpeedDiv) and its period is 2.
+- **The rate:** with its prescaler at 2,720 (PSC 2719), TIM4 runs at 120,000,000 / 2,720 = 44,117.647 Hz, exactly the
+  SAI's rate. It never drifts from it, as both come from one oscillator.
+- **Today:** a 44.1 kHz file sets PSC+1 to 2,721, which gives 44,101.4 Hz.
+
+So on a G3:
+- **The 44.1 kHz family:** for 44.1, 22.05 and 11.025 kHz sources TIM4 is set to 44,117.6 Hz, or a half or a quarter
+  of it. Each sample TIM4 takes goes to the SAI as it is: no resampling, and no correction on the ring's fill, as the
+  two cannot drift.
+- **The DAC:** it plays those sources 0.04% fast as well (0.7 cent), as HDMI does, with the two in step.
+- **Other rates** (48, 32, 16 and 8 kHz, PLAY ARRAY's and SAMPLE's own) are resampled to the SAI's rate, with the
+  slow correction below. This is done in 32 bits, so the 16-bit resolution is kept, though the samples are new ones.
+
 ## The design
 
 ### One output, two destinations
 
-- **AudioOut:** a small inline function, `AudioOut(left, right)`, takes the place of the sound's DAC writes. Those are
-  the writes in Audio_Interrupt and in StopAudio's ramp down.
-  - It always writes the DAC exactly as the code does today. On a G1 and a G2 that is all it does.
-  - On a G3 it also puts the pair into a ring, written only by the TIM4 interrupt and read only by the SAI's DMA
-    interrupt. That costs a few cycles a sample.
-- **TIM4 as it is:** TIM4 stays at each source's rate, so none of the twelve sources changes.
+- **AudioOut:** a small inline function, `AudioOut(left, right, hleft, hright)`, takes the place of the sound's DAC
+  writes. Those are the writes in Audio_Interrupt and in StopAudio's ramp down.
+  - It always writes the DAC exactly as the code does today, from the first two. On a G1 and a G2 that is all it does.
+  - On a G3 it also puts the 16-bit pair (the last two) into a ring, written only by the TIM4 interrupt and read only
+    by the SAI's DMA interrupt. That costs a few cycles a sample.
+- **TIM4 as it is, but for its rate on a G3:** TIM4 still runs the sources, so none of the twelve changes. For the
+  44.1 kHz family a G3 sets it to the SAI's rate (The audio clock, above).
+
+### Full resolution for 16-bit sources
+
+A 16-bit source reaches HDMI with all 16 bits, from the first version, not as a later addition (Peter, 8 Nov).
+- **The 16-bit sources:**
+  - WAV (16-bit files, and 8-bit ones, which the decoder widens);
+  - MP3 and FLAC;
+  - MOD;
+  - PLAY OPL and MIDI;
+  - a loadable program's stream (Doom, Quake, ScummVM...).
+- **A 16-bit twin of each buffer, on a G3 only:**
+  - As iconvert and i2convert convert a buffer, they also write each sample, with PLAY VOLUME applied in 16 bits, to
+    a twin buffer at the same index.
+  - At PLAY VOLUME 100 the twin holds the decoder's samples unchanged.
+  - The interrupt reads the twin at the position it reads the DAC's buffer, and passes those samples to AudioOut as
+    the 16-bit pair.
+  - The DAC's buffers, and so the DAC's sound, are as they are now.
+  - The twins are four buffers of WAV_BUFFER_SIZE, 32 KB, from the heap while a 16-bit source plays.
+- **Mixing:** while PLAY EFFECT plays over MOD, OPL or a program's stream, the HDMI side adds the two twins at full
+  level and clips at 16 bits. The DAC side still halves them, as now. With one source playing, nothing is added and
+  the samples are unchanged.
+- **The 12-bit sources** (tone, SOUND, BBC, speech, ARRAY, SAMPLE) are widened: (v - 2000) x 16.
+- **Bit for bit:** a 44.1 kHz 16-bit WAV or FLAC at PLAY VOLUME 100 reaches the MS7210 with every sample as it is in
+  the file, as no resampling is needed (The audio clock). At other rates the resampler keeps 16-bit precision.
 
 ### From the ring to the SAI
 
@@ -103,11 +171,12 @@ The channel status says 44.1 kHz, and the sink rebuilds the clock from what the 
   - Its half-transfer and transfer-complete interrupts each fill the half just sent.
   - The buffer is cleaned from the data cache before the DMA reads it, or put in memory that is not cached.
 - **The fill:**
-  - A resampler from TIM4's actual rate to the SAI's 44,117.6 Hz. TIM4's actual rate is PSpeedDiv / (PSC + 1), the
-    prescaler being an integer. Linear interpolation to start with.
-  - A slow correction on how full the ring is, nudging the step by up to 0.1%, so that TIM4's clock and the SAI's
-    never drift apart.
-  - The DAC's 12-bit values become 16-bit samples: (v - 2000) x 16.
+  - **The 44.1 kHz family:** the ring's 16-bit pairs are copied as they are, each repeated twice at 22.05 kHz and
+    four times at 11.025 kHz. TIM4 is locked to the SAI, so the ring's fill stays where it is.
+  - **Other rates:** a resampler from TIM4's actual rate to the SAI's 44,117.6 Hz, in 32 bits. TIM4's actual rate is
+    PSpeedDiv / (PSC + 1), the prescaler being an integer. Linear interpolation to start with.
+  - **The correction:** for those, a slow correction on how full the ring is, nudging the step by up to 0.1%, keeps
+    TIM4 and the SAI from drifting apart.
 - **Silence:** when nothing is playing, the SAI goes on sending silence. A sink that loses its sound can take up to a
   second to bring it back, and would cut off the start of the next sound.
 
@@ -118,9 +187,9 @@ The channel status says 44.1 kHz, and the sink rebuilds the clock from what the 
 
 ### Quality
 
-- **First:** the DAC's 12 bits, so about 72 dB, as the sound is now.
-- **Later, if wanted:** 16-bit samples for the sources that have them: WAV, FLAC, MP3, MOD and a program's stream.
-  An `AudioOut16` would sit beside `AudioOut`, with the volume applied in 16 bits.
+- **16-bit sources:** all 16 bits, about 96 dB. A 44.1 kHz file at full volume arrives bit for bit (Full resolution
+  for 16-bit sources, above).
+- **12-bit sources:** the DAC's 12 bits, about 72 dB, as the sound is now. They are made at 12 bits.
 
 ### Both, always
 
@@ -146,13 +215,21 @@ them directly, and sends a 1 kHz tone straight into the DMA's buffer.
 
 ### Step 2: in the firmware, on a G3
 
-The SAI, its DMA, the ring, the resampler and the correction, with `AudioOut` in Audio_Interrupt. Then each source:
+The SAI, its DMA, the ring, the resampler and the correction, with `AudioOut` in Audio_Interrupt. Also, from the
+start, TIM4 locked to the SAI for the 44.1 kHz family and the 16-bit twins in iconvert and i2convert. Then each source:
 1. PLAY TONE.
 2. WAV at 44.1, 22.05, 48 and 8 kHz.
 3. MP3, FLAC and MOD.
 4. SOUND, TTS, and OPL and MIDI.
 5. ARRAY and SAMPLE.
 6. A loadable program's stream, such as Doom's.
+
+**Bit for bit:** the 16 bits are proved without a recorder.
+- **The check:** a test build keeps the first 65,536 frames it hands to the SAI while a 44.1 kHz 16-bit WAV plays at
+  PLAY VOLUME 100, and a program compares them with the file's own samples. They must be identical.
+- **The same:** for a FLAC of the same music, and for an MP3 against the decoder's output (an MP3 is not the WAV's
+  samples).
+- **At PLAY VOLUME 50:** each sample must be the file's scaled in 16 bits, not a 12-bit value widened.
 
 ### Step 3: long runs
 
@@ -169,7 +246,6 @@ The SAI, its DMA, the ring, the resampler and the correction, with `AudioOut` in
 
 ### Later
 
-- The 16-bit path.
 - 48 kHz sources sent at 48 kHz. The SAI cannot make 48 kHz exactly from PLL1Q, so for now they are resampled to
   44.1 kHz.
 
@@ -179,6 +255,12 @@ The SAI, its DMA, the ring, the resampler and the correction, with `AudioOut` in
 - **A monitor with no speakers, or a DVI one:** it gives silence, and the DAC's sound is there regardless.
 - **The resampler at low rates,** an 8 kHz WAV for example: linear interpolation adds some aliasing. That is good
   enough to start with, and a better filter can follow.
-- **TIM4's inexact rate:** TIM4's rate is not exact, as its prescaler is an integer. The correction absorbs that, but
-  it has to be proved over a long run (step 3).
+- **TIM4's inexact rate:** for the 44.1 kHz family it is exact, locked to the SAI. For other rates TIM4's rate is not
+  exact, as its prescaler is an integer. The correction absorbs that, but it has to be proved over a long run
+  (step 3).
+- **The DAC 0.04% fast on a G3:** with TIM4 locked to the SAI, a 44.1 kHz source plays at 44,117.6 Hz on the DAC too
+  (0.7 cent). It is inaudible, and a G1's and a G2's rates are unchanged. If it ever matters, those sources can be
+  resampled like the rest, at the cost of bit-for-bit output.
+- **The twins' time:** iconvert and i2convert do a second multiply for each sample on a G3, outside the interrupt.
+  This is to be timed with a 48 kHz FLAC, the heaviest decode.
 - **Phase 1 first:** this phase needs phase 1's MS7210 driver, and its HDMI mode, first.
