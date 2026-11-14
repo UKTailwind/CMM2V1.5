@@ -12,7 +12,8 @@
      RUN "ms7210test.app", bars m             the test card in MODE m,8 (1 if not given) until a key
      RUN "ms7210test.app", mode m what        MODE m,8, then none, trig or full (the default) written to the chip, and
                                               the test card until a key; BASIC's mode back at the end. what x2: the
-                                              chip clocked at twice the pixel clock, SAI1's MCLK on PG7 (step 4)
+                                              chip clocked at twice the pixel clock, SAI1's MCLK on PG7 (step 4);
+                                              what pll N R P: PLL3 at 8N MHz, the LTDC's clock /R, the chip's /P
      RUN "ms7210test.app", int s mask         PC8 (INT#), 0x0500 and HPD watched for s seconds (30): plug and unplug.
                                               mask (hex) written to 0x0501 first
      RUN "ms7210test.app", edge pc pa speed   the LTDC's clock polarity (GCR PCPOL, 0 or 1), the chip's sampling (0x1281,
@@ -152,14 +153,8 @@ static void g3_ltdc(void) {                                        // over the f
    the H743 can do itself", measured on a G1 with ltdctest.c). The H743 puts MCLK out only while the SAI block is
    enabled: block A a master transmitter with nothing to send (its FIFO underruns, harmlessly) --- */
 static int x2;                                                     // PG7 is SAI1_MCLK_A at twice the pixel clock
-static int pll3_double(void) {                                     // P = R/2 (R made even first): 0 if it can't be
-    uint32_t d = RCC->PLL3DIVR, n = (d & 0x1FF) + 1, r = ((d >> 24) & 0x7F) + 1, p;
-    if(r & 1) {                                                    // an odd R: the even one beside it, the VCO moved to keep
-        if(n == 104 && r == 53) { n = 102; r = 52; }               // the clock (modes 3 and 7: 15.69 MHz, -0.37%)
-        else if(n == 102 && r == 11) { n = 74; r = 8; }            // (mode 12: 74.0 MHz, -0.34%)
-        else return 0;
-    }
-    p = r / 2;
+static uint32_t want_n, want_r, want_p;                            // `mode m pll N R P`: any ratio R/P
+static int pll3_set(uint32_t n, uint32_t r, uint32_t p) {          // PLL3 at 8 MHz x N, R and P (Q = P), P's output on
     RCC->CR &= ~RCC_CR_PLL3ON;                                     // (DIVP3EN can change only with PLL3 off)
     for(int i = 0; i < 1000000 && (RCC->CR & RCC_CR_PLL3RDY); i++) ;
     RCC->PLL3DIVR = (n - 1) | ((p - 1) << 9) | ((p - 1) << 16) | ((r - 1) << 24);
@@ -167,6 +162,15 @@ static int pll3_double(void) {                                     // P = R/2 (R
     RCC->CR |= RCC_CR_PLL3ON;
     for(int i = 0; i < 1000000 && !(RCC->CR & RCC_CR_PLL3RDY); i++) ;
     return (RCC->CR & RCC_CR_PLL3RDY) != 0;
+}
+static int pll3_double(void) {                                     // P = R/2 (R made even first): 0 if it can't be
+    uint32_t d = RCC->PLL3DIVR, n = (d & 0x1FF) + 1, r = ((d >> 24) & 0x7F) + 1;
+    if(r & 1) {                                                    // an odd R: the even one beside it, the VCO moved to keep
+        if(n == 104 && r == 53) { n = 102; r = 52; }               // the clock (modes 3 and 7: 15.69 MHz, -0.37%)
+        else if(n == 102 && r == 11) { n = 74; r = 8; }            // (mode 12: 74.0 MHz, -0.34%)
+        else return 0;
+    }
+    return pll3_set(n, r, r / 2);
 }
 static uint32_t pll3_p_hz(void) {
     uint32_t m = (RCC->PLLCKSELR >> 20) & 0x3F, d = RCC->PLL3DIVR;
@@ -332,10 +336,10 @@ static void label(const cmm2_video *v, int mode, uint32_t hz) {
     char s[96];
     int pa = rd(0x1281);
     if(v->width < 640)                                             // (a narrow mode: the short form fits)
-        snprintf(s, sizeof(s), " MODE %d%s %.1fMHz 1281=%02X%s ", mode, x2 ? " x2" : "", hz / 1e6, pa & 0xFF,
+        snprintf(s, sizeof(s), " MODE %d x%.2f %.1fMHz 1281=%02X%s ", mode, (double)hz / pixel_hz(), hz / 1e6, pa & 0xFF,
                  LTDC->GCR & LTDC_GCR_PCPOL ? " PCPOL" : "");
     else
-        snprintf(s, sizeof(s), " MODE %d%s: %ux%u, %.1f MHz, 0x1281 %02X, LTDC clock %s ", mode, x2 ? " (clock x2)" : "",
+        snprintf(s, sizeof(s), " MODE %d%s: %ux%u, %.1f MHz, 0x1281 %02X, LTDC clock %s ", mode, x2 ? " (clock on PG7)" : "",
                  (unsigned)v->width, (unsigned)v->height, hz / 1e6, pa & 0xFF,
                  LTDC->GCR & LTDC_GCR_PCPOL ? "inverted" : "as it comes");
     cmm2->gfx_text((int)v->width / 2, (int)v->height * 5 / 8, s, "CM", 1, v->width >= 1280 ? 2 : 1, 0xFFFFFF, 0x000000);
@@ -364,7 +368,8 @@ static void show(int mode, int what, int dbl) {
     g3_ltdc();
     x2 = 0;
     if(dbl) {                                                      // step 4: the chip clocked at twice the pixel clock
-        if(!pll3_double()) printf("MODE %d: no even PLL3 divider for the doubled clock\n", mode);
+        if(!(dbl == 2 ? pll3_set(want_n, want_r, want_p) : pll3_double()))
+            printf("MODE %d: no PLL3 dividers for the clock on PG7\n", mode);
         else { sai1_mclk(1); pg7_sai(); x2 = 1; what = 2; }
     }
     uint32_t hz = x2 ? pll3_p_hz() : pixel_hz();                   // (the clock the chip takes)
@@ -472,7 +477,12 @@ int main(int argc, char **argv) {
         if(find()) show(arg(argc, argv, 2, 10, 1), 3, 0);
     } else if(!strcmp(c, "mode")) {
         const char *w = argc > 3 ? argv[3] : "full";
-        if(find()) show(arg(argc, argv, 2, 10, 1), !strcmp(w, "none") ? 0 : !strcmp(w, "trig") ? 1 : 2, !strcmp(w, "x2"));
+        int dbl = !strcmp(w, "x2");
+        if(!strcmp(w, "pll") && argc > 6) {                        // mode m pll N R P: the LTDC at 8N/R MHz, the chip at 8N/P
+            want_n = (uint32_t)arg(argc, argv, 4, 10, 0); want_r = (uint32_t)arg(argc, argv, 5, 10, 0);
+            want_p = (uint32_t)arg(argc, argv, 6, 10, 0); dbl = 2;
+        }
+        if(find()) show(arg(argc, argv, 2, 10, 1), !strcmp(w, "none") ? 0 : !strcmp(w, "trig") ? 1 : 2, dbl);
     } else if(!strcmp(c, "int")) {
         if(find()) watch(arg(argc, argv, 2, 10, 30), arg(argc, argv, 3, 16, -1));
     } else if(!strcmp(c, "edge")) {

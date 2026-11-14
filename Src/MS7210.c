@@ -95,10 +95,22 @@ static uint32_t chip_hz(void) {
 void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode) {
     doubled = 0;
     if(!G3Hardware || ModeHs > 1) return;                           // (OPTION PICOMITE's divided modes: not yet)
-    if(mode == 3 || mode == 7) { pll->PLL3N = 102; pll->PLL3R = 52; }   // 15.69 MHz (-0.37%), VCO 816: R even
-    else if(mode != 13 && mode != 19) return;                       // (13: R 32, 19: R 12 as they are)
-    pll->PLL3P = pll->PLL3R / 2;
-    doubled = 1;
+    switch(mode) {
+        case 3: case 7:                                             // x2: VCO 816, R 52 (15.69 MHz, -0.37%: R even), P 26
+            pll->PLL3N = 102; pll->PLL3R = 52; pll->PLL3P = 26; break;
+        case 5: case 13: case 19:                                   // x2: R 70, 32 and 12 as they are. 5 doubled is mode 4's
+            pll->PLL3P = pll->PLL3R / 2; break;                     // line, 628 clocks to its 630 at 23.54 MHz (Peter, 14 Nov)
+        /* Modes 6 and 17 are VESA 640x480 at 75 Hz (840 x 500 at 31.5 MHz) with fewer, longer pixels, 2.5 and 5/3 of
+           VESA's (336 and 504 clocks a line): a VGA monitor samples them at its 31.5 MHz. The chip is given that clock:
+           P = R / 2.5 and R / (5/3), the pixels 2-3 and 2-2-1 samples wide as a VGA monitor's are (Peter's monitor, 14
+           Nov: 640x480 for both, where a second monitor took neither as they were) */
+        case 6:                                                     // x2.5: VCO 816, R 65 (12.55 MHz, -0.4%), P 26 (31.38)
+            pll->PLL3N = 102; pll->PLL3R = 65; pll->PLL3P = 26; break;
+        case 17:                                                    // x5/3: VCO 664, R 35 (18.97 MHz, +0.3%), P 21 (31.62)
+            pll->PLL3N = 83; pll->PLL3R = 35; pll->PLL3P = 21; break;
+        default: return;
+    }
+    doubled = 1;                                                    // (the chip's clock is P, on PG7)
 }
 static void mclk(int on) {                                          // SAI1 block A's MCLK on PG7, from pll3_p, undivided
     if(on) {

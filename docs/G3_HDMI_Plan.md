@@ -573,10 +573,19 @@ monitor: 7 640x480 at 75 Hz, 13 800x600, 19 1280x1024 at 60 Hz (SAI1 at 108 MHz)
 the monitor's reports: 2 and 3 640x400, 4 480x432, 5 240x432, 6 256x480, 12 960x1080, 13 800x600, 14 960x540, 17
 384x480, the standard ones as before: every mode shows on it, the four under 25 MHz (4, 5, 6, 17) included, fed to the
 chip as they are. Mode 12 is not yet doubled (148 MHz on PG7, or the chip's repetition). A TV is still to be tried.
+- **Modes 5, 6 and 17 (14 November):** a second monitor took none of them as they were. Mode 5 is mode 4's line at
+  half the clock, so it is doubled (R 70, P 35: 628 clocks at 23.54 MHz to mode 4's 630), as mode 4 itself works.
+  Modes 6 and 17 are VESA 640x480 at 75 Hz with fewer, longer pixels: 336 and 504 clocks a line where VESA has 840,
+  so 2.5 and 5/3 VESA pixels each (256 x 2.5 = 384 x 5/3 = 640). A VGA monitor samples them at its 31.5 MHz, each
+  pixel 2-3 or 2-2-1 screen pixels wide. The chip is given the same: P = R / 2.5 (VCO 816, R 65 = 12.55 MHz, P 26 =
+  31.38 MHz) and R / (5/3) (VCO 664, R 35 = 18.97 MHz, P 21 = 31.62 MHz), tried first from ms7210test.app
+  (`mode m pll N R P`). Both monitors: 6 and 17 640x480, 5 as 4. "All work, as expected" (Peter).
 - **Flashing a G3 with the ST-Link failed** ("Unable to get core ID", "failed to download Sector[0]") every time the
   MS7210 was sending HDMI, which an H743 reset does not stop; with the HDMI cable out (or the G3 power-cycled) it
-  worked first time. Peter has ground loops between USB hubs; the HDMI cable to the monitor closes another. Until
-  better, unplug the HDMI cable to flash with the ST-Link.
+  worked first time. Peter has ground loops between USB hubs; the HDMI cable to the monitor closes another. Later
+  flashes failed with the cable out as well, and one wrote the whole image but could not read it back to verify; a
+  read-back by -u afterwards matched the image (but for the firmware's own first-boot word at 0x080F6F40 and its
+  options at 0x08140000). So: check a flash by reading it back, not by -v alone, until the ground loops are sorted.
 
 ## The plan
 
