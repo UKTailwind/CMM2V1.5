@@ -2384,16 +2384,13 @@ void __attribute__((section(".extra"))) ReadBuffer16(int x1, int y1, int x2, int
  }
 
 void __attribute__((section(".extra"))) ReadBuffer8(int x1, int y1, int x2, int y2, char* p) {
-    int t,x,y,div;
+    int t,x,y;
 	uint32_t rpa=(uint32_t)PageTable[ReadPage].address;
     unsigned char sc, *s;
     int maxW=PageTable[ReadPage].xmax;
 	int maxH=PageTable[ReadPage].ymax;
 	if(optiony)y1=maxH-1-y1;
 	if(optiony)y2=maxH-1-y2;
-	if(Option.colourmap==0)div=192;
-	else if(Option.colourmap==1)div=224;
-	else div=255;
 	int Scale=(PageTable[ReadPage].expand ? 2 : 1);
     // make sure the coordinates are kept within the display area
     if(x2 <= x1) { t = x1; x1 = x2; x2 = t; }
@@ -2403,10 +2400,10 @@ void __attribute__((section(".extra"))) ReadBuffer8(int x1, int y1, int x2, int 
         s=(uint8_t *)(y * maxW + x1 + rpa);
         for(x=x1;x<=x2;x++){
         	if(x>=0 && x<maxW && y>=0 && y<maxH*Scale){
-        		sc=*s++;
-        		*p++ = (CLUT[sc] & 0xFF)*255/div;
-        		*p++ = ((CLUT[sc]>>8) & 0xFF)*255/div;
-        		*p++ = ((CLUT[sc]>>16) & 0xFF)*255/div;
+        		sc=*s++;                                            // the colour the CLUT holds, on every board (Peter, 14 Nov
+        		*p++ = CLUT[sc] & 0xFF;                             // 2026): PIXEL(, SAVE IMAGE and Print Screen give what is
+        		*p++ = (CLUT[sc]>>8) & 0xFF;                        // shown. It was scaled up by OPTION VGA OUTPUT's top (255/192
+        		*p++ = (CLUT[sc]>>16) & 0xFF;                       // LOW, 255/224 MEDIUM), which overflowed a full MAP colour
         	} else {
         		s++;
         		p+=3;
