@@ -556,11 +556,12 @@ of every MX_LTDC_Init; G3Hardware; PG7 always LTDC_CLK (VERY_HIGH) and the colou
 offsets ignored (OFS); VgaMap() with FULL on a G3 (Clut8, VgaLevel, VgaAlpha, InitDisplayOther's tables);
 "Colour Maximite 2 G3" in MM.DEVICE$, and the banner and OPTION LIST from BoardSignOn(). Checked on the G3: the banner,
 MM.DEVICE$, 8-bit white &HFFFFFF, the chip locked with nothing run but the firmware.
-- **Open:** three restarts out of about 25 on this firmware went into ST's system bootloader (PC 0x1FF0A4F4, USART1),
+- **Resolved:** three restarts out of about 25 on this firmware went into ST's system bootloader (PC 0x1FF0A4F4, USART1),
   not the firmware: the first start after its flash, and two OPTION DISK LOADs. _excep_code was RESTART_NOAUTORUN, so
   the firmware did not jump there (only RESTART_BOOT0 does): the chip started from system memory, as with BOOT0 high.
-  CPU RESTART 11 of 11, OPTION DISK LOAD 8 of 8 (COM16 open or closed) and every ST-Link reset were fine. To find with
-  Peter (BOOT0's wiring on the G3).
+  CPU RESTART 11 of 11, OPTION DISK LOAD 8 of 8 (COM16 open or closed) and every ST-Link reset were fine. **The
+  cause:** a jumper missing on the board (Peter, asked about BOOT0's wiring); with it fitted, 10 OPTION DISK LOADs and
+  5 CPU RESTARTs all came back. Not the firmware.
 
 ## The plan
 
