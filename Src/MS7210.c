@@ -94,7 +94,12 @@ static uint32_t chip_hz(void) {
    enabled as a master transmitter with nothing to send. setmode's, before PLL3_Config: pll adjusted for mode */
 void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode) {
     doubled = 0;
-    if(!G3Hardware || ModeHs > 1) return;                           // (OPTION PICOMITE's divided modes: not yet)
+    if(!G3Hardware) return;
+    if(ModeHs > 1) {                                                // OPTION PICOMITE's smaller modes (PicoMode.c): the base
+        pll->PLL3P = pll->PLL3R / ModeHs;                           // mode's clock divided by ModeHs (setmode multiplied P, Q
+        doubled = 1;                                                // and R): P back to the base's, so the chip has the base
+        return;                                                     // mode's standard timing, each pixel ModeHs times
+    }
     switch(mode) {
         case 3: case 7:                                             // x2: VCO 816, R 52 (15.69 MHz, -0.37%: R even), P 26
             pll->PLL3N = 102; pll->PLL3R = 52; pll->PLL3P = 26; break;

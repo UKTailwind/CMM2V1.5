@@ -580,6 +580,13 @@ chip as they are. Mode 12 is not yet doubled (148 MHz on PG7, or the chip's repe
   pixel 2-3 or 2-2-1 screen pixels wide. The chip is given the same: P = R / 2.5 (VCO 816, R 65 = 12.55 MHz, P 26 =
   31.38 MHz) and R / (5/3) (VCO 664, R 35 = 18.97 MHz, P 21 = 31.62 MHz), tried first from ms7210test.app
   (`mode m pll N R P`). Both monitors: 6 and 17 640x480, 5 as 4. "All work, as expected" (Peter).
+- **OPTION PICOMITE's modes (14 November):** the divided ones (ModeHs 2 or 4) get P = R / ModeHs, the base mode's
+  own clock, on PG7, so the chip has the base mode's standard timing, each pixel 2 or 4 times. Peter drove every
+  resolution and PicoMite MODE: all as the base modes, but OPTION RESOLUTION 640,315000, which gives 60 Hz where the
+  PicoMite gives 75 (not the G3: the speed has been ignored since mode 8 became 60 Hz on 9 November).
+- **The apps (14 November):** bbc.app and amiga.app 576p (their own PLL3 and timing, sent as they are), cpc 640x480 at
+  60 Hz (MODE 8), nes 640x480 at 75 Hz (MODE 7 doubled), doom 640x400 at 75 Hz (MODE 3 doubled). From the console bbc,
+  amiga and cpc leave on Ctrl-], nes and doom on Ctrl-C.
 - **Flashing a G3 with the ST-Link failed** ("Unable to get core ID", "failed to download Sector[0]") every time the
   MS7210 was sending HDMI, which an H743 reset does not stop; with the HDMI cable out (or the G3 power-cycled) it
   worked first time. Peter has ground loops between USB hubs; the HDMI cable to the monitor closes another. Later
