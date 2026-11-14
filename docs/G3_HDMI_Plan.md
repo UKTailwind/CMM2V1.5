@@ -563,6 +563,21 @@ MM.DEVICE$, 8-bit white &HFFFFFF, the chip locked with nothing run but the firmw
   cause:** a jumper missing on the board (Peter, asked about BOOT0's wiring); with it fitted, 10 OPTION DISK LOADs and
   5 CPU RESTARTs all came back. Not the firmware.
 
+**Step 4 (14 November): the clock doubled on PG7.** Mode 7 first from ms7210test.app (`mode 7 x2`): PLL3 VCO 816, R 52
+(15.69 MHz), P 26; SAI1 from pll3_p, block A a master transmitter, MCKDIV 0; PG7 AF6. The chip counts 31.2 MHz, its PLL
+locks, and Peter's monitor reports 640x480 at 75 Hz: "Good picture". 0x1281 swept with the card up: only the two
+extremes bad, as in 1080p, so 0x00 for every mode. Then into the firmware: MS7210_Pll in setmode (after OPTION
+PICOMITE's divide, before PLL3_Config) gives modes 3, 7, 13 and 19 P = R/2 (3 and 7 with R 52), PLL3_Config enables P
+on a G3, and MS7210_Mode turns SAI1's MCLK on PG7 on in those modes (off in the others). From BASIC's MODE, Peter's
+monitor: 7 640x480 at 75 Hz, 13 800x600, 19 1280x1024 at 60 Hz (SAI1 at 108 MHz), 3 640x400. Modes 1 to 18 in turn,
+the monitor's reports: 2 and 3 640x400, 4 480x432, 5 240x432, 6 256x480, 12 960x1080, 13 800x600, 14 960x540, 17
+384x480, the standard ones as before: every mode shows on it, the four under 25 MHz (4, 5, 6, 17) included, fed to the
+chip as they are. Mode 12 is not yet doubled (148 MHz on PG7, or the chip's repetition). A TV is still to be tried.
+- **Flashing a G3 with the ST-Link failed** ("Unable to get core ID", "failed to download Sector[0]") every time the
+  MS7210 was sending HDMI, which an H743 reset does not stop; with the HDMI cable out (or the G3 power-cycled) it
+  worked first time. Peter has ground loops between USB hubs; the HDMI cable to the monitor closes another. Until
+  better, unplug the HDMI cable to flash with the ST-Link.
+
 ## The plan
 
 ### Step 0: the board (Peter's answers, 8 Nov)

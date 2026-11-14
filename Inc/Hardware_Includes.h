@@ -158,6 +158,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void MS7210_Release(void);
     extern int MS7210_Start(void);
     extern void MS7210_Mode(void);
+    extern void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode);
     extern const char *BoardSignOn(void);
     extern int VgaMap(void);
     extern void (*docopy)(void *d, const void *s, int n);

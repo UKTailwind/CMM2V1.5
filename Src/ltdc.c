@@ -219,7 +219,8 @@ HAL_StatusTypeDef PLL3_Config(RCC_PLL3InitTypeDef *pll3, uint32_t Divider)
     else
     {
       __HAL_RCC_PLL3CLKOUT_ENABLE(RCC_PLL3_DIVR);
-    }
+      if(G3Hardware) __HAL_RCC_PLL3CLKOUT_ENABLE(RCC_PLL3_DIVP);   // (a G3's halved modes: SAI1's kernel clock, MS7210.c;
+    }                                                              // setmode's P|Q|R, 3, has only ever enabled R)
 
     /* Enable  PLL3. */
     __HAL_RCC_PLL3_ENABLE();
@@ -554,6 +555,7 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 		pll.PLL3Q *= ModeHs;
 		pll.PLL3R *= ModeHs;
 	}
+	MS7210_Pll(&pll, VideoMode);                                      // a G3's halved modes: P at twice R, its HDMI chip's clock
 	WritePage=0; ReadPage=0;
 	if(DisplayMerged)mymemset(Rgb121Display,0,DisplayH*DisplayV*Rgb121DisplayScale);
 	if(oldmode!=VideoMode || force)PLL3_Config(&pll,DIVIDER_P_UPDATE|DIVIDER_Q_UPDATE|DIVIDER_R_UPDATE);

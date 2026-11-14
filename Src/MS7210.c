@@ -14,6 +14,7 @@
      uSec's (TIM16), not HAL_GetTick's: a loaded program's video_mode runs setmode with BASEPRI raised. */
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
+#include "PicoMode.h"                                           // (ModeHs)
 
 int G3Hardware;                                                     // 1: the MS7210 answered (a G3)
 static int ready;                                                   // its init done (MS7210_Mode)
@@ -76,10 +77,44 @@ static void clr(uint16_t r, uint8_t bits, uint8_t set) {            // the bits 
     if(v >= 0) wr(r, (uint8_t)((v & ~bits) | set));
 }
 
-/* the pixel clock: PLL3's R output, HSE / M * N / R (FRACN is never used) */
-static uint32_t pixel_hz(void) {
+/* the clock the chip takes: PLL3's R output (the pixel clock), HSE / M * N / R (FRACN is never used), or in a halved
+   mode its P output, twice R, on PG7 */
+static int doubled;                                                 // this mode's chip clock is SAI1's MCLK (MS7210_Pll)
+static uint32_t chip_hz(void) {
     uint32_t m = (RCC->PLLCKSELR >> 20) & 0x3F, d = RCC->PLL3DIVR;
-    return m ? (uint32_t)((uint64_t)HSE_VALUE * ((d & 0x1FF) + 1) / m / (((d >> 24) & 0x7F) + 1)) : 0;
+    uint32_t div = doubled ? ((d >> 9) & 0x7F) + 1 : ((d >> 24) & 0x7F) + 1;
+    return m ? (uint32_t)((uint64_t)HSE_VALUE * ((d & 0x1FF) + 1) / m / div) : 0;
+}
+
+/* The halved modes (docs/G3_HDMI_Plan.md, step 4): their line is half a standard one at half its clock, under HDMI's
+   25 MHz. The chip is clocked at twice the pixel clock instead, so it takes each pixel twice and sends the standard
+   format: mode 7 (320x240) as VESA 640x480 at 75 Hz (Peter, 14 Nov 2026, the first G3: "Good picture, monitor reports
+   640x480 @75Hz"), 13 as 800x600 at 75, 19 as 1280x1024 at 60, 3 as 640x400 in 640x480's frame. The twice is PLL3's P
+   (R/2, R made even for 3 and 7), SAI1's kernel clock, whose master clock goes out on PG7 (AF6) while block A is
+   enabled as a master transmitter with nothing to send. setmode's, before PLL3_Config: pll adjusted for mode */
+void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode) {
+    doubled = 0;
+    if(!G3Hardware || ModeHs > 1) return;                           // (OPTION PICOMITE's divided modes: not yet)
+    if(mode == 3 || mode == 7) { pll->PLL3N = 102; pll->PLL3R = 52; }   // 15.69 MHz (-0.37%), VCO 816: R even
+    else if(mode != 13 && mode != 19) return;                       // (13: R 32, 19: R 12 as they are)
+    pll->PLL3P = pll->PLL3R / 2;
+    doubled = 1;
+}
+static void mclk(int on) {                                          // SAI1 block A's MCLK on PG7, from pll3_p, undivided
+    if(on) {
+        RCC->D2CCIP1R = (RCC->D2CCIP1R & ~RCC_D2CCIP1R_SAI1SEL) | (2UL << RCC_D2CCIP1R_SAI1SEL_Pos);
+        RCC->APB2ENR |= RCC_APB2ENR_SAI1EN;
+        (void)RCC->APB2ENR;
+    } else if(!(RCC->APB2ENR & RCC_APB2ENR_SAI1EN)) return;
+    SAI1_Block_A->CR1 = 0;
+    for(int i = 0; i < 100000 && (SAI1_Block_A->CR1 & SAI_xCR1_SAIEN); i++) {}
+    if(!on) return;
+    SAI1_Block_A->CR2 = 0;
+    SAI1_Block_A->FRCR = 31 | (15UL << 8);                          // a 32-bit frame, FS 16 bits
+    SAI1_Block_A->SLOTR = (1UL << 8) | (3UL << 16);                 // two slots, both on
+    SAI1_Block_A->CR1 = 4UL << 5;                                   // 16-bit data, master transmitter, MCKDIV 0 (undivided)
+    SAI1_Block_A->CR1 |= SAI_xCR1_SAIEN;
+    GPIOG->AFR[0] = (GPIOG->AFR[0] & ~(0xFu << 28)) | (6u << 28);   // PG7: SAI1_MCLK_A (HAL_LTDC_MspInit made it LTDC_CLK)
 }
 static void band(uint32_t hz) {                                     // the PHY's drive: over 100 MHz the SDK's high band
     int high = hz > 100000000;
@@ -138,7 +173,8 @@ static const uint16_t table[][2] = {                                // the FPGA 
                                                                     // settings only the two extremes were bad)
 void MS7210_Mode(void) {
     if(!G3Hardware) return;
-    uint32_t hz = pixel_hz();
+    mclk(doubled);                                                  // (off, if a halved mode had it on)
+    uint32_t hz = chip_hz();
     if(!ready) {
         wr(0x0060, 0x81); wr(0x0061, 0x54);                         // the internal oscillator at 27 MHz (the SDK's)
         for(unsigned i = 0; i < sizeof(table) / sizeof(table[0]); i++) wr(table[i][0], (uint8_t)table[i][1]);

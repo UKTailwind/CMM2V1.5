@@ -11,7 +11,8 @@
      RUN "ms7210test.app", status             HPD, PLL lock, the clock the chip counts, timing stable, INT (PC8)
      RUN "ms7210test.app", bars m             the test card in MODE m,8 (1 if not given) until a key
      RUN "ms7210test.app", mode m what        MODE m,8, then none, trig or full (the default) written to the chip, and
-                                              the test card until a key; BASIC's mode back at the end
+                                              the test card until a key; BASIC's mode back at the end. what x2: the
+                                              chip clocked at twice the pixel clock, SAI1's MCLK on PG7 (step 4)
      RUN "ms7210test.app", int s mask         PC8 (INT#), 0x0500 and HPD watched for s seconds (30): plug and unplug.
                                               mask (hex) written to 0x0501 first
      RUN "ms7210test.app", edge pc pa speed   the LTDC's clock polarity (GCR PCPOL, 0 or 1), the chip's sampling (0x1281,
@@ -146,6 +147,51 @@ static void g3_ltdc(void) {                                        // over the f
     LTDC->GCR &= ~LTDC_GCR_DEPOL;                                  // DE high in the picture, as the firmware has it: RM0433's
 }                                                                  // DEPOL is not-DE's polarity (measured on the G3, 14 Nov:
                                                                    // set, the pin was high 27% of the time, in the blanking)
+/* --- step 4: the clock doubled on PG7, SAI1's master clock (AF6) from PLL3's P at twice the LTDC's R, so that the
+   MS7210 takes each pixel twice: mode 7's 420 x 500 at 15.7 MHz reaches it as VESA 640x480 at 75 Hz (the plan's "What
+   the H743 can do itself", measured on a G1 with ltdctest.c). The H743 puts MCLK out only while the SAI block is
+   enabled: block A a master transmitter with nothing to send (its FIFO underruns, harmlessly) --- */
+static int x2;                                                     // PG7 is SAI1_MCLK_A at twice the pixel clock
+static int pll3_double(void) {                                     // P = R/2 (R made even first): 0 if it can't be
+    uint32_t d = RCC->PLL3DIVR, n = (d & 0x1FF) + 1, r = ((d >> 24) & 0x7F) + 1, p;
+    if(r & 1) {                                                    // an odd R: the even one beside it, the VCO moved to keep
+        if(n == 104 && r == 53) { n = 102; r = 52; }               // the clock (modes 3 and 7: 15.69 MHz, -0.37%)
+        else if(n == 102 && r == 11) { n = 74; r = 8; }            // (mode 12: 74.0 MHz, -0.34%)
+        else return 0;
+    }
+    p = r / 2;
+    RCC->CR &= ~RCC_CR_PLL3ON;                                     // (DIVP3EN can change only with PLL3 off)
+    for(int i = 0; i < 1000000 && (RCC->CR & RCC_CR_PLL3RDY); i++) ;
+    RCC->PLL3DIVR = (n - 1) | ((p - 1) << 9) | ((p - 1) << 16) | ((r - 1) << 24);
+    RCC->PLLCFGR |= RCC_PLLCFGR_DIVP3EN;
+    RCC->CR |= RCC_CR_PLL3ON;
+    for(int i = 0; i < 1000000 && !(RCC->CR & RCC_CR_PLL3RDY); i++) ;
+    return (RCC->CR & RCC_CR_PLL3RDY) != 0;
+}
+static uint32_t pll3_p_hz(void) {
+    uint32_t m = (RCC->PLLCKSELR >> 20) & 0x3F, d = RCC->PLL3DIVR;
+    return m ? (uint32_t)(8000000ull * ((d & 0x1FF) + 1) / m / (((d >> 9) & 0x7F) + 1)) : 0;
+}
+static void sai1_mclk(int on) {                                    // SAI1 block A's master clock, from pll3_p, MCKDIV 0
+    if(on) {
+        RCC->D2CCIP1R = (RCC->D2CCIP1R & ~RCC_D2CCIP1R_SAI1SEL) | (2UL << RCC_D2CCIP1R_SAI1SEL_Pos);
+        RCC->APB2ENR |= RCC_APB2ENR_SAI1EN;
+        (void)RCC->APB2ENR;
+    }
+    SAI1_Block_A->CR1 = 0;
+    for(int i = 0; i < 100000 && (SAI1_Block_A->CR1 & SAI_xCR1_SAIEN); i++) ;
+    if(!on) return;
+    SAI1_Block_A->CR2 = 0;
+    SAI1_Block_A->FRCR = 31 | (15UL << 8);                         // a 32-bit frame, FS 16 bits
+    SAI1_Block_A->SLOTR = (1UL << 8) | (3UL << 16);                // two slots, both on
+    SAI1_Block_A->CR1 = 4UL << 5;                                  // 16-bit data, master transmitter, MCKDIV 0 (undivided)
+    SAI1_Block_A->CR1 |= SAI_xCR1_SAIEN;
+}
+static void pg7_sai(void) {                                        // PG7 as SAI1_MCLK_A (AF6), very high speed
+    GPIOG->AFR[0] = (GPIOG->AFR[0] & ~(0xFu << 28)) | (6u << 28);
+    GPIOG->OSPEEDR |= 3u << 14;
+    GPIOG->MODER = (GPIOG->MODER & ~(3u << 14)) | (2u << 14);
+}
 static uint32_t pixel_hz(void) {                                   // PLL3's R: 8 MHz / M * N / R (no FRACN)
     uint32_t m = (RCC->PLLCKSELR >> 20) & 0x3F, divr = RCC->PLL3DIVR;
     uint32_t n = (divr & 0x1FF) + 1, r = ((divr >> 24) & 0x7F) + 1;
@@ -285,8 +331,13 @@ static void card(const cmm2_video *v) {
 static void label(const cmm2_video *v, int mode, uint32_t hz) {
     char s[96];
     int pa = rd(0x1281);
-    snprintf(s, sizeof(s), " MODE %d: %ux%u, %.1f MHz, 0x1281 %02X, LTDC clock %s ", mode, (unsigned)v->width,
-             (unsigned)v->height, hz / 1e6, pa & 0xFF, LTDC->GCR & LTDC_GCR_PCPOL ? "inverted" : "as it comes");
+    if(v->width < 640)                                             // (a narrow mode: the short form fits)
+        snprintf(s, sizeof(s), " MODE %d%s %.1fMHz 1281=%02X%s ", mode, x2 ? " x2" : "", hz / 1e6, pa & 0xFF,
+                 LTDC->GCR & LTDC_GCR_PCPOL ? " PCPOL" : "");
+    else
+        snprintf(s, sizeof(s), " MODE %d%s: %ux%u, %.1f MHz, 0x1281 %02X, LTDC clock %s ", mode, x2 ? " (clock x2)" : "",
+                 (unsigned)v->width, (unsigned)v->height, hz / 1e6, pa & 0xFF,
+                 LTDC->GCR & LTDC_GCR_PCPOL ? "inverted" : "as it comes");
     cmm2->gfx_text((int)v->width / 2, (int)v->height * 5 / 8, s, "CM", 1, v->width >= 1280 ? 2 : 1, 0xFFFFFF, 0x000000);
 }
 /* until a key ends it; on the way + and - step the chip's sampling (0x1281: bit 2 inverts the clock, bits 1-0 delay
@@ -306,23 +357,30 @@ static void wait_key(const cmm2_video *v, int mode, uint32_t hz) {
 }
 /* MODE m,8, the G3's settings again (setmode put the G2's back if the mode changed), and then what is written to the
    chip: 0 nothing, 1 the PLL re-trigger, 2 mute, band, re-trigger, infoframe, unmute; 3 the last if the clock changed */
-static void show(int mode, int what) {
+static void show(int mode, int what, int dbl) {
     cmm2_video v;
     uint32_t before = pixel_hz();
     if(cmm2->video_mode(mode, 8, &v) < 0) { printf("MODE %d,8 refused\n", mode); return; }
     g3_ltdc();
-    uint32_t hz = pixel_hz();
+    x2 = 0;
+    if(dbl) {                                                      // step 4: the chip clocked at twice the pixel clock
+        if(!pll3_double()) printf("MODE %d: no even PLL3 divider for the doubled clock\n", mode);
+        else { sai1_mclk(1); pg7_sai(); x2 = 1; what = 2; }
+    }
+    uint32_t hz = x2 ? pll3_p_hz() : pixel_hz();                   // (the clock the chip takes)
     if(what == 3) what = hz != before ? 2 : 0;
     if(what == 1) trigger();
     if(what == 2) { wr(0x0507, 0x06); band(hz); trigger(); infoframe(); wr(0x0507, 0x00); }
-    printf("MODE %d,8: %ux%u%s, %.3f MHz; written to the chip: %s\n", mode, (unsigned)v.width, (unsigned)v.height,
-           v.copies == 2 ? " (lines twice)" : "", hz / 1e6, what == 2 ? "band, re-trigger, infoframe" : what ? "re-trigger" : "nothing");
+    printf("MODE %d,8: %ux%u%s, %.3f MHz%s; written to the chip: %s\n", mode, (unsigned)v.width, (unsigned)v.height,
+           v.copies == 2 ? " (lines twice)" : "", hz / 1e6, x2 ? " on PG7 (SAI1's MCLK, twice the LTDC's)" : "",
+           what == 2 ? "band, re-trigger, infoframe" : what ? "re-trigger" : "nothing");
     ms(200);
     status();                                                      // (all the console's text before the card: see label)
     printf("(+ and - step 0x1281, p flips the LTDC's clock, any other key ends)\n");
     card(&v);
     label(&v, mode, hz);
     wait_key(&v, mode, hz);
+    if(x2) { sai1_mclk(0); pg7_ltdc(); x2 = 0; }                   // (setmode puts PLL3 and the chip back as the program ends)
 }
 
 /* --- INT#: what drives it --- */
@@ -411,10 +469,10 @@ int main(int argc, char **argv) {
     } else if(!strcmp(c, "status")) {
         if(find()) status();
     } else if(!strcmp(c, "bars")) {
-        if(find()) show(arg(argc, argv, 2, 10, 1), 3);
+        if(find()) show(arg(argc, argv, 2, 10, 1), 3, 0);
     } else if(!strcmp(c, "mode")) {
         const char *w = argc > 3 ? argv[3] : "full";
-        if(find()) show(arg(argc, argv, 2, 10, 1), !strcmp(w, "none") ? 0 : !strcmp(w, "trig") ? 1 : 2);
+        if(find()) show(arg(argc, argv, 2, 10, 1), !strcmp(w, "none") ? 0 : !strcmp(w, "trig") ? 1 : 2, !strcmp(w, "x2"));
     } else if(!strcmp(c, "int")) {
         if(find()) watch(arg(argc, argv, 2, 10, 30), arg(argc, argv, 3, 16, -1));
     } else if(!strcmp(c, "edge")) {
