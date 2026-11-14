@@ -2801,6 +2801,10 @@ void OPTSIZE cmd_option(void) {
 	OtherOptions();
 }
 void cmd_JumpToBootloader(void){
+    if(G3Hardware) {                                        // a G3's HDMI chip reset (PG3 low 20 ms): the soft reset lets
+        MS7210_ResetStart();                                // PG3 float, the pull-up releases it, and it waits idle, no
+        MM_Delay(20);                                       // HDMI out, while ST's bootloader runs (main's jump comes
+    }                                                       // before anything knows a G3 from a G1: MS7210.c)
     _excep_code = RESTART_BOOT0;                            // otherwise do an automatic reset
 	while(ConsoleTxBufTail != ConsoleTxBufHead);
 	MM_Delay(10);
