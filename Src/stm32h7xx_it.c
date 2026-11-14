@@ -36,6 +36,7 @@
 #include "IOPorts.h"
 #include "External.h"
 #include "PrintScreen.h"                                // (PrtScrTake: OPTION PRINTSCREEN ON, Console.c)
+#include "HdmiAudio.h"                                  // (a G3's sound through HDMI as well: HdmiPut)
 /* USER CODE END Includes */
 
 
@@ -941,6 +942,8 @@ void EXTI9_5_IRQHandler(void)
 
 void Audio_Interrupt(void)  {
     static int volramp = 0;
+    static int32_t hl, hr;                                          // a G3's pair for HDMI (HdmiAudio.c), 16-bit, held as
+    int h16 = 0;                                                    // the DACs' are; h16: this tick's source has 16 bits
     if((CurrentlyPlaying == P_TONE || CurrentlyPlaying == P_TTS) && ++volramp >= 11) {   // PLAY VOLUME ramps (0.25 ms a step)
     	volramp = 0;
     	if(vol_left != vol_target_left || vol_right != vol_target_right) ramp_volume();
@@ -971,15 +974,29 @@ void Audio_Interrupt(void)  {
         if(swingbuf){ //buffer is primed
         	if(swingbuf==1)flacbuff=(uint16_t *)sbuff1;
         	else flacbuff=(uint16_t *)sbuff2;
+        	h16 = (HdmiRate != 0);                                  // (a G3: the buffers hold 16 bits, iconvert's)
         	if(mono){                                               // (FLAC and MP3 too: they took two samples a tick)
         		if(ppos<bcount[swingbuf]){
+        			if(h16) {
+        				hl = hr = (int16_t)flacbuff[ppos++];
+        				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, HDMI_DAC(hl));
+        				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, HDMI_DAC(hl));
+        			} else {
 					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos]);
 					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos++]);
+        			}
         		}
         	} else {
 				if(ppos<bcount[swingbuf]){
+					if(h16) {
+						hl = (int16_t)flacbuff[ppos];
+						hr = (int16_t)flacbuff[ppos+1];
+						HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, HDMI_DAC(hl));
+						HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, HDMI_DAC(hr));
+					} else {
 					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos]);
 					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos+1]);
+					}
 					if(++repeat >= audiorepeat) { repeat = 0; ppos += 2; }
 				}
         	}
@@ -1066,7 +1083,13 @@ void Audio_Interrupt(void)  {
         		}
         	}
         }
-        if(out){                                                    // together up to +-1900 about 2000, as the other sources (the
+        h16 = (HdmiRate != 0);                                      // (a G3: each at full level, i2convert's: HDMI has their sum)
+        if(out && h16){
+        	hl = c1 + c3;
+        	hr = c2 + c4;
+        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, HDMI_DAC2(hl));
+        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, HDMI_DAC2(hr));
+        } else if(out){                                             // together up to +-1900 about 2000, as the other sources (the
         	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000 + ((c1 + c3) * 1900) / 32768);   // centre was 2048, and the
         	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000 + ((c2 + c4) * 1900) / 32768);   // MOD stopped while the
         }                                                           // EFFECT waited for data)
@@ -1156,6 +1179,18 @@ void Audio_Interrupt(void)  {
         int l = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1), r = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_2), s;
         if(l != 2000) { s = (2000 - l) / 64; l += s ? s : (l < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, l); }
         if(r != 2000) { s = (2000 - r) / 64; r += s ? s : (r < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, r); }
+        if(HdmiRate) {                                              // (HDMI's glides from its own last pair: the DACs' widened
+        	h16 = 1;                                                // would step by up to a sixteenth)
+        	hl -= hl / 64 ? hl / 64 : (hl > 0) - (hl < 0);
+        	hr -= hr / 64 ? hr / 64 : (hr > 0) - (hr < 0);
+        }
+    }
+    if(HdmiRate) {                                                  // a G3: the tick's pair to HDMI's ring too, the 12-bit
+    	if(!h16) {                                                  // sources' (tone, SOUND, the BBC's, speech, the glide)
+    		hl = ((int32_t)(DAC1->DHR12R1 & 0xFFF) - 2000) * 16;    // widened from the DACs' values
+    		hr = ((int32_t)(DAC1->DHR12R2 & 0xFFF) - 2000) * 16;
+    	}
+    	HdmiPut(hl, hr);
     }
 }
 

@@ -14,6 +14,8 @@
                                               the test card until a key; BASIC's mode back at the end. what x2: the
                                               chip clocked at twice the pixel clock, SAI1's MCLK on PG7 (step 4);
                                               what pll N R P: PLL3 at 8N MHz, the LTDC's clock /R, the chip's /P
+     RUN "ms7210test.app", audio s hz lv      a tone through HDMI for s seconds (5), hz (1000), level lv (4000 of 32767):
+                                              SAI2's I2S on PD11-13 at 44,117.6 Hz and the chip's I2S input (sound!)
      RUN "ms7210test.app", int s mask         PC8 (INT#), 0x0500 and HPD watched for s seconds (30): plug and unplug.
                                               mask (hex) written to 0x0501 first
      RUN "ms7210test.app", edge pc pa speed   the LTDC's clock polarity (GCR PCPOL, 0 or 1), the chip's sampling (0x1281,
@@ -388,6 +390,84 @@ static void show(int mode, int what, int dbl) {
     if(x2) { sai1_mclk(0); pg7_ltdc(); x2 = 0; }                   // (setmode puts PLL3 and the chip back as the program ends)
 }
 
+/* --- HDMI sound (docs/G3_HDMI_Audio_Plan.md, step 1): I2S on SAI2 block A (PD11 SD, PD12 FS, PD13 SCK, AF10), its
+   kernel clock pll1_q (48 MHz on a 480 MHz board), no master clock, SCK = 48 MHz / 17 = 2.8235 MHz, a 64-bit frame:
+   44,117.6 Hz. The chip as MacroSilicon's SDK sets it (ms7210drv_hd_tx_audio_config and its shell_init) --- */
+static void clr(uint16_t r, uint8_t bits, uint8_t set) {           // the bits cleared, then set's set
+    int v = rd(r);
+    if(v >= 0) wr(r, (uint8_t)((v & ~bits) | set));
+}
+static void chip_audio(void) {
+    clr(0x0506, 0x06, 0x06);                                       // the audio held in reset
+    clr(0x00A5, 0x18, 0x00);                                       // I2S, not S/PDIF
+    clr(0x0008, 0x03, 0x00);                                       // the audio clock from the SCK pin
+    clr(0x0530, 0x01, 0x00);                                       // I2S samples
+    clr(0x0048, 0x0F, 0x00);                                       // (the SDK's for a digital input)
+    wr(0x0531, 0x84);                                              // audio on, the 44.1/48 kHz code
+    clr(0x0535, 0x30, 0x10);                                       // 16 bits
+    clr(0x0532, 0x0F, 0x01);                                       // two channels
+    uint8_t pb[11] = {0};                                          // the audio infoframe: checksum, then data bytes 1-10
+    pb[1] = 0x01;                                                  // two channels, the coding and rate from the stream
+    uint8_t sum = 0x84 + 0x01 + 0x0A;
+    for(int i = 1; i < 11; i++) sum = (uint8_t)(sum + pb[i]);
+    pb[0] = (uint8_t)(0x100 - sum);
+    clr(0x050E, 0x20, 0x00);
+    wr(0x050A, 0x84); wr(0x0509, 0x01); wr(0x050B, 0x0A);
+    for(int i = 0; i < 11; i++) wr(0x050D, pb[i]);
+    clr(0x050E, 0x20, 0x20);                                       // (bit 6, the video's AVI, left as it is)
+    clr(0x0506, 0x04, 0x00);                                       // out of reset, as the SDK, 100 us apart
+    ms(1);
+    clr(0x0506, 0x02, 0x00);
+    clr(0x0507, 0x04, 0x00);                                       // unmuted
+}
+static uint32_t sai2_open(void) {                                  // SAI2 block A as an I2S master transmitter: its rate, or 0
+    uint32_t m = (RCC->PLLCKSELR >> 4) & 0x3F, d = RCC->PLL1DIVR;
+    if(!m || !(RCC->PLLCFGR & RCC_PLLCFGR_DIVQ1EN)) return 0;
+    uint32_t q_hz = (uint32_t)(8000000ull * ((d & 0x1FF) + 1) / m / (((d >> 16) & 0x7F) + 1));
+    RCC->D2CCIP1R = (RCC->D2CCIP1R & ~RCC_D2CCIP1R_SAI23SEL) | (0UL << RCC_D2CCIP1R_SAI23SEL_Pos);   // pll1_q_ck
+    RCC->APB2ENR |= RCC_APB2ENR_SAI2EN;
+    (void)RCC->APB2ENR;
+    GPIOD->AFR[1] = (GPIOD->AFR[1] & ~(0xFFFu << 12)) | (0xAAAu << 12);   // PD11-13: AF10
+    GPIOD->OSPEEDR = (GPIOD->OSPEEDR & ~(0x3Fu << 22)) | (0x2Au << 22);
+    GPIOD->MODER = (GPIOD->MODER & ~(0x3Fu << 22)) | (0x2Au << 22);
+    SAI2_Block_A->CR1 = 0;
+    for(int i = 0; i < 100000 && (SAI2_Block_A->CR1 & SAI_xCR1_SAIEN); i++) ;
+    SAI2_Block_A->CR2 = 0;
+    SAI2_Block_A->FRCR = 63 | (31UL << 8) | SAI_xFRCR_FSDEF | SAI_xFRCR_FSOFF;   // 64 bits, FS 32 (low: left), a bit early
+    SAI2_Block_A->SLOTR = (2UL << 6) | (1UL << 8) | (3UL << 16);   // 32-bit slots, two, both on, data at their start
+    SAI2_Block_A->CR1 = (4UL << 5) | SAI_xCR1_CKSTR | SAI_xCR1_NODIV | (17UL << SAI_xCR1_MCKDIV_Pos);   // 16-bit data, out
+    return q_hz / 17 / 64;                                         // on SCK's falling edge, no MCLK, SCK = ker / 17
+}
+static void audio_test(int secs, int hz, int level) {             // a tone from both channels, fed to the FIFO directly
+    uint32_t rate = sai2_open();
+    if(!rate) { printf("PLL1Q is off: no 48 MHz for SAI2\n"); return; }
+    chip_audio();
+    printf("SAI2: %lu Hz; the chip's audio set up. A %d Hz tone at %d for %d s (Ctrl-C ends it)\n",
+           (unsigned long)rate, hz, level, secs);
+    int16_t tab[256];                                              // one cycle of a sine, by rotation (no libm)
+    double c = 1.0, s = 0.0, cw = 0.99969881869620425, sw = 0.024541228522912288;   // cos, sin of 2 pi / 256
+    for(int i = 0; i < 256; i++) { tab[i] = (int16_t)(s * level); double t = c * cw - s * sw; s = s * cw + c * sw; c = t; }
+    uint32_t phase = 0, step = (uint32_t)((uint64_t)hz * 65536 * 256 / rate);   // (16.8 in 256ths of a cycle)
+    SAI2_Block_A->CR1 |= SAI_xCR1_SAIEN;
+    uint64_t t0 = cmm2->micros(), shown = 0;
+    while(cmm2->micros() - t0 < (uint64_t)secs * 1000000 && !cmm2->poll()) {
+        while(((SAI2_Block_A->SR >> 16) & 7) < 5) {                // the FIFO not full: a frame, left then right
+            int16_t v = tab[(phase >> 16) & 255];
+            SAI2_Block_A->DR = (uint32_t)(int32_t)v;
+            SAI2_Block_A->DR = (uint32_t)(int32_t)v;
+            phase += step;
+        }
+        if(cmm2->micros() - t0 >= shown) {                         // the chip's view once a second
+            printf("%2u s: 0x0500 %02X, 0x0507 %02X, 0x051B-1D %02X %02X %02X, 0x0521-22 %02X %02X, SAI2 SR %08lX\n",
+                   (unsigned)(shown / 1000000), rd(0x0500), rd(0x0507), rd(0x051B), rd(0x051C), rd(0x051D), rd(0x0521),
+                   rd(0x0522), (unsigned long)SAI2_Block_A->SR);
+            shown += 1000000;
+        }
+    }
+    SAI2_Block_A->CR1 &= ~SAI_xCR1_SAIEN;                          // (the chip's audio left set up)
+    printf("done\n");
+}
+
 /* --- INT#: what drives it --- */
 static void watch(int secs, int mask) {
     if(mask >= 0) { wr(0x0501, (uint8_t)mask); printf("0x0501 set to %02X\n", mask); }
@@ -483,6 +563,8 @@ int main(int argc, char **argv) {
             want_p = (uint32_t)arg(argc, argv, 6, 10, 0); dbl = 2;
         }
         if(find()) show(arg(argc, argv, 2, 10, 1), !strcmp(w, "none") ? 0 : !strcmp(w, "trig") ? 1 : 2, dbl);
+    } else if(!strcmp(c, "audio")) {                               // audio s hz level: a tone through HDMI (the audio plan's step 1)
+        if(find()) audio_test(arg(argc, argv, 2, 10, 5), arg(argc, argv, 3, 10, 1000), arg(argc, argv, 4, 10, 4000));
     } else if(!strcmp(c, "int")) {
         if(find()) watch(arg(argc, argv, 2, 10, 30), arg(argc, argv, 3, 16, -1));
     } else if(!strcmp(c, "edge")) {

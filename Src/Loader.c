@@ -407,17 +407,26 @@ static void (*ldfill)(int16_t *buf, uint32_t frames);
    channels as the interrupt wrote them (2000 + 1900 a full sample, stm32h7xx_it.c's MOD branch), the half the DMA has
    just played made again in PendSV (ld_dmahalf, from its interrupt). The interrupt's buffers, sbuff1 and sbuff2, are kept
    for the frames as the program, the music and PLAY VOLUME make them */
-extern uint32_t *dacdma;
+extern uint32_t *dacdma, *hdmistream;
 extern void DACDMAStart(uint32_t *buf, int frames, void (*half)(int));
 static volatile uint8_t ld_dmafree[2];
 
+/* a G3 (HdmiAudio.c): i2convert's samples are at full level, not half, and are kept in hdmistream as well, laid out as
+   dacdma, which HDMI's interrupt takes at the DACs' DMA's position (HdmiStream: the two run at one rate) */
 static void ld_make_dma(int h) {
     int16_t *s = (int16_t *)sbuff1;
     uint32_t *d = dacdma + h * LD_FRAMES;
     ldfill(s, LD_FRAMES);
     OPLStreamMix(s, LD_FRAMES);
     i2convert(s, s, LD_FRAMES * 2);
-    for(int i = 0; i < LD_FRAMES; i++) {
+    if(HdmiRate) {
+        uint32_t *hd = hdmistream ? hdmistream + h * LD_FRAMES : NULL;
+        for(int i = 0; i < LD_FRAMES; i++) {
+            const int32_t l = s[2 * i], r = s[2 * i + 1];
+            d[i] = (uint32_t)HDMI_DAC2(l) | (uint32_t)HDMI_DAC2(r) << 16;
+            if(hd) hd[i] = (uint16_t)l | (uint32_t)r << 16;
+        }
+    } else for(int i = 0; i < LD_FRAMES; i++) {
         const int32_t l = s[2 * i], r = s[2 * i + 1];
         d[i] = (uint32_t)(2000 + (l * 1900) / 32768) | (uint32_t)(2000 + (r * 1900) / 32768) << 16;
     }
@@ -456,7 +465,8 @@ static int ld_astart(void (*fill)(int16_t *buf, uint32_t frames)) {
     }
     ibuff1 = (uint16_t *)sbuff1;
     ibuff2 = (uint16_t *)sbuff2;
-    htim4.Init.Prescaler = (PeripheralBusSpeed / 2) / 44100 - 1;    // (as PLAY OPL sets it: OPLRate is what it gives)
+    htim4.Init.Prescaler = HdmiPsc(44100, (PeripheralBusSpeed / 2) / 44100 - 1);   // (as PLAY OPL sets it: OPLRate is
+                                                                    // what it gives; a G3's is the SAI's rate: HdmiAudio.c)
     htim4.Instance->PSC = htim4.Init.Prescaler;
     HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);                       // (CubeMX left it at 0, the highest: it was unused)
     ldfill = fill;
@@ -468,10 +478,13 @@ static int ld_astart(void (*fill)(int16_t *buf, uint32_t frames)) {
     swingbuf = 1;
     nextbuf = 2;
     ld_dmafree[0] = ld_dmafree[1] = 0;
+    if(HdmiRate) hdmistream = GetInternalMemoryNull(LD_FRAMES * 8);   // (a G3: without it, no HDMI for the stream)
     ld_make_dma(0);
     ld_make_dma(1);
     CurrentlyPlaying = P_STREAM;
     DACDMAStart(dacdma, LD_FRAMES, ld_dmahalf);
+    HdmiStreamFrames = 2 * LD_FRAMES;
+    HdmiStream = hdmistream;
     if(HAL_TIM_Base_Start(&htim4) != HAL_OK) { ld_astop(); return -4; }   // (no interrupt: the DMA's)
     return (int)OPLRate();
 }

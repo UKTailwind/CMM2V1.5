@@ -140,6 +140,7 @@ volatile int swingbuf = 0,nextbuf = 0, playreadcomplete = 1;
 volatile int swingbufe = 0,nextbufe = 0, playreadcompletee = 1;
 char *sbuff1=NULL, *sbuff2=NULL;
 uint32_t *dacdma = NULL;                                            // a program's sound stream's DMA buffer (DACDMAStart, Loader.c), freed by CloseAudio
+uint32_t *hdmistream = NULL;                                        // and a G3's 16-bit copy for HDMI (Loader.c, HdmiAudio.c)
 uint16_t *ibuff1, *ibuff2;
 char *sbuff1e=NULL, *sbuff2e=NULL;
 uint16_t *ibuff1e, *ibuff2e;
@@ -1267,8 +1268,8 @@ void cmd_tts(char *pp){
 			bcount[2]=0;
 			last_left = current_left = last_right = current_right = 2000;
 			ppos = 0;
-			htim4.Init.Prescaler = PSpeedDiv/22049;
-			htim4.Instance->PSC = PSpeedDiv/22049;
+			htim4.Init.Prescaler = HdmiPsc(22049, PSpeedDiv/22049);   // (a G3: the SAI's rate's half, HdmiAudio.c)
+			htim4.Instance->PSC = htim4.Init.Prescaler;
 			swingbuf = 1;
 			nextbuf = 1;
 			nchannels=1;
@@ -1300,6 +1301,8 @@ void CloseAudio(int all){
 		FreeMemorySafe((void *)&sbuff2e);
 	}
 	FreeMemorySafe((void *)&dacdma);                                // (a program's sound stream's DMA buffer: Loader.c)
+	HdmiStream = NULL;                                              // (HDMI's interrupt off it before it goes)
+	FreeMemorySafe((void *)&hdmistream);
 	FreeMemorySafe((void *)&buffer);
 	FreeMemorySafe((void *)&modbuff);
 	OPLClose();                                                     // PLAY OPL's synth (OPL.c)
@@ -1347,6 +1350,7 @@ void ramp_volume(void){
 void iconvert(uint16_t *ibuff, int16_t *sbuff, int count){
 	int i, ramp = 0;
 	int l = mapping[vol_left] * 19, r = mapping[vol_right] * 19;     // mapping[100] is 2000: 2000 * 19 / 655360 * 32768 = 1900
+	if(HdmiRate) { HdmiConvert((int16_t *)ibuff, sbuff, count, 1); return; }   // a G3: 16 bits kept (HdmiAudio.c)
 	for(i=0;i<(count);i+=2){
 		if(++ramp >= VOL_RAMP_INTERVAL && (vol_left != vol_target_left || vol_right != vol_target_right)) {
 			ramp = 0;
@@ -1360,6 +1364,7 @@ void iconvert(uint16_t *ibuff, int16_t *sbuff, int count){
 }
 void i2convert(int16_t *ibuff, int16_t *sbuff, int count){
 	int i, ramp = 0;
+	if(HdmiRate) { HdmiConvert(ibuff, sbuff, count, 0); return; }   // a G3: full level, not half (HdmiAudio.c)
 	for(i=0;i<(count);i+=2){
 		if(++ramp >= VOL_RAMP_INTERVAL) { ramp = 0; ramp_volume(); }
 		ibuff[i]=(int16_t)(((float)sbuff[i]*(float)mapping[vol_left]/4000.0));
@@ -1399,8 +1404,8 @@ void wavcallback(char *p){
     sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE);
     ibuff1 = (uint16_t *)sbuff1;
     ibuff2 = (uint16_t *)sbuff2;
-	htim4.Init.Prescaler = PSpeedDiv/mywav.sampleRate-1;
-	htim4.Instance->PSC = PSpeedDiv/mywav.sampleRate-1;
+	htim4.Init.Prescaler = HdmiPsc(mywav.sampleRate, PSpeedDiv/mywav.sampleRate-1);   // (a G3: HdmiAudio.c)
+	htim4.Instance->PSC = htim4.Init.Prescaler;
 	mono=(mywav.channels == 1 ? 1 : 0);
     bcount[1]=drwav_read_pcm_frames_s16(&mywav, WAV_BUFFER_SIZE/4, (drwav_int16*)sbuff1) * mywav.channels;
 //    bcount[2]=drwav_read_pcm_frames_s16(&mywav, WAV_BUFFER_SIZE/4, (drwav_int16*)sbuff2) * mywav.channels;
@@ -1439,8 +1444,8 @@ void mp3callback(char *p){
     sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE*2);
     ibuff1 = (uint16_t *)sbuff1;
     ibuff2 = (uint16_t *)sbuff2;
-    htim4.Init.Prescaler = PSpeedDiv/mymp3->sampleRate-1;
-	htim4.Instance->PSC = PSpeedDiv/mymp3->sampleRate-1;
+    htim4.Init.Prescaler = HdmiPsc(mymp3->sampleRate, PSpeedDiv/mymp3->sampleRate-1);
+	htim4.Instance->PSC = htim4.Init.Prescaler;
 //        PInt(mymp3->sampleRate);MMPrintString(" Sample rate\r\n");
 //        PInt(mymp3->channels);MMPrintString(" Channels\r\n");
     mono=(mymp3->channels == 1 ? 1 : 0);
@@ -1484,8 +1489,8 @@ void flaccallback(char *p){
 	sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE*2);
     ibuff1 = (uint16_t *)sbuff1;
     ibuff2 = (uint16_t *)sbuff2;
-	htim4.Init.Prescaler = PSpeedDiv/myflac->sampleRate-1;
-	htim4.Instance->PSC = PSpeedDiv/myflac->sampleRate-1;
+	htim4.Init.Prescaler = HdmiPsc(myflac->sampleRate, PSpeedDiv/myflac->sampleRate-1);
+	htim4.Instance->PSC = htim4.Init.Prescaler;
 //	        PInt(myflac->bitsPerSample);MMPrintString(" Bits per sample\r\n");
 //	        PInt(myflac->sampleRate);MMPrintString(" Sample rate\r\n");
 //	       PInt(myflac->totalPCMFrameCount);MMPrintString(" Total Samples\r\n");
@@ -1640,8 +1645,8 @@ void cmd_play(void) {
 
         SoundPlay = PlayDuration;
     	if (!(CurrentlyPlaying == P_PAUSE_TONE || CurrentlyPlaying == P_TONE )){
-    		htim4.Init.Prescaler = PSpeedDiv/PWM_FREQ-1;
-        	htim4.Instance->PSC = PSpeedDiv/PWM_FREQ-1;
+    		htim4.Init.Prescaler = HdmiPsc(PWM_FREQ, PSpeedDiv/PWM_FREQ-1);
+        	htim4.Instance->PSC = htim4.Init.Prescaler;
             PhaseAC_left = PhaseAC_right = 0.0;
             ConfigSoundOutputs();
     	}
@@ -1687,8 +1692,8 @@ void cmd_play(void) {
         BBCSoundReset();
         BBCSoundQueue(chan, amp, pitch, dur);
         mono = 0;
-        htim4.Init.Prescaler = PSpeedDiv/PWM_FREQ-1;                // 44100, the engine's rate
-        htim4.Instance->PSC = PSpeedDiv/PWM_FREQ-1;
+        htim4.Init.Prescaler = HdmiPsc(PWM_FREQ, PSpeedDiv/PWM_FREQ-1);   // 44100, the engine's rate
+        htim4.Instance->PSC = htim4.Init.Prescaler;
         FreeMemorySafe((void *)&sbuff1);
         FreeMemorySafe((void *)&sbuff2);
         sbuff1 = GetInternalMemory(BBC_BUFFER_SIZE);
@@ -1759,7 +1764,7 @@ void cmd_play(void) {
         float actualrate = freq;                                    // each sample repeated up to 32 kHz or more: TIM4 cannot run slow
         int repeat = 1;
         while(actualrate < 32000) { actualrate += freq; repeat++; }
-        htim4.Init.Prescaler = (uint32_t)(PSpeedDiv / actualrate + 0.5f) - 1;
+        htim4.Init.Prescaler = HdmiPsc((uint32_t)(actualrate + 0.5f), (uint32_t)(PSpeedDiv / actualrate + 0.5f) - 1);
         htim4.Instance->PSC = htim4.Init.Prescaler;
         FreeMemorySafe((void *)&sbuff1);
         FreeMemorySafe((void *)&sbuff2);
@@ -1842,7 +1847,7 @@ void cmd_play(void) {
             adsr_phase[c] = ADSR_ATTACK;
             adsr_level[c] = 0;
         }
-        htim4.Init.Prescaler = (uint32_t)(PSpeedDiv / actualrate + 0.5f) - 1;
+        htim4.Init.Prescaler = HdmiPsc((uint32_t)(actualrate + 0.5f), (uint32_t)(PSpeedDiv / actualrate + 0.5f) - 1);
         htim4.Instance->PSC = htim4.Init.Prescaler;
         FreeMemorySafe((void *)&sbuff1);
         FreeMemorySafe((void *)&sbuff2);
@@ -1934,8 +1939,8 @@ void cmd_play(void) {
             if(lastright==(uint16_t *)nulltable) sound_v_right[channel]=sound_v_target_right[channel];
         }
         if(!(CurrentlyPlaying == P_SOUND || CurrentlyPlaying == P_PAUSE_SOUND)){   // (paused, the timer runs: starting it again failed)
-        	htim4.Init.Prescaler = PSpeedDiv/PWM_FREQ-1;
-    		htim4.Instance->PSC = PSpeedDiv/PWM_FREQ-1;
+        	htim4.Init.Prescaler = HdmiPsc(PWM_FREQ, PSpeedDiv/PWM_FREQ-1);
+    		htim4.Instance->PSC = htim4.Init.Prescaler;
             ConfigSoundOutputs();
         }
         if(CurrentlyPlaying != P_PAUSE_SOUND) CurrentlyPlaying = P_SOUND;  // (paused stays paused)
@@ -2187,8 +2192,8 @@ void cmd_play(void) {
         }
         FileClose(WAV_fnbr);
         WAV_fnbr = 0;                                               // (closed: the end of play must not close it again)
-        htim4.Init.Prescaler = PSpeedDiv/modfilesamplerate-1;
-    	htim4.Instance->PSC = PSpeedDiv/modfilesamplerate-1;
+        htim4.Init.Prescaler = HdmiPsc(modfilesamplerate, PSpeedDiv/modfilesamplerate-1);
+    	htim4.Instance->PSC = htim4.Init.Prescaler;
         hxcmod_init( &mcontext );
         hxcmod_setcfg(&mcontext, modfilesamplerate,1,1 );
 		if(!hxcmod_load( &mcontext, (void*)modbuff, i )) {

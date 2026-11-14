@@ -151,10 +151,34 @@ static void band(uint32_t hz) {                                     // the PHY's
 }
 static void infoframe(void) {                                       // the AVI infoframe, raw bytes as the FPGA table's:
     static const uint8_t pb[14] = {0x06, 0x11, 0x58};               // video code 0 (VESA), RGB, overscan, 601, 4:3; byte 0
-    wr(0x050E, 0x00);                                               // the checksum. Underscan, IT content and the range for
-    wr(0x050A, 0x82); wr(0x0509, 0x02); wr(0x050B, 0x0D);           // TVs are for later (the plan's step 3)
-    for(int i = 0; i < 14; i++) wr(0x050D, pb[i]);
-    wr(0x050E, 0x40);
+    clr(0x050E, 0x40, 0x00);                                        // the checksum. Underscan, IT content and the range for
+    wr(0x050A, 0x82); wr(0x0509, 0x02); wr(0x050B, 0x0D);           // TVs are for later (the plan's step 3). (Bit 5 is the
+    for(int i = 0; i < 14; i++) wr(0x050D, pb[i]);                  // audio infoframe's: ms_audio)
+    clr(0x050E, 0x40, 0x40);
+}
+
+/* the chip's audio (docs/G3_HDMI_Audio_Plan.md; MacroSilicon's SDK, as ms7210test's audio command, heard on the first
+   G3 on 14 Nov 2026): I2S from SAI2 (HdmiAudio.c), 16 bits, two channels, the 44.1/48 kHz code, the audio infoframe.
+   Sent at every mode, inside MS7210_Mode's mute, which unmutes it */
+static void ms_audio(void) {
+    uint8_t pb[11] = {0, 0x01}, sum = 0x84 + 0x01 + 0x0A;           // the infoframe: checksum, then two channels, the coding
+    clr(0x0506, 0x06, 0x06);                                        // and rate from the stream. The audio held in reset
+    clr(0x00A5, 0x18, 0x00);                                        // I2S, not S/PDIF
+    clr(0x0008, 0x03, 0x00);                                        // the audio clock from the SCK pin
+    clr(0x0530, 0x01, 0x00);                                        // I2S samples
+    clr(0x0048, 0x0F, 0x00);                                        // (the SDK's for a digital input)
+    wr(0x0531, 0x84);                                               // audio on, the 44.1/48 kHz code
+    clr(0x0535, 0x30, 0x10);                                        // 16 bits
+    clr(0x0532, 0x0F, 0x01);                                        // two channels
+    for(int i = 1; i < 11; i++) sum = (uint8_t)(sum + pb[i]);
+    pb[0] = (uint8_t)(0x100 - sum);
+    clr(0x050E, 0x20, 0x00);
+    wr(0x050A, 0x84); wr(0x0509, 0x01); wr(0x050B, 0x0A);
+    for(int i = 0; i < 11; i++) wr(0x050D, pb[i]);
+    clr(0x050E, 0x20, 0x20);
+    clr(0x0506, 0x04, 0x00);                                        // out of reset, as the SDK, apart
+    msdelay(1);
+    clr(0x0506, 0x02, 0x00);
 }
 
 /* the start-up, in main: PG3 low (MX_GPIO_Init, on a G2 or a G3; never a G1, whose PG3 may be used) */
@@ -185,6 +209,7 @@ int MS7210_Start(void) {                                            // the chip 
         dev = addr[i];
         G3Hardware = (rd(0x0000) == 0xA2 && rd(0x0001) == 0x20 && rd(0x0002) == 0x0A);
     }
+    if(G3Hardware) HdmiAudioStart();                                // (SAI2 sending silence before the chip is set up)
     return G3Hardware;
 }
 
@@ -224,6 +249,7 @@ void MS7210_Mode(void) {
     msdelay(10);
     if(!ready) wr(0x000B, 0x11);                                    // (the shell out of reset)
     infoframe();
+    if(HdmiRate) ms_audio();
     wr(0x0507, 0x00);                                               // unmuted
     ready = 1;
 }

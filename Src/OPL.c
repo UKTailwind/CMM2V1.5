@@ -96,7 +96,8 @@ static int sactive, sloop, svol = 127, spaused, sdiv = 1;           // a program
 static int song_tracks(void);
 
 static void ow(int c, int reg, int val) { if(c < nchips && chip[c]) OPLChipWrite(chip[c], reg, val); }
-static uint32_t opl_rate(void) { return PSpeedDiv / (PSpeedDiv / OPL_RATE); }   // the audio timer's: the chip's pitch
+static uint32_t opl_rate(void) { return PSpeedDiv / (HdmiPsc(OPL_RATE, PSpeedDiv / OPL_RATE - 1) + 1); }   // the audio
+                                                                    // timer's: the chip's pitch (a G3's, the SAI's rate)
 static uint16_t rd16(uint32_t o) { return song[o] | song[o + 1] << 8; }
 static uint32_t rd32(uint32_t o) { return rd16(o) | (uint32_t)rd16(o + 2) << 16; }
 static uint32_t be32(const unsigned char *p) { return (uint32_t)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
@@ -522,8 +523,8 @@ static void opl_start(int mode, int n, char *interrupt) {
     sbuff2 = GetInternalMemory(WAV_BUFFER_SIZE);
     ibuff1 = (uint16_t *)sbuff1;
     ibuff2 = (uint16_t *)sbuff2;
-    htim4.Init.Prescaler = PSpeedDiv / OPL_RATE - 1;
-    htim4.Instance->PSC = PSpeedDiv / OPL_RATE - 1;
+    htim4.Init.Prescaler = HdmiPsc(OPL_RATE, PSpeedDiv / OPL_RATE - 1);
+    htim4.Instance->PSC = htim4.Init.Prescaler;
     oplrate = opl_rate();
     for(i = 0; i < n; i++) OPLChipInit(chip[i], oplrate);
     nchips = n;

@@ -231,6 +231,37 @@ start, TIM4 locked to the SAI for the 44.1 kHz family and the 16-bit twins in ic
   samples).
 - **At PLAY VOLUME 50:** each sample must be the file's scaled in 16 bits, not a 12-bit value widened.
 
+**Heard on the G3** (14 Nov 2026, Peter, the monitor's speaker: "all sounded good").
+- **The sources:**
+  - PLAY TONE (both channels, and left only);
+  - WAV at 22.05 kHz (locked) and 48 kHz (resampled);
+  - FLAC at 22.05 and 96 kHz;
+  - MP3 and MOD (locked at 44.1 kHz), and PLAY EFFECT over a MOD;
+  - SOUND (sine and square), speech, PLAY MIDI TEST and PLAY BBC SOUND;
+  - PLAY ARRAY at 44.1 kHz and at 8 kHz (TIM4 at 32 kHz), and PLAY SAMPLE;
+  - Doom's timed demo 1, with music and effects, through a program's stream: 49.2 fps (51.0 on the G2 before, 2 Nov).
+- **The ring:** its fill held steady for every source, about 130-330 frames, and 220-480 at 96 kHz.
+- **The SAI:** it never underran.
+
+**As built** (14 Nov 2026, Src/HdmiAudio.c). Where it differs from the design above:
+- **No twins:** on a G3, iconvert and i2convert keep the 16-bit samples, PLAY VOLUME applied, in the buffers
+  themselves, and the interrupt makes the DACs' values from them (HDMI_DAC and HDMI_DAC2, HdmiAudio.h). This saves the
+  32 KB of twins and a second pass. The DACs' values are a G2's at PLAY VOLUME 100, and within one unit of them at
+  other volumes. A G1's and a G2's code is unchanged.
+- **i2convert at full level on a G3:** MOD, OPL, PLAY EFFECT and a program's stream are kept at full level, not half.
+  The DACs' side halves them in the interrupt and in Loader.c. HDMI has the sum, clipped at 16 bits.
+- **Memory:** the D2 SRAM's last 4 KB, above lbuff (0x30047000): the SAI's DMA buffer, two halves of 128 frames
+  (1 KB), then the ring of 768 frames (3 KB). Nothing comes from the heap, except while a program's stream plays.
+- **A program's stream:** it plays by DMA with no TIM4 interrupt (V8), so it has no ring. ld_make_dma keeps its 16-bit
+  frames in a copy laid out as the DACs' DMA buffer (8 KB of on-chip heap while it plays). HDMI's interrupt takes them
+  at the DACs' DMA's position, as the two run at one rate.
+- **The rate:** every TIM4 prescaler goes through HdmiPsc, which locks the 44.1 kHz family to the SAI on a G3, so
+  OPLRate and the stream's rate are 44,117 Hz there. For other rates, the step is the exact ratio of the two clocks in
+  32.32 (both come from PLL1), so no drift is expected. The 0.05% nudge acts only if the fill moves 64 frames from where
+  it started.
+- **The chip:** its audio set-up is sent at every mode change, inside MS7210_Mode's mute. The AVI infoframe's enable is
+  changed by read-modify-write, so the audio infoframe's bit stays set.
+
 ### Step 3: long runs
 
 - **An hour of music:** an hour of MOD or MP3 with no click, the ring's fill logged throughout to show the correction
@@ -243,6 +274,22 @@ start, TIM4 locked to the SAI for the 44.1 kHz family and the 16-bit twins in ic
   interrupt.
 - **The manual:** the G3's sound comes out of both.
 - **Regression:** a G2's and a G1's sound must be unchanged, as their path is untouched. The goldens are run on both.
+
+### Programs that write the DACs themselves (Peter, 14 Nov: to look at later)
+
+Some programs drive the DACs directly, not through MMBasic's sounds or a loadable program's stream:
+- **What reaches HDMI:** only what passes through Audio_Interrupt (HdmiPut) or the stream's copy. A program that
+  writes DAC1's registers is heard on the DACs only, and HDMI stays silent.
+- **What that covers:** a CSUB, POKEs to DAC1, the DAC command, or a loadable program with its own timer.
+- **In this repository:** every app with sound (Amiga, Apple, Atari, BBC, C64, CPC, Doom, Heretic, NES, PC386, Quake,
+  ScummVM, Spectrum, TRS-80, VT100, zeptoforth and CC's runtime) uses audio_start, which is covered. A search (14 Nov)
+  found none writing DAC1 by name.
+- **To do:** list the programs that write the DACs themselves.
+- **One way to catch them all:** a "DAC follower" on a G3, used only while no source of ours is playing.
+  - A spare timer at the SAI's rate triggers a DMA stream that copies DAC1's two output registers (DOR1, DOR2) into a
+    small ring.
+  - ha_fill then widens them to 16 bits, as it does the 12-bit sources.
+  - That costs no processor time, but gives 12 bits only, and costs one more DMA stream.
 
 ### Later
 

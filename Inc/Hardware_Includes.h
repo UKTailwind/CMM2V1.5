@@ -161,6 +161,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode);
     extern const char *BoardSignOn(void);
     extern int VgaMap(void);
+    #include "HdmiAudio.h"                                      // a G3's sound through HDMI
     extern void (*docopy)(void *d, const void *s, int n);
     extern uint8_t DS3231_WR_Reg(uint16_t reg,uint8_t *buf,uint8_t len);
     extern void DS3231_RD_Reg(uint16_t reg,uint8_t *buf,uint8_t len);
