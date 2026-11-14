@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     uint64_t t0, t1;
 
     if(cmm2->version < 2) { printf("this firmware's services are version %lu\n", (unsigned long)cmm2->version); return 1; }
-    printf("bad modes: mode 0 %d, mode 19 %d, depth 16 %d\n", cmm2->video_mode(0, 8, &v), cmm2->video_mode(19, 8, &v),
+    printf("bad modes: mode 0 %d, mode 20 %d, depth 16 %d\n", cmm2->video_mode(0, 8, &v), cmm2->video_mode(20, 8, &v),
            cmm2->video_mode(1, 16, &v));
     r = cmm2->video_mode(mode, 8, &v);
     if(r < 0) { printf("MODE %d,8 refused: %d\n", mode, r); return 2; }

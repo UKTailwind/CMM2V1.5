@@ -89,7 +89,7 @@ static uint32_t chip_hz(void) {
 /* The halved modes (docs/G3_HDMI_Plan.md, step 4): their line is half a standard one at half its clock, under HDMI's
    25 MHz. The chip is clocked at twice the pixel clock instead, so it takes each pixel twice and sends the standard
    format: mode 7 (320x240) as VESA 640x480 at 75 Hz (Peter, 14 Nov 2026, the first G3: "Good picture, monitor reports
-   640x480 @75Hz"), 13 as 800x600 at 75, 19 as 1280x1024 at 60, 3 as 640x400 in 640x480's frame. The twice is PLL3's P
+   640x480 @75Hz"), 13 as 800x600 at 75, 3 as 640x400 in 640x480's frame. The twice is PLL3's P
    (R/2, R made even for 3 and 7), SAI1's kernel clock, whose master clock goes out on PG7 (AF6) while block A is
    enabled as a master transmitter with nothing to send. setmode's, before PLL3_Config: pll adjusted for mode */
 void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode) {
@@ -103,7 +103,7 @@ void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode) {
     switch(mode) {
         case 3: case 7:                                             // x2: VCO 816, R 52 (15.69 MHz, -0.37%: R even), P 26
             pll->PLL3N = 102; pll->PLL3R = 52; pll->PLL3P = 26; break;
-        case 5: case 13: case 19:                                   // x2: R 70, 32 and 12 as they are. 5 doubled is mode 4's
+        case 5: case 13:                                            // x2: R 70 and 32 as they are. 5 doubled is mode 4's
             pll->PLL3P = pll->PLL3R / 2; break;                     // line, 628 clocks to its 630 at 23.54 MHz (Peter, 14 Nov)
         /* Modes 6 and 17 are VESA 640x480 at 75 Hz (840 x 500 at 31.5 MHz) with fewer, longer pixels, 2.5 and 5/3 of
            VESA's (336 and 504 clocks a line): a VGA monitor samples them at its 31.5 MHz. The chip is given that clock:

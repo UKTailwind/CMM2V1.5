@@ -84,8 +84,8 @@ int sectorsave;
 // globals used when writing bytes to flash
 volatile uint32_t realflashpointer, realmempointer;
 volatile uint8_t FlashDone=0;
-extern const int xres[MAX_MODES+1];
-extern const int yres[MAX_MODES+1];
+extern const int xres[TIMING_MODES+1];
+extern const int yres[TIMING_MODES+1];
 
 /* The program's writer. Program memory is 512 KB of the SDRAM (V8, Peter 8 Nov 2026: Memory.h PROGRAM_RAM), so these
    write RAM, never the flash, through the 32-byte buffer that MemWriteByte fills; the "Flash" in their names is
