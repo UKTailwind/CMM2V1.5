@@ -4964,7 +4964,7 @@ void firstinit(int asktime, int askkeyboard){
 	      loop=1;
 	      while(loop){ //tens of hours
 	    	  while((c=getConsole())==-1){ShowCursor(true);}
-	    	  if(!(c>='0' || c<='2'))continue;
+	    	  if(!(c>='0' && c<='2'))continue;                  // (it was ||, so any key was taken: Enter as a digit)
 	    	  ShowCursor(false);
 	    	  putConsole(c);
 	    	  loop=0;
