@@ -933,8 +933,22 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.AccumulatedActiveW = (hltdc.Init.AccumulatedActiveW + 1) / ModeHs - 1;
 		  hltdc.Init.TotalWidth = (hltdc.Init.TotalWidth + 1) / ModeHs - 1;
 	  }
+	  int oy = 0;                                                     // a G3's modes 4 and 5: VGA's 640x480 at 75 Hz frame (the
+	  if(G3Hardware && (VideoMode == 4 || VideoMode == 5) && ModeHs <= 1) {   // monitor sees no DE there), so DE over all
+		  hltdc.Init.AccumulatedVBP = 18;                             // its 480 lines, as mode 7's, and the 432-line picture 24
+		  hltdc.Init.AccumulatedActiveH = 498;                        // lines down, where VGA shows it, the rest the background;
+		  if(VideoMode == 5) {                                        // mode 5's line 24 + 45 + 240 + 6 = 315 clocks: at 8/3
+			  hltdc.Init.AccumulatedHBP = 68;                         // (MS7210.c) VESA's 64 + 120 + 640 + 16 exactly. Peter,
+			  hltdc.Init.AccumulatedActiveW = 308;
+			  hltdc.Init.TotalWidth = 314;
+		  }
+		  oy = 24;                                                    // 14 Nov 2026: "480x432 is not any sort of standard"
+		  pLayerCfg.WindowY0 += oy;
+		  pLayerCfg.WindowY1 += oy;
+		  if(colours == 12) { pLayerCfg1.WindowY0 += oy; pLayerCfg1.WindowY1 += oy; }
+	  }
 	  PageTable[0].maxlines=hltdc.Init.TotalHeigh;
-	  PageTable[0].startactive=hltdc.Init.AccumulatedVBP;
+	  PageTable[0].startactive=hltdc.Init.AccumulatedVBP + oy;        // (GETSCANLINE: 0 at the picture's first line)
 if (HAL_LTDC_Init(&hltdc) != HAL_OK)
 {
   error("HAL_LTDC_Init");

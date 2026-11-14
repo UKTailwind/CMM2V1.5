@@ -589,6 +589,11 @@ chip as they are. Mode 12 is not yet doubled (148 MHz on PG7, or the chip's repe
   amiga and cpc leave on Ctrl-], nes and doom on Ctrl-C.
 - **Mode 12 (14 November):** doubled to 1080p at 60 Hz: VCO 592, R 8 (74.0 MHz, -0.34%), P 4, so SAI1's MCLK on PG7 is
   148.0 MHz (within its 150 MHz kernel clock, beyond the 49 MHz ST characterises). Peter's monitor: 1080p.
+- **Modes 4 and 5 (14 November):** VGA's 640x480 at 75 Hz with pixels 4/3 and 8/3 of VESA's (630 and 314 clocks a
+  line), 432 of the 480 lines shown; a VGA monitor sees no DE. On a G3 the chip is given 31.62 MHz (VCO 664, P 21; R 28
+  and 56), mode 5's line made 24 + 45 + 240 + 6 = 315 clocks (840 at 8/3, VESA's porches exactly), and DE covers the
+  480 lines (mode 7's vertical) with the picture 24 lines down as the layer's window, the rest the background colour;
+  GETSCANLINE still counts from the picture. Peter, both monitors: 640x480 at 75 Hz.
 - **Hot plug (14 November): no code.** Switching the monitor off and on works in every mode: HPD drops and comes back
   and the chip carries on (its PHY's output enabled by hand, not by HPD), as it did when the firmware set it up with no
   monitor and one was plugged in later. Unplugging and plugging the HDMI cable resets the G3: MM.INFO(BOOT) "Switch",
