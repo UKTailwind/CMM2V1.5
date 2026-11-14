@@ -47,6 +47,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MES_SIGNON480  "480MHz Colour Maximite 2\r\n"
 #define MES_SIGNON400G2  "400MHz Colour Maximite 2 G2\r\n"
 #define MES_SIGNON480G2  "480MHz Colour Maximite 2 G2\r\n"
+#define MES_SIGNON400G3  "400MHz Colour Maximite 2 G3\r\n"
+#define MES_SIGNON480G3  "480MHz Colour Maximite 2 G3\r\n"
 #define MES_SIGNON1  "MMBasic Version " VERSION "\r\n"
 #define YEAR1       "2011-2026"                 // and the years
 #define YEAR2       "2016-2026"

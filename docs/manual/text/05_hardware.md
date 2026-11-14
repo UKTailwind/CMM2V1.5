@@ -14,7 +14,9 @@ This is the main video output and it generates standard VGA signals in a variety
 
 Note that on first setup some monitors may truncate the text on the margins or show an image that seems to shimmer or flicker. In most cases this can be fixed by pressing the auto setup button on the monitor or, failing that, using the monitor's image setup mode to adjust parameters such as the clock, phase and position.
 
-If an HDMI output is required it is recommended that an inexpensive VGA to HDMI converter be used. These cost about US$10+ on eBay and will also encode the audio from the computer so that it can play through the monitor's speakers.
+The Generation 3 has an HDMI connector in place of the VGA connector: a G2 whose video goes to a MacroSilicon MS7210, which turns it into HDMI. It shows the same modes, from power up, at full colour levels whatever OPTION VGA OUTPUT says, and needs no OPTION HORIZONTAL OFFSET. MM.DEVICE$ returns "Colour Maximite 2 G3". Modes 1, 8, 9, 10, 11, 15, 16 and 18 are tested on it; the others, and those of OPTION PICOMITE, are still being brought to it.
+
+On the Generation 1 and 2, if an HDMI output is required it is recommended that an inexpensive VGA to HDMI converter be used. These cost about US$10+ on eBay and will also encode the audio from the computer so that it can play through the monitor's speakers.
 
 ## USB Connector
 

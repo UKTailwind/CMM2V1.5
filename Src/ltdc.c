@@ -45,6 +45,7 @@
 #include "USBMouse.h"
 #include "Loader.h"
 #define PLL3_TIMEOUT_VALUE        ((uint32_t)2)    /* 2 ms */
+#define OFS(n) (G3Hardware ? 0 : Option.offsets[n])  /* OPTION VGA's centring: not on a G3, whose DE places the picture */
 
 #define DIVIDER_P_UPDATE          0U
 #define DIVIDER_Q_UPDATE          1U
@@ -249,7 +250,18 @@ HAL_StatusTypeDef PLL3_Config(RCC_PLL3InitTypeDef *pll3, uint32_t Divider)
    OUTPUT LOW mode 11 was "rock solid". */
 static uint8_t VgaCurve[256];
 static int VgaCurveFor = -1;
+/* the levels in use: OPTION VGA OUTPUT's (0 LOW, 1 MEDIUM, 2 HIGH), or 3, full, on a G3: its HDMI chip's inputs draw no
+   current that depends on the colour, and it has no VGA socket (Peter, 13 and 14 Nov 2026; docs/G3_HDMI_Plan.md, "Full
+   colour levels on a G3"). Every reader of the levels goes through it; the option is still taken and saved */
+int VgaMap(void) { return G3Hardware ? 3 : Option.colourmap; }
+static void Clut8(void) {                                          // the 8-bit modes' CLUT: the option's table, or on a G3
+    int m = VgaMap();                                              // RGB332 at full levels (by a loop: flash is tight)
+    if(m == 3) for(int i = 0; i < 256; i++)
+        CLUT[i] = (uint32_t)((i >> 5) * 255 / 7) << 16 | (uint32_t)(((i >> 2) & 7) * 255 / 7) << 8 | (uint32_t)(i & 3) * 85;
+    else mycopy((char *)CLUT, (char *)(m == 0 ? L8_CLUT_LOW : m == 1 ? L8_CLUT_MEDIUM : L8_CLUT_HIGH), sizeof(CLUT));
+}
 uint32_t VgaLevel(uint32_t rgb) {
+    if(VgaMap() == 3) return rgb & 0xFFFFFF;                       // (a G3: the colour itself)
     if(VgaCurveFor != Option.colourmap) {
         const uint32_t *t = Option.colourmap == 0 ? L8_CLUT_LOW : (Option.colourmap == 1 ? L8_CLUT_MEDIUM : L8_CLUT_HIGH);
         for(int v = 0; v < 256; v++) {
@@ -265,14 +277,13 @@ uint32_t VgaLevel(uint32_t rgb) {
 // and for the 16 and 32-bit modes, which have no CLUT: the layer's constant alpha over black, so full is the tables'
 // top (0xE0, or 0xC0 with LOW). The 12-bit mode's layers blend by their pixels' alpha times it, so it is not given one.
 static uint32_t VgaAlpha(void) {
-    return Option.colourmap == 0 ? 0xC0 : 0xE0;
+    int m = VgaMap();
+    return m == 3 ? 255 : m == 0 ? 0xC0 : 0xE0;
 }
 
 void reset_CLUT(void){
 	if(VideoColour==8){
-		if(Option.colourmap==0)mycopy((char *)CLUT,(char *)L8_CLUT_LOW, sizeof(CLUT));
-		else if(Option.colourmap==1)mycopy((char *)CLUT,(char *)L8_CLUT_MEDIUM, sizeof(CLUT));
-		else mycopy((char *)CLUT,(char *)L8_CLUT_HIGH, sizeof(CLUT));
+		Clut8();
     	pagesetdone=0;
     	while(!pagesetdone)CheckAbort();
     	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
@@ -347,11 +358,8 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	VideoMode=mode;VideoColour=colour; VideoBackground=bc;
 	LastPage=pagegen(VideoMode, VideoColour);
 	MPU_Config_nCacheable(0);
-	if(colour==8){
-		if(Option.colourmap==0)mycopy((char *)CLUT,(char *)L8_CLUT_LOW, sizeof(CLUT));
-		else if(Option.colourmap==1)mycopy((char *)CLUT,(char *)L8_CLUT_MEDIUM, sizeof(CLUT));
-		else mycopy((char *)CLUT,(char *)L8_CLUT_HIGH, sizeof(CLUT));
-	} else if(colour==4) Rgb121Clut();
+	if(colour==8) Clut8();
+	else if(colour==4) Rgb121Clut();
 	else if(colour==1) MonoClut();                                  // (the tiles' colours are given entries: Mono.c)
     hltdc.Instance=0;
     CurrentX=0;
@@ -676,7 +684,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 	  	  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 	  	  hltdc.Init.HorizontalSync = 79;
 	  	  hltdc.Init.VerticalSync = 2;
-	  	  hltdc.Init.AccumulatedHBP = 239 + Option.offsets[1];
+	  	  hltdc.Init.AccumulatedHBP = 239 + OFS(1);
 	  	  hltdc.Init.AccumulatedVBP = 23;
 	  	  hltdc.Init.AccumulatedActiveW = 1039;
 	  	  hltdc.Init.AccumulatedActiveH = 623;
@@ -688,7 +696,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 63;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 183 + Option.offsets[2];
+		  hltdc.Init.AccumulatedHBP = 183 + OFS(2);
 		  hltdc.Init.AccumulatedVBP = 58;
 		  hltdc.Init.AccumulatedActiveW = 823;;
 		  hltdc.Init.AccumulatedActiveH = 458;
@@ -700,7 +708,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 31;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 91 + Option.offsets[3];
+		  hltdc.Init.AccumulatedHBP = 91 + OFS(3);
 		  hltdc.Init.AccumulatedVBP = 58;
 		  hltdc.Init.AccumulatedActiveW = 411;;
 		  hltdc.Init.AccumulatedActiveH = 458;
@@ -711,7 +719,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 47;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 137 + Option.offsets[4];
+		  hltdc.Init.AccumulatedHBP = 137 + OFS(4);
 		  hltdc.Init.AccumulatedVBP = 42;
 		  hltdc.Init.AccumulatedActiveW = 617;;
 		  hltdc.Init.AccumulatedActiveH = 474;
@@ -722,7 +730,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 23;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 67 + Option.offsets[5];
+		  hltdc.Init.AccumulatedHBP = 67 + OFS(5);
 		  hltdc.Init.AccumulatedVBP = 42;
 		  hltdc.Init.AccumulatedActiveW = 307;;
 		  hltdc.Init.AccumulatedActiveH = 474;
@@ -733,7 +741,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 25;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 73 + Option.offsets[6];
+		  hltdc.Init.AccumulatedHBP = 73 + OFS(6);
 		  hltdc.Init.AccumulatedVBP = 18;
 		  hltdc.Init.AccumulatedActiveW = 329;;
 		  hltdc.Init.AccumulatedActiveH = 498;
@@ -744,7 +752,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 31;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 91 + Option.offsets[7];
+		  hltdc.Init.AccumulatedHBP = 91 + OFS(7);
 		  hltdc.Init.AccumulatedVBP = 18;
 		  hltdc.Init.AccumulatedActiveW = 411;
 		  hltdc.Init.AccumulatedActiveH = 498;
@@ -756,7 +764,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 95;
 		  hltdc.Init.VerticalSync = 1;
-		  hltdc.Init.AccumulatedHBP = 143 + Option.offsets[8];
+		  hltdc.Init.AccumulatedHBP = 143 + OFS(8);
 		  hltdc.Init.AccumulatedVBP = 34;
 		  hltdc.Init.AccumulatedActiveW = 783;
 		  hltdc.Init.AccumulatedActiveH = 514;
@@ -768,7 +776,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 135;
 		  hltdc.Init.VerticalSync = 5;
-		  hltdc.Init.AccumulatedHBP = 295 + Option.offsets[9];
+		  hltdc.Init.AccumulatedHBP = 295 + OFS(9);
 		  hltdc.Init.AccumulatedVBP = 34;
 		  hltdc.Init.AccumulatedActiveW = 1319;;
 		  hltdc.Init.AccumulatedActiveH = 802;
@@ -780,7 +788,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 		  hltdc.Init.HorizontalSync = 111;
 		  hltdc.Init.VerticalSync = 7;
-		  hltdc.Init.AccumulatedHBP = 223 + Option.offsets[10];
+		  hltdc.Init.AccumulatedHBP = 223 + OFS(10);
 		  hltdc.Init.AccumulatedVBP = 30;
 		  hltdc.Init.AccumulatedActiveW = 1071;
 		  hltdc.Init.AccumulatedActiveH = 510;
@@ -792,7 +800,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 		  hltdc.Init.HorizontalSync = 39;
 		  hltdc.Init.VerticalSync = 4;
-		  hltdc.Init.AccumulatedHBP = 259 + Option.offsets[11];
+		  hltdc.Init.AccumulatedHBP = 259 + OFS(11);
 		  hltdc.Init.AccumulatedVBP = 24;
 		  hltdc.Init.AccumulatedActiveW = 1539;
 		  hltdc.Init.AccumulatedActiveH = 744;
@@ -804,7 +812,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 		  hltdc.Init.HorizontalSync = 21;
 		  hltdc.Init.VerticalSync = 4;
-		  hltdc.Init.AccumulatedHBP = 95 + Option.offsets[12];
+		  hltdc.Init.AccumulatedHBP = 95 + OFS(12);
 		  hltdc.Init.AccumulatedVBP = 40;
 		  hltdc.Init.AccumulatedActiveW = 1055;
 		  hltdc.Init.AccumulatedActiveH = 1120;
@@ -816,7 +824,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 	  	  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 	  	  hltdc.Init.HorizontalSync = 39;
 	  	  hltdc.Init.VerticalSync = 2;
-	  	  hltdc.Init.AccumulatedHBP = 119 + Option.offsets[13];
+	  	  hltdc.Init.AccumulatedHBP = 119 + OFS(13);
 	  	  hltdc.Init.AccumulatedVBP = 23;
 	  	  hltdc.Init.AccumulatedActiveW = 519;
 	  	  hltdc.Init.AccumulatedActiveH = 623;
@@ -828,7 +836,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 		  hltdc.Init.HorizontalSync = 39;
 		  hltdc.Init.VerticalSync = 4;
-		  hltdc.Init.AccumulatedHBP = 191/2 + Option.offsets[14];
+		  hltdc.Init.AccumulatedHBP = 191/2 + OFS(14);
 		  hltdc.Init.AccumulatedVBP = 19;
 		  hltdc.Init.AccumulatedActiveW = 2111/2;
 		  hltdc.Init.AccumulatedActiveH = 559;
@@ -840,7 +848,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 		  hltdc.Init.HorizontalSync = 111;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 359 + Option.offsets[15];
+		  hltdc.Init.AccumulatedHBP = 359 + OFS(15);
 		  hltdc.Init.AccumulatedVBP = 40;
 		  hltdc.Init.AccumulatedActiveW = 1639;
 		  hltdc.Init.AccumulatedActiveH = 1064;
@@ -851,7 +859,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 		  hltdc.Init.HorizontalSync = 55;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 179 + Option.offsets[15] / 2;   // (mode 15's offset: its pixels are half as wide)
+		  hltdc.Init.AccumulatedHBP = 179 + OFS(15) / 2;   // (mode 15's offset: its pixels are half as wide)
 		  hltdc.Init.AccumulatedVBP = 40;
 		  hltdc.Init.AccumulatedActiveW = 819;
 		  hltdc.Init.AccumulatedActiveH = 1064;
@@ -863,7 +871,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AH;
 		  hltdc.Init.HorizontalSync = 43;
 		  hltdc.Init.VerticalSync = 4;
-		  hltdc.Init.AccumulatedHBP = 191 + Option.offsets[16];
+		  hltdc.Init.AccumulatedHBP = 191 + OFS(16);
 		  hltdc.Init.AccumulatedVBP = 40;
 		  hltdc.Init.AccumulatedActiveW = 2111;
 		  hltdc.Init.AccumulatedActiveH = 1120;
@@ -875,7 +883,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 37;
 		  hltdc.Init.VerticalSync = 2;
-		  hltdc.Init.AccumulatedHBP = 109 + Option.offsets[17];
+		  hltdc.Init.AccumulatedHBP = 109 + OFS(17);
 		  hltdc.Init.AccumulatedVBP = 18;
 		  hltdc.Init.AccumulatedActiveW = 493;
 		  hltdc.Init.AccumulatedActiveH = 498;
@@ -890,7 +898,7 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 135;
 		  hltdc.Init.VerticalSync = 3;
-		  hltdc.Init.AccumulatedHBP = 295 + Option.offsets[18];
+		  hltdc.Init.AccumulatedHBP = 295 + OFS(18);
 		  hltdc.Init.AccumulatedVBP = 26;
 		  hltdc.Init.AccumulatedActiveW = 1319;
 		  hltdc.Init.AccumulatedActiveH = 626;
@@ -930,6 +938,7 @@ if(VideoColour<=8){
 	HAL_LTDC_ProgramLineEvent(&hltdc, hltdc.Init.AccumulatedActiveH+1);
 	HAL_NVIC_SetPriority(LTDC_IRQn, IRQ_PRI(0), 0);
 	HAL_NVIC_EnableIRQ(LTDC_IRQn);
+	MS7210_Mode();                                                  // a G3's HDMI chip for the new pixel clock (MS7210.c)
 }
 
 
@@ -984,33 +993,35 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
     */
     /* The pins' edges are slowed (Peter, 23 Oct 2026, the G1 through a capture device: "line start timing varying"):
        HSYNC and VSYNC LOW, the colours MEDIUM. At HIGH they rang and moved the ground under the syncs; Peter judged
-       MEDIUM for the colours the best on the monitor, LOW for them worse. */
+       MEDIUM for the colours the best on the monitor, LOW for them worse. A G3's go to its HDMI chip's digital inputs,
+       at up to 148.8 MHz: HIGH, the clock VERY_HIGH (as ms7210test.app had them for the first G3's picture) */
+    const uint32_t cs = G3Hardware ? GPIO_SPEED_FREQ_HIGH : GPIO_SPEED_FREQ_MEDIUM;   // the colours and DE
     GPIO_InitStruct.Pin = (G1Hardware ? 0 : GPIO_PIN_4)|GPIO_PIN_5|GPIO_PIN_6;   // PE4, LTDC_B0: wired on a G2, and was
                                                                     // left out by a second line (Peter, 8 Nov 2026: a bug)
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;                    // VSYNC and HSYNC: the slowest edges (45 kHz at most)
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Speed = (G3Hardware ? cs : GPIO_SPEED_FREQ_LOW);
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_0;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
@@ -1018,21 +1029,21 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
                           |GPIO_PIN_10|GPIO_PIN_13|GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_1;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF9_LTDC;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_11|GPIO_PIN_12;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
@@ -1040,9 +1051,9 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
     // pixel clock, and driven it is a 12-150 MHz square wave beside the video lines: analog in every other mode (the
     // pins are not deinitialised between modes: HAL_LTDC_MspDeInit1 is not the HAL's hook)
     GPIO_InitStruct.Pin = GPIO_PIN_7;
-    GPIO_InitStruct.Mode = (VideoMode == 18 ? GPIO_MODE_AF_PP : GPIO_MODE_ANALOG);
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Mode = (VideoMode == 18 || G3Hardware ? GPIO_MODE_AF_PP : GPIO_MODE_ANALOG);   // (a G3's HDMI chip
+    GPIO_InitStruct.Pull = GPIO_NOPULL;                             // samples the pixels by it)
+    GPIO_InitStruct.Speed = (G3Hardware ? GPIO_SPEED_FREQ_VERY_HIGH : GPIO_SPEED_FREQ_HIGH);
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
@@ -1050,21 +1061,21 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
                           |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    GPIO_InitStruct.Speed = cs;
     GPIO_InitStruct.Alternate = GPIO_AF9_LTDC;
     HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 

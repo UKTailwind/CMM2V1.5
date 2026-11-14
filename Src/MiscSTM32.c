@@ -220,7 +220,7 @@ static const char *DepthName(void) {
 void printoptions(void){
 	LoadOptions();
 
-	MMPrintString((G1Hardware ? (SystemCoreClock==480000000 ? MES_SIGNON480:MES_SIGNON400) : (SystemCoreClock==480000000 ? MES_SIGNON480G2:MES_SIGNON400G2)));
+	MMPrintString((char *)BoardSignOn());                           // (the banner's: G1, G2 or G3 and the clock)
 	MMPrintString( "MMBasic " VERSION "\r\n" );
 
 	if(Option.mode==8) 	PO2Str("Default mode 8","640x480",3);

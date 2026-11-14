@@ -153,6 +153,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern int yoffcursor;
     extern char *cursorsave;
     extern int G1Hardware;
+    extern int G3Hardware;                                      // a G3: its MS7210 (HDMI) answered (MS7210.c)
+    extern void MS7210_ResetStart(void);
+    extern void MS7210_Release(void);
+    extern int MS7210_Start(void);
+    extern void MS7210_Mode(void);
+    extern const char *BoardSignOn(void);
+    extern int VgaMap(void);
     extern void (*docopy)(void *d, const void *s, int n);
     extern uint8_t DS3231_WR_Reg(uint16_t reg,uint8_t *buf,uint8_t len);
     extern void DS3231_RD_Reg(uint16_t reg,uint8_t *buf,uint8_t len);

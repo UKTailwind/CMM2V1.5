@@ -2905,7 +2905,7 @@ int64_t getBoardSerial(void)
 void fun_device(void){
 	sret = GetTempStrMemory();									// this will last for the life of the command
     if(PicoDeviceName()) strcpy(sret, PicoDeviceName());           // (OPTION PICOMITE: the PicoMite's name, for a program
-    else strcpy(sret, (G1Hardware ? "Colour Maximite 2" :"Colour Maximite 2 G2"));   // that configures itself by it)
+    else strcpy(sret, (G1Hardware ? "Colour Maximite 2" : G3Hardware ? "Colour Maximite 2 G3" : "Colour Maximite 2 G2"));   // that configures itself by it)
     CtoM(sret);
     targ = T_STR;
 }

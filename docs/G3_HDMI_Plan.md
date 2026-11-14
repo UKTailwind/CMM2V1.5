@@ -549,6 +549,19 @@ was flashed with v8-dev (8.00.00b1, dae6cde). Steps 1 to 3 were done from ms7210
     found (step 1.4).
   - The chip's clock meter reads 0.6-1% low (its RC oscillator at "27 MHz"): diagnostics only.
 
+**Into the firmware (step 6 for group 1, 14 November):** Src/MS7210.c (in bank 2) with PG3's reset at start-up (low in
+MX_GPIO_Init, high after RAMSETUP once 11 ms old, the probe 50 ms after, before InitDisplayOther), its own open-drain
+I2C, the init above with a 20 ms settle (the FPGA table's 350 ms is not needed) and the clock-change sequence at the end
+of every MX_LTDC_Init; G3Hardware; PG7 always LTDC_CLK (VERY_HIGH) and the colours, DE and syncs HIGH on a G3; the
+offsets ignored (OFS); VgaMap() with FULL on a G3 (Clut8, VgaLevel, VgaAlpha, InitDisplayOther's tables);
+"Colour Maximite 2 G3" in MM.DEVICE$, and the banner and OPTION LIST from BoardSignOn(). Checked on the G3: the banner,
+MM.DEVICE$, 8-bit white &HFFFFFF, the chip locked with nothing run but the firmware.
+- **Open:** three restarts out of about 25 on this firmware went into ST's system bootloader (PC 0x1FF0A4F4, USART1),
+  not the firmware: the first start after its flash, and two OPTION DISK LOADs. _excep_code was RESTART_NOAUTORUN, so
+  the firmware did not jump there (only RESTART_BOOT0 does): the chip started from system memory, as with BOOT0 high.
+  CPU RESTART 11 of 11, OPTION DISK LOAD 8 of 8 (COM16 open or closed) and every ST-Link reset were fine. To find with
+  Peter (BOOT0's wiring on the G3).
+
 ## The plan
 
 ### Step 0: the board (Peter's answers, 8 Nov)

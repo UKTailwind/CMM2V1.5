@@ -184,14 +184,15 @@ void __attribute__((section(".extra"))) InitDisplayOther(void){
     PromptFont = gui_font;
     PromptFC = gui_fcolour = Option.DefaultFC;
     PromptBC = gui_bcolour = Option.DefaultBC;
-    if(Option.colourmap==2){
+    int map = VgaMap();                                             // (a G3: full levels, HIGH's tables, which are 1:1)
+    if(map >= 2){
     	BIT_4 = (char *)BIT_4high;
     	BIT_5 = (char *)BIT_5high;
     	BIT_6 = (char *)BIT_6high;
     	RBIT_4 = (char *)RBIT_4high;
     	RBIT_5 = (char *)RBIT_5high;
     	RBIT_6 = (char *)RBIT_6high;
-    } else if(Option.colourmap==1){
+    } else if(map==1){
     	BIT_4 = (char *)BIT_4medium;
     	BIT_5 = (char *)BIT_5medium;
     	BIT_6 = (char *)BIT_6medium;

@@ -715,6 +715,7 @@ MX_I2C4_Init();
 MX_GPIO_Init();
 RAMSETUP();
 FMC_Bank1_R->BTCR[1] = 0x000030D2;
+MS7210_Release();                                                   // (PG3 high once it is 10 ms old: MS7210.c)
 ProgMemory = (char *)PROGRAM_RAM;                                   // V8: the program always runs from the SDRAM, never the
                                                                     // flash (Memory.h; Option.ProgramStartCode is not used)
 ProgFlash = ProgMemory;                                            // (ProgMemory is elsewhere while a flash slot's program runs)
@@ -742,6 +743,7 @@ HAL_SetFMCMemorySwappingConfig(FMC_SWAPBMAP_SDRAMB2);
 initExtIO();
 initConsole();
 if(OptionConsole & 1)start_console();
+MS7210_Start();                                                     // a G3 (its MS7210 answers), before the first setmode
 InitDisplayOther();
 InitHeap();
 InitBasic();
@@ -799,8 +801,8 @@ if(!(_excep_code == RESTART_NOAUTORUN || _excep_code == RESET_COMMAND || _excep_
 		  SerUSBPutS("\033[?25h");
 		  SerUSBPutS("\033[37m");
 		  SerUSBPutS("\033[m");
-		  GUIPrintString(maxW/2, 70+gui_font_height, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, (G1Hardware ? (MAINCLOCKSPEED==480 ? MES_SIGNON480:MES_SIGNON400) : (MAINCLOCKSPEED==480 ? MES_SIGNON480G2:MES_SIGNON400G2)));
-		  SerUSBPutS((G1Hardware ? (MAINCLOCKSPEED==480 ? MES_SIGNON480:MES_SIGNON400) : (MAINCLOCKSPEED==480 ? MES_SIGNON480G2:MES_SIGNON400G2)));
+		  GUIPrintString(maxW/2, 70+gui_font_height, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, (char *)BoardSignOn());
+		  SerUSBPutS((char *)BoardSignOn());
 		  GUIPrintString(maxW/2, 70+gui_font_height*2, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, MES_SIGNON1);
 		  SerUSBPutS(MES_SIGNON1);
 		  GUIPrintString(maxW/2, 70+gui_font_height*3, gui_font, JUSTIFY_CENTER, JUSTIFY_MIDDLE, ORIENT_NORMAL, WHITE, BLACK, COPYRIGHT0);
@@ -2788,7 +2790,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(SD_CD_GPIO_Port, &GPIO_InitStruct);
-
+  if(G1Hardware == 0) MS7210_ResetStart();                         // a G3's HDMI chip held in reset: PG3, which a G2 does
+                                                                    // not connect (MS7210.c)
 }
 
 /* USER CODE BEGIN 4 */
