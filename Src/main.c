@@ -515,7 +515,7 @@ int OPTSIZE main(void)
 	static int ErrorInPrompt;
 	int64_t* volatile test;
 	test=(int64_t* volatile)initoptions;
-	ProgMemory=(char*)FLASH_PROGRAM_ADDR;
+	ProgMemory=NULL;                                                // (the SDRAM's, below, once it is up: flash.c ResetAllFlash)
 	/* USER CODE END 1 */
   
 

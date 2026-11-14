@@ -274,6 +274,19 @@ start, TIM4 locked to the SAI for the 44.1 kHz family and the 16-bit twins in ic
 
 ### Step 3: long runs
 
+**Done on the G3** (14 Nov 2026):
+- **The album:** a whole FLAC album, 14 tracks and 46 minutes, played by PLAY FLAC of its directory at PLAY VOLUME 10.
+- **The log:** every 10 s, the ring's fill sampled 8 times, TIM4's prescaler and SAI2's sticky underrun flag.
+- **The rate:** every track was 44.1 kHz, so TIM4 was locked to the SAI (prescaler 2719).
+- **The ring:** within each track the fill stayed in one band about 127 frames wide, the swing of one DMA half. It
+  started at a different place in each track (110 to 347 frames over the album) and never drifted.
+- **Underruns:** the flag was never set.
+- **A mode change while a sound plays:** a MOD played through modes 7, 12, 3 and 1, and the ring's fill was normal
+  after each. Peter: "This is artificial" (programs change mode before music starts), "It seemed OK though".
+- **The resampled rates:** these were not run for an hour. The step is the exact ratio of the two clocks (32.32), so
+  no drift is expected, and the 10-second runs at 48 and 96 kHz showed none.
+
+
 - **An hour of music:** an hour of MOD or MP3 with no click, the ring's fill logged throughout to show the correction
   holding.
 - **Changes while playing:** a mode change, and a hot plug, while a sound plays.

@@ -69,7 +69,9 @@ uint32_t GetSector(uint32_t Address);
 unsigned char *CFunctionFlash = NULL;
 volatile struct option_s Option;
 char *SDMemory;
-char *ProgMemory=(char*)FLASH_PROGRAM_ADDR;
+char *ProgMemory=NULL;                                              // V8: the SDRAM's PROGRAM_RAM, once main has the SDRAM up
+                                                                    // (until then nothing: it was the flash's old program area,
+                                                                    // which a first start's ResetAllFlash wrote into: 14 Nov 2026)
 static FLASH_EraseInitTypeDef EraseInitStruct;
 uint32_t SectorError = 0;
 volatile union u_flash {
@@ -679,11 +681,13 @@ void ResetAllFlash(void) {
 	ResetAllOptions();
 	SaveOptions(0);                                     //  and write them to flash
 	ClearSavedVars();					           	   // erase saved vars
-    while(FlashWriteInit((uint32_t)ProgMemory) && i)i--;                     // erase program memory
-    if(i==0)error("Failed to erase flash memory");
-    FlashWriteByte(0); FlashWriteByte(0);              // terminate the program in flash
-    FlashWriteClose();
-    LoadOptions();
+    if(ProgMemory != NULL) {                                        // the program (V8: in the SDRAM) emptied, if it is there yet:
+        while(FlashWriteInit((uint32_t)ProgMemory) && i)i--;        // a first start comes here before main has the SDRAM up, and
+        if(i==0)error("Failed to erase flash memory");              // main empties it then. ProgMemory still pointed at the flash's
+        FlashWriteByte(0); FlashWriteByte(0);                       // old program area, which FlashWriteInit's memset wrote into
+        FlashWriteClose();                                          // with the flash unlocked (14 Nov 2026: the writes were
+    }                                                               // refused, as nothing programs the flash without PG set, but
+    LoadOptions();                                                  // nothing may write there)
 }
 
 /**
