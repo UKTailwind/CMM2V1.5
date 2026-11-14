@@ -598,9 +598,13 @@ chip as they are. Mode 12 is not yet doubled (148 MHz on PG7, or the chip's repe
   and the chip carries on (its PHY's output enabled by hand, not by HPD), as it did when the firmware set it up with no
   monitor and one was plugged in later. Unplugging and plugging the HDMI cable resets the G3: MM.INFO(BOOT) "Switch",
   a reset-pin reset, not a brown-out, so a glitch on NRST as the cable's shield meets the monitor's ground (Peter: a
-  different ground potential). The board comes back through its start-up with the picture. To look at in the
-  hardware: NRST's capacitor (ST's reference: 100 nF), and the ST-Link's NRST wire, another ground path. The planned
-  INT/HPD polling is left out.
+  different ground potential). The board comes back through its start-up with the picture. It happens on unplugging
+  only, and it is not the firmware: a fault loops in its handler rather than resetting, no hardware watchdog runs,
+  and PC8 (INT#) is on no interrupt; and it still happened with the MS7210 held in reset (PG3 low) and with the
+  ST-Link's SWD cable off. The likely cause: the G3 connects the board's 5V to the HDMI connector's pin 18 directly
+  (Peter's PicoMite board has a diode), so a monitor's own 5V and ground share the board's supply while the cable is
+  in, and unplugging steps it. Peter, 14 Nov: the next G3 gets a diode and a fuse on pin 18 (no room to change this
+  one). The planned INT/HPD polling is left out.
 - **Flashing a G3 with the ST-Link failed** ("Unable to get core ID", "failed to download Sector[0]") every time the
   MS7210 was sending HDMI, which an H743 reset does not stop; with the HDMI cable out (or the G3 power-cycled) it
   worked first time. Peter has ground loops between USB hubs; the HDMI cable to the monitor closes another. Later
