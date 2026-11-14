@@ -242,6 +242,16 @@ start, TIM4 locked to the SAI for the 44.1 kHz family and the 16-bit twins in ic
   - Doom's timed demo 1, with music and effects, through a program's stream: 49.2 fps (51.0 on the G2 before, 2 Nov).
 - **The ring:** its fill held steady for every source, about 130-330 frames, and 220-480 at 96 kHz.
 - **The SAI:** it never underran.
+- **Bit for bit** (14 Nov, tools/sdk/examples/hdmicap.c): no test build was needed.
+  - **How:** a loadable program plays a 44.1 kHz 16-bit WAV through BASIC. It copies each half of the SAI's DMA
+    buffer, 100 us after the DMA leaves it, and compares it with the file.
+  - **Result:** Hotel.wav at PLAY VOLUME 30 gave 512 halves, 65,536 frames, every one the file's sample scaled in 16
+    bits, (s x 311) / 2000.
+  - **Halves missed:** the program missed 74 halves while BASIC's refill in poll() held it up, so it compares half by
+    half, allowing for the gaps.
+  - **At 100:** the same code gives (s x 2000) / 2000, the file's own samples.
+  - **FLAC and MP3:** after decoding they take the same path (iconvert, the interrupt, the ring, the SAI), so the WAV
+    stands for them.
 
 **As built** (14 Nov 2026, Src/HdmiAudio.c). Where it differs from the design above:
 - **No twins:** on a G3, iconvert and i2convert keep the 16-bit samples, PLAY VOLUME applied, in the buffers
