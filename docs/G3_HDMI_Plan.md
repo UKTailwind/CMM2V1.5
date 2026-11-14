@@ -1,7 +1,8 @@
 # Colour Maximite 2 G3: HDMI through an MS7210
 
 *8 November 2026; full colour levels on a G3, and the H743's own options for the narrow modes (measured on a G1), added
-13 November. A plan for recognising a G3 and configuring its MS7210, from the MS7210's published drivers and the
+13 November; checked against v8-dev (a78205c) on 14 November, the day the first G3 arrived (the section "Checked
+before the start"). A plan for recognising a G3 and configuring its MS7210, from the MS7210's published drivers and the
 firmware as it stands. Nothing here has been tried on a G3 yet.*
 
 ## The G3, as Peter describes it
@@ -76,7 +77,18 @@ and DE.
   - Either test is unambiguous.
 - **The RTC's bus:**
   - It is bit-banged in `Src/Analog_I2C.c`, SCL on PD5 and SDA on PD4, at a few hundred kHz, which suits the MS7210.
-  - Its routines (I2C_Start, I2C_Send_Byte, I2C_Read_Byte, I2C_Stop) can be used for the MS7210 as they are.
+  - Its I2C_Start, I2C_Send_Byte, I2C_Read_Byte and I2C_Stop can be used for the MS7210 as they are.
+  - **Its I2C_Wait_Ack cannot.** With no acknowledge it waits 250 ms (250 times MM_Delay(1)) before giving up, and
+    DS3231_RD_Reg and DS3231_WR_Reg ignore what it returns and send the rest anyway. A probe on a G2, where nothing
+    answers at 0xB2, would cost 250 ms an address: up to a second at every start-up with the 0x56 and clock retries
+    below. So MS7210.c has its own acknowledge check, which waits a few microseconds and stops the transfer at the
+    first NACK.
+  - Both lines are push-pull outputs (DEV_Set_GPIOMode, with the pull-up on). I2C_Send_Byte drives SDA high after its
+    eighth bit, before I2C_Wait_Ack turns it into an input, so for a microsecond or two the H743 drives SDA high against
+    the slave's acknowledge. The DS3231 has lived with that. If the MS7210's transfers prove unreliable, its routines
+    can drive SDA open-drain (GPIO_MODE_OUTPUT_OD) instead.
+  - The bus is used only in the foreground: copy_clock (OPTION DS3231 ON) at start-up and hourly from routinechecks.
+    The MS7210's accesses must stay in the foreground too.
   - A register write takes about 150 us, so the whole init is under 10 ms.
 
 ### Does it need a bit clock to answer on I2C?
@@ -182,13 +194,23 @@ from simulation, not measurement). Feeding the chip the narrow modes' own clocks
 | 16 | 1920x1080 | 148.8 MHz | 2200 x 1125, 60 Hz | CEA 1080p, fine (high band) | |
 | 17 | 384x240, doubled | 18.9 MHz | 504 x 500 | Clock too low | 768 x 480: not standard |
 | 18 | 1024x600 | 50.5 MHz | 1344 x 628, 60 Hz | Not standard, common on monitors | |
+| 19 | 640x512, doubled | 54 MHz | 844 x 1066 | Not standard | **1280x1024 at 60 Hz** |
+
+Mode 19 was added on 9 November for the Amiga (half of mode 15's clock, each row twice), unannounced, and was to be
+removed before 7.00.00; it is still in v8-dev. Its 54 MHz is inside the MS7210's range, so the chip's x2 is inside every
+specification, as for mode 12.
+
+Two loadable programs set a timing of their own over MODE 1's page: `amiga.app` (by default) and `bbc.app` show CEA 576p,
+720x576 at 50 Hz with a 27 MHz clock, by writing PLL3 and the LTDC's timing registers directly. That is a standard
+format (video code 17), fine for HDMI. They change only the sync polarity bits of GCR and put back the whole of GCR at
+the end, so a G3's DE polarity survives them. But they change the clock behind setmode's back (step 3).
 
 OPTION PICOMITE's smaller modes divide the clock the same way (ModeHs in `MX_LTDC_Init`), so they are in the same
 position as modes 3 and 7.
 
 **So the modes fall into three groups:**
 1. **Already standard (1, 8, 9, 10, 11, 15, 16):** nothing beyond the PHY's band and the infoframe.
-2. **Exactly half a standard clock (7, 12, 13, and 3 apart from its height):** a clock at twice the pixel clock on
+2. **Exactly half a standard clock (7, 12, 13, 19, and 3 apart from its height):** a clock at twice the pixel clock on
    PG7 (below), or the chip's x2 repetition, should make them standard. The firmware's drawing is unchanged.
 3. **The rest (2, 3, 4, 5, 6, 14, 17, 18):** odd widths, odd clocks, or a DE that covers only part of the frame. For
    each, try these in order:
@@ -301,6 +323,10 @@ the pixels in software. The question was what the LTDC offers for the same.
        - Mode 5's 11.8 MHz is still under 25 MHz when doubled, so it needs P = R/4 with P even: VCO 664, R 56
          (11.857 MHz, +0.38%), P 14 (47.4 MHz).
        - Mode 12 on PG7: VCO 592, R 8 (74.0 MHz, -0.34%), P 4 (148.0 MHz).
+       - Mode 19 on PG7: R 12 and P 6 (108 MHz) as they are.
+     - **PLL3_Config never turns P on.** setmode calls it with `DIVIDER_P_UPDATE|DIVIDER_Q_UPDATE|DIVIDER_R_UPDATE`,
+       which is 0|1|2 = 3, and that falls to the branch that enables only R. A G3 sets DIVP3EN there, with PLL3 still
+       off. Under OPTION PICOMITE setmode multiplies P, Q and R by ModeHs, so P = R/2 has to be made after that.
 2. **The MS7210's own repetition** (above): the chip is fed the narrow clock, under its 25 MHz minimum for every mode
    but 12. For mode 12 it is inside every specification, so it is tried there beside the clock on PG7. It is also
    the alternative if the clock on PG7 will not sample cleanly.
@@ -347,8 +373,8 @@ OPTION VGA OUTPUT never lets the outputs reach full level. HIGH and MEDIUM top e
   of white moved the supply enough to jitter the picture (Peter, 23 Oct; the comment above VgaLevel in ltdc.c).
 - On a G3 the LTDC's pins drive the MS7210's digital inputs, which draw no current that depends on the colour.
 - **So a G3 drives every colour to its full level, whatever OPTION VGA OUTPUT says.**
-- This assumes the G3 has no VGA resistors left on the same lines. If it keeps them for a VGA socket, the jitter
-  could come back on that socket.
+- The G3 has no VGA socket: the resistor DAC is gone with it (Peter, 14 Nov). So nothing else on the colour lines
+  draws current that depends on the colour.
 
 **One switch, at the root:**
 - A fourth map, FULL (3), beside LOW (0), MEDIUM (1) and HIGH (2).
@@ -361,7 +387,9 @@ OPTION VGA OUTPUT never lets the outputs reach full level. HIGH and MEDIUM top e
 | VgaLevel (ltdc.c) | The 4-bit modes' 16 colours (Rgb121Clut, MAP) and the 1-bit tiles' (MonoClut) | The colour unchanged. Its cache (VgaCurveFor) is keyed on VgaMap() |
 | VgaAlpha (ltdc.c) | The 16 and 32-bit layers' constant alpha | 255 |
 | InitDisplayOther (OtherDisplays.c) | The BIT and RBIT tables of the 16 and 12-bit depths, and through them the sprites' (SpriteLevels) | HIGH's, which are already 1:1 |
-| ReadBuffer8 (OtherDisplays.c) | The divisor that scales a CLUT colour back for PIXEL(, SAVE IMAGE and Print Screen | 255 |
+
+ReadBuffer8 (OtherDisplays.c) was a fifth: it scaled a CLUT colour up by 255/192 under LOW and 255/224 under MEDIUM
+for PIXEL(, SAVE IMAGE and Print Screen. It no longer reads the option (Peter, 14 Nov: below), so it needs nothing.
 
 The 12-bit depth needs nothing: it never had the option's alpha, and HIGH's BIT_4 is already 1:1.
 
@@ -369,24 +397,27 @@ The loadable programs need nothing either. Their palettes (the video_palette ser
 their 16 and 32-bit modes get the layer's alpha from setmode.
 
 **When it takes effect:**
-- G3Hardware is set by the probe, after the first setmode (below).
-- The probe goes in InitDisplayOther, between its setmode and its choice of the BIT tables, so the tables come out
-  right.
-- If it finds a G3, setmode runs once more, forced, to load the full CLUT and the layers' alpha.
+- G3Hardware is set by the probe in InitDisplayOther: before its setmode if the chip answers without a clock, after
+  it if not ("Where the probe goes", below). Either way it comes before the choice of the BIT tables, so the tables
+  come out right.
+- If the probe has to come after the first setmode and it finds a G3, setmode runs once more, forced, to load the
+  full CLUT and the layers' alpha.
 - Nothing has reached the HDMI monitor by then, as the MS7210 is set up only after the probe.
 
 **What a program sees:**
 - Drawing, MAP and COLOUR MAP are unchanged, and so is PIXEL( in the 4, 1, 16 and 32-bit depths: those hold or
   return the colours as the program gave them.
-- PIXEL( in an 8-bit mode returns the CLUT's colour, scaled back. Under HIGH that is the table's own, so white reads
-  &HE0E0E0.
-- On a G3 white reads &HFFFFFF, as LOW and MEDIUM already give it. The mid levels move a little: &H68 to &H6D, &HB0
-  to &HB6, &HD0 to &HDB.
-- SAVE IMAGE and Print Screen of an 8-bit screen get the brighter colours, which is what the monitor shows.
-- Recommended: leave it so, as these are the colours on the screen. A golden that reads 8-bit pixels back then needs a
-  G3 result of its own.
-- The other way, ReadBuffer8 giving HIGH's levels on a G3, keeps every program's results the same as a G2's but
-  reports colours the screen does not show. Peter's choice.
+- **PIXEL( in an 8-bit mode returns the value held in the CLUT, on every board** (Peter, 14 Nov: "this should be the
+  case for all versions"). SAVE IMAGE and Print Screen get the same, as all three read through ReadBuffer8.
+  - Done on v8-dev on 14 Nov, ahead of the G3 work: ReadBuffer8 no longer scales the CLUT's colour up by OPTION VGA
+    OUTPUT's top.
+  - Under HIGH, the default, nothing changes, as its divisor was 255: white reads &HE0E0E0.
+  - Under MEDIUM white now reads &HE0E0E0 and under LOW &HC0C0C0, where both read &HFFFFFF before.
+  - A colour set by MAP, which goes into the CLUT as it is, now reads back as it was set. Before, under LOW or MEDIUM
+    a channel over the option's top overflowed: &HFF read back as &H52 under LOW.
+- On a G3 the CLUT holds the full levels, so white reads &HFFFFFF. The mid levels move a little: &H68 to &H6D, &HB0
+  to &HB6, &HD0 to &HDB. A golden that reads 8-bit pixels back needs a G3 result of its own, which goldens.py gives it
+  by MM.DEVICE$.
 
 **OPTION VGA OUTPUT on a G3:**
 - Still accepted and saved, so a set of options moved to a G2 (OPTION DISK SAVE and LOAD) keeps its meaning.
@@ -399,8 +430,19 @@ their 16 and 32-bit modes get the layer's alpha from setmode.
   byte 3, bits 3-2) says full.
 - Taken as limited, the full levels are stretched: in the 16 and 32-bit depths everything under 16 shows as black and
   everything over 235 as white, and the 8-bit depth's colours look harsher.
-- So when step 3 gives 720p and 1080p their codes (4 and 16), the infoframe is to say full range as well. Where the
-  MS7210 keeps that field is to be found in the SDK's AVI code.
+- So when step 3 gives 720p and 1080p their codes (4 and 16), the infoframe is to say full range as well.
+- **Where the field is (the SDK's ms7210drv_hd_tx_shell_set_video_infoframe, checked 14 Nov):** the MS7210 takes the
+  AVI infoframe as raw bytes.
+  - Clear bit 6 of 0x050E, then write the type 0x82 to 0x050A, the version 0x02 to 0x0509 and the length 0x0D to
+    0x050B.
+  - Then 14 bytes to 0x050D, one after another: the checksum (0x100 minus the sum of the header and data bytes), then
+    data bytes 1 to 13. Then set bit 6 of 0x050E again. The FPGA table does exactly this.
+  - Q is data byte 3, bits 3-2: 10 for full range. The SDK leaves it 0, and so does the FPGA table.
+  - Data byte 1's scan field (bits 1-0) is 01, overscan, in the FPGA table. The SDK sends overscan for the CE formats
+    and underscan (10) for the IT ones, and a computer's picture wants underscan, so that a TV that obeys it shows the
+    edges. Data byte 3's bit 7, ITC (IT content), tells a TV the same, and many then turn off their picture
+    processing.
+  - Data byte 4 is the video code and data byte 5's bits 3-0 the pixel repetition.
 - Only a TV whose EDID says so obeys Q. Others have a menu setting, such as "HDMI black level" or "RGB range".
 
 ## Recognising a G3
@@ -418,17 +460,63 @@ their 16 and 32-bit modes get the layer's alpha from setmode.
    - PG3 is not connected on a G2 (Peter, 8 Nov), so driving it there is harmless.
    - The SDK's longer reset (100 ms low, then 50 ms) is kept in reserve, for a G3 whose chip misbehaves after the
      short one.
-1. Only when G1Hardware is 0, after the first setmode at start-up, read registers 0x0000 to 0x0002 at 0xB2, and at
-   0x56 if nothing answers.
+   - Checked 14 Nov: MX_GPIO_Init runs (twice) just after the system clock, and the first setmode, in
+     InitDisplayOther, comes after the SDRAM set-up, the pin 40 check and the console. Nothing guarantees 10 ms
+     between them, so the release keeps the tick at which PG3 went low and waits out what is left of 11 ms.
+1. Only when G1Hardware is 0, read registers 0x0000 to 0x0002 at 0xB2, and at 0x56 if nothing answers, with the short
+   acknowledge check (above).
 2. If nothing answers, drive PG7 as LTDC_CLK (the 800x600 clock is already running), wait 10 ms and read again. That
    covers a chip that needs a clock. On a G2 the clock would then run for about 10 ms, once, before going back to
    analog.
 3. Found: set a new flag, G3Hardware, and run the MS7210's init for the mode in use. Not found: carry on as a G2.
 
-Things to report it, to be agreed:
-- MM.DEVICE$ ("Colour Maximite 2 G3"), the start-up banner and OPTION LIST.
+**Where the probe goes depends on step 1's answer to the clock question.**
+- If the chip answers with no clock, which is likely, the probe goes at the start of InitDisplayOther, before its
+  setmode. Then the first setmode already has the G3's LTDC settings and full levels, the BIT tables are chosen right
+  the first time, and the forced second setmode (below) is not needed.
+- Only if it needs a clock does the probe go after the first setmode, with step 2's retry and the second setmode.
+
+How it is reported (Peter, 14 Nov: MM.DEVICE$ "Colour Maximite 2 G3"):
+- MM.DEVICE$ (MM_Misc.c), the start-up banner (main.c, on the screen and the serial console) and the head of OPTION
+  LIST (MiscSTM32.c) all name the board. The banner and OPTION LIST print the same MES_SIGNON strings (Version.h), each
+  choosing between four of them in its own expression.
+  - So the name and clock line come from one routine, which the three call. G3 strings are added beside the G2's:
+    "480MHz Colour Maximite 2 G3".
+  - Until then a G3 says "Colour Maximite 2 G2", as the current firmware does.
+  - tools/goldens.py files its results under the board MM.DEVICE$ names, so a G3 gets goldens of its own, which suits
+    the 8-bit PIXEL( difference (below).
+  - PicoMite programs look for "VGA" or "HDMI" in MM.DEVICE$ (picofrog). The CMM2's names have neither, with or
+    without "G3", so nothing changes for them.
 - VGA-only options noted as having no effect on a G3: OPTION VGA OUTPUT, as a G3 always drives full levels (above),
   and the offsets.
+
+## Checked before the start (14 November)
+
+The plan was read against v8-dev (a78205c) and the MS7210 sources on the day the first G3 arrived.
+
+**Still as the plan says:**
+- The pins: HAL_LTDC_MspInit maps every data line in the schematic's order. PE4 (B0) is driven on a G2 (7941b98), so
+  on a G3 too. PG7 is analog except in mode 18, and DE is active low.
+- PG3, PC8 and PD11-PD13 are used by nothing in the firmware.
+- Mode 8 is 640x480 at 60 Hz, 25.2 MHz.
+- The places that read Option.colourmap for the levels are those in the table above, and ReadBuffer8, which no longer
+  does. The only other readers are OPTION LIST and the option itself, which stay.
+
+**Corrected or added in the sections above:**
+- Mode 19, which the table lacked: a doubled mode, half of VESA 1280x1024 at 60 Hz.
+- amiga.app and bbc.app, which set 576p themselves (step 3).
+- The I2C acknowledge wait of 250 ms, which the probe must not use.
+- PLL3_Config, which never turns P on.
+- Where the probe goes, once step 1 has answered the clock question.
+- The AVI infoframe's layout, so the quantisation range and underscan can be set.
+- What happens to a test program's settings when it ends, and so a way to an HDMI console before the firmware has the
+  G3.
+
+**Peter's answers (14 Nov):**
+1. A G3 has no VGA socket: it went with the resistor DAC.
+2. TVs: 800x600 at 75 Hz stays the start-up mode for now, to be revisited later (Risks).
+3. PIXEL( returns the value held in the CLUT, on every board. Done on v8-dev the same day (above).
+4. MM.DEVICE$ says "Colour Maximite 2 G3". The banner and OPTION LIST print the same name.
 
 ## The plan
 
@@ -466,9 +554,21 @@ Things to report it, to be agreed:
    - Read PC8 by polling, not by interrupt. The chip's status is read over the bit-banged I2C, which takes
      milliseconds and is shared with the RTC, so that read belongs in the foreground, not in an interrupt handler.
 
+### With the firmware as it is
+
+A G3 running the current firmware (V8 or RC6) works as a G2 in every way but the picture: the SD card, the RTC, the
+SDRAM and USB are a G2's. **It shows nothing on HDMI**, for three reasons:
+- Nothing sets up the MS7210 over I2C.
+- PG7, the pixel clock, is driven only in mode 18 (HAL_LTDC_MspInit). In every other mode it is analog.
+- DE is active low (MX_LTDC_Init), and the MS7210 wants it high.
+
+So the first checks are made from the serial console (COM4 on the G2 position), and MM.DEVICE$ says "Colour Maximite 2
+G2".
+
 ### Step 1: experiment from a loadable program, without reflashing
 
-A test program (`apps/ms7210test`) can do all the bring-up while the firmware stays as it is:
+A test program (`tools/sdk/examples/ms7210test.c`, beside ltdctest.c and built the same way) can do all the bring-up
+while the firmware stays as it is:
 - It bit-bangs PD4/PD5 itself, as Analog_I2C.c does.
 - It sets PG7 and PF10's alternate functions, and LTDC's DE polarity and clock edge, by writing the registers
   directly.
@@ -493,6 +593,18 @@ program can start from it. It would:
    - 24 bars, each with one of the 24 data bits set. That checks every data line's wiring.
    - Full white, &HFFFFFF, beside the firmware's &HE0E0E0. That shows the full levels before the firmware has them.
 
+What the firmware does around such a program (checked 14 Nov):
+- Every setmode that changes the mode or depth runs MX_LTDC_Init, and through HAL_LTDC_Init HAL_LTDC_MspInit. That
+  puts DE back to active low and PG7 back to analog. So the program sets them again after each video_mode call.
+- A setmode to the mode and depth already showing returns early, without touching the LTDC. The loader puts BASIC's
+  mode back only if the program changed it, and the end of a BASIC program asks for OPTION DEFAULT MODE, the same
+  mode.
+- So a program that leaves BASIC's MODE 1,8 alone leaves the picture on when it ends. Until the firmware has the
+  G3, `RUN "ms7210test.app", on` gives an HDMI console at the prompt, until the next MODE that changes the mode.
+
+If the monitor refuses 800x600 at 75 Hz, MODE 8 is the one to try: VESA 640x480 at 60 Hz since 9 November, which is
+CEA's video code 1, the one format every HDMI sink must take.
+
 **Done when:** there's a stable 800x600 picture on Peter's monitor, and we know whether the chip needs a clock.
 
 ### Step 2: the clock edge, at the top speed
@@ -509,6 +621,11 @@ program can start from it. It would:
 2. Then with only the PLL re-trigger.
 3. Then with the full sequence: band, re-trigger and infoframe.
 4. Keep the least that is reliable across 20 changes each way, between the high and low bands as well.
+   - Include `amiga.app` and `bbc.app`, which change PLL3 and the timing to 576p themselves, and back at their end.
+   - If the chip follows a new clock by itself, they need nothing.
+   - If it needs the PLL re-trigger, the fix belongs in one place, not in each program. Either the firmware's
+     hot-plug poll notices the change (the clock meter at 0x001E, or "timing stable" at 0x051D) and re-triggers, or
+     a new service lets a program say that it has changed the timing.
 5. On the TV, in 720p and 1080p, check the darkest and brightest greys of a 32-bit ramp. If they are lost in black
    and white, the infoframe's quantisation range needs setting to full (above).
 
@@ -546,7 +663,7 @@ mode.
 ### Step 6: into the firmware
 
 - **`Src/MS7210.c`:**
-  - The register access over Analog_I2C.c.
+  - The register access over Analog_I2C.c, with its own short acknowledge check (above).
   - The detection.
   - The init.
   - The mode hook, called from setmode after MX_LTDC_Init.
@@ -574,7 +691,8 @@ mode.
 
 - **TVs:** HDMI requires a TV to accept only 640x480 at 60 Hz and the CEA formats. The CMM2's 75 Hz VESA modes,
   including the default 800x600 at 75 Hz, will suit monitors but may not suit TVs. If TVs matter, a G3 could start in
-  a 60 Hz mode such as 800x600 at 40 MHz. That is Peter's decision.
+  a 60 Hz mode such as 800x600 at 40 MHz. Peter, 14 Nov: 800x600 at 75 Hz stays for the moment, to be revisited
+  later.
 - **148.5 MHz** on the board's traces and the H743's pins, with the edge tuning of step 2. If 1080p will not come
   clean, mode 16 may have to be refused on a G3.
 - **No datasheet:** the register meanings come from MacroSilicon's SDK and the FPGA table. Anything they do not use,
