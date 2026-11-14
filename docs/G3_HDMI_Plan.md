@@ -587,6 +587,15 @@ chip as they are. Mode 12 is not yet doubled (148 MHz on PG7, or the chip's repe
 - **The apps (14 November):** bbc.app and amiga.app 576p (their own PLL3 and timing, sent as they are), cpc 640x480 at
   60 Hz (MODE 8), nes 640x480 at 75 Hz (MODE 7 doubled), doom 640x400 at 75 Hz (MODE 3 doubled). From the console bbc,
   amiga and cpc leave on Ctrl-], nes and doom on Ctrl-C.
+- **Mode 12 (14 November):** doubled to 1080p at 60 Hz: VCO 592, R 8 (74.0 MHz, -0.34%), P 4, so SAI1's MCLK on PG7 is
+  148.0 MHz (within its 150 MHz kernel clock, beyond the 49 MHz ST characterises). Peter's monitor: 1080p.
+- **Hot plug (14 November): no code.** Switching the monitor off and on works in every mode: HPD drops and comes back
+  and the chip carries on (its PHY's output enabled by hand, not by HPD), as it did when the firmware set it up with no
+  monitor and one was plugged in later. Unplugging and plugging the HDMI cable resets the G3: MM.INFO(BOOT) "Switch",
+  a reset-pin reset, not a brown-out, so a glitch on NRST as the cable's shield meets the monitor's ground (Peter: a
+  different ground potential). The board comes back through its start-up with the picture. To look at in the
+  hardware: NRST's capacitor (ST's reference: 100 nF), and the ST-Link's NRST wire, another ground path. The planned
+  INT/HPD polling is left out.
 - **Flashing a G3 with the ST-Link failed** ("Unable to get core ID", "failed to download Sector[0]") every time the
   MS7210 was sending HDMI, which an H743 reset does not stop; with the HDMI cable out (or the G3 power-cycled) it
   worked first time. Peter has ground loops between USB hubs; the HDMI cable to the monitor closes another. Later

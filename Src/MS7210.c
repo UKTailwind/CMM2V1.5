@@ -103,6 +103,8 @@ void MS7210_Pll(RCC_PLL3InitTypeDef *pll, int mode) {
     switch(mode) {
         case 3: case 7:                                             // x2: VCO 816, R 52 (15.69 MHz, -0.37%: R even), P 26
             pll->PLL3N = 102; pll->PLL3R = 52; pll->PLL3P = 26; break;
+        case 12:                                                    // x2: 1080p at 60 Hz (2200 x 1125). VCO 592, R 8 (74.0 MHz,
+            pll->PLL3N = 74; pll->PLL3R = 8; pll->PLL3P = 4; break; // -0.34%: R even), P 4 = 148.0 MHz, within SAI1's 150
         case 5: case 13:                                            // x2: R 70 and 32 as they are. 5 doubled is mode 4's
             pll->PLL3P = pll->PLL3R / 2; break;                     // line, 628 clocks to its 630 at 23.54 MHz (Peter, 14 Nov)
         /* Modes 6 and 17 are VESA 640x480 at 75 Hz (840 x 500 at 31.5 MHz) with fewer, longer pixels, 2.5 and 5/3 of
