@@ -28,7 +28,7 @@
 
    Everything but the chip's registers and the LTDC's settings is put back at the end: PD4/PD5 (the RTC's bus, used
    here open drain), PC8 and PG3. The firmware's next change of mode puts the LTDC back as a G2's.
-   Built with: python build.py out/ms7210test.app examples/ms7210test.c --api 2
+   Built with: python build.py out/ms7210test.app examples/ms7210test.c --api 10
                -I ../../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I ../../Drivers/CMSIS/Include */
 #include <stdio.h>
 #include <stdlib.h>
@@ -136,15 +136,16 @@ static void pg7_ltdc(void) {                                       // PG7 as LTD
     GPIOG->OSPEEDR |= 3u << 14;
     GPIOG->MODER = (GPIOG->MODER & ~(3u << 14)) | (2u << 14);
 }
-static void g3_ltdc(void) {                                        // over the firmware's: faster pins, PG7 driven, DE high
+static void g3_ltdc(void) {                                        // over the firmware's: faster pins, PG7 driven
     for(unsigned i = 0; i < sizeof(ltdc_pins) / sizeof(ltdc_pins[0]); i++) {
         GPIO_TypeDef *p = ltdc_pins[i].port;
         int n = ltdc_pins[i].pin;
         p->OSPEEDR = (p->OSPEEDR & ~(3u << (2 * n))) | ((uint32_t)speed << (2 * n));
     }
     pg7_ltdc();
-    LTDC->GCR |= LTDC_GCR_DEPOL;                                   // (GCR's polarities are not shadowed)
-}
+    LTDC->GCR &= ~LTDC_GCR_DEPOL;                                  // DE high in the picture, as the firmware has it: RM0433's
+}                                                                  // DEPOL is not-DE's polarity (measured on the G3, 14 Nov:
+                                                                   // set, the pin was high 27% of the time, in the blanking)
 static uint32_t pixel_hz(void) {                                   // PLL3's R: 8 MHz / M * N / R (no FRACN)
     uint32_t m = (RCC->PLLCKSELR >> 20) & 0x3F, divr = RCC->PLL3DIVR;
     uint32_t n = (divr & 0x1FF) + 1, r = ((divr >> 24) & 0x7F) + 1;
@@ -180,8 +181,10 @@ static void band(uint32_t hz) {                                    // the PHY's 
     wr(0x0928, high ? 0x88 : 0x11); wr(0x0929, high ? 0x08 : 0x01);
 }
 static void trigger(void) { wr(0x0910, 0x01); ms(10); }            // the HDMI PLL re-triggered, 10 ms to settle
-static const uint16_t table_a[][2] = {                             // the FPGA table's first 19 writes (0x1281 to 0x05C0)
-    {0x1281, 0x04}, {0x0016, 0x04}, {0x0009, 0x01}, {0x0007, 0x09}, {0x0008, 0xF0}, {0x000A, 0xF0}, {0x0006, 0x11},
+static const uint16_t table_a[][2] = {                             // the FPGA table's first 19 writes (0x1281 to 0x05C0),
+    {0x1281, 0x00}, {0x0016, 0x04},                                // but the sampling: the clock as it comes, no delay (the
+                                                                   // FPGA boards' 0x04 inverts it). Peter, 14 Nov, the G3 in
+                                                                   // 1080p: all 8 settings shown, only the two extremes bad {0x0009, 0x01}, {0x0007, 0x09}, {0x0008, 0xF0}, {0x000A, 0xF0}, {0x0006, 0x11},
     {0x0531, 0x84}, {0x0900, 0x20}, {0x0901, 0x47}, {0x0904, 0x09}, {0x0923, 0x07}, {0x0924, 0x44}, {0x0925, 0x44},
     {0x090F, 0x80}, {0x091F, 0x07}, {0x0920, 0x1E}, {0x0018, 0x20}, {0x05C0, 0xFE}};
 static void chip_init(int trim) {
@@ -189,6 +192,20 @@ static void chip_init(int trim) {
     nacks = 0;
     if(trim) { wr(0x0060, 0x81); wr(0x0061, 0x54); }              // the internal oscillator to 27 MHz (the SDK's)
     for(unsigned i = 0; i < sizeof(table_a) / sizeof(table_a[0]); i++) wr(table_a[i][0], (uint8_t)table_a[i][1]);
+    /* the input as the SDK sets it for RGB 24-bit SDR with HS, VS and DE (its ms7210_dvin_init, dvin_mode_config and
+       timing_config). The G3's chip powered up for YUV 4:2:2 (0x0080 and 0x1202 both 2) with its HDMI clock halved
+       (0x092A bit 6), none of which the FPGA table writes (14 Nov) */
+    int v;
+    if((v = rd(0x0080)) >= 0) wr(0x0080, (uint8_t)(v & ~0x0F));    // CSC: RGB in (bits 1-0), RGB out (bits 3-2)
+    if((v = rd(0x1202)) >= 0) wr(0x1202, (uint8_t)(v & ~0xEF));    // RGB 24-bit (2-0), SDR (3), sync by HS/VS/DE (7-5)
+    if((v = rd(0x1201)) >= 0) wr(0x1201, (uint8_t)(v & ~0x10));    // (the data in sequence)
+    if((v = rd(0x00C0)) >= 0) wr(0x00C0, (uint8_t)(v & ~0x03));    // the input clock as it comes
+    if((v = rd(0x1200)) >= 0) wr(0x1200, (uint8_t)((v & ~0x0C) | 0x04));   // DE from its pin
+    if((v = rd(0x120B)) >= 0) wr(0x120B, (uint8_t)(v & ~0x01));    // no DE regenerated
+    if((v = rd(0x1265)) >= 0) wr(0x1265, (uint8_t)(v & ~0x01));    // not DE only
+    if((v = rd(0x1262)) >= 0) wr(0x1262, (uint8_t)(v & ~0x01));    // not BT.1004
+    if((v = rd(0x0079)) >= 0) wr(0x0079, (uint8_t)((v & ~0x30) | 0x20));   // the input pads pulled down
+    if((v = rd(0x092A)) >= 0) wr(0x092A, (uint8_t)(v & ~0x44));    // the HDMI clock 1:1 (bit 6 halves it, bit 2 doubles it)
     ms(350);                                                       // (the FPGA boards wait 3.2M of their clocks here)
     wr(0x000B, 0x00);
     wr(0x0507, 0x06);                                              // muted
@@ -219,13 +236,16 @@ static void status(void) {
     int hpd = rd(0x0502), pll = rd(0x091C), st = rd(0x051D), lo = rd(0x001E), hi = rd(0x001F);
     int mute = rd(0x0507), pa = rd(0x1281), irq = rd(0x0500), mask = rd(0x0501), osc0 = rd(0x0060), osc1 = rd(0x0061);
     if(hpd < 0) { printf("status: the chip does not answer at 0x%02X\n", dev); return; }
-    printf("HPD %s (0x0502 %02X), HDMI PLL %s (0x091C %02X), timing %s (0x051D %02X)\n", hpd & 1 ? "plugged" : "none",
+    printf("HPD %s (0x0502 %02X), HDMI PLL %s (0x091C %02X), input timing %s (0x051D %02X)\n", hpd & 1 ? "plugged" : "none",
            hpd, pll & 0x80 ? "locked" : "NOT locked", pll, st & 0x10 ? "stable" : "NOT stable", st);
+    printf("input: CSC 0x0080 %02X, mode 0x1202 %02X, sync 0x1200 %02X, HDMI clock ratio 0x092A %02X\n", rd(0x0080),
+           rd(0x1202), rd(0x1200), rd(0x092A));
     printf("pixel clock: the LTDC's %.3f MHz; the chip counts %.2f MHz (its meter, against its own oscillator: 0x0060-1 "
            "%02X %02X)\n", pixel_hz() / 1e6, ((hi << 8 | lo) * 2700u / 4096u) / 100.0, osc0, osc1);
     printf("mute 0x0507 %02X, sampling 0x1281 %02X, interrupt 0x0500 %02X mask 0x0501 %02X, INT# (PC8) %s\n", mute, pa,
            irq, mask, pc8() ? "high" : "LOW");
-    printf("LTDC: DE active %s, clock %s, PG7 %s, %ux%u active\n", LTDC->GCR & LTDC_GCR_DEPOL ? "high" : "low (a G2's)",
+    printf("LTDC: DE %s, clock %s, PG7 %s, %ux%u active\n", LTDC->GCR & LTDC_GCR_DEPOL ? "LOW in the picture (GCR DEPOL set)" :
+           "high in the picture",
            LTDC->GCR & LTDC_GCR_PCPOL ? "inverted" : "as it comes", pg7_mode(),
            (unsigned)(((LTDC->AWCR >> 16) & 0xFFF) - ((LTDC->BPCR >> 16) & 0xFFF)),
            (unsigned)((LTDC->AWCR & 0x7FF) - (LTDC->BPCR & 0x7FF)));
@@ -260,9 +280,29 @@ static void card(const cmm2_video *v) {
     }
     SCB_CleanDCache_by_Addr((uint32_t *)((uint32_t)v->fb & ~31u), (int32_t)(v->pitch * h + 64));
 }
-static void wait_key(void) {
-    printf("(any key to end)\n");
-    while(cmm2->con_getc() < 0 && !cmm2->poll()) ms(10);
+/* the card's label: the mode and the settings, in the middle of the screen (nothing goes to the console once the card
+   is up, as the console's text scrolls the screen, card and all) */
+static void label(const cmm2_video *v, int mode, uint32_t hz) {
+    char s[96];
+    int pa = rd(0x1281);
+    snprintf(s, sizeof(s), " MODE %d: %ux%u, %.1f MHz, 0x1281 %02X, LTDC clock %s ", mode, (unsigned)v->width,
+             (unsigned)v->height, hz / 1e6, pa & 0xFF, LTDC->GCR & LTDC_GCR_PCPOL ? "inverted" : "as it comes");
+    cmm2->gfx_text((int)v->width / 2, (int)v->height * 5 / 8, s, "CM", 1, v->width >= 1280 ? 2 : 1, 0xFFFFFF, 0x000000);
+}
+/* until a key ends it; on the way + and - step the chip's sampling (0x1281: bit 2 inverts the clock, bits 1-0 delay
+   it) and p flips the LTDC's clock polarity (GCR PCPOL), shown in the label: step 2's clock edge with the card up */
+static void wait_key(const cmm2_video *v, int mode, uint32_t hz) {
+    for(;;) {
+        int c = cmm2->con_getc(), pa;
+        if(cmm2->poll()) return;
+        if(c < 0) { ms(10); continue; }
+        if(c == '+' || c == '-') {
+            if((pa = rd(0x1281)) < 0) continue;
+            wr(0x1281, (uint8_t)((pa & ~7) | ((pa + (c == '+' ? 1 : 7)) & 7)));
+        } else if(c == 'p') LTDC->GCR ^= LTDC_GCR_PCPOL;
+        else return;
+        label(v, mode, hz);
+    }
 }
 /* MODE m,8, the G3's settings again (setmode put the G2's back if the mode changed), and then what is written to the
    chip: 0 nothing, 1 the PLL re-trigger, 2 mute, band, re-trigger, infoframe, unmute; 3 the last if the clock changed */
@@ -277,10 +317,12 @@ static void show(int mode, int what) {
     if(what == 2) { wr(0x0507, 0x06); band(hz); trigger(); infoframe(); wr(0x0507, 0x00); }
     printf("MODE %d,8: %ux%u%s, %.3f MHz; written to the chip: %s\n", mode, (unsigned)v.width, (unsigned)v.height,
            v.copies == 2 ? " (lines twice)" : "", hz / 1e6, what == 2 ? "band, re-trigger, infoframe" : what ? "re-trigger" : "nothing");
-    card(&v);
     ms(200);
-    status();
-    wait_key();
+    status();                                                      // (all the console's text before the card: see label)
+    printf("(+ and - step 0x1281, p flips the LTDC's clock, any other key ends)\n");
+    card(&v);
+    label(&v, mode, hz);
+    wait_key(&v, mode, hz);
 }
 
 /* --- INT#: what drives it --- */

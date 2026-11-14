@@ -358,8 +358,8 @@ line count), the measurement is given.*
 |---|---|---|
 | PG7, LTDC_CLK | Driven only in mode 18 (kept off otherwise, as noise beside the video lines) | Always driven: LTDC_CLK (AF14), or SAI1_MCLK_A (AF6) at twice the pixel clock in the halved modes (above) |
 | PF10, LTDC_DE | Mapped | Always driven |
-| DE polarity | Active low (LTDC_DEPOLARITY_AL) | Active high: the SDK declares DRM_BUS_FLAG_DE_HIGH |
-| Clock edge | LTDC_PCPOLARITY_IPC | To be found. The SDK samples on the falling edge. Register 0x1281 (REG_PA_S) inverts the clock (bit 2) and delays it by 0 to 3 steps (bits 1-0); the FPGA boards write 0x04, inverted with no delay, which is the place to start. The datasheet asks for 0.879 ns of setup and 0.22 ns of hold, and a clock duty of 40-60%. Tuned on the board at the highest clock, 148.5 MHz, where a pixel is 6.7 ns |
+| DE polarity | LTDC_DEPOLARITY_AL, which puts DE **high** in the picture: RM0433's DEPOL is the polarity of *not* DE | Unchanged: the MS7210 wants DE high (the SDK's DRM_BUS_FLAG_DE_HIGH). Measured on the G3, 14 Nov: with DEPOL set the pin was high 27% of the time, in the blanking, and there was no picture |
+| Clock edge | LTDC_PCPOLARITY_IPC | Unchanged, with 0x1281 = **0x00** (the clock as it comes, no delay; Peter, 14 Nov, in 1080p: of all eight settings only the two extremes were bad). Register 0x1281 (REG_PA_S) inverts the clock (bit 2) and delays it by 0 to 3 steps (bits 1-0); the FPGA boards write 0x04, inverted with no delay. The datasheet asks for 0.879 ns of setup and 0.22 ns of hold, and a clock duty of 40-60%. Tuned on the board at the highest clock, 148.5 MHz, where a pixel is 6.7 ns |
 | Pin speed | Colours MEDIUM and syncs LOW, slowed on 23 Oct for the G1's VGA | HIGH or VERY_HIGH for the clock and data, to meet 148.5 MHz |
 | Clock duty | Any: VGA has no use for the clock | 40-60% (MS7210). An odd PLL3 divider is not 50% (RM0433 table 60). Mode 16's R 5 is about 40/60 at 148.8 MHz, at the limit, so on a G3 use VCO 592 with R 4 (148.0 MHz, -0.34%). Modes 3, 4, 7, 8, 9, 11 and 12 have odd dividers of 11 or more (45/55 or closer) |
 | PE4, LTDC_B0 | Left unconfigured by a second line in HAL_LTDC_MspInit, a bug as the G2 wires it (Peter, 8 Nov); fixed on 8 Nov for a G2 | Driven (AF14), as on a G2: the G3 wires it to the MS7210 |
@@ -517,6 +517,37 @@ The plan was read against v8-dev (a78205c) and the MS7210 sources on the day the
 2. TVs: 800x600 at 75 Hz stays the start-up mode for now, to be revisited later (Risks).
 3. PIXEL( returns the value held in the CLUT, on every board. Done on v8-dev the same day (above).
 4. MM.DEVICE$ says "Colour Maximite 2 G3". The banner and OPTION LIST print the same name.
+
+## Results on the G3 (14 November)
+
+The first G3 arrived on 14 November. Peter fitted it in the G2's place (console COM16, the same Nucleo ST-Link) and it
+was flashed with v8-dev (8.00.00b1, dae6cde). Steps 1 to 3 were done from ms7210test.app with the firmware unchanged.
+
+- **The bus:** rtc_i2c_scan.bas finds the MS7210 at &H59 (8-bit &HB2), ID A2 20 0A, and a DS3231 at &H68.
+- **The clock question:** the chip answers on I2C with PG7 analog, so a G3 is recognised before the first setmode.
+- **The reset matters:** after power-up, with RSTN on its pull-up alone, the chip's registers were not its defaults:
+  0x0080 and 0x1202 were 2 (YUV 4:2:2 in) and 0x092A was 0x40 (the HDMI clock halved). After PG3 low for 20 ms they
+  read 0, the defaults, which is what RGB888 needs. So the start-up's PG3 reset is required, not a nicety. The test
+  program writes the SDK's RGB settings anyway (0x0080, 0x1202, 0x1201, 0x00C0, 0x1200, 0x120B, 0x1265, 0x1262,
+  0x0079, 0x092A), as a guard.
+- **DE:** the firmware's own setting is right (the table above). The first attempt set GCR DEPOL and got no picture.
+- **The first picture:** the FPGA table (0x1281 0x00), the oscillator at 27 MHz, the low band, on Peter's monitor in
+  MODE 1. The test card: every data line right, full white beside &HE0E0E0, the greys distinct.
+- **The clock edge (step 2):** in 1080p (148.8 MHz, PLL3 R 5 as it is), 0x1281 stepped through all eight settings
+  with the card up: only the two extremes bad. 0x00 chosen. The duty-cycle change for mode 16 (VCO 592, R 4) is not
+  needed.
+- **Mode changes (step 3):** within the low band (1 to 8) nothing has to be written. From the low band to the high
+  band (to 1080p) and back (1080p to 1) the HDMI PLL loses lock unless re-triggered; the re-trigger alone recovers it,
+  even with the low band's drive. The rule for the firmware: on every change of pixel clock, mute, the band, the
+  re-trigger (10 ms), the infoframe, unmute.
+- **Group 1:** modes 1, 8, 9, 10, 11, 15, 16 and 18 all lock (0x091C bit 7) with the input timing stable (0x051D bit
+  4, which is the video timing despite the SDK's register name CTS_STABLE). Peter: "the image is stunningly good".
+- **Open:**
+  - HPD: 0x0502 reads 0x80 (bit 0 clear) with the monitor connected and showing the picture. It read 0x01 once, with
+    the chip in its bad power-up state. So bit 0 is not a usable hot-plug signal as things are; to find in step 1.4.
+  - INT# (PC8) goes low after the init with 0x0500 = 0xA0 or 0xA8 and the mask 0x0501 at 0: what it reports is to be
+    found (step 1.4).
+  - The chip's clock meter reads 0.6-1% low (its RC oscillator at "27 MHz"): diagnostics only.
 
 ## The plan
 
