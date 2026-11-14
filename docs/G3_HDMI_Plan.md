@@ -593,6 +593,11 @@ program can start from it. It would:
    - 24 bars, each with one of the 24 data bits set. That checks every data line's wiring.
    - Full white, &HFFFFFF, beside the firmware's &HE0E0E0. That shows the full levels before the firmware has them.
 
+Before it, `tools/rtc_i2c_scan.bas` lists every device on the RTC's bus from BASIC, with any firmware (BASIC's I2C
+commands drive only the I/O connector's buses, so it drives PD4 and PD5 through the GPIO registers and puts them
+back). It reads the MS7210's ID at &H59 (8-bit &HB2) and the DS3231's time at &H68. On the G2 (14 Nov) it found the
+DS3231 alone, in 0.2 s.
+
 What the firmware does around such a program (checked 14 Nov):
 - Every setmode that changes the mode or depth runs MX_LTDC_Init, and through HAL_LTDC_Init HAL_LTDC_MspInit. That
   puts DE back to active low and PG7 back to analog. So the program sets them again after each video_mode call.

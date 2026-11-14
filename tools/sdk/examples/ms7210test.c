@@ -351,10 +351,16 @@ int main(int argc, char **argv) {
     } else if(!strcmp(c, "on")) {
         int trim = !(argc > 2 && !strcmp(argv[2], "notrim"));
         if(!find()) {
+            uint32_t m = GPIOG->MODER, afr = GPIOG->AFR[0], sp = GPIOG->OSPEEDR;
             printf("trying with the clock on PG7\n");
             pg7_ltdc();
             ms(20);
-            if(!find()) { printf("no MS7210\n"); i2c_close(); return 1; }
+            if(!find()) {                                          // (PG7 as it was: on a G2 it stays analog)
+                GPIOG->MODER = m; GPIOG->AFR[0] = afr; GPIOG->OSPEEDR = sp;
+                printf("no MS7210\n");
+                i2c_close();
+                return 1;
+            }
         }
         g3_ltdc();
         chip_init(trim);
