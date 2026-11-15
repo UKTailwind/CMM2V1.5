@@ -370,7 +370,16 @@ In this order (15 Nov), each built and checked on the G3 before the next:
     the WEB commands "WiFi radio not running"; the options are kept for when the module is back. The try costs well
     under a second, and drives the four pins briefly at start-up.
 - **The host name:** OPTION WIFI's default is "PICO" and the board's ID (PICO0131697F on this G3), as on the PicoMite.
-- **Still to do:** UDP, MQTT and TFTP from the PC; step 4's regression; the G1 (stage 7); the manual.
+- **UDP, MQTT and TFTP from the PC (15 Nov):** MM.MESSAGE$, MM.ADDRESS$ and MM.TOPIC$ added (overlaid MM. functions,
+  after MM.MOUSE). Python at both ends, nothing installed (the firewall's python.exe rule lets the CMM2 reach the PC):
+  - **UDP** (tests/wifi/udptest.bas, pcudp.py; OPTION UDP SERVER PORT 5005): every datagram received with its sender,
+    and echoed back with WEB UDP SEND; 8 of 8 echoes in 3 ms in two runs. The first echoes after a restart were lost
+    while the CMM2 had not yet learnt the PC's address (lwIP keeps one packet while ARP is pending).
+  - **MQTT** (mqtttest.bas, pcmqtt.py, a minimal broker): CONNECT, SUBSCRIBE, PUBLISH at QoS 1, the MQTT interrupt
+    with MM.TOPIC$ and MM.MESSAGE$: 5 messages in, 5 echoes out.
+  - **TFTP** (pctftp.py): 20 KB and 200 KB put onto the card and got back identical, about 250 KB/s each way.
+- **Still to do:** step 4's regression; the G1 (stage 7); the manual; TLS with a CA (WEB TLS CA); the web server with
+  several clients at once and the PicoMite's own example programs.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 

@@ -77,6 +77,9 @@ const char* overlaid_functions[]={
 	"MM.USB",
 	"MM.DISPLAY",
 	"MM.MOUSE",
+	"MM.MESSAGE$",                                                  // (the PicoMite's network: Src/net)
+	"MM.ADDRESS$",
+	"MM.TOPIC$",
 	"MM.END"
 };
 
@@ -301,6 +304,16 @@ typedef enum {
 		case MMCMDLINE:
 			fun_cmdline();
 			break;
+		case MMMESSAGE:                                             // the PicoMite's (its core/Functions.c): the buffers its
+		case MMADDRESS:                                             // UDP and MQTT code fill (Src/net/picomite)
+		case MMTOPIC: {
+			extern unsigned char messagebuff[], addressbuff[], topicbuff[];
+			sret = GetTempStrMemory();                              // this will last for the life of the command
+			int o = *ep - 'A';
+			Mstrcpy(sret, (char *)(o == MMMESSAGE ? messagebuff : o == MMADDRESS ? addressbuff : topicbuff));
+			targ = T_STR;
+			break;
+		}
 		case  MMWIDTH:
 			iret=HRes/(short)(FontTable[gui_font >> 4][0] * (gui_font & 0b1111));
 			break;
