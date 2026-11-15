@@ -289,7 +289,7 @@ void WebOptionList(void) {
     if (Option.disabletftp == 1) PO2Str("TFTP", "OFF", 1);
 }
 
-// MM.INFO(TCP REQUEST n), (TCP PORT), (UDP PORT), (IP ADDRESS), (MAX CONNECTIONS), (WIFI STATUS), (TCPIP STATUS) and
+// MM.INFO(TCP REQUEST n), (TCP PORT), (UDP PORT), (IP ADDRESS), (MAX CONNECTIONS), (WIFI STATUS), (TCPIP STATUS), (TELNET) and
 // MM.INFO(OPTION SSID): 1 if it was one of them (iret or sret and targ set)
 int WebInfo(char *ep) {
     char *tp;
@@ -331,6 +331,19 @@ int WebInfo(char *ep) {
     }
     if (checkstring(ep, "TCPIP STATUS")) {
         iret = startupcomplete ? cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) : CYW43_LINK_DOWN;
+        targ = T_INT;
+        return 1;
+    }
+    if (checkstring(ep, "TELNET")) {
+        /* the PicoMite's (core/MM_Misc.c): 1 while a telnet client is attached to the console, 0 otherwise.
+           telnet_pcb_no is 99 when no client is connected, but a clean remote close can clear the pcb slot
+           without resetting it, so require both to agree. TCPstate is NULL until the TCP server has been started. */
+        iret = 0;
+        if (TCPstate) {
+            int pcb = TCPstate->telnet_pcb_no;
+            if (pcb >= 0 && pcb < MaxPcb && TCPstate->client_pcb[pcb])
+                iret = 1;
+        }
         targ = T_INT;
         return 1;
     }

@@ -108,7 +108,7 @@ The console can also be used over WiFi with Telnet, which is handy when the Colo
 OPTION TELNET CONSOLE ON
 ```
 
-This is remembered and restarts the Colour Maximite 2. Connect a Telnet program to its address, port 23 (Tera Term, for example, has a good VT100 emulation). OPTION TELNET CONSOLE ONLY sends the console's output to Telnet and not to the serial port (the screen still shows it), and OPTION TELNET CONSOLE OFF turns Telnet off.
+This is remembered and restarts the Colour Maximite 2. Connect a Telnet program to its address, port 23 (Tera Term, for example, has a good VT100 emulation). OPTION TELNET CONSOLE ONLY sends the console's output to Telnet and not to the serial port (the screen still shows it), and OPTION TELNET CONSOLE OFF turns Telnet off. A program can tell whether anyone is connected with MM.INFO(TELNET): 1 while a Telnet client is connected, otherwise 0.
 
 ## File Transfer
 

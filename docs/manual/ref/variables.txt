@@ -319,6 +319,10 @@ __WITH THE WIFI MODULE ONLY__ The state of the network connection (TCPIP STATUS)
 {l=720}-2  No network of that name was found (it may be out of range, or down)
 {l=720}-3  The password was refused
 
+=+= MM.INFO(TELNET)
+--- keep
+__WITH THE WIFI MODULE ONLY__ 1 while a Telnet client is connected to the console, otherwise 0.  It reports the connection, not the setting: it is 0 whenever nothing is connected, even with OPTION TELNET CONSOLE ON or ONLY.
+
 =+= MM.INFO(TILE HEIGHT)
 --- keep
 The height of the tiles in the 1-bit colour depth (see TILE).
