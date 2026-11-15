@@ -22,13 +22,13 @@ MODE r [, bits [, bg [, int]]]
 | 7 | 320 x 240 pixels | 16 | 1920 x 1080 pixels (widescreen, Generation 2 only) |
 | 8 | 640 x 480 pixels | 17 | 384 x 240 pixels |
 | 9 | 1024 x 768 pixels (no 12-bit mode) | 18 | 1024 x 600 pixels |
-|  |  | 19 | 640 x 512 pixels (mode 15 at half its pixel clock, lines duplicated) |
+|  |  | 19 | 720 x 400 pixels (widescreen) |
 
 All resolutions except 10, 11, 12, 14 and 16 work perfectly with monitors that have an aspect ratio of 4:3 or widescreen monitors that can switch to that ratio (most widescreen monitors will do this automatically).
 
-The monitor will see these signals: modes 1 and 13, 800 x 600 at 75Hz; modes 2, 3, 4, 5, 6, 7 and 17, 640 x 480 at 75Hz; mode 8, 640 x 480 at 60Hz; mode 9, 1024 x 768 at 60Hz; mode 10, 848 x 480 at 60Hz; mode 11, 1280 x 720 at 60Hz; mode 14, 1920 x 540 at 60Hz; modes 12 and 16, 1920 x 1080 at 60Hz; modes 15 and 19, 1280 x 1024 at 60Hz. Mode 19 is mode 15 with the pixel clock halved and each line shown twice, so each of its pixels is two of the monitor's across and down: any monitor that takes 1280 x 1024 places it itself.
+The monitor will see these signals: modes 1 and 13, 800 x 600 at 75Hz; modes 2, 3, 4, 5, 6, 7 and 17, 640 x 480 at 75Hz; mode 8, 640 x 480 at 60Hz; mode 9, 1024 x 768 at 60Hz; mode 10, 848 x 480 at 60Hz; mode 11, 1280 x 720 at 60Hz; mode 14, 1920 x 540 at 60Hz; modes 12 and 16, 1920 x 1080 at 60Hz; mode 15, 1280 x 1024 at 60Hz; mode 19, 720 x 400 at 70Hz (the PicoMite's 720x400, and a PC's text display).
 
-The GETSCANLINE function returns the line of the monitor that is being drawn. Its maximum value in each mode is: mode 1, 627; modes 2 and 4, 499; mode 8, 524; modes 3, 5, 6, 7 and 17, 249; mode 9, 805; mode 10, 516; mode 11, 749; mode 12, 562; mode 13, 313; mode 14, 568; mode 15, 1065; mode 16, 1124; mode 18, 637; mode 19, 532. These are the same in every colour depth. Under OPTION PICOMITE the function counts the monitor's lines, as the PicoMite does, so modes 3, 5, 6, 7 and 17 count to 499, mode 12 to 1124, mode 13 to 627 and mode 19 to 1065.
+The GETSCANLINE function returns the line of the monitor that is being drawn. Its maximum value in each mode is: mode 1, 627; modes 2 and 4, 499; mode 8, 524; modes 3, 5, 6, 7 and 17, 249; mode 9, 805; mode 10, 516; mode 11, 749; mode 12, 562; mode 13, 313; mode 14, 568; mode 15, 1065; mode 16, 1124; mode 18, 637; mode 19, 448. These are the same in every colour depth. Under OPTION PICOMITE the function counts the monitor's lines, as the PicoMite does, so modes 3, 5, 6, 7 and 17 count to 499, mode 12 to 1124 and mode 13 to 627.
 
 ## Colour Depths
 
@@ -76,7 +76,7 @@ The pages available in each mode and colour depth are (Generation 1 / Generation
 | 16 | - | - | - | - / 0-2 | - | - / 0-20 |
 | 17 | 0 to 16 | 0-15 / 0-38 | 0-14 / 0-37 | 0-34 / 0-60 | 0 to 60 | 0-60 / 0-60 |
 | 18 | 0 to 1 | 0-1 / 0-4 | 0-1 / 0-4 | 0-6 / 0-10 | - | 0-35 / 0-60 |
-| 19 | 0 to 2 | 0-1 / 0-8 | 0-1 / 0-7 | 0-6 / 0-19 | - | 0-60 / 0-60 |
+| 19 | 0 to 5 | 0-4 / 0-11 | 0-4 / 0-11 | 0-10 / 0-24 | 0 to 49 | 0-60 / 0-60 |
 
 A "-" means that the combination is not available. The 4-bit figures are for the Generation 2 (the Generation 1, with less memory, has fewer). MM.INFO(MAX PAGES) returns the highest page number in the current mode.
 
@@ -89,7 +89,7 @@ MM.INFO(PAGE ADDRESS n) and MM.INFO(MAX PAGES) are useful if you wish to PEEK or
 - With the 4-bit colour depth two pixels share a byte, the left pixel in the low four bits: add% = MM.INFO(PAGE ADDRESS n) + y * ((MM.HRES + 1) \ 2) + x \ 2
 - With the 1-bit colour depth eight pixels share a byte, the leftmost in bit 0: add% = MM.INFO(PAGE ADDRESS n) + y * (MM.HRES \ 8) + x \ 8, and the pixel is bit x AND 7
 
-For modes 3, 5, 6, 7, 12, 13, 17 and 19 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4 and 1-bit pages hold each line once). For example, for an 8-bit colour depth:
+For modes 3, 5, 6, 7, 12, 13 and 17 in the 8, 12, 16 and 32-bit depths each line in page 0 is duplicated to get square pixels so y needs to be multiplied by 2 for PEEK and both lines y * 2 and y * 2 + 1 need to be POKEd (4 and 1-bit pages hold each line once). For example, for an 8-bit colour depth:
 
 ```
 add1% = MM.INFO(PAGE ADDRESS n) + (y * 2) * MM.HRES + x
@@ -132,7 +132,8 @@ A program written for the PicoMite selects its display with the PicoMite's MODE 
 - OPTION PICOMITE says which PicoMite the program was written for, by the name it returns in MM.DEVICE$ (eg, OPTION PICOMITE PicoMiteVGA RP2350B, or VGA or HDMI for short), and at which of its resolutions (640x480, 720x400, 800x600 or 848x480, and with HDMI also 800x480, 1024x600, 1280x720 and 1024x768). If none is given it is the resolution of OPTION DEFAULT MODE (eg, 1024x768 with DEFAULT MODE 9 and HDMI), so that the monitor keeps one resolution for the command prompt, the editor and the programs. MM.DEVICE$ then returns that name, so a program that configures itself by it does so as on that PicoMite. Set at the command prompt it is saved; set in a program it is for that program alone, so a PicoMite program can start with OPTION PICOMITE HDMI and run the same whether or not the option is saved.
 - MODE n with no colour depth is then the PicoMite's MODE n: 1 to 3 on VGA, 1 to 5 on HDMI. MM.HRES and MM.VRES are the PicoMite's sizes, and so are its framebuffers and its screen memory for PEEK and POKE. A program that does not set a mode starts in MODE 1, as on the PicoMite, and so does a Colour Maximite 2 program while the option is set (OPTION PICOMITE NONE turns it off). MODE always clears the screen.
 - Each PicoMite resolution is shown with one of the Colour Maximite 2's display timings, the same for all its modes, as on the PicoMite, so the monitor does not change when the mode does. In the smaller modes each pixel is 2 x 2 or 4 x 4, as on the PicoMite. MM.INFO(MODE) gives the Colour Maximite 2 mode whose timing is used.
-- Two resolutions do not fill the screen: 720x400 and 800x480 are shown at the top left of 848 x 480. The rest of the screen is black and cannot be drawn on.
+- One resolution does not fill the screen: 800x480 is shown at the top left of 848 x 480. The rest of the screen is black and cannot be drawn on.
+- 640x480 is shown at 60Hz, but at 75Hz when the PicoMite's speed 315000 is given with it (OPTION RESOLUTION 640x480, 315000, or RESOLUTION or OPTION PICOMITE with it), as on the PicoMite. That timing has no MODE of its own: MM.INFO(MODE) gives 20.
 - PAGE DISPLAY is not available in MODE 5 at 1024x600, 1280x720 and 1024x768, whose rows are each shown four times by MMBasic.
 - When the program ends its display stays at the command prompt until EDIT or FM is used, as on the PicoMite.
 - With HDMI, RESOLUTION changes the resolution in a program, and the 16 colours of MODE 2 and 3 are the PicoMite HDMI's (its greens are 0x55 and 0xAA rather than VGA's 0x40 and 0x80). With VGA the tiles of MODE 1 are in VGA's 16 colours.
@@ -142,7 +143,8 @@ A program written for the PicoMite selects its display with the PicoMite's MODE 
 | PicoMite resolution | Timing (mode) | MODE 1 | MODE 2 | MODE 3 | MODE 4 (HDMI) | MODE 5 (HDMI) |
 |---|---|---|---|---|---|---|
 | 640x480 | 640 x 480 (8) | 640x480 | 320x240, 2x2 | 640x480 | 320x240, 2x2 | 320x240, 2x2 |
-| 720x400 | 848 x 480 (10) | 720x400 | 360x200, 2x2 | 720x400 | 360x200, 2x2 | 360x200, 2x2 |
+| 640x480, 315000 | 640 x 480 at 75Hz (20) | 640x480 | 320x240, 2x2 | 640x480 | 320x240, 2x2 | 320x240, 2x2 |
+| 720x400 | 720 x 400 (19) | 720x400 | 360x200, 2x2 | 720x400 | 360x200, 2x2 | 360x200, 2x2 |
 | 800x600 | 800 x 600 (1) | 800x600 | 400x300, 2x2 | 800x600 | - | 400x300, 2x2 |
 | 848x480 | 848 x 480 (10) | 848x480 | 424x240, 2x2 | 848x480 | - | 424x240, 2x2 |
 | 800x480 (HDMI) | 848 x 480 (10) | 800x480 | 400x240, 2x2 | 800x480 | - | 400x240, 2x2 |

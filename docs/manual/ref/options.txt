@@ -123,7 +123,7 @@ Specifies the video mode for the command prompt, the editor and the file manager
 15 = 1280x1024, 160 x 85 characters
 16 = 1920x1080, 120 x 45 characters (widescreen, Generation 2 only)
 18 = 1024x600, 102 x 37 characters
-19 = 640x512, 80 x 42 characters (1280x1024 to the monitor)
+19 = 720x400, 90 x 33 characters (widescreen)
 The characters are the columns and lines of the screen in the editor's font, which this option also sets: NORMAL (8x12 pixels) in modes 1, 8, 10, 12, 14, 15 and 19, MEDIUM (10x16) in modes 9, 11 and 18 and VERY LARGE (16x24) in mode 16.  OPTION EDIT FONT can then change it.
 This command can only be run from the command line and will cause a reboot.  This setting is kept through a firmware upgrade.
 
@@ -195,7 +195,7 @@ This command can only be run from the command line and will cause a reboot.
 === OPTION HORIZONTAL OFFSET mode, offset
 --- P keep roomy
 Since different VGA monitors and HDMI converters interpret the analog sync signals slightly differently, the screen image may appear off-centre (eg, a black bar on one side or the edge of the text being cut off).  This command allows you to calibrate the Colour Maximite 2's signal to match your specific hardware without needing to use the monitor's adjustment buttons every time.
-For each ‘mode’ (1 to 18; mode 19, which is mode 15's timing, uses mode 15's), ‘offset’ is an adjustment in pixels to the start of the horizontal lines on the VGA display.  The default is 0 and the allowed range is -128 to 127.
+For each ‘mode’ (1 to 18; mode 19 has none), ‘offset’ is an adjustment in pixels to the start of the horizontal lines on the VGA display.  The default is 0 and the allowed range is -128 to 127.
 This command will cause a reboot.
 
 === OPTION KEYBOARD nn [, capslock] [, numlock] [, repeatstart] [, repeatrate]
@@ -289,8 +289,8 @@ Makes the Colour Maximite 2 behave as the PicoMite ‘device’, so that program
 {l=720}PicoMiteHDMI, PicoMiteHDMIUSB, PicoMitePC3, PicoMiteHDMIBTH or PicoMiteHDMIWEB, followed by RP2350A or RP2350B
 {l=720}VGA, the same as PicoMiteVGAUSB RP2350B, or HDMI, the same as PicoMiteHDMIUSB RP2350B
 MM.DEVICE$ then returns that name, so that a program which configures itself by it does so as on that PicoMite.  The VGA and HDMI versions' MODE numbers mean different displays, and the name says which the program's are; nothing else is limited by it.  For example: OPTION PICOMITE PicoMiteHDMIUSB RP2350B, 1280x720
-‘resolution’ is the PicoMite's OPTION RESOLUTION: 640x480, 720x400, 800x600 or 848x480, and with an HDMI device also 800x480, 1024x600, 1280x720 or 1024x768.  A comma comes before it: OPTION PICOMITE HDMI 1024x768 gives the error "A comma is needed before the resolution".  OPTION RESOLUTION sets it as well.
-If no resolution is given it is the one OPTION DEFAULT MODE gives the monitor: 640x480 with DEFAULT MODE 8, 800x600 with 1 and 848x480 with 10, and with an HDMI device also 1024x768 with 9, 1280x720 with 11 and 1024x600 with 18 (640x480 with any other).  Then the command prompt, the editor, the file manager and the programs all use the monitor's one resolution, and it does not change when a program is run.  OPTION LIST shows the resolution in use as CURRENT PICOMITE resolution.
+‘resolution’ is the PicoMite's OPTION RESOLUTION: 640x480, 720x400, 800x600 or 848x480, and with an HDMI device also 800x480, 1024x600, 1280x720 or 1024x768.  640x480 can be followed by the PicoMite's speed, as in OPTION RESOLUTION (OPTION PICOMITE HDMI, 640x480, 315000 for 75Hz). A comma comes before it: OPTION PICOMITE HDMI 1024x768 gives the error "A comma is needed before the resolution".  OPTION RESOLUTION sets it as well.
+If no resolution is given it is the one OPTION DEFAULT MODE gives the monitor: 640x480 with DEFAULT MODE 8, 720x400 with 19, 800x600 with 1 and 848x480 with 10, and with an HDMI device also 1024x768 with 9, 1280x720 with 11 and 1024x600 with 18 (640x480 with any other).  Then the command prompt, the editor, the file manager and the programs all use the monitor's one resolution, and it does not change when a program is run.  OPTION LIST shows the resolution in use as CURRENT PICOMITE resolution.
 With it, MODE n with no colour depth is the PicoMite's MODE n, and RESOLUTION can be used with HDMI.  Every program that does not set a mode starts in the PicoMite's MODE 1, which has two colours a character cell (see TILE), and so does a Colour Maximite 2 program: set OPTION PICOMITE NONE to run those.  See Running PicoMite Programs in the chapter Video Modes and Pages.  PWM and SERVO take the PicoMite's arguments (see PWM and SERVO), and MM.INFO(MAX GP) gives the PicoMite's highest GP.  (The PicoMite's GP pin names can be used with or without it: see PicoMite Pin Names in the chapter Using the I/O Pins.)  The Enter key gives a CR alone, as on the PicoMite (see OPTION CRLF).  OPTION PICOMITE NONE, the default, makes MODE the Colour Maximite 2's.
 At the command prompt the setting is saved, as other options are.  In a program it is for that program alone and is not saved, so that a program written for the PicoMite can start with it: the display changes at once to the PicoMite's MODE 1, as if the program had been run with the option set (or, with NONE, to the Colour Maximite 2's own mode), and the setting lasts through CHAIN and a RUN in the program.  When the program ends, with END, an error or Ctrl-C, the saved setting is in force again, and the command prompt is in the Colour Maximite 2's mode unless that setting is a PicoMite.  OPTION LIST shows the saved setting.
 
@@ -332,7 +332,7 @@ This command can only be run from the command line and will cause a reboot.
 
 === OPTION RESOLUTION resolution [, speed]
 --- P roomy
-The PicoMite's command, which here sets the resolution of OPTION PICOMITE (see that option): 640x480, 720x400, 800x600 or 848x480, and with OPTION PICOMITE HDMI also 800x480, 1024x600, 1280x720 or 1024x768.  ‘speed’, the PicoMite's processor speed in kHz, can follow 640x480 (252000, 315000 or 378000) and has no effect here.  The setting is saved; unlike the PicoMite's, it does not restart the computer.  OPTION PICOMITE without a resolution makes it OPTION DEFAULT MODE's again.
+The PicoMite's command, which here sets the resolution of OPTION PICOMITE (see that option): 640x480, 720x400, 800x600 or 848x480, and with OPTION PICOMITE HDMI also 800x480, 1024x600, 1280x720 or 1024x768.  ‘speed’, the PicoMite's processor speed in kHz, can follow 640x480 (252000, 315000 or 378000): with 315000 640x480 is shown at 75Hz, with the others (and with none) at 60Hz, as on the PicoMite.  The setting is saved; unlike the PicoMite's, it does not restart the computer.  OPTION PICOMITE without a resolution makes it OPTION DEFAULT MODE's again.
 It gives the error "Needs OPTION PICOMITE" without that option, and can only be used at the command prompt.
 
 === OPTION RTC CALIBRATE n

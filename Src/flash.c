@@ -84,8 +84,8 @@ int sectorsave;
 // globals used when writing bytes to flash
 volatile uint32_t realflashpointer, realmempointer;
 volatile uint8_t FlashDone=0;
-extern const int xres[MAX_MODES+1];
-extern const int yres[MAX_MODES+1];
+extern const int xres[TIMING_MODES+1];
+extern const int yres[TIMING_MODES+1];
 
 // erase the flash and init the variables used to buffer bytes for writing to the flash
 int FlashWriteInit(uint32_t sector) {

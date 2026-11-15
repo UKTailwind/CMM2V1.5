@@ -45,12 +45,15 @@ static int PicoResOpt(void) { return PicoTempDev >= 0 ? PicoTempRes : Option.Pic
 static const struct { short w, h; const char *name, *alias; } PicoRes[] = {
     {640, 480, "640x480", "640"}, {720, 400, "720x400", "720"}, {800, 600, "800x600", "800"}, {848, 480, "848x480", "848"},
     {800, 480, "800x480", NULL}, {1024, 600, "1024x600", NULL}, {1280, 720, "1280x720", "1280"},
-    {1024, 768, "1024x768", "1024"}};
+    {1024, 768, "1024x768", "1024"},
+    {640, 480, "640x480, 315000", NULL}};                           // (PICORES_75: 640x480 given the speed 315000)
+#define PICORES_75 8
 #define PICORES (int)(sizeof(PicoRes) / sizeof(PicoRes[0]))
 // the CMM2 timing each resolution is shown on (Peter, 23 Oct): its own where the CMM2 has it, and 848x480 for 720x400
 // and 800x480. 1024x600 is mode 18, which has the PicoMite's 1024x600 timing since 24 Oct (it was a window at the top
 // of 1024x768 while mode 18 was a panel's timing, which monitors showed poorly)
-static const unsigned char PicoBase[] = {8, 10, 1, 10, 10, 18, 11, 9};
+static const unsigned char PicoBase[] = {8, 19, 1, 10, 10, 18, 11, 9, PICO75_MODE};   // (720x400 MODE 19's own since 14
+                                                                    // Nov 2026, Peter: it was a window on 848x480)
 
 /* The PicoMite builds OPTION PICOMITE can name: their MM.DEVICE$ (core/MM_Misc.c, fun_device: the RP2350's with its
    " RP2350A" or " RP2350B"), which a program may test to configure itself (Peter, 23 Oct 2026). Option.Picomite is the
@@ -90,7 +93,7 @@ int PicoMaxGP(void) {
    mode with no PicoMite resolution, and on VGA for one that is HDMI's only. (A user's report, 26 Oct 2026: with
    DEFAULT MODE 9 and the programs at 640x480 the monitor changed timing at every RUN and every EDIT.) */
 static int PicoResFromMode(void) {
-    static const unsigned char m[][2] = {{8, 0}, {1, 2}, {10, 3}, {18, 5}, {11, 6}, {9, 7}};   // DEFAULT MODE, PicoRes[]
+    static const unsigned char m[][2] = {{8, 0}, {19, 1}, {1, 2}, {10, 3}, {18, 5}, {11, 6}, {9, 7}};   // DEFAULT MODE, PicoRes[]
     int r = 0;
     for(int i = 0; i < (int)(sizeof(m) / sizeof(m[0])); i++) if(Option.mode == m[i][0]) r = m[i][1];
     if(PicoFlavour() == PICO_VGA && r > 3) r = 0;
@@ -110,12 +113,15 @@ static int PicoResArg(char *p, int flavour) {
     return 0;
 }
 
-// a speed after 640x480 (OPTION RESOLUTION and RESOLUTION): 252000, 315000 or 378000, checked; nothing to change here
-static void PicoSpeedArg(int res, char *p) {
+// a speed after 640x480 (OPTION RESOLUTION, RESOLUTION and OPTION PICOMITE): 252000, 315000 or 378000. The PicoMite's
+// 640x480 is 60 Hz at 252000 and 378000 (its clock / 10 and / 15) and 75 Hz at 315000 (Peter, 14 Nov 2026): that is
+// PICORES_75, on PICO75_MODE. Mode 8 was 75 Hz until 9 Nov, and the speed was only checked
+static int PicoSpeedArg(int res, char *p) {
     int s;
-    if(res != 0) error("Syntax");                                   // (the speed only for 640x480)
+    if(res != 0 && res != PICORES_75) error("Syntax");              // (the speed only for 640x480)
     s = getint(p, 252000, 378000);
     if(!(s == 252000 || s == 315000 || s == 378000)) error("Invalid speed");
+    return s == 315000 ? PICORES_75 : 0;
 }
 
 /* argv is the word w and nothing more. A resolution after it with no comma was taken as the word alone, and so as
@@ -137,7 +143,7 @@ static int PicoWord(char *arg, const char *w) {
    graphics/Draw.c), on that resolution's CMM2 timing, its pixels 1x1, 2x2 or 4x4 as there */
 void PicoModeSet(int n) {
     int f = PicoFlavour(), res = PicoResolution(), w = PicoRes[res].w, h = PicoRes[res].h, depth, font, scale = 1;
-    int quad = res >= 5, mode = PicoBase[res];                      // 1024x600, 1280x720, 1024x768: HDMI's 4x4 modes
+    int quad = res >= 5 && res <= 7, mode = PicoBase[res];          // 1024x600, 1280x720, 1024x768: HDMI's 4x4 modes
     if(f == PICO_NONE) error("Needs OPTION PICOMITE");
     if(n < 1 || n > (f == PICO_VGA ? 3 : 5)) error("% is invalid (valid is 1 to %)", n, f == PICO_VGA ? 3 : 5);
     switch(n) {
@@ -151,7 +157,7 @@ void PicoModeSet(int n) {
             if(quad) scale = 2;
             break;
         case 4:                                                     // RGB555, HDMI's 640x480 and 720x400 only
-            if(res > 1) error("Mode not available in this resolution");
+            if(res > 1 && res != PICORES_75) error("Mode not available in this resolution");
             depth = 16;
             font = (6 << 4) | 1;
             scale = 2;
@@ -194,7 +200,7 @@ void PicoModeEnd(void) {
 void PicoOption(char *tp) {
     int d = -1, res = PICORES_AUTO;
     char *p;
-    getargs(&tp, 3, ",");
+    getargs(&tp, 5, ",");                                           // (a speed after 640x480 too, as OPTION LIST gives it)
     if(argc < 1) error("Syntax");
     if(PicoWord(argv[0], "NONE")) d = 0;
     else if(PicoWord(argv[0], "VGA")) d = PICO_DEFVGA;
@@ -210,10 +216,11 @@ void PicoOption(char *tp) {
             }
     }
     if(d < 0) error("Invalid device");
-    if(argc == 3) {
+    if(argc == 3 || argc == 5) {
         if(d == 0) error("Syntax");
         res = PicoResArg(argv[2], d <= PICO_LASTVGA ? PICO_VGA : PICO_HDMI);
-    }
+        if(argc == 5) res = PicoSpeedArg(res, argv[4]);
+    } else if(argc != 1) error("Syntax");
     if(CurrentLinePtr) {                                            // in a program: for it alone, not saved, and at once
         int f = PicoFlavour(), r = PicoResolution();
         PicoTempDev = d;
@@ -247,7 +254,7 @@ void PicoOptionResolution(char *tp) {
     getargs(&tp, 3, ",");
     if(argc != 1 && argc != 3) error("Syntax");
     res = PicoResArg(argv[0], f);
-    if(argc == 3) PicoSpeedArg(res, argv[2]);
+    if(argc == 3) res = PicoSpeedArg(res, argv[2]);
     Option.PicoRes = res;
     PicoResNow = -1;
     SaveOptions(1);
@@ -290,7 +297,7 @@ void cmd_resolution(void) {
     getargs(&cmdline, 3, ",");
     if(argc != 1 && argc != 3) error("Syntax");
     res = PicoResArg(argv[0], PICO_HDMI);
-    if(argc == 3) PicoSpeedArg(res, argv[2]);
+    if(argc == 3) res = PicoSpeedArg(res, argv[2]);
     PicoResNow = res;
     PicoModeSet(1);
 }

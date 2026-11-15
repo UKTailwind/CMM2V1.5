@@ -232,7 +232,7 @@ void printoptions(void){
     else if(Option.mode==15)	PO2Str("Default mode 15","1280x1024",3);
     else if(Option.mode==16)	PO2Str("Default mode 16","1920x1080",3);
     else if(Option.mode==18)	PO2Str("Default mode 18","1024x600",3);
-    else if(Option.mode==19)	PO2Str("Default mode 19","640x512",3);
+    else if(Option.mode==19)	PO2Str("Default mode 19","720x400",3);
 	if(VideoMode==1) 	PO2Str("VGA mode 800x600",DepthName(),3);
     else if(VideoMode==2) 	PO2Str("VGA mode 640x400",DepthName(),3);
     else if(VideoMode==3) 	PO2Str("VGA mode 320x200",DepthName(),3);
@@ -251,7 +251,8 @@ void printoptions(void){
     else if(VideoMode==16) 	PO2Str("VGA mode 1920x1080",DepthName(),3);
     else if(VideoMode==17) 	PO2Str("VGA mode 384x240",DepthName(),3);
     else if(VideoMode==18) 	PO2Str("VGA mode 1024x600",DepthName(),3);
-    else if(VideoMode==19) 	PO2Str("VGA mode 640x512",DepthName(),3);
+    else if(VideoMode==19) 	PO2Str("VGA mode 720x400",DepthName(),3);
+    else if(VideoMode==PICO75_MODE) PO2Str("VGA mode 640x480 75Hz",DepthName(),3);
     PicoCurrentList();                                              // (OPTION PICOMITE's resolution and mode)
 //    if(Option.Height != 24 || Option.Width != 80){
     	char buff[30]={0};
@@ -1549,7 +1550,7 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
     tp = checkstring(cmdline, "HORIZONTAL OFFSET");
 	if(tp) {
 	    getargs(&tp, 3, ",");
-	    int mode=getint(argv[0],1,OFFSET_MODES);                       // (MODE 19 uses MODE 15's: Configuration.h)
+	    int mode=getint(argv[0],1,OFFSET_MODES);                       // (MODE 19 has none: Configuration.h)
 		Option.offsets[mode]=getint(argv[2],-128,127);
         goto saveandreset;
 	}

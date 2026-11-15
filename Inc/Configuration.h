@@ -117,10 +117,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MAXCOLLISIONS		8						// maximum number of collisions tested
 #define MAXLAYER            10                      // maximum number of sprite layers
 #define BREAK_KEY           3                       // the default value (CTRL-C) for the break key.  Reset at the command prompt.
-#define MAX_MODES           19						// maximum number of video modes
+#define MAX_MODES           19						// maximum number of video modes (MODE's)
+#define PICO75_MODE         20                      // not MODE's: OPTION PICOMITE's 640x480 at 75 Hz (RESOLUTION 640,315000),
+                                                    // mode 8's timing until 9 Nov 2026 (PicoMode.c, ltdc.c)
+#define TIMING_MODES        20                      // the timings ltdc.c has: MODE's and PICO75_MODE
 #define OFFSET_MODES        18                      // the modes with a saved OPTION HORIZONTAL OFFSET (Option.offsets[], which
                                                     // keeps its size so that saved options and CSUBs still match: MODE 19,
-                                                    // MODE 15 at half the clock, uses MODE 15's)
+                                                    // 720x400, has none; PICO75_MODE takes MODE 8's)
 #define MAXKEYLEN           64						// Maximum length of programmable function keys
 #define NBRPROGKEYS         12                      // number of programmable function keys
 #define MAXSOUNDS         	4                       // number of simultaneous sounds
