@@ -1,5 +1,5 @@
 """build.py OUT.app SOURCE.c|.cpp|.o [...] [--base ADDR] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
-            [--module] [--xip] [--xip-base ADDR] [--no-printf-float] [--libc nano|full] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
+            [--module] [--user] [--xip] [--xip-base ADDR] [--no-printf-float] [--libc nano|full] [--cflag FLAG ...] [--cxxflag FLAG ...] [--ldflag FLAG ...] [-I DIR ...] [-j JOBS] [--sources FILE]
 
 Builds a loadable program for the CMM2 with the firmware's own toolchain (the folder in ARM_TOOLCHAIN_DIR, else
 CMakePresets.json's, else the PATH's): compiles the sources with crt0.c and syscalls.c for the M7 (double-precision
@@ -9,6 +9,9 @@ mkimage.py.
 --xip builds instead a runtime the firmware carries in its own flash and runs in place (as bcrun, apps/cc/make.py):
 linked with xip.ld at --xip-base (default cmm2img.h's CMM2XIP_FLASH, mmbrun's place) and CMM2XIP_RAM, with crt0.c's cmm2xip_header first, and OUT (.bin) is
 the flash's bytes, for a C file the firmware is built with. It takes the firmware's libm (fwlibm.c), not its own.
+--user builds a USER module (Inc/cmm2user.h): --module with services version 20 at least, and userlib.c, which gives
+it snprintf, sprintf and printf through the firmware's own, so newlib's (and its floats) are left out; its stack
+is 4 KB unless --stack says otherwise (its functions run on MMBasic's stack).
 --no-printf-float leaves out newlib's printf of floats (dtoa, 4 KB), which a program that formats its own does not
 need: printf's %f is otherwise always there.
 --libc full links the whole newlib instead of newlib-nano (the default): its wide-character printf and file functions
@@ -95,6 +98,8 @@ def main():
     ap.add_argument('--fixed', action='store_true')
     ap.add_argument('--module', action='store_true')               # a module (CMM2IMG_KIND_MODULE): crt0.c's
                                                                     # entry calls module_main(), not main()
+    ap.add_argument('--user', action='store_true')                 # a USER module: --module, api 20, userlib.c's
+                                                                    # printf family (the firmware's), no newlib float printf
     ap.add_argument('--xip', action='store_true')
     ap.add_argument('--xip-base', default='0x08141000')
     ap.add_argument('--axi', action='append', default=[])         # a source's name (no folder or extension): its code,
@@ -110,6 +115,12 @@ def main():
     ap.add_argument('-I', dest='incs', action='append', default=[])
     ap.add_argument('-j', dest='jobs', type=int, default=os.cpu_count() or 4)
     a = ap.parse_args()
+    if a.user:
+        a.module = True
+        a.api = str(max(int(a.api, 0), 20))
+        a.pfloat = False
+        if int(a.stack, 0) == 0:                                   # (its stack serves its start alone: its
+            a.stack = '4096'                                        # functions run on MMBasic's)
     libc = NANO if a.libc == 'nano' else []                         # (compile and link alike: the headers match the archive)
     if a.xip:                                                       # (in the flags' key: a change rebuilds everything)
         a.cflag += ['-DCMM2_XIP', '-DCMM2_XIP_API=' + a.api, '-DCMM2_XIP_STACK=' + str(int(a.stack, 0)),
@@ -126,6 +137,8 @@ def main():
     sources += [os.path.join(SDK, 'crt0.c'), os.path.join(SDK, 'syscalls.c')]
     if a.xip:
         sources.append(os.path.join(SDK, 'fwlibm.c'))
+    if a.user:
+        sources.append(os.path.join(SDK, 'userlib.c'))
     # the flags as they were: a change rebuilds everything
     key = hashlib.md5(json.dumps([CFLAGS, CXXFLAGS, libc, a.cflag, a.cxxflag, incs]).encode()).hexdigest()
     keyfile = os.path.join(objdir, 'flags.md5')

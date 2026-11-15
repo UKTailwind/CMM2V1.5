@@ -8,7 +8,7 @@ USER LED ON
 PRINT USER(TEMPERATURE 3)
 ```
 
-MMBasic hands the module everything after USER, or everything inside the brackets of USER(, and the module reads its own keywords and arguments with the interpreter's own routines, as a built-in command does. A module is written in C with this SDK, built with build.py --module, and copied to the SD card. tools/sdk/examples/user/proforma.c is a working module to start from: copy it, rename it and change its tables.
+MMBasic hands the module everything after USER, or everything inside the brackets of USER(, and the module reads its own keywords and arguments with the interpreter's own routines, as a built-in command does. A module is written in C with this SDK, built with build.py --user, and copied to the SD card. tools/sdk/examples/user/proforma.c is a working module to start from: copy it, rename it and change its tables.
 
 ## Using a Module from BASIC
 
@@ -31,12 +31,19 @@ One USER module is loaded at a time, beside the SQL command's engine if that is 
 From tools/sdk:
 
 ```
-python build.py out/proforma.mod examples/user/proforma.c --module --api 20 --stack 4096
+python build.py out/proforma.mod examples/user/proforma.c --user
 ```
 
---module makes a module rather than a program (crt0.c then calls module_main(), not main()). --api 20 is the services version that brings the interpreter's routines, so older firmware refuses the module with "needs a newer firmware". --stack 4096 keeps the module's own stack small: it is used only while the module starts, since its commands and functions run on MMBasic's stack (below). --heap sets the memory malloc() has; with none the module has 64KB.
+--user makes a USER module:
 
-The module's code goes into the top 512KB of MMBasic's heap, the part that can hold code (where CSUBs run), from a 64KB boundary; its heap for malloc() goes into the ordinary heap. The pro-forma is 17KB, almost all of it the C library's printf.
+- a module rather than a program (--module: crt0.c calls module_main(), not main());
+- services version 20, the one that brings the interpreter's routines, so older firmware refuses it with "needs a newer firmware";
+- a 4KB stack, which it needs only while it starts, since its commands and functions run on MMBasic's stack (below);
+- snprintf(), sprintf(), vsnprintf(), vsprintf() and printf() that are the firmware's own (userlib.c), floats included, so the module carries no printf of its own. The pro-forma is 3KB; with newlib's printf it was 17KB.
+
+printf(), puts() and putchar() print through MMBasic's PRINT, on the console and the screen, a newline as CR LF. fprintf() and the rest of stdio on a FILE are newlib's own and have no floats in a --user build: to write a float to a file, snprintf() it into a buffer and fputs() that. --heap sets the memory malloc() has; with none the module has 64KB.
+
+The module's code goes into the top 512KB of MMBasic's heap, the part that can hold code (where CSUBs run), from a 64KB boundary; its heap for malloc() goes into the ordinary heap.
 
 ## The Module's Table
 
@@ -56,7 +63,8 @@ static const cmm2user_head table = {
 
 const void *module_main(void) {
     B = cmm2_start->basic;
-    if(B == NULL || B->version < CMM2USER_VERSION) return NULL;
+    if(B == NULL || B->version < CMM2USER_VERSION || B->size < sizeof(struct cmm2_basic))
+        return NULL;                            /* a firmware older than the header: "not a module" */
     return &table;
 }
 ```
@@ -113,6 +121,7 @@ cmm2_start->basic points to a table of the interpreter's own routines. Each work
 | char *c_to_m(s), char *m_to_c(s) | A C string made an MMBasic string, or back, in place. |
 | int in_program(void) | 1 in a program, 0 at the command prompt. |
 | int option_base(void) | OPTION BASE: 0 or 1. |
+| int vsnprintf(out, n, fmt, ap) | The firmware's own vsnprintf, floats included. A --user build's snprintf(), sprintf() and printf() call it. A loadable program cannot have it: the firmware's printf may take memory from the firmware's heap for a float, which only code that runs inside a BASIC statement, as a module's does, can allow. |
 
 Strings that these routines return are in temporary memory, freed when the statement ends: copy anything the module wants to keep. A string that evaluate() gives can be a variable's own, so a module must not change it.
 
@@ -156,13 +165,13 @@ B->error() is MMBasic's error. It ends the statement at once, so nothing after i
 
 The module's commands and functions run on MMBasic's own stack, as a CSUB does. That is what lets them call the interpreter, and lets a USER( in a USER command's arguments call the module again. The stack is 18KB shared with the interpreter, so keep large buffers out of local variables: use B->temp() for memory needed only during the statement, and malloc() or static variables for memory kept between calls.
 
-A module can use the C library (strings, maths, printf into a buffer, malloc, files with fopen()) and the file and time services. Files it opens are its own: they are closed when the module goes, not when a program run at the prompt ends. The services that take over the screen, the sound or the console are for programs that run and end, and a module should leave them alone.
+A module can use the C library (strings, maths, snprintf() and printf(), malloc, files with fopen()) and the file and time services. Files it opens are its own: they are closed when the module goes, not when a program run at the prompt ends. The services that take over the screen, the sound or the console are for programs that run and end, and a module should leave them alone.
 
 USER LOAD and USER CLOSE cannot be used while one of the module's commands or functions is running, such as from a BASIC FUNCTION called in its arguments.
 
 ## The Pro-forma
 
-tools/sdk/examples/user/proforma.c has four commands and three functions, each a few lines:
+tools/sdk/examples/user/proforma.c has four commands and four functions, each a few lines:
 
 {widths: 38,62}
 | BASIC | What it shows |
@@ -173,6 +182,7 @@ tools/sdk/examples/user/proforma.c has four commands and three functions, each a
 | USER TOTAL a(), t | Reading an array, and assign() to give a variable the result. |
 | USER(ADD a, b) | Two values by evaluate(): an integer result or a float. |
 | USER(REVERSE$ s$) | A string result. |
+| USER(FIXED$ x, n) | snprintf() with a float, the firmware's own. |
 | USER(CALLS) | State kept in the module between calls. |
 
 Its comments describe the rest. To make a module of your own, copy it, keep module_main(), the two dispatch routines and forget(), and replace the commands and functions in the two tables.

@@ -1,6 +1,6 @@
 ' usersql.bas: a USER module beside SQL's; the file a USER module keeps open survives SQL CLOSE (filemod.mod)
-' Setup (tools/sdk): python build.py out/proforma.mod examples/user/proforma.c --module --api 20 --stack 4096
-' and python build.py out/filemod.mod ../../tests/user/filemod.c --module --api 20 --stack 4096; copy both .mod
+' Setup (tools/sdk): python build.py out/proforma.mod examples/user/proforma.c --user
+' and python build.py out/filemod.mod ../../tests/user/filemod.c --user; copy both .mod
 ' files and these programs to A:/, then RUN "A:/usertest.bas", RUN "A:/usertst2.bas" and RUN "A:/usersql.bas".
 DIM a$
 USER LOAD "A:/filemod.mod"

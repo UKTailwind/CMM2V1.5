@@ -1,6 +1,6 @@
 /* filemod.c: a test USER module that keeps a file open between calls (the loader's file ownership: SQL CLOSE must
    leave it open, USER CLOSE must close it). tests/user/usersql.bas uses it. Build from tools/sdk:
-   python build.py out/filemod.mod ../../tests/user/filemod.c --module --api 20 --stack 4096 */
+   python build.py out/filemod.mod ../../tests/user/filemod.c --user */
 #include <stdio.h>
 #include <string.h>
 #include "cmm2user.h"

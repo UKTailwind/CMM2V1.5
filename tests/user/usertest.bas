@@ -1,6 +1,6 @@
 ' usertest.bas: USER and USER( with the pro-forma module (tools/sdk/examples/user, A:/proforma.mod)
-' Setup (tools/sdk): python build.py out/proforma.mod examples/user/proforma.c --module --api 20 --stack 4096
-' and python build.py out/filemod.mod ../../tests/user/filemod.c --module --api 20 --stack 4096; copy both .mod
+' Setup (tools/sdk): python build.py out/proforma.mod examples/user/proforma.c --user
+' and python build.py out/filemod.mod ../../tests/user/filemod.c --user; copy both .mod
 ' files and these programs to A:/, then RUN "A:/usertest.bas", RUN "A:/usertst2.bas" and RUN "A:/usersql.bas".
 OPTION EXPLICIT
 DIM a% = 1, b% = 2, x! = 1.5, y! = 2.5, s$ = "first", t$ LENGTH 10 = "second"
@@ -27,6 +27,7 @@ USER TOTAL ai%(), tot% : PRINT "total int"; tot%
 USER TOTAL af!(), totf! : PRINT "total float"; totf!
 PRINT "add"; USER(ADD 2, 3); USER(ADD 2, 3.5); USER(ADD a%, USER(ADD 1, 1))
 PRINT "reverse "; USER(REVERSE$ "abcdef"); " "; USER(REVERSE$ s$ + "!")
+PRINT "fixed "; USER(FIXED$ PI, 3); " "; USER(FIXED$ -2.5, 0); " "; USER(FIXED$ 1E20 / 3, 2)
 PRINT "calls"; USER(CALLS)
 ON ERROR SKIP 1 : USER JUMP
 PRINT "unknown: "; MM.ERRMSG$
