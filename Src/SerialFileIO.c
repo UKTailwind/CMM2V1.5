@@ -257,6 +257,23 @@ void fun_lof(void) {
     targ = T_INT;
 }
 
+// EOF(, LOC( and LOF( are one token (Peter, 15 Nov 2026: two one-byte function tokens freed, one of them for USER():
+// tokenise() writes them EOFLOCLOF(1, 2 or 3 and a comma before the file number (SubstFold), and LIST turns them back
+// (ListUnfold). Each is limited by its file or serial port, so the selector costs nothing that shows
+void fun_eofloclof(void) {
+    int which;
+    skipspace(ep);
+    which = *ep - '0';
+    if(which < 1 || which > 3) error("Syntax");
+    ep++;
+    skipspace(ep);
+    if(*ep != ',') error("Syntax");
+    ep++;
+    if(which == 1) fun_eof();
+    else if(which == 2) fun_loc();
+    else fun_lof();
+}
+
 
 
 /*******************************************************************************************

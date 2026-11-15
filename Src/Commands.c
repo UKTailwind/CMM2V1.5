@@ -1303,7 +1303,7 @@ void MIPS16 OPTSIZE cmd_list(void) {
 		char** c=GetTempMemory((TokenTableSize+x)*sizeof(*c)+(TokenTableSize+x)*20);
 		for(i=0;i<TokenTableSize+x;i++){
 				if(i<TokenTableSize && (str_equal((char *)tokentbl[i].name, "SChange$(") || str_equal((char *)tokentbl[i].name, "TopBottom(")
-				                       || str_equal((char *)tokentbl[i].name, "BitByteFlag(")))
+				                       || str_equal((char *)tokentbl[i].name, "BitByteFlag(") || str_equal((char *)tokentbl[i].name, "EofLocLof(")))
 					continue;                                       // the folds' tokens: their functions are listed instead
 				c[m]= (char *)((int)c + sizeof(char *) * (TokenTableSize+x) + m*20);
     			if(i<TokenTableSize)strcpy(c[m],tokentbl[i].name);
