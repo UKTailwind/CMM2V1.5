@@ -664,8 +664,13 @@ long long int Getuptime(void){
 	return gettime ;											        // this is the character
 }
 // TIMER and TIMER = n, as the PicoMite's cores (TimerVal and TimerSet) for a CSUB too: milliseconds
+// TIMER = n moves TimerZero only: the clock itself (TIM16 and uSecTimer: GetuSec, MicrosNow) runs on from start-up,
+// never back, as the PicoMite's time_us_64 does. The network's timers, loadable programs' and every timeout here
+// read it (a TIMER = 0 in a program had stopped the network's housekeeping, and so telnet, until the clock caught
+// up: 15 Nov 2026)
+static long long int TimerZero;
 MMFLOAT TimerVal(void) {
-	return (MMFLOAT)GetuSec()/1000.0;
+	return (MMFLOAT)(GetuSec() - TimerZero)/1000.0;
 }
 // INTERRUPT sub names the SUB to run when a CSUB sets CSubComplete (CallTableP 0xc0); INTERRUPT 0 forgets it;
 // INTERRUPT alone sets the flag, so a program can raise it too (the PicoMite's)
@@ -716,14 +721,7 @@ void cmd_uSec(void){
 	TimerSet(getinteger(++cmdline));
 }
 void TimerSet(long long int ms) {
-	uint64_t t = ms*1000;
-	HAL_NVIC_DisableIRQ(TIM16_IRQn);
-	TIM16->CR1 &= ~1;
-	uSecTimer=t/50000;
-	__HAL_TIM_SET_COUNTER(&htim16, (uint16_t)(t % 50000));
-	TIM16->CR1 |= 1;
-	HAL_NVIC_EnableIRQ(TIM16_IRQn);
-
+	TimerZero = GetuSec() - ms*1000;
 }
 
 void fun_epoch(void){
