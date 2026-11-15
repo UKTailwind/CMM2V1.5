@@ -313,7 +313,7 @@ G2's result too):
 
   The PicoMite's net/*.c (about 24 KB on the PicoMite) and lwIP's MQTT and TFTP apps come on top in step 2. The
   stack is about 60 KB under the plan's estimate of 520 KB.
-- **Still to do:** the G1's run (the module moved over; its SPI2 runs at 20 MHz), deferred (Peter, 15 Nov).
+- **The G1's run:** done in the firmware instead (step 2, stage 7, below).
 
 ### Step 2: into the firmware
 
@@ -403,8 +403,24 @@ In this order (15 Nov), each built and checked on the G3 before the next:
     by WEB TRANSMIT FILE; 404s.
   - Found: the send timeout is 1,000,000 loop passes, about half a second here (PicoMite #157), and TRANSMIT FILE
     reads on from the file it closed after one (#158).
-- **Still to do:** step 4 on the G1 and the G2; the G1 (stage 7); the manual; TLS with a CA (WEB TLS CA); the web
-  server with several clients at once and the PicoMite's own example programs.
+- **Stage 7, the G1** (9236257, 15 Nov; the G1 on COM47, its own ST-Link; the module turned round on its header, which
+  is the G2's turned through 180 degrees):
+  - The block is the display memory's top 128 KB (G1_NET_BLOCK, 0xD02E0000) when OPTION WIFI is set; pagegen and
+    RUN's clearing stop below it. MODE 9,16 then has 1 page, 14,16 has 2, 1,8 keeps its 7. Without OPTION WIFI
+    nothing changes.
+  - A program built --vram: WebLend (before the loader reads the program into the display memory) stops the poll
+    and telnet's output; WebGiveBack (after it ends) starts the network again from nothing, as at power up. The
+    linker script puts the network code's .data and .bss first in their sections (72 bytes and 5 KB), so they can
+    be set again; then WebStart. Interrupts a BASIC program set are kept.
+  - Checked: the G1 joins in about 12 s from a restart (SPI2 at 20 MHz); HTTPS (example.com); the web server (no
+    slower than the G3's: about 145 ms to the first byte on both, from webserver.bas); telnet; vramfill.app (a test
+    program built --vram that fills 6.5 MB, the block included), then Wi-Fi back 6.9 s after it, and everything
+    again.
+  - Found on the way, every board: TIMER = n rewrote the clock the network's time is read from, so a program's
+    TIMER = 0 stopped ProcessWeb's housekeeping (and with it telnet's output) until the clock caught up. TIMER is
+    now an offset, and the clock runs on from start-up, as the PicoMite's time_us_64 does (2ccb48c).
+- **Still to do:** step 4 on the G1 (running) and the G2; the manual; TLS with a CA (WEB TLS CA); the web server
+  with several clients at once and the PicoMite's own example programs.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
