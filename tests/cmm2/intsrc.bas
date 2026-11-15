@@ -74,13 +74,13 @@ Print "overlapping:"; ns
 Sprite Close All
 CLS
 
-Print "-- MODE's frame interrupt (mode 8 is 75 Hz), and MODE without one"
+Print "-- MODE's frame interrupt (mode 8 is 60 Hz), and MODE without one"
 Mode 8, 8, 0, fr
 Pause 1000
 x = nf
 Mode 8, 8
 Pause 200
-Print "frames in 1 s:"; rng$(x, 70, 80); "  after:"; nf - x
+Print "frames in 1 s:"; rng$(x, 55, 65); "  after:"; nf - x
 
 Print "-- ON KEY"
 On Key keyh

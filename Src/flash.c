@@ -645,6 +645,11 @@ void ResetAllOptions(void) {
 	Option.profile=0;
 	Option.CPUmode=0;
 	Option.MaxCtrls=0;
+	// These three were left as the erased flash had them, 0xFF: a first start saved font 16, and every program's END
+	// then failed with "Invalid font number #16" (the G3, 14 Nov 2026).
+	Option.DefaultFont = 0x01;                                      // font 1 at scale 1 (setmode sets each mode's own)
+	Option.VRes_reserved = 0;                                       // OPTION SCREEN KEYBOARD's two: no on-screen keyboard
+	Option.Multi = 0;
     gui_font_width = FontTable[Option.editfont >> 4][0] * (Option.editfont & 0b1111);
     gui_font_height = FontTable[Option.editfont >> 4][1] * (Option.editfont & 0b1111);
     Option.Height = yres[Option.mode] / gui_font_height;

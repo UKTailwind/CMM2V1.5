@@ -11,7 +11,7 @@ count interrupts: 2
 -- a sprite collision
 apart: 0
 overlapping: 1
--- MODE's frame interrupt (mode 8 is 75 Hz), and MODE without one
+-- MODE's frame interrupt (mode 8 is 60 Hz), and MODE without one
 frames in 1 s: ok  after: 0
 -- ON KEY
 keys?

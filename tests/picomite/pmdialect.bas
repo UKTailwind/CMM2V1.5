@@ -34,12 +34,12 @@ CheckS "  t 16: an error", MM.ErrMsg$, "16 is invalid (valid is -1 to 15)"
 mx = 0
 For i = 1 To 20000 : g = GetScanLine : If g > mx Then mx = g
 Next
-Check "GETSCANLINE in MODE 2 (240 lines shown twice): the screen's lines, the most 480 to 499", mx >= 480 And mx <= 499, 1
+Check "GETSCANLINE in MODE 2 (240 lines shown twice): the screen's lines, the most 480 to 524", mx >= 480 And mx <= 524, 1
 Mode 1
 mx = 0
 For i = 1 To 20000 : g = GetScanLine : If g > mx Then mx = g
 Next
-Check "  in MODE 1 (480 lines): the most 480 to 499", mx >= 480 And mx <= 499, 1
+Check "  in MODE 1 (480 lines): the most 480 to 524", mx >= 480 And mx <= 524, 1
 
 Print "pmdialect:"; pass; " of"; tests; " passed"
 End

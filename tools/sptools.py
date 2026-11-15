@@ -1,4 +1,4 @@
-"""sptools.py PORT OUTDIR [--src DIR] [--put] [--cap SECONDS] [--only GROUP,...] [--baseline DIR]
+"""sptools.py PORT OUTDIR [--src DIR] [--put] [--cap SECONDS] [--only GROUP,...] [--baseline DIR] [--baud N]
 sptools.py --compare BASEDIR NEWDIR
 sptools.py --reparse OUTDIR
 
@@ -50,6 +50,11 @@ PATCHES = [
     # same file again, for ever.  (Reported upstream?  Not yet.)
     ("src/splib/system.inc", 'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*"\n',
      'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*|"\n'),
+    # sys.is_platform%: a G3 (MM.DEVICE$ "Colour Maximite 2 G3", 14 Nov 2026) is an unknown platform, and every test file
+    # stops at once. It is a G2 with HDMI, so it matches cmm2g2 and cmm2* too. (After the G2's fix above.)
+    ("src/splib/system.inc", 'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*|"\n',
+     'Case "colour maximite 2 g2" : match$ = "|cmm2g2|cmm2*|"\n'
+     '      Case "colour maximite 2 g3" : match$ = "|cmm2g3|cmm2g2|cmm2*|"\n'),
     # add_mmbasic_error: Mid$(Mm.ErrMsg$, InStr(Mm.ErrMsg$, "Error")) needs the CMM2 6.00 message, "Error in line
     # N: ...".  Since 19 Oct (cd87a88) MM.ERRMSG$ is the bare message, as on the PicoMite, so InStr gives 0, the MID$
     # fails under the runner's ON ERROR ABORT and the rest of the file is lost (70 tests in tst_map, tst_set,
@@ -65,9 +70,11 @@ def patch(src):
         t = open(p, encoding="latin-1", newline="").read()
         nl = "\r\n" if "\r\n" in t else "\n"
         w, r = wrong.replace("\n", nl), right.replace("\n", nl)
+        if r in t:                                      # (applied already: the G3's keeps the G2's line in it)
+            continue
         if w in t:
             open(p, "w", encoding="latin-1", newline="").write(t.replace(w, r))
-        elif r not in t:
+        else:
             sys.exit("patch for %s does not apply: has the pinned commit changed?" % name)
 
 
@@ -193,7 +200,7 @@ def main():
     src = arg("--src") or fetch(COMMIT)
     patch(src)
     os.makedirs(outdir, exist_ok=True)
-    b = Board(port, 460800)
+    b = Board(port, int(arg("--baud", "460800")))           # (a G1 at 115200: --baud 115200)
     b.attention()
     b.cmd('MKDIR "A:/tmp"', 10)
     print("sent %d files to %s" % (upload(b, src, "--put" in sys.argv), ROOT), flush=True)
