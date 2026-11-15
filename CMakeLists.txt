@@ -76,6 +76,24 @@ target_include_directories(${TARGET} PRIVATE
     Inc/Image
 )
 
+# Wi-Fi (docs/Web_Plan.md, step 2): cyw43-driver, lwIP and mbedTLS in Middlewares/Third_Party, at the commits the
+# PicoMite's pico-sdk has; the CMM2's port in Src/net and Inc/net. lwIP and mbedTLS take the PicoMite's settings
+# (Inc/net/lwipopts.h, mbedtls_config.h), with TLS (PICOMITEWEB_TLS) and the input buffer its RP2350 builds have.
+target_include_directories(${TARGET} PRIVATE
+    Inc/net
+    Middlewares/Third_Party/cyw43-driver/src
+    Middlewares/Third_Party/cyw43-driver/firmware
+    Middlewares/Third_Party/lwip/src/include
+    Middlewares/Third_Party/lwip/src/apps/altcp_tls
+    Middlewares/Third_Party/mbedtls/include
+)
+target_compile_definitions(${TARGET} PRIVATE CYW43_LWIP=1 PICO_CYW43_ARCH_POLL=1 PICOMITEWEB_TLS
+    MBEDTLS_CONFIG_FILE=<mbedtls_config.h> MBEDTLS_SSL_IN_CONTENT_LEN=16384)
+# C11 for them (pico-sdk's bus code uses static_assert, which newlib gives only to C11)
+set(NET_SOURCES ${SOURCES})
+list(FILTER NET_SOURCES INCLUDE REGEX "^(Middlewares/Third_Party/(cyw43-driver|lwip|mbedtls)|Src/net)/")
+set_property(SOURCE ${NET_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -std=gnu11)
+
 target_compile_options(${TARGET} PRIVATE
     ${MCU_FLAGS}
     --specs=nano.specs
