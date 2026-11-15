@@ -1472,6 +1472,28 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
 		goto saveandreset;
 	}
 
+	// OPTION COUNT p1, p2, p3, p4: the PicoMite's choice of its four counting pins, under OPTION PICOMITE. The CMM2's are
+	// fixed (7, 13, 15 and 24: GP6 to GP9), so it is accepted when it names those four, in any order (the order makes no
+	// difference to a program), and is an error otherwise; nothing is saved (Peter, 15 Nov 2026)
+	tp = checkstring(cmdline, "COUNT");
+	if(tp && PicoFlavour() != PICO_NONE) {
+		static const char cnt[4] = {INT1PIN, INT2PIN, INT3PIN, INT4PIN};
+		int i, j, pin, gp, seen = 0;
+		getargs(&tp, 7, ",");
+		if(argc != 7) error("Syntax");
+		for(i = 0; i < 4; i++) {
+			gp = PinArgGP(argv[i * 2], &pin);
+			for(j = 0; j < 4 && cnt[j] != pin; j++);
+			if(j == 4) {
+				if(gp >= 0) error("GP% is not a counting pin (here they are GP6 to GP9 only)", gp);
+				error("Pin % is not a counting pin (here they are 7, 13, 15 and 24 only)", pin);
+			}
+			if(seen & (1 << j)) error("Pins must be unique");
+			seen |= 1 << j;
+		}
+		return;
+	}
+
 	// OPTION DISK SAVE f$ and OPTION DISK LOAD f$: the options to a file (.opt if no extension is given) and back, as the
 	// PicoMite's, then a restart. Writing the firmware's sector 7 (mmbrun's: the .hex or _mmbrun.bin) erases the options
 	// with it (Peter, 4 Nov 2026: saved before, loaded after)

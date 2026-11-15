@@ -92,6 +92,10 @@ Saves the current console setting (OPTION CONSOLE BOTH, SCREEN, SERIAL or NONE) 
 If you are using the Colour Maximite 2 as a stand alone computer it is recommended that you execute OPTION CONSOLE SCREEN, then OPTION CONSOLE SAVE, to permanently disable the serial console and thereby eliminate serial I/O overhead.
 This command will cause a reboot.
 
+=== OPTION COUNT pin1, pin2, pin3, pin4
+--- keep roomy
+The PicoMite's command for choosing its four counting pins (see SETPIN pin, CIN).  The Colour Maximite 2's counting pins are fixed: 7, 13, 15 and 24, which are GP6 to GP9.  With OPTION PICOMITE the command is accepted when it names those four pins, by their pin numbers or GP names and in any order, so that a PicoMite program that sets them runs unchanged; any other pin is an error.  Nothing is saved, and without OPTION PICOMITE the command is an error.
+
 === OPTION CRLF CR | LF | CRLF
 --- keep roomy
 Defines what the USB keyboard will send when the Enter key is pressed: CR (a carriage return), LF (a line feed) or CRLF (both, the default).  With OPTION PICOMITE the default is CR, as on the PicoMite.
@@ -128,6 +132,7 @@ This command can only be run from the command line and will cause a reboot.  Thi
 
 === OPTION DISK SAVE fname$
 =+= OPTION DISK LOAD fname$
+---
 Saves the options to a file, or loads them from one and restarts with them.  ".opt" is added to ‘fname$’ if it has no extension.
 Writing a new version of the firmware erases the options.  OPTION DISK SAVE before it and OPTION DISK LOAD after it put them back, and with them the flash library if one was saved.  (An update from an earlier 7.00 version to 7.00.00RC2 needs neither: its first start finds the options and moves them.)
 A file saved by another version of the firmware may be refused, with the error "File size incorrect".
