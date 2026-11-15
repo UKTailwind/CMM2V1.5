@@ -60,6 +60,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | CASE | Commands |
 | CASE ELSE | Commands, with SELECT CASE |
 | CAT | another name for INC (Commands) |
+| CC | Commands |
 | CHAIN | Commands |
 | CHDIR | Commands |
 | CHOICE( | Functions |
@@ -198,6 +199,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | MID$( | Commands, Functions |
 | MIN( | Functions |
 | MKDIR | Commands |
+| MM.ADDRESS$ | Predefined Read Only Variables |
 | MM.CMDLINE$ | Predefined Read Only Variables |
 | MM.CODE | Predefined Read Only Variables |
 | MM.DEVICE$ | Predefined Read Only Variables |
@@ -215,8 +217,10 @@ Every keyword of the language, and the section of this manual where it is descri
 | MM.I2C | Predefined Read Only Variables |
 | MM.INFO$ | another name for MM.INFO (Predefined Read Only Variables) |
 | MM.INFO( | Predefined Read Only Variables |
+| MM.MESSAGE$ | Predefined Read Only Variables |
 | MM.MOUSE | Predefined Read Only Variables |
 | MM.ONEWIRE | Predefined Read Only Variables |
+| MM.TOPIC$ | Predefined Read Only Variables |
 | MM.USB | Predefined Read Only Variables |
 | MM.VER | Predefined Read Only Variables |
 | MM.VPOS | Predefined Read Only Variables |
@@ -292,6 +296,8 @@ Every keyword of the language, and the section of this manual where it is descri
 | SPI2( | Functions |
 | SPRITE | Commands (the sprite commands: SPRITE is another name for BLIT), and Functions, SPRITE( |
 | SPRITE( | Functions |
+| SQL | Commands |
+| SQL( | Functions |
 | SQR( | Functions |
 | STAR | Commands; Appendix Q |
 | STATIC | Commands |
@@ -326,9 +332,12 @@ Every keyword of the language, and the section of this manual where it is descri
 | UCASE$( | Functions |
 | UNTIL | Commands, with DO |
 | UPDATE FIRMWARE | Commands |
+| USER | Commands |
+| USER( | Functions |
 | VAL( | Functions |
 | VAR | Commands |
 | WATCHDOG | Commands |
+| WEB | Commands |
 | WHILE | Commands, with DO |
 | WII | another name for CONTROLLER (Commands) |
 | WS2812 | Commands |

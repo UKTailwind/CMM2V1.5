@@ -1,5 +1,9 @@
 # Predefined Read Only Variables: the reference entries (tools/manual/reftext.py)
 
+=== MM.ADDRESS$
+--- keep
+__WITH THE WIFI MODULE ONLY__ The IP address of the sender of the last UDP datagram, or of the broker of the last MQTT message, received.
+
 === MM.CMDLINE$
 --- keep
 A string holding the command line arguments passed to the program: the text after the file name and its comma in the RUN command (eg, RUN "myprog", -f 3), the text after the file name in the \* shortcut (eg, \*myprog -f 3) or the ‘cmdline$’ of CHAIN.  The text given to RUN is not processed by MMBasic, so it can contain numbers, commas, quoted strings, etc: it is for the program to decode.
@@ -172,6 +176,10 @@ MM.INFO(ID48)
 --- keep
 The unique 12 byte ID of the processor as a string of 24 hexadecimal digits, and a 48-bit hash of it as an integer.  The hash is not guaranteed to be unique world wide but most likely is: it is suitable as a serial number for the device and fits in a CAN message.
 
+=+= MM.INFO$(IP ADDRESS)
+--- keep
+__WITH THE WIFI MODULE ONLY__ The Colour Maximite 2's IP address on the WiFi network, or "0.0.0.0" while it is not connected.
+
 =+= MM.INFO$(KEYBOARD)
 --- keep
 "Connected" if a USB keyboard is connected and working, otherwise "Not Connected".  Under OPTION PICOMITE it is the PicoMite's: "On" while a program has the on-screen keyboard on (KEYBOARD ON), otherwise "Off".
@@ -183,6 +191,10 @@ The number of the program line being run, as a string: the number an error in it
 =+= MM.INFO(LINES)
 --- keep
 The number of lines of source code in the program in program memory: the lines read from its file and its #INCLUDE files when it was loaded.
+
+=+= MM.INFO(MAX CONNECTIONS)
+--- keep
+__WITH THE WIFI MODULE ONLY__ The number of connections that the TCP server can have at once (8).  A WEB TCP INTERRUPT subroutine goes through connections 1 to MM.INFO(MAX CONNECTIONS) with WEB TCP READ.
 
 =+= MM.INFO(MAX GP)
 --- keep
@@ -287,9 +299,33 @@ The name of the WAV, FLAC, MP3, MOD, OPL or MIDI file that is playing (or paused
 --- keep
 The free space, in bytes, of the firmware's own heap, which the audio, the JSON functions and the file system use.  It grows up from the bottom of the SDRAM towards the MMBasic heap, so it shrinks as MMBasic's heap in the SDRAM grows (see MM.INFO(MINHEAP)).
 
+=+= MM.INFO(TCP PORT)
+--- keep
+__WITH THE WIFI MODULE ONLY__ The TCP server's port, set by OPTION TCP SERVER PORT, or 0 if there is none.
+
+=+= MM.INFO(TCP REQUEST n)
+--- keep
+__WITH THE WIFI MODULE ONLY__ True if the TCP server's connection ‘n’ (1 to MM.INFO(MAX CONNECTIONS)) has a request waiting.
+
+=+= MM.INFO(TCPIP STATUS)
+MM.INFO(WIFI STATUS)
+--- keep
+__WITH THE WIFI MODULE ONLY__ The state of the network connection (TCPIP STATUS) and of the WiFi connection (WIFI STATUS):
+{l=720}0  WiFi is down
+{l=720}1  Connected to the WiFi
+{l=720}2  Connected to the WiFi, but with no IP address (TCPIP STATUS only)
+{l=720}3  Connected to the WiFi with an IP address (TCPIP STATUS only)
+{l=720}-1  The connection failed
+{l=720}-2  No network of that name was found (it may be out of range, or down)
+{l=720}-3  The password was refused
+
 =+= MM.INFO(TILE HEIGHT)
 --- keep
 The height of the tiles in the 1-bit colour depth (see TILE).
+
+=+= MM.INFO(UDP PORT)
+--- keep
+__WITH THE WIFI MODULE ONLY__ The UDP server's port, set by OPTION UDP SERVER PORT, or 0 if there is none.
 
 =+= MM.INFO(UPTIME)
 --- keep
@@ -310,6 +346,10 @@ The status of the USB flash drive, the C: drive: "Ready" (a drive is plugged in 
 --- keep
 The number of variables in use: the global variables and the local variables of the subroutines and functions that are running.  ERASE, CLEAR and the end of a subroutine or function lower it.
 
+=== MM.MESSAGE$
+--- keep
+__WITH THE WIFI MODULE ONLY__ The contents of the last UDP datagram or MQTT message received (up to 255 characters).
+
 === MM.MOUSE
 --- keep
 The channel of the mouse to use with CONTROLLER MOUSE OPEN, MOUSE() and DEVICE(MOUSE ...), so that a program works with whatever mouse is connected instead of one fixed channel.  It is 2 if a USB mouse is plugged in; otherwise the channel of a mouse that is open (0 for a PS2 mouse, 1 to 3 for a Hobbytronic interface); otherwise the channel set with OPTION MOUSE (0 only if the PS2 mouse answers, and an I^^2^^C channel as it is set, for CONTROLLER MOUSE OPEN to check); and -1 if there is none.  It does not open a mouse.
@@ -319,6 +359,10 @@ With OPTION MOUSE 0 and no PS2 mouse attached it can take half a second, so a pr
 === MM.ONEWIRE
 --- keep
 Following a 1-Wire reset (ONEWIRE RESET, or ONEWIRE READ or WRITE with a reset) this integer variable is set to 1 if a device responded and to 0 if none did.  See Appendix C.
+
+=== MM.TOPIC$
+--- keep
+__WITH THE WIFI MODULE ONLY__ The topic of the last MQTT message received.
 
 === MM.USB
 --- keep

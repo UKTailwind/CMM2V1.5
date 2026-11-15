@@ -9,6 +9,8 @@ These are the labels, and what each means:
 |---|---|
 | GENERATION 2 ONLY | Available on the Generation 2 Colour Maximite 2 only (it needs its larger memory, its 24-bit colour or its extra hardware: for example the 32-bit colour depth, MODE 16 and OPTION DS3231). |
 | IN THE 4-BIT COLOUR DEPTH ONLY | Available only in a 4-bit mode (MODE n,4: the PicoMite's 16 colour display). |
+| IN THE 4 AND 1-BIT COLOUR DEPTHS ONLY | Available only in a 4-bit or a 1-bit mode (MODE n,4 or MODE n,1: the PicoMite's displays). |
 | IN THE 12-BIT COLOUR DEPTH ONLY | Available only in a 12-bit mode, the one with transparency. |
+| WITH THE WIFI MODULE ONLY | Available only with the WiFi module plugged in and OPTION WIFI set (see the chapter WiFi and Internet Functions). |
 
 No other wording is used for applicability, so that a reader can find every restriction by looking for these labels.

@@ -3084,6 +3084,126 @@ If the timer count does reach zero (perhaps because the BASIC program has stoppe
 WATCHDOG OFF disables the watchdog timer (this is the default on a reset or power up).  The timer is also turned off when the break key (normally Ctrl-C) is used on the console to interrupt a running program.
 WATCHDOG HW timeout and WATCHDOG HW OFF are the PicoMite's commands for its hardware watchdog.  With OPTION PICOMITE they are accepted and work this watchdog timer, so that a PicoMite program runs unchanged; 'timeout' is then 1 to 8331, the PicoMite's limit.  Unlike the PicoMite's hardware watchdog, the timer is still turned off by the break key.  Without OPTION PICOMITE the HW forms are an error.
 
+=== WEB CLOSE TCP CLIENT
+--- keep
+__WITH THE WIFI MODULE ONLY__ Closes the connection opened with WEB OPEN TCP CLIENT, WEB OPEN TCP STREAM, WEB OPEN TLS CLIENT or WEB OPEN TLS STREAM.  It must be closed before another is opened.  See the chapter WiFi and Internet Functions.
+
+=== WEB CONNECT [ssid$, password$ [, name$] [, ipaddress$, mask$, gateway$] [, country$]]
+--- keep
+__WITH THE WIFI MODULE ONLY__ With no parameters, connects to the network set by OPTION WIFI if it is not connected (for example after the connection failed at start-up).  With them, connects to the network given and also sets OPTION WIFI to it, for the start-ups that follow.  The parameters are those of OPTION WIFI.  WEB CONNECT does not disconnect from a network that is already joined.
+
+=== WEB MQTT CLOSE
+--- keep
+__WITH THE WIFI MODULE ONLY__ Closes the connection to the MQTT broker.
+
+=== WEB MQTT CONNECT address$, port, user$, password$ [, interrupt]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Connects to the MQTT broker at ‘address$’ (a name or an IP address) and ‘port’: normally 1883, or 8883 for a secure connection with TLS (see WEB TLS CA).  ‘user$’ and ‘password$’ are the account's, or empty strings for a broker that needs none.  ‘interrupt’ is the subroutine to call when a message arrives under a subscribed topic: it finds the topic in MM.TOPIC$, the message in MM.MESSAGE$ and the broker's address in MM.ADDRESS$.  See MQTT Client in the chapter WiFi and Internet Functions.
+
+=== WEB MQTT PUBLISH topic$, message$ [, qos] [, retain]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Posts ‘message$’ to the broker under the topic ‘topic$’.  ‘qos’ is the quality of service: 0, 1 or 2 (default 1).  ‘retain’ is 1 (the default) to have the broker keep the message for clients that subscribe later, or 0.
+
+=== WEB MQTT SUBSCRIBE topic$ [, qos]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Asks the broker for the messages posted under ‘topic$’, which can include the wildcards + and #.  ‘qos’ is the quality of service: 0, 1 or 2 (default 1).
+
+=== WEB MQTT UNSUBSCRIBE topic$
+--- keep
+__WITH THE WIFI MODULE ONLY__ Stops the messages posted under ‘topic$’.
+
+=== WEB NTP [timeoffset [, NTPserver$ [, timeout]]]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sets the clock, and the real time clock, from an NTP time server on the Internet.  ‘timeoffset’ is the time zone in hours from UTC (UTC without it).  ‘NTPserver$’ is the name or address of the server; without it a public pool of servers is used.  ‘timeout’ is the time to wait for the answer, in milliseconds (default 5000): without an answer it is an error.
+
+=== WEB OPEN TCP CLIENT address$, port [, timeout]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Opens a TCP connection to the server at ‘address$’, a name (such as "api.openweathermap.org") or an IP address (such as "192.168.1.111"), and ‘port’, for WEB TCP CLIENT REQUEST, READ and WRITE.  ‘timeout’ is in milliseconds (default 5000).  Only one client connection can be open at a time.  See Implementing a TCP Client in the chapter WiFi and Internet Functions.
+
+=== WEB OPEN TCP STREAM address$, port [, timeout]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Opens a TCP connection as WEB OPEN TCP CLIENT does, for WEB TCP CLIENT STREAM.
+
+=== WEB OPEN TLS CLIENT address$, port [, timeout]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Opens a secure (TLS) connection, for example to an https web server (normally port 443).  It is used as WEB OPEN TCP CLIENT's is: with WEB TCP CLIENT REQUEST, READ and WRITE, and closed with WEB CLOSE TCP CLIENT.  ‘timeout’ is for the connection and its handshake, in milliseconds (default 5000).  A name in ‘address$’ is also sent to the server in the handshake, so that a server with several web sites returns the right certificate.
+The connection is encrypted, but the server's identity is not checked unless WEB TLS CA has loaded the certificates to check it with.
+
+=== WEB OPEN TLS STREAM address$, port [, timeout]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Opens a secure (TLS) connection as WEB OPEN TLS CLIENT does, for WEB TCP CLIENT STREAM.
+
+=== WEB PING address$ [, count [, timeout [, avgvar]]]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Pings ‘address$’ (a name or an IP address) with ICMP echo requests, and prints a line for each reply or timeout and then a summary.  ‘count’ is the number of pings (default 4, up to 100) and ‘timeout’ the time to wait for each reply, in milliseconds (100 to 10000, default 1000).  ‘avgvar’, a floating point variable, is given the average round trip time in milliseconds, or -1 if no reply came, so that a program can test the connection without reading the printed lines.
+
+=== WEB SCAN [array%()]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Lists the WiFi networks in range: their names, signal strengths, channels, MAC addresses and security.  With ‘array%()’ the list goes into it as a long string, otherwise it is printed on the console.  It can be used whether a network is joined or not.
+
+=== WEB TCP CLIENT READ buff%() [, timeout]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Waits for and reads what the server sends, without sending anything first: for example a mail server's greeting, before the first command.  ‘buff%()’ is given it as a long string, and its size limits how much is kept.  ‘timeout’ is in milliseconds (default 5000): if nothing comes, it is an error.
+On a TLS connection, a greeting that the server sends at once arrives during WEB OPEN TLS CLIENT and is not kept, so the program should send its first command straight away.
+
+=== WEB TCP CLIENT REQUEST request$, buff%() [, timeout]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends ‘request$’ to the server opened with WEB OPEN TCP CLIENT or WEB OPEN TLS CLIENT and waits for its answer, which goes into ‘buff%()’ as a long string; its size limits how much is kept.  ‘timeout’ is in milliseconds (default 5000): without an answer it is an error.  JSON$() can pick the values out of an answer in JSON.
+
+=== WEB TCP CLIENT STREAM request$, buffer%(), readpointer%, writepointer%
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends ‘request$’ to the server opened with WEB OPEN TCP STREAM or WEB OPEN TLS STREAM, then puts what the server sends into ‘buffer%()’ in the background, as a circular buffer of bytes.  The firmware moves ‘writepointer%’ on as the data arrives, and the program moves ‘readpointer%’ on as it takes the data out.  If ‘writepointer%’ catches up with ‘readpointer%’, ‘readpointer%’ is moved on and data is lost.  The three must be global (or STATIC), not LOCAL, as they are used in the background.
+
+=== WEB TCP CLIENT WRITE data%() [, timeout]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends the whole of the long string ‘data%()’ to the server, in as many TCP segments as it needs, without waiting for an answer.  ‘timeout’ is in milliseconds (default 10000).  There is no 255 character limit, and it is much faster than many WEB TCP CLIENT REQUEST commands for a large amount of data, such as an email attachment.  A WEB TCP CLIENT REQUEST or WEB TCP CLIENT READ after it reads the server's answer.
+
+=== WEB TCP CLOSE cb%
+--- keep
+__WITH THE WIFI MODULE ONLY__ Closes the TCP server's connection ‘cb%’ (1 to MM.INFO(MAX CONNECTIONS)): for a connection answered with WEB TCP SEND.
+
+=== WEB TCP INTERRUPT InterruptSub
+--- keep
+__WITH THE WIFI MODULE ONLY__ Starts the TCP server set up with OPTION TCP SERVER PORT passing its requests to the program: ‘InterruptSub’ is the subroutine to call when a request arrives.  It reads each connection's request with WEB TCP READ and answers it with a WEB TRANSMIT command (or with WEB TCP SEND and WEB TCP CLOSE).  See Implementing a Web Server in the chapter WiFi and Internet Functions.
+
+=== WEB TCP READ cb%, buff%()
+--- keep
+__WITH THE WIFI MODULE ONLY__ Reads the request waiting on the TCP server's connection ‘cb%’ (1 to MM.INFO(MAX CONNECTIONS)) into ‘buff%()’ as a long string; its size limits how much of the request is kept.  If the connection has no request ‘buff%()’ is left empty (LLEN(buff%()) is 0).
+A request that has been read must be answered with one of the WEB TRANSMIT commands, which also close the connection, or with WEB TCP SEND and WEB TCP CLOSE.
+
+=== WEB TCP SEND cb%, data%()
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends the long string ‘data%()’ on the TCP server's connection ‘cb%’ exactly as it is, with no header, and leaves the connection open: the program closes it with WEB TCP CLOSE when it is done.  (WEB TRANSMIT PAGE and WEB TRANSMIT FILE add an HTTP header and close the connection.)
+
+=== WEB TLS CA file$
+or
+WEB TLS NOVERIFY
+--- keep
+__WITH THE WIFI MODULE ONLY__ WEB TLS CA loads a bundle of trusted root certificates (in PEM format) from ‘file$’, and from then on every TLS connection, MQTT's on port 8883 included, checks the server's certificate: a connection whose certificate is not signed by one of them fails.  The clock must be right first (WEB NTP), as the check includes the certificate's dates.  A bundle of the common root certificates, cacert.pem, can be downloaded from https://curl.se/docs/caextract.html.
+The certificates take memory for variables while they are loaded: about 480KB for cacert.pem.
+WEB TLS NOVERIFY forgets the certificates, and gives their memory back: connections are encrypted but the server is not checked, as they are by default.
+
+=== WEB TRANSMIT CODE cb%, code
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends the HTTP status ‘code’ (100 to 999) on the TCP server's connection ‘cb%’ and closes it: for example WEB TRANSMIT CODE cb%, 404 for "page not found".
+
+=== WEB TRANSMIT FILE cb%, filename$, content-type$
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends an HTTP header with the MIME type ‘content-type$’ (for example "image/png"), then the file ‘filename$’ as it is, on the TCP server's connection ‘cb%’, and closes the connection.
+
+=== WEB TRANSMIT PAGE cb%, filename$ [, buffersize]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends an HTTP header and then the file ‘filename$’, a web page, on the TCP server's connection ‘cb%’, and closes the connection.
+In the page, a variable or expression between curly brackets, such as {myvar%}, is replaced by its value; {{ sends one opening bracket.  The page is built in a buffer the size of the file plus ‘buffersize’ bytes (default 4096): a page whose values are much longer than their names may need more.
+
+=== WEB UDP INTERRUPT intname
+--- keep
+__WITH THE WIFI MODULE ONLY__ Names the subroutine to call when a UDP datagram arrives on the port set by OPTION UDP SERVER PORT: it finds the datagram in MM.MESSAGE$ and its sender's address in MM.ADDRESS$.  WEB UDP INTERRUPT 0 stops the interrupt.
+
+=== WEB UDP SEND address$, port, data$
+--- keep
+__WITH THE WIFI MODULE ONLY__ Sends ‘data$’ as a UDP datagram to ‘port’ at ‘address$’, an IP address (such as "192.168.1.147") or a name (such as "google.com"): in answer to a datagram received, or on its own.
+
 === WII
 --- keep
 WII is another name for CONTROLLER: for example WII NUNCHUK OPEN is the same as CONTROLLER NUNCHUK OPEN.  See CONTROLLER.

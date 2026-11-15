@@ -390,6 +390,21 @@ As on the PicoMite, it must be the first command in the program (only blank line
 --- P keep roomy
 Set the spacing for the tab key in the editor.  The default is 2.
 
+=== OPTION TCP SERVER PORT n [, timeout]
+--- P keep roomy
+__WITH THE WIFI MODULE ONLY__ Starts a TCP server on port ‘n’ (normally 80, for a web server) at every start-up, once the WiFi is connected; 0 turns it off.  A program answers its requests in the subroutine named by WEB TCP INTERRUPT, and up to MM.INFO(MAX CONNECTIONS) connections can be open at once.  ‘timeout’ is the time in milliseconds (1000 to 20000, default 5000) that a request may wait for the program's answer before its connection is closed.  See Implementing a Web Server in the chapter WiFi and Internet Functions.
+The command restarts the Colour Maximite 2, and can only be used at the command prompt.
+
+=== OPTION TELNET CONSOLE ON | ONLY | OFF
+--- P keep roomy
+__WITH THE WIFI MODULE ONLY__ Gives the console to a Telnet client too (port 23), so that the Colour Maximite 2 can be used from a PC over WiFi.  With ON the console's output goes to the serial port and to Telnet; with ONLY it goes to Telnet and not to the serial port.  Either way the screen shows it as OPTION CONSOLE sets.  OFF, the default, turns Telnet off.
+The command restarts the Colour Maximite 2, and can only be used at the command prompt.
+
+=== OPTION TFTP OFF | ON
+--- P keep roomy
+__WITH THE WIFI MODULE ONLY__ Turns the TFTP server off or on; it is on by default whenever the WiFi is connected.  A PC's TFTP client can copy files to and from the current directory, or another drive's root if the name starts with A:/, B:/ or C:/ (see File Transfer in the chapter WiFi and Internet Functions).
+The command restarts the Colour Maximite 2, and can only be used at the command prompt.
+
 === OPTION TRACECACHE ON n
 or
 OPTION CACHE SUB name [, name ...]
@@ -397,6 +412,11 @@ or
 OPTION CACHE DEBUG
 --- keep roomy
 These commands are accepted and ignored, for programs written for PicoMite firmware before V6.04.00, which had a statement cache set up with them (the cache has since been removed from the PicoMite, where they are now errors).  Anything after the keywords is ignored.
+
+=== OPTION UDP SERVER PORT n [, timeout]
+--- P keep roomy
+__WITH THE WIFI MODULE ONLY__ Listens for UDP datagrams on port ‘n’ from every start-up; 0 turns it off.  A datagram's contents go into MM.MESSAGE$ (up to 255 characters; the rest is lost) and its sender's address into MM.ADDRESS$, and the subroutine named by WEB UDP INTERRUPT is called.  ‘timeout’ (1000 to 20000) is accepted, as the PicoMite's is, but has no effect.  See Using UDP in the chapter WiFi and Internet Functions.
+The command restarts the Colour Maximite 2, and can only be used at the command prompt.
 
 === OPTION USB POLLING n
 --- P keep roomy
@@ -423,6 +443,18 @@ Selects the levels that drive the VGA output: HIGH (the default) and MEDIUM driv
 On a Generation 3 the option is saved but not used: its HDMI output always drives every colour to its full level, so white reads as &HFFFFFF in an 8-bit mode.
 MEDIUM and LOW make the picture darker, for a monitor that shows it too brightly.  LOW, which draws the least current from the outputs, also steadies the picture through a video capture device.
 This command can only be run from the command line and will cause a reboot.
+
+=== OPTION WEB MESSAGES ON | OFF
+--- keep roomy
+__WITH THE WIFI MODULE ONLY__ OFF stops the messages of the WEB commands that connect to servers, such as "Connecting to" and "Connected" from WEB OPEN TCP CLIENT, and ON lets them be printed again.  It is not saved: RUN and NEW turn the messages on again.
+
+=== OPTION WIFI ssid$, password$ [, name$] [, country$]
+or
+OPTION WIFI ssid$, password$ [, name$] [, ipaddress$, mask$, gateway$] [, country$]
+--- P keep roomy
+__WITH THE WIFI MODULE ONLY__ Turns the WiFi on and sets the network that the Colour Maximite 2 joins at every start-up (see Connecting to a WiFi Network in the chapter WiFi and Internet Functions).  ‘ssid$’ is the network's name and ‘password$’ its password.  ‘name$’ is the Colour Maximite 2's name on the network; without it a name is made from the processor's ID.  ‘ipaddress$’, ‘mask$’ and ‘gateway$’ give a fixed address instead of one from the router (DHCP).  ‘country$’ is a two letter ISO country code that sets the WiFi's regulatory domain: the default, "XX", is worldwide, with the most cautious channels and transmit power.
+With the WiFi on, 128KB of memory and pins 32, 33, 38 and 40 belong to the network (see The WiFi Module and Memory in the chapter WiFi and Internet Functions).  OPTION WIFI "", "" turns the WiFi off.  OPTION LIST shows the password as stars.
+The command restarts the Colour Maximite 2, and can only be used at the command prompt.
 
 === OPTION Y_AXIS DOWN | UP
 --- keep roomy

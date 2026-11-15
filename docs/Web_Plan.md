@@ -430,7 +430,19 @@ In this order (15 Nov), each built and checked on the G3 before the next:
   the whole corpus with Wi-Fi up and with OPTION WIFI cleared: no change but the web tests. Against the G3's run
   with Wi-Fi: MM.DEVICE$, t1's token byte, webudp's leftover MM.MESSAGE$ and the console test's old bad byte. Step 4
   is done on all three boards.
-- **Still to do:** the manual; TLS with a CA (WEB TLS CA); the PicoMite's own example programs.
+- **The manual** (step 5, done 15 Nov): the chapter WiFi and Internet Functions (docs/manual/text/21b_wifi.md, after
+  SQL Databases), from the PicoMite manual's chapter, with the module, its pins on each generation, the memory, the
+  G1's pages and loadable programs, and the differences from the WebMite; reference entries for the 29 WEB commands,
+  six options and ten read-only variables and MM.INFO keys, each labelled WITH THE WIFI MODULE ONLY (Appendix M's
+  new label); the introduction; Appendix N from a fresh inventory; help.h's entries. Its claims were checked on the
+  G2: MM.INFO(HEAP) 128 KB less with Wi-Fi; SAVE PNG from page 1 fetched by TFTP; EDIT over Telnet.
+- **TLS with a CA:** WEB TLS CA "A:/cacert.pem" (curl's bundle, 118 certificates) loads in 276 ms and takes 480 KB of
+  the heap until WEB TLS NOVERIFY; example.com verifies, self-signed.badssl.com is refused ("TLS client error -15"),
+  and connects again after NOVERIFY (the G2, 15 Nov).
+- **Two PicoMite behaviours added:** OPTION TELNET CONSOLE ONLY leaves the serial port out of the console's output
+  (it acted as ON); OPTION WEB MESSAGES OFF lasts until RUN or NEW, as the PicoMite's ClearRuntime has it (it lasted
+  until a restart). Both checked on the G2.
+- **Still to do:** the PicoMite's own example programs.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
