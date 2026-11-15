@@ -252,6 +252,23 @@ of SDRAM, so flash does not limit it. It:
 - The throughput is measured, on a G2 and on a G1.
 - The sizes are known.
 
+**Results, 15 November, on the G3** (apps/wifi: `wifi.app` and `pctest.py`; a G3 is a G2 with HDMI, so this is the
+G2's result too):
+- **The program:** cyw43-driver and lwIP 2.2.1 at the commits the PicoMite's pico-sdk has, and pico-sdk's bus file
+  with its framing as it is. Only the transfer is new (SPI2, 32-bit frames, each word's bytes reversed), with a
+  polled stand-in for pico-sdk's async context, and the cyw43_arch calls that the PicoMite's net code makes.
+- **The bus:** 30,000 register transfers at 24 MHz, no errors, 247,000 a second.
+- **The radio:** firmware 7.95.49 loaded in 744 ms; the MAC address, 28:CD:C1:19:59:56, from the chip's OTP; the scan
+  hears TOASTY2 in 0.7 s.
+- **The network:** TOASTY2 joined in 3.1 s (6.5 s the first time), an address by DHCP, and the gateway pinged in
+  1.5 to 1.8 ms. From the PC, pings take 1 to 6 ms with power saving off, as the PicoMite's WEB CONNECT sets it
+  (7 to 309 ms with it on).
+- **The throughput,** 10 s each way: **2.1 MB/s** from the CMM2 and **2.36 MB/s** to it, both ends agreeing, with no
+  bus errors.
+- **The sizes** with the CMM2's flags (code and constant data): the blob 225,240 bytes (Wi-Fi only), lwIP 48,717,
+  cyw43-driver 11,087, the bus and port layer 4,307. mbedTLS and the PicoMite's net code are not in it yet.
+- **Still to do:** the G1's run (the module moved over; its SPI2 runs at 20 MHz), and mbedTLS's size.
+
 ### Step 2: into the firmware
 
 - **First, V8's memory change:** programs move to SDRAM, which frees sectors 3 to 6 (or 3 to 7).

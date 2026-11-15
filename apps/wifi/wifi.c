@@ -215,7 +215,7 @@ static conn_t conns[2];                         // [0] 5001, sending; [1] 5002, 
 
 static void conn_end(conn_t *c, const char *why) {
     uint64_t dt = cmm2->micros() - c->t0;
-    printf("Port %d: %s, %llu bytes in %lu ms = %lu KB/s\n", c->port, why, (unsigned long long)c->bytes,
+    printf("Port %d: %s, %lu bytes in %lu ms = %lu KB/s\n", c->port, why, (unsigned long)c->bytes,   // (no %llu in newlib-nano)
            (unsigned long)(dt / 1000), (unsigned long)(dt ? c->bytes * 1000000ull / dt / 1024 : 0));
     if (c->pcb) {
         tcp_arg(c->pcb, NULL);
@@ -336,6 +336,7 @@ static int join(const char *ssid, const char *pw) {
         cyw43_arch_deinit();
         return 1;
     }
+    cyw43_wifi_pm(&cyw43_state, CYW43_NO_POWERSAVE_MODE);   // (as the PicoMite's WEB CONNECT does)
     printf("Joining %s\n", ssid);
     uint64_t t0 = cmm2->micros();
     int r = cyw43_arch_wifi_connect_timeout_ms(ssid, *pw ? pw : NULL, *pw ? CYW43_AUTH_WPA2_MIXED_PSK : CYW43_AUTH_OPEN, 30000);
