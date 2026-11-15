@@ -1394,6 +1394,7 @@ static void ld_giveback(void *oldmin) {
         SCB_CleanInvalidateDCache_by_Addr((uint32_t *)LOADER_VRAM_BASE, LOADER_VRAM_SIZE);
         if(LoaderVram) { LoaderVram = 0; MPU_Config_nCacheable(0); }
         ld_screenback();
+        { extern void WebGiveBack(void); WebGiveBack(); }          // (the network started again: its block was lent)
     }
     if(ldarea == NULL) return;
     if(LoaderExec) { LoaderExec = 0; MPU_Config_nCacheable(0); }
@@ -1574,6 +1575,7 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
     if(vram) {                                                      // the display memory lent: the screen first to a mode
         cmm2_video v;                                               // whose page is in the internal RAM (MODE 7,8), so that
         ldlent = 1;                                                 // nothing is drawn where the program goes
+        { extern void WebLend(void); WebLend(); }                  // (with it the network block: Src/net, WebGiveBack)
         if(ld_vscaled(7, 8, 1, &v) < 0) { ld_done(); ld_giveback(oldmin); error("Cannot lend the display memory"); }
     }
     for(off = 0; off < h.image_size; off += i) {                    // the image, straight into its place

@@ -138,6 +138,10 @@ extern uint32_t RBStreamSize;
 #define LOADER_SIZE       	0x800000
 #define LOADER_VRAM_BASE  	0xD0000000                      // a G1's display memory, lent (Loader.c, CMM2IMG_FLAG_VRAM)
 #define LOADER_VRAM_SIZE  	0x300000
+// a G1's network block (docs/Web_Plan.md: Src/net/WebMite_cmm2.c): with OPTION WIFI set, the display memory's top 128 KB,
+// so the pages (ltdc.c) and RUN's clearing (Commands.c) stop below it; lent with the rest to a program built --vram
+#define G1_NET_BLOCK      	0xD02E0000
+#define G1NetBlock()      	(G1Hardware && *Option.SSID)
 // the SDRAM heap's page map at 0x30000000 (Memory.c SDmap): 2 bits for each 256 bytes, so 16 KB maps 16 MB, more than a
 // G2's 15.5 MB heap. The 16 KB above it, to RAMBASE's 0x30008000, is the RAM of the runtime the firmware runs in place
 // from its flash (cmm2img.h CMM2XIP_RAM: bcrun's .data and .bss, Peter 4 Nov 2026)

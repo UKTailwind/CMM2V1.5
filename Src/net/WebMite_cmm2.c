@@ -29,6 +29,7 @@ int startupcomplete = 0;
 int WebScanActive = 0;
 volatile bool TCPreceived = false;              // (misc/Custom.c)
 char *TCPreceiveInterrupt = NULL;
+static int NetHold;                                  // a G1's display memory lent (WebLend, WebGiveBack)
 char *MQTTInterrupt = NULL;                     // (core/MM_Misc.c)
 volatile bool MQTTComplete = false;
 char *UDPinterrupt = NULL;
@@ -127,8 +128,8 @@ void WebBlockSet(void) {
     uint32_t w = HAL_GetUIDw0() ^ HAL_GetUIDw1() ^ HAL_GetUIDw2();
     sprintf(id_out, "%08lX", (unsigned long)w);         // (OPTION WIFI's default host name ends with it)
     NetBlock = NULL;
-    if (*Option.SSID && !G1Hardware)
-        NetBlock = (uint8_t *)(SDRAMEXEC - NET_BLOCK_SIZE);
+    if (*Option.SSID)                                   // (a G1: the display memory's top 128 KB, Memory.h)
+        NetBlock = (uint8_t *)(G1Hardware ? G1_NET_BLOCK : SDRAMEXEC - NET_BLOCK_SIZE);
 }
 
 // the block's pages kept out of MMBasic's SDRAM heap (HeapWipe): its contents are lwIP's and outlive RUN and NEW
@@ -147,7 +148,7 @@ static void reserve_pins(void);
 static void release_all(void) {
     void *b = NetBlock;
     NetBlock = NULL;
-    if (b) FreeMemory(b);
+    if (b && !G1Hardware) FreeMemory(b);                // (a G1's is display memory, not the heap's)
     SPI2->CR1 = 0;
     ExtCfg(32, EXT_NOT_CONFIG, 0);
     ExtCfg(33, EXT_NOT_CONFIG, 0);
@@ -156,10 +157,6 @@ static void release_all(void) {
 }
 void WebStart(void) {
     if (!*Option.SSID) return;
-    if (G1Hardware) {
-        MMPrintString("WiFi: not yet on a G1\r\n");
-        return;
-    }
     if (NetBlock == NULL) return;
     time_from_clock();
     if (cyw43_arch_init_with_country(wifi_country_to_cyw43(Option.wifi_country_code)) != 0) return;
@@ -180,7 +177,7 @@ void WebStart(void) {
 // from inside itself (an lwIP callback that prints, say).
 void WebPoll(void) {
     static int busy = 0;
-    if (busy || !(WIFIconnected || WebScanActive)) return;
+    if (busy || NetHold || !(WIFIconnected || WebScanActive)) return;
     busy = 1;
     ProcessWeb(1);
     busy = 0;
@@ -397,6 +394,30 @@ static void reserve_pins(void) {
 // the console's output (main.c putConsole and SerUSBPutC, never from an interrupt): the telnet console's copy and the
 // network pumped, as the PicoMite's console output does (TelnetPutC, then ProcessWeb)
 void WebConsolePutC(int c) {
+    if (NetHold) return;
     TelnetPutC(c, 0);
     WebPoll();
+}
+
+/* A G1's display memory lent to a loadable program built --vram (Loader.c): the network block is in it. From WebLend,
+   before the loader writes anything there, nothing of the network runs (the poll, telnet's output) until WebGiveBack,
+   once the program has ended; then the network starts again from nothing, as at power up: the network code's data
+   and bss set again (the linker script puts them first in .data and .bss, between _snetdata and _enetdata, _snetbss
+   and _enetbss) and WebStart, which starts the radio and joins again (about 3 s). The interrupts a BASIC program set
+   are kept. (docs/Web_Plan.md: Peter, 15 Nov 2026) */
+void WebLend(void) {
+    if (G1Hardware && NetBlock) NetHold = 1;
+}
+void WebGiveBack(void) {
+    extern char _sdata[], _sidata[], _snetdata[], _enetdata[], _snetbss[], _enetbss[];
+    char *t = TCPreceiveInterrupt, *u = UDPinterrupt, *m = MQTTInterrupt;
+    if (!NetHold) return;
+    memcpy(_snetdata, _sidata + (_snetdata - _sdata), _enetdata - _snetdata);
+    memset(_snetbss, 0, _enetbss - _snetbss);                       // (NetHold 0 again)
+    TCPreceiveInterrupt = t;
+    UDPinterrupt = u;
+    MQTTInterrupt = m;
+    ExtCurrentConfig[32] = ExtCurrentConfig[33] = ExtCurrentConfig[38] = ExtCurrentConfig[40] = EXT_NOT_CONFIG;   // as at
+    WebBlockSet();                                  // power up: WebStart reserves them again (ExtCfg refuses a pin that
+    WebStart();                                     // is boot-reserved already), or frees them with no module
 }

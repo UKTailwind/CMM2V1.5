@@ -290,6 +290,13 @@ SECTIONS
   {
     . = ALIGN(4);
     _sdata = .;        /* create a global symbol at data start */
+    _snetdata = .;     /* the network's data first, to be set again after a G1's display memory was lent (Src/net/WebMite_cmm2.c) */
+    *Third_Party/cyw43-driver/*(.data .data*)
+    *Third_Party/lwip/*(.data .data*)
+    *Third_Party/mbedtls/*(.data .data*)
+    *Src/net/*(.data .data*)
+    . = ALIGN(4);
+    _enetdata = .;
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
 
@@ -323,6 +330,13 @@ SECTIONS
     /* This is used by the startup in order to initialize the .bss secion */
     _sbss = .;         /* define a global symbol at bss start */
     __bss_start__ = _sbss;
+    _snetbss = .;      /* and the network's bss (WebGiveBack) */
+    *Third_Party/cyw43-driver/*(.bss .bss* COMMON)
+    *Third_Party/lwip/*(.bss .bss* COMMON)
+    *Third_Party/mbedtls/*(.bss .bss* COMMON)
+    *Src/net/*(.bss .bss* COMMON)
+    . = ALIGN(4);
+    _enetbss = .;
     *(.bss)
     *(.bss*)
     *(COMMON)

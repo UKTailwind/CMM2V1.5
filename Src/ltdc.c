@@ -110,7 +110,7 @@ int pagegen(int Vmode, int Vcol){
   while(1){
     size=RoundUptoPage8(Vcol==4 ? ((ModeXres(Vmode)+1)/2)*ModeYres(Vmode) : Vcol==1 ? (ModeXres(Vmode)/8)*ModeYres(Vmode) : ModeXres(Vmode)*ModeYres(Vmode)*scalesize(Vmode,Vcol,pageno));
     if(startadd+(uint32_t)size>0x24080000 && startadd<(uint32_t)0xD0000000)startadd=sdram;
-    if((startadd+(uint32_t)size>(G1Hardware ? (uint32_t)0xD0300000 : (uint32_t)0xD0700000))  || pageno>MAXPAGES)break;
+    if((startadd+(uint32_t)size>(G1Hardware ? (G1NetBlock() ? (uint32_t)G1_NET_BLOCK : (uint32_t)0xD0300000) : (uint32_t)0xD0700000))  || pageno>MAXPAGES)break;
     PageTable[pageno].address=(uint8_t *)startadd;
     PageTable[pageno].nbytes=(Vcol>8)+1;                            // (4 and 1-bit: 1, so sizes made from it are enough)
     if(Vcol==32)PageTable[pageno].nbytes*=2;
