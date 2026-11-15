@@ -388,8 +388,21 @@ In this order (15 Nov), each built and checked on the G3 before the next:
   SERVER PORT is set, as on a WebMite.
 - **PicoMite bugs found on the way, filed:** #153 (TCP_WND smaller than one TLS record; fixed here in lwipopts.h);
   #154 (WEB TCP and UDP INTERRUPT outlive the program; cleared here in WebClearIO); #155 (WEB TCP INTERRUPT 0 stops
-  with "Line number"); #156 (WEB UDP with an unknown word gives no error). #155 and #156 are in the PicoMite's own
-  files, kept unchanged here: the fixes come with the next port_net.py.
+  with "Line number"); #156 (WEB UDP with an unknown word gives no error); #157 and #158 (below). #155-#158 are in
+  the PicoMite's own files, kept unchanged here: the fixes come with the next port_net.py.
+- **Geoff's Retic 1.6** (geoffg.net/retic.html, a WebMite watering controller, 1,507 lines; Peter: "a very good test
+  ... should run pretty much unedited"), on the G3 under OPTION PICOMITE "PicoMiteHDMIWEB RP2350B":
+  - Changed for the CMM2: its pin numbers (a Pico's header numbers; each is now the CMM2 pin of the same GP, except
+    GP10, GP11 and GP22, which are the module's pins 40, 38 and 32 here), its OPTION COUNT (the CMM2's counting pins
+    are fixed) and its OPTION AUTORUN (left off on the test board). Everything else ran as written, including its
+    WATCHDOG HW (now the software watchdog under OPTION PICOMITE, 4f53973) and MM.INFO(BOOT COUNT) (new, 4f53973),
+    and its ELSEIF conditions with a stray closing bracket, which the WebMite accepts too.
+  - Checked from the PC: the three pages with their {variables}; the General Settings form (OpenWeatherMap's
+    geocoding, sun rise/set and forecast through WEB OPEN TCP CLIENT and JSON$; A:/settings.dat saved); a schedule
+    saved and RUN NOW (valve 1 for a minute, the flow count, the status on the main page during and after); log.txt
+    by WEB TRANSMIT FILE; 404s.
+  - Found: the send timeout is 1,000,000 loop passes, about half a second here (PicoMite #157), and TRANSMIT FILE
+    reads on from the file it closed after one (#158).
 - **Still to do:** step 4 on the G1 and the G2; the G1 (stage 7); the manual; TLS with a CA (WEB TLS CA); the web
   server with several clients at once and the PicoMite's own example programs.
 
