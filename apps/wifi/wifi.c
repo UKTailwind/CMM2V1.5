@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <malloc.h>
 #include "cmm2.h"
 #include "cyw43.h"
 #include "cyw43_country.h"
@@ -46,6 +47,33 @@
 uint32_t cyw43_cmm2_bus_errors(void);
 
 static cyw43_int_t tself;                       // (the bus test's own state: cyw43_state stays untouched)
+
+// What the firmware's network block must hold (docs/Web_Plan.md, step 2): the most heap and stack the stack used.
+// The stack below main() is painted at the start and the untouched paint found at the end; the heap's high-water mark
+// is newlib's arena (malloc never gives it back).
+#define PAINT 0xC5C5A5A5u
+#define PAINT_BYTES (56 * 1024)                 // (of the 64 KB stack)
+static uint32_t *paint_lo, *paint_hi;
+static void __attribute__((noinline)) stack_paint(void) {
+    uint32_t sp;
+    __asm volatile ("mov %0, sp" : "=r" (sp));
+    paint_hi = (uint32_t *)((sp - 512) & ~7u);
+    paint_lo = (uint32_t *)((uint8_t *)paint_hi - PAINT_BYTES);
+    for (uint32_t *p = paint_lo; p < paint_hi; p++) {
+        *p = PAINT;
+    }
+}
+
+static void mem_report(void) {
+    uint32_t *p = paint_lo;
+    while (p < paint_hi && *p == PAINT) {
+        p++;
+    }
+    struct mallinfo mi = mallinfo();
+    printf("Peak stack below main: %lu bytes%s; heap: %lu bytes at most (arena), %lu in use now\n",
+           (unsigned long)((uint8_t *)paint_hi - (uint8_t *)p) + 512, p == paint_lo ? " (all the paint used: more)" : "",
+           (unsigned long)mi.arena, (unsigned long)mi.uordblks);
+}
 
 static int bus_test(int n) {
     cyw43_int_t *self = &tself;
@@ -540,6 +568,7 @@ static int join(const char *ssid, const char *pw) {
     if (https_host) {
         int rc = https_get(https_host, https_path);
         printf("%lu bus errors\n", (unsigned long)cyw43_cmm2_bus_errors());
+        mem_report();
         cyw43_arch_deinit();
         return rc;
     }
@@ -559,6 +588,7 @@ static int join(const char *ssid, const char *pw) {
         }
     }
     printf("%lu bus errors\n", (unsigned long)cyw43_cmm2_bus_errors());
+    mem_report();
     cyw43_arch_deinit();
     return 0;
 }
@@ -566,6 +596,7 @@ static int join(const char *ssid, const char *pw) {
 int main(int argc, char **argv) {
     const char *cmd = argc > 1 ? argv[1] : "scan";
     int rc = 0;
+    stack_paint();
     cyw43_cmm2_save_pins();
     if (!strcasecmp(cmd, "test")) {
         rc = bus_test(argc > 2 ? atoi(argv[2]) : 10000);

@@ -168,6 +168,19 @@ What V7's plan weighed, and V8 settles:
 
 - **lwIP's memory:** the PicoMite sets MEM_SIZE 40960, PBUF_POOL_SIZE 32, TCP_MSS 1460, and send and receive windows
   of 8 x MSS. That is roughly 150 KB in all, plus about 40 to 60 KB for each TLS session.
+- **Measured in step 1 (15 Nov, wifi.app on the G3):** read and write only; nothing runs from it (the code runs in place
+  from flash), so the block stays execute-never, as the heap is. It is cacheable: the transfers are copied by the CPU.
+  - **Static data, about 57 KB:** lwIP's packet pool 49 KB (32 x 1,532 bytes), the driver's cyw43_state 2.4 KB, and
+    lwIP's smaller pools and variables about 6 KB. The DTCM, where the firmware's .bss goes, has about 13.5 KB free, so
+    this has to move: into the block with MEMP_MEM_MALLOC (the pools from the heap), or a section placed there.
+  - **Heap at its peak, about 31 KB,** with one TLS session (example.com, 2 MB from Cloudflare, google.com), lwIP's
+    own allocations included.
+  - **Stack, about 2.1 KB** deeper than the program's main loop during a TLS handshake (ECDSA certificates; an RSA
+    chain with verification is still to be measured). The firmware's DTCM stack has room.
+  - So about 90 KB in use: 128 KB would hold one TLS session and the server's connections with room to spare, and
+    256 KB is generous.
+  - **DMA later:** SPI2's DMA (DMA1 or 2) can reach the SDRAM but not the DTCM, so data in the block suits it, with the
+    cache cleaned and invalidated around each transfer.
 - **Not in internal RAM:** none of it fits in the chip's own RAM:
   - The DTCM has only about 14 KB spare.
   - The AXI SRAM is display page 0's frame buffer.
