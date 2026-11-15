@@ -12,7 +12,7 @@ cyw43_driver_cmm2.c (pico-sdk's cyw43_driver.c, polled, with no async context).
 then put out/wifi.app on the card, and at the CMM2's prompt:
     RUN "wifi.app", scan
 """
-import os, subprocess, sys
+import glob, os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -39,7 +39,11 @@ def sources():
     s = [os.path.join(HERE, 'wifi.c'),
          os.path.join(HERE, 'port', 'cyw43_bus_cmm2.c'),
          os.path.join(HERE, 'port', 'cyw43_driver_cmm2.c')]
-    s += [os.path.join(CYW43, 'src', f) for f in ('cyw43_ll.c', 'cyw43_ctrl.c', 'cyw43_stats.c')]
+    s += [os.path.join(HERE, 'port', 'cyw43_arch_cmm2.c')]
+    s += [os.path.join(CYW43, 'src', f) for f in ('cyw43_ll.c', 'cyw43_ctrl.c', 'cyw43_stats.c', 'cyw43_lwip.c')]
+    lw = os.path.join(LWIP, 'src')
+    s += sorted(glob.glob(os.path.join(lw, 'core', '*.c'))) + sorted(glob.glob(os.path.join(lw, 'core', 'ipv4', '*.c')))
+    s += [os.path.join(lw, 'netif', 'ethernet.c')]
     return s
 
 
@@ -48,10 +52,11 @@ def main():
     fetch(LWIP, LWIP_URL, LWIP_COMMIT)
     os.makedirs(OUT, exist_ok=True)
     incs = [os.path.join(HERE, 'port'), os.path.join(CYW43, 'src'), os.path.join(CYW43, 'firmware'),
+            os.path.join(LWIP, 'src', 'include'),
             os.path.join(REPO, 'Drivers', 'CMSIS', 'Device', 'ST', 'STM32H7xx', 'Include'),
             os.path.join(REPO, 'Drivers', 'CMSIS', 'Include')]
     cmd = [sys.executable, '-I', os.path.join(REPO, 'tools', 'sdk', 'build.py'), os.path.join(OUT, 'wifi.app')] + sources() + \
-          ['--api', '2', '--cflag=-DSTM32H743xx', '--cflag=-DCYW43_LWIP=0']
+          ['--api', '2', '--cflag=-DSTM32H743xx', '--cflag=-DCYW43_LWIP=1']
     for i in incs:
         cmd += ['-I', i]
     subprocess.run(cmd, check=True)
