@@ -426,7 +426,11 @@ In this order (15 Nov), each built and checked on the G3 before the next:
   message shows TRIM$('s token byte in place of its name (an old fault, not the network's).
 - **The web server with several clients at once:** checked by Peter, who used Retic's pages from his browser while
   the test script was posting its forms and fetching pages on the G3 (15 Nov).
-- **Still to do:** step 4 on the G2; the manual; TLS with a CA (WEB TLS CA); the PicoMite's own example programs.
+- **Regression on the G2** (COM10 at 460800, the same ST-Link as the G3 had; V7 RC6 before, flashed with V8 for it):
+  the whole corpus with Wi-Fi up and with OPTION WIFI cleared: no change but the web tests. Against the G3's run
+  with Wi-Fi: MM.DEVICE$, t1's token byte, webudp's leftover MM.MESSAGE$ and the console test's old bad byte. Step 4
+  is done on all three boards.
+- **Still to do:** the manual; TLS with a CA (WEB TLS CA); the PicoMite's own example programs.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
