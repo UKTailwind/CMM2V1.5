@@ -317,12 +317,36 @@ G2's result too):
 
 ### Step 2: into the firmware
 
-- **First, V8's memory change:** programs move to SDRAM, which frees sectors 3 to 6 (or 3 to 7).
+- **First, V8's memory change:** programs move to SDRAM, which frees sectors 3 to 6 (or 3 to 7). Done in v8-dev:
+  sectors 3 to 6 are the firmware's and empty (flash.c).
 - **The pieces:** the bus and port layer, lwIP, mbedTLS, cyw43-driver, the blob, and the PicoMite's `net/*.c`. They
   are copied as they are, and placed in sectors 3 to 6 (or 3 to 7) and .bank2, as the Flash section sets out.
 - **The network block:** the SDRAM block, and the loader on a G1 kept out of it.
 - **The firmware's own changes:** the options, the ProcessWeb calls, the telnet console's paths, the pins reserved,
   and MM.INFO and MM.MESSAGE$ and their kind.
+
+In this order (15 Nov), each built and checked on the G3 before the next:
+1. **The libraries into the tree:** cyw43-driver, lwIP and mbedTLS at step 1's commits, only the files built (every
+   `.c` under Middlewares is compiled), with their licences, in Middlewares/Third_Party; the CMM2 port files from
+   apps/wifi/port. Their defines (CYW43_LWIP, MBEDTLS_CONFIG_FILE, the TLS input length) for those files only.
+2. **The linker:** FLASH2 split into sectors 3 to 6 (a `.net` code section taking the blob, mbedTLS, lwIP and the
+   driver by file name, as .bank2 takes its files) and sector 7 (the library). The flash writer refuses sectors 3 to 6,
+   as it refuses .bank2's.
+3. **The network block and its allocator:** lwIP's own heap (mem.c, MEM_LIBC_MALLOC off) laid over the block
+   (LWIP_RAM_HEAP_POINTER), with the pools from it (MEMP_MEM_MALLOC) and mbedTLS's allocations through it
+   (CallocMemory and FreeMemory as mem_calloc and mem_free). The firmware's C library heap is not the block, so this
+   one change from the PicoMite's MEM_LIBC_MALLOC is the CMM2's. G2 and G3 first; the G1's display-memory changes
+   with the G1's run.
+4. **The poll:** ProcessWeb from routinechecks on the 1 ms flag, and **never while bank 2 is being erased or written**:
+   the options' erase loop calls routinechecks (flash.c), the network code is in bank 2, and a fetch from bank 2
+   stalls until the erase is done, which the linker script's rule for bank 2 forbids. A flag tested in bank 1, before
+   the call, skips it.
+5. **First firmware milestone:** OPTION WIFI and WEB CONNECT, WEB SCAN, MM.INFO(IP ADDRESS) and WEB PING at the prompt,
+   from the PicoMite's WiFi.c and MMping.c as they are.
+6. **The rest of net/*.c** (TCP server and client, TLS, UDP, NTP, MQTT, telnet, TFTP), its interrupts, MM.MESSAGE$,
+   MM.ADDRESS$ and MM.TOPIC$; the pins and SPI2 reserved; Wi-Fi at power-up.
+7. **The G1:** the block at the top of the display memory, pagegen's limit, RUN's clearing, and Wi-Fi started again
+   after a --vram program.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
