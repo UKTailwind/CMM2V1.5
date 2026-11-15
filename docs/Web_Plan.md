@@ -273,7 +273,8 @@ G2's result too):
     220 KB. altcp_tls_mbedtls.c opens the window again only for decrypted data, and mbedTLS decrypts only whole
     records, up to 16,413 bytes on the wire: once the server moved from its small opening records to full-size ones,
     no record could ever arrive. The CMM2's lwipopts.h sets 16 x TCP_MSS (23,360); the PicoMite's copy is unchanged.
-    A PicoMite should stall the same way on a large HTTPS download (not yet tried on one).
+    A PicoMite should stall the same way on a large HTTPS download (by reading, not yet tried on one): filed as
+    PicoMite issue #153.
 - **The sizes** with the CMM2's flags (code and constant data):
 
   | Part | Bytes |
