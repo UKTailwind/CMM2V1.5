@@ -378,8 +378,20 @@ In this order (15 Nov), each built and checked on the G3 before the next:
   - **MQTT** (mqtttest.bas, pcmqtt.py, a minimal broker): CONNECT, SUBSCRIBE, PUBLISH at QoS 1, the MQTT interrupt
     with MM.TOPIC$ and MM.MESSAGE$: 5 messages in, 5 echoes out.
   - **TFTP** (pctftp.py): 20 KB and 200 KB put onto the card and got back identical, about 250 KB/s each way.
-- **Still to do:** step 4's regression; the G1 (stage 7); the manual; TLS with a CA (WEB TLS CA); the web server with
-  several clients at once and the PicoMite's own example programs.
+- **Regression on the G3** (tools/goldens.py, the whole corpus, 212 programs): run with Wi-Fi up and again with OPTION
+  WIFI cleared. tools/goldcmp.py finds no change between the two except the web tests (without Wi-Fi they stop at
+  "WiFi radio not running") and the programs that vary from run to run. The console test's one bad byte after OPTION
+  CONSOLE SERIAL is there in both runs, and on the firmware without Wi-Fi: not from this work.
+- **The corpus's web tests** (webnoserv, webservz, webtcpe, webtlse, webudp) were written for the PC3 translator's
+  dialect: WEB TCP SERVER PORT and WEB UDP SERVER PORT as statements, and loopback to 127.0.0.1. The PicoMite has
+  neither, and the CMM2 gives what the PicoMite's code gives. webnoserv gets no "Server not open" when OPTION TCP
+  SERVER PORT is set, as on a WebMite.
+- **PicoMite bugs found on the way, filed:** #153 (TCP_WND smaller than one TLS record; fixed here in lwipopts.h);
+  #154 (WEB TCP and UDP INTERRUPT outlive the program; cleared here in WebClearIO); #155 (WEB TCP INTERRUPT 0 stops
+  with "Line number"); #156 (WEB UDP with an unknown word gives no error). #155 and #156 are in the PicoMite's own
+  files, kept unchanged here: the fixes come with the next port_net.py.
+- **Still to do:** step 4 on the G1 and the G2; the G1 (stage 7); the manual; TLS with a CA (WEB TLS CA); the web
+  server with several clients at once and the PicoMite's own example programs.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
