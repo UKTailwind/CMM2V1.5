@@ -141,6 +141,19 @@ int WebBlockInHeap(void **addr, int *size) {
 
 /* ---- start-up ---- */
 static void reserve_pins(void);
+
+// with no module answering: the network block given back to the heap, SPI2 off, and pins 32, 33, 38 and 40 as they are
+// without OPTION WIFI (not configured), so that the header's passed-through pins work as before
+static void release_all(void) {
+    void *b = NetBlock;
+    NetBlock = NULL;
+    if (b) FreeMemory(b);
+    SPI2->CR1 = 0;
+    ExtCfg(32, EXT_NOT_CONFIG, 0);
+    ExtCfg(33, EXT_NOT_CONFIG, 0);
+    ExtCfg(38, EXT_NOT_CONFIG, 0);
+    ExtCfg(40, EXT_NOT_CONFIG, 0);
+}
 void WebStart(void) {
     if (!*Option.SSID) return;
     if (G1Hardware) {
@@ -151,10 +164,11 @@ void WebStart(void) {
     time_from_clock();
     if (cyw43_arch_init_with_country(wifi_country_to_cyw43(Option.wifi_country_code)) != 0) return;
     cyw43_arch_enable_sta_mode();               // (the chip's firmware loaded: a missing module fails here)
-    if (!(cyw43_state.itf_state & (1 << CYW43_ITF_STA))) {
+    if (!(cyw43_state.itf_state & (1 << CYW43_ITF_STA))) {  // (no answer to the gSPI test read: no module)
         MMPrintString("WiFi module not found\r\n");
         cyw43_arch_deinit();
-        return;
+        release_all();                          // the board as without OPTION WIFI: the block back in the heap,
+        return;                                 // SPI2 off and the four pins free again
     }
     reserve_pins();
     startupcomplete = 1;

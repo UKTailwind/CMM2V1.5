@@ -40,6 +40,13 @@ typedef unsigned int uint;                      // (pico.h's, used by the copied
 #define CYW43_HOST_NAME "CMM2"
 #endif
 
+// The driver's messages (its warnings, the firmware banner) go to pico-sdk's printf on the PicoMite, which its console
+// does not show; here printf is the console, so they are left out as there. The firmware says what the user needs
+// ("WiFi module not found", WEB CONNECT's own messages).
+#ifndef CYW43_PRINTF
+#define CYW43_PRINTF(...) ((void)0)
+#endif
+
 #ifndef CYW43_GPIO
 #define CYW43_GPIO 1
 #endif
