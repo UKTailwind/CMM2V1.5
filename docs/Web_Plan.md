@@ -1,7 +1,10 @@
 # The PicoMite's web support on the Colour Maximite 2
 
 *8 November 2026. A plan for porting the whole of PicoMiteWEB's networking to the CMM2, for Peter's Wi-Fi module,
-on the G1, the G2 and the G3. Nothing here has been tried yet.*
+on the G1, the G2 and the G3.*
+
+*15 November: the module and SPI2 tested from BASIC on the G3, with no firmware change (see "Tested from BASIC"
+below). Work goes on in branch v8-wifi, made from v8-dev.*
 
 *Revised the same day for V8's memory decision: BASIC programs always run from SDRAM and no longer from flash. That
 gives bank 2's sectors 3 to 6 (and 7, if the library leaves flash too) to the firmware. The web support is a V8
@@ -73,13 +76,18 @@ The port follows the rule for PicoMite code: copy it as it is, and change only w
   - then data written, or the line turned round and data read;
   - then a status word.
 
-  On the CMM2 that becomes SPI2 in **half-duplex** (BIDIMODE, one data line), switching direction (HDDIR) after the
-  command. The framing functions (the register reads and writes, and the byte swaps) are plain C, and are copied as
+  On the CMM2 that becomes SPI2 in **half-duplex** (CFG2.COMM = 3, one data line), switching direction (CR1.HDDIR)
+  after the command. The framing functions (the register reads and writes, and the byte swaps) are plain C, and are copied as
   they are. Only the transfer itself is new.
-- **The clock:** SPI2 takes PLL1Q, 48 MHz on a 480 MHz board, so it can run at 24 or 12 MHz. Through the header and
-  the 470-ohm resistor, 12 MHz is the likely start, rising to 24 if the signals allow. That still means megabytes a
-  second, more than Wi-Fi gives a microcontroller. A 400 MHz board's PLL1Q differs, so the divider is taken from the
-  clock actually there.
+- **The clock:** SPI2 takes PLL1Q, 48 MHz on a 480 MHz board, and runs at /2: **24 MHz** (Peter, 15 Nov). That is
+  about 3 MB a second, more than Wi-Fi gives a microcontroller. A 400 MHz board's PLL1Q is 40 MHz, so a G1 runs at
+  20 MHz; the divider is taken from the clock actually there.
+  - Faster needs another kernel clock (32 MHz from the HSI worked), but SPI1, SPI2 and SPI3 share it, and SPI3 is
+    the SD card at /2: not done.
+- **The chip's mode:** high-speed mode (HIGH_SPEED_MODE, as cyw43_ll.c sets it), read in **SPI mode 0**: the chip
+  changes the line on the rising edge, and SPI2 samples on that edge, the chip's output delay holding the bit, as
+  pico-sdk's spi_gap01_sample0 does. Read in mode 1, every word comes one bit late. Normal mode works only to
+  12 MHz.
 - **The interrupt:** while CS is high, the chip pulls the data line (through R2) to ask for attention. That is read
   from PB15's input register: in poll mode the driver asks for it, and nothing needs an EXTI.
 - **The port layer:**
@@ -87,6 +95,28 @@ The port follows the rule for PicoMite code: copy it as it is, and change only w
   - A small `cyw43_arch` shim, with the calls the PicoMite's `net/*.c` makes: init and deinit, STA mode,
     wifi_connect_timeout_ms, poll, and lwip_begin and lwip_end, which are empty in poll mode. With it, those files
     compile unchanged.
+
+## Tested from BASIC (15 November, on the G3)
+
+Three programs in tests/wifi, run with the module on the G3's header and no firmware change:
+
+- **wifitest.bas,** gSPI bit-banged with PIN():
+  - the test register read 0xFEEDBEAD (on the second try after power-up: the driver allows ten);
+  - the read/write test register kept two patterns;
+  - the chip went to 32-bit words and still read 0xFEEDBEAD;
+  - the backplane gave the ALP clock and ChipCommon's ID, 0x1545A9AF: a 43439, revision 5.
+  - The old response-delay byte (0x0001) reads 0 on this chip. The F1 delay at 0x001D, which cyw43_ll.c sets, works.
+- **wifispi.bas,** SPI2 in half-duplex, set up by SPI2 OPEN and POKEs (COMM = 3, HDDIR, TSIZE and CSTART):
+  - each pass from a fresh power-up: 200 random patterns written and read back, 200 test-register reads and the chip
+    ID, at 0.75 to 24 MHz, with the pins' drive speed low (as SPI2 OPEN sets it) and very high;
+  - normal mode: no errors to 12 MHz; at 24 MHz 127 to 400 errors in 600;
+  - high-speed mode read in SPI mode 0: no errors at any speed, and none in 15,000 more transactions at 24 MHz;
+  - high-speed mode read in mode 1: every word one bit late (0xFDDB7D5A for 0xFEEDBEAD).
+- **wificlk.bas,** above 24 MHz, with SPI1-3's kernel clock switched for each pass: no errors in 9,000 transactions
+  at 30 MHz (PLL2P) or 32 MHz (the HSI's per_ck). The firmware stays at 24 MHz (Peter).
+
+For comparison, the PicoMite sets the radio's PIO divider to CPU / 80 MHz, rounded up and at least 2, and takes two
+PIO cycles a bit: 33.3 MHz at its default 200 MHz, at most 40 MHz.
 
 ## Flash
 
@@ -210,7 +240,8 @@ Before release, the blob's own terms (Infineon's) are also to be read. That is a
 
 Before the firmware changes, a loadable program builds cyw43-driver and lwIP with the bus layer. A program has 8 MB
 of SDRAM, so flash does not limit it. It:
-1. Reads the gSPI test register (0xFEEDBEAD) at 12 MHz, then at 24.
+1. Reads the gSPI test register (0xFEEDBEAD) at 24 MHz. (Done from BASIC on 15 Nov, below; the program does it
+   again in C, as its first check.)
 2. Loads the blob, built into the program.
 3. Joins Peter's Wi-Fi, takes an address by DHCP, and answers a ping from the PC.
 4. Times a transfer to the PC.
@@ -264,10 +295,10 @@ A networking chapter, from the PicoMite's WebMite documentation, with the module
 
 ## Risks
 
-- **The gSPI at speed:** it runs through a 2.54 mm header and the 470-ohm resistor, with the line turning round each
-  transaction. Step 1 finds the clock that works.
-- **The H743's SPI in half-duplex:** turning round mid-transaction has to match the CYW43439's response delay. The
-  PIO version shows the timing.
+- **The gSPI at speed:** retired 15 Nov. No errors at 24 MHz (and up to 32 MHz) through the header and the 470-ohm
+  resistor.
+- **The H743's SPI in half-duplex:** retired 15 Nov. It turns round after the command, in high-speed mode read in
+  SPI mode 0.
 - **Flash:**
   - After the stack, about 110 KB is left, or about 240 KB if the library leaves flash.
   - The CMM2's build may come out larger than the PicoMite's figures. Step 1 measures it before anything is placed.
