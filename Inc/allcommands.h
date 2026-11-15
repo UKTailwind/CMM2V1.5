@@ -133,6 +133,7 @@ void cmd_ram(void);
 void cmd_cc(void);
 void cmd_sql(void);
 void cmd_web(void);                                // WEB ...: the PicoMite's network (Src/net/picomite/WiFi.c)
+void cmd_user(void);                               // USER ...: the user's own module (User.c)
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -329,6 +330,7 @@ void fun_mmhpos(void);
 void fun_mmvpos(void);
 void fun_touch(void);
 void fun_sql(void);
+void fun_user(void);
 void fun_click(void);
 void fun_math(void);
 void fun_timer(void);
@@ -581,6 +583,7 @@ void op_inv(void);
 	{ "CC",			    T_CMD,				0, cmd_cc		},      // CC file$ [, options$]: the C compiler, cc.app (Loader.c)
 	{ "SQL",		    T_CMD,				0, cmd_sql		},      // SQL OPEN|CLOSE|EXEC|QUERY|CREATE|INSERT: SQLite, A:/sql/sql.mod (SQL.c)
 	{ "WEB",		    T_CMD,				0, cmd_web		},      // WEB CONNECT|SCAN|PING|NTP|TCP|UDP|MQTT|...: the PicoMite's network (docs/Web_Plan.md)
+	{ "User",		    T_CMD,				0, cmd_user		},      // USER LOAD|CLOSE, and the user's module's own commands (User.c)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 
@@ -719,8 +722,9 @@ void op_inv(void);
 	{ "Device(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_device_fn	},      // DEVICE(MOUSE n, k), DEVICE(GAMEPAD n, k): the PicoMite's (RAW is a string)
 	{ "Tilemap(",	    T_FUN | T_INT,		0, fun_tilemap	},      // TILEMAP(TILE|COLLISION|ATTR|VIEWX|VIEWY|COLS|ROWS|SPRITE ...) (TileMap.c)
 	{ "Touch(",	    T_FUN | T_INT,		0, fun_touch	},      // the PicoMite's TOUCH(: a USB touch screen, the mouse and GUI CLICK (GUI.c)
-	{ "SQL(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_sql	},      // SQL(NEXT|FETCH|SELECT|n|...): 0xFC (SQL.c); 0xFD and 0xFE are free (15 Nov
-                                                                    // 2026: EOF( LOC( LOF( folded, for USER( and one more)
+	{ "SQL(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_sql	},      // SQL(NEXT|FETCH|SELECT|n|...): 0xFC (SQL.c)
+	{ "User(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_user	},      // USER(...): the user's module's function (User.c): 0xFD; 0xFE
+                                                                    // is free (15 Nov 2026: EOF( LOC( LOF( folded for these two)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

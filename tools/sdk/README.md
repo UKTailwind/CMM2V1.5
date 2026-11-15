@@ -13,6 +13,7 @@ python build.py out/hello.app examples/hello.c
 python build.py out/vidtest.app examples/vidtest.c --api 2
 python build.py out/oplbench.app examples/oplbench.c examples/nuked/opl3.c -I examples/nuked
 python build.py out/oplplay.app examples/oplplay/oplplay.c examples/nuked/opl3.c examples/oplplay/emu8950/emu8950.c examples/oplplay/emu8950/emuadpcm.c ../../Src/OPLChip.cpp ../../Src/ymfm/ymfm_opl.cpp ../../Src/ymfm/ymfm_adpcm.cpp ../../Src/ymfm/ymfm_pcm.cpp -I examples/nuked -I examples/oplplay/emu8950 --cflag=-Wno-format
+python build.py out/proforma.mod examples/user/proforma.c --module --api 20 --stack 4096
 ```
 
 `build.py` compiles the sources with `crt0.c` and `syscalls.c`, links them with `app.ld`, and calls `mkimage.py`. `syscalls.c` gives a program the firmware's `memcpy`, `memset` and `memmove` (services version 11; they run from ITCM a word at a time) in place of newlib-nano's byte loops, so rebuilding a program speeds up its copies on a firmware from 4 Nov 2026 on. It finds `arm-none-eabi-gcc` in `ARM_TOOLCHAIN_DIR`, else in the folder `CMakePresets.json` names, else on the PATH; use GCC 13.3, as the firmware does. The `.elf` and `.map` are left beside the `.app` in `tools/sdk/out/`, which git ignores.
@@ -25,6 +26,7 @@ Options:
 | `--heap BYTES` | The least heap the program needs: the loader refuses it at once if it can't have it. |
 | `--stack BYTES` | The stack size (default 64 KB). |
 | `--vram` | A G1 lends it its display memory too (about 7 MB in all, the video modes limited to those whose page fits in internal RAM). Use with `--api 8`; a G2 ignores it. Doom and ScummVM are built this way. |
+| `--module` | A module, not a program: `crt0.c` calls `module_main()`, which returns the module's table. `proforma.mod` is a USER module: `USER LOAD "proforma.mod"`, then its commands with `USER` and its functions with `USER(` (`examples/user/proforma.c`, `cmm2user.h`, and the companion manual's chapter USER Modules). |
 | `--g2` | A G1 refuses it ("Needs a G2"): for a program that can't run on a G1 at all. |
 | `--base 0x60000000` | Link elsewhere, so the loader has to relocate every address. This tests the relocations: a missed one faults, because that FMC bank is unused. |
 | `--xip` | Not a `.app`, but a runtime the firmware carries in its own flash and runs in place: linked with `xip.ld` (code at 0x08141000 by default, `--xip-base` to move it; `.data` and `.bss` in the 16 KB of D2 RAM at 0x30004000), and OUT is the flash's bytes. It calls the firmware's libm (`fwlibm.c`, services version 11) instead of carrying its own. Only mmbrun, the C compiler's runtime with the BASIC runtime, is built this way (`apps/cc/make.py`, into `Src/MmbrunImage.c`). |
@@ -47,7 +49,7 @@ The words become `argv[1]` onward. A non-zero exit code is printed. Run from a p
 
 ## Licences
 
-`cmm2img.h`, `cmm2.h`, `crt0.c`, `syscalls.c`, `app.ld` and the examples are MIT, so a program under any licence can use them. Third-party code beside the examples keeps its own licence:
+`cmm2img.h`, `cmm2user.h`, `cmm2.h`, `crt0.c`, `syscalls.c`, `app.ld` and the examples are MIT, so a program under any licence can use them. Third-party code beside the examples keeps its own licence:
 - `examples/nuked` (Nuked-OPL3) is LGPL-2.1-or-later, so a program built with it, such as `oplbench.app` or `oplplay.app`, is LGPL as a whole.
 - emu8950 is MIT.
 - ymfm, in `Src/ymfm`, is BSD-3-Clause.

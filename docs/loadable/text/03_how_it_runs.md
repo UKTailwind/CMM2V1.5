@@ -76,10 +76,11 @@ typedef struct {
     uint32_t base;                      /* where the program was loaded */
     void    *heap2;                     /* a second heap, or NULL (version 8) */
     uint32_t heap2_size;
+    const struct cmm2_basic *basic;     /* a USER module's interpreter table, or NULL (version 20) */
 } cmm2img_start;
 ```
 
-heap2 is only ever set for a program built with --vram, on a Generation 1 (see The Display Memory Lent above). Firmware before version 8 has a shorter start block, so a program reads heap2 only when it was built with --api 8 or later.
+heap2 is only ever set for a program built with --vram, on a Generation 1 (see The Display Memory Lent above). Firmware before version 8 has a shorter start block, so a program reads heap2 only when it was built with --api 8 or later. basic is set only for a USER module (see the chapter USER Modules).
 
 _start keeps the services in the variable cmm2 and the start block in cmm2_start, runs the C++ constructors (and C functions marked constructor), and calls main(argc, argv).
 

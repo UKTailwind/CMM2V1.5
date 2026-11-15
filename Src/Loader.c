@@ -61,7 +61,16 @@ extern int KeyDown[7];                                              // the keys 
 #define LD_BLOCKS 64
 #define LD_PRI_FILL (15 << (8 - __NVIC_PRIO_BITS))                  // PendSV's priority (the sound's refill), as BASEPRI masks it
 static FIL *ldfile[LD_FILES];                                       // the program's open files, NULL when free
-static uint8_t ldmodfile[LD_FILES];                                 // 1: a module's (opened with no program running)
+static uint8_t ldmodfile[LD_FILES];                                 // a module's (opened with no program running): its slot + 1
+typedef struct {                                                    // a module (see the modules below), one in each slot
+    char *block, *heap;                                             // its blocks of MMBasic's heap: its image's, its C library's
+    int area;                                                       // 1: in a G2's applications' 8 MB, not the heap
+    uint32_t sp, size;                                              // its stack's top; its image's bytes, at start.base
+    const cmm2mod_head *head;                                       // its table, while it is there
+    cmm2img_start start;
+    char name[FF_MAX_LFN + 4];
+} ldmod_t;
+static ldmod_t ldmod[LOADER_MODS];                                  // LOADER_MOD_SQL's and LOADER_MOD_USER's (Loader.h)
 static DIR *lddir[LD_DIRS];
 static void *ldblock[LD_BLOCKS];                                    // its blocks of the MMBasic heap (alloc, opl_new)
 static uint32_t ldmsp __attribute__((used));                        // the main stack inside LoaderCall, for LoaderReturn
@@ -166,6 +175,14 @@ static void ld_free(FIL *f) {
     FreeMemory(f);
 }
 
+// the slot, plus one, of the module whose code is at ra (the return address of a service it called): a file it opens is
+// closed when it goes (SQL's if the call came from neither)
+static uint8_t ld_modowner(void *ra) {
+    for(int s = 0; s < LOADER_MODS; s++)
+        if(ldmod[s].size && (uint32_t)ra - ldmod[s].start.base < ldmod[s].size) return s + 1;
+    return LOADER_MOD_SQL + 1;
+}
+
 static int ld_open(const char *name, int mode) {
     char p[FF_MAX_LFN + 4];
     BYTE m = 0;
@@ -184,7 +201,8 @@ static int ld_open(const char *name, int mode) {
     }
     if(!(m & (FA_CREATE_ALWAYS | FA_OPEN_APPEND))) ld_map(f);
     ldfile[h] = f;
-    ldmodfile[h] = !LoaderActive;                                   // (opened by a module: an application's end leaves it)
+    ldmodfile[h] = LoaderActive ? 0 : ld_modowner(__builtin_return_address(0));   // (opened by a module: an application's
+                                                                    // end leaves it, the module's own end closes it)
     return h;
 }
 static int ld_close(int h) {
@@ -1630,21 +1648,28 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
 }
 
 /* ---- modules (CMM2IMG_KIND_MODULE; docs/SQL_Plan.md, step 3) ----
-   A module is loaded beside the BASIC program and kept: the SQL command's SQLite (A:/sql/sql.mod, Src/SQL.c). On a G2
-   it is loaded at the applications' 8 MB (LOADER_BASE), where it is linked, executable already, and its C library's heap
-   is what the area has left (Peter, 13 Nov 2026: SQL there, BASIC's heap untouched): a program run there closes it first
-   (ld_modarea: an error from a BASIC program). On a G1 its image goes into a block of MMBasic's heap from a 64 KB
-   boundary (its relocations allow whole 64 KBs, as a G1's programs are placed), its heap a second block, and the heap is
-   executable while it is there (LoaderModExec: regions 8 and 9, as for a program). Either way its stack follows its
-   .bss, and the firmware calls its functions through LoaderModFn, on that stack (SQLite's recursion is not for the main
-   stack: 18 KB in the DTCM at least). It goes with SQL CLOSE, or when the heap does (HeapWipe: RUN, NEW, a program
-   loaded, CHAIN), its forget() called first and its files closed after. One module at a time. */
-int LoaderModExec;                                                  // 1 while a module is in the heap
-static int ldmodarea;                                               // 1: it is in a G2's applications' 8 MB, not the heap
-static char *ldmodblock, *ldmodheap, ldmodname[FF_MAX_LFN + 4];
-static const cmm2mod_head *ldmodhead;
-static cmm2img_start ldmodstart;
-static uint32_t ldmodsp __attribute__((used));                      // the module's stack: its top
+   A module is loaded beside the BASIC program and kept, one in each slot (15 Nov 2026: USER's beside SQL's).
+
+   SQL's (LOADER_MOD_SQL) is the SQL command's SQLite (A:/sql/sql.mod, Src/SQL.c). On a G2 it is loaded at the
+   applications' 8 MB (LOADER_BASE), where it is linked, executable already, and its C library's heap is what the area
+   has left (Peter, 13 Nov 2026: SQL there, BASIC's heap untouched): a program run there closes it first (ld_modarea:
+   an error from a BASIC program). On a G1 its image goes into a block of MMBasic's heap from a 64 KB boundary (its
+   relocations allow whole 64 KBs, as a G1's programs are placed), its heap a second block, and the heap is executable
+   while it is there (LoaderModExec: regions 8 and 9, as for a program). Either way its stack follows its .bss, and the
+   firmware calls its functions through LoaderModFn, on that stack (SQLite's recursion is not for the main stack: 18 KB
+   in the DTCM at least).
+
+   USER's (LOADER_MOD_USER) is the user's own, the USER command's (Src/User.c). On either board its image goes into the
+   heap's executable window (GetExecMemory: MPU region 15, where a program's CSUBs run) from a 64 KB boundary, and its
+   C library's heap into the heap. User.c calls its functions on the main stack, as a CSUB's are called, so that they
+   can call the interpreter, an error leaves them as it leaves a command, and a USER( in a USER command's arguments can
+   call the module again; the stack after its .bss is for its start alone.
+
+   A module goes when its command closes it, or when the heap does (HeapWipe: RUN, NEW, a program loaded, CHAIN), its
+   forget() called first and its files closed after. */
+#define LD_MOD_HEAP 0x10000                                         // a USER module's C library's heap if its header asks none
+int LoaderModExec;                                                  // 1 while SQL's module is in a G1's heap
+static uint32_t ldmodsp __attribute__((used));                      // the stack LoaderModCall uses: its top
 static void *ldmodfn __attribute__((used));                         // the function LoaderModCall calls
 
 // ldmodfn called on the module's stack, with r0-r3 and the FPU's argument registers as they came, its results (r0-r1,
@@ -1664,51 +1689,74 @@ __attribute__((naked)) static void LoaderModCall(void) {
         "pop {r4, pc}            \n"
         ".ltorg                  \n");
 }
-void *LoaderModFn(const void *fn) { ldmodfn = (void *)fn; return (void *)LoaderModCall; }
+// fn, of the module in slot, to be called on that module's stack
+static void *ld_modfn(int slot, const void *fn) { ldmodfn = (void *)fn; ldmodsp = ldmod[slot].sp; return (void *)LoaderModCall; }
+void *LoaderModFn(const void *fn) { return ld_modfn(LOADER_MOD_SQL, fn); }
 
-// the module's table (a cmm2mod_head first), or NULL if none is loaded: a command that keeps the table compares it with
-// this before each use, since the heap may have gone since
-const void *LoaderModuleHead(void) { return ldmodhead; }
+// the table of slot's module (a cmm2mod_head first), or NULL if none is loaded: a command that keeps the table compares
+// it with this before each use, since the heap may have gone since
+const void *LoaderModuleTable(int slot) { return ldmod[slot].head; }
+const void *LoaderModuleHead(void) { return ldmod[LOADER_MOD_SQL].head; }
 
-// the bytes of the module's own heap (its C library's: the SQL module's pool is in it)
-uint32_t LoaderModuleHeapSize(void) { return ldmodhead ? ldmodstart.heap_size : 0; }
+// the bytes of SQL's module's own heap (its C library's: the pool is in it)
+uint32_t LoaderModuleHeapSize(void) { return ldmod[LOADER_MOD_SQL].head ? ldmod[LOADER_MOD_SQL].start.heap_size : 0; }
 
 // before a program runs in the applications' area: a G2's module there (SQL) goes first, at the prompt; from a BASIC
 // program it is an error, so that a database open there is never closed under the program (Peter, 13 Nov 2026: SQL in
 // a G2's applications' area, as programs that use it and run an application are few)
 static void ld_modarea(void) {
-    if(!ldmodhead || !ldmodarea) return;
+    if(!ldmod[LOADER_MOD_SQL].head || !ldmod[LOADER_MOD_SQL].area) return;
     if(CurrentLinePtr) error("SQL CLOSE first: the database is in the programs' memory");
-    LoaderModuleForget();
+    LoaderModuleDrop(LOADER_MOD_SQL);
 }
 
-// the module gone: its forget() called, its files closed, its blocks freed, the heap execute-never again
-void LoaderModuleForget(void) {
+// slot's module gone: its forget() called, its files closed, its blocks freed (a G1's heap execute-never again)
+void LoaderModuleDrop(int slot) {
+    ldmod_t *m = &ldmod[slot];
     int i;
-    if(ldmodhead) {
-        const cmm2mod_head *t = ldmodhead;
-        ldmodhead = NULL;
-        ((void (*)(void))LoaderModFn((const void *)t->forget))();
+    if(m->head) {
+        const cmm2mod_head *t = m->head;
+        m->head = NULL;
+        if(t->forget) {
+            if(slot == LOADER_MOD_USER) t->forget();                // (on the main stack, as its other functions)
+            else ((void (*)(void))ld_modfn(slot, (const void *)t->forget))();
+        }
     }
-    for(i = 0; i < LD_FILES; i++) if(ldfile[i] && ldmodfile[i]) { f_close(ldfile[i]); ld_free(ldfile[i]); ldfile[i] = NULL; ldmodfile[i] = 0; }
-    if(ldmodheap) { FreeMemory(ldmodheap); ldmodheap = NULL; }
-    if(ldmodblock) { FreeMemory(ldmodblock); ldmodblock = NULL; }
-    ldmodarea = 0;
-    ldmodname[0] = 0;
-    if(LoaderModExec) { LoaderModExec = 0; MPU_Config_nCacheable(0); }
+    for(i = 0; i < LD_FILES; i++) if(ldfile[i] && ldmodfile[i] == slot + 1) { f_close(ldfile[i]); ld_free(ldfile[i]); ldfile[i] = NULL; ldmodfile[i] = 0; }
+    if(m->heap) FreeMemory(m->heap);
+    if(m->block) FreeMemory(m->block);
+    m->heap = m->block = NULL;
+    m->area = 0;
+    m->size = 0;
+    m->name[0] = 0;
+    if(slot == LOADER_MOD_SQL && LoaderModExec) { LoaderModExec = 0; MPU_Config_nCacheable(0); }
 }
 
-// the module in fname loaded, with heap bytes of heap for its C library (or the one loaded already, if it is that):
-// its table, or an MMBasic error
-const void *LoaderModule(char *fname, uint32_t heap) {
+// every module gone (HeapWipe)
+void LoaderModuleForget(void) {
+    for(int s = LOADER_MODS - 1; s >= 0; s--) LoaderModuleDrop(s);
+}
+
+// a block of the executable window, as ld_try runs it (GetExecMemory's error caught: the module's file is open)
+typedef struct { uint32_t size; void *p; } ldexecreq;
+static void ld_execmembody(void *a) { ldexecreq *r = a; r->p = GetExecMemory(r->size); }
+
+// the module in fname loaded as SQL's, with heap bytes of heap for its C library: its table, or an MMBasic error
+const void *LoaderModule(char *fname, uint32_t heap) { return LoaderModuleLoad(LOADER_MOD_SQL, fname, heap, NULL); }
+
+// the module in fname loaded in slot (or the one loaded there, if it is that), with heap bytes of heap for its C library
+// (0: on a G2, SQL's all the area has; a USER module the least its header asks, else LD_MOD_HEAP) and basic its start
+// block's: its table, or an MMBasic error
+const void *LoaderModuleLoad(int slot, char *fname, uint32_t heap, const void *basic) {
+    ldmod_t *m = &ldmod[slot];
     cmm2img_header h;
     uint32_t *rel = NULL, stack, end, place, off, i;
     const cmm2mod_head *t;
-    char *base;
+    char *base, *hp;
     int n;
-    if(ldmodhead && !strcasecmp(ldmodname, fname)) return ldmodhead;
-    LoaderModuleForget();
-    if(strlen(fname) >= sizeof(ldmodname)) error("Invalid file name");
+    if(m->head && !strcasecmp(m->name, fname)) return m->head;
+    LoaderModuleDrop(slot);
+    if(strlen(fname) >= sizeof(m->name)) error("Invalid file name");
     if(!InitSDCard()) error("SD card not found");
     n = FindFreeFileNbr();
     if(!BasicFileOpen(fname, n, FA_READ)) error("Cannot find $", fname);
@@ -1724,53 +1772,69 @@ const void *LoaderModule(char *fname, uint32_t heap) {
     stack = h.stack_size ? (h.stack_size + 7) & ~7 : CMM2IMG_STACK;
     end = (h.image_size + h.bss_size + 7) & ~7;
     place = end + (stack > h.reloc_count * 4 ? stack : h.reloc_count * 4);   // (the relocations read in where the stack goes)
+    if(heap == 0 && slot != LOADER_MOD_SQL) heap = h.heap_min ? h.heap_min : LD_MOD_HEAP;
     heap = (heap + 7) & ~7;
-    char *hp;
-    if(!G1Hardware) {                                               // a G2: the applications' 8 MB, where it is linked (no
-        uint32_t room;                                              // move), its heap all that is left there unless less is
-        base = (char *)LOADER_BASE;                                 // asked for (Peter, 13 Nov 2026); BASIC's heap untouched
-        hp = (char *)(((uint32_t)base + place + 7) & ~7);
+    if(slot == LOADER_MOD_SQL && !G1Hardware) {                     // SQL's on a G2: the applications' 8 MB, where it is
+        uint32_t room;                                              // linked (no move), its heap all that is left there
+        base = (char *)LOADER_BASE;                                 // unless less is asked for (Peter, 13 Nov 2026); BASIC's
+        hp = (char *)(((uint32_t)base + place + 7) & ~7);           // heap untouched
         room = (LOADER_BASE + LOADER_SIZE - (uint32_t)hp) & ~7;
         if(heap > room) { ld_done(); error("$ has % KB, not %", fname, (int)(room / 1024), (int)(heap / 1024)); }
         if(heap == 0) heap = room;
-        ldmodarea = 1;
-    } else {                                                        // a G1: two blocks of the heap
-        if(heap == 0 || (ldmodblock = GetMemoryNull(place + 0x10000)) == NULL || (ldmodheap = GetMemoryNull(heap)) == NULL) {
+        m->area = 1;
+    } else if(slot == LOADER_MOD_SQL) {                             // SQL's on a G1: two blocks of the heap
+        if(heap == 0 || (m->block = GetMemoryNull(place + 0x10000)) == NULL || (m->heap = GetMemoryNull(heap)) == NULL) {
             ld_done();
-            LoaderModuleForget();
+            LoaderModuleDrop(slot);
             error("$ needs % KB of the heap", fname, (int)((place + 0x10000 + heap) / 1024));
         }
-        base = (char *)(((uint32_t)ldmodblock + 0xFFFF) & ~0xFFFF);
-        hp = ldmodheap;                                             // (GetMemory's blocks are 8-byte aligned)
+        base = (char *)(((uint32_t)m->block + 0xFFFF) & ~0xFFFF);
+        hp = m->heap;                                               // (GetMemory's blocks are 8-byte aligned)
+    } else {                                                        // USER's: the executable window, and the heap
+        ldexecreq r = {place + 0x10000, NULL};
+        if(ld_try(ld_execmembody, &r) || r.p == NULL) {
+            ld_done();
+            error("$ needs % KB of executable memory", fname, (int)(r.size / 1024));
+        }
+        m->block = r.p;
+        if((m->heap = GetMemoryNull(heap)) == NULL) {
+            ld_done();
+            LoaderModuleDrop(slot);
+            error("$ needs % KB of the heap", fname, (int)(heap / 1024));
+        }
+        base = (char *)(((uint32_t)m->block + 0xFFFF) & ~0xFFFF);
+        hp = m->heap;
     }
     for(off = 0; off < h.image_size; off += i) {
         i = h.image_size - off;
         if(i > 0x10000) i = 0x10000;
-        if(!ld_get(base + off, i)) { ld_done(); LoaderModuleForget(); error("Cannot read $", fname); }
+        if(!ld_get(base + off, i)) { ld_done(); LoaderModuleDrop(slot); error("Cannot read $", fname); }
     }
     if(h.reloc_count) {
         rel = (uint32_t *)(base + end);
-        if(!ld_get(rel, h.reloc_count * 4)) { ld_done(); LoaderModuleForget(); error("Cannot read $", fname); }
+        if(!ld_get(rel, h.reloc_count * 4)) { ld_done(); LoaderModuleDrop(slot); error("Cannot read $", fname); }
     }
     ld_done();
-    if(!ld_fixup(base, rel, &h)) { LoaderModuleForget(); error("$ is damaged", fname); }
+    if(!ld_fixup(base, rel, &h)) { LoaderModuleDrop(slot); error("$ is damaged", fname); }
     memset(base + h.image_size, 0, h.bss_size);
     SCB_CleanDCache_by_Addr((uint32_t *)base, h.image_size + h.bss_size);   // the code to the SDRAM, where it is fetched
     SCB_InvalidateICache();
-    if(!ldmodarea) {                                                // (a G2's area is executable already: MPU region 8)
-        LoaderModExec = 1;
+    if(slot == LOADER_MOD_SQL && !m->area) {                        // (a G2's area is executable already: MPU region 8; the
+        LoaderModExec = 1;                                          // window, MPU region 15)
         MPU_Config_nCacheable(0);                                   // (the heap executable)
     }
-    memset(&ldmodstart, 0, sizeof(ldmodstart));
-    ldmodstart.svc = &ldsvc;
-    ldmodstart.heap = hp;
-    ldmodstart.heap_size = heap;
-    ldmodstart.base = (uint32_t)base;
-    ldmodsp = ((uint32_t)base + end + stack) & ~7;
-    t = ((const cmm2mod_head *(*)(cmm2img_start *))LoaderModFn(base + h.entry))(&ldmodstart);
-    if(t == NULL || t->magic != CMM2MOD_MAGIC) { LoaderModuleForget(); error("$ is not a module", fname); }
-    ldmodhead = t;
-    strcpy(ldmodname, fname);
+    memset(&m->start, 0, sizeof(m->start));
+    m->start.svc = &ldsvc;
+    m->start.heap = hp;
+    m->start.heap_size = heap;
+    m->start.base = (uint32_t)base;
+    m->start.basic = basic;
+    m->sp = ((uint32_t)base + end + stack) & ~7;
+    m->size = h.image_size;                                         // (a file it opens from its start is its own)
+    t = ((const cmm2mod_head *(*)(cmm2img_start *))ld_modfn(slot, base + h.entry))(&m->start);
+    if(t == NULL || t->magic != CMM2MOD_MAGIC) { LoaderModuleDrop(slot); error("$ is not a module", fname); }
+    m->head = t;
+    strcpy(m->name, fname);
     return t;
 }
 
