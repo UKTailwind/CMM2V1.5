@@ -832,13 +832,6 @@ void cmd_turtle(void)
         else
             turtle_reset(&turtle, 0);
     }
-    else if ((tp = checkstring(cmdline, "ARC")))
-    {
-        getcsargs(&tp, 3);
-        if (argc != 3)
-            SyntaxError();
-        turtle_arc(&turtle, getnumber(argv[0]), getnumber(argv[2]));
-    }
     else if ((tp = checkstring(cmdline, "ARCL")) || (tp = checkstring(cmdline,"ARCLEFT")) || (tp = checkstring(cmdline, "ARC LEFT")))
     {
         getcsargs(&tp, 3);
@@ -852,6 +845,14 @@ void cmd_turtle(void)
         if (argc != 3)
             SyntaxError();
         turtle_arc(&turtle, getnumber(argv[0]), -getnumber(argv[2]));
+    }
+    else if ((tp = checkstring(cmdline, "ARC")))                       // after ARC LEFT and ARC RIGHT, which it would
+                                                                       // take (15 Nov 2026; PicoMite the same)
+    {
+        getcsargs(&tp, 3);
+        if (argc != 3)
+            SyntaxError();
+        turtle_arc(&turtle, getnumber(argv[0]), getnumber(argv[2]));
     }
     else if ((tp = checkstring(cmdline, "BEZIER")))
     {

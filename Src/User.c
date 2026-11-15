@@ -35,6 +35,7 @@ _Static_assert(T_NBR == CMM2_T_NBR && T_STR == CMM2_T_STR && T_INT == CMM2_T_INT
 _Static_assert(STRINGSIZE == CMM2_STRINGSIZE && MAXDIM == 5, "cmm2user.h's sizes are MMBasic's");
 
 extern void getfullpath(char *p, char *q);                          // (FileIO.c)
+extern void DrivePath(char *out);                                    // (FileIO.c: the drive put in front)
 
 static char username[FF_MAX_LFN + 8];                               // USER LOAD's file as a full path: kept when the heap goes
 static int userdepth;                                               // the module's calls under way: more than one when a USER(
@@ -45,8 +46,9 @@ static char *u_checkstring(char *p, const char *word) { return checkstring(p, (c
 static void u_getargs(char **p, int max, const char *delims, char **argv, int *argc) {
     makeargs(p, max, GetTempMemory(STRINGSIZE + STRINGSIZE / 2), argv, argc, (char *)delims);   // (getargs' room)
 }
-static int u_token(const char *name) {                              // (GetTokenValue's search, with 0 for a name it has not)
-    for(int i = 0; i < TokenTableSize - 1; i++) if(str_equal((char *)name, (char *)tokentbl[i].name)) return i + C_BASETOKEN;
+static int u_token(const char *name) {                              // (GetTokenValue's search, in any case, with 0 for a name
+    for(int i = 0; i < TokenTableSize - 1; i++)                     // it has not)
+        if(strcasecmp(name, (const char *)tokentbl[i].name) == 0) return i + C_BASETOKEN;
     return 0;
 }
 static char *u_closebracket(char *p) { return getclosebracket(p); }
@@ -214,7 +216,8 @@ void cmd_user(void) {
         char name[FF_MAX_LFN + 8], *s = getCstring(p), *dot, *slash;
         if(userdepth) error("USER LOAD inside a USER command or function");
         if(strlen(s) >= FF_MAX_LFN - 4) error("Invalid file name");
-        getfullpath(s, name);                                       // (a full path: the same file after a CHDIR)
+        getfullpath(s, name);                                       // (a full path with its drive: the same file after a
+        DrivePath(name);                                            // CHDIR, to another drive too)
         slash = strrchr(name, '/');
         dot = strrchr(name, '.');
         if(dot == NULL || (slash != NULL && dot < slash)) strcat(name, ".mod");
