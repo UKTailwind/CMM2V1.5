@@ -14,6 +14,10 @@
                                     takes whatever is sent and throws it away. Each connection's bytes and rate are
                                     printed when it closes. With no ssid, A:/wifi/wifi.cfg gives it: the SSID on its
                                     first line, the password on its second.
+     RUN "wifi.app", https host [path]  joined as join does (from wifi.cfg), then a GET of https://host/path (path /
+                                    if not given) over TLS (lwIP's altcp_tls, mbedTLS 3.6.6 with the PicoMite's
+                                    mbedtls_config.h); the reply's first lines, the handshake's time, version and
+                                    cipher suite, and the bytes received. The certificate is not verified (no CA).
 
    The pins (rear I/O header): PB13 SPI2 clock (pin 40), PB15 data (38), PI3 CS (33), PI8 WL_ON (32). They are put
    back as they were at the end, with the radio off. */
@@ -34,6 +38,10 @@
 #include "lwip/icmp.h"
 #include "lwip/inet_chksum.h"
 #include "lwip/prot/ip4.h"
+#include "lwip/altcp.h"
+#include "lwip/altcp_tls.h"
+#include "lwip/dns.h"
+#include "mbedtls/ssl.h"
 
 uint32_t cyw43_cmm2_bus_errors(void);
 
@@ -325,6 +333,169 @@ static int read_cfg(char *ssid, char *pw, int n) {
     return ssid[0] ? 0 : -1;
 }
 
+// ---- https: a GET over TLS, through lwIP's altcp_tls and mbedTLS, as the PicoMite's WEB OPEN TLS CLIENT goes ----
+
+typedef struct {
+    struct altcp_pcb *pcb;
+    const char *host, *path;
+    volatile int state;                         // 0 running, 1 closed by the server, -1 failed
+    volatile int dns_done;                      // 1 found, -1 not
+    ip_addr_t addr;
+    uint64_t t_start, t_conn, t_first, t_end;
+    uint32_t bytes, verify;
+    const char *suite, *version;
+    char line[120];
+    int linelen, lines, in_body;
+} get_t;
+static get_t G;
+
+static void get_header_bytes(const uint8_t *s, int n) {
+    for (int i = 0; i < n && !G.in_body; i++) {
+        char c = (char)s[i];
+        if (c == '\n') {
+            G.line[G.linelen] = 0;
+            if (G.linelen == 0) {
+                G.in_body = 1;
+            } else if (G.lines++ < 10) {
+                printf("  %s\n", G.line);
+            }
+            G.linelen = 0;
+        } else if (c != '\r' && G.linelen < (int)sizeof(G.line) - 1) {
+            G.line[G.linelen++] = c;
+        }
+    }
+}
+
+static err_t get_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err) {
+    (void)arg; (void)err;
+    if (p == NULL) {
+        G.t_end = cmm2->micros();
+        G.state = 1;
+        altcp_arg(pcb, NULL);
+        altcp_recv(pcb, NULL);
+        altcp_err(pcb, NULL);
+        altcp_close(pcb);
+        G.pcb = NULL;
+        return ERR_OK;
+    }
+    if (!G.t_first) {
+        G.t_first = cmm2->micros();
+    }
+    for (struct pbuf *q = p; q; q = q->next) {
+        get_header_bytes((const uint8_t *)q->payload, q->len);
+    }
+    G.bytes += p->tot_len;
+    G.t_end = cmm2->micros();
+    altcp_recved(pcb, p->tot_len);
+    pbuf_free(p);
+    return ERR_OK;
+}
+
+static void get_err(void *arg, err_t err) {
+    (void)arg;
+    G.pcb = NULL;                               // (lwIP has freed it)
+    printf("TLS connection error %d\n", err);
+    G.state = -1;
+}
+
+static err_t get_connected(void *arg, struct altcp_pcb *pcb, err_t err) {
+    (void)arg; (void)err;
+    G.t_conn = cmm2->micros();                  // (with altcp_tls: once the handshake is done)
+    mbedtls_ssl_context *ssl = (mbedtls_ssl_context *)altcp_tls_context(pcb);
+    G.verify = mbedtls_ssl_get_verify_result(ssl);
+    G.suite = mbedtls_ssl_get_ciphersuite(ssl);
+    G.version = mbedtls_ssl_get_version(ssl);
+    static char req[256];
+    int n = snprintf(req, sizeof(req), "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: CMM2 wifi.app\r\nConnection: close\r\n\r\n",
+                     G.path, G.host);
+    altcp_write(pcb, req, n, TCP_WRITE_FLAG_COPY);
+    altcp_output(pcb);
+    return ERR_OK;
+}
+
+static void get_dns(const char *name, const ip_addr_t *ip, void *arg) {
+    (void)name; (void)arg;
+    if (ip) {
+        G.addr = *ip;
+        G.dns_done = 1;
+    } else {
+        G.dns_done = -1;
+    }
+}
+
+static int wait_for(volatile int *flag, uint32_t ms) {
+    uint64_t t0 = cmm2->micros();
+    while (*flag == 0 && cmm2->micros() - t0 < ms * 1000ull) {
+        cyw43_arch_poll();
+        if (cmm2->poll()) {
+            return -1;
+        }
+    }
+    return *flag;
+}
+
+static int https_get(const char *host, const char *path) {
+    memset(&G, 0, sizeof(G));
+    G.host = host;
+    G.path = path;
+    uint64_t t0 = cmm2->micros();
+    err_t e = dns_gethostbyname(host, &G.addr, get_dns, NULL);
+    if (e == ERR_OK) {
+        G.dns_done = 1;
+    } else if (e != ERR_INPROGRESS) {
+        printf("DNS: error %d\n", e);
+        return 1;
+    }
+    if (wait_for(&G.dns_done, 10000) != 1) {
+        printf("DNS: %s not found\n", host);
+        return 1;
+    }
+    printf("%s is %s (DNS %lu ms)\n", host, ipaddr_ntoa(&G.addr), (unsigned long)((cmm2->micros() - t0) / 1000));
+    struct altcp_tls_config *cfg = altcp_tls_create_config_client(NULL, 0);   // no CA: the certificate is not verified
+    if (!cfg) {
+        printf("altcp_tls_create_config_client failed\n");
+        return 1;
+    }
+    G.pcb = altcp_tls_new(cfg, IPADDR_TYPE_V4);
+    if (!G.pcb) {
+        printf("altcp_tls_new failed\n");
+        altcp_tls_free_config(cfg);
+        return 1;
+    }
+    mbedtls_ssl_set_hostname((mbedtls_ssl_context *)altcp_tls_context(G.pcb), host);   // (SNI)
+    altcp_recv(G.pcb, get_recv);
+    altcp_err(G.pcb, get_err);
+    G.t_start = cmm2->micros();
+    e = altcp_connect(G.pcb, &G.addr, 443, get_connected);
+    if (e != ERR_OK) {
+        printf("altcp_connect: error %d\n", e);
+        altcp_abort(G.pcb);
+        altcp_tls_free_config(cfg);
+        return 1;
+    }
+    wait_for(&G.state, 30000);
+    if (G.state == 0 && G.pcb) {
+        printf("(timed out: closed)\n");
+        altcp_abort(G.pcb);
+        G.pcb = NULL;
+    }
+    if (G.t_conn) {
+        printf("TLS handshake %lu ms: %s, %s; certificate check flags %08lX (not verified: no CA given)\n",
+               (unsigned long)((G.t_conn - G.t_start) / 1000), G.version ? G.version : "?", G.suite ? G.suite : "?",
+               (unsigned long)G.verify);
+    }
+    if (G.bytes) {
+        uint64_t dt = G.t_end - G.t_first;
+        printf("%lu bytes received, first after %lu ms, then %lu ms: %lu KB/s\n", (unsigned long)G.bytes,
+               (unsigned long)((G.t_first - G.t_conn) / 1000), (unsigned long)(dt / 1000),
+               (unsigned long)(dt ? (uint64_t)G.bytes * 1000000ull / dt / 1024 : 0));
+    }
+    altcp_tls_free_config(cfg);
+    return G.state == 1 && G.bytes ? 0 : 1;
+}
+
+static const char *https_host, *https_path;    // (set: join fetches this instead of serving)
+
 static int join(const char *ssid, const char *pw) {
     for (unsigned i = 0; i < sizeof(txbuf); i++) {
         txbuf[i] = (uint8_t)(i * 7);
@@ -366,6 +537,12 @@ static int join(const char *ssid, const char *pw) {
         }
     }
 
+    if (https_host) {
+        int rc = https_get(https_host, https_path);
+        printf("%lu bus errors\n", (unsigned long)cyw43_cmm2_bus_errors());
+        cyw43_arch_deinit();
+        return rc;
+    }
     if (listen_on(&conns[0], 5001) || listen_on(&conns[1], 5002)) {
         printf("TCP listen failed\n");
     }
@@ -394,6 +571,16 @@ int main(int argc, char **argv) {
         rc = bus_test(argc > 2 ? atoi(argv[2]) : 10000);
     } else if (!strcasecmp(cmd, "scan")) {
         rc = scan();
+    } else if (!strcasecmp(cmd, "https") && argc > 2) {
+        static char ssid[64], pw[80];
+        https_host = argv[2];
+        https_path = argc > 3 ? argv[3] : "/";
+        if (read_cfg(ssid, pw, sizeof(ssid)) == 0) {
+            rc = join(ssid, pw);
+        } else {
+            printf("No A:/wifi/wifi.cfg\n");
+            rc = 1;
+        }
     } else if (!strcasecmp(cmd, "join")) {
         static char ssid[64], pw[80];
         if (argc > 2) {
@@ -407,7 +594,7 @@ int main(int argc, char **argv) {
             rc = 1;
         }
     } else {
-        printf("RUN \"wifi.app\", test [n] | scan | join [ssid password]\n");
+        printf("RUN \"wifi.app\", test [n] | scan | join [ssid password] | https host [path]\n");
     }
     cyw43_cmm2_restore_pins();
     return rc;

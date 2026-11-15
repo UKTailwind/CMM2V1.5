@@ -9,6 +9,16 @@
 #include "lwipopts_examples_common.h"
 
 #define LWIP_ALTCP 1
+// TLS, as the PicoMite's lwipopts.h has it under PICOMITEWEB_TLS
+#define LWIP_ALTCP_TLS 1
+#define LWIP_ALTCP_TLS_MBEDTLS 1
+#define MEM_SIZE 40960
+// The receive window must hold a whole TLS record: altcp_tls_mbedtls.c opens the window again only for what mbedTLS
+// has decrypted, and it decrypts only whole records, up to 16,384 bytes of data plus 29 of header and tag (16,413).
+// The PicoMite's 8 x TCP_MSS (11,680) stalls a download for good at the server's first full-size record (15 Nov:
+// speed.cloudflare.com stopped after 220 KB, its small opening records done). 16 x TCP_MSS = 23,360.
+#undef TCP_WND
+#define TCP_WND (16 * TCP_MSS)
 #define DNS_TABLE_SIZE 1
 #define MEMP_NUM_SYS_TIMEOUT (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 3)
 

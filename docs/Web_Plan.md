@@ -265,9 +265,30 @@ G2's result too):
   (7 to 309 ms with it on).
 - **The throughput,** 10 s each way: **2.1 MB/s** from the CMM2 and **2.36 MB/s** to it, both ends agreeing, with no
   bus errors.
-- **The sizes** with the CMM2's flags (code and constant data): the blob 225,240 bytes (Wi-Fi only), lwIP 48,717,
-  cyw43-driver 11,087, the bus and port layer 4,307. mbedTLS and the PicoMite's net code are not in it yet.
-- **Still to do:** the G1's run (the module moved over; its SPI2 runs at 20 MHz), and mbedTLS's size.
+- **TLS** (`wifi.app https host path`: lwIP's altcp_tls, pico-sdk's copy of altcp_tls_mbedtls.c for mbedTLS 3 and
+  mbedTLS 3.6.6 with the PicoMite's net/mbedtls_config.h, all as the PicoMite builds them; the RNG for entropy):
+  - example.com: 200 OK over TLS 1.2, ECDHE-ECDSA with ChaCha20-Poly1305, the handshake in 1.1 to 1.6 s;
+  - 2 MB from speed.cloudflare.com at **1.13 MB/s**, decrypted on the CMM2.
+  - **The window:** with the PicoMite's TCP_WND (8 x TCP_MSS, 11,680 bytes) the download stopped for good after
+    220 KB. altcp_tls_mbedtls.c opens the window again only for decrypted data, and mbedTLS decrypts only whole
+    records, up to 16,413 bytes on the wire: once the server moved from its small opening records to full-size ones,
+    no record could ever arrive. The CMM2's lwipopts.h sets 16 x TCP_MSS (23,360); the PicoMite's copy is unchanged.
+    A PicoMite should stall the same way on a large HTTPS download (not yet tried on one).
+- **The sizes** with the CMM2's flags (code and constant data):
+
+  | Part | Bytes |
+  |---|---|
+  | The blob (Wi-Fi only) | 225,240 |
+  | mbedTLS | 165,949 |
+  | lwIP | 48,306 |
+  | cyw43-driver | 11,087 |
+  | TLS glue (altcp_tls, and the CMM2's entropy, time and allocator) | 4,464 |
+  | The bus and port layer | 4,307 |
+  | **Total** | **459,353** |
+
+  The PicoMite's net/*.c (about 24 KB on the PicoMite) and lwIP's MQTT and TFTP apps come on top in step 2. The
+  stack is about 60 KB under the plan's estimate of 520 KB.
+- **Still to do:** the G1's run (the module moved over; its SPI2 runs at 20 MHz), deferred (Peter, 15 Nov).
 
 ### Step 2: into the firmware
 

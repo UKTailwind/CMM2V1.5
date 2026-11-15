@@ -82,4 +82,5 @@ apps/sql/out/
 # Wi-Fi step 1 (apps/wifi/make.py): cyw43-driver and lwIP fetched at pinned commits, and the build
 apps/wifi/cyw43-driver/
 apps/wifi/lwip/
+apps/wifi/mbedtls/
 apps/wifi/out/
