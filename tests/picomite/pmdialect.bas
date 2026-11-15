@@ -15,7 +15,8 @@ Play Tone 440, 440, 2000 : Pause 50 : Play Pause
 CheckS "MM.INFO(SOUND) of a paused tone: PAUSED TONE", MM.Info$(Sound), "PAUSED TONE"
 Play Stop
 
-Mode 2
+Resolution 640                                                  ' (GETSCANLINE's counts below are 640x480's: the board's
+Mode 2                                                          ' own, from DEFAULT MODE, may be 800x600)
 CLS RGB(cyan)
 Load Png "pd_alpha", 0, 0
 CheckS "LOAD PNG with no t: alpha 20 or less drawn in colour 0", Px$(), "FF0000 000000 0000FF 000000"

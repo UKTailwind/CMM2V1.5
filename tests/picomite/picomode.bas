@@ -8,7 +8,8 @@ Option Explicit
 Dim integer m, r, a
 Dim rs$(7) = ("640x480", "720x400", "800x600", "848x480", "800x480", "1024x600", "1280x720", "1024x768")
 Option Console Serial
-Print "start:"; MM.Info(MODE); MM.HRes; MM.VRes; " "; MM.Info$(LCDPANEL)
+Print "start: "; MM.Info$(LCDPANEL)                             ' (MODE 1 at the board's resolution: OPTION PICOMITE HDMI
+                                                                ' takes DEFAULT MODE's, so 640x480 is not a given)
 Print "MM.DEVICE$: "; MM.Device$; ", MM.INFO$(DEVICE): "; MM.Info$(DEVICE)
 For r = 0 To 7
   Execute "Resolution " + rs$(r)

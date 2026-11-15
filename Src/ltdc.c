@@ -540,11 +540,11 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	  fnt = ((6 << 4) | 1);
 	  Option.DefaultFont = gui_font;
 	} else if(VideoMode==18){
-	  pll.PLL3M = 1; //59.8Hz 50.5MHz (the PicoMite's 50.4 +0.2%) pixel clock, VCO 808 MHz (it was 58.286 MHz, 68 Hz)
-	  pll.PLL3N = 101;
-	  pll.PLL3P = 16;
-	  pll.PLL3Q = 16;
-	  pll.PLL3R = 16;
+	  pll.PLL3M = 1; //60Hz 64.727MHz (65 -0.42%) pixel clock, VCO 712 MHz: mode 9's, for 1024x768's frame (the LTDC's
+	  pll.PLL3N = 89; // timing below). It was the PicoMite's 50.5MHz, 59.8 Hz (VCO 808, dividers 16) until 15 Nov 2026
+	  pll.PLL3P = 11;
+	  pll.PLL3Q = 11;
+	  pll.PLL3R = 11;
 	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
@@ -691,7 +691,8 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 	  	  hltdc.Init.AccumulatedActiveH = 623;
 	  	  hltdc.Init.TotalWidth = 1055;
 	  	  hltdc.Init.TotalHeigh = 624;
-	  } else if(VideoMode==2){ //640x400
+	  } else if(VideoMode==2){ //640x400, in VESA 640x480 at 75Hz's frame (40 black lines above and below). Tried on VGA, 15 Nov
+	  // 2026: 640x400 at 70Hz is 720x400's signal (the monitor said 720x400), VESA's 640x400 at 85Hz "not supported"
 	  /* USER CODE END LTDC_Init 1 */
 		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
@@ -901,21 +902,21 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.AccumulatedActiveH = 498;
 		  hltdc.Init.TotalWidth = 503;
 		  hltdc.Init.TotalHeigh = 499;
-	  } else if((VideoMode==18)){//1024x600
-		  // the PicoMite's 1024x600 (graphics/Screens.h, MODE_H_X_ and MODE_V_X_: 1024x768's line, 800x600@60's frame),
-		  // which monitors take (Peter, 24 Oct 2026): H 1024 + 24 + 136 + 160, V 600 + 1 + 4 + 23, +H -V. It was a
-		  // panel's (H 1024 + 210 + 10 + 100, V 600 + 18 + 10 + 10, -H -V, 68 Hz), which a monitor showed poorly.
+	  } else if(VideoMode==18){ //1024x600 in mode 9's VESA 1024x768 at 60Hz frame, 84 black lines above and below:
+		  // H 1024 + 24 + 136 + 160, V 768 (84 + 600 + 84) + 3 + 6 + 29, -H -V. It had the PicoMite's 1024x600 timing (H
+		  // 1024 + 24 + 136 + 160, V 600 + 1 + 4 + 23, +H -V, 24 Oct 2026), which is 800x600 at 60Hz's lines and frame rate:
+		  // a VGA monitor took it as 800x600, 800 samples across the 1024 pixels (Peter, 15 Nov 2026)
 		  hltdc.Instance = LTDC;
-		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AH;
+		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
 		  hltdc.Init.HorizontalSync = 135;
-		  hltdc.Init.VerticalSync = 3;
+		  hltdc.Init.VerticalSync = 5;
 		  hltdc.Init.AccumulatedHBP = 295 + Option.offsets[18];
-		  hltdc.Init.AccumulatedVBP = 26;
+		  hltdc.Init.AccumulatedVBP = 34 + 84;
 		  hltdc.Init.AccumulatedActiveW = 1319;
-		  hltdc.Init.AccumulatedActiveH = 626;
+		  hltdc.Init.AccumulatedActiveH = 802 - 84;
 		  hltdc.Init.TotalWidth = 1343;
-		  hltdc.Init.TotalHeigh = 627;
+		  hltdc.Init.TotalHeigh = 805;
 	  }
 	  if(ModeHs > 1){                                                 // OPTION PICOMITE's smaller modes: the line's parts in
 		  hltdc.Init.HorizontalSync = (hltdc.Init.HorizontalSync + 1) / ModeHs - 1;   // pixels of the divided clock,
