@@ -424,8 +424,9 @@ In this order (15 Nov), each built and checked on the G3 before the next:
   prints its own time (2.444 ms with Wi-Fi, 2.427 without). Against the G3's run with Wi-Fi: only what differs
   between the boards (MM.DEVICE$, the card's files, picocompat's psram line) and t1, whose "Invalid identifier"
   message shows TRIM$('s token byte in place of its name (an old fault, not the network's).
-- **Still to do:** step 4 on the G2; the manual; TLS with a CA (WEB TLS CA); the web server with several clients
-  at once and the PicoMite's own example programs.
+- **The web server with several clients at once:** checked by Peter, who used Retic's pages from his browser while
+  the test script was posting its forms and fetching pages on the G3 (15 Nov).
+- **Still to do:** step 4 on the G2; the manual; TLS with a CA (WEB TLS CA); the PicoMite's own example programs.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
