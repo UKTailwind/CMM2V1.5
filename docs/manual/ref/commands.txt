@@ -3064,11 +3064,16 @@ This command is normally used to save calibration data, options, and other data 
 === WATCHDOG timeout
 or
 WATCHDOG OFF
+or
+WATCHDOG HW timeout
+or
+WATCHDOG HW OFF
 ---
 Starts the watchdog timer, which restarts the Colour Maximite 2 when it times out.  This can be used to recover from some event that stopped the running program (such as an endless loop, or an error that returned to the command prompt), which can be important in an unattended control situation.
 ‘timeout’ is the time in milliseconds (1 or more) before a restart is forced.  This command should be placed in strategic locations in the running BASIC program to constantly reset the watchdog timer (to ‘timeout’) and therefore prevent it from counting down to zero.
 If the timer count does reach zero (perhaps because the BASIC program has stopped running) the Colour Maximite 2 will be restarted, "Watchdog timeout" will be displayed and the automatic variable MM.WATCHDOG will be set to true (ie, 1) indicating that an error occurred.  This happens even when MMBasic is at the command prompt.  OPTION AUTORUN must be set for the program to run again.  On a normal startup MM.WATCHDOG will be set to false (ie, 0).
 WATCHDOG OFF disables the watchdog timer (this is the default on a reset or power up).  The timer is also turned off when the break key (normally Ctrl-C) is used on the console to interrupt a running program.
+WATCHDOG HW timeout and WATCHDOG HW OFF are the PicoMite's commands for its hardware watchdog.  With OPTION PICOMITE they are accepted and work this watchdog timer, so that a PicoMite program runs unchanged; 'timeout' is then 1 to 8331, the PicoMite's limit.  Unlike the PicoMite's hardware watchdog, the timer is still turned off by the break key.  Without OPTION PICOMITE the HW forms are an error.
 
 === WII
 --- keep

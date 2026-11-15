@@ -190,6 +190,7 @@ int SystemError=0;
 void firstinit(int asktime, int askkeyboard);
 static int KeptKeyboard(void);
 static void KeepKeyboard(int k);
+static void CountBoot(void);
 extern void JumpToBootloader(void);
 int docheck=1;
 FATFS fs;                 // Work area (file system object) for logical drive
@@ -557,6 +558,7 @@ if(_excep_code == RESTART_BOOT0){
   /* USER CODE BEGIN SysInit */
   clockreset=MX_RTC_Init();                                         // 1: the RTC had lost the time (it was set to 2000)
   keptkb=KeptKeyboard();                                            // (before anything resets the options)
+  CountBoot();                                                      // MM.INFO(BOOT COUNT)
   HAL_FLASH_Unlock();
 
 
@@ -4947,6 +4949,19 @@ static int KeptKeyboard(void) {
     return ((v & 0xFFFF0000u) == KBDTAG && (v & 0xFFFF) <= MAXKEYBOARDS) ? (int)(v & 0xFFFF) : -1;
 }
 static void KeepKeyboard(int k) { HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, KBDTAG | (uint32_t)k); }
+
+// MM.INFO(BOOT COUNT), the PicoMite's: this start's number, counted in the RTC's backup register 2 (BOOTTAG and the
+// count), battery backed like the keyboard's, so kept through a reset, a power cycle and a reflash; from 1 again if the
+// RTC lost it. (The PicoMite counts in a file on its flash drive, which a reflash or a format clears.)
+#define BOOTTAG 0xB0000000u
+int BootCount;
+static void __attribute__((section(".bank2"))) CountBoot(void) {
+    uint32_t v = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2);
+    v = (v & 0xFF000000u) == BOOTTAG ? (v + 1) & 0x00FFFFFFu : 1;
+    if(v == 0) v = 1;
+    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, BOOTTAG | v);
+    BootCount = (int)v;
+}
 
 // the first start's questions: the keyboard if it is not known (askkeyboard), the time and date if the RTC lost them
 // (asktime: its battery flat or out). Not after a reflash, which leaves both alone (Peter, 4 Nov 2026)

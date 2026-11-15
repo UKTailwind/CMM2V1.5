@@ -85,6 +85,10 @@ MM.INFO(FCOLOUR)
 --- keep
 The current background and foreground colours (see COLOUR).  BCOLOR and FCOLOR are accepted too.
 
+=+= MM.INFO(BOOT COUNT)
+--- keep
+The number of this start of the Colour Maximite 2, counted at every start: power up, the reset switch, CPU RESTART, a watchdog timeout, an OPTION that restarts and a firmware update.  The count is kept in the real time clock's battery-backed memory, so it begins again at 1 if that battery is flat or removed.  This is the PicoMite's key (the PicoMite counts in a file on its flash drive, which a firmware update clears).
+
 =+= MM.INFO(CALLTABLE)
 --- keep
 The address of the table of firmware routines that a CSUB calls, in the PicoMite's layout (PicoCFunctions.h): with OPTION PICOMITE the one a CSUB built for the PicoMite uses, with its floating point values passed as the PicoMite passes them, and without it the one a CSUB built for the Colour Maximite 2 with PicoCFunctions.h uses.  See CSUB, and the chapter *Porting Programs*.

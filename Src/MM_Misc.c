@@ -3489,6 +3489,9 @@ void OPTSIZE fun_info(void){
 	    }
 		iret=(int64_t)nbr * RAMPAGESIZE;
 		rettype='I';
+	} else if(checkstring(ep, "BOOT COUNT")){                          // the PicoMite's: the starts so far (main.c, CountBoot)
+		iret = BootCount;
+		rettype='I';
 	} else if(checkstring(ep, "RESET") || ((tp = checkstring(ep, "BOOT")) && !*tp)){   // what started the board: "Switch",
 		strcpy(sret,bootcause);                                     // "Power-On", "Software" or "Brown-Out" (main.c); BOOT is the
 		                                                            // PicoMite's name (its words are not used: Peter, 26 Oct)
@@ -3577,8 +3580,12 @@ void OPTSIZE fun_info(void){
 
 void cmd_watchdog(void) {
     int i;
+    char *p;
 
-    if(checkstring(cmdline, "OFF") != NULL) {
+    if(PicoFlavour() != PICO_NONE && (p = checkstring(cmdline, "HW"))) {   // the PicoMite's WATCHDOG HW t | HW OFF, under
+        if(checkstring(p, "OFF") != NULL) WDTimer = 0;              // OPTION PICOMITE: this software watchdog, with the
+        else WDTimer = getint(p, 1, 8331);                          // PicoMite's limit (Peter, 15 Nov 2026)
+    } else if(checkstring(cmdline, "OFF") != NULL) {
         WDTimer = 0;
     } else {
         i = getinteger(cmdline);
