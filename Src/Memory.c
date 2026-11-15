@@ -1106,6 +1106,11 @@ static void HeapWipe(void **keep, int *size, int n) {
     RamLowFree = RamHighFree = SdHighFree = NULL;                   // (every page free: from RAMBASE up, from the tops down)
     for(i = 0; i < n; i++) HeapMark(keep[i], size[i]);
     for(i = 0; i < nslots; i++) HeapMark(slot[i], slotsize[i]);
+    {   // the network block, OPTION WIFI's on a G2 or G3: lwIP's heap, which outlives RUN and NEW (Src/net/WebMite_cmm2.c)
+        extern int WebBlockInHeap(void **addr, int *size);
+        void *a; int s;
+        if(WebBlockInHeap(&a, &s)) HeapMark(a, s);
+    }
     ProgramCachesForget();                                          // the tables made for the program were in the heap
     JsonArenaForget();                                              // and so was JSON$'s parse arena
     g_myrand = NULL;                                                // and MATH(RAND)'s generator

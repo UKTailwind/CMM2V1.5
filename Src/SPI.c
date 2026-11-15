@@ -302,6 +302,7 @@ void fun_spi2(void) {
 
 
 void SPI2Close(void){
+	if(ExtCurrentConfig[SPI2_CLK_PIN] == EXT_BOOT_RESERVED) return;   // SPI2 is Wi-Fi's (OPTION WIFI: Src/net/WebMite_cmm2.c)
 	HAL_SPI_DeInit(&hspi2);
 	if(ExtCurrentConfig[SPI2_OUT_PIN] != EXT_BOOT_RESERVED) ExtCfg(SPI2_OUT_PIN, EXT_NOT_CONFIG, 0);
 	if(ExtCurrentConfig[SPI2_INP_PIN] != EXT_BOOT_RESERVED)  ExtCfg(SPI2_INP_PIN, EXT_NOT_CONFIG, 0);      // reset to not in use

@@ -2456,6 +2456,8 @@ bool usb_msc_is_mounted(void);
 void DriveCurrent(void);
 void OPTSIZE cmd_option(void) {
 	char *tp;
+	extern int WebOption(char *cmdline);                            // OPTION WIFI, TCP SERVER PORT, UDP SERVER PORT, TELNET
+	if(WebOption(cmdline)) return;                                  // CONSOLE, TFTP, WEB MESSAGES (Src/net/WebMite_cmm2.c)
 
 	tp = checkstring(cmdline, "LOCAL VARIABLES");                  // the PicoMite's local region size: a no-op here, where the
 	if(tp) {                                                        // region is larger than any it sets (Peter, 17 Oct)
@@ -2921,6 +2923,8 @@ void OPTSIZE fun_info(void){
 	char *tp;
 	sret = GetTempStrMemory();									// this will last for the life of the command
 	char rettype='S';
+	extern int WebInfo(char *ep);                                   // IP ADDRESS, WIFI STATUS, TCP REQUEST n, OPTION SSID ...
+	if(WebInfo(ep)) return;                                         // (the PicoMite's network: Src/net/WebMite_cmm2.c)
 	tp=checkstring(ep, "PIN");
 	if(tp){
 		int pin;
@@ -4224,6 +4228,11 @@ int check_interrupt(void) {
     if(OnKeyGOSUB && kbhitConsole()) {
         intaddr = OnKeyGOSUB;							            // set the next stmt to the interrupt location
 		goto GotAnInterrupt;
+    }
+    {   // the network's: WEB TCP INTERRUPT, MQTT's, WEB UDP INTERRUPT (the PicoMite's, Src/net/WebMite_cmm2.c)
+        extern char *WebInterrupt(void);
+        char *a = WebInterrupt();
+        if(a) { intaddr = a; goto GotAnInterrupt; }
     }
 	// interrupt routines for the serial ports
     if(com1 || com2 || com3){

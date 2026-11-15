@@ -37,7 +37,6 @@
 // #define ALTCP_MBEDTLS_DEBUG  LWIP_DBG_ON
 #define MEMP_NUM_SYS_TIMEOUT (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 3) // <-------- +1 for MQTT
 extern int MMerrno;
-extern char MMErrMsg[];
 #define LWIP_PLATFORM_DIAG(x) \
    {                          \
       MMerrno = 17;           \
@@ -60,10 +59,10 @@ extern char MMErrMsg[];
    any of them can outlive a RUN. Size the C heap to hold pbufs + DHCP + those
    calloc'd structs. */
 
-/* ---- The Colour Maximite 2 (docs/Web_Plan.md, step 2). The PicoMite's settings above are copied as they are; what
-   follows is the CMM2's. ----
-   lwIP's heap is lwIP's own (mem.c), laid over the network block (Memory.c: NetBlock, 128 KB, taken at start-up only
-   with OPTION WIFI: the top of the display memory on a G1, the heap on a G2 or G3), and its pools come from it
+/* ---- The Colour Maximite 2 (docs/Web_Plan.md, step 2): what follows is the CMM2's; the PicoMite's settings above are
+   as they are (tools/port_net.py), less their "extern char MMErrMsg[]", which the CMM2 declares otherwise. ----
+   lwIP's heap is lwIP's own (mem.c), laid over the network block (NetBlock.h: 128 KB, taken at start-up only with
+   OPTION WIFI: the top of the display memory on a G1, the top of the heap on a G2 or G3), and its pools come from it
    (MEMP_MEM_MALLOC). On the PicoMite they are the C library's heap; on the CMM2 that heap (newlib's) grows up from the
    bottom of MMBasic's SDRAM heap, which a G1 lends to its loadable programs, so the network keeps out of it. mbedTLS
    still takes MMBasic's heap through CallocMemory, as on the PicoMite (mbedtls_config.h). */

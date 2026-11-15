@@ -93,6 +93,15 @@ target_compile_definitions(${TARGET} PRIVATE CYW43_LWIP=1 PICO_CYW43_ARCH_POLL=1
 set(NET_SOURCES ${SOURCES})
 list(FILTER NET_SOURCES INCLUDE REGEX "^(Middlewares/Third_Party/(cyw43-driver|lwip|mbedtls)|Src/net)/")
 set_property(SOURCE ${NET_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -std=gnu11)
+# and NDEBUG, as the PicoMite's Release builds have them: no asserts, and the driver's CYW43_DEBUG chatter (its firmware
+# banner at every start) silent
+set_property(SOURCE ${NET_SOURCES} APPEND PROPERTY COMPILE_DEFINITIONS NDEBUG)
+# The PicoMite's network code (Src/net/picomite, tools/port_net.py) is copied as it is: what its own headers gave it
+# comes from Inc/net/WebMite_cmm2.h, made its first include
+set(PICOMITE_NET_SOURCES ${SOURCES})
+list(FILTER PICOMITE_NET_SOURCES INCLUDE REGEX "^Src/net/picomite/")
+set_property(SOURCE ${PICOMITE_NET_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -include WebMite_cmm2.h
+    -Wno-pointer-sign -Wno-discarded-qualifiers)   # (the CMM2's interpreter API is char *, the PicoMite's unsigned char *)
 
 target_compile_options(${TARGET} PRIVATE
     ${MCU_FLAGS}

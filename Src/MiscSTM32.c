@@ -377,6 +377,8 @@ void printoptions(void){
         MMPrintString("\r\n");
     }
     if(Option.MaxCtrls)PO2Int("MAXCTRLS", Option.MaxCtrls);
+    extern void WebOptionList(void);                                // OPTION WIFI ... (Src/net/WebMite_cmm2.c)
+    WebOptionList();
     return;
 
 }
@@ -1491,12 +1493,14 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
 	        FileClose(fnbr);
 	        return;
 	    }
-	    if(f_size(FileTable[fnbr].fptr) != sizeof(struct option_s)) {
-	        FileClose(fnbr);
+	    int fsize = f_size(FileTable[fnbr].fptr);
+	    if(fsize != sizeof(struct option_s) && fsize != OPTION_SIZE_L3) {   // (OPTION_SIZE_L3: saved before the WEB options,
+	        FileClose(fnbr);                                    // which LoadOptions then sets off, as for a record in flash)
 	        error("File size incorrect: not saved by OPTION DISK SAVE in this firmware");
 	    }
 	    char *t = GetTempMemory(sizeof(struct option_s));        // read whole first: the SD card's driver reads the options
-	    for(i = 0; i < sizeof(struct option_s); i++) t[i] = FileGetChar(fnbr);   // (SD TIMING...) while it reads, and
+	    memset(t, 0xFF, sizeof(struct option_s));               // (what a shorter record leaves: erased flash)
+	    for(i = 0; i < fsize; i++) t[i] = FileGetChar(fnbr);    // (SD TIMING...) while it reads, and
 	    FileClose(fnbr);                                        // one changed in the middle hung it
 	    memcpy(s, t, sizeof(struct option_s));
 		goto saveandreset;

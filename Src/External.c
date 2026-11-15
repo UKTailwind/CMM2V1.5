@@ -2085,6 +2085,7 @@ void ClearExternalIO(void) {
     PWMClose(0); PWMClose(1);                                       // close any running PWM output
     SerialClose(1); SerialClose(2); SerialClose(3);                             // same for serial ports
     SPIClose();SPI2Close();                                            // and the SPI
+    { extern void WebClearIO(void); WebClearIO(); }                 // MQTT, the TCP client and the network's interrupts (Src/net)
     ADCclose();
 	dacclose();
 	CloseAudio(1);

@@ -56,7 +56,9 @@ FLASHB2 (rx)    : ORIGIN = 0x08100000, LENGTH = 256K   /* bank 2 sectors 0-1: fi
 FLASHOPT (rx)   : ORIGIN = 0x08141000, LENGTH = 124K   /* sector 2: the options (its first 4 KB, written by SaveOptions:
                                                           flash.c), then mmbrun, run in place (.xip below): right after
                                                           the firmware, so the one .bin has it (Peter, 4 Nov 2026) */
-FLASH2 (r)      : ORIGIN = 0x08160000, LENGTH = 640K   /* sectors 3-7: the program (OPTION FLASH 2-6) and the library */
+NETFLASH (rx)   : ORIGIN = 0x08160000, LENGTH = 512K   /* sectors 3-6: the network (.net below). V8 gave them to the
+                                                          firmware when the program left the flash (Peter, 8 Nov 2026) */
+FLASHLIB (r)    : ORIGIN = 0x081E0000, LENGTH = 128K   /* sector 7: the library, written by LIBRARY SAVE */
 /*RAM_D5 (rw)     : ORIGIN = 0x38800000, LENGTH = 4K*/
 }
 
@@ -96,6 +98,22 @@ SECTIONS
    
 /* used by the startup to initialize data */
   _siITCM = LOADADDR(.ITCMSection);
+
+  /* .net: the network (docs/Web_Plan.md, step 2) in bank 2's sectors 3 to 6: cyw43-driver with the CYW43439's
+     firmware blob, lwIP, mbedTLS and the CMM2's port, file by file. Bank 2's rule (below) holds for it: nothing an
+     interrupt runs is here, and ProcessWeb is not called while a bank 2 sector is erased or written. Like .bank2, it
+     comes before .text, which would otherwise take these files' sections. The .bin runs on to its end; only
+     sector 7, the library, is left out. */
+  .net :
+  {
+    . = ALIGN(4);
+    *Third_Party/cyw43-driver/*(.text .text* .rodata .rodata*)
+    *Third_Party/lwip/*(.text .text* .rodata .rodata*)
+    *Third_Party/mbedtls/*(.text .text* .rodata .rodata*)
+    *Src/net/*(.text .text* .rodata .rodata*)
+    . = ALIGN(4);
+    _enet = .;
+  } >NETFLASH
 
   /* .bank2: bank 2 sectors 0 and 1, right after bank 1, so the firmware is still one block (one .bin, which ends in
      these sectors and never reaches the program's). Only code that runs in the foreground goes here, named file by file:

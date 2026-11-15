@@ -513,17 +513,19 @@ void SaveOptions(int check) {
 static void OptionsFrom(uint32_t from) {
     memcpy((struct option_s *)&Option, (struct option_s *)from, sizeof(struct option_s));
     if(Option.layout != OPTION_LAYOUT) {                            // saved before OPTION F15-F20 (layout 1), F1 and F5-F9 (2) or
-        if(Option.layout != 1 && Option.layout != 2) {             // SCREEN KEYBOARD (3): those bytes are erased flash, so they are
+        if(Option.layout != 1 && Option.layout != 2 && Option.layout != 3) {             // SCREEN KEYBOARD (3): those bytes are erased flash, so they are
             mymemset((char *)Option.F15Key, 0, sizeof(Option.F15Key)); // emptied (the other options are kept; the next SaveOptions
             mymemset((char *)Option.F16Key, 0, sizeof(Option.F16Key)); // writes the record whole)
             mymemset((char *)Option.F19Key, 0, sizeof(Option.F19Key));
             mymemset((char *)Option.F20Key, 0, sizeof(Option.F20Key));
         }
-        if(Option.layout != 2) {
+        if(Option.layout != 2 && Option.layout != 3) {
             mymemset((char *)Option.F1Key, 0, sizeof(Option.F1Key));
             mymemset((char *)Option.F5Key, 0, 5 * sizeof(Option.F5Key));  // (F5 to F9, one after another)
         }
-        Option.VRes_reserved = Option.Multi = 0;
+        if(Option.layout != 3) Option.VRes_reserved = Option.Multi = 0;
+        mymemset((char *)Option.SSID, 0, (char *)&Option.end - (char *)Option.SSID);   // (layout 4: the WEB options off)
+        Option.ServerResponceTime = Option.UDPServerResponceTime = 5000;
         Option.layout = OPTION_LAYOUT;
     }
     // (the on-screen keyboard's strip, OptionVResreserved, is not set here as the PicoMite's LoadOptions sets it: the
@@ -598,7 +600,12 @@ int OldLayoutMove(void) {
     if(memcmp(lib, (void *)ADDR_FLASH_SECTOR_6_BANK2, 0x20000)) return 0;   // (nothing touched if the copy is not right)
     OptionsFrom(ADDR_FLASH_SECTOR_7_BANK2);
     SaveOptions(0);
-    SectorReplace(ADDR_FLASH_SECTOR_7_BANK2, LibraryImageValid(lib, 0x20000) ? lib : NULL);
+    {   // (sector 6 is the firmware's own once the network reaches it (the linker script's .net): writing the .bin has
+        // replaced any old library there already, so whatever passes for one is code, not a library)
+        extern char _enet[];
+        if((uint32_t)_enet > ADDR_FLASH_SECTOR_6_BANK2) lib = NULL;
+    }
+    SectorReplace(ADDR_FLASH_SECTOR_7_BANK2, lib != NULL && LibraryImageValid(lib, 0x20000) ? lib : NULL);
     return whole ? 1 : 2;
 }
 
@@ -664,6 +671,8 @@ void ResetAllOptions(void) {
 	mymemset((char *)Option.F1Key,0,sizeof(Option.F1Key));
 	mymemset((char *)Option.F5Key,0,5 * sizeof(Option.F5Key));     // (F5 to F9)
 	Option.layout = OPTION_LAYOUT;
+	mymemset((char *)Option.SSID, 0, (char *)&Option.end - (char *)Option.SSID);   // the WEB options: Wi-Fi off
+	Option.ServerResponceTime = Option.UDPServerResponceTime = 5000;
 	mymemset((char *)Option.path,0,sizeof(Option.path));
 	mymemset((char *)Option.offsets,0,sizeof(Option.offsets));
 }

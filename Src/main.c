@@ -745,6 +745,8 @@ initConsole();
 if(OptionConsole & 1)start_console();
 MS7210_Start();                                                     // a G3 (its MS7210 answers), before the first setmode
 InitDisplayOther();
+extern void WebBlockSet(void);                                      // the network block's place, with OPTION WIFI, kept out of
+WebBlockSet();                                                      // the heap from the first InitHeap on (Src/net/WebMite_cmm2.c)
 InitHeap();
 InitBasic();
 InitFileIO();
@@ -927,6 +929,8 @@ if(setjmp(mark) != 0) {
 	if(FindSubFun("MM.STARTUP", 0) >= 0) {
 	ExecuteProgram("MM.STARTUP\0");
 	}
+	{ extern void WebStart(void); WebStart(); }                      // OPTION WIFI: the radio up and the network joined, after the
+	                                                                // banner and before AUTORUN, as the PicoMite (Src/net)
 	_excep_cause = CAUSE_NOTHING;
 	if(AutorunSlot() && _excep_code != RESTART_NOAUTORUN) {          // OPTION AUTORUN n: flash slot n's program (the PicoMite's)
 	  strcpy(inpbuf,"FLASH RUN ");
@@ -3198,8 +3202,11 @@ void MX_TIM2_Init1(void){
 	MX_TIM2_Init();
 }
 
+extern volatile int WIFIconnected; extern int WebScanActive;          // the network (Src/net/WebMite_cmm2.c)
+extern void WebPoll(void); extern void WebConsolePutC(int c);
 void CheckAbort(void) {
-	routinechecks(1);
+	if((WIFIconnected || WebScanActive) && !LoaderActive) WebPoll();   // the network, at every call, as the PicoMite's
+	routinechecks(1);                                               // CheckAbort (its own pace: ProcessWeb, Src/net)
 	if(deferredcopy && pagesetdone){
 		int cursorhidden=0;
 		deferredcopy=0;
@@ -3259,6 +3266,8 @@ void routinechecks(int all){
 			if(CopyClockDue){ CopyClockDue = 0; copy_clock(); }      // (the hour's DS3231 copy, between statements: Timers.c)
 			if(Option.MaxCtrls || osk_state)ProcessTouch();          // (the on-screen keyboard's taps too: OSK.c)
 			if(GPSchannel)processgps();
+			if(!LoaderActive) WebPoll();                            // the network (Src/net): only from the full checks, which
+			                                                        // the flash writer's loops never ask for (bank 2 stalls)
 		}
 		USBtime=0;
 		mT4IntEnable(1);
@@ -3363,6 +3372,7 @@ void SerialConsolePutC(int c) {
 	void putConsole(int c) {
 	    DisplayPutC(c);
 	    SerialConsolePutC(c);
+	    if(WIFIconnected && Option.Telnet && !LoaderActive) WebConsolePutC(c);   // the telnet console (Src/net)
 	}
 
 	PUTCHAR_PROTOTYPE
@@ -3424,6 +3434,7 @@ void SerialConsolePutC(int c) {
 	// print a char on the Serial and USB consoles only (used in the EDIT command and dp() macro)
 	void SerUSBPutC(char c) {
 	    SerialConsolePutC(c);
+	    if(WIFIconnected && Option.Telnet && !LoaderActive) WebConsolePutC(c);   // the telnet console (Src/net)
 	}
 	// print a string on the Serial and USB consoles only (used in the EDIT command and dp() macro)
 	void SerUSBPutS(char *s) {

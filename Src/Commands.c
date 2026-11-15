@@ -1597,6 +1597,7 @@ static void MIPS16 RunStart(int runlib) {
     turtle_init();  //turtle
     statement_time= ReadCoreTimer() + FastTimer;
     if(runlib && LibPresent()) ExecuteProgram(LibMemory);          // the library's top level, its CONSTs and DIMs (the PicoMite's;
+    { extern void WebRunStart(void); WebRunStart(); }               // (and the web server's old connections closed: Src/net)
     firststmt= (char *)ProgMemory;                                  // not for CHAIN, whose globals are kept)
     nextstmt = (char *)ProgMemory;
     RunStarting = 0;

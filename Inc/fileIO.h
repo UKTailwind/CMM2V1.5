@@ -50,6 +50,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 #if !defined(INCLUDE_COMMAND_TABLE) && !defined(INCLUDE_TOKEN_TABLE)
+#ifndef FILEIO_DECLARATIONS                         // (once per file: Hardware_Includes.h has it as fileIO.h,
+#define FILEIO_DECLARATIONS                         // and the PicoMite's network code includes FileIO.h again)
     extern void GetSdFileDescriptor(int fnbr);
     extern void FileOpen(char *fname, char *fmode, char *ffnbr);
     extern int BasicFileOpen(char *fname, int fnbr, int mode);
@@ -132,4 +134,5 @@ typedef struct ss_flist {
 
 extern int OptionLogging;                       // OPTION LOGGING ON: error() adds each message to A:/log.txt
 void LogError(const char *msg);
+#endif
 #endif

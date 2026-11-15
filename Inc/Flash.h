@@ -164,14 +164,32 @@ struct option_s {
 	uint8_t F9Key[64];
 	uint8_t VRes_reserved;              // OPTION SCREEN KEYBOARD n (the PicoMite's): the screen's % for the on-screen
 	uint8_t Multi;                      // keyboard (OSK.c), 0 none; and its , M (the modifiers held by a finger); layout 3
+	// layout 4 (V8, Wi-Fi: docs/Web_Plan.md): the PicoMite's WEB options, as its misc/FileIO.h has them; in a record
+	// saved before it, erased flash, so LoadOptions empties them (Wi-Fi off)
+	uint8_t SSID[64];                   // OPTION WIFI ssid$, password$ [, hostname$] [, ip$, mask$, gateway$] [, country$]
+	uint8_t PASSWORD[64];               // (MAXKEYLEN each)
+	char hostname[32];                  // (the PicoMite's is 28, though its OPTION WIFI takes 31 characters)
+	char ipaddress[16];
+	char mask[16];
+	char gateway[16];
+	uint8_t wifi_country_code;          // WiFi.c's table: 0 worldwide
+	signed char Telnet;                 // OPTION TELNET CONSOLE: 0 OFF, 1 ON, -1 ONLY
+	char disabletftp;                   // OPTION TFTP OFF: 1
+	uint8_t NoHeartbeat;                // (the PicoMite's heartbeat on the radio's LED; the RM2 module has none)
+	uint16_t TCP_PORT;                  // OPTION TCP SERVER PORT n [, response time]: 0 none
+	uint16_t ServerResponceTime;
+	uint16_t UDP_PORT;                  // OPTION UDP SERVER PORT n [, response time]: 0 none
+	uint16_t UDPServerResponceTime;
 	uint8_t end;
 // 128
 };
 #define AUTORUN_SLOT 0x10               // Option.Autorun: 0 OFF, 1 ON (program memory's), AUTORUN_SLOT + n flash slot n's
 #define AUTORUN_NORESET 0x80            // (OPTION AUTORUN n, the PicoMite's), and AUTORUN_NORESET with NORESET (MM_Misc.c)
 #define AutorunSlot() ((Option.Autorun & 0x70) == AUTORUN_SLOT ? Option.Autorun & 0x0F : 0)
-#define OPTION_LAYOUT 3                 // Option.layout: 1 the record has the F15-F20 keys, 2 F1 and F5-F9 too, 3 SCREEN
-                                        // KEYBOARD's (LoadOptions)
+#define OPTION_LAYOUT 4                 // Option.layout: 1 the record has the F15-F20 keys, 2 F1 and F5-F9 too, 3 SCREEN
+                                        // KEYBOARD's, 4 the WEB options (LoadOptions)
+// sizeof(struct option_s) at layout 3, which ended where SSID starts: OPTION DISK LOAD takes such a file too
+#define OPTION_SIZE_L3 ((__builtin_offsetof(struct option_s, SSID) + 1 + __alignof__(struct option_s) - 1) & ~(__alignof__(struct option_s) - 1))
 
 extern volatile struct option_s Option, SOption;
 extern unsigned char *CFunctionFlash;
