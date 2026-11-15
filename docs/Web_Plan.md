@@ -361,8 +361,16 @@ In this order (15 Nov), each built and checked on the G3 before the next:
 - **Fixed on the way:** SPI2Close took SPI2 from Wi-Fi at every RUN (the four pins are boot-reserved now and it leaves
   them); the PicoMite's checksent timed out ("LWIP send data timeout") until CheckAbort polled the network at every
   call, as the PicoMite's does.
-- **Still to do:** UDP, MQTT and TFTP from the PC; the host name's board ID (fills at every start now, for the next
-  OPTION WIFI); step 4's regression without OPTION WIFI; the G1 (stage 7); the manual.
+- **Without the module (15 Nov, 697899c):**
+  - No OPTION WIFI (every board without it): nothing starts; the restart is about 3 s, the heap is 128 KB larger than
+    with Wi-Fi, pins 32, 33, 38 and 40 are Unused, and SETPIN and SPI2 OPEN work on them; WEB commands say "WiFi radio
+    not running", MM.INFO(IP ADDRESS) is 0.0.0.0.
+  - OPTION WIFI set, module unplugged (Peter unplugged it): "WiFi module not found" once at start-up and on to the
+    prompt; the block back in the heap (the same size as without OPTION WIFI), the four pins Unused and SPI2 free,
+    the WEB commands "WiFi radio not running"; the options are kept for when the module is back. The try costs well
+    under a second, and drives the four pins briefly at start-up.
+- **The host name:** OPTION WIFI's default is "PICO" and the board's ID (PICO0131697F on this G3), as on the PicoMite.
+- **Still to do:** UDP, MQTT and TFTP from the PC; step 4's regression; the G1 (stage 7); the manual.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
