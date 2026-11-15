@@ -10,14 +10,16 @@
      USER TOTAL a(), t                t given the sum of a numeric array's elements
      PRINT USER(ADD 2, 3.5)           5.5: an integer if both are integers, else a float
      PRINT USER(REVERSE$ "abc")       cba
+     PRINT USER(FIXED$ PI, 3)          3.142: snprintf's %f, the firmware's own
      PRINT USER(CALLS)                how many times the module has been called since it was loaded
      USER CLOSE                       the module unloaded
 
    Build it from tools/sdk:
 
-     python build.py out/proforma.mod examples/user/proforma.c --module --api 20 --stack 4096
+     python build.py out/proforma.mod examples/user/proforma.c --user
 
-   and copy out/proforma.mod to the SD card. Rename the file and change the tables below to make a module of your own.
+   and copy out/proforma.mod (3 KB) to the SD card. --user makes it a USER module whose snprintf, sprintf and printf
+   are the firmware's own (tools/sdk/userlib.c), floats included, so it carries no printf of its own. Rename the file and change the tables below to make a module of your own.
 
    How it works. MMBasic hands the module the rest of the statement after USER (to command()), or the text inside the
    brackets of USER( (to function()), as it stores it: the names of MMBasic's functions and operators (=, +, AND, TO,
@@ -151,6 +153,18 @@ static void f_reverse(char *p, cmm2_value *r) {
     for(i = 0; i < n; i++) r->s[1 + i] = s[n - i];
 }
 
+/* USER(FIXED$ x, n) */
+static void f_fixed(char *p, cmm2_value *r) {
+    char *argv[3];
+    int argc, n;
+    B->getargs(&p, 3, ",", argv, &argc);
+    if(argc != 3) B->error("Argument count");
+    n = snprintf(r->s + 1, CMM2_STRINGSIZE - 1, "%.*f", (int)B->get_int(argv[2], 0, 15), B->get_number(argv[0]));
+    if(n > CMM2_STRINGSIZE - 2) B->error("String too long");
+    r->s[0] = (char)n;                          /* (the length byte, before the text snprintf wrote) */
+    r->type = CMM2_T_STR;
+}
+
 /* USER(CALLS) */
 static void f_calls(char *p, cmm2_value *r) {
     end_of(p);
@@ -171,6 +185,7 @@ static const command_t commands[] = {
 static const function_t functions[] = {
     {"ADD", f_add},
     {"REVERSE$", f_reverse},
+    {"FIXED$", f_fixed},
     {"CALLS", f_calls},
 };
 
@@ -206,6 +221,8 @@ static const cmm2user_head table = {
 /* called once when the module is loaded: its table */
 const void *module_main(void) {
     B = cmm2_start->basic;
-    if(B == NULL || B->version < CMM2USER_VERSION) return NULL;   /* (not loaded by USER LOAD) */
+    if(B == NULL || B->version < CMM2USER_VERSION || B->size < sizeof(struct cmm2_basic))
+        return NULL;                            /* (not loaded by USER LOAD, or a firmware older than this header:
+                                                   the error "not a module") */
     return &table;
 }

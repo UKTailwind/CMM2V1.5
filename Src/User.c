@@ -21,6 +21,7 @@ module's own command cannot be called either of them. In the bank 2 flash with t
 
 Copyright 2026 Peter Mather. (The firmware's licence: see the other files.)
 ***************************************************************************/
+#include <stdio.h>
 #include <string.h>
 #include <setjmp.h>
 #include "MMBasic_Includes.h"
@@ -153,6 +154,7 @@ static const struct cmm2_basic userbasic = {
     .float_to_str = u_floattostr,
     .c_to_m = u_ctom,
     .m_to_c = u_mtoc,
+    .vsnprintf = vsnprintf,                                         // (newlib's, with floats: the firmware's own)
     .in_program = u_inprogram,
     .option_base = u_optionbase,
 };

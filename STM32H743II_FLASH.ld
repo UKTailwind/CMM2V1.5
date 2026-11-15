@@ -149,6 +149,10 @@ SECTIONS
     *SQL.c.obj(.text .text* .rodata .rodata*)
     *User.o(.text .text* .rodata .rodata*)               /* USER and USER( (a USER module's side in the firmware) */
     *User.c.obj(.text .text* .rodata .rodata*)
+    *turtle.o(.text .text* .rodata .rodata*)             /* TURTLE (15 Nov 2026, Peter: bank 1 had 88 bytes left) */
+    *turtle.c.obj(.text .text* .rodata .rodata*)
+    *Src/Draw.o(.text.cmd_3D .text.fun_3D .text.display3d .text.diagnose3d .text.depthsort .text.q_rotate .text.normalise .text.T_Mult .text.T_Invert .text.Free3DMemory .text.closeall3d)   /* DRAW3D and DRAW3D(: Draw.c's 3D, the same day */
+    *Src/Draw.c.obj(.text.cmd_3D .text.fun_3D .text.display3d .text.diagnose3d .text.depthsort .text.q_rotate .text.normalise .text.T_Mult .text.T_Invert .text.Free3DMemory .text.closeall3d)
     *BmpDecoder.o(.text .text* .rodata .rodata*)         /* LOAD BMP's decoder (26 Oct 2026: bank 1 was full) */
     *BmpDecoder.c.obj(.text .text* .rodata .rodata*)
     *PngEncoder.o(.text .text* .rodata .rodata*)

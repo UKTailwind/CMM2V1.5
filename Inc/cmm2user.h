@@ -18,6 +18,8 @@
  */
 #ifndef CMM2USER_H
 #define CMM2USER_H
+#include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 #include "cmm2img.h"
 
@@ -108,6 +110,11 @@ struct cmm2_basic {
     /* the interpreter's state */
     int      (*in_program)(void);              /* 1 in a program, 0 at the command prompt */
     int      (*option_base)(void);             /* OPTION BASE: 0 or 1 */
+    /* formatting */
+    int      (*vsnprintf)(char *out, size_t n, const char *fmt, va_list ap);   /* the firmware's own (newlib's,
+                                                  floats included), so a module need not carry one: build.py --user
+                                                  gives a module's snprintf, sprintf and printf through it. Safe
+                                                  here, unlike a program's, as a module runs inside a statement */
 };
 
 /* A USER module's table, the one module_main() returns: a cmm2mod_head first, as for any module. Its functions are
