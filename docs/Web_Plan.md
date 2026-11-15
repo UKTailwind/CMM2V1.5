@@ -189,12 +189,23 @@ What V7's plan weighed, and V8 settles:
   - The heap is wiped at every RUN and NEW (InitHeap and HeapWipe, Memory.c).
   - The Wi-Fi connection, the server's listening port and the telnet console must outlive both. On the PicoMite they
     do, because lwIP's memory there is static.
-- **A network block in SDRAM:**
-  - About 256 KB, taken at start-up only when OPTION WIFI is set, outside what HeapWipe clears. lwIP's heap and pools
-    (MEM_LIBC_MALLOC and MEMP_MEM_MALLOC) and mbedTLS's allocations come from it.
-  - Without OPTION WIFI nothing is taken.
-  - It is still a new SDRAM area, if only on boards using Wi-Fi, so it is Peter's decision (the SDRAM is kept for the
-    compiler).
+- **A network block in SDRAM (decided by Peter, 15 Nov):** taken at start-up only when OPTION WIFI is set, outside
+  what HeapWipe clears. lwIP's heap and pools (MEM_LIBC_MALLOC and MEMP_MEM_MALLOC) and mbedTLS's allocations come from
+  it. Without OPTION WIFI nothing is taken. Read and write, execute-never; nothing of the network runs from RAM, and it
+  never uses the executable window.
+  - **A G2 or G3: 256 KB of MMBasic's heap,** of its 15 MB.
+  - **A G1: 128 KB at the top of the display memory,** 0xD02E0000 to 0xD02FFFFF, as the heap and everything above it
+    were tuned for the apps. pagegen's limit comes down to 0xD02E0000, so 42 of the G1's 80 modes and depths lose a
+    page (measured with LIST PAGES on the G3 for every mode, against the G1's limit). The ones that matter: MODE 9,16
+    (1024x768) goes from 2 pages to 1; 14,12 and 14,16 (960x540) from 3 to 2; 8,12 and 8,16 from 5 to 4; 9,8 and 12,8
+    from 4 to 3; 18,8 from 5 to 4. The PicoMite modes (x,4 and x,1) keep at least 11 pages of the 5 they need.
+  - **A G1's loadable programs built --vram** (13 of them: apple2, atari800, bbc, c64, cpc, doom, heretic, nes, pc386,
+    scummvm, spectrum, trs80, wordgrinder) are still lent the whole 3 MB, block included, so they lose nothing. Wi-Fi
+    is not serviced while a program runs anyway; when such a program ends, the firmware starts Wi-Fi again (a rejoin of
+    about 3 s), as it puts BASIC's screen back.
+  - **To change with it on a G1:** pagegen's limit and Draw.c's page-address checks (0xD0300000), RUN's clearing of
+    the display memory (Commands.c, which would wipe the block at every RUN), and the loader's give-back (Loader.c
+    ld_giveback: the Wi-Fi restart).
 - **What stays in the heap:** what the PicoMite gives each program stays in the heap, and is closed at RUN and NEW by
   the PicoMite's own clean-up. That is the TCP buffers it takes with GetMemory.
 - **With V8's program block:**
@@ -244,8 +255,8 @@ What V7's plan weighed, and V8 settles:
 
 - **The library:** decided. It stays in sector 7 for now (Peter, 8 Nov), so the network code is split between
   sectors 3 to 6 and .bank2.
-- **The network block:** still open. This is the SDRAM block of about 256 KB for the network, taken only when OPTION
-  WIFI is set.
+- **The network block:** decided (Peter, 15 Nov): 256 KB of the heap on a G2 or G3; 128 KB at the top of the display
+  memory on a G1, lent with the rest to --vram programs and Wi-Fi restarted after them (the RAM section).
 
 Before release, the blob's own terms (Infineon's) are also to be read. That is a check rather than a decision.
 
