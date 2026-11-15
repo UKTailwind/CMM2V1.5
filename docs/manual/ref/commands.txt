@@ -3041,6 +3041,15 @@ This is described in full in the file *MMBasic_Structures_Manual.pdf* included i
 Restarts the ARM Cortex-M7 processor in its firmware update mode, as setting the BOOT CONFIG switch on the Waveshare CPU board to SYSTEM or moving the jumper to PGM does, so that new firmware can be loaded without opening the case (see Appendix K).
 Cycle the power after the update to return the processor to normal operation.  Cycling the power also cancels the update mode if the command was used by mistake.
 
+=== USER LOAD file$
+=+= USER CLOSE
+=+= USER command [arguments]
+---
+Commands of your own, written in C as a USER module (see the USER( function for its functions). A USER module is built with the loadable programs' SDK, and the companion manual Colour Maximite 2 Loadable Programs describes how, with a module to start from (tools/sdk/examples/user/proforma.c in the firmware's source).
+USER LOAD loads the module in ‘file$' (.mod is added to a name with no extension), unloading any module loaded before. Loading the same file again reads it afresh, so a module can be rebuilt and reloaded. The module is kept until USER CLOSE; RUN, NEW and CHAIN unload it with the rest of the program's memory, but the next USER or USER( loads it again from the same file, its own variables starting afresh.
+Any other USER command is the module's: MMBasic hands it the rest of the statement, and the module reads its own keywords and arguments. For example, with the pro-forma module USER SWAP a, b swaps two variables. A module's command cannot be named LOAD or CLOSE.
+With no module loaded, USER and USER( give the error "USER LOAD first". USER LOAD and USER CLOSE cannot be used inside a function that a USER command or USER( function is reading its arguments from. A USER module can be loaded at the same time as the SQL command's database engine.
+
 === VAR SAVE var [, var]… 
 or
 VAR RESTORE 

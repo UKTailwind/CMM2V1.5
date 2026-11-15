@@ -33,7 +33,7 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  19                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  20                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
@@ -42,7 +42,8 @@
                                                   state; 13: the USB gamepads; 14: COM4-7, the USB serial devices, by the com_ services;
                                                   15: com_connected; 16: a gamepad's right stick and analogue
                                                   triggers, gamepad_axes; 17: video_mode and video_scaled take depth
-                                                  12; 18: dma2d_copy_nc; 19: file_truncate) */
+                                                  12; 18: dma2d_copy_nc; 19: file_truncate; 20: the start
+                                                  block's basic, a USER module's interpreter table (cmm2user.h)) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_KIND_MODULE  2                 /* a module (7.00.00RC6, docs/SQL_Plan.md): loaded into MMBasic's heap beside the
                                                   BASIC program and kept there, its functions called by the firmware
@@ -110,6 +111,7 @@ typedef struct {
 } cmm2xip_header;                              /* 44 bytes */
 
 struct cmm2_services;
+struct cmm2_basic;
 typedef struct {
     const struct cmm2_services *svc;
     int      argc;
@@ -121,6 +123,8 @@ typedef struct {
     void    *heap2;                            /* version 8: a second block, 8-byte aligned, or NULL: a G1 with
                                                   CMM2IMG_FLAG_VRAM gives the other of its two blocks here */
     uint32_t heap2_size;
+    const struct cmm2_basic *basic;            /* version 20: a USER module's table of the interpreter's routines
+                                                  (Inc/cmm2user.h); NULL for anything else */
 } cmm2img_start;
 
 typedef struct {                               /* the display after video_mode: page 0, the one shown */

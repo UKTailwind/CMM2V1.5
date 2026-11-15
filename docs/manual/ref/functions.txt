@@ -1197,6 +1197,11 @@ This function can remove characters from the beginning or end of a string or bot
 ---
 Returns ‘string$’ converted to uppercase characters.
 
+=== USER( function [arguments] )
+---
+A function of your own, written in C as a USER module and loaded by USER LOAD (see the USER command). MMBasic hands the module the text inside the brackets; the module reads its own keyword and arguments, and returns an integer, a floating point number or a string. For example, with the pro-forma module USER(ADD 2, 3.5) returns 5.5 and USER(REVERSE$ "abc") returns "cba".
+With no module loaded USER( gives the error "USER LOAD first". It can be used in the arguments of a USER command or of another USER(.
+
 === VAL( string$ )
 ---
 Returns the numerical value of the ‘string$’.  If 'string$' is an invalid number the function will return zero.  

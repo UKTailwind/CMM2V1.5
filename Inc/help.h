@@ -647,6 +647,8 @@ const char *  const __attribute__((section(".rodata")))help[] = {
  "UCASE$(","UCASE$( string$ )",
  "UNTIL","LOOP UNTIL expression",
  "UPDATE FIRMWARE","UPDATE FIRMWARE",
+ "USER","USER LOAD file$ | USER CLOSE | USER module's command",
+ "USER(","USER( module's function )",
  "VAL(","VAL( string$ )",
  "VAR CLEAR","VAR CLEAR",
  "VAR RESTORE","VAR RESTORE",

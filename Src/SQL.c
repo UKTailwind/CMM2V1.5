@@ -311,7 +311,7 @@ static void sqlclose(void) {
             sqlendquery();
             CALL(int (*)(void), sq->close)();
         }
-        LoaderModuleForget();
+        LoaderModuleDrop(LOADER_MOD_SQL);                           // (a USER module stays)
     }
     sq = NULL;
     sqlopen = 0;
