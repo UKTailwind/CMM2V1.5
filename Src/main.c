@@ -3373,7 +3373,8 @@ void SerialConsolePutC(int c) {
 
 	void putConsole(int c) {
 	    DisplayPutC(c);
-	    SerialConsolePutC(c);
+	    if(Option.Telnet != -1) SerialConsolePutC(c);                   // (OPTION TELNET CONSOLE ONLY: not the serial port,
+	                                                                    // as the PicoMite's leaves out its USB console)
 	    if(WIFIconnected && Option.Telnet && !LoaderActive) WebConsolePutC(c);   // the telnet console (Src/net)
 	}
 
@@ -3435,7 +3436,7 @@ void SerialConsolePutC(int c) {
 	}
 	// print a char on the Serial and USB consoles only (used in the EDIT command and dp() macro)
 	void SerUSBPutC(char c) {
-	    SerialConsolePutC(c);
+	    if(Option.Telnet != -1) SerialConsolePutC(c);                   // (OPTION TELNET CONSOLE ONLY, as putConsole)
 	    if(WIFIconnected && Option.Telnet && !LoaderActive) WebConsolePutC(c);   // the telnet console (Src/net)
 	}
 	// print a string on the Serial and USB consoles only (used in the EDIT command and dp() macro)

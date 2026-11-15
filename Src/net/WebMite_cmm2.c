@@ -367,7 +367,8 @@ char *WebInterrupt(void) {
 // ClearExternalIO (External.c): MQTT and the TCP client closed, as the PicoMite's, and the interrupts the old program
 // set forgotten (the PicoMite keeps TCPreceiveInterrupt and UDPinterrupt, which point into the old program)
 void WebClearIO(void) {
-    MQTTInterrupt = NULL;
+    optionsuppressstatus = 0;                           // OPTION WEB MESSAGES OFF lasts until the program's end, as the
+    MQTTInterrupt = NULL;                               // PicoMite's ClearRuntime has it (RUN and NEW)
     MQTTComplete = 0;
     TCPreceiveInterrupt = NULL;
     TCPreceived = false;
