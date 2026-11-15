@@ -332,6 +332,7 @@ PROBES = {"COM4": "0667FF575255878281071917",           # each test board's ST-L
           "COM33": "37FF71064E5734367D2B1643",          # 23 Oct 2026, COM40 since 2 Nov)
           "COM40": "37FF71064E5734367D2B1643",
           "COM43": "37FF71064E5734367D2B1643",          # (COM43 since 13 Nov; the G3 on the Nucleo's, COM10)
+          "COM47": "37FF71064E5734367D2B1643",          # (the G1 on its Microbridge since 15 Nov, with the Wi-Fi module)
           "COM10": "0667FF575255878281071917",
           "COM46": "0667FF495057717867161432"}          # (on a NUCLEO-F446RE's since 15 Nov: a G2, now the second G3)
 
