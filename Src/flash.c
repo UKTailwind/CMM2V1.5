@@ -524,7 +524,7 @@ static void OptionsFrom(uint32_t from) {
             mymemset((char *)Option.F5Key, 0, 5 * sizeof(Option.F5Key));  // (F5 to F9, one after another)
         }
         if(Option.layout != 3) Option.VRes_reserved = Option.Multi = 0;
-        mymemset((char *)Option.SSID, 0, (char *)&Option.end - (char *)Option.SSID);   // (layout 4: the WEB options off)
+        mymemset((char *)Option.SSID, 0, (char *)&Option.end - (char *)Option.SSID);   // (layout 4: the WEB options off; Dvi 0)
         Option.ServerResponceTime = Option.UDPServerResponceTime = 5000;
         Option.layout = OPTION_LAYOUT;
     }
@@ -657,6 +657,7 @@ void ResetAllOptions(void) {
 	Option.DefaultFont = 0x01;                                      // font 1 at scale 1 (setmode sets each mode's own)
 	Option.VRes_reserved = 0;                                       // OPTION SCREEN KEYBOARD's two: no on-screen keyboard
 	Option.Multi = 0;
+	Option.Dvi = 0;                                                 // HDMI, not DVI (a G3)
     gui_font_width = FontTable[Option.editfont >> 4][0] * (Option.editfont & 0b1111);
     gui_font_height = FontTable[Option.editfont >> 4][1] * (Option.editfont & 0b1111);
     Option.Height = yres[Option.mode] / gui_font_height;

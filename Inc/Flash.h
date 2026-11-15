@@ -180,6 +180,9 @@ struct option_s {
 	uint16_t ServerResponceTime;
 	uint16_t UDP_PORT;                  // OPTION UDP SERVER PORT n [, response time]: 0 none
 	uint16_t UDPServerResponceTime;
+	uint8_t Dvi;                        // OPTION DVI: 1 ON, a G3's MS7210 sends DVI (MS7210.c); anything else OFF: erased
+	                                    // flash (0xFF, where a layout 4 record saved before it had end), or 0 from
+	                                    // LoadOptions's clearing of a record before layout 4 (SSID to end)
 	uint8_t end;
 // 128
 };

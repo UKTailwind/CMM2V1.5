@@ -360,6 +360,7 @@ void fun_ds18b20(void);
 void fun_eof(void);
 void fun_loc(void);
 void fun_lof(void);
+void fun_eofloclof(void);                          // EOF( LOC( LOF(: one token (SerialFileIO.c)
 void fun_inputstr(void);
 void fun_spi(void);
 void fun_spi2(void);
@@ -704,9 +705,7 @@ void op_inv(void);
 	{ "Format$(",	T_FUN  | T_STR,			0, fun_format	},
 	{ "TEMPR(",	T_FUN | T_NBR,	0, fun_ds18b20      },
 	{ "Baudrate(",	    T_FUN | T_INT,		0, fun_baudrate 	},
-	{ "Eof(",		T_FUN | T_INT,		0, fun_eof		},
-	{ "Loc(",		T_FUN | T_INT,		0, fun_loc		},
-	{ "Lof(",		T_FUN | T_INT,		0, fun_lof		},
+	{ "EofLocLof(",	T_FUN | T_INT,		0, fun_eofloclof	},      // EOF( LOC( LOF(: one token, the selector 1, 2 or 3 first (SubstFold)
 	{ "Input$(",            T_FUN | T_STR,		0, fun_inputstr         },
 	{ "SPI(",	T_FUN | T_INT,		0, fun_spi,	},
 	{ "SPI2(",	T_FUN | T_INT,		0, fun_spi2,	},
@@ -720,7 +719,8 @@ void op_inv(void);
 	{ "Device(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_device_fn	},      // DEVICE(MOUSE n, k), DEVICE(GAMEPAD n, k): the PicoMite's (RAW is a string)
 	{ "Tilemap(",	    T_FUN | T_INT,		0, fun_tilemap	},      // TILEMAP(TILE|COLLISION|ATTR|VIEWX|VIEWY|COLS|ROWS|SPRITE ...) (TileMap.c)
 	{ "Touch(",	    T_FUN | T_INT,		0, fun_touch	},      // the PicoMite's TOUCH(: a USB touch screen, the mouse and GUI CLICK (GUI.c)
-	{ "SQL(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_sql	},      // SQL(NEXT|FETCH|SELECT|n|...): 0xFE, the last one-byte function token (SQL.c)
+	{ "SQL(",	    T_FUN | T_INT | T_NBR | T_STR, 0, fun_sql	},      // SQL(NEXT|FETCH|SELECT|n|...): 0xFC (SQL.c); 0xFD and 0xFE are free (15 Nov
+                                                                    // 2026: EOF( LOC( LOF( folded, for USER( and one more)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif
 

@@ -22,7 +22,7 @@ PART_OF = {'ELSE': 'IF', 'ELSEIF': 'IF', 'ENDIF': 'IF', 'THEN': 'IF', 'STEP': 'F
 OVERRIDE = {'BLIT': 'Commands', 'SPRITE': 'Commands (the sprite commands: SPRITE is another name for BLIT), and Functions, SPRITE('}
 PLACED = {'@(': 'Commands, with PRINT', 'AS': 'Commands, with DIM, LOCAL, OPEN and the other statements that use it',
           'SPI(': 'Functions', 'SPI2(': 'Functions', 'SPRITE(': 'Functions'}      # (entries the matcher cannot read)
-INTERNAL = {'', '~(', 'SCHANGE$(', 'TOPBOTTOM(', 'BITBYTEFLAG('}            # the tokeniser's folds: never typed
+INTERNAL = {'', '~(', 'SCHANGE$(', 'TOPBOTTOM(', 'BITBYTEFLAG(', 'EOFLOCLOF('}   # the tokeniser's folds: never typed
 COMPANION = {'DRAW3D': 'The 3D engine.pdf', 'DRAW3D(': 'The 3D engine.pdf', 'GUI': 'GUI Controls and Programming.pdf',
              'CTRLVAL(': 'GUI Controls and Programming.pdf', 'MSGBOX(': 'GUI Controls and Programming.pdf',
              'TYPE': 'MMBasic_Structures_Manual.pdf', 'STRUCT': 'MMBasic_Structures_Manual.pdf',

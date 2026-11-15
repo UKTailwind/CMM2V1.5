@@ -1822,14 +1822,15 @@ void STR_REPLACE(char *target, const char *needle, const char *replacement, uint
 
 // The functions tokenise() folds into one token for each family (the PicoMite's): BIN$( is written BASE$(2, and so on.
 // A function's own table entry allowed spaces before its bracket (LEFT$ (a$, 2)), so they are closed up before the fold.
-// RAY( is the CMM2's, to keep the last one-byte tokens: SPRITE( has its types, and fun_sprite hands it to fun_ray (Ray.c)
+// RAY( is the CMM2's, to keep the last one-byte tokens: SPRITE( has its types, and fun_sprite hands it to fun_ray (Ray.c).
+// EOF( LOC( LOF( are the CMM2's too (15 Nov 2026), freeing two tokens: EOFLOCLOF(1, 2 or 3 (SerialFileIO.c)
 static const char *const FoldFrom[] = {"BIN$", "OCT$", "HEX$", "LCASE$", "UCASE$", "LEFT$", "RIGHT$", "MIN", "MAX", "BIT", "BYTE", "FLAG",
-    "RAY"};
+    "RAY", "EOF", "LOC", "LOF"};
 static const char *const FoldTo[] = {"BASE$(2,", "BASE$(8,", "BASE$(16,", "SCHANGE$(L,", "SCHANGE$(U,", "SCHANGE$(E,",
     "SCHANGE$(R,", "TOPBOTTOM(I,", "TOPBOTTOM(A,", "BITBYTEFLAG(1,", "BITBYTEFLAG(2,", "BITBYTEFLAG(3,",   // (a digit: no symbol is made of it)
-    "SPRITE(RAY,"};
+    "SPRITE(RAY,", "EOFLOCLOF(1,", "EOFLOCLOF(2,", "EOFLOCLOF(3,"};
 const char *const FoldList[] = {"Bin$(", "Oct$(", "Hex$(", "LCase$(", "UCase$(", "Left$(", "Right$(", "Min(", "Max(", "Bit(", "Byte(", "Flag(",
-    "Ray("};   // (LIST FUNCTIONS too)
+    "Ray(", "Eof(", "Loc(", "Lof("};   // (LIST FUNCTIONS too)
 #define FOLDS (sizeof(FoldFrom) / sizeof(FoldFrom[0]))
 const int FoldCount = FOLDS;
 

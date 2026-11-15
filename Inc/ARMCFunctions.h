@@ -260,6 +260,21 @@ struct option_s {
 	unsigned char F9Key[64];
 	unsigned char VRes_reserved;
 	unsigned char Multi;
+	unsigned char SSID[64];                   // layout 4: the WEB options (Flash.h)
+	unsigned char PASSWORD[64];
+	char hostname[32];
+	char ipaddress[16];
+	char mask[16];
+	char gateway[16];
+	unsigned char wifi_country_code;
+	signed char Telnet;
+	char disabletftp;
+	unsigned char NoHeartbeat;
+	unsigned short TCP_PORT;
+	unsigned short ServerResponceTime;
+	unsigned short UDP_PORT;
+	unsigned short UDPServerResponceTime;
+	unsigned char Dvi;                  // OPTION DVI (Flash.h)
 	unsigned char end;
 // 128
 };

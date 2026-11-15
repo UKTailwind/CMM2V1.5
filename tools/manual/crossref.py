@@ -39,7 +39,7 @@ def bare(k):
     return k[:-1] if k.endswith('(') else k
 
 
-INTERNAL = {'BITBYTEFLAG(', 'SCHANGE$(', 'TOPBOTTOM(', '~(', ''}     # the tokeniser's own tokens, never typed
+INTERNAL = {'BITBYTEFLAG(', 'EOFLOCLOF(', 'SCHANGE$(', 'TOPBOTTOM(', '~(', ''}   # the tokeniser's own tokens, never typed
 
 
 def starts(text, key):
