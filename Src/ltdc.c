@@ -554,6 +554,10 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	  pll.PLL3P = 16;
 	  pll.PLL3Q = 16;
 	  pll.PLL3R = 16;
+	  if(!G3Hardware) {                                               // VGA: mode 9's 64.727MHz (65 -0.42%), VCO 712 MHz, for
+		  pll.PLL3N = 89;                                             // 1024x768's frame (the LTDC's timing below)
+		  pll.PLL3P = pll.PLL3Q = pll.PLL3R = 11;
+	  }
 	  pll.PLL3RGE=RCC_PLL3VCIRANGE_3;
 	  fnt = ((3 << 4) | 1);
 	  Option.DefaultFont = gui_font;
@@ -701,7 +705,8 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 	  	  hltdc.Init.AccumulatedActiveH = 623;
 	  	  hltdc.Init.TotalWidth = 1055;
 	  	  hltdc.Init.TotalHeigh = 624;
-	  } else if(VideoMode==2){ //640x400
+	  } else if(VideoMode==2){ //640x400, in VESA 640x480 at 75Hz's frame (40 black lines above and below). Tried on VGA, 15 Nov
+	  // 2026: 640x400 at 70Hz is 720x400's signal (the monitor said 720x400), VESA's 640x400 at 85Hz "not supported"
 	  /* USER CODE END LTDC_Init 1 */
 		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
 		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
@@ -911,6 +916,21 @@ static void MX_LTDC_Init(int x, int y, int yscale, int colours, int bc)
 		  hltdc.Init.AccumulatedActiveH = 498;
 		  hltdc.Init.TotalWidth = 503;
 		  hltdc.Init.TotalHeigh = 499;
+	  } else if(VideoMode==18 && !G3Hardware){ //1024x600 in mode 9's VESA 1024x768 at 60Hz frame, 84 black lines above
+		  // and below: H 1024 + 24 + 136 + 160, V 768 (84 + 600 + 84) + 3 + 6 + 29, -H -V. The PicoMite's frame below is
+		  // 800x600 at 60Hz's lines and frame rate, and a VGA monitor took it as 800x600, 800 samples across the 1024
+		  // pixels (Peter, 15 Nov 2026). A G3 keeps it: its DE gives the HDMI monitor the 1024 pixels
+		  hltdc.Instance = LTDC;
+		  hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
+		  hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
+		  hltdc.Init.HorizontalSync = 135;
+		  hltdc.Init.VerticalSync = 5;
+		  hltdc.Init.AccumulatedHBP = 295 + OFS(18);
+		  hltdc.Init.AccumulatedVBP = 34 + 84;
+		  hltdc.Init.AccumulatedActiveW = 1319;
+		  hltdc.Init.AccumulatedActiveH = 802 - 84;
+		  hltdc.Init.TotalWidth = 1343;
+		  hltdc.Init.TotalHeigh = 805;
 	  } else if((VideoMode==18)){//1024x600
 		  // the PicoMite's 1024x600 (graphics/Screens.h, MODE_H_X_ and MODE_V_X_: 1024x768's line, 800x600@60's frame),
 		  // which monitors take (Peter, 24 Oct 2026): H 1024 + 24 + 136 + 160, V 600 + 1 + 4 + 23, +H -V. It was a
