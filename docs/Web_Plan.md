@@ -348,6 +348,22 @@ In this order (15 Nov), each built and checked on the G3 before the next:
 7. **The G1:** the block at the top of the display memory, pagegen's limit, RUN's clearing, and Wi-Fi started again
    after a --vram program.
 
+**Progress, 15 November (v8-wifi, f7e4dde and after), on the G3:**
+- Stages 1 to 6 are in: the libraries in Middlewares/Third_Party, .net in sectors 3 to 6 (433 KB, 89 KB free), the
+  PicoMite's net code copied by tools/port_net.py (three mechanical changes) with Inc/net/WebMite_cmm2.h, and the
+  CMM2's side in Src/net/WebMite_cmm2.c. Bank 1 has 1.1 KB left; the network takes 5.2 KB of the DTCM.
+- **The block is 128 KB on every board,** not 256 KB on a G2 or G3: mbedTLS takes MMBasic's heap as on the PicoMite
+  (CallocMemory), so the block holds lwIP alone, and lwIP's MEM_SIZE has to be one number at compile time.
+- **Working:** OPTION WIFI (joins at start-up in about 7 s), WEB SCAN, WEB PING (by name too), WEB NTP (sets the
+  CMM2's clock and RTC), MM.INFO(IP ADDRESS) and the rest, OPTION TCP SERVER PORT with tests/wifi/webserver.bas
+  (WEB TCP INTERRUPT, WEB TCP READ, WEB TRANSMIT PAGE: 40 of 40 pages over two RUNs), the telnet console
+  (tests/wifi/pctelnet.py), and WEB OPEN TLS CLIENT with WEB TCP CLIENT REQUEST (example.com over HTTPS).
+- **Fixed on the way:** SPI2Close took SPI2 from Wi-Fi at every RUN (the four pins are boot-reserved now and it leaves
+  them); the PicoMite's checksent timed out ("LWIP send data timeout") until CheckAbort polled the network at every
+  call, as the PicoMite's does.
+- **Still to do:** UDP, MQTT and TFTP from the PC; the host name's board ID (fills at every start now, for the next
+  OPTION WIFI); step 4's regression without OPTION WIFI; the G1 (stage 7); the manual.
+
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
 1. The TCP server:
