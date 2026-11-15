@@ -164,6 +164,9 @@ struct option_s {
 	uint8_t F9Key[64];
 	uint8_t VRes_reserved;              // OPTION SCREEN KEYBOARD n (the PicoMite's): the screen's % for the on-screen
 	uint8_t Multi;                      // keyboard (OSK.c), 0 none; and its , M (the modifiers held by a finger); layout 3
+	uint8_t Dvi;                        // OPTION DVI: 1 ON, a G3's MS7210 sends DVI (MS7210.c); anything else OFF (erased
+	                                    // flash, 0xFF, or a record saved before it). In the record's padding: its size
+	                                    // stays 992, so options saved before it and OPTION DISK SAVE's files still load
 	uint8_t end;
 // 128
 };

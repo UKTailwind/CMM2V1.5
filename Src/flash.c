@@ -420,6 +420,7 @@ int FlashOptionInit(int sector, int check) {
    (*freeme), or NULL if there is none. (The D2 RAM of MMBasic's heap, empty early in a start, read back as zeros there
    and mmbrun was written back so: hence the checks in SaveOptions) */
 _Static_assert(sizeof(struct option_s) <= SAVED_OPTIONS_SIZE, "the options outgrow their part of sector 2 (Flash.h)");
+_Static_assert(sizeof(struct option_s) == 992, "the options' size changed: OPTION DISK LOAD refuses a file of another size");
 static uint8_t *OptionSectorBuffer(void **freeme) {
     *freeme = NULL;
     if(!(LTDC->GCR & LTDC_GCR_LTDCEN)) return (uint8_t *)0x24000000;
@@ -650,6 +651,7 @@ void ResetAllOptions(void) {
 	Option.DefaultFont = 0x01;                                      // font 1 at scale 1 (setmode sets each mode's own)
 	Option.VRes_reserved = 0;                                       // OPTION SCREEN KEYBOARD's two: no on-screen keyboard
 	Option.Multi = 0;
+	Option.Dvi = 0;                                                 // HDMI, not DVI (a G3)
     gui_font_width = FontTable[Option.editfont >> 4][0] * (Option.editfont & 0b1111);
     gui_font_height = FontTable[Option.editfont >> 4][1] * (Option.editfont & 0b1111);
     Option.Height = yres[Option.mode] / gui_font_height;

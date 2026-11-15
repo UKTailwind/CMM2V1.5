@@ -260,6 +260,7 @@ struct option_s {
 	unsigned char F9Key[64];
 	unsigned char VRes_reserved;
 	unsigned char Multi;
+	unsigned char Dvi;                  // OPTION DVI (Flash.h)
 	unsigned char end;
 // 128
 };

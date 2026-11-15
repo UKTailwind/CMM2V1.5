@@ -209,7 +209,8 @@ int MS7210_Start(void) {                                            // the chip 
         dev = addr[i];
         G3Hardware = (rd(0x0000) == 0xA2 && rd(0x0001) == 0x20 && rd(0x0002) == 0x0A);
     }
-    if(G3Hardware) HdmiAudioStart();                                // (SAI2 sending silence before the chip is set up)
+    if(G3Hardware && Option.Dvi != 1) HdmiAudioStart();             // (SAI2 sending silence before the chip is set up; not
+                                                                    // with OPTION DVI ON: HdmiRate 0, the sound as a G2's)
     return G3Hardware;
 }
 
@@ -242,14 +243,18 @@ void MS7210_Mode(void) {
         msdelay(20);                                                // (the PHY's PLL powered: the SDK waits 10 ms)
         wr(0x000B, 0x00);
         wr(0x0019, 0x07);                                           // (the chip's pixel-clock meter, for diagnostics)
-    }
+        clr(0x0503, 0x01, Option.Dvi == 1 ? 0x01 : 0x00);           // DVI out (OPTION DVI ON) or HDMI, set as the SDK sets it,
+    }                                                               // its shell in reset (ms7210drv_hd_tx_shell_set_hd_out)
     wr(0x0507, 0x06);                                               // muted
     band(hz);
     wr(0x0910, 0x01);                                               // the HDMI PLL re-triggered
     msdelay(10);
     if(!ready) wr(0x000B, 0x11);                                    // (the shell out of reset)
-    infoframe();
-    if(HdmiRate) ms_audio();
+    if(Option.Dvi == 1) clr(0x050E, 0x60, 0x00);                   // DVI: no AVI or audio infoframe (a DVI monitor has no
+    else {                                                          // use for HDMI's data islands, and some refuse them)
+        infoframe();
+        if(HdmiRate) ms_audio();
+    }
     wr(0x0507, 0x00);                                               // unmuted
     ready = 1;
 }

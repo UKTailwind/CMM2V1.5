@@ -346,6 +346,7 @@ void printoptions(void){
     if(Option.editfont == 2) PO2Str("EDIT FONT","LARGE",1);
     if(Option.Compile == RB_ON || Option.Compile == RB_SHADOW) PO2Str("COMPILE", Option.Compile == RB_ON ? "ON" : "SHADOW", 1);
     if(Option.PrintScreenFormat == 1) PO2Str("PRINTSCREEN FORMAT", "BMP", 1);
+    if(G3Hardware && Option.Dvi == 1) PO2Str("DVI", "ON", 1);
     if(Option.SDspeed==1)PO2Str("SD TIMING","FAST",1);
     if(Option.RTC_Calibrate){
     	char buff[30]={0};
@@ -1707,6 +1708,15 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
         } else error("Invalid Command");
         goto saveandreset;
 
+	}
+	tp=checkstring(cmdline, "DVI");                                 // a G3's HDMI chip sending DVI, for a DVI monitor that
+	if(tp){                                                         // will not take HDMI: no infoframes and no HDMI audio, the
+	    if(!G3Hardware) error("Needs a G3");                        // sound to the DACs only, as on a G2 (MS7210.c). Peter, 15
+	    if(CurrentLinePtr) error("Invalid in a program");           // Nov 2026. The restart starts the chip and the sound in
+	    if(checkstring(tp, "ON")) Option.Dvi = 1;                   // the mode chosen (a G3's sound buffers hold 16-bit samples
+	    else if(checkstring(tp, "OFF")) Option.Dvi = 0;             // while HDMI audio runs: no change while one plays)
+	    else error("Syntax");
+	    goto saveandreset;
 	}
 	tp=checkstring(cmdline, "VGA OUTPUT");
 	if(tp){

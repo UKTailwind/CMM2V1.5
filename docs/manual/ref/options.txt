@@ -141,6 +141,14 @@ __GENERATION 2 ONLY__ Enables and disables the use of the optional DS3231 real t
 On a Generation 1 this command gives the error "DS3231 not available on this H/W".
 This command will cause a reboot.  This setting is kept through a firmware upgrade.
 
+=== OPTION DVI ON
+or
+OPTION DVI OFF
+--- P keep roomy
+__GENERATION 3 ONLY__ With ON the HDMI output sends DVI, for a DVI monitor (or one on an HDMI to DVI adapter) that does not accept the full HDMI signal.  The picture is the same; the monitor is sent no information about the picture and no sound, and the sound goes to the audio socket alone, as on a Generation 2.  OFF, the default, sends HDMI with its sound.
+If the monitor shows nothing until the option is set, it can be typed at the keyboard without seeing it, or over the serial console.  On a Generation 1 or 2 this command gives the error "Needs a G3".
+This command can only be run from the command line and will cause a reboot.  OPTION LIST shows OPTION DVI ON when it is set, and OPTION RESET turns it off.
+
 === OPTION EDIT FONT SMALL | NORMAL | MEDIUM | LARGE | VERY LARGE
 --- P keep roomy
 Sets the font to be used in the editor and the file manager: SMALL (6x8 pixels), NORMAL (8x12, the default), MEDIUM (10x16), LARGE (12x20) or VERY LARGE (16x24).  OPTION DEFAULT MODE also sets it, to the font that suits the mode.

@@ -412,6 +412,7 @@ const char *  const __attribute__((section(".rodata")))help[] = {
  "OPTION DEFAULT COLOURS","OPTION DEFAULT COLOURS foreground [,background]",
  "OPTION DEFAULT MODE","OPTION DEFAULT MODE n",
  "OPTION DISPLAY","OPTION DISPLAY lines [,chars]",
+ "OPTION DVI","OPTION DVI ON | OFF",
  "OPTION EDIT FONT","OPTION EDIT FONT SMALL | NORMAL | MEDIUM | LARGE",
  "OPTION EXPLICIT","OPTION EXPLICIT",
  "OPTION F1","OPTION F1 string$",
