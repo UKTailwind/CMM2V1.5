@@ -419,8 +419,13 @@ In this order (15 Nov), each built and checked on the G3 before the next:
   - Found on the way, every board: TIMER = n rewrote the clock the network's time is read from, so a program's
     TIMER = 0 stopped ProcessWeb's housekeeping (and with it telnet's output) until the clock caught up. TIMER is
     now an offset, and the clock runs on from start-up, as the PicoMite's time_us_64 does (2ccb48c).
-- **Still to do:** step 4 on the G1 (running) and the G2; the manual; TLS with a CA (WEB TLS CA); the web server
-  with several clients at once and the PicoMite's own example programs.
+- **Regression on the G1** (the whole corpus, with Wi-Fi up and with OPTION WIFI cleared): no change between the two
+  but the web tests ("WiFi radio not running" without Wi-Fi), the console test's old bad byte, and circle, which
+  prints its own time (2.444 ms with Wi-Fi, 2.427 without). Against the G3's run with Wi-Fi: only what differs
+  between the boards (MM.DEVICE$, the card's files, picocompat's psram line) and t1, whose "Invalid identifier"
+  message shows TRIM$('s token byte in place of its name (an old fault, not the network's).
+- **Still to do:** step 4 on the G2; the manual; TLS with a CA (WEB TLS CA); the web server with several clients
+  at once and the PicoMite's own example programs.
 
 ### Step 3: each feature, tested from the PC (Python scripts as the other end)
 
