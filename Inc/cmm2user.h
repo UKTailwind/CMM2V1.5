@@ -79,8 +79,9 @@ struct cmm2_basic {
                                                   any of delims (outside brackets and strings): argv[0], argv[2] ...
                                                   the items (an empty one ""), argv[1], argv[3] ... the delimiters
                                                   between them; argc counts both, so 2n - 1 for n items. More than
-                                                  max is MMBasic's "Argument count" error */
-    int      (*token)(const char *name);       /* the byte of a function or an operator ("=", "TO", "SIN("), or 0 */
+                                                  max is MMBasic's "Syntax" error */
+    int      (*token)(const char *name);       /* the byte of a function or an operator ("=", "TO", "SIN(": any
+                                                  case), or 0 */
     char    *(*close_bracket)(char *p);        /* p just after a '(': its ')' */
     /* values */
     char    *(*evaluate)(char *p, cmm2_value *v);   /* the expression at p: its value and type, and where it ends */

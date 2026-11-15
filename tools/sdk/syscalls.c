@@ -280,7 +280,14 @@ void *_sbrk(ptrdiff_t incr) {
     return prev;
 }
 
+#ifdef CMM2_MODULE
+#include "../../Inc/cmm2user.h"
+#endif
 void _exit(int code) {
+#ifdef CMM2_MODULE
+    if(cmm2_start && cmm2_start->basic)                         // a USER module never ends (exit(), abort()): leave()
+        cmm2_start->basic->error("The USER module ended (exit %)", code);   // is a program's, so MMBasic's error
+#endif                                                          // ends the statement instead (15 Nov 2026)
     cmm2->leave(code);
     for(;;) {}
 }
