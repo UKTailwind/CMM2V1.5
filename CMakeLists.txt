@@ -87,18 +87,35 @@ target_include_directories(${TARGET} PRIVATE
     Middlewares/Third_Party/lwip/src/apps/altcp_tls
     Middlewares/Third_Party/mbedtls/include
     Middlewares/Third_Party/puff                    # (zlib's inflater, for the chip's compressed firmware)
+    # Bluetooth (docs/Bluetooth_Plan.md, step 3): BTstack (tools/port_btstack.py) and the PicoMite's BT host code (Src/net/bt)
+    Middlewares/Third_Party/btstack/src
+    Middlewares/Third_Party/btstack/platform/embedded
+    Middlewares/Third_Party/btstack/3rd-party/micro-ecc
+    Middlewares/Third_Party/btstack/3rd-party/rijndael
+    Middlewares/Third_Party/btstack/3rd-party/bluedroid/encoder/include
+    Middlewares/Third_Party/btstack/3rd-party/bluedroid/encoder/srce
+    Middlewares/Third_Party/btstack/3rd-party/bluedroid/decoder/include
+    Middlewares/Third_Party/btstack/3rd-party/yxml
+    Middlewares/Third_Party/btstack/3rd-party/md5
+    Src/net/bt
 )
 target_compile_definitions(${TARGET} PRIVATE CYW43_LWIP=1 PICO_CYW43_ARCH_POLL=1 PICOMITEWEB_TLS
+    ENABLE_BLE=1 ENABLE_CLASSIC=1                   # (BTstack's, as pico_btstack_ble and the PicoMite's BT host set them)
     MBEDTLS_CONFIG_FILE=<mbedtls_config.h> MBEDTLS_SSL_IN_CONTENT_LEN=16384)
 # C11 for them (pico-sdk's bus code uses static_assert, which newlib gives only to C11)
 set(NET_SOURCES ${SOURCES})
-list(FILTER NET_SOURCES INCLUDE REGEX "^(Middlewares/Third_Party/(cyw43-driver|lwip|mbedtls)|Src/net)/")
+list(FILTER NET_SOURCES INCLUDE REGEX "^(Middlewares/Third_Party/(cyw43-driver|lwip|mbedtls|btstack)|Src/net)/")
 set_property(SOURCE ${NET_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -std=gnu11)
 # and NDEBUG, as the PicoMite's Release builds have them: no asserts, and the driver's CYW43_DEBUG chatter (its firmware
 # banner at every start) silent
 set_property(SOURCE ${NET_SOURCES} APPEND PROPERTY COMPILE_DEFINITIONS NDEBUG)
 # The PicoMite's network code (Src/net/picomite, tools/port_net.py) is copied as it is: what its own headers gave it
 # comes from Inc/net/WebMite_cmm2.h, made its first include
+# The PicoMite's Bluetooth host (Src/net/bt/picomite, tools/port_bt.py) likewise, with Inc/net/BTMite_cmm2.h
+set(PICOMITE_BT_SOURCES ${SOURCES})
+list(FILTER PICOMITE_BT_SOURCES INCLUDE REGEX "^Src/net/bt/picomite/")
+set_property(SOURCE ${PICOMITE_BT_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -include BTMite_cmm2.h
+    -Wno-pointer-sign -Wno-discarded-qualifiers)
 set(PICOMITE_NET_SOURCES ${SOURCES})
 list(FILTER PICOMITE_NET_SOURCES INCLUDE REGEX "^Src/net/picomite/")
 set_property(SOURCE ${PICOMITE_NET_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -include WebMite_cmm2.h

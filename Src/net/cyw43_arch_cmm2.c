@@ -18,6 +18,12 @@
 #endif
 
 #include "NetBlock.h"
+#if CYW43_ENABLE_BLUETOOTH
+#include "pico/btstack_cyw43.h"
+#include "btstack_run_loop_cmm2.h"
+int RadioBt(void);                              // (OPTION RADIO: Bluetooth's half on; Src/net/WebMite_cmm2.c)
+static bool bt_inited;
+#endif
 
 uint8_t *NetBlock;                              // the network block (NetBlock.h), set when OPTION WIFI starts it
 
@@ -56,10 +62,15 @@ int cyw43_arch_init(void) {
     cyw43_init(&cyw43_state);
 #if CYW43_LWIP
     static bool done_lwip_init;
-    if (!done_lwip_init) {
+    if (!done_lwip_init && NetBlock != NULL) {  // (lwIP's heap is the network block: none with the WiFi's half off)
         lwip_init();
         done_lwip_init = true;
     }
+#endif
+#if CYW43_ENABLE_BLUETOOTH
+    // as pico-sdk's cyw43_arch_init (cyw43_arch_poll.c): BTstack set up on the same chip, with OPTION RADIO's half on
+    if (RadioBt() && !bt_inited)
+        bt_inited = btstack_cyw43_init(NULL);
 #endif
     return 0;
 }
@@ -70,6 +81,12 @@ int cyw43_arch_init_with_country(uint32_t country) {
 }
 
 void cyw43_arch_deinit(void) {
+#if CYW43_ENABLE_BLUETOOTH
+    if (bt_inited) {
+        btstack_cyw43_deinit(NULL);
+        bt_inited = false;
+    }
+#endif
     cyw43_deinit(&cyw43_state);
 }
 
@@ -170,6 +187,13 @@ bool cyw43_arch_gpio_get(uint wl_gpio) {
 void cyw43_arch_poll(void) {
     cyw43_cmm2_poll();
 #if CYW43_LWIP
-    sys_check_timeouts();
+    if (NetBlock != NULL)
+        sys_check_timeouts();
+#endif
+#if CYW43_ENABLE_BLUETOOTH
+    // BTstack's pending work (btstack_run_loop_cmm2.c), as pico-sdk's async context does it after the driver's poll:
+    // its data sources when the chip has flagged Bluetooth data, its callbacks and its timers
+    if (bt_inited)
+        btstack_run_loop_cmm2_poll();
 #endif
 }

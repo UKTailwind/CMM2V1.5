@@ -1134,11 +1134,25 @@ uint8_t kbd_lock_leds(void)
 	return (num_lock ? 1 : 0) | (caps_lock ? 2 : 0) | (scroll_lock ? 4 : 0);
 }
 
-/* Show the lock keys on the keyboard the key came from, through its HID[]
-   slot, unless OPTION USBKEYBOARD asked for no LEDs. */
+void bt_keyboard_set_leds(uint8_t leds); /* Src/net/bt/picomite/BTKeyboard.c */
+void bt_ckbd_set_leds(uint8_t leds);     /* Src/net/bt/picomite/BTClassicKeyboard.c */
+
+/* Show the lock keys on the keyboard the key came from: a USB keyboard
+   through its HID[] slot, unless OPTION USBKEYBOARD asked for no LEDs, and a
+   Bluetooth one through its own output report (the PicoMite's). */
 static void kbd_send_leds(uint8_t n)
 {
 	uint8_t leds = kbd_lock_leds();
+	if (n == KBD_SOURCE_BT_LE)
+	{
+		bt_keyboard_set_leds(leds);
+		return;
+	}
+	if (n == KBD_SOURCE_BT_CLASSIC)
+	{
+		bt_ckbd_set_leds(leds);
+		return;
+	}
 	if (Option.noLED || n >= sizeof(HID) / sizeof(HID[0]))
 		return;
 	HID[n].sendlights = (uint8_t)((HID[n].sendlights & ~7u) | leds);

@@ -543,6 +543,17 @@ if(_excep_code == RESTART_BOOT0){
   /* USER CODE END Init */
 //  Overclock=getOverclock();
   G1Hardware=getVersion();
+  {   // the radio's data and bss (the network and Bluetooth), in D2 RAM above RAMEND, which the startup code leaves alone
+      // (the linker script's .radio): set up before LoadOptions, which reads BTKeyboard.c's bt_tlv_dirty
+      // (the D2 RAM's clocks on first: they are off after a reset, which loses the writes this early in a start, and
+      // the startup code leaves them so, system_stm32h7xx.c's DATA_IN_D2_SRAM not being set)
+      extern char _sinetdata[], _snetdata[], _enetdata[], _snetbss[], _enetbss[];
+      RCC->AHB2ENR |= RCC_AHB2ENR_D2SRAM1EN | RCC_AHB2ENR_D2SRAM2EN | RCC_AHB2ENR_D2SRAM3EN;
+      (void)RCC->AHB2ENR;
+      __DSB();
+      memcpy(_snetdata, _sinetdata, _enetdata - _snetdata);
+      memset(_snetbss, 0, _enetbss - _snetbss);
+  }
   /* Configure the system clock */
   LoadOptions();
   G1Hardware |= (Option.CPUmode & 0x0f);
@@ -3206,8 +3217,10 @@ void MX_TIM2_Init1(void){
 
 extern volatile int WIFIconnected; extern int WebScanActive;          // the network (Src/net/WebMite_cmm2.c)
 extern void WebPoll(void); extern void WebConsolePutC(int c);
+extern int BtStarted; extern void BtPoll(void);                     // Bluetooth (Src/net/WebMite_cmm2.c, docs/Bluetooth_Plan.md)
 void CheckAbort(void) {
 	if((WIFIconnected || WebScanActive) && !LoaderActive) WebPoll();   // the network, at every call, as the PicoMite's
+	if(BtStarted && !LoaderActive) BtPoll();                       // and Bluetooth, as the PicoMite PC3's ProcessBT()
 	routinechecks(1);                                               // CheckAbort (its own pace: ProcessWeb, Src/net)
 	if(deferredcopy && pagesetdone){
 		int cursorhidden=0;
@@ -3268,7 +3281,7 @@ void routinechecks(int all){
 			if(CopyClockDue){ CopyClockDue = 0; copy_clock(); }      // (the hour's DS3231 copy, between statements: Timers.c)
 			if(Option.MaxCtrls || osk_state)ProcessTouch();          // (the on-screen keyboard's taps too: OSK.c)
 			if(GPSchannel)processgps();
-			if(!LoaderActive) WebPoll();                            // the network (Src/net): only from the full checks, which
+			if(!LoaderActive) { WebPoll(); BtPoll(); }              // the network and Bluetooth (Src/net): only from the full checks, which
 			                                                        // the flash writer's loops never ask for (bank 2 stalls)
 		}
 		USBtime=0;
@@ -3371,7 +3384,36 @@ void SerialConsolePutC(int c) {
 	}
 }
 
+	/* LIST ALL #n, OPTION LIST #n ...: while one of these runs, everything it prints goes to file or COM port n, as
+	   PRINT #n does, instead of the console (the PicoMite's: its PicoMite.c and core/Commands.c; on the CMM2 for
+	   BLUETOOTH STATUS #n, 16 Nov 2026). 0 = the console. Cleared when the command ends, and by error(). */
+	volatile int ConsoleRedirect = 0;
+	int ConsoleRedirectDepth = 0;                                   // the ExecDepth the command ran at (see error())
+	char *OutputRedirect(char *p) {                                 // reads "#n," and arms ConsoleRedirect; p past it
+	    int t = T_INT, fnbr;
+	    MMFLOAT f;
+	    long long int i64;
+	    char *s;
+	    skipspace(p);
+	    if(*p != '#') return p;
+	    p = evaluate(p + 1, &f, &i64, &s, &t, false);
+	    fnbr = (t & T_NBR) ? FloatToInt32(f) : (int)i64;
+	    if(fnbr < 1 || fnbr > MAXOPENFILES) error("File number");
+	    if(FileTable[fnbr].com == 0) error("File number is not open");
+	    skipspace(p);
+	    if(*p == ',') {
+	        p++;
+	        skipspace(p);
+	    } else if(!(*p == 0 || *p == '\'')) error("Syntax");
+	    ConsoleRedirect = fnbr;
+	    ConsoleRedirectDepth = ExecDepth;
+	    return p;
+	}
 	void putConsole(int c) {
+	    if(ConsoleRedirect) {
+	        MMfputc((char)c, ConsoleRedirect);
+	        return;
+	    }
 	    DisplayPutC(c);
 	    if(Option.Telnet != -1) SerialConsolePutC(c);                   // (OPTION TELNET CONSOLE ONLY: not the serial port,
 	                                                                    // as the PicoMite's leaves out its USB console)

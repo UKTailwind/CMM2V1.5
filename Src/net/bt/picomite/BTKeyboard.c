@@ -1,0 +1,3024 @@
+/*
+ * BTKeyboard.c — BLE HID host (HOG) keyboard input for PicoMiteBTH.
+ *
+ * Step 2: scan for BLE devices, log them to the USB CDC console, and
+ * once we see an advertisement from a hardcoded target MAC, connect
+ * to it, let SM pair (Just Works, no I/O), then use hids_client to
+ * subscribe to keyboard input reports. Each received report is
+ * hexdumped to the console and counted — no keymapping into the
+ * BASIC input ring yet (that's step 3).
+ *
+ * No bonding persistence yet: link keys live in RAM only, so the
+ * keyboard re-pairs from scratch on every boot. Step 4 will move the
+ * btstack TLV onto Option.bt_tlv exactly like BTConsole.c does.
+ *
+ * Edit BTH_TARGET_ADDR_STRING / BTH_TARGET_ADDR_TYPE below to point
+ * at a real keyboard. Until then, the build advertises forever — the
+ * scan log will show observed devices so you can identify the right
+ * MAC + address type.
+ */
+
+#if defined(PICOMITEBTH) || defined(PICOMITEHDMIBTH)
+
+#include "BTKeyboard.h"
+#include "BTAudio.h"
+#include "BTClassicKeyboard.h" /* bt_hid_led_layout(), shared with the Classic keyboard */
+#include "BTSerial.h"          /* bt_serial_is_remembered(): the COM8 device is no keyboard */
+
+#include <inttypes.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdio.h>
+
+#include "configuration.h"
+#include "MMBasic_Includes.h"
+#include "Hardware_Includes.h"
+
+#include "pico/cyw43_arch.h"
+#undef UNUSED
+#include "btstack.h"
+/* btstack 1.8 (bundled with pico-sdk 2.3.0) renamed the HID-over-GATT
+   client from "HIDS Client" to "HIDS Host": hids_client.h/c became
+   hids_host.h/c and every hids_client_* function became hids_host_*
+   (identical signatures; the GATTSERVICE_SUBEVENT_HID_* events are
+   unchanged). Map the old names so the rest of this file compiles
+   against either stack. The memory-pool config macro renamed too —
+   see MAX_NR_HIDS_HOSTS in btstack_config.h. */
+#if __has_include("ble/gatt-service/hids_host.h")
+#include "ble/gatt-service/hids_host.h"
+#define hids_client_init hids_host_init
+#define hids_client_connect hids_host_connect
+#define hids_client_descriptor_storage_get_descriptor_data hids_host_descriptor_storage_get_descriptor_data
+#define hids_client_descriptor_storage_get_descriptor_len hids_host_descriptor_storage_get_descriptor_len
+#define hids_client_send_write_report hids_host_send_write_report
+#else /* btstack <= 1.6 (pico-sdk <= 2.2.0) */
+#include "ble/gatt-service/hids_client.h"
+#endif
+#include "ble/att_db_util.h"
+#include "btstack_tlv_flash_bank.h"
+#include "hal_flash_bank.h"
+#include "ble/le_device_db_tlv.h"
+#include "hci_dump_embedded_stdout.h"
+
+/* Shared HID keyboard keymap + 8-byte boot-keyboard report decoder
+   (international layouts, Caps/Num/Scroll lock, KeyDown[] for the
+   KEYDOWN() BASIC function). Same path the USB-HID-host build uses. */
+#include "KeyboardMap.h"
+/* nunstruct[] / nunfoundc[] -- the BASIC DEVICE(MOUSE|GAMEPAD) reader
+   arrays. process_mouse_input (KeyboardMap.c) writes mouse data into
+   slot 2; bth_gamepad_publish (below) writes gamepad data into slot 3. */
+#include "I2C.h"
+
+/* ============================================================================
+ * Target keyboard — placeholder MAC + address type. Edit before flashing.
+ * Use the [BT] scan log lines that BTKeyboard prints over USB CDC to find
+ * your keyboard's real address.
+ *   BD_ADDR_TYPE_LE_PUBLIC = 0  (typical for older / cheap kbds)
+ *   BD_ADDR_TYPE_LE_RANDOM = 1  (Apple, most Logitech, most modern kbds)
+ * ============================================================================
+ */
+#define BTH_TARGET_ADDR_STRING "30:25:94:33:46:35"
+// #define BTH_TARGET_ADDR_STRING  "C0:1C:94:33:46:35"
+#define BTH_TARGET_ADDR_TYPE BD_ADDR_TYPE_LE_PUBLIC
+
+/* When BTH_MATCH_HID_UUID is defined, scan-matching is relaxed:
+   any advertiser that includes the HID Service UUID (0x1812) in
+   its advertising data is treated as a candidate. The hardcoded
+   MAC is still checked first; UUID match acts as a fallback for
+   testing when the target MAC is unknown or rotates as an RPA.
+   Comment out to require strict MAC equality. */
+#define BTH_MATCH_HID_UUID
+
+/* Drop advertising reports below this RSSI (dBm). Keeping the
+   cutoff near -70 means devices in the same room (typically
+   -45..-65) get through but neighbours' devices (often -85..-100)
+   are silently discarded — both from the scan log and from the
+   match logic. Set lower (e.g. -90) if your target is further
+   away or behind a wall. */
+#define BTH_SCAN_RSSI_MIN (-70)
+
+/* Master switch for the verbose [BT] diagnostic log — the HCI / scan /
+   SM / connection trace produced by bth_log(), plus the raw-notification
+   hex dump. Off by default: with it undefined the only Bluetooth console
+   output is the "Bluetooth Keyboard Connected/Disconnected" messages.
+   Define it to trace pairing / connection problems. */
+// #define BTH_DEBUG_LOG
+
+/* Verbose scan diagnostics. When defined, every distinct advertiser
+   seen while scanning is logged once — address, address-type, RSSI,
+   advertising event-type, whether it carries the HID UUID (0x1812),
+   and the local name. Logged BEFORE the RSSI gate so even weak/distant
+   devices show, and deduped per scan session so the console stays
+   readable. Use it to confirm a new keyboard is actually broadcasting
+   and to read the address / address-type you need for
+   BTH_TARGET_ADDR_STRING / BTH_TARGET_ADDR_TYPE. Comment out for normal
+   operation. (Its log lines go through bth_log, so BTH_DEBUG_LOG must
+   also be defined for them to appear.) */
+// #define BTH_SCAN_DEBUG
+
+/* hid_descriptor_storage size — same as the SDK hid_host_demo. Large
+   enough for typical keyboard HID descriptors (~150 bytes); 300 leaves
+   slack for combination kbd+mouse devices. */
+#define HID_DESCRIPTOR_STORAGE_SIZE 300
+
+/* ============================================================================
+ * Persistent bond storage — btstack TLV tunnelled through Option.bt_tlv.
+ *
+ * Same scheme PICOMITEBT uses (see BTConsole.c): two virtual flash banks of
+ * 1 KB each backed by the Option struct. SaveOptions(1) rewrites the 4 KB
+ * options sector every time btstack updates the TLV, so LTKs / IRKs survive
+ * power cycles and you don't have to forget+repair the host on every boot.
+ * ============================================================================
+ */
+#define BT_TLV_BANK_SIZE 1024
+/*
+    Bluetooth LE HID Report Descriptor Parser
+    -----------------------------------------
+
+    Parses a HID report descriptor stored in:
+
+        uint8_t hid_report_descriptor[];
+
+    Features:
+    - Short item parsing
+    - Main / Global / Local item decoding
+    - Collection nesting tracking
+    - Usage page decoding
+    - Report ID tracking
+    - Handles signed values
+    - Safe bounds checking
+    - No dynamic allocation
+    - Re-entrant
+
+    Suitable for embedded BLE HID stacks.
+
+    Example:
+        parse_hid_report_descriptor(
+            hid_report_descriptor,
+            sizeof(hid_report_descriptor)
+        );
+*/
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+static uint32_t extract_value(const uint8_t *data, uint8_t size)
+{
+    uint32_t v = 0;
+
+    switch (size)
+    {
+    case 4:
+        v |= ((uint32_t)data[3] << 24);
+
+    case 3:
+        v |= ((uint32_t)data[2] << 16);
+
+    case 2:
+        v |= ((uint32_t)data[1] << 8);
+
+    case 1:
+        v |= ((uint32_t)data[0]);
+        break;
+
+    default:
+        break;
+    }
+
+    return v;
+}
+static int32_t sign_extend(uint32_t value, uint8_t size_bytes)
+{
+    switch (size_bytes)
+    {
+    case 1:
+        return (int8_t)value;
+
+    case 2:
+        return (int16_t)value;
+
+    case 4:
+        return (int32_t)value;
+
+    default:
+        return (int32_t)value;
+    }
+}
+/* ----------------------------------------------------------------------------
+ * Verbose HID-report-descriptor debug walker. Not compiled in normal builds —
+ * #define BTH_HID_DESCRIPTOR_DEBUG to turn it on. Prints the descriptor item
+ * by item to stdout; useful when bringing up a new peer to understand the
+ * report map structure. The runtime mouse-field extractor below is a
+ * separate, focused parser.
+ * ----------------------------------------------------------------------------
+ */
+#ifdef BTH_HID_DESCRIPTOR_DEBUG
+
+// Example usage
+
+typedef enum
+{
+    HID_ITEM_TYPE_MAIN = 0,
+    HID_ITEM_TYPE_GLOBAL = 1,
+    HID_ITEM_TYPE_LOCAL = 2,
+    HID_ITEM_TYPE_LONG = 3
+} hid_item_type_t;
+
+typedef struct
+{
+    uint8_t size;
+    uint8_t type;
+    uint8_t tag;
+    uint32_t value;
+    int32_t svalue;
+} hid_item_t;
+
+static const char *collection_types[] = {
+    "Physical",
+    "Application",
+    "Logical",
+    "Report",
+    "Named Array",
+    "Usage Switch",
+    "Usage Modifier"};
+
+static const char *usage_pages[] = {
+    [0x01] = "Generic Desktop",
+    [0x02] = "Simulation",
+    [0x03] = "VR",
+    [0x04] = "Sport",
+    [0x05] = "Game",
+    [0x06] = "Generic Device",
+    [0x07] = "Keyboard",
+    [0x08] = "LED",
+    [0x09] = "Button",
+    [0x0C] = "Consumer"};
+
+static void print_indent(unsigned level)
+{
+    while (level--)
+    {
+        printf("  ");
+    }
+}
+
+static void decode_main_item(
+    const hid_item_t *item,
+    unsigned collection_depth)
+{
+    switch (item->tag)
+    {
+
+    case 8: // Input
+        print_indent(collection_depth);
+        printf("Input: 0x%02X\n", (unsigned)item->value);
+        break;
+
+    case 9: // Output
+        print_indent(collection_depth);
+        printf("Output: 0x%02X\n", (unsigned)item->value);
+        break;
+
+    case 10: // Collection
+        print_indent(collection_depth);
+
+        if (item->value < 7)
+            printf("Collection (%s)\n",
+                   collection_types[item->value]);
+        else
+            printf("Collection (%u)\n",
+                   (unsigned)item->value);
+
+        break;
+
+    case 11: // Feature
+        print_indent(collection_depth);
+        printf("Feature: 0x%02X\n", (unsigned)item->value);
+        break;
+
+    case 12: // End Collection
+        print_indent(collection_depth);
+        printf("End Collection\n");
+        break;
+
+    default:
+        print_indent(collection_depth);
+        printf("Main Tag %u: 0x%08X\n",
+               item->tag,
+               (unsigned)item->value);
+        break;
+    }
+}
+
+static void decode_global_item(
+    const hid_item_t *item,
+    uint16_t *usage_page,
+    uint8_t *report_id)
+{
+    switch (item->tag)
+    {
+
+    case 0: // Usage Page
+        *usage_page = (uint16_t)item->value;
+
+        if (*usage_page < 256 &&
+            usage_pages[*usage_page] != NULL)
+        {
+            printf("Usage Page: %s (0x%X)\n",
+                   usage_pages[*usage_page],
+                   *usage_page);
+        }
+        else
+        {
+            printf("Usage Page: 0x%X\n",
+                   *usage_page);
+        }
+        break;
+
+    case 1: // Logical Minimum
+        printf("Logical Min: %d\n",
+               (int)item->svalue);
+        break;
+
+    case 2: // Logical Maximum
+        printf("Logical Max: %d\n",
+               (int)item->svalue);
+        break;
+
+    case 7: // Report Size
+        printf("Report Size: %u\n",
+               (unsigned)item->value);
+        break;
+
+    case 8: // Report ID
+        *report_id = (uint8_t)item->value;
+
+        printf("Report ID: %u\n",
+               (unsigned)*report_id);
+        break;
+
+    case 9: // Report Count
+        printf("Report Count: %u\n",
+               (unsigned)item->value);
+        break;
+
+    default:
+        printf("Global Tag %u: 0x%08X\n",
+               item->tag,
+               (unsigned)item->value);
+        break;
+    }
+}
+
+static void decode_local_item(
+    const hid_item_t *item,
+    uint16_t usage_page)
+{
+    switch (item->tag)
+    {
+
+    case 0: // Usage
+        printf("Usage: 0x%X", (unsigned)item->value);
+
+        if (usage_page == 0x01)
+        {
+
+            switch (item->value)
+            {
+
+            case 0x02:
+                printf(" (Mouse)");
+                break;
+
+            case 0x04:
+                printf(" (Joystick)");
+                break;
+
+            case 0x05:
+                printf(" (Gamepad)");
+                break;
+
+            case 0x06:
+                printf(" (Keyboard)");
+                break;
+
+            case 0x30:
+                printf(" (X)");
+                break;
+
+            case 0x31:
+                printf(" (Y)");
+                break;
+
+            case 0x38:
+                printf(" (Wheel)");
+                break;
+            }
+        }
+
+        printf("\n");
+        break;
+
+    case 1:
+        printf("Usage Minimum: 0x%X\n",
+               (unsigned)item->value);
+        break;
+
+    case 2:
+        printf("Usage Maximum: 0x%X\n",
+               (unsigned)item->value);
+        break;
+
+    default:
+        printf("Local Tag %u: 0x%08X\n",
+               item->tag,
+               (unsigned)item->value);
+        break;
+    }
+}
+
+void parse_hid_report_descriptor(
+    const uint8_t *descriptor,
+    size_t length)
+{
+    size_t i = 0;
+
+    uint16_t usage_page = 0;
+    uint8_t report_id = 0;
+
+    unsigned collection_depth = 0;
+
+    while (i < length && descriptor[i] != 0)
+    {
+
+        uint8_t prefix = descriptor[i++];
+
+        //    Long item
+
+        if (prefix == 0xFE)
+        {
+
+            if ((i + 2) > length)
+            {
+                printf("Malformed long item\n");
+                return;
+            }
+
+            uint8_t data_size = descriptor[i++];
+            uint8_t long_tag = descriptor[i++];
+
+            printf("Long Item: tag=%u size=%u\n",
+                   long_tag,
+                   data_size);
+
+            if ((i + data_size) > length)
+            {
+                printf("Descriptor truncated\n");
+                return;
+            }
+
+            i += data_size;
+            continue;
+        }
+
+        uint8_t size_code = prefix & 0x03;
+        uint8_t type = (prefix >> 2) & 0x03;
+        uint8_t tag = (prefix >> 4) & 0x0F;
+
+        uint8_t size;
+
+        switch (size_code)
+        {
+        case 0:
+            size = 0;
+            break;
+        case 1:
+            size = 1;
+            break;
+        case 2:
+            size = 2;
+            break;
+        case 3:
+            size = 4;
+            break;
+        default:
+            size = 0;
+            break;
+        }
+
+        if ((i + size) > length)
+        {
+            printf("Descriptor truncated\n");
+            return;
+        }
+
+        hid_item_t item;
+
+        item.size = size;
+        item.type = type;
+        item.tag = tag;
+        item.value = extract_value(&descriptor[i], size);
+        item.svalue = sign_extend(item.value, size);
+
+        i += size;
+
+        switch (type)
+        {
+
+        case HID_ITEM_TYPE_MAIN:
+
+            if (tag == 12)
+            {
+                if (collection_depth)
+                    collection_depth--;
+            }
+
+            decode_main_item(&item, collection_depth);
+
+            if (tag == 10)
+            {
+                collection_depth++;
+            }
+
+            break;
+
+        case HID_ITEM_TYPE_GLOBAL:
+            decode_global_item(
+                &item,
+                &usage_page,
+                &report_id);
+            break;
+
+        case HID_ITEM_TYPE_LOCAL:
+            decode_local_item(
+                &item,
+                usage_page);
+            break;
+
+        default:
+            printf("Reserved item type\n");
+            break;
+        }
+    }
+}
+
+uint8_t hid_report_descriptor[] = {
+
+    0x05, 0x01, // Usage Page (Generic Desktop)
+    0x09, 0x02, // Usage (Mouse)
+    0xA1, 0x01, // Collection (Application)
+
+    0x09, 0x01, // Usage (Pointer)
+    0xA1, 0x00, // Collection (Physical)
+
+    0x05, 0x09, // Usage Page (Button)
+    0x19, 0x01, // Usage Minimum (1)
+    0x29, 0x03, // Usage Maximum (3)
+
+    0x15, 0x00, // Logical Minimum (0)
+    0x25, 0x01, // Logical Maximum (1)
+
+    0x95, 0x03, // Report Count (3)
+    0x75, 0x01, // Report Size (1)
+
+    0x81, 0x02, // Input (Data,Var,Abs)
+
+    0xC0, // End Collection
+    0xC0  // End Collection
+};
+
+#endif /* BTH_HID_DESCRIPTOR_DEBUG */
+
+static uint32_t bt_tlv_get_size(void *ctx)
+{
+    (void)ctx;
+    return BT_TLV_BANK_SIZE;
+}
+
+static uint32_t bt_tlv_get_alignment(void *ctx)
+{
+    (void)ctx;
+    return 4;
+}
+
+/* btstack writes the bond store from its own context (interrupt level).
+   Saving each write there - SaveOptions(1) waits 100 ms and erases the
+   options sector - froze audio and the interpreter for ~160 ms a write,
+   five writes per pairing, long enough for an SD read to time out and the
+   card to be reported removed. So writes change the RAM copy only, and
+   bt_keyboard_poll() saves it from the main loop once the store has been
+   quiet for BT_TLV_SAVE_DELAY_MS. LoadOptions() leaves Option.bt_tlv alone
+   while bt_tlv_dirty is set, so an error's reload can't undo unsaved bonds. */
+#define BT_TLV_SAVE_DELAY_MS 250
+volatile bool bt_tlv_dirty;
+static volatile uint32_t bt_tlv_changed_ms;
+
+static void bt_tlv_changed(void)
+{
+    bt_tlv_changed_ms = to_ms_since_boot(get_absolute_time());
+    bt_tlv_dirty = true;
+}
+
+/* Diagnostics for BLUETOOTH STATUS. */
+static volatile uint32_t tlv_saves, tlv_save_max_us, tlv_save_total_us;
+static volatile uint32_t kbd_pairings, kbd_reencryptions, kbd_interrupted;
+
+static void bt_tlv_save(void)
+{
+    uint32_t t0 = time_us_32();
+    SaveOptions(1);
+    uint32_t us = time_us_32() - t0;
+    tlv_saves++;
+    tlv_save_total_us += us;
+    if (us > tlv_save_max_us)
+        tlv_save_max_us = us;
+}
+
+void bt_keyboard_stats(uint32_t *saves, uint32_t *save_max_us, uint32_t *save_total_us,
+                       uint32_t *pairings, uint32_t *reencryptions, uint32_t *interrupted)
+{
+    *saves = tlv_saves;
+    *save_max_us = tlv_save_max_us;
+    *save_total_us = tlv_save_total_us;
+    *pairings = kbd_pairings;
+    *reencryptions = kbd_reencryptions;
+    *interrupted = kbd_interrupted;
+    tlv_saves = tlv_save_max_us = tlv_save_total_us = 0;
+}
+
+static void bt_tlv_erase(void *ctx, int bank)
+{
+    (void)ctx;
+    memset(&Option.bt_tlv[bank * BT_TLV_BANK_SIZE], 0xFF, BT_TLV_BANK_SIZE);
+    bt_tlv_changed();
+}
+
+static void bt_tlv_read(void *ctx, int bank, uint32_t offset,
+                        uint8_t *buffer, uint32_t size)
+{
+    (void)ctx;
+    memcpy(buffer, &Option.bt_tlv[bank * BT_TLV_BANK_SIZE + offset], size);
+}
+
+static void bt_tlv_write(void *ctx, int bank, uint32_t offset,
+                         const uint8_t *data, uint32_t size)
+{
+    (void)ctx;
+    /* btstack assumes flash, which can only flip bits 1→0 without erase.
+       Mirror that semantic so the TLV format stays consistent across the
+       (RAM-shadow → flash) round-trip. */
+    uint8_t *dest = &Option.bt_tlv[bank * BT_TLV_BANK_SIZE + offset];
+    for (uint32_t i = 0; i < size; i++)
+    {
+        dest[i] &= data[i];
+    }
+    bt_tlv_changed();
+}
+
+static const hal_flash_bank_t bt_tlv_hal = {
+    .get_size = bt_tlv_get_size,
+    .get_alignment = bt_tlv_get_alignment,
+    .erase = bt_tlv_erase,
+    .read = bt_tlv_read,
+    .write = bt_tlv_write,
+};
+
+/* The SDK's btstack_cyw43_init(), run inside cyw43_arch_init(), builds the
+   global TLV on pico_flash_bank_instance(). Its default bank is the last
+   12 KB of flash, which is inside the A: drive (the drive runs to the end of
+   flash), and when no bank header is found there it erases a sector to write
+   one. The linker wraps that call for the BTH builds (CMakeLists.txt) so the
+   SDK gets the Option-backed store instead: the TLV, the LE device DB and
+   the Classic link-key DB it attaches all live in Option.bt_tlv. */
+const hal_flash_bank_t *pico_flash_bank_instance(void)
+{
+    return &bt_tlv_hal;
+}
+
+typedef enum
+{
+    BTK_OFF,
+    BTK_HCI_WAITING,
+    BTK_SCANNING,
+    BTK_CONNECTING,
+    BTK_CONNECTED_UNENCRYPTED,
+    BTK_ENCRYPTED,
+    BTK_HIDS_CONNECTING,
+    BTK_READY,
+} btk_state_t;
+
+static volatile btk_state_t state;
+static bool bt_startup_complete;
+
+static bd_addr_t target_addr;
+static bd_addr_type_t target_addr_type = BTH_TARGET_ADDR_TYPE;
+/* The advertiser being connected to is bonded to us (or advertised
+   directly to us): its link is re-encrypted at once. */
+static bool target_known;
+
+static hci_con_handle_t conn_handle = HCI_CON_HANDLE_INVALID;
+/* The keyboard link's handle, latched when the Security Manager starts pairing
+   or re-encryption on it. btstack reports SM events for every LE link -
+   including devices that connect to our GATT server - and reports a link that
+   drops mid-procedure as complete with status 0x13 (remote user terminated
+   connection). Only completions on these handles are the keyboard's; they are
+   latched at the start because our disconnect handling may clear conn_handle
+   before btstack reports the drop. */
+static hci_con_handle_t kbd_pairing_handle = HCI_CON_HANDLE_INVALID;
+static hci_con_handle_t kbd_reenc_handle = HCI_CON_HANDLE_INVALID;
+static uint16_t hids_cid;
+static uint32_t report_count;
+/* The lock keys' LEDs: where the keyboard's output report keeps them, and
+   the report itself (hids_host writes from it later). */
+static bt_led_layout_t ble_led;
+static uint8_t ble_led_buf[8];
+static bool ble_led_pending;
+/* Where the keyboard report keeps its keys, from the report map. */
+static bt_kbd_layout_t ble_kbd;
+
+static uint8_t hid_descriptor_storage[HID_DESCRIPTOR_STORAGE_SIZE];
+
+static btstack_packet_callback_registration_t hci_event_callback_registration;
+static btstack_packet_callback_registration_t sm_event_callback_registration;
+
+/* Parallel notification listener registered directly with gatt_client.
+   Filters on con_handle only (attribute_handle = ANY) so it catches
+   every notification on our link, regardless of whether hids_client's
+   own listener fires. Useful as a fallback + diagnostic — proves the
+   notification dispatch path works even if hids_client's report
+   matching has issues. */
+static gatt_client_notification_t bth_raw_notification_listener;
+static bool bth_raw_listener_installed;
+
+/* Fallback pairing kick-off: if 2 s after LE connect we haven't seen
+   any SM activity, the peer probably isn't going to send a Security
+   Request. Initiate pairing ourselves so we don't sit forever. */
+static btstack_timer_source_t pair_kickoff_timer;
+
+/* Forward decl — bth_log is defined further down. */
+static void bth_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+static void pair_kickoff_timeout(btstack_timer_source_t *ts)
+{
+    (void)ts;
+    if (state == BTK_CONNECTED_UNENCRYPTED &&
+        conn_handle != HCI_CON_HANDLE_INVALID)
+    {
+        bth_log("no Security Request after 2s; initiating pairing");
+        sm_request_pairing(conn_handle);
+    }
+}
+
+/* ============================================================================
+ * Diagnostic logging — goes to USB CDC via stdio. Plain printf works
+ * because PICOMITEBTH keeps stdio_usb enabled (unlike PICOMITEBT which
+ * disables it).
+ * ============================================================================
+ */
+static void bth_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+static void bth_log(const char *fmt, ...)
+{
+#ifdef BTH_DEBUG_LOG
+    va_list ap;
+    fputs("[BT] ", stdout);
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+    fputc('\r', stdout);
+    fputc('\n', stdout);
+    fflush(stdout);
+#else
+    (void)fmt; /* diagnostics off — see BTH_DEBUG_LOG */
+#endif
+}
+
+/* ============================================================================
+ * Scan helpers — extract the Complete / Shortened Local Name AD field
+ * from an advertising payload so we can print it in scan logs.
+ * ============================================================================
+ */
+static bool ad_extract_name(const uint8_t *data, uint16_t len,
+                            char *out, size_t out_size)
+{
+    ad_context_t ctx;
+    for (ad_iterator_init(&ctx, len, data);
+         ad_iterator_has_more(&ctx);
+         ad_iterator_next(&ctx))
+    {
+        uint8_t type = ad_iterator_get_data_type(&ctx);
+        uint8_t ad_len = ad_iterator_get_data_len(&ctx);
+        const uint8_t *ad_data = ad_iterator_get_data(&ctx);
+        if (type == BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME ||
+            type == BLUETOOTH_DATA_TYPE_SHORTENED_LOCAL_NAME)
+        {
+            size_t copy = (ad_len < out_size - 1) ? ad_len : (out_size - 1);
+            memcpy(out, ad_data, copy);
+            out[copy] = '\0';
+            return true;
+        }
+    }
+    out[0] = '\0';
+    return false;
+}
+
+/* Scan the advertising payload for a 16-bit Service UUID match.
+   Walks both Complete and Incomplete UUID-16 list AD records. */
+static bool ad_has_uuid16(const uint8_t *data, uint16_t len, uint16_t uuid)
+{
+    ad_context_t ctx;
+    for (ad_iterator_init(&ctx, len, data);
+         ad_iterator_has_more(&ctx);
+         ad_iterator_next(&ctx))
+    {
+        uint8_t type = ad_iterator_get_data_type(&ctx);
+        uint8_t ad_len = ad_iterator_get_data_len(&ctx);
+        const uint8_t *ad_data = ad_iterator_get_data(&ctx);
+        if (type == BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS ||
+            type == BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS)
+        {
+            for (uint8_t i = 0; (i + 1) < ad_len; i += 2)
+            {
+                uint16_t u = little_endian_read_16(ad_data, i);
+                if (u == uuid)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* True if btstack holds a bond for this address (the LE device DB, kept in
+   Option.bt_tlv). Compares identity addresses, which is what a keyboard
+   with a public or static random address advertises. */
+static bool bth_is_bonded(bd_addr_type_t type, const bd_addr_t addr)
+{
+    int max = le_device_db_max_count();
+    for (int i = 0; i < max; i++)
+    {
+        int t = BD_ADDR_TYPE_UNKNOWN;
+        bd_addr_t a;
+        le_device_db_info(i, &t, a, NULL);
+        if (t != BD_ADDR_TYPE_UNKNOWN && t == (int)type && memcmp(a, addr, sizeof(bd_addr_t)) == 0)
+            return true;
+    }
+    return false;
+}
+
+/* MM.INFO(BLUETOOTH KEYBOARD): the connected keyboard's address, or "". */
+void bt_keyboard_address(char *buf)
+{
+    if (state == BTK_READY)
+        strcpy(buf, bd_addr_to_str(target_addr));
+    else
+        buf[0] = 0;
+}
+
+/* BLUETOOTH FORGET: delete keyboard bonds - all of them (addr NULL) or the
+   one with this address - dropping the keyboard's link first if it is the
+   one. Called with the async-context lock held. */
+void bt_keyboard_forget(const uint8_t *addr)
+{
+    if (conn_handle != HCI_CON_HANDLE_INVALID &&
+        (addr == NULL || memcmp(addr, target_addr, sizeof(bd_addr_t)) == 0))
+        gap_disconnect(conn_handle);
+    int max = le_device_db_max_count();
+    for (int i = 0; i < max; i++)
+    {
+        int t = BD_ADDR_TYPE_UNKNOWN;
+        bd_addr_t a;
+        le_device_db_info(i, &t, a, NULL);
+        if (t == BD_ADDR_TYPE_UNKNOWN)
+            continue;
+        if (addr != NULL && memcmp(a, addr, sizeof(bd_addr_t)) != 0)
+            continue;
+        gap_delete_bonding((bd_addr_type_t)t, a);
+    }
+}
+
+/* The last pairing, for BLUETOOTH STATUS: the keyboard's address and
+   whether btstack stored a bond for it - it does only when both sides ask
+   to bond, and without one the keyboard can't come back after a reset. */
+static bd_addr_t last_pair_addr;
+static bd_addr_type_t last_pair_addr_type;
+static int8_t last_pair_result = -1; /* -1 none, 0 bond not stored, 1 stored, 2 failed, 3 link dropped */
+static uint8_t last_pair_status, last_pair_reason;
+
+void bt_keyboard_last_pairing(char *buf, int len)
+{
+    if (last_pair_result < 0)
+        snprintf(buf, len, "none since boot");
+    else if (last_pair_result == 2)
+        snprintf(buf, len, "%s, failed, status 0x%02X reason 0x%02X", bd_addr_to_str(last_pair_addr),
+                 last_pair_status, last_pair_reason);
+    else if (last_pair_result == 3)
+        snprintf(buf, len, "%s, interrupted, the keyboard dropped the link", bd_addr_to_str(last_pair_addr));
+    else
+        snprintf(buf, len, "%s (%s), %s", bd_addr_to_str(last_pair_addr),
+                 last_pair_addr_type == BD_ADDR_TYPE_LE_PUBLIC ? "public" : "random",
+                 last_pair_result ? "bond stored" : "BOND NOT STORED");
+}
+
+#ifdef BTH_SCAN_DEBUG
+/* Addresses already logged this scan session, so the verbose scan log
+   shows each advertiser once rather than flooding. Reset by start_scan().
+   Note: peripherals using a rotating Resolvable Private Address will
+   re-log when their address changes — that is expected. */
+#define BTH_SCAN_SEEN_MAX 32
+static bd_addr_t bth_scan_seen[BTH_SCAN_SEEN_MAX];
+static uint8_t bth_scan_seen_count;
+
+static bool bth_scan_log_once(const uint8_t *addr)
+{
+    for (uint8_t i = 0; i < bth_scan_seen_count; i++)
+        if (memcmp(bth_scan_seen[i], addr, sizeof(bd_addr_t)) == 0)
+            return false;
+    if (bth_scan_seen_count < BTH_SCAN_SEEN_MAX)
+        memcpy(bth_scan_seen[bth_scan_seen_count++], addr, sizeof(bd_addr_t));
+    return true; /* first sighting (or table full — log anyway) */
+}
+#endif
+
+/* ============================================================================
+ * Connection lifecycle
+ * ============================================================================
+ */
+/* Active scan with a 30 ms window. With no audio the window repeats every
+   30 ms (continuous) - aggressive, but keyboards advertise at 30-100 ms
+   during pairing so this catches them quickly. While a Bluetooth speaker
+   is streaming the window repeats every 100 ms instead, leaving the radio
+   free for the audio link 70% of the time. */
+static void set_scan_parameters(void)
+{
+    gap_set_scan_parameters(1 /*active*/, bt_audio_streaming() ? 0x00A0 : 0x0030, 0x0030);
+}
+
+static void start_scan(void)
+{
+    state = BTK_SCANNING;
+#ifdef BTH_SCAN_DEBUG
+    bth_scan_seen_count = 0;
+#endif
+    set_scan_parameters();
+    gap_start_scan();
+    bth_log("scanning for keyboard %s (edit BTH_TARGET_ADDR_STRING to match)",
+            BTH_TARGET_ADDR_STRING);
+}
+
+static bool other_connecting; /* see bt_keyboard_connect_other() */
+static bool scan_wanted(void);
+
+/* Called by BTAudio.c (in the btstack context) when a speaker stream starts
+   or stops: a scan in progress is restarted with the matching duty cycle. */
+void bt_keyboard_scan_duty_changed(void)
+{
+    if (!scan_wanted() || other_connecting || state == BTK_CONNECTING)
+        return;
+    gap_stop_scan();
+    set_scan_parameters();
+    gap_start_scan();
+}
+
+/* The lock keys' LEDs. A keyboard lights its LED for a moment and turns it
+   off again unless the host sets it. Sent with the first key report after
+   the HID service is up, and whenever a lock key is pressed on this
+   keyboard; tried again with the next report while hids_host is busy. */
+static void ble_send_leds(void)
+{
+    ble_led_pending = false;
+    if (state != BTK_READY || !ble_led.present)
+        return;
+    uint8_t len = bt_hid_led_report(&ble_led, kbd_lock_leds(), ble_led_buf);
+    ble_led_pending = hids_client_send_write_report(hids_cid, ble_led.has_id ? ble_led.id : 0,
+                                                    HID_REPORT_TYPE_OUTPUT, ble_led_buf, len) ==
+                      ERROR_CODE_COMMAND_DISALLOWED;
+}
+
+void bt_keyboard_set_leds(uint8_t leds)
+{
+    (void)leds; /* ble_send_leds() reads them */
+    ble_send_leds();
+}
+
+static void connect_target(void)
+{
+    state = BTK_CONNECTING;
+    gap_stop_scan();
+    bth_log("connecting to %s (addr_type=%u)",
+            bd_addr_to_str(target_addr), target_addr_type);
+    gap_connect(target_addr, target_addr_type);
+}
+
+/* ============================================================================
+ * Other LE links - the Bluetooth serial device (BTSerial.c). btstack connects
+ * one LE device at a time, and the scan stops meanwhile, so another module's
+ * LE connection goes through here. Scanning also runs while the keyboard is
+ * connected when something holds it: BLUETOOTH SCAN listing BLE devices, or
+ * COM8 waiting for its BLE device to advertise.
+ * ============================================================================
+ */
+static uint8_t scan_holds; /* BT_SCAN_HOLD_* bits */
+
+static bool scan_wanted(void)
+{
+    return state == BTK_SCANNING || scan_holds != 0;
+}
+
+/* After a connection attempt: scan again if anyone wants it. */
+static void resume_scan(void)
+{
+    if (scan_wanted() && !other_connecting && state != BTK_CONNECTING)
+    {
+        set_scan_parameters();
+        gap_start_scan();
+    }
+}
+
+void bt_keyboard_scan_hold(uint8_t who, bool on)
+{
+    if (on)
+        scan_holds |= who;
+    else
+        scan_holds &= (uint8_t)~who;
+    if (other_connecting || state == BTK_CONNECTING)
+        return; /* resume_scan() follows the connection */
+    if (scan_wanted())
+    {
+        set_scan_parameters();
+        gap_start_scan();
+    }
+    else
+        gap_stop_scan();
+}
+
+uint8_t bt_keyboard_connect_other(const uint8_t *addr, uint8_t addr_type)
+{
+    if (other_connecting || state == BTK_CONNECTING)
+        return ERROR_CODE_COMMAND_DISALLOWED;
+    gap_stop_scan();
+    uint8_t status = gap_connect(addr, (bd_addr_type_t)addr_type);
+    if (status == ERROR_CODE_SUCCESS)
+        other_connecting = true;
+    else
+        resume_scan();
+    return status;
+}
+
+/* Keyboard report decode lives in KeyboardMap.c now -- shared with
+   USBKeyboard.c. process_kbd_report() takes the 8-byte boot-keyboard
+   report directly and dispatches into the console RX ring via the
+   same APP_MapKeyToUsage / USR_KEYBRD_ProcessData path the USB-HID-
+   host build uses. Lifts international keymap (US/UK/DE/FR/ES/BE,
+   selected via Option.KeyboardConfig), Caps/Num/Scroll lock state,
+   and KeyDown[] tracking for the KEYDOWN() BASIC function. */
+typedef struct
+{
+    uint8_t report_id;
+
+    uint16_t usage_page;
+    uint16_t usage;
+
+    uint16_t x_bit_offset;
+    uint16_t y_bit_offset;
+
+    uint8_t x_size;
+    uint8_t y_size;
+
+    bool x_relative;
+    bool y_relative;
+
+    uint16_t button_bit_offset;
+    uint8_t button_count;
+
+    uint16_t report_bits;
+
+} hid_mouse_descriptor_t;
+typedef struct
+{
+    uint16_t usage_page;
+
+    int32_t logical_min;
+    int32_t logical_max;
+
+    uint8_t report_size;
+    uint8_t report_count;
+
+    uint8_t report_id;
+
+    uint16_t usages[16];
+    uint8_t usage_count;
+
+    uint16_t usage_min;
+    uint16_t usage_max;
+
+    uint32_t bit_offset;
+
+    /* Application-Usage tracking: identifies a Mouse Application
+       (Generic Desktop / Mouse = 0x01 / 0x02) regardless of which
+       Report ID the peer chose. Set when we see a `Usage (Mouse)`
+       followed by a `Collection (Application)`, cleared on the
+       matching `End Collection`. Replaces the earlier hardcoded
+       assumption that the mouse always lives at Report ID 2. */
+    uint16_t last_local_usage;
+    int8_t app_collection_depth;
+    int8_t mouse_app_depth; /* -1 = not in mouse application */
+
+} hid_parse_state_t;
+
+static hid_mouse_descriptor_t mouse_info;
+static void hid_clear_local(hid_parse_state_t *st)
+{
+    st->usage_count = 0;
+    st->usage_min = 0;
+    st->usage_max = 0;
+}
+static bool hid_extract_mouse_descriptor(
+    const uint8_t *descriptor,
+    size_t length,
+    hid_mouse_descriptor_t *mouse)
+{
+    hid_parse_state_t st;
+
+    memset(&st, 0, sizeof(st));
+    memset(mouse, 0, sizeof(*mouse));
+    st.mouse_app_depth = -1; /* not inside any mouse Application yet */
+
+    size_t i = 0;
+
+    while (i < length)
+    {
+        uint8_t prefix = descriptor[i++];
+
+        /*
+         * End if descriptor terminator encountered
+         */
+        if (prefix == 0)
+            break;
+
+        /*
+         * Long items unsupported
+         */
+        if (prefix == 0xFE)
+            return false;
+
+        uint8_t size_code = prefix & 0x03;
+        uint8_t type = (prefix >> 2) & 0x03;
+        uint8_t tag = (prefix >> 4) & 0x0F;
+
+        uint8_t size =
+            (size_code == 3) ? 4 : size_code;
+
+        uint32_t value =
+            extract_value(&descriptor[i], size);
+
+        int32_t svalue =
+            sign_extend(value, size);
+
+        i += size;
+
+        /*
+         * GLOBAL ITEMS
+         */
+        if (type == 1)
+        {
+            switch (tag)
+            {
+            case 0: // Usage Page
+                st.usage_page = (uint16_t)value;
+                break;
+
+            case 1: // Logical Minimum
+                st.logical_min = svalue;
+                break;
+
+            case 2: // Logical Maximum
+                st.logical_max = svalue;
+                break;
+
+            case 7: // Report Size
+                st.report_size = (uint8_t)value;
+                break;
+
+            case 8: // Report ID
+                /*
+                 * New report
+                 */
+                st.report_id = (uint8_t)value;
+                st.bit_offset = 0;
+                st.usage_count = 0;
+                break;
+
+            case 9: // Report Count
+                st.report_count = (uint8_t)value;
+                break;
+            }
+        }
+
+        /*
+         * LOCAL ITEMS
+         */
+        else if (type == 2)
+        {
+            switch (tag)
+            {
+            case 0: // Usage
+            {
+                if (st.usage_count < 16)
+                {
+                    st.usages[st.usage_count++] =
+                        (uint16_t)value;
+                }
+                /* Remember the most recent Usage local item so the
+                   next Collection (Application) main item can decide
+                   whether we're entering a Mouse Application. */
+                st.last_local_usage = (uint16_t)value;
+                break;
+            }
+
+            case 1: // Usage Minimum
+            {
+                st.usage_min = (uint16_t)value;
+                break;
+            }
+
+            case 2: // Usage Maximum
+            {
+                st.usage_max = (uint16_t)value;
+
+                /*
+                 * Expand usage range
+                 */
+                for (uint16_t u = st.usage_min;
+                     u <= st.usage_max &&
+                     st.usage_count < 16;
+                     u++)
+                {
+                    st.usages[st.usage_count++] = u;
+                }
+
+                break;
+            }
+            }
+        }
+
+        /*
+         * MAIN ITEMS
+         */
+        else if (type == 0)
+        {
+            switch (tag)
+            {
+            case 8: // INPUT
+            {
+                bool is_constant =
+                    (value & 0x01) != 0;
+
+                bool is_variable =
+                    (value & 0x02) != 0;
+
+                bool is_relative =
+                    (value & 0x04) != 0;
+
+                /* True if this Input main item lives inside a Mouse
+                   Application Collection — i.e. inside the bracketed
+                   region opened by `Usage (Mouse) ; Collection
+                   (Application)`. Replaces the earlier hardcoded
+                   `report_id == 2` so other peers with the mouse on
+                   a different Report ID still work. */
+                bool is_mouse_report =
+                    (st.mouse_app_depth >= 0);
+
+                /*
+                 * Parse fields
+                 */
+                if (!is_constant &&
+                    is_variable &&
+                    is_mouse_report)
+                {
+                    for (uint32_t field = 0;
+                         field < st.report_count;
+                         field++)
+                    {
+                        uint16_t usage = 0;
+
+                        if (field < st.usage_count)
+                            usage = st.usages[field];
+
+                        uint32_t field_offset =
+                            st.bit_offset +
+                            (field * st.report_size);
+
+                        /*
+                         * Generic Desktop
+                         */
+                        if (st.usage_page == 0x01)
+                        {
+                            switch (usage)
+                            {
+                            case 0x30: // X
+                            {
+                                mouse->report_id =
+                                    st.report_id;
+
+                                mouse->usage_page = 0x01;
+                                mouse->usage = 0x02;
+
+                                mouse->x_bit_offset =
+                                    field_offset;
+
+                                mouse->x_size =
+                                    st.report_size;
+
+                                mouse->x_relative =
+                                    is_relative;
+
+                                break;
+                            }
+
+                            case 0x31: // Y
+                            {
+                                mouse->y_bit_offset =
+                                    field_offset;
+
+                                mouse->y_size =
+                                    st.report_size;
+
+                                mouse->y_relative =
+                                    is_relative;
+
+                                break;
+                            }
+                            }
+                        }
+
+                        /*
+                         * Buttons
+                         */
+                        else if (st.usage_page == 0x09)
+                        {
+                            /*
+                             * First button field
+                             */
+                            if (mouse->button_count == 0)
+                            {
+                                mouse->button_bit_offset =
+                                    field_offset;
+                            }
+
+                            mouse->button_count++;
+                        }
+                    }
+                }
+
+                /*
+                 * Advance report offset
+                 */
+                st.bit_offset +=
+                    (uint32_t)st.report_size *
+                    (uint32_t)st.report_count;
+
+                /*
+                 * Track mouse report size
+                 */
+                if (is_mouse_report)
+                {
+                    mouse->report_bits =
+                        st.bit_offset;
+                }
+
+                /*
+                 * Clear LOCAL state
+                 */
+                hid_clear_local(&st);
+                break;
+            }
+
+            case 10: // COLLECTION
+            {
+                /* If this is an Application Collection (value == 1)
+                   preceded by `Usage (0x01:0x02) = Mouse`, remember
+                   the depth so subsequent Input items in this
+                   bracket are recognised as mouse fields. */
+                st.app_collection_depth++;
+                if (value == 0x01 /*Application*/ &&
+                    st.usage_page == 0x01 &&
+                    st.last_local_usage == 0x02 /*Mouse*/ &&
+                    st.mouse_app_depth < 0)
+                {
+                    st.mouse_app_depth = st.app_collection_depth;
+                }
+                hid_clear_local(&st);
+                break;
+            }
+
+            case 12: // END COLLECTION
+            {
+                if (st.mouse_app_depth >= 0 &&
+                    st.app_collection_depth == st.mouse_app_depth)
+                {
+                    /* Closing the bracket that opened the mouse
+                       Application — stop treating subsequent fields
+                       as mouse fields. */
+                    st.mouse_app_depth = -1;
+                }
+                if (st.app_collection_depth > 0)
+                    st.app_collection_depth--;
+                hid_clear_local(&st);
+                break;
+            }
+            default:
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+typedef struct
+{
+    int32_t x;
+    int32_t y;
+    uint32_t buttons;
+} hid_mouse_report_t;
+
+static hid_mouse_report_t mouse_report;
+static uint32_t hid_extract_bits(
+    const uint8_t *data,
+    uint32_t bit_offset,
+    uint32_t bit_count)
+{
+    uint32_t value = 0;
+
+    for (uint32_t i = 0; i < bit_count; i++)
+    {
+        uint32_t bit =
+            (data[(bit_offset + i) / 8] >>
+             ((bit_offset + i) % 8)) &
+            1u;
+
+        value |= (bit << i);
+    }
+
+    return value;
+}
+
+static int32_t hid_extract_signed_bits(
+    const uint8_t *data,
+    uint32_t bit_offset,
+    uint32_t bit_count)
+{
+    uint32_t v =
+        hid_extract_bits(
+            data,
+            bit_offset,
+            bit_count);
+
+    /*
+     * Sign extend
+     */
+    if (bit_count < 32)
+    {
+        uint32_t sign_bit =
+            1u << (bit_count - 1);
+
+        if (v & sign_bit)
+        {
+            v |= ~((1u << bit_count) - 1);
+        }
+    }
+
+    return (int32_t)v;
+}
+
+static bool hid_parse_mouse_report(
+    const hid_mouse_descriptor_t *desc,
+    const uint8_t *report,
+    hid_mouse_report_t *out)
+{
+    const uint8_t *payload = report;
+
+    out->x =
+        hid_extract_signed_bits(
+            payload,
+            desc->x_bit_offset,
+            desc->x_size);
+
+    out->y =
+        hid_extract_signed_bits(
+            payload,
+            desc->y_bit_offset,
+            desc->y_size);
+
+    out->buttons =
+        hid_extract_bits(
+            payload,
+            desc->button_bit_offset,
+            desc->button_count);
+
+    return true;
+}
+
+/* Forward declarations for the gamepad wire-in helpers (defined at the
+   bottom of the file, near the gamepad parser they wrap). They take
+   only primitive arg types so we don't need the gamepad typedefs in
+   scope here. */
+void bth_setup_gamepad_descriptor(const uint8_t *desc, uint16_t desc_len);
+bool bth_try_handle_gamepad_report(const uint8_t *val, uint16_t vlen);
+
+/* Parallel raw-notification handler — receives EVERY GATT notification
+   on this connection (because we register with characteristic=NULL).
+   Used as both fallback and diagnostic: if hids_client's own listener
+   fires, our hids_client_handler will print "[BT] report …"; if only
+   this raw handler fires, we know notifications are reaching gatt_client
+   but hids_client isn't dispatching them. */
+static void bth_raw_notification_handler(uint8_t packet_type,
+                                         uint16_t channel,
+                                         uint8_t *packet,
+                                         uint16_t size)
+{
+    (void)channel;
+    (void)size;
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
+    if (hci_event_packet_get_type(packet) != GATT_EVENT_NOTIFICATION)
+        return;
+
+    uint16_t vh = gatt_event_notification_get_value_handle(packet);
+    uint16_t vlen = gatt_event_notification_get_value_length(packet);
+    const uint8_t *val = gatt_event_notification_get_value(packet);
+
+    /* 8-byte notifications are HID boot-keyboard reports (modifier +
+       reserved + 6 keycodes). Mouse reports are identified by their
+       parsed bit-length from the Report Map — not a hardcoded 5,
+       which would misfire on any peer whose mouse uses a different
+       field layout (wheel, extra buttons, etc.). Everything else
+       is logged raw so the operator can investigate. */
+    /* The keyboard report, recognised by its length from the report map,
+       since a notification carries no report ID - only when no other input
+       report has that length. A Logitech Pebble Keys 2 K380s sends 7 bytes
+       (modifier and 6 keys, no reserved byte), which the 8-byte rule below
+       dropped: it paired and connected but never typed. */
+    if (ble_kbd.present && ble_kbd.len_unique && vlen == ble_kbd.len)
+    {
+        uint8_t boot[8];
+        bt_hid_kbd_report(&ble_kbd, val, vlen, boot);
+        process_kbd_report((const hid_keyboard_report_t *)boot, KBD_SOURCE_BT_LE);
+        if (ble_led_pending)
+            ble_send_leds();
+        return;
+    }
+
+    if (vlen == 8)
+    {
+        /* Standard 8-byte HID boot-keyboard report (modifier, reserved,
+           6 keycodes). Hand straight to the shared decoder — same code
+           path the USB-HID-host build uses. n = 0 means "no associated
+           USB HID[] device" (the LED-set call sites in process_key are
+           gated by #ifdef USBKEYBOARD anyway, so n is unused here). */
+        process_kbd_report((const hid_keyboard_report_t *)val, KBD_SOURCE_BT_LE);
+        if (ble_led_pending)
+            ble_send_leds();
+        return;
+    }
+
+    if (mouse_info.report_bits != 0 &&
+        vlen * 8u == mouse_info.report_bits)
+    {
+        hid_parse_mouse_report(&mouse_info, val, &mouse_report);
+        /* Hand the decoded x/y/buttons to the shared mouse post-
+           decode helper. Slot n=2 is the BT mouse, matching the
+           DEVICE(MOUSE 2, "X"/"Y"/"L"/...) reader in External.c.
+           ProxiOS-style mice in this descriptor don't include a
+           wheel field, so wheel_delta = 0. Casts are safe: the
+           parsed x/y are sign-extended int32 but typical mouse
+           deltas fit easily in int16. */
+        process_mouse_input((int16_t)mouse_report.x,
+                            (int16_t)mouse_report.y,
+                            0,
+                            (uint8_t)mouse_report.buttons,
+                            2);
+        return;
+    }
+
+    /* Gamepad report? Dispatches on the parsed gamepad descriptor's
+       report_bits. Currently only prints the decoded axes/hat/buttons
+       to the console — DEVICE(GAMEPAD …) wiring is a follow-up. */
+    if (bth_try_handle_gamepad_report(val, vlen))
+        return;
+
+    /* Consumer-control report? Media keys (volume, play/pause, track
+       skip) arrive as a 2-byte little-endian consumer Usage ID on a
+       separate characteristic. Recognised usages are queued into the
+       console RX ring as media-key pseudo-ASCII codes; the trailing
+       all-zero release is swallowed. Unknown 2-byte reports fall
+       through to the raw log below. */
+    if (process_consumer_report(val, vlen))
+        return;
+
+#ifdef BTH_DEBUG_LOG
+    printf("[BT] raw notify handle=0x%04x len=%u:", (unsigned)vh, (unsigned)vlen);
+    for (uint16_t i = 0; i < vlen; i++)
+        printf(" %02X", val[i]);
+    fputc('\r', stdout);
+    fputc('\n', stdout);
+    fflush(stdout);
+#else
+    (void)vh; /* unrecognised report — silently dropped (BTH_DEBUG_LOG off) */
+#endif
+}
+
+/* ============================================================================
+ * hids_client handler — fires for HID-service events only.
+ * ============================================================================
+ */
+static void hids_client_handler(uint8_t packet_type,
+                                uint16_t channel,
+                                uint8_t *packet,
+                                uint16_t size)
+{
+    (void)channel;
+    (void)size;
+
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
+    if (hci_event_packet_get_type(packet) != HCI_EVENT_GATTSERVICE_META)
+        return;
+
+    switch (hci_event_gattservice_meta_get_subevent_code(packet))
+    {
+    case GATTSERVICE_SUBEVENT_HID_SERVICE_CONNECTED:
+    {
+        uint8_t status = packet[5];
+
+        if (status != ERROR_CODE_SUCCESS)
+        {
+            bth_log("HID service connect failed status=0x%02x", status);
+            state = BTK_ENCRYPTED;
+            break;
+        }
+
+        //        MMPrintString("Bluetooth HID device connected\r\n> ");
+
+        /*
+         * Parse the downloaded HID report descriptor
+
+        printf("\n=== HID REPORT DESCRIPTOR ===\n");  */
+
+        /* Pull the actual descriptor length from btstack rather than
+           the raw storage size — sizeof() includes the trailing
+           zero-padded region, which our walker has to terminate on
+           heuristically. Using the real length avoids walking past
+           valid data and is robust to descriptors that happen to
+           contain literal zero bytes inside item payloads. */
+        {
+            const uint8_t *desc =
+                hids_client_descriptor_storage_get_descriptor_data(hids_cid, 0);
+            uint16_t desc_len =
+                hids_client_descriptor_storage_get_descriptor_len(hids_cid, 0);
+            if (desc != NULL && desc_len > 0)
+            {
+#ifdef BTH_HID_DESCRIPTOR_DEBUG
+                parse_hid_report_descriptor(desc,
+                                            desc_len);
+#endif
+                hid_extract_mouse_descriptor(desc, desc_len, &mouse_info);
+                bt_hid_led_layout(desc, desc_len, &ble_led);
+                bt_hid_kbd_layout(desc, desc_len, &ble_kbd);
+                /* Also extract gamepad layout (axes / hat / buttons)
+                   so notifications matching its bit-length get decoded
+                   in bth_try_handle_gamepad_report below. */
+                bth_setup_gamepad_descriptor(desc, desc_len);
+            }
+            else
+            {
+                /* Fall back to the raw buffer if btstack didn't expose
+                                            the accessor for this build. */
+                ble_led.present = 0;
+                ble_kbd.present = 0;
+                hid_extract_mouse_descriptor(
+                    hid_descriptor_storage,
+                    sizeof(hid_descriptor_storage),
+                    &mouse_info);
+                bth_setup_gamepad_descriptor(
+                    hid_descriptor_storage,
+                    sizeof(hid_descriptor_storage));
+            }
+        }
+        /*        PInt(mouse_info.report_id);
+                PIntComma(mouse_info.usage_page);
+                PIntComma(mouse_info.usage);
+                PIntComma(mouse_info.x_bit_offset);
+                PIntComma(mouse_info.x_size);
+                PIntComma(mouse_info.y_bit_offset);
+                PIntComma(mouse_info.y_size);
+                PIntComma(mouse_info.button_bit_offset);
+                PIntComma(mouse_info.button_count);
+                PRet();
+                parse_hid_report_descriptor(
+                    hid_descriptor_storage,
+                    sizeof(hid_descriptor_storage));
+
+                printf("=== END HID REPORT DESCRIPTOR ===\n\n");*/
+        if (!bth_raw_listener_installed)
+        {
+            gatt_client_listen_for_characteristic_value_updates(
+                &bth_raw_notification_listener,
+                &bth_raw_notification_handler,
+                conn_handle,
+                NULL);
+
+            bth_raw_listener_installed = true;
+        }
+
+        if (!CurrentLinePtr)
+            bt_notice("Bluetooth Keyboard Connected\r\n> ");
+
+        ble_led_pending = true;
+        state = BTK_READY;
+        break;
+    }
+    case GATTSERVICE_SUBEVENT_HID_REPORT:
+    {
+        report_count++;
+        //        uint16_t report_len = gattservice_subevent_hid_report_get_report_len(packet);
+        //        const uint8_t *report = gattservice_subevent_hid_report_get_report(packet);
+        //        uint8_t report_id = gattservice_subevent_hid_report_get_report_id(packet);
+        //        printf("[BT] report #%lu id=%u len=%u:",
+        //              (unsigned long)report_count, report_id, report_len);
+        //        for (uint16_t i = 0; i < report_len; i++)
+        //            printf(" %02X", report[i]);
+        //        fputc('\n', stdout);
+        //        fflush(stdout);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+/* ============================================================================
+ * Master HCI/GAP/SM packet handler
+ * ============================================================================
+ */
+static void packet_handler(uint8_t packet_type,
+                           uint16_t channel,
+                           uint8_t *packet,
+                           uint16_t size)
+{
+    (void)channel;
+    (void)size;
+
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
+
+    uint8_t event = hci_event_packet_get_type(packet);
+    switch (event)
+    {
+
+    case BTSTACK_EVENT_STATE:
+        if (btstack_event_state_get_state(packet) == HCI_STATE_WORKING)
+        {
+            bd_addr_t local;
+            gap_local_bd_addr(local);
+            bth_log("HCI working, local addr %s", bd_addr_to_str(local));
+            start_scan();
+        }
+        break;
+
+    case GAP_EVENT_ADVERTISING_REPORT:
+    {
+        if (state != BTK_SCANNING || other_connecting)
+            break;
+
+        bd_addr_t addr;
+        gap_event_advertising_report_get_address(packet, addr);
+        /* The serial device on COM8 (BTSerial.c) is no keyboard, bonded or not. */
+        if (bt_serial_is_remembered(addr))
+            break;
+        bd_addr_type_t addr_type = gap_event_advertising_report_get_address_type(packet);
+        int8_t rssi = (int8_t)gap_event_advertising_report_get_rssi(packet);
+
+        uint8_t data_len = gap_event_advertising_report_get_data_length(packet);
+        const uint8_t *data = gap_event_advertising_report_get_data(packet);
+
+        char name[33];
+        ad_extract_name(data, data_len, name, sizeof(name));
+
+        /* HID Service UUID = 0x1812. Devices that advertise it are
+           proper BLE-HID (HOG) peripherals — eligible for hosting.
+           Note: some keyboards only put 0x1812 in their SCAN RESPONSE,
+           which arrives as a separate report (event type 4) — watch the
+           scan log for a second line from the same address. */
+        bool has_hid = ad_has_uuid16(data, data_len, 0x1812);
+
+#ifdef BTH_SCAN_DEBUG
+        /* Log each distinct advertiser once, before the RSSI gate so even
+           weak/distant devices show. evt: 0=ADV_IND 1=ADV_DIRECT_IND
+           2=ADV_SCAN_IND 3=ADV_NONCONN_IND 4=SCAN_RSP. */
+        if (bth_scan_log_once(addr))
+            bth_log("adv %s type=%u evt=%u rssi=%d%s name=\"%s\"",
+                    bd_addr_to_str(addr), addr_type,
+                    gap_event_advertising_report_get_advertising_event_type(packet),
+                    (int)rssi, has_hid ? " HID" : "", name);
+#endif
+
+        /* A keyboard bonded to us reconnects by advertising its stored
+           address, often with directed advertising (ADV_DIRECT_IND, event
+           type 1 - the controller only reports those addressed to us),
+           which carries no data and so no HID UUID. Without this it was
+           found only within the boot that bonded it, through target_addr;
+           after a reset only its pairing button brought it back. */
+        bool known = (gap_event_advertising_report_get_advertising_event_type(packet) == 1) ||
+                     bth_is_bonded(addr_type, addr);
+
+        /* Filter out distant strangers — see BTH_SCAN_RSSI_MIN. */
+        if (rssi < BTH_SCAN_RSSI_MIN && !known)
+            break;
+
+        bool mac_match = (memcmp(addr, target_addr, sizeof(bd_addr_t)) == 0);
+#ifdef BTH_MATCH_HID_UUID
+        if (mac_match || has_hid || known)
+#else
+        if (mac_match || known)
+#endif
+        {
+            /* Unless the hardcoded MAC matched, adopt the advertiser's
+               address — gap_connect needs the actual addr_type that was
+               seen here. */
+            if (!mac_match)
+            {
+                memcpy(target_addr, addr, sizeof(bd_addr_t));
+                target_addr_type = addr_type;
+                bth_log("%s advertiser found: %s type=%u name=\"%s\"",
+                        known ? "bonded" : "HID", bd_addr_to_str(addr), addr_type, name);
+            }
+            target_known = known;
+            connect_target();
+        }
+        break;
+    }
+
+    case HCI_EVENT_LE_META:
+        switch (hci_event_le_meta_get_subevent_code(packet))
+        {
+
+        /* HCI_SUBEVENT_LE_CONNECTION_COMPLETE is delivered for all
+           initiator-mode LE connections we care about. (The newer
+           ENHANCED_CONNECTION_COMPLETE_V1/V2 subevents carry extra
+           fields needed only for LE Privacy / Extended Advertising
+           addressing — we don't enable those.) */
+        case HCI_SUBEVENT_LE_CONNECTION_COMPLETE:
+        {
+            /* Only the connection connect_target() started is the keyboard's:
+               the serial device's (bt_keyboard_connect_other) - made, failed
+               or cancelled - is BTSerial.c's. */
+            if (other_connecting)
+            {
+                other_connecting = false;
+                resume_scan();
+                break;
+            }
+            if (state != BTK_CONNECTING)
+                break;
+            uint8_t status = hci_subevent_le_connection_complete_get_status(packet);
+            if (status != 0)
+            {
+                bth_log("LE connect failed status=0x%02x; rescanning", status);
+                start_scan();
+                break;
+            }
+            conn_handle = hci_subevent_le_connection_complete_get_connection_handle(packet);
+            state = BTK_CONNECTED_UNENCRYPTED;
+            if (scan_holds)
+            { /* someone still wants the scan (bt_keyboard_scan_hold) */
+                set_scan_parameters();
+                gap_start_scan();
+            }
+
+            /* On a *bonded* reconnect (the common case after the keyboard
+               sleeps and re-advertises on a key press) we don't need to
+               wait for the peer: the central is expected to re-establish
+               encryption, and for a device with stored keys
+               sm_request_pairing() starts *reencryption* with the saved
+               LTK rather than a fresh pairing. Kicking it off immediately
+               removes the up-to-2 s idle wait for a Security Request that
+               many keyboards never send on reconnect — that wait was the
+               bulk of the wake-from-sleep reconnect delay. The fallback
+               timer is still armed as a safety net.
+
+               This is gated on a bond already existing. For a first-time
+               pairing we keep the passive wait, because initiating our own
+               Pairing Request before an iOS-style peer's Security Request
+               makes btstack drop the late request and the peer disconnects
+               with auth failure — and such peers also lock down the HID
+               ATT handles until encrypted, so early GATT must be avoided.
+
+               "Bonded" is this advertiser, as the scan judged it: in the
+               bond store, or advertising directly to us. It used to be
+               "any bond at all" (le_device_db_count() > 0), so with one
+               keyboard bonded a second one's first connection started
+               pairing early, and a keyboard that sends its own Security
+               Request (a Logitech Pebble Keys 2 K380s) dropped the link -
+               about once a second, for as long as it stayed in pairing
+               mode, without ever pairing. */
+            bool bonded = target_known;
+            bth_log("LE connected, handle=0x%04x; %s", (unsigned)conn_handle,
+                    bonded ? "bonded — requesting reencryption"
+                           : "waiting for SM");
+            if (bonded)
+                sm_request_pairing(conn_handle);
+
+            btstack_run_loop_set_timer(&pair_kickoff_timer, 2000);
+            btstack_run_loop_set_timer_handler(&pair_kickoff_timer,
+                                               &pair_kickoff_timeout);
+            btstack_run_loop_add_timer(&pair_kickoff_timer);
+            break;
+        }
+        default:
+            break;
+        }
+        break;
+
+    case HCI_EVENT_DISCONNECTION_COMPLETE:
+    {
+        /* A speaker link (BTAudio.c) ends with this event too; only the
+           keyboard's own link concerns us. */
+        if (hci_event_disconnection_complete_get_connection_handle(packet) != conn_handle)
+            break;
+        uint8_t reason = hci_event_disconnection_complete_get_reason(packet);
+        bth_log("disconnected reason=0x%02x; restarting scan", reason);
+        /* Only report to the console if the keyboard had actually
+           reached the ready (HID-connected) state — avoids spurious
+           "Disconnected" lines for failed pairings / dropped scans. */
+        if (state == BTK_READY && !CurrentLinePtr)
+            bt_notice("Bluetooth Keyboard Disconnected\r\n> ");
+        btstack_run_loop_remove_timer(&pair_kickoff_timer);
+        if (bth_raw_listener_installed)
+        {
+            gatt_client_stop_listening_for_characteristic_value_updates(
+                &bth_raw_notification_listener);
+            bth_raw_listener_installed = false;
+        }
+        conn_handle = HCI_CON_HANDLE_INVALID;
+        hids_cid = 0;
+        start_scan();
+        break;
+    }
+
+    /* ---- SM events ----------------------------------------------------- */
+    case SM_EVENT_JUST_WORKS_REQUEST:
+        bth_log("SM Just Works requested; confirming");
+        sm_just_works_confirm(sm_event_just_works_request_get_handle(packet));
+        break;
+
+    case SM_EVENT_NUMERIC_COMPARISON_REQUEST:
+    {
+        /* Both sides display a 6-digit number; user normally compares
+           visually and confirms. For a headless host we auto-confirm —
+           security loss is small since the user is the one initiating
+           the pairing via their keyboard's pairing mode. */
+        uint32_t passkey = sm_event_numeric_comparison_request_get_passkey(packet);
+        bth_log("SM Numeric Comparison %06lu; auto-confirming",
+                (unsigned long)passkey);
+        sm_numeric_comparison_confirm(
+            sm_event_numeric_comparison_request_get_handle(packet));
+        break;
+    }
+
+    case SM_EVENT_PASSKEY_DISPLAY_NUMBER:
+    {
+        /* Passkey Entry: the keyboard asked for protection against
+           eavesdropping, so we show a 6-digit code and the user types it
+           on the keyboard. Until this went to the console the code only
+           reached the (normally disabled) debug log, and such keyboards -
+           common among brand-name ones - could never pair. Printed even
+           while a program runs: pairing is something the user started. */
+        uint32_t passkey = sm_event_passkey_display_number_get_passkey(packet);
+        bth_log("SM Passkey: type %06lu on the BT device", (unsigned long)passkey);
+        char msg[96];
+        snprintf(msg, sizeof(msg),
+                 "\r\nBluetooth keyboard pairing: type %06lu on the keyboard being paired, then Enter\r\n",
+                 (unsigned long)passkey);
+        bt_notice(msg);
+        break;
+    }
+
+    case SM_EVENT_PASSKEY_INPUT_NUMBER:
+        /* Peer wants us to type a passkey it's displaying. Not wired
+           up — we'd need to grab input from the BASIC console.
+           Logging the request so it shows up if hit. */
+        bth_log("SM Passkey input requested — not implemented");
+        break;
+
+    case SM_EVENT_PAIRING_STARTED:
+        bth_log("SM pairing started");
+        if (sm_event_pairing_started_get_handle(packet) == conn_handle)
+            kbd_pairing_handle = conn_handle;
+        break;
+
+    case SM_EVENT_REENCRYPTION_STARTED:
+        if (sm_event_reencryption_started_get_handle(packet) == conn_handle)
+            kbd_reenc_handle = conn_handle;
+        break;
+
+    case SM_EVENT_PAIRING_COMPLETE:
+    {
+        hci_con_handle_t handle = sm_event_pairing_complete_get_handle(packet);
+        if (handle != kbd_pairing_handle && handle != conn_handle)
+            break; /* another link, not the keyboard */
+        kbd_pairing_handle = HCI_CON_HANDLE_INVALID;
+        uint8_t pstatus = sm_event_pairing_complete_get_status(packet);
+        if (pstatus == ERROR_CODE_REMOTE_USER_TERMINATED_CONNECTION)
+        {
+            /* The keyboard dropped the link mid-pairing (switched off, asleep
+               or out of range): nothing to tear down. */
+            bth_log("SM pairing interrupted: link dropped");
+            kbd_interrupted++;
+            memcpy(last_pair_addr, target_addr, sizeof(bd_addr_t));
+            last_pair_addr_type = target_addr_type;
+            last_pair_result = 3;
+            break;
+        }
+        if (pstatus != ERROR_CODE_SUCCESS)
+        {
+            bth_log("SM pairing failed status=0x%02x reason=0x%02x",
+                    pstatus, sm_event_pairing_complete_get_reason(packet));
+            memcpy(last_pair_addr, target_addr, sizeof(bd_addr_t));
+            last_pair_addr_type = target_addr_type;
+            last_pair_result = 2;
+            last_pair_status = pstatus;
+            last_pair_reason = sm_event_pairing_complete_get_reason(packet);
+            /* Tear the link down so we try again from clean state. */
+            gap_disconnect(handle);
+            break;
+        }
+        bth_log("SM pairing complete; link encrypted");
+        kbd_pairings++;
+        /* btstack stores the keys at the end of key distribution, before
+           this event, so the DB already shows whether a bond was made. */
+        memcpy(last_pair_addr, target_addr, sizeof(bd_addr_t));
+        last_pair_addr_type = target_addr_type;
+        last_pair_result = bth_is_bonded(target_addr_type, target_addr) ? 1 : 0;
+        btstack_run_loop_remove_timer(&pair_kickoff_timer);
+        state = BTK_HIDS_CONNECTING;
+        uint8_t hstat = hids_client_connect(conn_handle,
+                                            &hids_client_handler,
+                                            HID_PROTOCOL_MODE_REPORT,
+                                            &hids_cid);
+        if (hstat != ERROR_CODE_SUCCESS)
+        {
+            bth_log("hids_client_connect failed status=0x%02x", hstat);
+        }
+        break;
+    }
+
+    case SM_EVENT_REENCRYPTION_COMPLETE:
+    {
+        hci_con_handle_t handle = sm_event_reencryption_complete_get_handle(packet);
+        if (handle != kbd_reenc_handle && handle != conn_handle)
+            break; /* another link, not the keyboard */
+        kbd_reenc_handle = HCI_CON_HANDLE_INVALID;
+        uint8_t rstatus = sm_event_reencryption_complete_get_status(packet);
+        if (rstatus == ERROR_CODE_REMOTE_USER_TERMINATED_CONNECTION)
+        {
+            bth_log("SM reencryption interrupted: link dropped");
+            kbd_interrupted++;
+            break;
+        }
+        if (rstatus != ERROR_CODE_SUCCESS)
+        {
+            bth_log("SM reencryption failed status=0x%02x", rstatus);
+            gap_disconnect(handle);
+            break;
+        }
+        bth_log("SM reencryption complete");
+        kbd_reencryptions++;
+        btstack_run_loop_remove_timer(&pair_kickoff_timer);
+        state = BTK_HIDS_CONNECTING;
+        uint8_t hstat = hids_client_connect(conn_handle,
+                                            &hids_client_handler,
+                                            HID_PROTOCOL_MODE_REPORT,
+                                            &hids_cid);
+        if (hstat != ERROR_CODE_SUCCESS)
+        {
+            bth_log("hids_client_connect (reenc) failed status=0x%02x", hstat);
+        }
+        break;
+    }
+
+    default:
+        break;
+    }
+}
+
+void bt_keyboard_init(void)
+{
+    state = BTK_HCI_WAITING;
+    conn_handle = HCI_CON_HANDLE_INVALID;
+    hids_cid = 0;
+    report_count = 0;
+
+    /* Parse the placeholder target MAC into bd_addr_t form. */
+    sscanf_bd_addr(BTH_TARGET_ADDR_STRING, target_addr);
+
+    /* Route btstack's printf-based protocol logging to USB CDC. Only
+       fires when ENABLE_LOG_INFO / ENABLE_LOG_ERROR are defined in
+       btstack_config.h. */
+    //    hci_dump_init(hci_dump_embedded_stdout_get_instance());
+
+    l2cap_init();
+
+    /* Persistent bonding: btstack_cyw43_init() has already built the
+       global TLV on Option.bt_tlv (see pico_flash_bank_instance)
+       and pointed the LE device DB at it, before sm_init() as the security
+       manager needs. */
+
+    sm_init();
+    /* KEYBOARD_DISPLAY is the most flexible IO capability — it lets
+       the SM negotiate any pairing method (Just Works, Numeric
+       Comparison, Passkey Display, Passkey Input). NoInputNoOutput
+       forces Just Works which can't provide MITM protection, and
+       BLE-HID peripherals routinely require MITM and terminate the
+       connection if Just Works is the only option. */
+    sm_set_io_capabilities(IO_CAPABILITY_KEYBOARD_DISPLAY);
+    /* No SM_AUTHREQ_MITM_PROTECTION: a peer that wants MITM still gets it
+       (it sets the flag itself, and our IO capability allows it), but
+       requiring it here meant a Just Works bond - what most keyboards make -
+       was never reused. As central, btstack only re-encrypts with a stored
+       key that is authenticated or when MITM isn't required, so every wake
+       from sleep paired afresh (3-5 bond-store writes each time). */
+    sm_set_authentication_requirements(SM_AUTHREQ_BONDING |
+                                       SM_AUTHREQ_SECURE_CONNECTION);
+    /* btstack 1.8.2 (pico-sdk 2.3.0) defaults to Secure-Connections-ONLY
+       mode and a 16-byte minimum encryption key size when
+       ENABLE_LE_SECURE_CONNECTIONS is defined (earlier stacks: SC
+       preferred but not required, minimum 7). SC stays our preference
+       via SM_AUTHREQ_SECURE_CONNECTION above, but legacy-pairing-only
+       BLE keyboards/mice (common) must still be able to fall back, and
+       bonds made under legacy pairing must survive re-encryption. */
+    sm_set_secure_connections_only_mode(false);
+    sm_set_encryption_key_size_range(7, 16);
+
+    gatt_client_init();
+
+    /* Tiny GATT server — exposes only the mandatory GAP service so
+       the peer can read our Device Name (and Appearance) after
+       connecting. Without this we present as a nameless central
+       and BLE-keyboard apps just show our MAC. */
+    {
+        static const char local_name[] = "PicoMiteBTH";
+        /* Appearance = Generic HID (0x03C0). Some peers narrow this
+           to Keyboard (0x03C1) but Generic HID is appropriate for a
+           host accepting any HID device. Little-endian on the wire. */
+        static uint8_t appearance[2] = {0xC0, 0x03};
+
+        att_db_util_init();
+        att_db_util_add_service_uuid16(ORG_BLUETOOTH_SERVICE_GENERIC_ACCESS);
+        att_db_util_add_characteristic_uuid16(
+            ORG_BLUETOOTH_CHARACTERISTIC_GAP_DEVICE_NAME,
+            ATT_PROPERTY_READ,
+            ATT_SECURITY_NONE, ATT_SECURITY_NONE,
+            (uint8_t *)local_name, sizeof(local_name) - 1);
+        att_db_util_add_characteristic_uuid16(
+            ORG_BLUETOOTH_CHARACTERISTIC_GAP_APPEARANCE,
+            ATT_PROPERTY_READ,
+            ATT_SECURITY_NONE, ATT_SECURITY_NONE,
+            appearance, sizeof(appearance));
+        att_server_init(att_db_util_get_address(), NULL, NULL);
+    }
+
+    hids_client_init(hid_descriptor_storage, sizeof(hid_descriptor_storage));
+
+    hci_event_callback_registration.callback = &packet_handler;
+    hci_add_event_handler(&hci_event_callback_registration);
+
+    sm_event_callback_registration.callback = &packet_handler;
+    sm_add_event_handler(&sm_event_callback_registration);
+
+    /* Bluetooth Classic speaker output: its services must be registered
+       before HCI is powered on. */
+    bt_audio_init();
+
+    hci_power_control(HCI_POWER_ON);
+
+    bt_startup_complete = true;
+    if (Option.USBKeyboard == CONFIG_UK)
+        keylayout = UKkeyValue;
+    else if (Option.USBKeyboard == CONFIG_US)
+        keylayout = USkeyValue;
+    else if (Option.USBKeyboard == CONFIG_GR)
+        keylayout = DEkeyValue;
+    else if (Option.USBKeyboard == CONFIG_FR)
+        keylayout = FRkeyValue;
+    else if (Option.USBKeyboard == CONFIG_ES)
+        keylayout = ESkeyValue;
+    else if (Option.USBKeyboard == CONFIG_BE)
+        keylayout = BEkeyValue;
+}
+
+/* Messages from btstack callbacks. The callbacks run inside cyw43_arch_poll()
+   below, so - like lwIP's callbacks with web_async_set_error() - they never
+   print: printing could reach another poll site. bt_keyboard_poll() prints
+   what they posted once the poll has returned. */
+static char bt_notice_buf[192];
+
+void bt_notice(const char *msg)
+{
+    size_t used = strlen(bt_notice_buf);
+    if (used + strlen(msg) < sizeof(bt_notice_buf))
+        strcpy(bt_notice_buf + used, msg);
+}
+
+/* ProcessBT(): called from the same places as the WiFi builds' ProcessWeb()
+   (see Hardware_Includes.h), and throttled the same way - the radio is
+   polled at most once a millisecond, or every 100 calls.  Everything else
+   here works to milliseconds too (the speaker's idle timer and sound
+   discard, the bond-store save, the LED), so it runs only when the radio
+   is polled: on every call it cost about 700 cycles a statement once a
+   speaker was configured, a third of the interpreter's time (measured on
+   the PC3, 2026-10-11). */
+void bt_keyboard_poll(void)
+{
+    static uint64_t lastusec;
+    static int testcount;
+    if (!bt_startup_complete)
+        return;
+
+    uint64_t timenow = time_us_64();
+    if (testcount != 0 && timenow <= lastusec)
+    {
+        if (++testcount == 100)
+            testcount = 0;
+        return;
+    }
+    lastusec = timenow + 1000;
+    testcount = 1;
+    cyw43_arch_poll();
+    if (bt_notice_buf[0])
+    {
+        char msg[sizeof(bt_notice_buf)];
+        strcpy(msg, bt_notice_buf);
+        bt_notice_buf[0] = 0;
+        MMPrintString(msg);
+    }
+    bt_audio_service();
+
+    /* Save the bond store once btstack has stopped writing it (see
+       bt_tlv_changed). The flag is cleared first: a write that lands
+       during the save sets it again. */
+    if (bt_tlv_dirty &&
+        to_ms_since_boot(get_absolute_time()) - bt_tlv_changed_ms >= BT_TLV_SAVE_DELAY_MS)
+    {
+        bt_tlv_dirty = false;
+        bt_tlv_save();
+    }
+
+#ifndef PICOMITEWEB /* PC3: WebHeartbeat drives the CYW43 LED for both radios */
+    {
+        static uint64_t last_heart_us;
+        static int led_state;
+        uint64_t now = time_us_64();
+
+        /* OPTION HEARTBEAT OFF — user wants the LED dark. Turn it off
+           once on the transition, then skip the toggle entirely. The
+           led_state mirror means we won't call gpio_put again until
+           OPTION HEARTBEAT ON flips it back. */
+        if (Option.NoHeartbeat)
+        {
+            if (led_state != 0)
+            {
+                led_state = 0;
+                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+            }
+            return;
+        }
+
+        /* While a Bluetooth speaker streams, leave the LED as it is. Each
+           toggle is a CYW43 control call made under the async-context lock,
+           and now and then one waits out CYW43_IOCTL_TIMEOUT_US (500 ms) for
+           its answer - stalling the audio encoder, which runs in that
+           context, for as long. Peter heard the pauses (239 and 505 ms
+           stalls measured); with OPTION HEARTBEAT OFF a whole track played
+           without one. */
+        if (bt_audio_streaming())
+            return;
+
+        /* LED cadence telegraphs link state at a glance:
+             1000 ms — not yet connected (HCI booting / scanning / pairing)
+              500 ms — keyboard connected + HID notifications enabled */
+        uint32_t interval = (state == BTK_READY) ? 500000u : 1000000u;
+
+        if (now - last_heart_us >= interval)
+        {
+            last_heart_us = now;
+            led_state ^= 1;
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
+        }
+    }
+#endif
+}
+
+
+bool bt_keyboard_ready(void)
+{
+    return state == BTK_READY;
+}
+
+/* The connected device's report map has a mouse (a mouse, or a keyboard's
+   trackpad): its reports move DEVICE(MOUSE 2). */
+bool bt_keyboard_has_pointer(void)
+{
+    return state == BTK_READY && mouse_info.report_bits != 0;
+}
+/*
+ * Generic HID Gamepad descriptor extraction + report decoder
+ *
+ * Supports:
+ *
+ *  - Multiple report IDs
+ *  - X/Y/Z/Rx/Ry/Rz axes
+ *  - Signed or unsigned axes
+ *  - Hat switch
+ *  - Arbitrary button counts
+ *  - Non-byte-aligned reports
+ *  - Dynamic bit offsets
+ *
+ * Intended for descriptors similar to:
+ *
+ *   Gamepad
+ *     X/Y/Rx/Ry
+ *     Hat switch
+ *     12 buttons
+ *
+ * like the descriptor shown in the example.
+ */
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
+
+#define HID_MAX_USAGES 32
+#define HID_MAX_AXES 8
+
+/*
+ * Generic Desktop usages
+ */
+#define HID_USAGE_X 0x30
+#define HID_USAGE_Y 0x31
+#define HID_USAGE_Z 0x32
+#define HID_USAGE_RX 0x33
+#define HID_USAGE_RY 0x34
+#define HID_USAGE_RZ 0x35
+#define HID_USAGE_HAT 0x39
+
+typedef struct
+{
+    uint16_t usage;
+
+    uint16_t bit_offset;
+
+    uint8_t size;
+
+    bool relative;
+
+    bool is_signed;
+
+} hid_gamepad_axis_t;
+
+typedef struct
+{
+    uint8_t report_id;
+
+    uint16_t usage_page;
+    uint16_t usage;
+
+    hid_gamepad_axis_t axes[HID_MAX_AXES];
+    uint8_t axis_count;
+
+    bool has_hat;
+
+    uint16_t hat_bit_offset;
+    uint8_t hat_size;
+
+    int32_t hat_logical_min;
+    int32_t hat_logical_max;
+
+    uint16_t button_bit_offset;
+    uint16_t button_count;
+
+    uint16_t report_bits;
+
+} hid_gamepad_descriptor_t;
+
+typedef struct
+{
+    uint16_t usage_page;
+
+    int32_t logical_min;
+    int32_t logical_max;
+
+    uint8_t report_size;
+    uint8_t report_count;
+
+    uint8_t report_id;
+
+    uint16_t usages[HID_MAX_USAGES];
+    uint8_t usage_count;
+
+    uint16_t usage_min;
+    uint16_t usage_max;
+
+    uint32_t bit_offset;
+
+    uint16_t last_local_usage;
+
+    int8_t app_collection_depth;
+    int8_t gamepad_app_depth;
+
+} hid_gamepad_parse_state_t;
+
+typedef struct
+{
+    int32_t axes[HID_MAX_AXES];
+
+    uint8_t hat;
+
+    uint32_t buttons;
+
+} hid_gamepad_report_t;
+
+/*
+ * Helpers
+ */
+
+/*static uint32_t extract_value(
+    const uint8_t *data,
+    uint32_t size)
+{
+    uint32_t v = 0;
+
+    for (uint32_t i = 0; i < size; i++)
+    {
+        v |= ((uint32_t)data[i]) << (i * 8);
+    }
+
+    return v;
+}
+
+static int32_t sign_extend(
+    uint32_t value,
+    uint32_t size_bytes)
+{
+    uint32_t bits = size_bytes * 8;
+
+    if (bits >= 32)
+        return (int32_t)value;
+
+    uint32_t sign_bit = 1u << (bits - 1);
+
+    if (value & sign_bit)
+    {
+        value |= ~((1u << bits) - 1);
+    }
+
+    return (int32_t)value;
+}
+
+
+static uint32_t hid_extract_bits(
+    const uint8_t *data,
+    uint32_t bit_offset,
+    uint32_t bit_count)
+{
+    uint32_t value = 0;
+
+    for (uint32_t i = 0; i < bit_count; i++)
+    {
+        uint32_t bit =
+            (data[(bit_offset + i) / 8] >>
+             ((bit_offset + i) % 8)) & 1u;
+
+        value |= (bit << i);
+    }
+
+    return value;
+}
+
+static int32_t hid_extract_signed_bits(
+    const uint8_t *data,
+    uint32_t bit_offset,
+    uint32_t bit_count)
+{
+    uint32_t v =
+        hid_extract_bits(
+            data,
+            bit_offset,
+            bit_count);
+
+    if (bit_count < 32)
+    {
+        uint32_t sign_bit =
+            1u << (bit_count - 1);
+
+        if (v & sign_bit)
+        {
+            v |= ~((1u << bit_count) - 1);
+        }
+    }
+
+    return (int32_t)v;
+}
+*/
+/*
+ * Descriptor parser
+ */
+static void hid_gamepad_clear_local(
+    hid_gamepad_parse_state_t *st)
+{
+    st->usage_count = 0;
+    st->usage_min = 0;
+    st->usage_max = 0;
+}
+
+static bool hid_extract_gamepad_descriptor(
+    const uint8_t *descriptor,
+    size_t length,
+    hid_gamepad_descriptor_t *pad)
+{
+    hid_gamepad_parse_state_t st;
+
+    memset(&st, 0, sizeof(st));
+    memset(pad, 0, sizeof(*pad));
+
+    st.gamepad_app_depth = -1;
+
+    size_t i = 0;
+
+    while (i < length)
+    {
+        uint8_t prefix = descriptor[i++];
+
+        if (prefix == 0)
+            break;
+
+        if (prefix == 0xFE)
+            return false;
+
+        uint8_t size_code = prefix & 0x03;
+        uint8_t type = (prefix >> 2) & 0x03;
+        uint8_t tag = (prefix >> 4) & 0x0F;
+
+        uint8_t size =
+            (size_code == 3) ? 4 : size_code;
+
+        uint32_t value =
+            extract_value(&descriptor[i], size);
+
+        int32_t svalue =
+            sign_extend(value, size);
+
+        i += size;
+
+        /*
+         * GLOBAL
+         */
+        if (type == 1)
+        {
+            switch (tag)
+            {
+            case 0:
+                st.usage_page = (uint16_t)value;
+                break;
+
+            case 1:
+                st.logical_min = svalue;
+                break;
+
+            case 2:
+                st.logical_max = svalue;
+                break;
+
+            case 7:
+                st.report_size = (uint8_t)value;
+                break;
+
+            case 8:
+                st.report_id = (uint8_t)value;
+                st.bit_offset = 0;
+                break;
+
+            case 9:
+                st.report_count = (uint8_t)value;
+                break;
+            }
+        }
+
+        /*
+         * LOCAL
+         */
+        else if (type == 2)
+        {
+            switch (tag)
+            {
+            case 0:
+            {
+                if (st.usage_count < HID_MAX_USAGES)
+                {
+                    st.usages[st.usage_count++] =
+                        (uint16_t)value;
+                }
+
+                st.last_local_usage =
+                    (uint16_t)value;
+
+                break;
+            }
+
+            case 1:
+                st.usage_min = (uint16_t)value;
+                break;
+
+            case 2:
+            {
+                st.usage_max = (uint16_t)value;
+
+                for (uint16_t u = st.usage_min;
+                     u <= st.usage_max &&
+                     st.usage_count < HID_MAX_USAGES;
+                     u++)
+                {
+                    st.usages[st.usage_count++] = u;
+                }
+
+                break;
+            }
+            }
+        }
+
+        /*
+         * MAIN
+         */
+        else if (type == 0)
+        {
+            switch (tag)
+            {
+            /*
+             * INPUT
+             */
+            case 8:
+            {
+                bool is_constant =
+                    (value & 0x01) != 0;
+
+                bool is_variable =
+                    (value & 0x02) != 0;
+
+                bool is_relative =
+                    (value & 0x04) != 0;
+
+                bool is_gamepad_report =
+                    (st.gamepad_app_depth >= 0);
+
+                if (!is_constant &&
+                    is_variable &&
+                    is_gamepad_report)
+                {
+                    for (uint32_t field = 0;
+                         field < st.report_count;
+                         field++)
+                    {
+                        uint16_t usage = 0;
+
+                        if (field < st.usage_count)
+                        {
+                            usage = st.usages[field];
+                        }
+
+                        uint32_t field_offset =
+                            st.bit_offset +
+                            (field * st.report_size);
+
+                        /*
+                         * Generic Desktop
+                         */
+                        if (st.usage_page == 0x01)
+                        {
+                            /*
+                             * Axes
+                             */
+                            if (usage >= 0x30 &&
+                                usage <= 0x35)
+                            {
+                                if (pad->axis_count <
+                                    HID_MAX_AXES)
+                                {
+                                    hid_gamepad_axis_t *a =
+                                        &pad->axes[pad->axis_count++];
+
+                                    a->usage = usage;
+                                    a->bit_offset =
+                                        field_offset;
+
+                                    a->size =
+                                        st.report_size;
+
+                                    a->relative =
+                                        is_relative;
+
+                                    a->is_signed =
+                                        (st.logical_min < 0);
+
+                                    pad->report_id =
+                                        st.report_id;
+
+                                    pad->usage_page =
+                                        0x01;
+
+                                    pad->usage =
+                                        0x05;
+                                }
+                            }
+
+                            /*
+                             * Hat switch
+                             */
+                            else if (usage ==
+                                     HID_USAGE_HAT)
+                            {
+                                pad->has_hat = true;
+
+                                pad->hat_bit_offset =
+                                    field_offset;
+
+                                pad->hat_size =
+                                    st.report_size;
+
+                                pad->hat_logical_min =
+                                    st.logical_min;
+
+                                pad->hat_logical_max =
+                                    st.logical_max;
+                            }
+                        }
+
+                        /*
+                         * Buttons
+                         */
+                        else if (st.usage_page == 0x09)
+                        {
+                            if (pad->button_count == 0)
+                            {
+                                pad->button_bit_offset =
+                                    field_offset;
+                            }
+
+                            pad->button_count++;
+                        }
+                    }
+                }
+
+                st.bit_offset +=
+                    (uint32_t)st.report_size *
+                    (uint32_t)st.report_count;
+
+                if (is_gamepad_report)
+                {
+                    pad->report_bits =
+                        st.bit_offset;
+                }
+
+                hid_gamepad_clear_local(&st);
+                break;
+            }
+
+            /*
+             * COLLECTION
+             */
+            case 10:
+            {
+                st.app_collection_depth++;
+
+                /*
+                 * Generic Desktop / Gamepad
+                 */
+                if (value == 0x01 &&
+                    st.usage_page == 0x01 &&
+                    st.last_local_usage == 0x05 &&
+                    st.gamepad_app_depth < 0)
+                {
+                    st.gamepad_app_depth =
+                        st.app_collection_depth;
+                }
+
+                hid_gamepad_clear_local(&st);
+                break;
+            }
+
+            /*
+             * END COLLECTION
+             */
+            case 12:
+            {
+                if (st.gamepad_app_depth >= 0 &&
+                    st.app_collection_depth ==
+                        st.gamepad_app_depth)
+                {
+                    st.gamepad_app_depth = -1;
+                }
+
+                if (st.app_collection_depth > 0)
+                {
+                    st.app_collection_depth--;
+                }
+
+                hid_gamepad_clear_local(&st);
+                break;
+            }
+            }
+        }
+    }
+
+    return true;
+}
+
+/*
+ * Report decoder
+ */
+
+static bool hid_parse_gamepad_report(
+    const hid_gamepad_descriptor_t *desc,
+    const uint8_t *report,
+    hid_gamepad_report_t *out)
+{
+    memset(out, 0, sizeof(*out));
+
+    /*
+     * Axes
+     */
+    for (uint32_t i = 0;
+         i < desc->axis_count;
+         i++)
+    {
+        const hid_gamepad_axis_t *a =
+            &desc->axes[i];
+
+        if (a->is_signed)
+        {
+            out->axes[i] =
+                hid_extract_signed_bits(
+                    report,
+                    a->bit_offset,
+                    a->size);
+        }
+        else
+        {
+            out->axes[i] =
+                (int32_t)hid_extract_bits(
+                    report,
+                    a->bit_offset,
+                    a->size);
+        }
+    }
+
+    /*
+     * Hat
+     */
+    if (desc->has_hat)
+    {
+        out->hat =
+            (uint8_t)hid_extract_bits(
+                report,
+                desc->hat_bit_offset,
+                desc->hat_size);
+    }
+
+    /*
+     * Buttons
+     */
+    out->buttons =
+        hid_extract_bits(
+            report,
+            desc->button_bit_offset,
+            desc->button_count);
+
+    return true;
+}
+
+/* ============================================================================
+ * Gamepad wire-in helpers — bridge between bth_raw_notification_handler /
+ * GATTSERVICE_SUBEVENT_HID_SERVICE_CONNECTED and the gamepad parser. Lives
+ * here so the parser's typedefs are in scope; called from earlier in the
+ * file via the forward declarations near bth_raw_notification_handler.
+ * ============================================================================
+ */
+static hid_gamepad_descriptor_t gamepad_info;
+static hid_gamepad_report_t gamepad_report;
+
+/* Called from hids_client_handler when the HID service has finished
+   discovery. Walks the report descriptor a second time looking for a
+   Gamepad Application collection; populates gamepad_info if found,
+   zeroes it out otherwise. Safe to call with a NULL or zero-length
+   descriptor (becomes a no-op). */
+void bth_setup_gamepad_descriptor(const uint8_t *desc, uint16_t desc_len)
+{
+    if (desc == NULL || desc_len == 0)
+    {
+        memset(&gamepad_info, 0, sizeof(gamepad_info));
+        return;
+    }
+    hid_extract_gamepad_descriptor(desc, desc_len, &gamepad_info);
+}
+
+/* Publish a decoded gamepad report into nunstruct[n] so the BASIC
+   DEVICE(GAMEPAD n, "...") function can read it. Field mapping mirrors
+   the USB-HID-host gamepad path (process_xbox / process_sony_ds*):
+
+     ax = axis 0 (left  X)        DEVICE(GAMEPAD n, "LX")
+     ay = axis 1 (left  Y)        DEVICE(GAMEPAD n, "LY")
+     Z  = axis 2 (right X / Rx)   DEVICE(GAMEPAD n, "RX")
+     C  = axis 3 (right Y / Ry)   DEVICE(GAMEPAD n, "RY")
+     L  = axis 4 (Z, e.g. trigger or analog L)   DEVICE(GAMEPAD n, "L")
+     R  = axis 5 (Rz)             DEVICE(GAMEPAD n, "R")
+     x0 = buttons bitmask, low 12 bits = buttons 1..12   DEVICE(... "B")
+     y0 = hat-switch direction:
+            0..7 = N, NE, E, SE, S, SW, W, NW
+            0xFF = idle (no direction)
+          Reachable via the new DEVICE(GAMEPAD n, "H") accessor.
+     type carries a magic identifier so BASIC code can tell apart the
+       different gamepad sources via DEVICE(GAMEPAD n, "T").
+     nunfoundc[n] is set on any state change for the ON GAMEPAD interrupt.
+
+   Hats live in their own field so a hat-up press doesn't read as
+   "no button pressed" in DEVICE(... "B"), which was the case when
+   the hat was folded into x0's upper nibble. */
+static void bth_gamepad_publish(const hid_gamepad_descriptor_t *desc,
+                                const hid_gamepad_report_t *report,
+                                uint8_t n)
+{
+    /* Axis values land in ax/ay/Z/C/L/R, zero-filled if the device
+       doesn't report that axis. */
+    int32_t a[6] = {0, 0, 0, 0, 0, 0};
+    uint8_t cnt = desc->axis_count;
+    if (cnt > 6)
+        cnt = 6;
+    for (uint8_t i = 0; i < cnt; i++)
+        a[i] = report->axes[i];
+
+    unsigned short btn = (unsigned short)(report->buttons & 0x0FFFu);
+
+    /* Hat encoding: HID 4-bit hats use values 0..7 for the 8 cardinal /
+       intercardinal directions and the out-of-range value (typically
+       0x08 with logical_max=7, or 0x0F for null) for "idle". We use
+       0xFF as the canonical "no direction" so the in-range values 0..7
+       stay as standard hat codes. */
+    unsigned short hat = 0xFF;
+    if (desc->has_hat)
+    {
+        int32_t h = report->hat;
+        if (h >= desc->hat_logical_min && h <= desc->hat_logical_max)
+        {
+            hat = (unsigned short)(h & 0x07);
+        }
+    }
+
+    /* Edge-detect for the interrupt path. */
+    if (nunstruct[n].ax != a[0] ||
+        nunstruct[n].ay != a[1] ||
+        nunstruct[n].Z != a[2] ||
+        nunstruct[n].C != a[3] ||
+        nunstruct[n].L != a[4] ||
+        nunstruct[n].R != a[5] ||
+        nunstruct[n].x0 != btn ||
+        nunstruct[n].y0 != hat)
+    {
+        nunfoundc[n] = 1;
+        if (nunInterruptc[n] != NULL) IntSignal();
+    }
+
+    nunstruct[n].ax = a[0];
+    nunstruct[n].ay = a[1];
+    nunstruct[n].Z = a[2];
+    nunstruct[n].C = a[3];
+    nunstruct[n].L = a[4];
+    nunstruct[n].R = a[5];
+    nunstruct[n].x0 = btn;
+    nunstruct[n].y0 = hat;
+    nunstruct[n].type = 0x4254u; /* 'BT' magic */
+}
+
+/* Called from bth_raw_notification_handler. If the notification length
+   matches the gamepad's parsed report size, decode and publish to
+   nunstruct[3] so DEVICE(GAMEPAD 3, "...") reads live values.
+   Returns true so the caller doesn't fall through to the raw-bytes
+   log; false if this notification isn't a gamepad report. */
+bool bth_try_handle_gamepad_report(const uint8_t *val, uint16_t vlen)
+{
+    if (gamepad_info.report_bits == 0)
+        return false;
+    if (vlen * 8u != gamepad_info.report_bits)
+        return false;
+
+    hid_parse_gamepad_report(&gamepad_info, val, &gamepad_report);
+    bth_gamepad_publish(&gamepad_info, &gamepad_report, 3);
+    return true;
+}
+#endif /* PICOMITEBTH || PICOMITEHDMIBTH */

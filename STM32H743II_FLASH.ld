@@ -112,6 +112,7 @@ SECTIONS
     *Third_Party/mbedtls/*(.text .text* .rodata .rodata*)
     *Src/net/*(.text .text* .rodata .rodata*)
     *Third_Party/puff/*(.text .text* .rodata .rodata*)   /* (zlib's puff: the chip's firmware inflated, 16 Nov 2026) */
+    *Third_Party/btstack/*(.text .text* .rodata .rodata*)   /* Bluetooth (docs/Bluetooth_Plan.md); Src/net/bt is Src/net */
     . = ALIGN(4);
     _enet = .;
   } >NETFLASH
@@ -289,6 +290,39 @@ SECTIONS
     PROVIDE_HIDDEN (__fini_array_end = .);
   } >FLASH
 
+  /* The radio's data and bss (the network and Bluetooth: cyw43-driver, lwIP, mbedTLS, BTstack, Src/net): 32 KB of D2 RAM
+     above the MMBasic heap's RAMEND (Memory.h), 16 Nov 2026 (docs/Bluetooth_Plan.md: with Bluetooth they did not fit in
+     the DTCM). The same address on every generation, and no loadable program uses it. Its load image is in the network's flash
+     (NETFLASH, after .net): bank 1 is full. Not set up by the startup code:
+     main() does it first thing (RadioDataInit), and a G1 again after lending the network its display memory
+     (WebGiveBack). It comes before .data and .bss, which would otherwise take these files' sections. */
+  .radio 0x30038000 :
+  {
+    . = ALIGN(4);
+    _snetdata = .;
+    *Third_Party/cyw43-driver/*(.data .data*)
+    *Third_Party/lwip/*(.data .data*)
+    *Third_Party/mbedtls/*(.data .data*)
+    *Third_Party/btstack/*(.data .data*)
+    *Src/net/*(.data .data*)
+    . = ALIGN(4);
+    _enetdata = .;
+  } >RAM_D2 AT> NETFLASH
+  .radiobss (NOLOAD) :                    /* (apart, so its zeros take no flash) */
+  {
+    . = ALIGN(4);
+    _snetbss = .;
+    *Third_Party/cyw43-driver/*(.bss .bss* COMMON)
+    *Third_Party/lwip/*(.bss .bss* COMMON)
+    *Third_Party/mbedtls/*(.bss .bss* COMMON)
+    *Third_Party/btstack/*(.bss .bss* COMMON)
+    *Src/net/*(.bss .bss* COMMON)
+    . = ALIGN(4);
+    _enetbss = .;
+  } >RAM_D2
+  _sinetdata = LOADADDR(.radio);
+  ASSERT(_enetbss <= 0x30040000, "the radio's data and bss overflow their 32 KB of D2 RAM into FUNBASE (Memory.h)")
+
   /* used by the startup to initialize data */
   _sidata = LOADADDR(.data);
 
@@ -297,13 +331,6 @@ SECTIONS
   {
     . = ALIGN(4);
     _sdata = .;        /* create a global symbol at data start */
-    _snetdata = .;     /* the network's data first, to be set again after a G1's display memory was lent (Src/net/WebMite_cmm2.c) */
-    *Third_Party/cyw43-driver/*(.data .data*)
-    *Third_Party/lwip/*(.data .data*)
-    *Third_Party/mbedtls/*(.data .data*)
-    *Src/net/*(.data .data*)
-    . = ALIGN(4);
-    _enetdata = .;
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
 
@@ -337,13 +364,6 @@ SECTIONS
     /* This is used by the startup in order to initialize the .bss secion */
     _sbss = .;         /* define a global symbol at bss start */
     __bss_start__ = _sbss;
-    _snetbss = .;      /* and the network's bss (WebGiveBack) */
-    *Third_Party/cyw43-driver/*(.bss .bss* COMMON)
-    *Third_Party/lwip/*(.bss .bss* COMMON)
-    *Third_Party/mbedtls/*(.bss .bss* COMMON)
-    *Src/net/*(.bss .bss* COMMON)
-    . = ALIGN(4);
-    _enetbss = .;
     *(.bss)
     *(.bss*)
     *(COMMON)

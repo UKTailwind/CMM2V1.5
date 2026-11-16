@@ -275,6 +275,9 @@ struct option_s {
 	unsigned short UDP_PORT;
 	unsigned short UDPServerResponceTime;
 	unsigned char Dvi;                  // OPTION DVI (Flash.h)
+	unsigned char Radio;                // OPTION RADIO (Flash.h, layout 5)
+	unsigned char audio_bluetooth;      // OPTION AUDIO BLUETOOTH
+	unsigned char bt_tlv[2048];         // the Bluetooth pairings
 	unsigned char end;
 // 128
 };

@@ -1517,7 +1517,7 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
 	        return;
 	    }
 	    int fsize = f_size(FileTable[fnbr].fptr);
-	    if(fsize != sizeof(struct option_s) && fsize != OPTION_SIZE_L3) {   // (OPTION_SIZE_L3: saved before the WEB options,
+	    if(fsize != sizeof(struct option_s) && fsize != OPTION_SIZE_L3 && fsize != OPTION_SIZE_L4) {   // (OPTION_SIZE_L3 and _L4: saved before the WEB options or Bluetooth's,
 	        FileClose(fnbr);                                    // which LoadOptions then sets off, as for a record in flash)
 	        error("File size incorrect: not saved by OPTION DISK SAVE in this firmware");
 	    }

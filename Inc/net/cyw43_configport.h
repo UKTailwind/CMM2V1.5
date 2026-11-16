@@ -14,6 +14,12 @@
 #ifndef _CYW43_CONFIGPORT_H
 #define _CYW43_CONFIGPORT_H
 
+// Bluetooth (docs/Bluetooth_Plan.md, step 3): the combined WiFi and Bluetooth firmware, and the chip's Bluetooth over
+// its shared bus (pico-sdk's cybt_shared_bus, Src/net/bt); OPTION RADIO decides at start-up whether it is used
+#ifndef CYW43_ENABLE_BLUETOOTH
+#define CYW43_ENABLE_BLUETOOTH 1
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>

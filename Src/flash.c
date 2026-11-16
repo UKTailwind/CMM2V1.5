@@ -511,21 +511,33 @@ void SaveOptions(int check) {
 
 
 static void OptionsFrom(uint32_t from) {
-    memcpy((struct option_s *)&Option, (struct option_s *)from, sizeof(struct option_s));
-    if(Option.layout != OPTION_LAYOUT) {                            // saved before OPTION F15-F20 (layout 1), F1 and F5-F9 (2) or
-        if(Option.layout != 1 && Option.layout != 2 && Option.layout != 3) {             // SCREEN KEYBOARD (3): those bytes are erased flash, so they are
-            mymemset((char *)Option.F15Key, 0, sizeof(Option.F15Key)); // emptied (the other options are kept; the next SaveOptions
-            mymemset((char *)Option.F16Key, 0, sizeof(Option.F16Key)); // writes the record whole)
-            mymemset((char *)Option.F19Key, 0, sizeof(Option.F19Key));
+    extern volatile bool bt_tlv_dirty;                              // (Src/net/bt/picomite/BTKeyboard.c)
+    if(bt_tlv_dirty) {                                              // pairings not yet saved stay in RAM, as the PicoMite's
+        memcpy((struct option_s *)&Option, (struct option_s *)from, __builtin_offsetof(struct option_s, bt_tlv));   // LoadOptions
+        Option.end = ((const struct option_s *)from)->end;          // keeps them: BTstack's TLV state refers to them
+    } else
+        memcpy((struct option_s *)&Option, (struct option_s *)from, sizeof(struct option_s));
+    if(Option.layout != OPTION_LAYOUT) {                            // saved before OPTION F15-F20 (layout 1), F1 and F5-F9 (2),
+        int l = Option.layout >= 1 && Option.layout < OPTION_LAYOUT ? Option.layout : 0;   // SCREEN KEYBOARD (3), the WEB
+        if(l < 1) {                                                 // options (4) or Bluetooth's (5): those bytes are erased flash,
+            mymemset((char *)Option.F15Key, 0, sizeof(Option.F15Key)); // so they are emptied (the other options are kept; the next
+            mymemset((char *)Option.F16Key, 0, sizeof(Option.F16Key)); // SaveOptions writes the record whole). l is 0 for a
+            mymemset((char *)Option.F19Key, 0, sizeof(Option.F19Key)); // record saved before layout 1 (5.07.02's: erased flash)
             mymemset((char *)Option.F20Key, 0, sizeof(Option.F20Key));
         }
-        if(Option.layout != 2 && Option.layout != 3) {
+        if(l < 2) {
             mymemset((char *)Option.F1Key, 0, sizeof(Option.F1Key));
             mymemset((char *)Option.F5Key, 0, 5 * sizeof(Option.F5Key));  // (F5 to F9, one after another)
         }
-        if(Option.layout != 3) Option.VRes_reserved = Option.Multi = 0;
-        mymemset((char *)Option.SSID, 0, (char *)&Option.end - (char *)Option.SSID);   // (layout 4: the WEB options off; Dvi 0)
-        Option.ServerResponceTime = Option.UDPServerResponceTime = 5000;
+        if(l < 3) Option.VRes_reserved = Option.Multi = 0;
+        if(l < 4) {                                                 // (the WEB options off; Dvi 0)
+            mymemset((char *)Option.SSID, 0, (char *)&Option.end - (char *)Option.SSID);
+            Option.ServerResponceTime = Option.UDPServerResponceTime = 5000;
+        }
+        // layout 5: Bluetooth off, the WiFi half on only if OPTION WIFI was set (as before OPTION RADIO), no pairings
+        Option.Radio = RADIO_BT_OFF | (*Option.SSID ? 0 : RADIO_WIFI_OFF);
+        Option.audio_bluetooth = 0;
+        mymemset((char *)Option.bt_tlv, 0xFF, sizeof(Option.bt_tlv));
         Option.layout = OPTION_LAYOUT;
     }
     // (the on-screen keyboard's strip, OptionVResreserved, is not set here as the PicoMite's LoadOptions sets it: the
@@ -674,6 +686,9 @@ void ResetAllOptions(void) {
 	Option.layout = OPTION_LAYOUT;
 	mymemset((char *)Option.SSID, 0, (char *)&Option.end - (char *)Option.SSID);   // the WEB options: Wi-Fi off
 	Option.ServerResponceTime = Option.UDPServerResponceTime = 5000;
+	Option.Radio = RADIO_WIFI_OFF | RADIO_BT_OFF;                   // OPTION RADIO NONE: the module is optional
+	Option.audio_bluetooth = 0;
+	mymemset((char *)Option.bt_tlv, 0xFF, sizeof(Option.bt_tlv));  // no pairings (BTstack's erased TLV)
 	mymemset((char *)Option.path,0,sizeof(Option.path));
 	mymemset((char *)Option.offsets,0,sizeof(Option.offsets));
 }

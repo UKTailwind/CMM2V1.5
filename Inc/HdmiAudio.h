@@ -22,6 +22,17 @@ static inline void HdmiPut(int32_t l, int32_t r) {
     HDMI_RING[w] = (uint16_t)__SSAT(l, 16) | (uint32_t)__SSAT(r, 16) << 16;
     HdmiRingW = n;
 }
+// OPTION AUDIO BLUETOOTH (Src/net/bt/BTMite_cmm2.c): the same pairs to a ring of Bluetooth's own, BT_RINGN of them, which
+// the speaker's encoder takes at 44.1 kHz (bt_audio_pull). NULL until the speaker's sound is first asked for. Never
+// full: the interrupt writes on, and a reader it overtakes starts again behind it.
+#define BT_RINGN 4096
+extern uint32_t *volatile BtRing;
+extern volatile uint32_t BtRingW;
+static inline void BtPut(int32_t l, int32_t r) {
+    uint32_t w = BtRingW;
+    BtRing[w] = (uint16_t)__SSAT(l, 16) | (uint32_t)__SSAT(r, 16) << 16;
+    BtRingW = (w + 1) & (BT_RINGN - 1);
+}
 #define HDMI_DAC(v)  (2000 + ((v) * 1900) / 32768)           // a G3's 16-bit sample to the DACs' value, as iconvert's
 #define HDMI_DAC2(v) (2000 + ((v) * 950) / 32768)            // two added (MOD and EFFECT, i2convert's), each full level
 #endif

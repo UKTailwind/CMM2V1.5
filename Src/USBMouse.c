@@ -36,7 +36,8 @@ volatile int MouseIntAnyFound = 0;
 
 // the mouse in use: 0 PS/2, 1-3 I2C, 2 also a USB mouse; -1 when there is none
 int MouseOpenChannel(void) {
-    if(UsbMouse) return USBMOUSE_CHANNEL;
+    extern int BtMouse(void);                                       // (a Bluetooth mouse or touchpad: Src/net/bt/BTMite_cmm2.c)
+    if(UsbMouse || BtMouse()) return USBMOUSE_CHANNEL;
     if(mouse0) return 0;
     if(mouse1) return 1;
     if(mouse2) return 2;
@@ -252,6 +253,15 @@ static void MouseInput(int dx, int dy, int8_t wheel, uint8_t buttons, float scal
 }
 
 // a report from the mouse in HID slot 'slot' (the interrupt's callback: nothing here prints)
+// a Bluetooth mouse or a keyboard's touchpad (the PicoMite's process_mouse_input for its BT host, Src/net/bt): as a USB
+// mouse's movement, on the same channel 2, halved as the PicoMite's and divided by OPTION MOUSE SENSITIVITY
+void BtMouseInput(int dx, int dy, int8_t wheel, uint8_t buttons) {
+    float sp;
+    memcpy(&sp, (const void *)Option.mousespeed, sizeof(float));
+    if(!(sp > 0.0f && sp <= 1000.0f)) sp = 1.0f;
+    MouseInput(dx, dy, wheel, buttons, 0.5f / sp);
+}
+
 void USBMouseReport(uint8_t const *report, uint16_t len, int slot) {
     mouse_info_t mi;
     float sp;

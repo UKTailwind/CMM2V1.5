@@ -45,8 +45,8 @@ Serial.c 22, WiFi.c 18, SDCard.c 17, KeyboardMap.c 15, Pointer.c 6, Audio.c 4.
 - **The pairings:** the PicoMite keeps them in its options (Option.bt_tlv, 2 KB), saved with them; the CMM2 does the
   same (step 1).
 - **Memory:** the PicoMite's Bluetooth takes about 24 KB of static RAM. The CMM2's DTCM has about 8 KB left, so
-  BTstack's data goes in the SDRAM: in the network's block (grown) or a block of its own. Its .data and .bss are
-  grouped by the linker as the network's are, so that a Generation 1 can start it again after a --vram program.
+  the radio's data and bss went to the D2 RAM (step 3), grouped by the linker so that a Generation 1 can start it
+  again after a --vram program.
 - **Keyboards:** the CMM2's KeyboardMap.c is the PicoMite's, process_kbd_report included, so BTKeyboard.c feeds it
   unchanged. Mice go to the CMM2's mouse and the GUI cursor, game controllers to DEVICE(GAMEPAD).
 - **The serial port:** the PicoMite's Bluetooth serial device is COM7, but the CMM2's COM4 to COM7 are USB serial
@@ -116,8 +116,10 @@ everything but the options out of the flash.
    throughout (lwIP, Mbed TLS, the driver, the PicoMite's network files and the CMM2's port), and -Oz gives a
    byte-for-byte identical .net, so the compiler has nothing more to give. The room comes instead from the chip's
    firmware, kept compressed: done (step 0 below), 82 KB freed, so neither the library nor mmbrun moves.
-3. **What to include:** BLE keyboards, mice and game controllers; Classic keyboards; a serial device. **No speakers**
-   (BTAudio.c, A2DP, AVDTP and SBC left out: about 40 KB less).
+3. **What to include:** BLE keyboards, mice and game controllers; Classic keyboards; a serial device; and, decided again
+   on 16 November, **speakers too**: the PicoMite's BLUETOOTH command and its Classic set-up live in BTAudio.c with the
+   speaker code, so it is ported whole (about 40 KB, which the compressed firmware made room for), and OPTION AUDIO
+   BLUETOOTH takes the CMM2's sound where HdmiAudio.c takes it on a G3.
 4. **Turning it on:** the PC3's OPTION RADIO BOTH | WEB | BLUETOOTH | NONE, ported, with NONE the CMM2's default.
 5. The serial device: COM8 (COM4 to COM7 are the USB serial devices).
 
@@ -184,6 +186,50 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
     (0x3E): BTKeyboard.c's BTH_SCAN_RSSI_MIN (-70) leaves distant strangers alone, and bt.app skips a device that has
     just failed.
 - In the firmware these are the PicoMite's own files, so all of this comes with them.
+
+## Step 3: into the firmware (16 November, keyboards still to be typed on)
+
+- **The copies:** tools/port_btstack.py puts BTstack (pico-sdk 2.3.1's commit) in Middlewares/Third_Party/btstack,
+  unchanged; tools/port_bt.py copies the PicoMite's bluetooth/*.c and .h (BTKeyboard, BTClassicKeyboard, BTSerial,
+  BTAudio, btstack_config.h) into Src/net/bt/picomite with four mechanical rewrites (SaveOptions(1), SoftReset(),
+  routinechecks(0), pico_flash_bank_instance) and COM7 -> COM8 in their words. Inc/net/BTMite_cmm2.h is their first
+  include, as WebMite_cmm2.h is the network files'; Src/net/bt/BTMite_cmm2.c is what the PicoMite's core gives them.
+  pico-sdk's glue (the HCI transport, the chipset, cybt_shared_bus, btstack_cyw43) and the polled run loop are bt.app's.
+- **The pieces' homes:** BTstack's code in .net (the network's flash, sectors 3 to 6: 511,896 of 524,288 bytes now);
+  the pools from newlib's malloc (HAVE_MALLOC, the PicoMite's MAX_NR_ limits undefined: Inc/net/btstack_config.h).
+- **RAM:** the DTCM had no room for 17 KB more. The radio's data and bss (the driver, lwIP, Mbed TLS, BTstack, Src/net)
+  moved to the top 32 KB of the D2 RAM's heap (RAMEND 0x30038000, the linker script's .radio and .radiobss: 17.8 KB
+  used), their load image in .net. main() sets them up first thing, which first needs the D2 RAM's clocks on: they are
+  off after a reset and the writes were lost, so the first build hard-faulted after the banner (closeMQTT on a
+  pointer of power-up garbage). The heap is 32 KB smaller.
+- **The options:** layout 5 adds Radio, audio_bluetooth and bt_tlv (2 KB of pairings); 3,260 bytes of sector 2's
+  first 4 KB. A layout 4 file (8.00.00b1's) loads by OPTION DISK LOAD, with OPTION RADIO set as OPTION WIFI had it.
+  A pairing's save rewrites sector 2 with mmbrun: 1.3 s (the PicoMite's is 100 ms), done after BTstack stops writing.
+- **OPTION RADIO BOTH | WEB | BLUETOOTH | NONE**, the PC3's, NONE the default; OPTION WIFI turns the WiFi's half on
+  (so nothing changes for 8.00.00b1's users). OPTION LIST shows it only when it is not what OPTION WIFI alone gives.
+  WebStart brings up what is on: one cyw43_arch_init, then the join and the Bluetooth host (bt_keyboard_init, which
+  starts the Classic keyboards, the serial device and the speakers). BtPoll is the PC3's ProcessBT, from CheckAbort
+  and routinechecks' full checks, not while a loadable program runs.
+- **BLUETOOTH SCAN | CONNECT | DISCONNECT | TEST | STATUS | FORGET** (a new command token at the table's end, so
+  saved programs and libraries are unchanged), **MM.INFO$(BLUETOOTH KEYBOARD | SPEAKER | SERIAL)**, and HELP for them.
+  BLUETOOTH STATUS #n prints to a file or COM port (ConsoleRedirect, as the PicoMite's).
+- **Keyboards:** process_kbd_report with KBD_SOURCE_BT_LE / _CLASSIC, whose lock-key LEDs go back to the keyboard
+  (KeyboardMap.c's kbd_send_leds, as the PicoMite's). A mouse, or a keyboard's touchpad, moves the CMM2's mouse on
+  channel 2 (USBMouse.c's BtMouseInput), so MM.MOUSE, DEVICE(MOUSE) and the GUI cursor follow it.
+- **On the G2 (COM10):** OPTION RADIO BOTH: the WiFi joined and Bluetooth came up together; BLUETOOTH STATUS "on";
+  BLUETOOTH SCAN listed the speakers nearby. BLUETOOTH CONNECT KEYBOARD paged once (Bluetooth error 0x04 when the
+  keyboard was not in pairing mode: the PicoMite's CONNECT does not try again). The keyboards are still to be typed on.
+
+## Step 4 so far (16 November, built, not yet tried with devices)
+
+- **COM8:** the PicoMite's COM7 (Serial.c) on the CMM2's USB serial devices' state (struct s_cdccom BtCom): OPEN, CLOSE,
+  PRINT #, INPUT$, LOC, LOF, the COM interrupt and AS GPS. No TX interrupt, no OC/DE/INV. MAXCOMPORTS is 8.
+- **OPTION AUDIO BLUETOOTH [idle] | DAC:** the audio interrupt's pairs (stm32h7xx_it.c) also go to a ring of 4,096
+  (HdmiAudio.h's BtPut), from which bt_audio_pull takes them at the speaker's 44.1 kHz with the two clocks' exact ratio,
+  35 ms behind (Src/net/bt/BTMite_cmm2.c). Every PLAY source but a loadable program's stream (Loader.c's DMA). The DACs
+  play too. MM.INFO(OPTION AUDIO) gives BLUETOOTH.
+- **Game controllers:** BTKeyboard.c publishes the PicoMite's nunstruct[3]; the CMM2's DEVICE(GAMEPAD) reads its own
+  Pad[] with its own button layout, so this still needs a mapping.
 
 ## The questions as asked
 

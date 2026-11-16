@@ -4323,6 +4323,12 @@ void error(char *msg, ...) {
     va_list ap;
     int fmline = 0;                                                 // the program's line, for FM (FmNoteError)
 	ScrewUpTimer=0;
+    {   // a command's #n output ends with it, unless ON ERROR SKIP carries on inside it (the PicoMite's error())
+        extern volatile int ConsoleRedirect;
+        extern int ConsoleRedirectDepth;
+        if(ConsoleRedirect && !(OptionErrorSkip && OptionErrorSkip <= 100000 && ExecDepth > ConsoleRedirectDepth))
+            ConsoleRedirect = 0;
+    }
     if(MMerrno == 0) MMerrno = 16;                                  // indicate an error
     MMerrline = 0;                                                  // (the line, below, if the error is in one)
     mymemset(errstring,0,sizeof(errstring));

@@ -1,0 +1,1773 @@
+/*
+ * BTAudio.c — Bluetooth Classic A2DP source (speaker / headphone output) for
+ * the BT host builds (PICOMITEBTH, PICOMITEHDMIBTH).
+ *
+ * Phase 1 of docs/Bluetooth_Audio_Plan.md: the dual-mode btstack, finding and
+ * connecting a speaker, and a test tone encoded to SBC on btstack's 10 ms
+ * timer, after btstack's example/a2dp_source_demo.c. PLAY is not routed here
+ * yet - that is phase 2.
+ *
+ * Threading: btstack runs in the async context's lowest-priority IRQ on core 0
+ * (pico_cyw43_arch_none is threadsafe_background). Every handler below runs
+ * there. cmd_bluetooth() runs in the interpreter and holds the async-context
+ * lock around each call into btstack; it only reads the volatile state the
+ * handlers publish.
+ */
+
+#if defined(PICOMITEBTH) || defined(PICOMITEHDMIBTH)
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
+
+#include "configuration.h"
+#include "MMBasic_Includes.h"
+#include "Hardware_Includes.h"
+
+#include "pico/cyw43_arch.h"
+#undef UNUSED
+#include "btstack.h"
+#include "btstack_tlv.h"
+#include "classic/btstack_sbc_bluedroid.h"
+
+#include "BTAudio.h"
+#include "BTKeyboard.h"
+#include "BTClassicKeyboard.h"
+#include "BTSerial.h"
+
+#define BTA_AUDIO_TIMEOUT_MS 5    /* encode/send tick */
+#define BTA_SBC_STORAGE_SIZE 1030 /* one media packet: header byte + SBC frames */
+#define BTA_MAX_FRAMES_PER_PACKET 15 /* the SBC payload header counts frames in 4 bits */
+#define BTA_RTP_HEADER_SIZE 12    /* in front of the payload in each media packet */
+#define BTA_PREFERRED_RATE 44100
+#define BTA_MAX_FOUND 16
+#define BTA_NAME_LEN 32
+
+/* ============================================================================
+ * State published by the btstack handlers
+ * ============================================================================
+ */
+typedef enum
+{
+    SPK_NONE,       /* no A2DP connection */
+    SPK_CONNECTING, /* a2dp_source_establish_stream() issued */
+    SPK_OPEN,       /* stream configured, not playing */
+    SPK_STREAMING,  /* media packets flowing */
+    SPK_LINKED,     /* connected, but the stream is gone - see bt_audio_service() */
+} spk_state_t;
+
+static volatile spk_state_t spk_state;
+static volatile uint8_t spk_last_status; /* last failure reported by btstack */
+static volatile bool spk_quiet_release;  /* a command is waiting for the release */
+static volatile bool spk_reopening;      /* the link was dropped to reopen the stream */
+static volatile bool spk_reopen_quiet;   /* ...so its reconnection is not announced */
+static volatile bool spk_pairing_allowed; /* BLUETOOTH CONNECT is running */
+static volatile bool spk_new_stream;     /* opened, not yet started - see bt_audio_service() */
+#define BTA_PIN_MAX 16                   /* a legacy PIN is 1 to 16 characters */
+static char connect_pin[BTA_PIN_MAX + 1] = "0000"; /* btstack keeps a pointer to it */
+static bool bta_ready;                   /* bt_audio_init() completed */
+
+static uint16_t a2dp_cid;
+static uint8_t local_seid;
+static bd_addr_t speaker_addr;
+
+/* Negotiated SBC configuration */
+static volatile uint32_t cfg_rate;
+static uint8_t cfg_channel_mode; /* btstack_sbc_channel_mode_t */
+static uint8_t cfg_bitpool, cfg_blocks, cfg_subbands;
+static uint8_t cfg_min_bitpool;
+static volatile uint8_t cur_bitpool; /* the bitpool in use - see adapt_bitpool() */
+
+/* Offer 44.1 kHz, joint stereo, stereo or mono, any block length /
+   subband count / allocation, bitpool 2..53 - the sink picks within that.
+   btstack prefers joint stereo, then stereo; mono is for the few speakers
+   that offer nothing else (the sound is mixed down in
+   fill_sbc_audio_buffer). Only 44.1 kHz, which every A2DP sink must
+   accept: a speaker that opens the stream itself picks from this list, and
+   a car radio that picked 48 kHz played with a gap every 3 s. btstack
+   rejects a rate not offered here. */
+static const uint8_t media_sbc_codec_capabilities[] = {
+    (AVDTP_SBC_44100 << 4) | AVDTP_SBC_STEREO | AVDTP_SBC_JOINT_STEREO | AVDTP_SBC_MONO,
+    0xFF,
+    2, 53};
+static uint8_t media_sbc_codec_configuration[4];
+static uint8_t sdp_a2dp_source_service_buffer[150];
+
+static btstack_packet_callback_registration_t hci_event_callback_registration;
+
+/* ============================================================================
+ * The remembered speaker: the last one a stream was opened with, kept in the
+ * bond store (TLV tag 'BTAS', saved with the rest of Option.bt_tlv). With
+ * OPTION AUDIO BLUETOOTH it is reconnected BTA_RECONNECT_FIRST_MS after boot
+ * or after it drops out, then at intervals doubling from 5 s to a minute
+ * while it is absent - each attempt pages for at most 5.12 s - until
+ * BLUETOOTH DISCONNECT. (Straight after a reset the speaker still holds the
+ * old link for a while and refuses the first attempt.) Automatic attempts
+ * never pair: only a stored link key gets them in.
+ * ============================================================================
+ */
+#define BTA_TLV_TAG_SPEAKER 0x42544153u /* 'BTAS' */
+#define BTA_RECONNECT_FIRST_MS 2000
+#define BTA_REOPEN_DELAY_MS 200 /* reconnect after dropping the link to reopen a stream */
+#define BTA_RECONNECT_MIN_RETRY_MS 5000
+#define BTA_RECONNECT_MAX_RETRY_MS 60000
+#define BTA_PAGE_TIMEOUT 0x2000 /* 8192 slots = 5.12 s */
+
+static bd_addr_t remembered_speaker;
+static bool have_remembered_speaker;
+static volatile bool auto_reconnect;
+static btstack_timer_source_t reconnect_timer;
+static uint32_t reconnect_interval_ms;
+static void reconnect_soon(void);
+static void reconnect_after(uint32_t first_ms);
+
+static void remember_speaker(const bd_addr_t addr)
+{
+    if (have_remembered_speaker && memcmp(remembered_speaker, addr, sizeof(bd_addr_t)) == 0)
+        return; /* unchanged - no bond-store write */
+    const btstack_tlv_t *tlv;
+    void *ctx;
+    btstack_tlv_get_instance(&tlv, &ctx);
+    if (tlv)
+        tlv->store_tag(ctx, BTA_TLV_TAG_SPEAKER, addr, sizeof(bd_addr_t));
+    memcpy(remembered_speaker, addr, sizeof(bd_addr_t));
+    have_remembered_speaker = true;
+}
+
+/* ============================================================================
+ * Inquiry (BLUETOOTH SCAN) results
+ * ============================================================================
+ */
+typedef struct
+{
+    bd_addr_t addr;
+    uint32_t cod;
+    int8_t rssi;
+    uint8_t psrm;
+    uint16_t clock_offset;
+    uint8_t le;         /* a BLE serial device (its advertising, not the inquiry) */
+    uint8_t addr_type;  /* BLE: its address type */
+    uint8_t le_service; /* BLE: its serial service (bt_serial_le_service_in_ad) */
+    char name[BTA_NAME_LEN];
+} bta_device_t;
+
+static bta_device_t found[BTA_MAX_FOUND];
+static volatile int found_count;
+static volatile bool inquiry_active;
+static volatile bool name_request_active;
+
+/* ============================================================================
+ * Encoder and media-sending state
+ * ============================================================================
+ */
+static const btstack_sbc_encoder_t *sbc_encoder;
+static btstack_sbc_encoder_bluedroid_t sbc_encoder_state;
+static uint8_t sbc_storage[BTA_SBC_STORAGE_SIZE];
+static uint16_t sbc_storage_count;
+static uint8_t sbc_storage_frames; /* frames in sbc_storage */
+static uint16_t sbc_frame_len;     /* length of the last frame encoded (0 before the first) */
+static bool sbc_ready_to_send;
+static int16_t pcm_frame[16 * 8 * 2]; /* one SBC frame: 16 blocks x 8 subbands, stereo */
+
+static btstack_timer_source_t audio_timer;
+static uint32_t time_audio_data_sent;
+static uint32_t acc_num_missed_samples;
+static uint32_t samples_ready;
+static uint32_t rtp_timestamp;
+static int max_media_payload_size;
+
+/* Encoder load: time spent in the tick handler over the time streamed. */
+static volatile uint32_t load_busy_us;
+static volatile uint32_t load_start_us;
+static volatile uint32_t packets_sent;
+static volatile uint8_t packet_frames; /* frames in the last packet (BLUETOOTH STATUS) */
+static volatile uint16_t media_mtu;    /* the speaker's MTU for media packets */
+
+/* Test tone (BLUETOOTH TEST freq). The tone fades in and out over
+   BTA_RAMP_MS, and a fresh stream carries BTA_LEAD_IN_MS of silence before
+   any tone, so a click heard at start/stop can be told apart from the
+   speaker's own amplifier switching on and off with the stream. */
+#define BTA_RAMP_MS 20
+#define BTA_LEAD_IN_MS 200
+#define BTA_GAIN_FULL 32768 /* Q15 */
+static int16_t sine_table[256];
+static bool sine_ready;
+static volatile uint32_t tone_step;
+static volatile int32_t tone_target; /* 0 or BTA_GAIN_FULL */
+static volatile int32_t tone_gain;   /* current Q15 gain */
+static uint32_t tone_phase;
+static uint32_t lead_in_samples;
+
+/* ============================================================================
+ * Helpers
+ * ============================================================================
+ */
+static inline void bta_lock(void)
+{
+    async_context_acquire_lock_blocking(cyw43_arch_async_context());
+}
+
+static inline void bta_unlock(void)
+{
+    async_context_release_lock(cyw43_arch_async_context());
+}
+
+/* Wait in the interpreter until cond() holds, keeping Ctrl-C and the
+   background services alive. Returns false on timeout. */
+static bool bta_wait(bool (*cond)(void), uint32_t timeout_ms)
+{
+    uint64_t end = time_us_64() + (uint64_t)timeout_ms * 1000u;
+    while (!cond())
+    {
+        CheckAbort();
+        if (time_us_64() > end)
+            return false;
+    }
+    return true;
+}
+
+static bool cond_inquiry_done(void) { return !inquiry_active; }
+static bool cond_name_done(void) { return !name_request_active; }
+static bool cond_not_connecting(void) { return spk_state != SPK_CONNECTING; }
+static bool cond_streaming(void) { return spk_state == SPK_STREAMING || spk_state == SPK_NONE; }
+static bool cond_not_streaming(void) { return spk_state != SPK_STREAMING; }
+static bool cond_released(void) { return spk_state == SPK_NONE; }
+
+/* Major device class Audio/Video (0x04): speakers, headphones, car kits. */
+static bool cod_is_audio(uint32_t cod)
+{
+    return ((cod >> 8) & 0x1F) == 0x04;
+}
+
+static const char *channel_mode_name(void)
+{
+    switch (cfg_channel_mode)
+    {
+    case SBC_CHANNEL_MODE_JOINT_STEREO:
+        return "joint stereo";
+    case SBC_CHANNEL_MODE_STEREO:
+        return "stereo";
+    case SBC_CHANNEL_MODE_DUAL_CHANNEL:
+        return "dual channel";
+    default:
+        return "mono";
+    }
+}
+
+bool bt_audio_streaming(void)
+{
+    return spk_state == SPK_STREAMING;
+}
+
+bool bt_audio_inquiry_busy(void)
+{
+    return inquiry_active || name_request_active;
+}
+
+const char *bt_connect_pin(void)
+{
+    return connect_pin;
+}
+
+/* ============================================================================
+ * Audio production and SBC encoding (async-context IRQ)
+ * ============================================================================
+ */
+static void produce_audio(int16_t *pcm, int frames)
+{
+    /* PLAY output (OPTION AUDIO BLUETOOTH) unless the test tone is sounding. */
+    if (AUDIO_BLUETOOTH && tone_target == 0 && tone_gain == 0)
+    {
+        bt_audio_pull(pcm, frames, cfg_rate);
+        return;
+    }
+    uint32_t step = tone_step;
+    int32_t target = tone_target;
+    int32_t gain = tone_gain;
+    int32_t ramp = BTA_GAIN_FULL / (int32_t)(BTA_RAMP_MS * cfg_rate / 1000);
+    for (int i = 0; i < frames; i++)
+    {
+        int16_t s = 0;
+        if (lead_in_samples)
+            lead_in_samples--;
+        else
+        {
+            if (gain < target)
+                gain = (gain + ramp > target) ? target : gain + ramp;
+            else if (gain > target)
+                gain = (gain - ramp < target) ? target : gain - ramp;
+            if (gain)
+            {
+                s = (int16_t)((sine_table[tone_phase >> 24] * gain) >> 15);
+                tone_phase += step;
+            }
+        }
+        pcm[2 * i] = s;
+        pcm[2 * i + 1] = s;
+    }
+    tone_gain = gain;
+}
+
+/* At most this many samples are taken from PLAY's swing buffers per tick:
+   each of those buffers must hold a whole burst - see TONE_BUFFER_SIZE in
+   Audio.c. A tick needs ~220 at 44.1 kHz, but a tick that falls while a
+   packet waits to be sent encodes nothing, so the next must catch up; the
+   payload limit alone would allow up to 12 frames (1536 samples) at low
+   bitpools. */
+#define BTA_MAX_SAMPLES_PER_TICK 1024
+
+/* The encoder gives a frame's length only once it has encoded it, so the
+   room for the next frame is judged by the last one's length. */
+static void fill_sbc_audio_buffer(void)
+{
+    unsigned int frames_per_sbc = sbc_encoder->num_audio_frames(&sbc_encoder_state);
+    unsigned int taken = 0;
+    while (samples_ready >= frames_per_sbc &&
+           sbc_storage_frames < BTA_MAX_FRAMES_PER_PACKET &&
+           (max_media_payload_size - sbc_storage_count) >= sbc_frame_len &&
+           taken + frames_per_sbc <= BTA_MAX_SAMPLES_PER_TICK)
+    {
+        /* A new bitpool starts with a packet, so the frames in one packet
+           are all the same length. Each frame carries its own bitpool. */
+        if (sbc_storage_frames == 0)
+            sbc_encoder_state.params.s16BitPool = cur_bitpool;
+        produce_audio(pcm_frame, frames_per_sbc);
+        if (cfg_channel_mode == SBC_CHANNEL_MODE_MONO)
+        { /* the encoder takes one sample per frame: mix left and right */
+            for (unsigned int i = 0; i < frames_per_sbc; i++)
+                pcm_frame[i] = (int16_t)(((int32_t)pcm_frame[2 * i] + pcm_frame[2 * i + 1]) / 2);
+        }
+        sbc_encoder->encode_signed_16(&sbc_encoder_state, pcm_frame,
+                                      &sbc_storage[1 + sbc_storage_count]);
+        sbc_frame_len = sbc_encoder->sbc_buffer_length(&sbc_encoder_state);
+        sbc_storage_count += sbc_frame_len;
+        sbc_storage_frames++;
+        samples_ready -= frames_per_sbc;
+        taken += frames_per_sbc;
+    }
+}
+
+/* A packet is due when the next frame would not fit, by count or by size. */
+static bool packet_full(void)
+{
+    return sbc_storage_frames >= BTA_MAX_FRAMES_PER_PACKET ||
+           (sbc_storage_frames && sbc_storage_count + sbc_frame_len > max_media_payload_size);
+}
+
+/* Diagnostics (BLUETOOTH STATUS): the longest wait for btstack to let a
+   packet go, samples thrown away because sending fell behind, and packets
+   btstack refused. */
+static volatile uint32_t send_wait_max_us, samples_dropped, send_errors;
+static volatile uint8_t send_last_error;
+static uint32_t send_requested_us;
+
+/* Stream starts, pauses and closes (BLUETOOTH STATUS). A pause or close we
+   did not ask for came from the speaker: some suspend the stream by
+   themselves, and PLAY then starts it again - a gap in the sound each time. */
+static volatile uint32_t stream_starts, stream_pauses, stream_pauses_by_speaker, stream_closes;
+static volatile bool pause_requested;
+
+/* Starts that failed, and streams reopened (BLUETOOTH STATUS): btstack
+   refused the request (no stream left, or an earlier start unanswered), the
+   speaker rejected it, or it went unanswered for BTA_START_TIMEOUT_MS. */
+static volatile uint32_t start_refused, start_rejected, start_unanswered, stream_reopens;
+static volatile uint8_t start_last_error;
+
+/* Adaptive bitpool. The stream starts at the negotiated maximum, which a
+   weak or busy link may not carry: the sound waiting to go then grows
+   until the quarter-second limit throws some away - a gap every few
+   seconds. Once a second, if more than 50 ms is waiting and that is 20 ms
+   more than a second before (or 200 ms or more is waiting and it has not
+   drained by 20 ms - held at the limit), the bitpool steps down (to no less
+   than half the maximum, or the speaker's minimum); after ten seconds with
+   less than 50 ms waiting it steps back up. A second in which the encoder itself stalled (a flash
+   write with interrupts off) is not judged: that backlog is ours. Nor is one
+   in which no packet went at all: the link is gone (a speaker switched off
+   is noticed only when the link times out, after up to 20 s), not slow, and
+   lowering the bitpool cannot help it. */
+#define BTA_BITPOOL_STEP_DOWN 4
+#define BTA_BITPOOL_STEP_UP 2
+#define BTA_BITPOOL_CALM_SECONDS 10
+#define BTA_STALL_MS 50
+static uint32_t backlog_check_ms, backlog_last;
+static uint32_t packets_at_check; /* packets_sent at the last check */
+static uint8_t calm_seconds;
+static bool stalled_this_second;
+static volatile uint32_t bitpool_lowered; /* BLUETOOTH STATUS */
+static volatile uint8_t bitpool_lowest;
+
+static void adapt_bitpool(uint32_t now_ms, uint32_t rate, unsigned int frames_per_sbc)
+{
+    if (now_ms - backlog_check_ms < 1000)
+        return;
+    backlog_check_ms = now_ms;
+    /* waiting to go: not yet encoded, and encoded but not yet sent */
+    uint32_t backlog = samples_ready + sbc_storage_frames * frames_per_sbc;
+    uint32_t last = backlog_last;
+    backlog_last = backlog;
+    bool none_sent = packets_sent == packets_at_check;
+    packets_at_check = packets_sent;
+    if (stalled_this_second || none_sent)
+    {
+        stalled_this_second = false;
+        calm_seconds = 0;
+        return;
+    }
+    uint8_t floor = cfg_bitpool / 2;
+    if (floor < cfg_min_bitpool)
+        floor = cfg_min_bitpool;
+    bool growing = backlog > last + rate / 50;
+    bool stuck = backlog >= rate / 5 && backlog + rate / 50 > last; /* not draining */
+    if (backlog > rate / 20 && (growing || stuck))
+    {
+        if (cur_bitpool > floor)
+        {
+            cur_bitpool = (cur_bitpool - floor > BTA_BITPOOL_STEP_DOWN) ? cur_bitpool - BTA_BITPOOL_STEP_DOWN : floor;
+            bitpool_lowered++;
+            if (cur_bitpool < bitpool_lowest)
+                bitpool_lowest = cur_bitpool;
+        }
+        calm_seconds = 0;
+    }
+    else if (backlog < rate / 20)
+    {
+        if (++calm_seconds >= BTA_BITPOOL_CALM_SECONDS)
+        {
+            calm_seconds = 0;
+            if (cur_bitpool < cfg_bitpool)
+                cur_bitpool = (cfg_bitpool - cur_bitpool > BTA_BITPOOL_STEP_UP) ? cur_bitpool + BTA_BITPOOL_STEP_UP : cfg_bitpool;
+        }
+    }
+    else
+        calm_seconds = 0;
+}
+
+static void send_media_packet(void)
+{
+    uint32_t waited = time_us_32() - send_requested_us;
+    if (waited > send_wait_max_us)
+        send_wait_max_us = waited;
+    sbc_storage[0] = sbc_storage_frames; /* SBC media payload header: frame count */
+    uint8_t status = a2dp_source_stream_send_media_payload_rtp(a2dp_cid, local_seid, 0, rtp_timestamp,
+                                                               sbc_storage, sbc_storage_count + 1);
+    if (status == ERROR_CODE_SUCCESS)
+        packets_sent++;
+    else
+    {
+        send_errors++;
+        send_last_error = status;
+    }
+    packet_frames = sbc_storage_frames;
+    rtp_timestamp += sbc_storage_frames * sbc_encoder->num_audio_frames(&sbc_encoder_state);
+    sbc_storage_count = 0;
+    sbc_storage_frames = 0;
+    sbc_ready_to_send = false;
+}
+
+static volatile uint32_t tick_gap_max_us; /* longest gap between ticks (BLUETOOTH STATUS) */
+static uint32_t tick_last_us;
+
+static void audio_timeout_handler(btstack_timer_source_t *timer)
+{
+    uint32_t t0 = time_us_32();
+    if (tick_last_us && t0 - tick_last_us > tick_gap_max_us)
+        tick_gap_max_us = t0 - tick_last_us;
+    tick_last_us = t0;
+    btstack_run_loop_set_timer(timer, BTA_AUDIO_TIMEOUT_MS);
+    btstack_run_loop_add_timer(timer);
+
+    uint32_t now = btstack_run_loop_get_time_ms();
+    uint32_t period = BTA_AUDIO_TIMEOUT_MS;
+    if (time_audio_data_sent > 0)
+        period = now - time_audio_data_sent;
+    if (period > BTA_STALL_MS)
+        stalled_this_second = true;
+    uint32_t rate = cfg_rate;
+    uint32_t num = (period * rate) / 1000;
+    acc_num_missed_samples += (period * rate) % 1000;
+    while (acc_num_missed_samples >= 1000)
+    {
+        num++;
+        acc_num_missed_samples -= 1000;
+    }
+    time_audio_data_sent = now;
+    samples_ready += num;
+    /* After a long stall (flash writes run with interrupts off) don't try
+       to catch up more than a quarter of a second - the speaker has long
+       since played silence for the gap. */
+    if (samples_ready > rate / 4)
+    {
+        samples_dropped += samples_ready - rate / 4;
+        samples_ready = rate / 4;
+    }
+    adapt_bitpool(now, rate, sbc_encoder->num_audio_frames(&sbc_encoder_state));
+
+    if (!sbc_ready_to_send)
+    {
+        fill_sbc_audio_buffer();
+        if (packet_full())
+        {
+            sbc_ready_to_send = true;
+            send_requested_us = time_us_32();
+            a2dp_source_stream_endpoint_request_can_send_now(a2dp_cid, local_seid);
+        }
+    }
+    load_busy_us += time_us_32() - t0;
+}
+
+static void audio_timer_start(void)
+{
+    /* The payload is the header byte (sbc_storage[0]) and the frames, and
+       btstack refuses a packet over the speaker's MTU: the frames get one
+       byte less than a2dp_max_media_payload_size(). */
+    max_media_payload_size = btstack_min(a2dp_max_media_payload_size(a2dp_cid, local_seid) - 1,
+                                         BTA_SBC_STORAGE_SIZE - 1);
+    sbc_storage_count = 0;
+    sbc_storage_frames = 0;
+    sbc_ready_to_send = false;
+    time_audio_data_sent = 0;
+    acc_num_missed_samples = 0;
+    samples_ready = 0;
+    load_busy_us = 0;
+    load_start_us = time_us_32();
+    packets_sent = 0;
+    packets_at_check = 0;
+    backlog_check_ms = btstack_run_loop_get_time_ms(); /* cur_bitpool carries over */
+    backlog_last = 0;
+    calm_seconds = 0;
+    stalled_this_second = false;
+    btstack_run_loop_remove_timer(&audio_timer);
+    btstack_run_loop_set_timer_handler(&audio_timer, audio_timeout_handler);
+    btstack_run_loop_set_timer(&audio_timer, BTA_AUDIO_TIMEOUT_MS);
+    btstack_run_loop_add_timer(&audio_timer);
+}
+
+static void audio_timer_stop(void)
+{
+    tick_last_us = 0;
+    btstack_run_loop_remove_timer(&audio_timer);
+    sbc_storage_count = 0;
+    sbc_storage_frames = 0;
+    sbc_ready_to_send = false;
+    time_audio_data_sent = 0;
+    acc_num_missed_samples = 0;
+    samples_ready = 0;
+}
+
+/* ============================================================================
+ * A2DP events
+ * ============================================================================
+ */
+static void a2dp_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+    (void)channel;
+    (void)size;
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
+    if (hci_event_packet_get_type(packet) != HCI_EVENT_A2DP_META)
+        return;
+
+    switch (hci_event_a2dp_meta_get_subevent_code(packet))
+    {
+    case A2DP_SUBEVENT_SIGNALING_CONNECTION_ESTABLISHED:
+    {
+        uint8_t status = a2dp_subevent_signaling_connection_established_get_status(packet);
+        if (status != ERROR_CODE_SUCCESS)
+        {
+            spk_last_status = status;
+            a2dp_cid = 0;
+            spk_state = SPK_NONE;
+            break;
+        }
+        a2dp_cid = a2dp_subevent_signaling_connection_established_get_a2dp_cid(packet);
+        a2dp_subevent_signaling_connection_established_get_bd_addr(packet, speaker_addr);
+        /* A paired speaker can connect to us by itself (the A2DP service
+           makes us connectable); track it like one we connected to. */
+        if (spk_state == SPK_NONE)
+            spk_state = SPK_CONNECTING;
+        break;
+    }
+
+    case A2DP_SUBEVENT_SIGNALING_MEDIA_CODEC_SBC_CONFIGURATION:
+    {
+        if (a2dp_subevent_signaling_media_codec_sbc_configuration_get_a2dp_cid(packet) != a2dp_cid)
+            break;
+        uint32_t rate = a2dp_subevent_signaling_media_codec_sbc_configuration_get_sampling_frequency(packet);
+        uint8_t blocks = a2dp_subevent_signaling_media_codec_sbc_configuration_get_block_length(packet);
+        uint8_t subbands = a2dp_subevent_signaling_media_codec_sbc_configuration_get_subbands(packet);
+        uint8_t bitpool = a2dp_subevent_signaling_media_codec_sbc_configuration_get_max_bitpool_value(packet);
+        uint8_t alloc = a2dp_subevent_signaling_media_codec_sbc_configuration_get_allocation_method(packet);
+        avdtp_channel_mode_t mode = (avdtp_channel_mode_t)
+            a2dp_subevent_signaling_media_codec_sbc_configuration_get_channel_mode(packet);
+        btstack_sbc_channel_mode_t sbc_mode;
+        switch (mode)
+        {
+        case AVDTP_CHANNEL_MODE_JOINT_STEREO:
+            sbc_mode = SBC_CHANNEL_MODE_JOINT_STEREO;
+            break;
+        case AVDTP_CHANNEL_MODE_STEREO:
+            sbc_mode = SBC_CHANNEL_MODE_STEREO;
+            break;
+        case AVDTP_CHANNEL_MODE_DUAL_CHANNEL:
+            sbc_mode = SBC_CHANNEL_MODE_DUAL_CHANNEL;
+            break;
+        default: /* AVDTP_CHANNEL_MODE_MONO */
+            sbc_mode = SBC_CHANNEL_MODE_MONO;
+            break;
+        }
+        cfg_rate = rate;
+        cfg_channel_mode = sbc_mode;
+        cfg_bitpool = bitpool;
+        cfg_min_bitpool = a2dp_subevent_signaling_media_codec_sbc_configuration_get_min_bitpool_value(packet);
+        cur_bitpool = bitpool;
+        /* The lowest since the last BLUETOOTH STATUS, as the count is: a
+           new connection does not hide what the last one did. */
+        if (bitpool_lowest == 0 || bitpool < bitpool_lowest)
+            bitpool_lowest = bitpool;
+        cfg_blocks = blocks;
+        cfg_subbands = subbands;
+        sbc_encoder = btstack_sbc_encoder_bluedroid_init_instance(&sbc_encoder_state);
+        /* The spec's allocation method counts from 1; btstack's from 0. */
+        sbc_encoder->configure(&sbc_encoder_state, SBC_MODE_STANDARD, blocks, subbands,
+                               (btstack_sbc_allocation_method_t)(alloc - 1), rate, bitpool, sbc_mode);
+        sbc_frame_len = 0;
+        break;
+    }
+
+    case A2DP_SUBEVENT_STREAM_ESTABLISHED:
+    {
+        uint8_t status = a2dp_subevent_stream_established_get_status(packet);
+        if (status != ERROR_CODE_SUCCESS)
+        {
+            /* The signalling channel may still be up; drop it so the state
+               is simply "not connected". */
+            spk_last_status = status;
+            a2dp_source_disconnect(a2dp_cid);
+            break;
+        }
+        local_seid = a2dp_subevent_stream_established_get_local_seid(packet);
+        media_mtu = (uint16_t)(a2dp_max_media_payload_size(a2dp_cid, local_seid) + BTA_RTP_HEADER_SIZE);
+        spk_new_stream = true;
+        spk_state = SPK_OPEN;
+        remember_speaker(speaker_addr);
+        if (!spk_pairing_allowed && !CurrentLinePtr && !spk_reopen_quiet)
+            bt_notice("Bluetooth speaker connected\r\n> "); /* it reconnected by itself */
+        break;
+    }
+
+    case A2DP_SUBEVENT_STREAM_STARTED:
+        lead_in_samples = cfg_rate * BTA_LEAD_IN_MS / 1000;
+        audio_timer_start();
+        spk_new_stream = false;
+        spk_state = SPK_STREAMING;
+        stream_starts++;
+        bt_keyboard_scan_duty_changed();
+        break;
+
+    case A2DP_SUBEVENT_STREAMING_CAN_SEND_MEDIA_PACKET_NOW:
+        if (spk_state == SPK_STREAMING && sbc_ready_to_send)
+            send_media_packet();
+        break;
+
+    case A2DP_SUBEVENT_STREAM_SUSPENDED:
+        audio_timer_stop();
+        if (spk_state == SPK_STREAMING)
+            spk_state = SPK_OPEN;
+        stream_pauses++;
+        if (!pause_requested)
+            stream_pauses_by_speaker++;
+        pause_requested = false;
+        bt_keyboard_scan_duty_changed();
+        break;
+
+    case A2DP_SUBEVENT_STREAM_RELEASED:
+        audio_timer_stop();
+        if (spk_quiet_release || spk_reopening)
+        { /* our own disconnect: the connection follows it */
+            if (spk_state == SPK_STREAMING)
+                spk_state = SPK_OPEN;
+        }
+        else
+        {
+            /* The speaker closed the stream and kept the connection.
+               btstack cannot open a second stream on that connection, so
+               the stream is gone until bt_audio_service() reconnects for
+               PLAY. */
+            if (spk_state == SPK_OPEN || spk_state == SPK_STREAMING)
+                spk_state = SPK_LINKED;
+            stream_closes++;
+        }
+        bt_keyboard_scan_duty_changed();
+        break;
+
+    case A2DP_SUBEVENT_COMMAND_REJECTED:
+        if (a2dp_subevent_command_rejected_get_signal_identifier(packet) == AVDTP_SI_START)
+        {
+            start_rejected++;
+            if (spk_state == SPK_OPEN)
+                spk_state = SPK_LINKED; /* try again on a fresh connection */
+        }
+        break;
+
+    case A2DP_SUBEVENT_SIGNALING_CONNECTION_RELEASED:
+    {
+        bool was_connected = (spk_state == SPK_OPEN || spk_state == SPK_STREAMING || spk_state == SPK_LINKED);
+        audio_timer_stop();
+        a2dp_cid = 0;
+        spk_new_stream = false;
+        spk_state = SPK_NONE;
+        bt_keyboard_scan_duty_changed();
+        if (spk_reopening)
+        {
+            /* bt_audio_service() dropped the link to reopen the stream:
+               connect again (from a timer - btstack is still releasing
+               this connection) */
+            spk_reopening = false;
+            spk_reopen_quiet = true;
+            stream_reopens++;
+            reconnect_after(BTA_REOPEN_DELAY_MS);
+            break;
+        }
+        if (was_connected && !spk_quiet_release)
+        {
+            if (!CurrentLinePtr)
+                bt_notice("Bluetooth speaker disconnected\r\n> ");
+            reconnect_soon(); /* switched off, or out of range */
+        }
+        break;
+    }
+
+    default:
+        break;
+    }
+}
+
+/* Reconnect the remembered speaker (btstack context; see BTA_TLV_TAG_SPEAKER). */
+static void reconnect_timeout(btstack_timer_source_t *ts)
+{
+    if (AUDIO_BLUETOOTH && auto_reconnect && have_remembered_speaker &&
+        spk_state == SPK_NONE && !inquiry_active && !name_request_active)
+    {
+        uint16_t cid;
+        if (a2dp_source_establish_stream(remembered_speaker, &cid) == ERROR_CODE_SUCCESS)
+        {
+            a2dp_cid = cid;
+            spk_last_status = 0;
+            spk_state = SPK_CONNECTING;
+        }
+    }
+    btstack_run_loop_set_timer(ts, reconnect_interval_ms);
+    btstack_run_loop_add_timer(ts);
+    reconnect_interval_ms *= 2;
+    if (reconnect_interval_ms > BTA_RECONNECT_MAX_RETRY_MS)
+        reconnect_interval_ms = BTA_RECONNECT_MAX_RETRY_MS;
+}
+
+/* Try the remembered speaker shortly, then back off again. Only when PLAY
+   goes to the speaker: reconnect_timeout() does nothing otherwise, and
+   OPTION AUDIO restarts the board, so it cannot become due later. */
+static void reconnect_soon(void)
+{
+    reconnect_after(BTA_RECONNECT_FIRST_MS);
+}
+
+static void reconnect_after(uint32_t first_ms)
+{
+    if (!AUDIO_BLUETOOTH)
+        return;
+    reconnect_interval_ms = BTA_RECONNECT_MIN_RETRY_MS;
+    btstack_run_loop_remove_timer(&reconnect_timer);
+    btstack_run_loop_set_timer_handler(&reconnect_timer, reconnect_timeout);
+    btstack_run_loop_set_timer(&reconnect_timer, first_ms);
+    btstack_run_loop_add_timer(&reconnect_timer);
+}
+
+/* HCI is up: load the remembered speaker and start trying it. */
+static void reconnect_start(void)
+{
+    const btstack_tlv_t *tlv;
+    void *ctx;
+    btstack_tlv_get_instance(&tlv, &ctx);
+    if (tlv && tlv->get_tag(ctx, BTA_TLV_TAG_SPEAKER, remembered_speaker,
+                            sizeof(bd_addr_t)) == sizeof(bd_addr_t))
+        have_remembered_speaker = true;
+    auto_reconnect = true;
+    reconnect_soon();
+}
+
+/* ============================================================================
+ * Classic GAP events: inquiry, names, pairing
+ * ============================================================================
+ */
+static bta_device_t *found_lookup(const bd_addr_t addr)
+{
+    for (int i = 0; i < found_count; i++)
+        if (memcmp(found[i].addr, addr, sizeof(bd_addr_t)) == 0)
+            return &found[i];
+    return NULL;
+}
+
+/* An LE advertisement while BLUETOOTH SCAN runs: a BLE serial device is
+   listed (BTSerial.c, COM8). The service and the name may come in separate
+   reports - the advertisement and the scan response - so a device is listed
+   once one names the service, and a name in a later report is added. */
+static void found_le_advert(const uint8_t *packet)
+{
+    bd_addr_t addr;
+    gap_event_advertising_report_get_address(packet, addr);
+    const uint8_t *data = gap_event_advertising_report_get_data(packet);
+    uint8_t len = gap_event_advertising_report_get_data_length(packet);
+    bta_device_t *d = found_lookup(addr);
+    if (d == NULL)
+    {
+        int service = bt_serial_le_service_in_ad(data, len);
+        if (service < 0 || found_count >= BTA_MAX_FOUND)
+            return;
+        d = &found[found_count];
+        memset(d, 0, sizeof(*d));
+        memcpy(d->addr, addr, sizeof(bd_addr_t));
+        d->le = 1;
+        d->le_service = (uint8_t)service;
+        found_count++;
+    }
+    else if (!d->le)
+        return; /* a Classic device of the inquiry */
+    d->addr_type = gap_event_advertising_report_get_address_type(packet);
+    d->rssi = (int8_t)gap_event_advertising_report_get_rssi(packet);
+    ad_context_t ctx;
+    for (ad_iterator_init(&ctx, len, data); ad_iterator_has_more(&ctx); ad_iterator_next(&ctx))
+    {
+        uint8_t type = ad_iterator_get_data_type(&ctx);
+        if (type == BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME ||
+            (type == BLUETOOTH_DATA_TYPE_SHORTENED_LOCAL_NAME && !d->name[0]))
+        {
+            int n = ad_iterator_get_data_len(&ctx);
+            if (n > BTA_NAME_LEN - 1)
+                n = BTA_NAME_LEN - 1;
+            memcpy(d->name, ad_iterator_get_data(&ctx), n);
+            d->name[n] = 0;
+        }
+    }
+}
+
+static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+    (void)channel;
+    (void)size;
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
+    bd_addr_t addr;
+
+    switch (hci_event_packet_get_type(packet))
+    {
+    case BTSTACK_EVENT_STATE:
+        if (btstack_event_state_get_state(packet) == HCI_STATE_WORKING)
+            reconnect_start();
+        break;
+
+    /* Pairing is accepted only while BLUETOOTH CONNECT is running: we are
+       connectable (for paired speakers to reconnect), so without this any
+       device that knew our address could pair through Just Works. */
+    case HCI_EVENT_PIN_CODE_REQUEST:
+        /* Legacy (pre-2.1) pairing: the PIN given to BLUETOOTH CONNECT, or
+           "0000", which most speakers that still use it take. */
+        hci_event_pin_code_request_get_bd_addr(packet, addr);
+        if (bt_ckbd_owns_pairing(addr) || bt_serial_owns_pairing(addr))
+            break; /* a keyboard or serial device BLUETOOTH CONNECT is pairing */
+        if (spk_pairing_allowed)
+            gap_pin_code_response(addr, connect_pin);
+        else
+            gap_pin_code_negative(addr);
+        break;
+
+    case HCI_EVENT_USER_CONFIRMATION_REQUEST:
+        /* Secure Simple Pairing, Just Works (neither side has a display). */
+        hci_event_user_confirmation_request_get_bd_addr(packet, addr);
+        if (bt_ckbd_owns_pairing(addr) || bt_serial_owns_pairing(addr))
+            break;
+        if (spk_pairing_allowed)
+            gap_ssp_confirmation_response(addr);
+        else
+            gap_ssp_confirmation_negative(addr);
+        break;
+
+    case GAP_EVENT_INQUIRY_RESULT:
+    {
+        gap_event_inquiry_result_get_bd_addr(packet, addr);
+        bta_device_t *d = found_lookup(addr);
+        if (d == NULL)
+        {
+            if (found_count >= BTA_MAX_FOUND)
+                break;
+            d = &found[found_count];
+            memset(d, 0, sizeof(*d));
+            memcpy(d->addr, addr, sizeof(bd_addr_t));
+            d->rssi = -127;
+            found_count++;
+        }
+        d->cod = gap_event_inquiry_result_get_class_of_device(packet);
+        d->psrm = gap_event_inquiry_result_get_page_scan_repetition_mode(packet);
+        d->clock_offset = gap_event_inquiry_result_get_clock_offset(packet);
+        if (gap_event_inquiry_result_get_rssi_available(packet))
+            d->rssi = (int8_t)gap_event_inquiry_result_get_rssi(packet);
+        if (gap_event_inquiry_result_get_name_available(packet))
+        {
+            int len = gap_event_inquiry_result_get_name_len(packet);
+            if (len > BTA_NAME_LEN - 1)
+                len = BTA_NAME_LEN - 1;
+            memcpy(d->name, gap_event_inquiry_result_get_name(packet), len);
+            d->name[len] = 0;
+        }
+        break;
+    }
+
+    case GAP_EVENT_INQUIRY_COMPLETE:
+        inquiry_active = false;
+        bt_keyboard_scan_hold(BT_SCAN_HOLD_LIST, false);
+        break;
+
+    case GAP_EVENT_ADVERTISING_REPORT:
+        if (inquiry_active)
+            found_le_advert(packet);
+        break;
+
+    case HCI_EVENT_REMOTE_NAME_REQUEST_COMPLETE:
+    {
+        hci_event_remote_name_request_complete_get_bd_addr(packet, addr);
+        bta_device_t *d = found_lookup(addr);
+        if (d && hci_event_remote_name_request_complete_get_status(packet) == ERROR_CODE_SUCCESS)
+        {
+            strncpy(d->name, hci_event_remote_name_request_complete_get_remote_name(packet),
+                    BTA_NAME_LEN - 1);
+            d->name[BTA_NAME_LEN - 1] = 0;
+        }
+        name_request_active = false;
+        break;
+    }
+
+    default:
+        break;
+    }
+}
+
+/* ============================================================================
+ * PLAY output service (main loop)
+ * ============================================================================
+ */
+#define BTA_START_TIMEOUT_MS 3000       /* give up waiting for a stream to start */
+#define BTA_REOPEN_HOLD_MS 8000         /* hold the sound while a stream is reopened (a page alone can take 5.12 s) */
+#define BTA_REOPEN_BACKOFF_MS 20000     /* before reopening again if that did not help... */
+#define BTA_REOPEN_BACKOFF_MAX_MS 160000 /* ...doubling to this */
+#define BTA_DISCARD_RATE 44100
+
+/* Called from bt_keyboard_poll() in the main loop. With OPTION AUDIO
+   BLUETOOTH [idle] it starts the stream as soon as a speaker connects,
+   suspends it after idle seconds of silence, and starts it again when PLAY
+   has something to play - or, with idle 0, never suspends it, so no sound
+   waits for a restart (~0.45 s) at the cost of the encoder's ~12% of the
+   CPU while a speaker is connected. (The start at connect is for speakers
+   that play only a stream started soon after it was opened: a Milwaukee M12
+   site radio accepted a later start but stayed silent, then dropped the
+   link. A start
+   after our own suspend plays.) While no speaker can
+   take the sound it is discarded at the real-time rate, so PLAY behaves as
+   a wired output does with nothing plugged in: sounds still end on time and
+   their interrupts still fire.
+
+   A stream that cannot be started - the speaker closed it, rejected the
+   start, or never answered it - is reopened when PLAY next needs it, on a
+   fresh connection (btstack cannot open a second stream on the old one):
+   the link is dropped, the release reconnects, and the sound is held for
+   up to BTA_REOPEN_HOLD_MS meanwhile. If that does not give a stream, the
+   next try waits BTA_REOPEN_BACKOFF_MS, doubling. */
+void bt_audio_service(void)
+{
+    static uint32_t last_us, last_active_ms, start_requested_ms;
+    static uint32_t hold_until_ms, next_reopen_ms, reopen_backoff_ms;
+    static bool start_requested, reopen_hold;
+    if (!bta_ready || !AUDIO_BLUETOOTH)
+        return;
+    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    bool playing = bt_audio_playing();
+    bool tone = (tone_target != 0 || tone_gain != 0);
+    uint32_t idle_ms = (uint32_t)AUDIO_BLUETOOTH_IDLE * 1000u; /* 0: never suspend */
+    if (playing || tone)
+        last_active_ms = now_ms;
+#ifdef PICOMITEWEB
+    /* Coexistence on a build with WiFi (the PC3, 2026-10-11): with WiFi merely
+       associated, the radio's default time-division mode (btc_mode 1) starved
+       the stream - sends waited 220 ms and 8-19% of the samples were dropped.
+       btc_mode 3 gives the stream the air (none dropped, sends under 60 ms)
+       and leaves WiFi next to nothing while it runs (a TFTP transfer got no
+       reply), so it is set only while a stream runs and put back the moment
+       the stream pauses or closes.  The variable is written here, on the main
+       thread, with the driver's ioctl (a blocking exchange with the chip),
+       never from a btstack callback.  The chip comes up in mode 1. */
+    {
+        static int coex_mode = 1;
+        int want = (spk_state == SPK_STREAMING) ? 3 : 1;
+        if (want != coex_mode && !WebScanActive) /* (WEB SCAN has it off: net/WiFi.c) */
+        {
+            uint8_t buf[16];
+            uint32_t v = (uint32_t)want;
+            memcpy(buf, "btc_mode", 9);
+            memcpy(buf + 9, &v, 4);
+            if (cyw43_ioctl(&cyw43_state, CYW43_IOCTL_SET_VAR, 13, buf, CYW43_ITF_STA) == 0)
+                coex_mode = want;
+        }
+    }
+#endif
+    if (reopen_hold && (int32_t)(hold_until_ms - now_ms) <= 0)
+    {
+        reopen_hold = false;
+        spk_reopen_quiet = false;
+    }
+
+    switch (spk_state)
+    {
+    case SPK_STREAMING:
+        start_requested = false;
+        reopen_backoff_ms = 0; /* a stream runs: a later reopen need not wait */
+        reopen_hold = false;
+        spk_reopen_quiet = false;
+        last_us = time_us_32();
+        if (idle_ms && !playing && !tone && now_ms - last_active_ms > idle_ms)
+        {
+            bta_lock();
+            if (a2dp_source_pause_stream(a2dp_cid, local_seid) == ERROR_CODE_SUCCESS)
+                pause_requested = true;
+            bta_unlock();
+            last_active_ms = now_ms; /* don't repeat it while the suspend completes */
+        }
+        return;
+    case SPK_OPEN:
+        if (spk_new_stream)
+            last_active_ms = now_ms; /* the idle time counts from the start */
+        else if (!playing && idle_ms)
+        {
+            start_requested = false;
+            break;
+        }
+        if (!start_requested)
+        {
+            bta_lock();
+            uint8_t status = a2dp_source_start_stream(a2dp_cid, local_seid);
+            bta_unlock();
+            if (status != ERROR_CODE_SUCCESS)
+            {
+                /* btstack refused: no stream left to start, or an earlier
+                   start still unanswered - asking again cannot help */
+                start_refused++;
+                start_last_error = status;
+                spk_state = SPK_LINKED;
+                last_us = time_us_32();
+                return;
+            }
+            start_requested = true;
+            start_requested_ms = now_ms;
+        }
+        if (now_ms - start_requested_ms < BTA_START_TIMEOUT_MS)
+        {
+            last_us = time_us_32(); /* hold the sound until the stream runs */
+            return;
+        }
+        start_unanswered++;
+        start_requested = false;
+        spk_state = SPK_LINKED;
+        last_us = time_us_32();
+        return;
+    case SPK_LINKED:
+        start_requested = false;
+        if (!playing && idle_ms)
+            break;
+        if (!spk_reopening && (reopen_backoff_ms == 0 || (int32_t)(now_ms - next_reopen_ms) >= 0))
+        {
+            bta_lock();
+            spk_reopening = true;
+            if (a2dp_source_disconnect(a2dp_cid) != ERROR_CODE_SUCCESS)
+                spk_reopening = false;
+            bta_unlock();
+            reopen_hold = true;
+            hold_until_ms = now_ms + BTA_REOPEN_HOLD_MS;
+            if (reopen_backoff_ms == 0)
+                reopen_backoff_ms = BTA_REOPEN_BACKOFF_MS;
+            else if (reopen_backoff_ms < BTA_REOPEN_BACKOFF_MAX_MS)
+                reopen_backoff_ms *= 2;
+            next_reopen_ms = now_ms + reopen_backoff_ms;
+        }
+        if (reopen_hold)
+        {
+            last_us = time_us_32(); /* hold the sound while the stream reopens */
+            return;
+        }
+        break;
+    default: /* SPK_NONE, SPK_CONNECTING */
+        start_requested = false;
+        if (playing && reopen_hold)
+        {
+            last_us = time_us_32(); /* a reopen is reconnecting */
+            return;
+        }
+        break;
+    }
+
+    /* No speaker is taking the sound: discard it in real time. */
+    uint32_t now_us = time_us_32();
+    if (!playing)
+    {
+        last_us = now_us;
+        return;
+    }
+    uint32_t frames = (uint32_t)(((uint64_t)(now_us - last_us) * BTA_DISCARD_RATE) / 1000000u);
+    if (frames == 0)
+        return;
+    last_us += (uint32_t)(((uint64_t)frames * 1000000u) / BTA_DISCARD_RATE);
+    if (frames > BTA_DISCARD_RATE / 4)
+        frames = BTA_DISCARD_RATE / 4;
+    while (frames)
+    {
+        int n = frames > 128 ? 128 : (int)frames;
+        bta_lock(); /* the encoder tick may be pulling as the stream starts */
+        bt_audio_pull(pcm_frame, n, BTA_DISCARD_RATE);
+        bta_unlock();
+        frames -= n;
+    }
+}
+
+/* ============================================================================
+ * Initialisation
+ * ============================================================================
+ */
+void bt_audio_init(void)
+{
+    /* Ask to be master of the speaker link: the controller then schedules
+       both links (speaker and keyboard) from our side. */
+    hci_set_master_slave_policy(0);
+    hci_set_inquiry_mode(INQUIRY_MODE_RSSI_AND_EIR);
+    gap_set_local_name(CYW43_HOST_NAME);
+    /* Major service class Audio, major device class Computer (desktop). */
+    gap_set_class_of_device(0x200104);
+    /* Speakers have no display or keys: Secure Simple Pairing, Just Works,
+       confirmed in hci_packet_handler only while BLUETOOTH CONNECT runs. */
+    gap_ssp_set_io_capability(SSP_IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+    gap_ssp_set_auto_accept(0);
+    /* btstack requires a 16-byte encryption key by default. Some speakers
+       and adapters negotiate less; their link then counts as insecure and
+       the audio channel is refused ("Bluetooth error 0x66") although the
+       pairing worked. Accept down to the 7 bytes the specification allows. */
+    gap_set_required_encryption_key_size(7);
+    /* Give up paging an absent speaker after 5.12 s (the default is 15 s):
+       paging shares the radio with the keyboard. */
+    gap_set_page_timeout(BTA_PAGE_TIMEOUT);
+
+    sdp_init();
+    bt_ckbd_init(); /* Classic HID keyboards (BTClassicKeyboard.c) */
+    bt_serial_init(); /* a serial device as COM8 (BTSerial.c) */
+    a2dp_source_init();
+    a2dp_source_register_packet_handler(&a2dp_packet_handler);
+
+    avdtp_stream_endpoint_t *ep = a2dp_source_create_stream_endpoint(
+        AVDTP_AUDIO, AVDTP_CODEC_SBC,
+        (uint8_t *)media_sbc_codec_capabilities, sizeof(media_sbc_codec_capabilities),
+        media_sbc_codec_configuration, sizeof(media_sbc_codec_configuration));
+    if (ep == NULL)
+        return; /* btstack pools too small - BLUETOOTH reports "not available" */
+    avdtp_set_preferred_sampling_frequency(ep, BTA_PREFERRED_RATE);
+    local_seid = avdtp_local_seid(ep);
+
+    memset(sdp_a2dp_source_service_buffer, 0, sizeof(sdp_a2dp_source_service_buffer));
+    a2dp_source_create_sdp_record(sdp_a2dp_source_service_buffer, sdp_create_service_record_handle(),
+                                  AVDTP_SOURCE_FEATURE_MASK_PLAYER, NULL, NULL);
+    sdp_register_service(sdp_a2dp_source_service_buffer);
+
+    hci_event_callback_registration.callback = &hci_packet_handler;
+    hci_add_event_handler(&hci_event_callback_registration);
+
+    spk_state = SPK_NONE;
+    bta_ready = true;
+}
+
+/* ============================================================================
+ * BLUETOOTH command
+ * ============================================================================
+ */
+static void bta_require_ready(void)
+{
+    if (!bta_ready || hci_get_state() != HCI_STATE_WORKING)
+        error("Bluetooth not available");
+}
+
+static void print_padded(const char *s, int width)
+{
+    MMPrintString((char *)s);
+    for (int n = (int)strlen(s); n < width; n++)
+        MMputchar(' ', 1);
+}
+
+/* BLUETOOTH SCAN [seconds] */
+static void bta_scan(unsigned char *tp)
+{
+    int seconds = 10;
+    if (*tp && *tp != '\'') // (a ' comment is no argument: issue #113)
+        seconds = getint(tp, 2, 60);
+    bta_require_ready();
+    if (inquiry_active || name_request_active)
+        error("Scan already running");
+
+    found_count = 0;
+    inquiry_active = true;
+    bta_lock();
+    int rc = gap_inquiry_start((uint8_t)((seconds * 100 + 127) / 128)); /* units of 1.28 s */
+    if (rc == 0) /* BLE serial devices too, from their advertising (found_le_advert) */
+        bt_keyboard_scan_hold(BT_SCAN_HOLD_LIST, true);
+    bta_unlock();
+    if (rc)
+    {
+        inquiry_active = false;
+        error("Scan failed to start (%)", rc);
+    }
+    MMPrintString("Scanning...\r\n");
+    if (!bta_wait(cond_inquiry_done, (uint32_t)seconds * 1000u + 5000u))
+    {
+        bta_lock();
+        gap_inquiry_stop();
+        bt_keyboard_scan_hold(BT_SCAN_HOLD_LIST, false);
+        bta_unlock();
+        inquiry_active = false;
+    }
+
+    /* Ask for the Classic names that weren't in the extended inquiry response. */
+    for (int i = 0; i < found_count; i++)
+    {
+        if (found[i].name[0] || found[i].le)
+            continue;
+        name_request_active = true;
+        bta_lock();
+        rc = gap_remote_name_request(found[i].addr, found[i].psrm, found[i].clock_offset | 0x8000);
+        bta_unlock();
+        if (rc)
+        {
+            name_request_active = false;
+            continue;
+        }
+        bta_wait(cond_name_done, 6000);
+        name_request_active = false;
+    }
+
+    for (int i = 0; i < found_count; i++)
+    {
+        char buf[16];
+        print_padded(bd_addr_to_str(found[i].addr), 19);
+        sprintf(buf, "%d dBm", found[i].rssi);
+        print_padded(buf, 9);
+        print_padded(found[i].le                            ? "BLE serial"
+                     : cod_is_audio(found[i].cod)           ? "Audio"
+                     : bt_ckbd_cod_is_keyboard(found[i].cod) ? "Keyboard"
+                                                             : "",
+                     12);
+        if (found[i].name[0])
+        {
+            MMputchar('"', 1);
+            MMPrintString(found[i].name);
+            MMputchar('"', 1);
+        }
+        PRet();
+    }
+    PInt(found_count);
+    MMPrintString(found_count == 1 ? " device found\r\n" : " devices found\r\n");
+}
+
+/* error() with a btstack status code: "<what> (Bluetooth error 0x0C)".
+   ('&' is error()'s float placeholder, so the hex is formatted here.) */
+static void bta_error_status(const char *what, uint8_t status)
+{
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s (Bluetooth error 0x%02X)", what, status);
+    error("$", buf);
+}
+
+/* SPEAKER or SERIAL in front of the name - not a variable such as serial$
+   (checkstring() ends a keyword at any character that cannot be in a name). */
+static unsigned char *connect_keyword(unsigned char *tp, const char *kw)
+{
+    unsigned char *p = checkstring(tp, (unsigned char *)kw);
+    if (p == NULL || *p == '$' || *p == '%' || *p == '!' || *p == '(')
+        return NULL;
+    return p;
+}
+
+/* BLUETOOTH CONNECT [SPEAKER | SERIAL | KEYBOARD] name$ | addr$ [, pin$]
+     SPEAKER - connect it as a speaker, SERIAL - connect its serial port as
+             COM8, KEYBOARD - connect it as a Classic keyboard, whatever its
+             Class of Device: for a device that is both a speaker and a
+             serial device, such as an RN52 module, one CONNECT of each; for
+             a keyboard whose Class of Device does not say so. Without any
+             of them the kind is chosen as below.
+     name$ - a device name as the last BLUETOOTH SCAN listed it (any case)
+     addr$ - its address, "AA:BB:CC:DD:EE:FF"
+     pin$  - the PIN for a speaker or serial device that pairs the legacy
+             (pre-2.1) way, 1 to 16 characters; "0000" when it is left out.
+             Keyboards are shown their own; BLE devices use none.
+   There is no bare form: with more than one kind of device it couldn't
+   know which was meant. The remembered speaker reconnects by itself. */
+static void bta_connect(unsigned char *tp)
+{
+    bd_addr_t addr;
+    enum { CONNECT_ANY, CONNECT_SPEAKER, CONNECT_SERIAL, CONNECT_KEYBOARD } want = CONNECT_ANY;
+    unsigned char *p;
+    if ((p = connect_keyword(tp, "SPEAKER")) != NULL)
+    {
+        want = CONNECT_SPEAKER;
+        tp = p;
+    }
+    else if ((p = connect_keyword(tp, "SERIAL")) != NULL)
+    {
+        want = CONNECT_SERIAL;
+        tp = p;
+    }
+    else if ((p = connect_keyword(tp, "KEYBOARD")) != NULL)
+    {
+        want = CONNECT_KEYBOARD;
+        tp = p;
+    }
+    getargs(&tp, 3, (unsigned char *)",");
+    if (argc == 0)
+        error("Device name or address required");
+    if (argc == 2)
+        SyntaxError();
+    char *s = (char *)getCstring(argv[0]);
+    const char *pin = "0000";
+    if (argc == 3)
+    {
+        pin = (const char *)getCstring(argv[2]);
+        if (*pin == 0 || strlen(pin) > BTA_PIN_MAX)
+            error("PIN must be 1 to 16 characters");
+    }
+    bta_require_ready();
+    if (sscanf_bd_addr(s, addr) == 0)
+    {
+        int match = -1;
+        for (int i = 0; i < found_count; i++)
+        {
+            if (found[i].name[0] && strcasecmp(found[i].name, s) == 0)
+            {
+                if (match >= 0)
+                    error("More than one device called $ - give its address", s);
+                match = i;
+            }
+        }
+        if (match < 0)
+            error("No device called $ in the last BLUETOOTH SCAN", s);
+        memcpy(addr, found[match].addr, sizeof(bd_addr_t));
+    }
+    if (inquiry_active || name_request_active)
+        error("Scan in progress");
+
+    /* A BLE serial device the last SCAN listed, or the remembered one given
+       by address. */
+    bta_device_t *d = found_lookup(addr);
+    uint8_t le_type, le_service;
+    if (d ? d->le : bt_serial_remembered_le(addr, &le_type, &le_service))
+    {
+        if (want == CONNECT_SPEAKER)
+            error("A BLE device cannot be a speaker");
+        if (want == CONNECT_KEYBOARD)
+            error("BLE keyboards pair by themselves, without CONNECT");
+        if (argc == 3)
+            error("A BLE device pairs without a PIN");
+        if (d)
+        {
+            le_type = d->addr_type;
+            le_service = d->le_service;
+        }
+        bt_serial_connect_le(addr, le_type, le_service);
+        return;
+    }
+    /* A keyboard, by its Class of Device in the last SCAN, or the
+       remembered one given by address. */
+    if (want == CONNECT_KEYBOARD ||
+        (want == CONNECT_ANY && (d ? bt_ckbd_cod_is_keyboard(d->cod) : bt_ckbd_is_remembered(addr))))
+    {
+        if (argc == 3)
+            error("No PIN for a keyboard: it is shown a code to type");
+        bt_ckbd_connect(addr);
+        return;
+    }
+    /* Set before anything can pair; only the device being paired is
+       answered with it (spk_pairing_allowed, bt_serial_owns_pairing). */
+    strcpy(connect_pin, pin);
+    if (want == CONNECT_SERIAL)
+    {
+        if (!bt_serial_connect(addr))
+            error("The device has no serial port");
+        return;
+    }
+    /* Anything else that is not audio - or an address the last SCAN did not
+       list, unless it is the remembered speaker - may be a serial device:
+       its SDP records say. One without a serial port is tried as a speaker. */
+    if (want == CONNECT_ANY &&
+        (d ? !cod_is_audio(d->cod)
+           : !(have_remembered_speaker && memcmp(addr, remembered_speaker, sizeof(bd_addr_t)) == 0)))
+    {
+        if (bt_serial_connect(addr))
+            return;
+    }
+    auto_reconnect = true;
+
+    /* Checked and started under the lock: a paired speaker may be
+       connecting to us by itself at the same moment. */
+    uint8_t status = ERROR_CODE_SUCCESS;
+    bool busy;
+    bta_lock();
+    busy = (spk_state != SPK_NONE);
+    if (!busy)
+    {
+        status = a2dp_source_establish_stream(addr, &a2dp_cid);
+        if (status == ERROR_CODE_SUCCESS)
+        {
+            spk_last_status = 0;
+            spk_pairing_allowed = true;
+            spk_state = SPK_CONNECTING;
+        }
+    }
+    bta_unlock();
+    if (busy)
+        error(spk_state == SPK_CONNECTING ? "Speaker already connecting" : "Speaker already connected");
+    if (status != ERROR_CODE_SUCCESS)
+        bta_error_status("Connect failed", status);
+
+    bool answered = bta_wait(cond_not_connecting, 30000);
+    spk_pairing_allowed = false;
+    if (!answered)
+    {
+        spk_quiet_release = true;
+        bta_lock();
+        a2dp_source_disconnect(a2dp_cid);
+        bta_unlock();
+        bta_wait(cond_released, 3000);
+        spk_quiet_release = false;
+        spk_state = SPK_NONE;
+        error("Speaker did not answer");
+    }
+    if (spk_state == SPK_NONE) /* else open - and bt_audio_service() may have started it */
+        bta_error_status("Connection failed", spk_last_status);
+
+    MMPrintString("Connected to ");
+    MMPrintString((char *)bd_addr_to_str(speaker_addr));
+    MMPrintString(": SBC ");
+    PInt(cfg_rate);
+    MMPrintString(" Hz, ");
+    MMPrintString((char *)channel_mode_name());
+    MMPrintString(", bitpool ");
+    PInt(cfg_bitpool);
+    PRet();
+}
+
+/* BLUETOOTH DISCONNECT [SERIAL] - the speaker, or the serial device */
+static void bta_disconnect(unsigned char *tp)
+{
+    bta_require_ready();
+    if (checkstring(tp, (unsigned char *)"SERIAL"))
+    {
+        bt_serial_disconnect();
+        return;
+    }
+    auto_reconnect = false; /* until the next CONNECT or reset */
+    if (spk_state == SPK_NONE)
+        error("No speaker connected");
+    spk_quiet_release = true;
+    bta_lock();
+    a2dp_source_disconnect(a2dp_cid);
+    bta_unlock();
+    bool ok = bta_wait(cond_released, 5000);
+    spk_quiet_release = false;
+    if (!ok)
+        error("Speaker did not release the connection");
+}
+
+static bool cond_tone_silent(void) { return tone_gain == 0; }
+static bool cond_never(void) { return false; }
+
+/* BLUETOOTH TEST freq  - stream a sine tone of freq Hz (fades in; starts the
+                          stream if it is suspended)
+   BLUETOOTH TEST 0     - fade the tone out; the stream keeps running silent
+   BLUETOOTH TEST STOP  - fade out, send 200 ms of silence, suspend the stream */
+static void bta_test(unsigned char *tp)
+{
+    bool stop = false;
+    int freq = 0;
+    if (checkstring(tp, (unsigned char *)"STOP"))
+        stop = true;
+    else
+        freq = getint(tp, 0, 20000);
+    bta_require_ready();
+    if (spk_state != SPK_OPEN && spk_state != SPK_STREAMING)
+        error("No speaker connected");
+    if (!sine_ready)
+    {
+        for (int i = 0; i < 256; i++)
+            sine_table[i] = (int16_t)(8000.0f * sinf((float)i * (2.0f * 3.14159265f / 256.0f)));
+        sine_ready = true;
+    }
+    if (stop)
+    {
+        tone_target = 0;
+        if (spk_state == SPK_STREAMING)
+        {
+            bta_wait(cond_tone_silent, 500);
+            bta_wait(cond_never, 200);
+            bta_lock();
+            if (a2dp_source_pause_stream(a2dp_cid, local_seid) == ERROR_CODE_SUCCESS)
+                pause_requested = true;
+            bta_unlock();
+            bta_wait(cond_not_streaming, 5000);
+        }
+        return;
+    }
+    if (freq)
+    {
+        if (tone_gain == 0)
+            tone_phase = 0; /* start from a zero crossing */
+        tone_step = (uint32_t)(((uint64_t)freq << 32) / cfg_rate);
+        __compiler_memory_barrier();
+        tone_target = BTA_GAIN_FULL;
+        if (spk_state == SPK_OPEN)
+        {
+            bta_lock();
+            uint8_t status = a2dp_source_start_stream(a2dp_cid, local_seid);
+            bta_unlock();
+            if (status != ERROR_CODE_SUCCESS)
+                bta_error_status("Stream start failed", status);
+            if (!bta_wait(cond_streaming, 5000) || spk_state != SPK_STREAMING)
+                error("Speaker did not start the stream");
+        }
+    }
+    else
+        tone_target = 0;
+}
+
+/* BLUETOOTH FORGET [addr$] - delete stored pairings: every keyboard bond,
+   every Classic link key, the remembered speaker and the remembered serial
+   device, or only those for addr$. A connected device that is forgotten is
+   disconnected first. */
+static void bta_forget(unsigned char *tp)
+{
+    bd_addr_t addr;
+    bool one = false;
+    if (*tp && *tp != '\'') // (a ' comment is no argument: issue #113)
+    {
+        if (sscanf_bd_addr((char *)getCstring(tp), addr) == 0)
+            error("Invalid Bluetooth address");
+        one = true;
+    }
+    bta_require_ready();
+    if ((spk_state == SPK_OPEN || spk_state == SPK_STREAMING || spk_state == SPK_LINKED) &&
+        (!one || memcmp(addr, speaker_addr, sizeof(bd_addr_t)) == 0))
+    {
+        spk_quiet_release = true;
+        bta_lock();
+        a2dp_source_disconnect(a2dp_cid);
+        bta_unlock();
+        bta_wait(cond_released, 5000);
+        spk_quiet_release = false;
+    }
+    bta_lock();
+    bt_keyboard_forget(one ? addr : NULL);
+    bt_ckbd_forget(one ? addr : NULL);
+    bt_serial_forget(one ? addr : NULL);
+    if (one)
+        gap_drop_link_key_for_bd_addr(addr);
+    else
+        gap_delete_all_link_keys();
+    if (have_remembered_speaker && (!one || memcmp(addr, remembered_speaker, sizeof(bd_addr_t)) == 0))
+    {
+        const btstack_tlv_t *tlv;
+        void *ctx;
+        btstack_tlv_get_instance(&tlv, &ctx);
+        if (tlv)
+            tlv->delete_tag(ctx, BTA_TLV_TAG_SPEAKER);
+        have_remembered_speaker = false;
+    }
+    bta_unlock();
+}
+
+/* MM.INFO(BLUETOOTH SPEAKER | KEYBOARD): the connected device's address, or
+   "" when there is none. */
+void bt_info(unsigned char *tp, char *out)
+{
+    if (checkstring(tp, (unsigned char *)"SPEAKER"))
+    {
+        if (spk_state == SPK_OPEN || spk_state == SPK_STREAMING || spk_state == SPK_LINKED)
+            strcpy(out, bd_addr_to_str(speaker_addr));
+        else
+            out[0] = 0;
+    }
+    else if (checkstring(tp, (unsigned char *)"KEYBOARD"))
+    {
+        bt_keyboard_address(out);
+        if (!out[0])
+            bt_ckbd_address(out);
+    }
+    else if (checkstring(tp, (unsigned char *)"SERIAL"))
+        bt_serial_address(out);
+    else
+        SyntaxError();
+}
+
+/* BLUETOOTH STATUS [#n]: to the COM port or file open as #n if given */
+static void bta_status(unsigned char *tp)
+{
+    tp = OutputRedirect(tp); // BLUETOOTH STATUS #n
+    checkend(tp);
+    MMPrintString("Bluetooth: ");
+    MMPrintString(bta_ready && hci_get_state() == HCI_STATE_WORKING ? "on" : "not available");
+    MMPrintString("\r\nKeyboard:  ");
+    MMPrintString(bt_keyboard_ready() ? "connected" : "not connected");
+    {
+        char buf[160];
+        bt_ckbd_status(buf, sizeof(buf));
+        MMPrintString("\r\nClassic keyboard: ");
+        MMPrintString(buf);
+        bt_serial_status(buf, sizeof(buf));
+        MMPrintString("\r\nSerial:    ");
+        MMPrintString(buf);
+    }
+    MMPrintString("\r\nSpeaker:   ");
+    switch (spk_state)
+    {
+    case SPK_NONE:
+        MMPrintString("not connected");
+        if (have_remembered_speaker)
+        {
+            MMPrintString(" (remembered ");
+            MMPrintString((char *)bd_addr_to_str(remembered_speaker));
+            MMPrintString(AUDIO_BLUETOOTH && auto_reconnect ? ", retrying)" : ")");
+        }
+        break;
+    case SPK_CONNECTING:
+        MMPrintString("connecting");
+        break;
+    case SPK_LINKED:
+        MMPrintString((char *)bd_addr_to_str(speaker_addr));
+        MMPrintString(", no stream (PLAY reconnects)");
+        break;
+    case SPK_OPEN:
+    case SPK_STREAMING:
+        MMPrintString((char *)bd_addr_to_str(speaker_addr));
+        MMPrintString(spk_state == SPK_STREAMING ? ", streaming" : ", idle");
+        MMPrintString("\r\nStream:    SBC ");
+        PInt(cfg_rate);
+        MMPrintString(" Hz, ");
+        MMPrintString((char *)channel_mode_name());
+        MMPrintString(", bitpool ");
+        PInt(cur_bitpool);
+        if (cur_bitpool != cfg_bitpool)
+        {
+            MMPrintString(" (of ");
+            PInt(cfg_bitpool);
+            MMputchar(')', 1);
+        }
+        MMPrintString(", ");
+        PInt(cfg_blocks);
+        MMPrintString(" blocks, ");
+        PInt(cfg_subbands);
+        MMPrintString(" subbands, MTU ");
+        PInt(media_mtu);
+        break;
+    }
+    if (spk_state == SPK_STREAMING)
+    {
+        uint32_t streamed_us = time_us_32() - load_start_us;
+        uint32_t busy = load_busy_us;
+        uint32_t permille = streamed_us ? (uint32_t)(((uint64_t)busy * 1000u) / streamed_us) : 0;
+        char buf[96];
+        sprintf(buf, "\r\nEncoder:   %lu.%lu%% of CPU, %lu packets of %u frames in %lu s",
+                (unsigned long)(permille / 10), (unsigned long)(permille % 10),
+                (unsigned long)packets_sent, (unsigned)packet_frames,
+                (unsigned long)(streamed_us / 1000000u));
+        MMPrintString(buf);
+    }
+    if (AUDIO_BLUETOOTH)
+    {
+        /* PLAY samples the encoder wanted but the swing buffers hadn't got;
+           counted since the last STATUS. */
+        char buf[48];
+        sprintf(buf, "\r\nUnderruns: %lu", (unsigned long)bt_audio_underruns);
+        bt_audio_underruns = 0;
+        MMPrintString(buf);
+    }
+    {
+        /* Diagnostics, counted since the last STATUS: the longest stall of
+           the encoder tick (the btstack context blocked), the bond-store
+           writes (each one a SaveOptions(1)), and keyboard security events. */
+        uint32_t saves, save_max, save_total, pairings, reenc, interrupted;
+        char buf[160];
+        bt_keyboard_stats(&saves, &save_max, &save_total, &pairings, &reenc, &interrupted);
+        sprintf(buf, "\r\nLongest encoder gap: %lu ms", (unsigned long)(tick_gap_max_us / 1000));
+        tick_gap_max_us = 0;
+        MMPrintString(buf);
+        sprintf(buf, "\r\nLongest send wait: %lu ms, samples dropped: %lu, send errors: %lu",
+                (unsigned long)(send_wait_max_us / 1000), (unsigned long)samples_dropped,
+                (unsigned long)send_errors);
+        if (send_errors)
+            sprintf(buf + strlen(buf), " (last 0x%02X)", send_last_error);
+        send_wait_max_us = samples_dropped = send_errors = 0;
+        MMPrintString(buf);
+        sprintf(buf, "\r\nStream starts: %lu, pauses: %lu (%lu by the speaker), closed by the speaker: %lu",
+                (unsigned long)stream_starts, (unsigned long)stream_pauses,
+                (unsigned long)stream_pauses_by_speaker, (unsigned long)stream_closes);
+        stream_starts = stream_pauses = stream_pauses_by_speaker = stream_closes = 0;
+        MMPrintString(buf);
+        sprintf(buf, "\r\nStart failures: %lu refused, %lu rejected, %lu unanswered; streams reopened: %lu",
+                (unsigned long)start_refused, (unsigned long)start_rejected,
+                (unsigned long)start_unanswered, (unsigned long)stream_reopens);
+        if (start_refused)
+            sprintf(buf + strlen(buf), " (last refusal 0x%02X)", start_last_error);
+        start_refused = start_rejected = start_unanswered = stream_reopens = 0;
+        MMPrintString(buf);
+        sprintf(buf, "\r\nBitpool lowered: %lu times, lowest %u",
+                (unsigned long)bitpool_lowered, (unsigned)bitpool_lowest);
+        bitpool_lowered = 0;
+        bitpool_lowest = cur_bitpool;
+        MMPrintString(buf);
+        sprintf(buf, "\r\nBond store: %lu writes, longest %lu ms, total %lu ms",
+                (unsigned long)saves, (unsigned long)(save_max / 1000), (unsigned long)(save_total / 1000));
+        MMPrintString(buf);
+        sprintf(buf, "\r\nKeyboard security: %lu pairings, %lu re-encryptions, %lu interrupted since boot",
+                (unsigned long)pairings, (unsigned long)reenc, (unsigned long)interrupted);
+        MMPrintString(buf);
+        sprintf(buf, "\r\nKeyboard bonds held: %d\r\nLast pairing: ", le_device_db_count());
+        MMPrintString(buf);
+        bt_keyboard_last_pairing(buf, sizeof(buf));
+        MMPrintString(buf);
+    }
+    PRet();
+    ConsoleRedirect = 0;
+}
+
+void cmd_bluetooth(void)
+{
+    unsigned char *tp;
+#ifdef PICOMITEPC3
+    if (!PC3_BT_ON)
+        error("Bluetooth is off (OPTION RADIO)");
+#endif
+    if ((tp = checkstring(cmdline, (unsigned char *)"SCAN")))
+        bta_scan(tp);
+    else if ((tp = checkstring(cmdline, (unsigned char *)"CONNECT")))
+        bta_connect(tp);
+    else if ((tp = checkstring(cmdline, (unsigned char *)"DISCONNECT")))
+        bta_disconnect(tp);
+    else if ((tp = checkstring(cmdline, (unsigned char *)"TEST")))
+        bta_test(tp);
+    else if ((tp = checkstring(cmdline, (unsigned char *)"STATUS")))
+        bta_status(tp);
+    else if ((tp = checkstring(cmdline, (unsigned char *)"FORGET")))
+        bta_forget(tp);
+    else
+        SyntaxError();
+}
+
+#endif /* PICOMITEBTH || PICOMITEHDMIBTH */

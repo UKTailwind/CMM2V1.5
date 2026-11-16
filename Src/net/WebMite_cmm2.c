@@ -129,8 +129,13 @@ void WebBlockSet(void) {
     uint32_t w = HAL_GetUIDw0() ^ HAL_GetUIDw1() ^ HAL_GetUIDw2();
     sprintf(id_out, "%08lX", (unsigned long)w);         // (OPTION WIFI's default host name ends with it)
     NetBlock = NULL;
-    if (*Option.SSID)                                   // (a G1: the display memory's top 128 KB, Memory.h)
+    if (*Option.SSID && RadioWifiOn())                  // (a G1: the display memory's top 128 KB, Memory.h)
         NetBlock = (uint8_t *)(G1Hardware ? G1_NET_BLOCK : SDRAMEXEC - NET_BLOCK_SIZE);
+}
+
+// OPTION RADIO: Bluetooth's half on (cyw43_arch_cmm2.c, which sets BTstack up with the chip as pico-sdk's does)
+int RadioBt(void) {
+    return RadioBtOn();
 }
 
 // the block's pages kept out of MMBasic's SDRAM heap (HeapWipe): its contents are lwIP's and outlive RUN and NEW
@@ -156,22 +161,55 @@ static void release_all(void) {
     ExtCfg(38, EXT_NOT_CONFIG, 0);
     ExtCfg(40, EXT_NOT_CONFIG, 0);
 }
+// OPTION RADIO's halves (the PicoMite PC3's): the WiFi with OPTION WIFI set and its half on, Bluetooth with its own
+// (docs/Bluetooth_Plan.md). Both on the one chip: one cyw43_arch_init (which also sets BTstack up with Bluetooth's half
+// on: cyw43_arch_cmm2.c), then the WiFi's join and the Bluetooth host's start, as the PC3's main has them.
 void WebStart(void) {
-    if (!*Option.SSID) return;
-    if (NetBlock == NULL) return;
+    int wifi = *Option.SSID && RadioWifiOn(), bt = RadioBtOn(), up;
+    if (!wifi && !bt) return;
+    if (wifi && NetBlock == NULL) return;
     time_from_clock();
     if (cyw43_arch_init_with_country(wifi_country_to_cyw43(Option.wifi_country_code)) != 0) return;
-    cyw43_arch_enable_sta_mode();               // (the chip's firmware loaded: a missing module fails here)
-    cyw43_fw_release();                         // (its inflated copy: Src/net/cyw43_fw_cmm2.c)
-    if (!(cyw43_state.itf_state & (1 << CYW43_ITF_STA))) {  // (no answer to the gSPI test read: no module)
+    if (wifi) {
+        cyw43_arch_enable_sta_mode();           // (the chip's firmware loaded: a missing module fails here)
+        up = (cyw43_state.itf_state & (1 << CYW43_ITF_STA)) != 0;   // (no answer to the gSPI test read: no module)
+    } else {
+        up = 1;
+    }
+    if (up && bt)                               // Bluetooth's patch, now (the chip's firmware too if the WiFi is off):
+        up = cyw43_bluetooth_hci_init() == 0;   // what BTstack's HCI transport asks for when Bluetooth starts
+    cyw43_fw_release();                         // (the firmware's inflated copy: Src/net/cyw43_fw_cmm2.c)
+    if (!up) {
         MMPrintString("WiFi module not found\r\n");
         cyw43_arch_deinit();
         release_all();                          // the board as without OPTION WIFI: the block back in the heap,
         return;                                 // SPI2 off and the four pins free again
     }
     reserve_pins();
-    startupcomplete = 1;
-    WebConnect();
+    if (wifi) {
+        startupcomplete = 1;
+        WebConnect();
+    }
+    if (bt) {
+        extern void bt_keyboard_init(void);     // (Src/net/bt/picomite/BTKeyboard.c: the PicoMite's Bluetooth host)
+        extern int BtStarted;
+        bt_keyboard_init();
+        BtStarted = 1;
+    }
+}
+
+/* ---- the Bluetooth poll ---- */
+// from routinechecks' full checks and CheckAbort (main.c), as the PicoMite PC3's ProcessBT(): the radio, BTstack's work,
+// the notices its callbacks posted, the pairings' save. Not again from inside itself, nor while a G1's display memory
+// is lent (WebLend), nor (main.c) while a loadable program runs.
+int BtStarted;
+void BtPoll(void) {
+    static int busy = 0;
+    extern void bt_keyboard_poll(void);
+    if (busy || NetHold || !BtStarted) return;
+    busy = 1;
+    bt_keyboard_poll();
+    busy = 0;
 }
 
 /* ---- the poll ---- */
@@ -192,9 +230,29 @@ extern void PO2Str(char *s1, const char *s2, int m);
 extern void PO2Int(char *s1, int64_t n);
 extern void PO3Int(char *s1, int64_t n1, int64_t n2);
 
-// OPTION WIFI, TCP SERVER PORT, UDP SERVER PORT, TELNET CONSOLE, TFTP, WEB MESSAGES: 1 if it was one of them
+// OPTION WIFI, RADIO, TCP SERVER PORT, UDP SERVER PORT, TELNET CONSOLE, TFTP, WEB MESSAGES: 1 if it was one of them
 int WebOption(char *cmdline) {
     char *tp;
+    /* OPTION RADIO BOTH | WEB | BLUETOOTH | NONE: the PicoMite PC3's, which halves of the radio the next start brings
+       up. With WEB or NONE the Bluetooth host is not started; with BLUETOOTH or NONE the WiFi is left down (no join,
+       no servers) and the WEB commands refuse. The stored WiFi network and the Bluetooth pairings are kept. Saved,
+       then a restart. On the CMM2, whose module is optional, NONE is the default, and OPTION WIFI turns the WiFi's
+       half on (docs/Bluetooth_Plan.md). */
+    tp = checkstring(cmdline, "RADIO");
+    if (tp) {
+        uint8_t radio = 0;
+        if (CurrentLinePtr) error("Invalid in a program");
+        if (checkstring(tp, "BOTH")) radio = 0;
+        else if (checkstring(tp, "WEB")) radio = RADIO_BT_OFF;
+        else if (checkstring(tp, "BLUETOOTH")) radio = RADIO_WIFI_OFF;
+        else if (checkstring(tp, "NONE")) radio = RADIO_WIFI_OFF | RADIO_BT_OFF;
+        else error("Syntax: OPTION RADIO BOTH @ WEB @ BLUETOOTH @ NONE", '|', '|', '|');
+        if ((radio & RADIO_BT_OFF) && Option.audio_bluetooth) error("Audio is on Bluetooth (OPTION AUDIO)");
+        Option.Radio = radio;
+        SaveOptions(1);
+        SoftReset();
+        return 1;
+    }
     tp = checkstring(cmdline, "WEB MESSAGES");
     if (tp) {
         if (checkstring(tp, "OFF")) {
@@ -206,9 +264,44 @@ int WebOption(char *cmdline) {
             return 1;
         }
     }
+    /* OPTION AUDIO BLUETOOTH [idle]: the sound to a Bluetooth speaker as well as the DACs (Src/net/bt/BTMite_cmm2.c,
+       the PicoMite's BTAudio.c). idle is the seconds of silence before the stream is suspended, 0 for never (default
+       60), kept as idle + 1 so that 0 means no Bluetooth. OPTION AUDIO DAC: the DACs only again. */
+    tp = checkstring(cmdline, "AUDIO");
+    if (tp) {
+        char *p;
+        if ((p = checkstring(tp, "BLUETOOTH"))) {
+            int idle = 60;
+            if (*p && *p != '\'') idle = getint((unsigned char *)p, 0, 250);
+            if (!RadioBtOn()) error("Bluetooth is off (OPTION RADIO)");
+            if (Option.audio_bluetooth) {                       // already the output: only the timeout changes
+                Option.audio_bluetooth = idle + 1;
+                SaveOptions(1);
+                return 1;
+            }
+            if (CurrentLinePtr) error("Invalid in a program");
+            Option.audio_bluetooth = idle + 1;
+            SaveOptions(1);
+            SoftReset();
+            return 1;
+        }
+        if (checkstring(tp, "DAC")) {
+            if (!Option.audio_bluetooth) return 1;
+            if (CurrentLinePtr) error("Invalid in a program");
+            Option.audio_bluetooth = 0;
+            SaveOptions(1);
+            SoftReset();
+            return 1;
+        }
+        error("Syntax: OPTION AUDIO BLUETOOTH [idle] @ DAC", '|');
+    }
     tp = checkstring(cmdline, "WIFI");
     if (tp) {
         setwifi((unsigned char *)tp);
+        if (*Option.SSID && !RadioWifiOn()) {           // a network given: the WiFi's half of OPTION RADIO on with it
+            Option.Radio &= ~RADIO_WIFI_OFF;
+            SaveOptions(1);
+        }
         SoftReset();
         return 1;
     }
@@ -282,6 +375,10 @@ void WebOptionList(void) {
         }
         MMPrintString("\r\n");
     }
+    // OPTION RADIO, unless it is what OPTION WIFI alone gives (the WiFi's half on with a network, Bluetooth's off)
+    if (Option.Radio != (RADIO_BT_OFF | (*Option.SSID ? 0 : RADIO_WIFI_OFF)))
+        PO2Str("RADIO", Option.Radio == 0 ? "BOTH" : Option.Radio == RADIO_BT_OFF ? "WEB" : Option.Radio == RADIO_WIFI_OFF ? "BLUETOOTH" : "NONE", 1);
+    if (Option.audio_bluetooth) PO2Int("AUDIO BLUETOOTH", Option.audio_bluetooth - 1);
     if (Option.TCP_PORT && Option.ServerResponceTime != 5000) PO3Int("TCP SERVER PORT", Option.TCP_PORT, Option.ServerResponceTime);
     if (Option.TCP_PORT && Option.ServerResponceTime == 5000) PO2Int("TCP SERVER PORT", Option.TCP_PORT);
     if (Option.UDP_PORT && Option.UDPServerResponceTime != 5000) PO3Int("UDP SERVER PORT", Option.UDP_PORT, Option.UDPServerResponceTime);
@@ -295,6 +392,13 @@ void WebOptionList(void) {
 // MM.INFO(OPTION SSID): 1 if it was one of them (iret or sret and targ set)
 int WebInfo(char *ep) {
     char *tp;
+    if ((tp = checkstring(ep, "BLUETOOTH"))) {          // MM.INFO(BLUETOOTH SPEAKER | KEYBOARD | SERIAL): the PicoMite's
+        extern void bt_info(unsigned char *tp, char *out);   // (Src/net/bt/picomite/BTAudio.c)
+        bt_info((unsigned char *)tp, (char *)sret);
+        CtoM(sret);
+        targ = T_STR;
+        return 1;
+    }
     if ((tp = checkstring(ep, "TCP REQUEST"))) {
         int i = getint(tp, 1, MaxPcb) - 1;
         iret = TCPstate ? TCPstate->inttrig[i] : 0;
@@ -425,10 +529,10 @@ void WebLend(void) {
     if (G1Hardware && NetBlock) NetHold = 1;
 }
 void WebGiveBack(void) {
-    extern char _sdata[], _sidata[], _snetdata[], _enetdata[], _snetbss[], _enetbss[];
+    extern char _sinetdata[], _snetdata[], _enetdata[], _snetbss[], _enetbss[];
     char *t = TCPreceiveInterrupt, *u = UDPinterrupt, *m = MQTTInterrupt;
     if (!NetHold) return;
-    memcpy(_snetdata, _sidata + (_snetdata - _sdata), _enetdata - _snetdata);
+    memcpy(_snetdata, _sinetdata, _enetdata - _snetdata);
     memset(_snetbss, 0, _enetbss - _snetbss);                       // (NetHold 0 again)
     TCPreceiveInterrupt = t;
     UDPinterrupt = u;

@@ -105,7 +105,7 @@ extern void *minMMheap;
 // will reduce the memory available to MMBasic) -or- change the definition of RAMEND.
 // NOTE: MMBasic does not use the heap.  It has its own heap which is allocated out of its own memory space.
 extern uint32_t RAMBASE;
-#define RAMEND          	0x30040000
+#define RAMEND          	0x30038000      // (the 32 KB above it: the radio's data and bss, the linker script's .radio)
 #define FUNBASE				0x30040000
 #define FUNEND				(FUNBASE+36*(MAXSUBFUN+1))   // where funtbl ended (the name index replaced it): the buffers after it stay put; the 18 KB is free
 #define SRAMBASE         	0x38000000

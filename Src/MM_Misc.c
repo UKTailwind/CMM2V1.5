@@ -3252,7 +3252,8 @@ void OPTSIZE fun_info(void){
 			strcpy(sret, (char *)KBrdList[(int)Option.USBKeyboard]);   // for our DE)
 			if(strcmp(sret, "DE") == 0) strcpy(sret, "GR");
 		} else if(checkstring(tp, "AUDIO")){                       // the PicoMite's: how its audio is wired.  Here the DAC, which
-			strcpy(sret, PicoFlavour() != PICO_NONE ? "PWM" : "DAC");   // does what the PicoMite's PWM audio does
+			strcpy(sret, Option.audio_bluetooth ? "BLUETOOTH" : PicoFlavour() != PICO_NONE ? "PWM" : "DAC");   // does what the
+			                                                        // PicoMite's PWM audio does; or OPTION AUDIO BLUETOOTH's
 		} else if(checkstring(tp, "WIDTH")){                       // the PicoMite's: the console's columns and rows
 			iret=Option.Width;
 			targ=T_INT;

@@ -1185,12 +1185,13 @@ void Audio_Interrupt(void)  {
         	hr -= hr / 64 ? hr / 64 : (hr > 0) - (hr < 0);
         }
     }
-    if(HdmiRate) {                                                  // a G3: the tick's pair to HDMI's ring too, the 12-bit
+    if(HdmiRate || BtRing) {                                        // a G3: the tick's pair to HDMI's ring too, the 12-bit
     	if(!h16) {                                                  // sources' (tone, SOUND, the BBC's, speech, the glide)
     		hl = ((int32_t)(DAC1->DHR12R1 & 0xFFF) - 2000) * 16;    // widened from the DACs' values
     		hr = ((int32_t)(DAC1->DHR12R2 & 0xFFF) - 2000) * 16;
     	}
-    	HdmiPut(hl, hr);
+    	if(HdmiRate) HdmiPut(hl, hr);
+    	if(BtRing) BtPut(hl, hr);                                   // and with OPTION AUDIO BLUETOOTH, to Bluetooth's
     }
 }
 

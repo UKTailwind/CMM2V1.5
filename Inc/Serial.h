@@ -133,6 +133,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern int SerialCdcWrite(int comnbr, const unsigned char *buf, int n);
 	extern int SerialCdcConnected(int comnbr);
 	extern void CdcGpsFeed(void);
+	// COM8, the Bluetooth serial device (Serial.c; the PicoMite's COM7): the same state as a USB one's, of which it uses
+	// the receive buffer, the interrupt and open
+	#define BT_COM 8
+	extern struct s_cdccom BtCom;
 
 
 

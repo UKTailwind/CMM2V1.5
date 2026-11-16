@@ -133,8 +133,8 @@ void USBMessage(const char *m);                                     // printed o
 // can hold more than one line, and the assembler keeps just one.  processgps() calls this again after each parse, as
 // the PicoMite does for its Bluetooth GPS on COM7 (8c1dffc).
 void CdcGpsFeed(void) {
-	if(GPSchannel < CDC_FIRST_COM) return;
-	struct s_cdccom *p = &CdcCom[GPSchannel - CDC_FIRST_COM];
+	if(GPSchannel < CDC_FIRST_COM || GPSchannel > BT_COM) return;
+	struct s_cdccom *p = GPSchannel == BT_COM ? &BtCom : &CdcCom[GPSchannel - CDC_FIRST_COM];   // (COM8: Bluetooth's)
 	if(!p->open || p->Rx_buf == NULL) return;
 	while(gpsready == NULL && !GPSbusy && p->Rx_head != p->Rx_tail) {
 		char cc = p->Rx_buf[p->Rx_tail];
@@ -262,7 +262,35 @@ char *CdcInterrupt(void) {
 			return p->TX_interrupt;
 		}
 	}
+	if(BtCom.open && BtCom.interrupt != NULL && SerialRxStatus(BT_COM) >= BtCom.ilevel) return BtCom.interrupt;   // and COM8
 	return NULL;
+}
+
+// COM8, the Bluetooth serial device: the PicoMite's COM7 (io/Serial.c), with the device's link, its connection again
+// while the port is open, and the sending in Src/net/bt/picomite/BTSerial.c. RFCOMM, or a BLE serial service, has no
+// baud rate, nor any of a UART's settings. Its state is a USB serial device's, of which it uses the receive buffer, its
+// interrupt and open (BTMite_cmm2.h makes the PicoMite's com7 this open).
+struct s_cdccom BtCom;
+bool bt_serial_known(void);
+void bt_serial_port_opened(void);
+void bt_serial_port_closed(void);
+bool bt_serial_putc(uint8_t c);
+int bt_serial_tx_pending(void);
+extern int BtStarted;
+void BtPoll(void);
+
+// Bytes from the Bluetooth serial device: BTSerial.c calls this in BTstack's context, inside the Bluetooth poll. They go
+// to the receive buffer, the oldest thrown away when it is full, and on to the NMEA line assembler with the port
+// opened AS GPS. A closed port drops them. (The PicoMite's SerialBTReceive.)
+void SerialBTReceive(const uint8_t *data, int len) {
+	if(!BtCom.open || BtCom.Rx_buf == NULL) return;
+	for(int i = 0; i < len; i++) {
+		BtCom.Rx_buf[BtCom.Rx_head] = data[i];
+		BtCom.Rx_head = (BtCom.Rx_head + 1) % BtCom.buf_size;
+		if(BtCom.Rx_head == BtCom.Rx_tail) BtCom.Rx_tail = (BtCom.Rx_tail + 1) % BtCom.buf_size;
+	}
+	if(GPSchannel == BT_COM) CdcGpsFeed();
+	else if(BtCom.interrupt != NULL && SerialRxStatus(BT_COM) >= BtCom.ilevel) IntSignal();
 }
 
 // the console's UART at its baud rate, with its 16-byte receive FIFO: HAL_UART_DeInit clears CR1 (FIFOEN with it) and
@@ -677,6 +705,22 @@ void OPTSIZE SerialOpen(char *spec) {
 			strcat(m, res == XFER_RESULT_STALLED ? " (it stalled)" : res == XFER_RESULT_TIMEOUT ? " (no answer)" : " (it failed)");
 			error(m);
 		}
+	} else if (spec[3] == '0' + BT_COM) {
+	///////////////////////////////// this is COM8, the Bluetooth serial device ////////////////////////////////////
+		// The baud rate is taken and ignored. A remembered device that is not connected is connected again while the
+		// port is open (the PicoMite's COM7: BTSerial.c).
+		if(BtCom.open) error("Already open");
+		if(oc || de || inv || TXinterrupt != NULL) error("Not available on COM%", BT_COM);
+		if(!BtStarted) error("Bluetooth is off (OPTION RADIO)");
+		if(!bt_serial_known()) error("No Bluetooth serial device for COM8 - use BLUETOOTH CONNECT");
+		BtCom.buf_size = bufsize;
+		BtCom.interrupt = interrupt;
+		BtCom.ilevel = ilevel;
+		BtCom.TX_interrupt = NULL;
+		BtCom.Rx_buf = GetMemory(bufsize);
+		BtCom.Rx_head = BtCom.Rx_tail = 0;
+		BtCom.open = true;
+		bt_serial_port_opened();
 	} else error("Invalid COM port");
 }
 
@@ -736,6 +780,13 @@ void SerialClose(int comnbr) {
 		}
 		FreeMemorySafe((void *)&p->Rx_buf);
 	}
+
+	else if(comnbr == BT_COM && BtCom.open) {
+		bt_serial_port_closed();                                    // (a link that is up stays up: BTSerial.c)
+		BtCom.open = false;
+		BtCom.interrupt = NULL;
+		FreeMemorySafe((void *)&BtCom.Rx_buf);
+	}
 }
 
 
@@ -772,6 +823,12 @@ unsigned char SerialPutchar(int comnbr, unsigned char c) {
 		if(tuh_cdc_mounted(idx)) {
 			tuh_cdc_write(idx, &c, 1);
 			tuh_cdc_write_flush(idx);
+		}
+	}
+	else if(comnbr == BT_COM) {
+		while(!bt_serial_putc(c)) {                                 // buffered in BTSerial.c, sent when Bluetooth can:
+			BtPoll();                                               // a full buffer waits, Bluetooth kept running
+			if(MMAbort) CheckAbort();                               // (Ctrl-C ends it, as for any other wait)
 		}
 	}
 	return c;
@@ -833,6 +890,10 @@ int SerialRxStatus(int comnbr) {
 			if(i < 0) i += p->buf_size;
 		}
 	}
+	else if(comnbr == BT_COM && BtCom.open && BtCom.Rx_buf != NULL) {
+		i = BtCom.Rx_head - BtCom.Rx_tail;
+		if(i < 0) i += BtCom.buf_size;
+	}
 
 	return i;
 }
@@ -863,6 +924,10 @@ int SerialTxStatus(int comnbr) {
 	else if(comnbr >= CDC_FIRST_COM && comnbr < CDC_FIRST_COM + CDC_PORTS) {
 		int idx = comnbr - CDC_FIRST_COM;
 		if(tuh_cdc_mounted(idx)) i = CFG_TUH_CDC_TX_BUFSIZE - tuh_cdc_write_available(idx);   // (TX_BUFFER_SIZE, tusb_config.h)
+	}
+	else if(comnbr == BT_COM) {
+		BtPoll();                                                   // CLOSE waits for this to reach 0: Bluetooth kept sending
+		i = bt_serial_tx_pending();
 	}
 	return i;
 }
@@ -908,6 +973,10 @@ int SerialGetchar(int comnbr) {
 			c = p->Rx_buf[p->Rx_tail];
 			p->Rx_tail = (p->Rx_tail + 1) % p->buf_size;
 		}
+	}
+	else if(comnbr == BT_COM && BtCom.open && BtCom.Rx_buf != NULL && BtCom.Rx_head != BtCom.Rx_tail) {
+		c = BtCom.Rx_buf[BtCom.Rx_tail];
+		BtCom.Rx_tail = (BtCom.Rx_tail + 1) % BtCom.buf_size;
 	}
 	return c;
 }

@@ -86,6 +86,10 @@ void process_kbd_report(hid_keyboard_report_t const *report, uint8_t n);
 /* The lock keys as a boot keyboard's LED output report holds them: bit 0
    Num Lock, bit 1 Caps Lock, bit 2 Scroll Lock. */
 uint8_t kbd_lock_leds(void);
+/* process_kbd_report's n for a Bluetooth keyboard (the PicoMite's input/KeyboardMap.h): a BLE one
+   (Src/net/bt/picomite/BTKeyboard.c) or a Classic one (BTClassicKeyboard.c), whose LEDs are set through it */
+#define KBD_SOURCE_BT_LE 0xF0
+#define KBD_SOURCE_BT_CLASSIC 0xF1
 void USR_KEYBRD_Repeat(uint8_t data);
 
 extern int caps_lock;

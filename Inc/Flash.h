@@ -183,16 +183,28 @@ struct option_s {
 	uint8_t Dvi;                        // OPTION DVI: 1 ON, a G3's MS7210 sends DVI (MS7210.c); anything else OFF: erased
 	                                    // flash (0xFF, where a layout 4 record saved before it had end), or 0 from
 	                                    // LoadOptions's clearing of a record before layout 4 (SSID to end)
+	// layout 5 (V8, Bluetooth: docs/Bluetooth_Plan.md): the PicoMite PC3's, as its misc/FileIO.h has them; in a record
+	// saved before it LoadOptions sets them: Bluetooth off, the WiFi as OPTION WIFI had it, no pairings
+	uint8_t Radio;                      // OPTION RADIO: RADIO_WIFI_OFF (1) and RADIO_BT_OFF (2), the halves left off
+	uint8_t audio_bluetooth;            // OPTION AUDIO BLUETOOTH [idle]: 0 off, else the idle time in seconds + 1
+	uint8_t bt_tlv[2048];               // the Bluetooth pairings: BTstack's TLV store (Src/net/bt/picomite/BTKeyboard.c's
+	                                    // two banks of 1 KB), saved with the options; 0xFF erased
 	uint8_t end;
 // 128
 };
 #define AUTORUN_SLOT 0x10               // Option.Autorun: 0 OFF, 1 ON (program memory's), AUTORUN_SLOT + n flash slot n's
 #define AUTORUN_NORESET 0x80            // (OPTION AUTORUN n, the PicoMite's), and AUTORUN_NORESET with NORESET (MM_Misc.c)
 #define AutorunSlot() ((Option.Autorun & 0x70) == AUTORUN_SLOT ? Option.Autorun & 0x0F : 0)
-#define OPTION_LAYOUT 4                 // Option.layout: 1 the record has the F15-F20 keys, 2 F1 and F5-F9 too, 3 SCREEN
-                                        // KEYBOARD's, 4 the WEB options (LoadOptions)
+#define OPTION_LAYOUT 5                 // Option.layout: 1 the record has the F15-F20 keys, 2 F1 and F5-F9 too, 3 SCREEN
+                                        // KEYBOARD's, 4 the WEB options, 5 OPTION RADIO's and the pairings (LoadOptions)
+#define RADIO_WIFI_OFF 1                // Option.Radio (the PicoMite PC3's Hardware_Includes.h)
+#define RADIO_BT_OFF 2
+#define RadioWifiOn() (!(Option.Radio & RADIO_WIFI_OFF))
+#define RadioBtOn() (!(Option.Radio & RADIO_BT_OFF))
 // sizeof(struct option_s) at layout 3, which ended where SSID starts: OPTION DISK LOAD takes such a file too
 #define OPTION_SIZE_L3 ((__builtin_offsetof(struct option_s, SSID) + 1 + __alignof__(struct option_s) - 1) & ~(__alignof__(struct option_s) - 1))
+// and at layout 4 (8.00.00b1), which ended where Radio starts, with its end byte
+#define OPTION_SIZE_L4 ((__builtin_offsetof(struct option_s, Radio) + 1 + __alignof__(struct option_s) - 1) & ~(__alignof__(struct option_s) - 1))
 
 extern volatile struct option_s Option, SOption;
 extern unsigned char *CFunctionFlash;
