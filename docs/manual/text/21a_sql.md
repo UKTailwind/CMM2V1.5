@@ -1,7 +1,7 @@
 # SQL Databases
 
 
-MMBasic can keep data in an SQL database: a file on the SD card or USB flash drive holding tables of rows, which a program adds to, changes, searches and sorts with statements in SQL, the standard language for databases. The database engine is SQLite, the same engine found in phones, browsers and aircraft, and a database file made on the Colour Maximite 2 can be read by SQLite on a PC and the other way round.
+MMBasic can keep data in an SQL database: a file on the SD card or USB flash drive holding tables of rows, which a program adds to, changes, searches and sorts with statements in SQL, the standard language for databases. The database engine is SQLite, the same engine found in phones, browsers and aircraft, and a database file made on the Colour Maximite 2 can be read by SQLite on a PC and the other way round. A database made on a PC opens whether it keeps its text as UTF-8 (the usual) or as UTF-16; text reaches BASIC as UTF-8.
 
 SQLite is not part of the firmware. It is a module, the file A:/sql/sql.mod, which MMBasic loads when a program opens a database and unloads when it closes it. It is in the cmm2 programs zip that comes with the firmware: copy its sql folder to the root of the SD card.
 
@@ -83,6 +83,29 @@ DIM t$(20, 2)
 n = SQL(SELECT "SELECT name, born FROM member WHERE born < ?", t$(), 1970)
 ```
 
+## Long Text
+
+An MMBasic string holds at most 255 characters, so SQL(n) gives an error for a longer text value (SQL: a string of 300 characters, longer than 255); the query stays on its row, so a program that catches the error can read the column again as a LONGSTRING. A LONGSTRING, an integer array that holds text of any length (see LONGSTRING in the Commands), takes it instead:
+
+```
+DIM note%(1000)                     ' a LONGSTRING of up to 8,000 characters
+LONGSTRING CLEAR note%()
+LONGSTRING APPEND note%(), "The first part of a long note, "
+LONGSTRING APPEND note%(), "and the rest of it."
+SQL EXEC "INSERT INTO note(body) VALUES(?)", note%()
+SQL QUERY "SELECT body FROM note"
+DO WHILE SQL(NEXT)
+  n = SQL(LONGSTRING 1, note%())    ' the text into note%(), its length in n
+  PRINT n, LGETSTR$(note%(), 1, 60)
+LOOP
+```
+
+- SQL(LONGSTRING n, a%()) puts column n of the row into the LONGSTRING a%(), and returns its length. A%() too small for it is an error.
+- A LONGSTRING among a statement's values gives its text to a ? parameter.
+- A statement can itself be a LONGSTRING, for one longer than 255 characters: SQL EXEC s%(), SQL QUERY s%(), SQL(SELECT s%(), ...).
+
+Strings in arrays and structures still hold only as many characters as their length.
+
 ## Structures and Tables
 
 A table's row and an MMBasic structure are much the same thing, and SQL can move rows into and out of structures by matching the names of the structure's members with the names of the table's columns.
@@ -108,7 +131,7 @@ SQL EXEC "UPDATE member SET born = :born WHERE id = :id", m
 ```
 
 - SQL CREATE type makes the table if it is not there, named after the type (or SQL CREATE type, table$). INTEGER members are INTEGER columns, FLOAT members REAL and STRING members TEXT; a member named ID that is an integer is the table's key.
-- SQL INSERT var adds a row from a structure, or a row for each element of an array of structures (var()), in one transaction. When the ID member is 0, the database gives the row a new key and puts it into the member.
+- SQL INSERT var adds a row from a structure, or a row for each element of an array of structures (var()), in one transaction: if it stops part way, through an error or Ctrl-C, none of its rows are kept. When the ID member is 0, the database gives the row a new key and puts it into the member.
 - SQL(FETCH var) and SQL(SELECT with an array of structures fill each member from the column of its name (in any case); members with no column of their name are cleared.
 - A statement given a structure among its values takes :name parameters from the members of that name.
 - A nested structure's members are columns named PARENT_CHILD, and an array member's elements columns NAME_0, NAME_1 and so on (NAME_1 first under OPTION BASE 1).
@@ -160,7 +183,9 @@ It lists the computers in the order they came out, finds those with a Z80 proces
 
 ## Errors
 
-A statement the database cannot run is an MMBasic error, "SQL: " followed by SQLite's own message (SQL: no such table: member), which a program can catch with ON ERROR SKIP and MM.ERRMSG$. Ctrl-C stops a long statement with the error "SQL: stopped by Ctrl-C"; a transaction it was in is undone when the database is closed.
+A statement the database cannot run is an MMBasic error, "SQL: " followed by SQLite's own message (SQL: no such table: member), which a program can catch with ON ERROR SKIP and MM.ERRMSG$.
+
+Ctrl-C stops a long statement with the error "SQL: stopped by Ctrl-C". It is an error like any other: ON ERROR SKIP catches it and the program goes on, so a program can let its user stop a long query and carry on. Without ON ERROR the program stops with it, as at any Ctrl-C. A statement stopped while it was changing the database leaves no change behind, and if it was in a transaction (after BEGIN) SQLite undoes the whole transaction. Ctrl-C between the statements of one SQL EXEC stops it in the same way. The key is the one OPTION BREAK sets (Ctrl-C unless it is changed); with OPTION BREAK 0 nothing stops a statement.
 
 ## Speed
 
@@ -180,6 +205,6 @@ The SD card is the limit for a large database: reading straight through a table 
 ## Limits
 
 - One database open at a time (ATTACH reaches more through it).
-- A statement is a string, so at most 255 characters; up to 20 values after it.
-- A structure used with SQL can have at most 64 columns, counting nested members and array elements; a string from the database longer than the variable or member it goes into is an error.
+- A statement in a string has at most 255 characters (a longer one can be a LONGSTRING); up to 20 values after it.
+- A structure used with SQL can have at most 64 columns, counting nested members and array elements; a string from the database longer than the variable or member it goes into is an error (SQL(LONGSTRING) reads text of any length).
 - During a large sort the engine writes temporary files to the root of the current drive (sqlite_....tmp), and removes them after.

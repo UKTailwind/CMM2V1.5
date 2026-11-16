@@ -1,7 +1,8 @@
 /* sqlite_cmm2.h: SQLite's build settings on the CMM2, included ahead of every file (make.py: -include). They are
    usqlite's (lib/usqlite/usqlite_config.h, MIT, Copyright (c) 2021 Elvin Slavik), as the MicroPython port builds
-   SQLite 3.47.0 and ran its tests on a G2 (2 Nov 2026), with two changes (docs/SQL_Plan.md):
+   SQLite 3.47.0 and ran its tests on a G2 (2 Nov 2026), with these changes (docs/SQL_Plan.md):
    - the progress callback is kept (usqlite leaves it out), so that Ctrl-C can stop a long statement;
+   - UTF-16 is kept (below);
    - the pool is sqlcore.c's sqlcore_pool, chosen at start-up by the memory there is, as the MicroPython port's
      cmm2_sqlite_pool: 2 MB on a G2, 512 KB on a G1. */
 #ifndef SQLITE_CMM2_H
@@ -20,7 +21,9 @@
 #define SQLITE_OMIT_QUICKBALANCE 1
 #define SQLITE_OMIT_SHARED_CACHE 1
 #define SQLITE_OMIT_TCL_VARIABLE 1
-#define SQLITE_OMIT_UTF16 1
+/* UTF-16 is kept (usqlite leaves it out): without it a database made in UTF-16 on a PC opened, but every query of it
+   was "malformed database schema", and PRAGMA encoding gave nothing (homa, Back Shed, 15 Nov 2026). Text still comes
+   to BASIC as UTF-8. */
 #define SQLITE_OMIT_WAL 1                   /* no shared memory: rollback journals */
 
 #define SQLITE_UNTESTABLE 1
