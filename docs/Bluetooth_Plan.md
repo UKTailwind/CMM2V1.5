@@ -224,8 +224,13 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
 
 ## Step 4 so far (16 November)
 
-- **COM8** (built, not yet tried with a device): the PicoMite's COM7 (Serial.c) on the CMM2's USB serial devices' state (struct s_cdccom BtCom): OPEN, CLOSE,
+- **COM8**: the PicoMite's COM7 (Serial.c) on the CMM2's USB serial devices' state (struct s_cdccom BtCom): OPEN, CLOSE,
   PRINT #, INPUT$, LOC, LOF, the COM interrupt and AS GPS. No TX interrupt, no OC/DE/INV. MAXCOMPORTS is 8.
+  On the G2 with Peter's DSD TECH HM-10 (BLE, its UART on the PC's COM41 at 115200): BLUETOOTH CONNECT SERIAL by
+  address, OPEN "COM8:", PRINT # and INPUT$ both ways, LOC; a program's COM interrupt; 20 lines (1,031 bytes) out
+  whole; 2,000 bytes in whole when paced (50 bytes every 0.25 s). Sent as one burst at 115200, the HM-10 passed on
+  only 460 of them (BLUETOOTH STATUS's count): the module's limit, not the CMM2's. The link stays up after CLOSE, as the
+  PicoMite's, so the module no longer advertises and BLUETOOTH SCAN does not list it.
 - **OPTION AUDIO BLUETOOTH [idle] | DAC:** the audio interrupt's pairs (stm32h7xx_it.c) also go to a ring of 4,096
   (HdmiAudio.h's BtPut), from which bt_audio_pull takes them at the speaker's 44.1 kHz with the two clocks' exact ratio,
   35 ms behind (Src/net/bt/BTMite_cmm2.c). Every PLAY source but a loadable program's stream (Loader.c's DMA). The DACs
