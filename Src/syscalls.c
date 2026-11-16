@@ -120,6 +120,13 @@ static char *heap_end;
 int LoaderNoSbrk;                                   // a G1's loadable program has the heap's bottom (Loader.c): no growth
 // newlib's arena never grown, or grown nowhere: the heap's bottom is free of it (Loader.c, a G1's one area)
 int SbrkUnused(void) { return heap_end == 0 || heap_end == (char *)SDRAMBASE; }
+// the lowest address MMBasic's SDRAM heap may give a page at (Memory.c's GetMemoryNull): above newlib's arena, which
+// grows up from SDRAMBASE and which the heap's page map knows nothing of. Without this a program filling the heap was
+// given pages malloc had handed out (the audio decoders', JSON's, FAT's, and Bluetooth's pools: 16 Nov 2026)
+unsigned char *SbrkFloor(void) {
+	uint32_t e = heap_end ? (uint32_t)heap_end : (uint32_t)SDRAMBASE;
+	return (unsigned char *)((e + 255) & ~255u);                   // (RAMPAGESIZE: the page it ends in is malloc's)
+}
 
 caddr_t _sbrk(int incr)
 {

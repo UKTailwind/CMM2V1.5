@@ -1195,12 +1195,13 @@ void SDBitsSet(void *addr, int bits) {
 
 // GetMemory's search, which returns NULL when the SDRAM heap has no room (GetMemoryNull) instead of the error
 void *GetMemoryNull(size_t size){
+    extern unsigned char *SbrkFloor(void);                          // (syscalls.c: newlib's arena is below it)
     uint64_t *i;
     unsigned int j, n, k;
-    unsigned char *addr, *topfree = NULL;                           // (the first free page the search meets)
+    unsigned char *addr, *topfree = NULL, *floor = SbrkFloor();     // (the first free page the search meets)
     if(!size)size=1;
     j = n = k = (size + RAMPAGESIZE - 1)/RAMPAGESIZE;                         // nbr of pages rounded up
-    for(addr = SDHIGHFREE() -  RAMPAGESIZE; addr >= (unsigned char *)SDRAMBASE; addr -= RAMPAGESIZE) {   // (below the executable window)
+    for(addr = SDHIGHFREE() -  RAMPAGESIZE; addr >= floor; addr -= RAMPAGESIZE) {   // (below the executable window, above malloc's arena)
         if(!(SDBitsGet(addr) & PUSED)) {
             if(topfree == NULL) topfree = addr;
             if(--n == 0) {                                          // found a free slot
