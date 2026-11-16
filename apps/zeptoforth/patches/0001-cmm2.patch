@@ -1,3 +1,25 @@
+diff --git a/src/common/forth/basic.fs b/src/common/forth/basic.fs
+index 6af42fb..c05983b 100644
+--- a/src/common/forth/basic.fs
++++ b/src/common/forth/basic.fs
+@@ -446,7 +446,7 @@ commit-flash
+ \ Set a deferred word
+ : defer! ( xt deferred-xt -- )
+   compiling-to-flash? >r
+-  dup $20000000 < over $2FFFFFFF > or if
++  dup ram-base < over ram-end >= or if
+     compile-to-flash
+   else
+     compile-to-ram
+@@ -1185,7 +1185,7 @@ commit-flash
+ \ Set RAM here to an address and reset it once complete or if an exception is
+ \ raised
+ : with-here ( addr xt -- ) ( xt: -- )
+-  ram-here >r swap ram-here! try r> ram-here! ?raise
++  ram-here >r swap ram-here! try r> ram-here! sync-code ?raise
+ ;
+ 
+ \ Insufficient data exception
 diff --git a/src/common/forth/task.fs b/src/common/forth/task.fs
 index 977a347..f7a3935 100644
 --- a/src/common/forth/task.fs
@@ -63,7 +85,7 @@ index 977a347..f7a3935 100644
  
    \ Register pending operation on the current CPU
 diff --git a/src/m4_m7/asm.s b/src/m4_m7/asm.s
-index 3cd8571..d645ec5 100644
+index 3cd8571..25fd3de 100644
 --- a/src/m4_m7/asm.s
 +++ b/src/m4_m7/asm.s
 @@ -163,6 +163,7 @@ _asm_finalize:
@@ -82,3 +104,19 @@ index 3cd8571..d645ec5 100644
  	pop {pc}
  	end_inlined
  
+@@ -1458,6 +1460,7 @@ _asm_store_literal:
+ 	movs tos, r0
+ 	adds tos, #4
+ 	bl _asm_store_movt_imm
++	bl _sync_code
+ 	pop {pc}
+ 	end_inlined
+ 	
+@@ -2709,6 +2712,7 @@ _asm_store_ldr_pc:
+ 	push_tos
+ 	movs tos, r2
+ 	bl _store_current_2
++	bl _sync_code
+ 	pop {pc}
+ 1:	push_tos
+ 	ldr tos, =_out_of_range_literal

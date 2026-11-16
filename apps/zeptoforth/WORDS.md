@@ -151,6 +151,18 @@ create buf 16 allot
 ;
 ```
 
+**Bézier curves.** `bezier.fs`, in this folder, is zeptoforth's own (from version 1.17.2.1): `draw-bezier` ( coefs-addr coefs-count max-depth xt -- ), in the module `bezier`, works out the curve and calls xt, a word of the program's, for each short line along it, with the line's ends as S31.32 fixed-point numbers ( D: x0 D: y0 D: x1 D: y1 -- ). Here a cubic curve, its four control points as x,y pairs, drawn in yellow:
+
+```
+include bezier.fs
+bezier import
+create pts 100,0 2, 400,0 2, 250,0 2, 50,0 2, 450,0 2, 500,0 2, 700,0 2, 350,0 2,
+: seg { D: x0 D: y0 D: x1 D: y1 -- } x0 nip y0 nip x1 nip y1 nip 1 yellow line ;
+pts 4 8 ' seg draw-bezier
+```
+
+`nip` keeps a fixed-point number's whole part, which is what `line` takes. The 8 is how far the curve is divided at most: the curve goes through the first and last points, here 100,400 and 700,350.
+
 ## Fonts
 
 | Word | Stack | What it does |
