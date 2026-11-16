@@ -244,6 +244,36 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
   RAM and tries again every 2 s when there is no RAM for sector 2's 128 KB copy (a G1 running a program), instead of
   ending the program with "Not enough memory to save the options".
 
+## Step 5: the three generations, the regression, the manual (16 November)
+
+- **Boards:** G1 (COM47, the module, WiFi and Bluetooth), G2 (COM10, the module, Peter's speaker with OPTION AUDIO
+  BLUETOOTH), G3 (COM46, no module). All three on the same build (2f40b4e), the options and pairings kept by OPTION DISK
+  SAVE and LOAD around each flash.
+- **Found and fixed on the way:**
+  - MMBasic's SDRAM heap searched down to SDRAMBASE, where newlib's malloc arena grows up from without the page map
+    knowing, so a program that filled the heap could be given memory malloc had already handed out (the audio
+    decoders', JSON's, FAT's, and now BTstack's and the speaker's ring, which the audio interrupt writes 44,100 times a
+    second). It now stops at the arena's top (1b74c6f). On the G2's first run, on the build before it, sprites hung.
+  - With BTstack in newlib's arena, a G1's loader could no longer join the video memory with the heap's bottom (the
+    room that made CC and the NES emulator start, 7 Nov). Bluetooth now has its own heap: 64 KB of MMBasic's SDRAM heap
+    at a fixed place below the network block's, kept by HeapWipe as that block is, with K&R's allocator (Inc/net/
+    bt_heap.h, Src/net/bt/bt_heap.c; 2f40b4e). A --vram program on a G1 with Bluetooth and the WiFi on gets 6,767 KB of
+    heap (the join) after a restart, and nothing leaks over three runs (the radio restarted after each).
+    MM.INFO(HEAP) is 64 KB less with Bluetooth on. (After programs that use malloc, such as the sound tests, the join
+    waits for a restart: as before Bluetooth.)
+  - OPEN "COM8:" with Bluetooth on and no module says "Bluetooth not available" (63ee9fe, built, not yet flashed).
+- **No module (G3):** OPTION RADIO BLUETOOTH: "WiFi module not found", the prompt 3.2 s after the restart, the 64 KB
+  given back; BLUETOOTH SCAN "Bluetooth not available"; OPTION RADIO NONE refused while OPTION AUDIO BLUETOOTH is set.
+- **The regression** against 15 November's (tests/cmm2, tests/picomite, the crashers, the corpus, Testfiles, SP Tools):
+  - G2, Bluetooth on and the speaker connected: no regression. langsys differs because this G2 has the module (pins 32,
+    33, 38 and 40 reserved); lines and intsrc failed from stale copies on the card (goldens.py sends only files whose
+    size changed: lines.bas's "6" became "7") and match when sent again (--put). The corpus's webnoserv and webudp go
+    from ERROR to DIFF with the WiFi working. SP Tools 686 of 727, as before.
+  - G1, Bluetooth and the WiFi on: no regression (the same langsys and web differences; intsrc now matches).
+  - G3: see below.
+- **The manual** (2757a99): the chapter Bluetooth after WiFi and Internet Functions (the PicoMite's Bluetooth Versions,
+  for the CMM2), the reference entries, the introduction and Appendix N; the PDF rebuilt (329 pages, 710 bookmarks).
+
 ## The questions as asked
 
 1. **The licence:** BTstack's non-commercial condition on the CMM2 (as now for cyw43-driver), or ask BlueKitchen
