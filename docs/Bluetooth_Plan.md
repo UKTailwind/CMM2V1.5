@@ -230,8 +230,14 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
   (HdmiAudio.h's BtPut), from which bt_audio_pull takes them at the speaker's 44.1 kHz with the two clocks' exact ratio,
   35 ms behind (Src/net/bt/BTMite_cmm2.c). Every PLAY source but a loadable program's stream (Loader.c's DMA). The DACs
   play too. MM.INFO(OPTION AUDIO) gives BLUETOOTH. Plays perfectly to Peter's speaker on the G2 (16 November).
-- **Game controllers:** BTKeyboard.c publishes the PicoMite's nunstruct[3]; the CMM2's DEVICE(GAMEPAD) reads its own
-  Pad[] with its own button layout, so this still needs a mapping.
+- **Game controllers** (9cc48c1, not yet tried): BTKeyboard.c publishes the PicoMite's nunstruct[3], which
+  DEVICE(GAMEPAD 3) now reads as the PicoMite's does (B the HID buttons 1-12 as they are, H the hat, six axes, T &H4254),
+  unless a USB pad has channel 3; GAMEPAD INTERRUPT ENABLE 3 on any change. The PicoMite takes BLE controllers only
+  (BTKeyboard.c's HID-over-GATT; BTClassicKeyboard.c is for keyboards), so a DualShock 4 (Classic HID) or a DualShock
+  3 (Classic, paired over USB) is not one; an Xbox Series controller or an 8BitDo in a BLE mode would be.
+- **The pairings' save** (9cc48c1): bt_tlv_save calls BtSaveOptions (a port_bt.py rewrite), which keeps the pairings in
+  RAM and tries again every 2 s when there is no RAM for sector 2's 128 KB copy (a G1 running a program), instead of
+  ending the program with "Not enough memory to save the options".
 
 ## The questions as asked
 
