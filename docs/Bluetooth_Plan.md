@@ -42,9 +42,8 @@ Serial.c 22, WiFi.c 18, SDCard.c 17, KeyboardMap.c 15, Pointer.c 6, Audio.c 4.
 - **BTstack** at the commit pico-sdk 2.3.1 has, unchanged, as lwIP and Mbed TLS are.
 - **The run loop:** the PicoMite pumps BTstack from ProcessBT(), called where ProcessWeb() is. The CMM2's WebPoll()
   is the same place, so ProcessBT() goes beside it.
-- **The pairings:** the PicoMite keeps them in flash, through pico-sdk's flash bank. The CMM2 has no flash to spare
-  and writes none by design (V8), so they go in a file on the SD card (A:/.bluetooth), kept in RAM and written when
-  they change. The battery-backed SRAM is the other place, but it is VAR SAVE's.
+- **The pairings:** the PicoMite keeps them in its options (Option.bt_tlv, 2 KB), saved with them; the CMM2 does the
+  same (step 1).
 - **Memory:** the PicoMite's Bluetooth takes about 24 KB of static RAM. The CMM2's DTCM has about 8 KB left, so
   BTstack's data goes in the SDRAM: in the network's block (grown) or a block of its own. Its .data and .bss are
   grouped by the linker as the network's are, so that a Generation 1 can start it again after a --vram program.
@@ -137,6 +136,33 @@ everything but the options out of the flash.
 
 Free flash now: .net about 162 KB, .bank2 about 37 KB, bank 1 about 17 KB (sector 2's tail is left alone: it is
 rewritten with the options). Bluetooth without speakers needs about 120 to 140 KB, so it fits in .net.
+
+## Step 1: bt.app (16 November, done)
+
+apps/bt/make.py builds bt.app: BTstack at pico-sdk 2.3.1's commit (eb0bb8b, fetched into apps/bt/btstack), pico-sdk's
+Bluetooth glue copied as it is (port/: the CYW43 HCI transport, the chipset, cybt_shared_bus), the PicoMite's
+btstack_config.h as it is (built as PICOMITEBTH), and apps/wifi's bus, pins and poll. `RUN "bt.app", scan [seconds]`
+starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks the Classic devices without a name for it.
+
+- **On the G2 (COM10):** the combined firmware (7.95.61) and the Bluetooth patch (CYW4343A2_001.003.016.0065) loaded
+  over SPI2, BTstack working in 0.97 s, 0 bus errors. Found Classic devices (two audio devices, Peter's "Bluetooth 3.0
+  Keyboard", marked Keyboard by its class of device) with signal strength and names, and LE devices with the names
+  their advertisements give.
+- **The run loop:** BTstack's embedded run loop polls its data sources on every pass. The CYW43 transport's read wakes
+  the chip's Bluetooth core and toggles its interrupt each time, and done as fast as the CMM2 loops, the core never
+  answered: Bluetooth did not start. With the debug build's printing slowing the loop it did, which hid the cause.
+  port/btstack_run_loop_cmm2.c is pico-sdk's async-context run loop made a polled one: BTstack's work is done only when
+  a timer is due, a callback is queued, or the driver's poll has seen the chip's Bluetooth interrupt
+  (cyw43_bluetooth_hci_process). The firmware will use the same.
+- **Sizes** (the SDK's -O2, the scan's share only): BTstack 122 KB of code and 14 KB of RAM; the glue and run loop
+  11 KB and 1 KB. The firmware builds at -Os, and the keyboards and the serial device add hid_host, hids_host, RFCOMM
+  and the PicoMite's own code.
+- **The pairings:** the PicoMite keeps them in the options, Option.bt_tlv (2 KB, two banks of 1 KB, its
+  hal_flash_bank over the options record, saved with them). The CMM2's options are 1,212 bytes in sector 2's first
+  4 KB, so the same fits: the CMM2 does as the PicoMite (not a file on the card, as first planned). bt.app keeps them in
+  RAM.
+- **Not for users:** with OPTION WIFI set, bt.app resets the chip under the firmware's own WiFi, which then has no
+  network until a restart (the firmware does not know). Only a test program does that.
 
 ## The questions as asked
 

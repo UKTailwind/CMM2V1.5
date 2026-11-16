@@ -84,3 +84,6 @@ apps/wifi/cyw43-driver/
 apps/wifi/lwip/
 apps/wifi/mbedtls/
 apps/wifi/out/
+# Bluetooth (apps/bt/make.py): BTstack fetched at a pinned commit, and the build
+apps/bt/btstack/
+apps/bt/out/
