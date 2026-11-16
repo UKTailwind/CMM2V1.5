@@ -711,7 +711,7 @@ void OPTSIZE SerialOpen(char *spec) {
 		// port is open (the PicoMite's COM7: BTSerial.c).
 		if(BtCom.open) error("Already open");
 		if(oc || de || inv || TXinterrupt != NULL) error("Not available on COM%", BT_COM);
-		if(!BtStarted) error("Bluetooth is off (OPTION RADIO)");
+		if(!BtStarted) error(RadioBtOn() ? "Bluetooth not available" : "Bluetooth is off (OPTION RADIO)");   // (on, but no module)
 		if(!bt_serial_known()) error("No Bluetooth serial device for COM8 - use BLUETOOTH CONNECT");
 		BtCom.buf_size = bufsize;
 		BtCom.interrupt = interrupt;
