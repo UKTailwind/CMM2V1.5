@@ -56,7 +56,7 @@ SQL CLOSE[/CODE]
 
 
 [SIZE=4][COLOR=BLUE][B]The programs[/B][/COLOR][/SIZE]
-• [B]sql[/B] is new: sql.mod (the SQL command's module), sql.app, computers.db and computers.bas.
+• [B]sql[/B] is new: sql.mod (the SQL command's module), sql.app, computers.db and computers.bas. On 16 November sql.mod and sql.app were replaced in the zip, so that a database made in UTF-16 on a PC opens: with the first ones, every query of such a database failed with "malformed database schema", and PRAGMA encoding returned nothing. Copy the new A:/sql/sql.mod and A:/sql/sql.app from the zip if you downloaded it before then.
 • [B]bbc[/B] and [B]wordgrinder[/B] are as the RC5 zip has had them since 13 November: bbc.app no longer stops about 18 minutes after it starts, and WordGrinder's message when its memory is damaged stays on the screen until a key is pressed. The zip downloaded before then had the first versions.
 • Every other program in the zip is unchanged.
 
@@ -76,6 +76,10 @@ On a Generation 2 (the same SQL in a build of the firmware before this one):
 
 [SIZE=4][COLOR=BLUE][B]Known problems[/B][/COLOR][/SIZE]
 • [B]SQL:[/B] on a Generation 1 a large database is slow (above). Only one database is open at a time (ATTACH reaches others through it). A statement is a string, so at most 255 characters. Stopping a statement with Ctrl-C has not been tried by hand.
+• [B]SQL, found since the release[/B] (homa, 15 November), all three fixed for the next firmware:
+    ◦ Ctrl-C in a long statement stops it, but then ends the program as well, even under ON ERROR SKIP, rather than giving the error "SQL: stopped by Ctrl-C" that the manual describes.
+    ◦ A text value longer than 255 characters cannot be read: SQL(n) gives an error. The next firmware adds SQL(LONGSTRING n, a%()).
+    ◦ An SQL INSERT of an array of structures that fails part way (a duplicate key, say) leaves its transaction open, so the changes after it are lost at SQL CLOSE. After such an error, SQL EXEC "ROLLBACK TO sql_insert" : SQL EXEC "RELEASE sql_insert" closes it.
 • The known problems of 7.00.00RC5 remain.
 
 
