@@ -88,12 +88,8 @@ typedef unsigned int uint;                      // (pico.h's, used by the copied
 #define CYW43_SPI_PIO 1                         // (cyw43_bus_cmm2.c keeps pico-sdk's guard: it is the bus, as the PIO's was)
 #endif
 
-#ifndef CYW43_CHIPSET_FIRMWARE_INCLUDE_FILE
-#if CYW43_ENABLE_BLUETOOTH
-#define CYW43_CHIPSET_FIRMWARE_INCLUDE_FILE "wb43439A0_7_95_49_00_combined.h"
-#else
-#define CYW43_CHIPSET_FIRMWARE_INCLUDE_FILE "w43439A0_7_95_49_00_combined.h"
-#endif
+#ifndef CYW43_CHIPSET_FIRMWARE_INCLUDE_FILE     // (the blob kept compressed, inflated for the download: tools/fwpack.py,
+#define CYW43_CHIPSET_FIRMWARE_INCLUDE_FILE "cyw43_fw_cmm2.h"   // Src/net/cyw43_fw_cmm2.c; 16 Nov 2026)
 #endif
 
 #ifndef CYW43_WIFI_NVRAM_INCLUDE_FILE

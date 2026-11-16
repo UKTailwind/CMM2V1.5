@@ -110,7 +110,35 @@ everything but the options out of the flash.
 5. **The three generations:** the G1's memory and its --vram programs, the G2 and the G3, WiFi and Bluetooth
    together; the regression; the manual (the PicoMite's chapter Bluetooth Versions) and HELP.
 
-## Decisions for Peter
+## Peter's decisions (16 November)
+
+1. **BTstack**, with its non-commercial condition, as for cyw43-driver.
+2. **The room in flash:** Peter asked first for the optimisation level of the network code. It was already -Os
+   throughout (lwIP, Mbed TLS, the driver, the PicoMite's network files and the CMM2's port), and -Oz gives a
+   byte-for-byte identical .net, so the compiler has nothing more to give. The room comes instead from the chip's
+   firmware, kept compressed: done (step 0 below), 82 KB freed, so neither the library nor mmbrun moves.
+3. **What to include:** BLE keyboards, mice and game controllers; Classic keyboards; a serial device. **No speakers**
+   (BTAudio.c, A2DP, AVDTP and SBC left out: about 40 KB less).
+4. **Turning it on:** the PC3's OPTION RADIO BOTH | WEB | BLUETOOTH | NONE, ported, with NONE the CMM2's default.
+5. The serial device: COM8 (COM4 to COM7 are the USB serial devices).
+
+## Step 0: room in the flash (16 November, done)
+
+- The CYW43439's firmware is kept as raw deflate: tools/fwpack.py makes Inc/net/cyw43_fw_z.h from the driver's blob
+  files, which stay as they are. The driver's own CYW43_CHIPSET_FIRMWARE_INCLUDE_FILE is Inc/net/cyw43_fw_cmm2.h,
+  whose fw_data inflates it (Src/net/cyw43_fw_cmm2.c, with zlib's puff, Middlewares/Third_Party/puff, zlib licence)
+  into MMBasic's heap and checks its CRC-32; WebStart gives the memory back once the chip has its firmware and CLM.
+  The driver's source is unchanged.
+- WiFi firmware 225,240 bytes stored as 141,088. .net 432,432 -> 350,244 bytes; the firmware file 1,874,224 ->
+  1,792,036.
+- Checked on the G2 (COM10): the first start, OPTION DISK LOAD, joined, WEB NTP, WEB SCAN, WEB PING to the router and
+  8.8.8.8; MM.INFO(HEAP) as before.
+- With Bluetooth the combined blob (wb43439A0_7_95_49_00_combined.h, 232,408 bytes) packs to about 146 KB.
+
+Free flash now: .net about 162 KB, .bank2 about 37 KB, bank 1 about 17 KB (sector 2's tail is left alone: it is
+rewritten with the options). Bluetooth without speakers needs about 120 to 140 KB, so it fits in .net.
+
+## The questions as asked
 
 1. **The licence:** BTstack's non-commercial condition on the CMM2 (as now for cyw43-driver), or ask BlueKitchen
    first.

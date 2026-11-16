@@ -111,6 +111,7 @@ SECTIONS
     *Third_Party/lwip/*(.text .text* .rodata .rodata*)
     *Third_Party/mbedtls/*(.text .text* .rodata .rodata*)
     *Src/net/*(.text .text* .rodata .rodata*)
+    *Third_Party/puff/*(.text .text* .rodata .rodata*)   /* (zlib's puff: the chip's firmware inflated, 16 Nov 2026) */
     . = ALIGN(4);
     _enet = .;
   } >NETFLASH

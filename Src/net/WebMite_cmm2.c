@@ -20,6 +20,7 @@
 #include "pico/cyw43_arch.h"
 #include "lwip/netif.h"
 #include "picomite/WiFi.h"
+#include "cyw43_fw_cmm2.h"                     // (cyw43_fw_release)
 
 /* ---- the PicoMite's globals ---- */
 volatile int WIFIconnected = 0;                 // (PicoMite.c)
@@ -161,6 +162,7 @@ void WebStart(void) {
     time_from_clock();
     if (cyw43_arch_init_with_country(wifi_country_to_cyw43(Option.wifi_country_code)) != 0) return;
     cyw43_arch_enable_sta_mode();               // (the chip's firmware loaded: a missing module fails here)
+    cyw43_fw_release();                         // (its inflated copy: Src/net/cyw43_fw_cmm2.c)
     if (!(cyw43_state.itf_state & (1 << CYW43_ITF_STA))) {  // (no answer to the gSPI test read: no module)
         MMPrintString("WiFi module not found\r\n");
         cyw43_arch_deinit();

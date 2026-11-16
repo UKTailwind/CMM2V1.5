@@ -86,6 +86,7 @@ target_include_directories(${TARGET} PRIVATE
     Middlewares/Third_Party/lwip/src/include
     Middlewares/Third_Party/lwip/src/apps/altcp_tls
     Middlewares/Third_Party/mbedtls/include
+    Middlewares/Third_Party/puff                    # (zlib's inflater, for the chip's compressed firmware)
 )
 target_compile_definitions(${TARGET} PRIVATE CYW43_LWIP=1 PICO_CYW43_ARCH_POLL=1 PICOMITEWEB_TLS
     MBEDTLS_CONFIG_FILE=<mbedtls_config.h> MBEDTLS_SSL_IN_CONTENT_LEN=16384)
