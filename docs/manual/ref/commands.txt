@@ -1275,6 +1275,7 @@ Reads an entire line from the console input into ‘string‑variable$’.
 === LINE INPUT #nbr, string‑variable$
 --- keep
 Same as above except that the input is read from a serial communications port or a file previously opened for INPUT as ‘nbr’.  See the OPEN command.
+A tab in the line is replaced by spaces, up to the next multiple of the tab width (OPTION TAB), as in all versions of MMBasic. To read a file's characters unchanged, tabs included, use INPUT$.
 
 === LINE PLOT ydata() [,nbr] [,xstart] [,xinc] [,ystart] [,yinc] [,colour]
 --- keep
@@ -2885,8 +2886,9 @@ Written as BLIT WRITE the default is 0, every pixel copied (see BLIT).  A sprite
 ---
 An SQL database (SQLite) in a file on the SD card or USB flash drive: see the chapter SQL Databases. The database engine is the module A:/sql/sql.mod, which SQL OPEN loads and SQL CLOSE unloads. On a Generation 1 the engine has 1MB and is slow with large databases (see the chapter).
 SQL OPEN opens the database ‘file$', and makes it if it is not there; it closes one already open. ‘poolKB' and ‘cacheKB' set the engine's memory and its cache, in kilobytes (normally not needed). SQL CLOSE closes it and unloads the engine; SQL CLOSE QUERY only ends the current query. RUN, NEW and CHAIN close it too. On a Generation 2 a BASIC program with a database open cannot run a loadable program (.app).
-SQL EXEC runs one or more SQL statements, separated by semicolons. Each ? in a statement is replaced by the next ‘value' after it (a number or a string); a structure among the values gives the statement's :name parameters from its members of those names.
+SQL EXEC runs one or more SQL statements, separated by semicolons. Each ? in a statement is replaced by the next ‘value' after it (a number, a string, or the text of a LONGSTRING array%()); a structure among the values gives the statement's :name parameters from its members of those names. ‘sql$' can also be a LONGSTRING, for statements longer than 255 characters.
 SQL QUERY starts a query (one statement): SQL(NEXT) moves to each of its rows and SQL(n) gives its columns.
+Ctrl-C (the break key) stops a long statement with the error "SQL: stopped by Ctrl-C", which ON ERROR can catch like any other error.
 SQL CREATE makes a table, named after the structure type ‘type' or ‘table$', with a column for each of the type's members. SQL INSERT adds a row from the structure ‘var', or a row for each element of an array of structures ‘var()', matching the members' names with the columns'; an INTEGER member ID that is 0 is given the new row's key.
 A statement the database cannot run is an error "SQL: " with SQLite's message.
 

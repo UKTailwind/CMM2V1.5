@@ -27,6 +27,11 @@ values bound to a statement's parameters, the rows into variables, arrays and st
     SQL(SELECT sql$, array() [, value ...])   the rows into a 1 or 2 dimensional array (row, column), or an array of
                                     structures: how many it held
     SQL(COLUMNS), SQL(NAME n), SQL(ISNULL n), SQL(ROWS), SQL(ID)
+    SQL(LONGSTRING n, a%())         column n into the LONGSTRING a%(): its length (text of any length; SQL(n) has 255)
+
+A LONGSTRING a%() can also be a statement (sql$), and a value after one (its text bound). Ctrl-C (the break key) in a
+statement, or between the statements or rows of one SQL command, is the error "SQL: stopped by Ctrl-C", which ON ERROR
+takes, and not a break as well (homa, Back Shed, 15 Nov 2026: it ended the program under ON ERROR SKIP).
 
 Copyright 2026 Peter Mather. (The firmware's licence: see the other files.)
 ***************************************************************************/
@@ -48,12 +53,13 @@ static int sqlopen;                             // a database is open
 static void *sqlcur;                            // SQL QUERY's statement
 static int sqlrow;                              // the cursor is on a row
 static int sqldone;                             // the query has given all its rows (and is ended)
+static int sqlinsavepoint;                      // an SQL INSERT of an array is in its savepoint
 
 #define CALL(T, f) ((T)LoaderModFn((const void *)(f)))
 
 // the module's table, or NULL: forgotten with the heap, and the cursor and the open database with it
 static const sqlmod *sqlmod_now(void) {
-    if(sq && LoaderModuleHead() != (const void *)sq) { sq = NULL; sqlopen = 0; sqlcur = NULL; sqlrow = 0; sqldone = 0; }
+    if(sq && LoaderModuleHead() != (const void *)sq) { sq = NULL; sqlopen = 0; sqlcur = NULL; sqlrow = 0; sqldone = 0; sqlinsavepoint = 0; }
     return sq;
 }
 
@@ -71,18 +77,73 @@ static void sqlendquery(void) {
     sqldone = 0;
 }
 
-// an SQLite error as MMBasic's, the statement st finalised first: it never returns (a statement stopped by Ctrl-C is
-// "SQL: stopped by Ctrl-C", and MMBasic's break follows)
+// an SQL INSERT of an array stopped part way (an error, or Ctrl-C): its rows undone, as its one transaction, and the
+// savepoint let go (left open, it kept every later change uncommitted, and SQL CLOSE then lost them)
+static void sqlundo(void) {
+    static const char *const undo[] = { "ROLLBACK TO sql_insert", "RELEASE sql_insert" };
+    int i;
+    if(!sqlinsavepoint) return;
+    sqlinsavepoint = 0;
+    for(i = 0; i < 2; i++) {
+        void *st = NULL;
+        if(CALL(int (*)(const char *, void **, const char **), sq->prepare)(undo[i], &st, NULL) == 0 && st) {
+            CALL(int (*)(void *), sq->step)(st);
+            sqlfinal(st);
+        }
+    }
+}
+
+// an SQLite error as MMBasic's, the statement st finalised first: it never returns. A statement stopped by Ctrl-C (the
+// module's poll saw MMBasic's break) is "SQL: stopped by Ctrl-C", and the break is taken by it: left set, it ended the
+// program at the next statement, past ON ERROR (homa, 15 Nov 2026)
 static void __attribute__((noreturn)) sqlfail(int rc, void *st) {
     char m[STRINGSIZE];
     const char *e = CALL(const char *(*)(void), sq->errmsg)();
-    (void)rc;
     strncpy(m, e ? e : "error", sizeof(m) - 1);
     m[sizeof(m) - 1] = 0;
     sqlfinal(st);
     if(st && st == sqlcur) { sqlcur = NULL; sqlrow = 0; }
+    sqlundo();
+    if(rc == SQLMOD_INTERRUPT) MMAbort = 0;
     error("SQL: $", m);
     for(;;) {}                                                      // (error() does not return)
+}
+
+// Ctrl-C between the statements or the rows of one SQL command: the same error as in a statement
+static void __attribute__((noreturn)) sqlbroken(void) {
+    sqlundo();
+    MMAbort = 0;
+    error("SQL: stopped by Ctrl-C");
+    for(;;) {}
+}
+
+// the LONGSTRING named by text p (the whole of it: name(), an integer array of one dimension): the array (its length
+// in element 0, its bytes after); NULL if p is not an integer array
+static int64_t *sqllong(char *p) {
+    char *e;
+    int64_t *a;
+    skipspace(p);
+    if(!isnamestart((uint8_t)*p)) return NULL;
+    e = skipvar(p, false);
+    skipspace(e);
+    if(*e || e - p < 3 || e[-1] != ')' || e[-2] != '(') return NULL;   // (an expression, or an element)
+    if((a = findvar(p, V_FIND | V_NOFIND_NULL | V_EMPTY_OK)) == NULL) return NULL;
+    if((VREC(VarIndex)->type & T_STRUCT) || !(VREC(VarIndex)->type & T_INT)) return NULL;
+    if(!DimIsAllocated(RAW_DIM((*VREC(VarIndex)), 0)) || !DimIsEnd(RAW_DIM((*VREC(VarIndex)), 1)))
+        error("SQL: a LONGSTRING is an integer array of one dimension");
+    if(a[0] < 0 || a[0] > (int64_t)(DimElements(RAW_DIM((*VREC(VarIndex)), 0)) - 1) * 8) error("SQL: not a LONGSTRING");
+    return a;
+}
+
+// a statement's text from p: a string expression, or a LONGSTRING (a statement longer than 255 characters)
+static char *sqltext(char *p) {
+    int64_t *a = sqllong(p);
+    char *s;
+    if(a == NULL) return getCstring(p);
+    s = GetTempMemory((int)a[0] + 1);
+    memcpy(s, a + 1, (size_t)a[0]);
+    s[a[0]] = 0;
+    return s;
 }
 
 /* ---- structures: a TYPE's members as columns ---- */
@@ -154,12 +215,17 @@ static char *sqlstruct(char *p, int *st, int *count) {
 
 /* ---- values to parameters ---- */
 
-// value i (from 1) of statement st from the expression text p
+// value i (from 1) of statement st from the expression text p, or the text of a LONGSTRING a%()
 static void sqlbindone(void *st, int i, char *p) {
     MMFLOAT f = 0;
     long long int n = 0;
     char *s = NULL;
     int t = T_NOTYPE, rc;
+    int64_t *a = sqllong(p);
+    if(a) {
+        if((rc = CALL(int (*)(void *, int, const char *, int), sq->bind_text)(st, i, (const char *)(a + 1), (int)a[0]))) sqlfail(rc, st);
+        return;
+    }
     evaluate(p, &f, &n, &s, &t, false);
     if(t & T_STR) rc = CALL(int (*)(void *, int, const char *, int), sq->bind_text)(st, i, s + 1, (unsigned char)*s);
     else if(t & T_INT) rc = CALL(int (*)(void *, int, int64_t), sq->bind_int)(st, i, n);
@@ -219,7 +285,10 @@ static void sqlput(void *st, int c, int t, char *v, int size) {
     else {
         int n = 0;
         const char *s = ct == SQLMOD_NULL ? "" : CALL(const char *(*)(void *, int, int *), sq->column_text)(st, c, &n);
-        if(n > size) { sqlfinal(st); if(st == sqlcur) sqlcur = NULL; error("SQL: a string of % characters, longer than %", n, size); }
+        if(n > size) {                                              // (SQL QUERY's cursor stays on its row, so that the
+            if(st != sqlcur) sqlfinal(st);                          // column can be read again by SQL(LONGSTRING); SQL(SELECT's
+            error("SQL: a string of % characters, longer than %", n, size);   // own statement is ended)
+        }
         memcpy(v + 1, s, n);
         *v = n;
     }
@@ -256,7 +325,7 @@ static void sqlrun(char *sql, char **v, int n) {
         }
         if(rc != SQLMOD_DONE) { sqlfail(rc, st); return; }
         sqlfinal(st);
-        if(MMAbort) return;
+        if(MMAbort && *tail) sqlbroken();                           // (Ctrl-C with statements still to run)
     }
 }
 
@@ -274,7 +343,8 @@ static void sqlcreate(int sti, char *table) {
     sqlrun(s, NULL, 0);
 }
 
-// SQL INSERT: count structures of TYPE sti from d, in one savepoint; an ID member that is 0 given SQLite's new key
+// SQL INSERT: count structures of TYPE sti from d, in one savepoint (undone if it stops part way: sqlundo); an ID member
+// that is 0 given SQLite's new key
 static void sqlinsert(char *d, int sti, int count, char *table) {
     sqlfield *f = (sqlfield *)GetTempMemory(SQL_FIELDS * sizeof(sqlfield));
     int nf = sqlfields(sti, 0, "", f, 0), i, k, rc, id = -1, size = g_structtbl[sti]->total_size;
@@ -288,7 +358,7 @@ static void sqlinsert(char *d, int sti, int count, char *table) {
     strcat(s, ") VALUES(");
     for(i = 0; i < nf; i++) strcat(s, i ? ", ?" : "?");
     strcat(s, ")");
-    if(count > 1) sqlrun("SAVEPOINT sql_insert", NULL, 0);
+    if(count > 1) { sqlrun("SAVEPOINT sql_insert", NULL, 0); sqlinsavepoint = 1; }
     rc = CALL(int (*)(const char *, void **, const char **), sq->prepare)(s, &st, NULL);
     if(rc || st == NULL) sqlfail(rc, st);
     for(k = 0; k < count; k++) {
@@ -298,10 +368,10 @@ static void sqlinsert(char *d, int sti, int count, char *table) {
         if(id >= 0 && *(long long int *)(e + f[id].offset) == 0)
             *(long long int *)(e + f[id].offset) = CALL(int64_t (*)(void), sq->last_id)();
         CALL(int (*)(void *), sq->reset)(st);
-        if(MMAbort) break;
+        if(MMAbort && k + 1 < count) { sqlfinal(st); sqlbroken(); } // (Ctrl-C with rows still to go: none of them kept)
     }
     sqlfinal(st);
-    if(count > 1) sqlrun("RELEASE sql_insert", NULL, 0);
+    if(count > 1) { sqlinsavepoint = 0; sqlrun("RELEASE sql_insert", NULL, 0); }
 }
 
 // the database closed and the module unloaded: its memory given back (a G2's applications' area, a G1's heap)
@@ -316,6 +386,7 @@ static void sqlclose(void) {
     sq = NULL;
     sqlopen = 0;
     sqldone = 0;
+    sqlinsavepoint = 0;
 }
 
 void cmd_sql(void) {
@@ -349,7 +420,7 @@ void cmd_sql(void) {
         getargs(&p, SQL_VALUES * 2 + 1, ",");
         if(argc < 1 || !(argc & 1)) error("Argument count");
         sqlneedopen();
-        char *sql = getCstring(argv[0]), *v[SQL_VALUES];
+        char *sql = sqltext(argv[0]), *v[SQL_VALUES];
         int i, n = argc / 2;
         for(i = 0; i < n; i++) v[i] = argv[2 + 2 * i];
         sqlrun(sql, v, n);
@@ -357,7 +428,7 @@ void cmd_sql(void) {
         getargs(&p, SQL_VALUES * 2 + 1, ",");
         if(argc < 1 || !(argc & 1)) error("Argument count");
         sqlneedopen();
-        char *sql = getCstring(argv[0]), *v[SQL_VALUES];
+        char *sql = sqltext(argv[0]), *v[SQL_VALUES];
         const char *tail = NULL;
         int i, n = argc / 2, rc;
         void *st = NULL;
@@ -442,7 +513,7 @@ void fun_sql(void) {
         getargs(&p, SQL_VALUES * 2 + 3, ",");
         if(argc < 3 || !(argc & 1)) error("Argument count");
         sqlneedopen();
-        char *sql = getCstring(argv[0]), *v[SQL_VALUES], *a;
+        char *sql = sqltext(argv[0]), *v[SQL_VALUES], *a;
         const char *tail = NULL;
         int i, n = argc / 2 - 1, rc, rows, cols = 1, sti, count, idx, t, size, nr = 0;
         void *st = NULL;
@@ -502,6 +573,22 @@ void fun_sql(void) {
     } else if((p = checkstring(ep, "ID"))) {
         sqlneedopen();
         iret = CALL(int64_t (*)(void), sq->last_id)();
+    } else if((p = checkstring(ep, "LONGSTRING"))) {                // SQL(LONGSTRING n, a%()): column n as text of any
+        int64_t *dest;                                              // length into the LONGSTRING a%(): its length (homa,
+        const char *s = "";                                         // 15 Nov 2026: SQL(n) stops at 255 characters)
+        int c, room, len = 0;
+        getargs(&p, 3, ",");
+        if(argc != 3) error("Argument count");
+        sqlneedrow();
+        nc = CALL(int (*)(void *), sq->columns)(sqlcur);
+        c = getint(argv[0], 1, nc) - 1;
+        room = (parseintegerarray(argv[2], &dest, 2, 1, NULL, true, NULL) - 1) * 8;
+        if(CALL(int (*)(void *, int), sq->column_type)(sqlcur, c) != SQLMOD_NULL)
+            s = CALL(const char *(*)(void *, int, int *), sq->column_text)(sqlcur, c, &len);
+        if(len > room) error("SQL: a string of % characters, longer than the LONGSTRING's %", len, room);
+        memcpy(dest + 1, s, len);
+        dest[0] = len;
+        iret = len;
     } else {                                                        // SQL(n): column n as its type
         sqlneedrow();
         nc = CALL(int (*)(void *), sq->columns)(sqlcur);
