@@ -145,7 +145,7 @@ err_t tcp_client_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *p, err_t e
             WebInCallback++;
             routinechecks(0); // don't know why I'm doing this but it solves a race condition for the RP2350
             WebInCallback--;
-            const uint16_t buffer_left = state->BUF_SIZE - state->buffer_len;
+            const int buffer_left = state->BUF_SIZE - state->buffer_len;
             state->buffer_len += pbuf_copy_partial(p, (void *)state->buffer + state->buffer_len,
                                                    p->tot_len > buffer_left ? buffer_left : p->tot_len, 0);
             cyw43_arch_lwip_begin();

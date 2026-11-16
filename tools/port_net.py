@@ -13,6 +13,8 @@ Mechanical changes only, so that a later PicoMite's network code can be taken by
     them: it would meet the CMM2's own prototypes too)
   - routinechecks() -> routinechecks(0): the CMM2's keyboard and USB part only. Its full checks (1) run ProcessWeb, and
     the call is in an lwIP callback, inside ProcessWeb
+  - MMTCPclient.c: tcp_client_recv's room left in the array is an int, not 16 bits (16 Nov 2026: an array of 64 KB took
+    nothing, a larger one lost data; filed as a PicoMite issue, and to be dropped once the PicoMite has the fix)
   - MMtcpserver.c, WEB TRANSMIT FILE's end-of-file test: its LittleFS half (the PicoMite's flash drive) left out, as the
     CMM2's drives are all FatFS: "(flash file && at its end) || (not flash file && f_eof)" -> f_eof
   - lwipopts.h: its "extern char MMErrMsg[];" left out (the CMM2's is a char *; the line is not used there)
@@ -39,7 +41,10 @@ os.makedirs(dst, exist_ok=True)
 files = [os.path.join('net', f) for f in sorted(os.listdir(os.path.join(pico, 'net')))
          if f.endswith('.c') or f == 'WiFi.h']
 files += [os.path.join('third_party_mod', 'mqtt.c'), os.path.join('third_party_mod', 'tftp.c')]
-REWRITES = [('SaveOptions()', 'SaveOptions(1)'), ('SoftReset(SOFT_RESET)', 'SoftReset()'), ('routinechecks()', 'routinechecks(0)')]
+REWRITES = [('SaveOptions()', 'SaveOptions(1)'), ('SoftReset(SOFT_RESET)', 'SoftReset()'), ('routinechecks()', 'routinechecks(0)'),
+            # MMTCPclient.c, tcp_client_recv: the room left in the array as 16 bits, so an array of 64 KB (DIM b%(8192)) took
+            # nothing ("No response from server") and a larger one lost data; a PicoMite bug, until it is fixed there
+            ('const uint16_t buffer_left = state->BUF_SIZE - state->buffer_len;', 'const int buffer_left = state->BUF_SIZE - state->buffer_len;')]
 LFS_EOF = re.compile(r'\(\(filesource\[fn\] == FLASHFILE\) && \(lfs_file_tell\(&lfs, FileTable\[fn\]\.lfsptr\) == '
                      r'lfs_file_size\(&lfs, FileTable\[fn\]\.lfsptr\)\)\) \|\|\s*'
                      r'\(\(filesource\[fn\] != FLASHFILE\) && (f_eof\(FileTable\[fn\]\.fptr\))\)')
