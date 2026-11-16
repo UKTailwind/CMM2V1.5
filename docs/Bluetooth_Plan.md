@@ -187,7 +187,7 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
     just failed.
 - In the firmware these are the PicoMite's own files, so all of this comes with them.
 
-## Step 3: into the firmware (16 November, keyboards still to be typed on)
+## Step 3: into the firmware (16 November, done)
 
 - **The copies:** tools/port_btstack.py puts BTstack (pico-sdk 2.3.1's commit) in Middlewares/Third_Party/btstack,
   unchanged; tools/port_bt.py copies the PicoMite's bluetooth/*.c and .h (BTKeyboard, BTClassicKeyboard, BTSerial,
@@ -218,16 +218,17 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
   channel 2 (USBMouse.c's BtMouseInput), so MM.MOUSE, DEVICE(MOUSE) and the GUI cursor follow it.
 - **On the G2 (COM10):** OPTION RADIO BOTH: the WiFi joined and Bluetooth came up together; BLUETOOTH STATUS "on";
   BLUETOOTH SCAN listed the speakers nearby. BLUETOOTH CONNECT KEYBOARD paged once (Bluetooth error 0x04 when the
-  keyboard was not in pairing mode: the PicoMite's CONNECT does not try again). The keyboards are still to be typed on.
+  keyboard was not in pairing mode: the PicoMite's CONNECT does not try again). Then Peter, at the G2: "keyboard
+  working an audio playing perfectly" (step 4's OPTION AUDIO BLUETOOTH with it).
 
-## Step 4 so far (16 November, built, not yet tried with devices)
+## Step 4 so far (16 November)
 
-- **COM8:** the PicoMite's COM7 (Serial.c) on the CMM2's USB serial devices' state (struct s_cdccom BtCom): OPEN, CLOSE,
+- **COM8** (built, not yet tried with a device): the PicoMite's COM7 (Serial.c) on the CMM2's USB serial devices' state (struct s_cdccom BtCom): OPEN, CLOSE,
   PRINT #, INPUT$, LOC, LOF, the COM interrupt and AS GPS. No TX interrupt, no OC/DE/INV. MAXCOMPORTS is 8.
 - **OPTION AUDIO BLUETOOTH [idle] | DAC:** the audio interrupt's pairs (stm32h7xx_it.c) also go to a ring of 4,096
   (HdmiAudio.h's BtPut), from which bt_audio_pull takes them at the speaker's 44.1 kHz with the two clocks' exact ratio,
   35 ms behind (Src/net/bt/BTMite_cmm2.c). Every PLAY source but a loadable program's stream (Loader.c's DMA). The DACs
-  play too. MM.INFO(OPTION AUDIO) gives BLUETOOTH.
+  play too. MM.INFO(OPTION AUDIO) gives BLUETOOTH. Plays perfectly to Peter's speaker on the G2 (16 November).
 - **Game controllers:** BTKeyboard.c publishes the PicoMite's nunstruct[3]; the CMM2's DEVICE(GAMEPAD) reads its own
   Pad[] with its own button layout, so this still needs a mapping.
 
