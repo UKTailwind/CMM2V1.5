@@ -116,6 +116,11 @@ set(PICOMITE_BT_SOURCES ${SOURCES})
 list(FILTER PICOMITE_BT_SOURCES INCLUDE REGEX "^Src/net/bt/picomite/")
 set_property(SOURCE ${PICOMITE_BT_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -include BTMite_cmm2.h
     -Wno-pointer-sign -Wno-discarded-qualifiers)
+# BTstack and the Bluetooth glue (Src/net/bt) take their memory from Bluetooth's heap (Inc/net/bt_heap.h, made their
+# first include; the PicoMite's Bluetooth files have it through BTMite_cmm2.h)
+set(BT_HEAP_SOURCES ${SOURCES})
+list(FILTER BT_HEAP_SOURCES INCLUDE REGEX "^(Middlewares/Third_Party/btstack/|Src/net/bt/[^/]+$)")
+set_property(SOURCE ${BT_HEAP_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -include bt_heap.h)
 set(PICOMITE_NET_SOURCES ${SOURCES})
 list(FILTER PICOMITE_NET_SOURCES INCLUDE REGEX "^Src/net/picomite/")
 set_property(SOURCE ${PICOMITE_NET_SOURCES} APPEND PROPERTY COMPILE_OPTIONS -include WebMite_cmm2.h

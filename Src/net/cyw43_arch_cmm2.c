@@ -90,19 +90,6 @@ void cyw43_arch_deinit(void) {
     cyw43_deinit(&cyw43_state);
 }
 
-// Before a G1 starts its radio again after lending its display memory (WebGiveBack, which wipes the radio's data):
-// BTstack's memory from newlib's heap given back (hci_stack and its pools; BTMite_cmm2.c's speaker ring), which the
-// wipe would lose track of, a leak at every such program. Nothing is said to the chip, which the restart resets.
-void cyw43_arch_bt_forget(void) {
-#if CYW43_ENABLE_BLUETOOTH
-    extern void BtFreeMemory(void);
-    if (bt_inited) {
-        BtFreeMemory();
-        bt_inited = false;
-    }
-#endif
-}
-
 uint32_t cyw43_arch_get_country_code(void) {
     return country_code;
 }

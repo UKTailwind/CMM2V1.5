@@ -4,8 +4,8 @@
 
    It is WebMite_cmm2.h (the CMM2 is a PicoMite PC3 here: PICOMITEWEB, the WiFi on the same chip) with:
      PICOMITEBTH, PICOMITEPC3       the PicoMite's Bluetooth host build, and the PC3's OPTION RADIO
-     malloc, calloc, free           the C library's (newlib's arena, below MMBasic's SDRAM heap): WebMite_cmm2.h makes
-                                    them lwIP's for the network code, whose block exists only with the WiFi on
+     malloc, calloc, realloc, free  Bluetooth's heap (Inc/net/bt_heap.h): WebMite_cmm2.h makes them lwIP's for the
+                                    network code, whose block exists only with the WiFi on
      time_us_32(), to_ms_since_boot(), get_absolute_time()   the CMM2's microsecond clock (MicrosNow)
      cyw43_arch_async_context()     none (pico/async_context.h: its lock does nothing on the CMM2's one thread)
      AUDIO_BLUETOOTH, _IDLE         OPTION AUDIO BLUETOOTH (the PicoMite's io/Audio.h)
@@ -16,9 +16,7 @@
 #define BTMITE_CMM2_H
 
 #include "WebMite_cmm2.h"
-#undef calloc
-#undef malloc
-#undef free
+#include "bt_heap.h"                            // (malloc and the rest: Bluetooth's heap, not lwIP's as WebMite_cmm2.h has it)
 
 #define PICOMITEBTH 1
 #define PICOMITEPC3 1

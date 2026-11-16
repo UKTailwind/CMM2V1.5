@@ -21,6 +21,8 @@
 #include "lwip/netif.h"
 #include "picomite/WiFi.h"
 #include "cyw43_fw_cmm2.h"                     // (cyw43_fw_release)
+#define BT_HEAP_NO_MACROS
+#include "bt_heap.h"                            // (Bluetooth's block: its size and BtHeapInit)
 
 /* ---- the PicoMite's globals ---- */
 volatile int WIFIconnected = 0;                 // (PicoMite.c)
@@ -131,6 +133,19 @@ void WebBlockSet(void) {
     NetBlock = NULL;
     if (*Option.SSID && RadioWifiOn())                  // (a G1: the display memory's top 128 KB, Memory.h)
         NetBlock = (uint8_t *)(G1Hardware ? G1_NET_BLOCK : SDRAMEXEC - NET_BLOCK_SIZE);
+    BtBlock = NULL;                                     // and Bluetooth's heap, below the network block's place
+    if (RadioBtOn())
+        BtBlock = (uint8_t *)(SDRAMEXEC - (G1Hardware ? 0 : NET_BLOCK_SIZE) - BT_BLOCK_SIZE);
+}
+
+// Bluetooth's block (Inc/net/bt_heap.h): BT_BLOCK_SIZE of MMBasic's SDRAM heap at a fixed place, kept out of it as the
+// network block is, whose memory BTstack and the PicoMite's Bluetooth host take (Src/net/bt/bt_heap.c)
+uint8_t *BtBlock;
+int BtBlockInHeap(void **addr, int *size) {
+    if (BtBlock == NULL) return 0;
+    *addr = BtBlock;
+    *size = BT_BLOCK_SIZE;
+    return 1;
 }
 
 // OPTION RADIO: Bluetooth's half on (cyw43_arch_cmm2.c, which sets BTstack up with the chip as pico-sdk's does)
@@ -155,6 +170,9 @@ static void release_all(void) {
     void *b = NetBlock;
     NetBlock = NULL;
     if (b && !G1Hardware) FreeMemory(b);                // (a G1's is display memory, not the heap's)
+    b = BtBlock;                                        // (Bluetooth's is the heap's on every generation)
+    BtBlock = NULL;
+    if (b) FreeMemory(b);
     SPI2->CR1 = 0;
     ExtCfg(32, EXT_NOT_CONFIG, 0);
     ExtCfg(33, EXT_NOT_CONFIG, 0);
@@ -165,9 +183,10 @@ static void release_all(void) {
 // (docs/Bluetooth_Plan.md). Both on the one chip: one cyw43_arch_init (which also sets BTstack up with Bluetooth's half
 // on: cyw43_arch_cmm2.c), then the WiFi's join and the Bluetooth host's start, as the PC3's main has them.
 void WebStart(void) {
-    int wifi = *Option.SSID && RadioWifiOn(), bt = RadioBtOn(), up;
+    int wifi = *Option.SSID && RadioWifiOn(), bt = RadioBtOn() && BtBlock != NULL, up;
     if (!wifi && !bt) return;
     if (wifi && NetBlock == NULL) return;
+    if (bt) BtHeapInit(BtBlock, BT_BLOCK_SIZE);         // (its heap, before cyw43_arch_init sets BTstack up)
     time_from_clock();
     if (cyw43_arch_init_with_country(wifi_country_to_cyw43(Option.wifi_country_code)) != 0) return;
     if (wifi) {
@@ -531,10 +550,8 @@ void WebLend(void) {
 void WebGiveBack(void) {
     extern char _sinetdata[], _snetdata[], _enetdata[], _snetbss[], _enetbss[];
     char *t = TCPreceiveInterrupt, *u = UDPinterrupt, *m = MQTTInterrupt;
-    extern void cyw43_arch_bt_forget(void);
     if (!NetHold) return;
-    cyw43_arch_bt_forget();                         // (Bluetooth's memory from malloc, first: the wipe loses track of it)
-    memcpy(_snetdata, _sinetdata, _enetdata - _snetdata);
+    memcpy(_snetdata, _sinetdata, _enetdata - _snetdata);   // (Bluetooth's heap too: WebStart starts it again)
     memset(_snetbss, 0, _enetbss - _snetbss);                       // (NetHold 0 again)
     TCPreceiveInterrupt = t;
     UDPinterrupt = u;

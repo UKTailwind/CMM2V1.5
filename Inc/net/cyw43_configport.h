@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "pico.h"                               // (panic(), for the Bluetooth glue: pico-sdk's configport has it too)
 
 #ifdef __cplusplus
 extern "C" {

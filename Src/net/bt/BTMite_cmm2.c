@@ -15,8 +15,6 @@
 #include "picomite/BTKeyboard.h"
 #include "picomite/BTClassicKeyboard.h"
 #include "HdmiAudio.h"
-#include "btstack.h"
-#include "btstack_memory.h"
 
 /* ---- the mouse ---- */
 void BtMouseInput(int dx, int dy, int8_t wheel, uint8_t buttons);   // (USBMouse.c)
@@ -53,15 +51,6 @@ void BtSaveOptions(void) {
         failed_ms = now;
         bt_tlv_dirty = true;
     }
-}
-
-/* ---- BTstack's memory given back (cyw43_arch_cmm2.c's cyw43_arch_bt_forget: a G1 restarting its radio) ---- */
-void BtFreeMemory(void) {
-    hci_deinit();                                                   // (hci_stack, from malloc)
-    btstack_memory_deinit();                                        // (the pools: every buffer btstack_memory gave)
-    uint32_t *r = BtRing;
-    BtRing = NULL;                                                  // (the audio interrupt stops filling it first)
-    free(r);
 }
 
 /* ---- the media keys: the PicoMite's process_consumer_report (input/KeyboardMap.c), as it is ---- */
@@ -120,7 +109,7 @@ char *BtNunInterruptc[4];
    runs between statements). With the ring empty (the sound ended) the output decays to silence over a few
    milliseconds, not a step (a click). A loadable program's stream (Loader.c's DMA, no interrupt) is not heard. */
 #define BT_TARGET 1536                                              // 35 ms at 44.1 kHz
-uint32_t *volatile BtRing;                                          // the pairs (HdmiAudio.h), from newlib's heap
+uint32_t *volatile BtRing;                                          // the pairs (HdmiAudio.h), from Bluetooth's heap
 volatile uint32_t BtRingW;                                          // the interrupt's next write
 volatile uint32_t bt_audio_underruns;                               // (BLUETOOTH STATUS)
 

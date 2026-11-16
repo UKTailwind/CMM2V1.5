@@ -1110,6 +1110,8 @@ static void HeapWipe(void **keep, int *size, int n) {
         extern int WebBlockInHeap(void **addr, int *size);
         void *a; int s;
         if(WebBlockInHeap(&a, &s)) HeapMark(a, s);
+        extern int BtBlockInHeap(void **addr, int *size);           // and Bluetooth's block (OPTION RADIO's), on every
+        if(BtBlockInHeap(&a, &s)) HeapMark(a, s);                   // generation: its heap (Inc/net/bt_heap.h)
     }
     ProgramCachesForget();                                          // the tables made for the program were in the heap
     JsonArenaForget();                                              // and so was JSON$'s parse arena
