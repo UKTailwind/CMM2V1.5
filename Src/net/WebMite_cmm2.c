@@ -531,7 +531,9 @@ void WebLend(void) {
 void WebGiveBack(void) {
     extern char _sinetdata[], _snetdata[], _enetdata[], _snetbss[], _enetbss[];
     char *t = TCPreceiveInterrupt, *u = UDPinterrupt, *m = MQTTInterrupt;
+    extern void cyw43_arch_bt_forget(void);
     if (!NetHold) return;
+    cyw43_arch_bt_forget();                         // (Bluetooth's memory from malloc, first: the wipe loses track of it)
     memcpy(_snetdata, _sinetdata, _enetdata - _snetdata);
     memset(_snetbss, 0, _enetbss - _snetbss);                       // (NetHold 0 again)
     TCPreceiveInterrupt = t;

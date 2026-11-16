@@ -15,6 +15,8 @@
 #include "picomite/BTKeyboard.h"
 #include "picomite/BTClassicKeyboard.h"
 #include "HdmiAudio.h"
+#include "btstack.h"
+#include "btstack_memory.h"
 
 /* ---- the mouse ---- */
 void BtMouseInput(int dx, int dy, int8_t wheel, uint8_t buttons);   // (USBMouse.c)
@@ -51,6 +53,15 @@ void BtSaveOptions(void) {
         failed_ms = now;
         bt_tlv_dirty = true;
     }
+}
+
+/* ---- BTstack's memory given back (cyw43_arch_cmm2.c's cyw43_arch_bt_forget: a G1 restarting its radio) ---- */
+void BtFreeMemory(void) {
+    hci_deinit();                                                   // (hci_stack, from malloc)
+    btstack_memory_deinit();                                        // (the pools: every buffer btstack_memory gave)
+    uint32_t *r = BtRing;
+    BtRing = NULL;                                                  // (the audio interrupt stops filling it first)
+    free(r);
 }
 
 /* ---- the media keys: the PicoMite's process_consumer_report (input/KeyboardMap.c), as it is ---- */
