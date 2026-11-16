@@ -164,6 +164,27 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
 - **Not for users:** with OPTION WIFI set, bt.app resets the chip under the firmware's own WiFi, which then has no
   network until a restart (the firmware does not know). Only a test program does that.
 
+## Step 2: the keyboards from bt.app (16 November, done)
+
+- **Classic** (`RUN "bt.app", kbd address`, as BTClassicKeyboard.c connects one: report protocol, Passkey Entry offered,
+  hid_host): Peter's Bluetooth 3.0 Keyboard (54:46:6E:AD:87:50), once in pairing mode, paired by Just Works and
+  connected 37 s into the run (the page answered only then), its 166-byte HID descriptor read; every key came through,
+  16 reports, letters, Enter and Shift. Its reports start with the HIDP header (A1, input data), then report ID 1,
+  then the boot layout. A page timeout is asked again until the time is up.
+- **BLE** (`RUN "bt.app", ble`, as BTKeyboard.c connects one: active scan, the first advertiser of the HID service,
+  LE connection, pairing requested by the board after 2 s if the keyboard does not ask, then hids_host in report
+  protocol): Peter's "Bluetooth Keyboard" (10:12:00:B2:00:0A, an address that changes with each pairing), fully
+  tested on the PC3, paired by Just Works 2.8 s and had its HID service 7.6 s after the link; "hello" and Enter came
+  through, 27 notifications, 0 bus errors, and its battery level (100) on a handle of its own.
+- **Learnt, as the PicoMite already knows:**
+  - hids_host's own report events gave nothing: the keys are GATT notifications on the link, which BTKeyboard.c takes
+    with a listener on all of them (bth_raw_notification_handler); bt.app does the same, 8 bytes the boot layout and
+    7 the same without the reserved byte.
+  - A speaker's BLE side advertising the HID service for its buttons (-88 dBm) was taken and failed again and again
+    (0x3E): BTKeyboard.c's BTH_SCAN_RSSI_MIN (-70) leaves distant strangers alone, and bt.app skips a device that has
+    just failed.
+- In the firmware these are the PicoMite's own files, so all of this comes with them.
+
 ## The questions as asked
 
 1. **The licence:** BTstack's non-commercial condition on the CMM2 (as now for cyw43-driver), or ask BlueKitchen

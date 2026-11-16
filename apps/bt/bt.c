@@ -13,6 +13,10 @@
                                     six digits shown here are typed on the keyboard, then Enter); then each report it
                                     sends, raw and with the keys newly down, until Ctrl-C or 'seconds' (default 120).
                                     The pairing is kept in RAM only, so it is made again each time.
+     RUN "bt.app", ble [seconds]    step 2's other half: the first BLE keyboard (or mouse) advertising the HID service
+                                    connected as the PicoMite's BTKeyboard.c connects one (LE Secure Connections or
+                                    legacy, a passkey shown if it asks for one), its HID service read over GATT, then
+                                    each report, until Ctrl-C or 'seconds' (default 120).
 
    The pins (rear I/O header) are put back as they were at the end, with the radio off. */
 #include <stdio.h>
@@ -42,6 +46,10 @@
 #include "ble/le_device_db_tlv.h"
 #include "classic/btstack_link_key_db_tlv.h"
 #include "classic/hid_host.h"
+#include "ble/sm.h"
+#include "ble/gatt_client.h"
+#include "ble/gatt-service/hids_host.h"
+#include "bluetooth_gatt.h"
 #include "classic/sdp_server.h"
 #include "l2cap.h"
 #include "btstack_util.h"
@@ -278,23 +286,26 @@ static char kb_ascii(uint8_t k, int shift) {    // (US layout, for the test's ou
     return 0;
 }
 
+// a keyboard report's body (modifiers, reserved, six key slots, as the boot layout): the keys newly down
+static void kb_keys(const uint8_t *k) {
+    int shift = (k[0] & 0x22) != 0;
+    for (int i = 2; i < 8; i++) {
+        if (!k[i] || memchr(kb_last, k[i], 6)) continue;
+        char c = kb_ascii(k[i], shift);
+        if (c == '\n') printf(" <Enter>");
+        else if (c >= ' ') printf(" '%c'", c);
+        else printf(" key %02X", k[i]);
+    }
+    memcpy(kb_last, &k[2], 6);
+}
+
 static void kb_report(const uint8_t *r, uint16_t len) {
     kb_reports++;
     printf("[report");
     for (int i = 0; i < len && i < 16; i++) printf(" %02X", r[i]);
     printf("]");
-    // a keyboard report in report protocol: report ID 1, modifiers, reserved, six key slots (the boot layout after its ID)
-    if (len >= 9 && r[0] == 1) {
-        int shift = (r[1] & 0x22) != 0;
-        for (int i = 3; i < 9; i++) {
-            if (!r[i] || memchr(kb_last, r[i], 6)) continue;
-            char c = kb_ascii(r[i], shift);
-            if (c == '\n') printf(" <Enter>");
-            else if (c >= ' ') printf(" '%c'", c);
-            else printf(" key %02X", r[i]);
-        }
-        memcpy(kb_last, &r[3], 6);
-    }
+    // Classic, report protocol: the HIDP header (A1, input data), report ID 1, then the boot layout
+    if (len >= 10 && r[0] == 0xA1 && r[1] == 1) kb_keys(&r[2]);
     printf("\n");
 }
 
@@ -442,6 +453,251 @@ static int kbd(const char *addr, uint32_t secs) {
     return kb_reports ? 0 : 1;
 }
 
+/* ---- step 2's other half: a BLE keyboard, as the PicoMite's BTKeyboard.c finds and connects one ---- */
+static uint8_t le_descriptor[512];             // (hids_host keeps the pointer)
+static hci_con_handle_t le_handle = HCI_CON_HANDLE_INVALID;
+static uint16_t le_cid;
+static int le_state;                            // 0 waiting, 1 scanning, 2 connecting, 3 connected, 4 pairing, 5 HID, 6 ready, 9 end
+static uint64_t le_connected_at;
+static int le_pairing_started;
+static bd_addr_t le_addr, le_failed;           // (the device connecting, and the last that failed)
+static uint64_t le_failed_at;
+static btstack_packet_callback_registration_t le_hci_cb, le_sm_cb;
+
+// the keys, as the PicoMite takes them: every GATT notification on the keyboard's link (BTKeyboard.c's
+// bth_raw_notification_handler), whose input reports carry no report ID; 8 bytes the boot layout, 7 bytes the same
+// without its reserved byte (a Logitech Pebble Keys 2 K380s, in BTKeyboard.c)
+static gatt_client_notification_t le_listener;
+static void le_notification_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint16_t size) {
+    (void)channel;
+    (void)size;
+    if (type != HCI_EVENT_PACKET || hci_event_packet_get_type(packet) != GATT_EVENT_NOTIFICATION) return;
+    uint16_t len = gatt_event_notification_get_value_length(packet);
+    const uint8_t *v = gatt_event_notification_get_value(packet);
+    kb_reports++;
+    printf("[notification 0x%04X:", gatt_event_notification_get_value_handle(packet));
+    for (int i = 0; i < len && i < 16; i++) printf(" %02X", v[i]);
+    printf("]");
+    if (len == 8) {
+        kb_keys(v);
+    } else if (len == 7) {
+        uint8_t boot[8] = {v[0], 0, v[1], v[2], v[3], v[4], v[5], v[6]};
+        kb_keys(boot);
+    }
+    printf("\n");
+}
+
+static int ad_has_uuid16(const uint8_t *ad, uint8_t len, uint16_t uuid) {
+    ad_context_t it;
+    for (ad_iterator_init(&it, len, ad); ad_iterator_has_more(&it); ad_iterator_next(&it)) {
+        uint8_t t = ad_iterator_get_data_type(&it);
+        if (t != BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS &&
+            t != BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS) continue;
+        const uint8_t *d = ad_iterator_get_data(&it);
+        for (int i = 0; i + 1 < ad_iterator_get_data_len(&it); i += 2)
+            if (little_endian_read_16(d, i) == uuid) return 1;
+    }
+    return 0;
+}
+
+static void le_hids_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint16_t size) {
+    (void)channel;
+    (void)size;
+    if (type != HCI_EVENT_PACKET || hci_event_packet_get_type(packet) != HCI_EVENT_GATTSERVICE_META) return;
+    switch (hci_event_gattservice_meta_get_subevent_code(packet)) {
+    case GATTSERVICE_SUBEVENT_HID_SERVICE_CONNECTED: {
+        uint8_t st = gattservice_subevent_hid_service_connected_get_status(packet);
+        if (st != ERROR_CODE_SUCCESS) {
+            printf("HID service: Bluetooth error 0x%02X\n", st);
+            le_state = 9;
+        } else {
+            printf("HID service connected (%u instance(s)) %lu ms after the link: type on the keyboard (Ctrl-C at the "
+                   "CMM2 ends)\n", gattservice_subevent_hid_service_connected_get_num_instances(packet),
+                   (unsigned long)((cmm2->micros() - le_connected_at) / 1000));
+            le_state = 6;
+            gatt_client_listen_for_characteristic_value_updates(&le_listener, &le_notification_handler, le_handle, NULL);
+        }
+        break;
+    }
+    case GATTSERVICE_SUBEVENT_HID_REPORT: {
+        const uint8_t *r = gattservice_subevent_hid_report_get_report(packet);
+        uint16_t len = gattservice_subevent_hid_report_get_report_len(packet);
+        kb_reports++;
+        printf("[report id %u:", gattservice_subevent_hid_report_get_report_id(packet));
+        for (int i = 0; i < len && i < 16; i++) printf(" %02X", r[i]);
+        printf("]");
+        if (len == 8) kb_keys(r);           // (a keyboard's input report: the boot layout)
+        printf("\n");
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+static void le_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint16_t size) {
+    (void)channel;
+    (void)size;
+    if (type != HCI_EVENT_PACKET) return;
+    bd_addr_t a;
+    switch (hci_event_packet_get_type(packet)) {
+    case BTSTACK_EVENT_STATE:
+        if (btstack_event_state_get_state(packet) == HCI_STATE_WORKING && le_state == 0) {
+            t_up = cmm2->micros();
+            printf("Bluetooth up in %lu ms; looking for a BLE keyboard (one advertising the HID service): put it in "
+                   "pairing mode\n", (unsigned long)((t_up - t_start) / 1000));
+            gap_set_scan_parameters(1, 0x0030, 0x0030);
+            gap_start_scan();
+            le_state = 1;
+        }
+        break;
+    case GAP_EVENT_ADVERTISING_REPORT: {
+        if (le_state != 1) break;
+        const uint8_t *ad = gap_event_advertising_report_get_data(packet);
+        uint8_t len = gap_event_advertising_report_get_data_length(packet);
+        if (!ad_has_uuid16(ad, len, ORG_BLUETOOTH_SERVICE_HUMAN_INTERFACE_DEVICE)) break;
+        // distant strangers left alone, as BTKeyboard.c's BTH_SCAN_RSSI_MIN (a speaker's BLE side that advertises the HID
+        // service for its buttons, 3 m away at -88, was taken and failed again and again: 0x3E)
+        if ((int8_t)gap_event_advertising_report_get_rssi(packet) < -70) break;
+        gap_event_advertising_report_get_address(packet, a);
+        if (!memcmp(a, le_failed, 6) && cmm2->micros() - le_failed_at < 10000000u) break;   // (it failed: not again yet)
+        bd_addr_type_t at = (bd_addr_type_t)gap_event_advertising_report_get_address_type(packet);
+        char name[40] = "";
+        ad_context_t it;
+        for (ad_iterator_init(&it, len, ad); ad_iterator_has_more(&it); ad_iterator_next(&it)) {
+            uint8_t t = ad_iterator_get_data_type(&it);
+            if (t == BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME || t == BLUETOOTH_DATA_TYPE_SHORTENED_LOCAL_NAME) {
+                int n = ad_iterator_get_data_len(&it);
+                if (n > 39) n = 39;
+                memcpy(name, ad_iterator_get_data(&it), n);
+                name[n] = 0;
+            }
+        }
+        printf("HID advertiser %s (type %u, RSSI %d) \"%s\": connecting\n", bd_addr_to_str(a), at,
+               (int8_t)gap_event_advertising_report_get_rssi(packet), name);
+        gap_stop_scan();
+        memcpy(le_addr, a, 6);
+        gap_connect(a, at);
+        le_state = 2;
+        break;
+    }
+    case HCI_EVENT_LE_META:
+        if (hci_event_le_meta_get_subevent_code(packet) != HCI_SUBEVENT_LE_CONNECTION_COMPLETE || le_state != 2) break;
+        if (hci_subevent_le_connection_complete_get_status(packet)) {
+            printf("LE connection failed: Bluetooth error 0x%02X; looking again\n",
+                   hci_subevent_le_connection_complete_get_status(packet));
+            gap_start_scan();
+            le_state = 1;
+            break;
+        }
+        le_handle = hci_subevent_le_connection_complete_get_connection_handle(packet);
+        le_connected_at = cmm2->micros();
+        le_pairing_started = 0;
+        le_state = 3;
+        printf("LE connected; waiting for the keyboard to ask for pairing\n");
+        break;
+    case HCI_EVENT_DISCONNECTION_COMPLETE:
+        if (hci_event_disconnection_complete_get_connection_handle(packet) != le_handle) break;
+        printf("Disconnected (reason 0x%02X)\n", hci_event_disconnection_complete_get_reason(packet));
+        if (le_state != 6) {                    // (never got as far as its reports: left alone for a while)
+            memcpy(le_failed, le_addr, 6);
+            le_failed_at = cmm2->micros();
+        }
+        le_handle = HCI_CON_HANDLE_INVALID;
+        le_state = le_state == 6 ? 9 : 1;
+        if (le_state == 1) gap_start_scan();
+        break;
+    case SM_EVENT_JUST_WORKS_REQUEST:
+        printf("(Just Works pairing)\n");
+        sm_just_works_confirm(sm_event_just_works_request_get_handle(packet));
+        break;
+    case SM_EVENT_NUMERIC_COMPARISON_REQUEST:
+        printf("(Numeric Comparison %06lu, confirmed)\n",
+               (unsigned long)sm_event_numeric_comparison_request_get_passkey(packet));
+        sm_numeric_comparison_confirm(sm_event_numeric_comparison_request_get_handle(packet));
+        break;
+    case SM_EVENT_PASSKEY_DISPLAY_NUMBER:
+        printf("\n  Type %06lu then Enter on the keyboard\n\n",
+               (unsigned long)sm_event_passkey_display_number_get_passkey(packet));
+        break;
+    case SM_EVENT_PAIRING_STARTED:
+        le_pairing_started = 1;
+        le_state = 4;
+        printf("Pairing...\n");
+        break;
+    case SM_EVENT_PAIRING_COMPLETE: {
+        uint8_t st = sm_event_pairing_complete_get_status(packet);
+        if (st != ERROR_CODE_SUCCESS) {
+            printf("Pairing failed: status 0x%02X, reason 0x%02X\n", st, sm_event_pairing_complete_get_reason(packet));
+            gap_disconnect(sm_event_pairing_complete_get_handle(packet));
+            break;
+        }
+        printf("Paired, %lu ms after the link; reading the HID service...\n",
+               (unsigned long)((cmm2->micros() - le_connected_at) / 1000));
+        le_state = 5;
+        uint8_t hs = hids_host_connect(le_handle, &le_hids_handler, HID_PROTOCOL_MODE_REPORT, &le_cid);
+        if (hs != ERROR_CODE_SUCCESS) printf("hids_host_connect: Bluetooth error 0x%02X\n", hs);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+static int ble(uint32_t secs) {
+    cyw43_arch_init();
+    btstack_memory_init();
+    btstack_run_loop_init(btstack_run_loop_cmm2_get_instance());
+#ifdef BT_APP_DUMP
+    hci_dump_init(hci_dump_embedded_stdout_get_instance());
+#endif
+    hci_init(hci_transport_cyw43_instance(), NULL);
+    setup_tlv();
+    // the PicoMite's BLE host set-up (BTKeyboard.c, bt_keyboard_init)
+    l2cap_init();
+    sm_init();
+    sm_set_io_capabilities(IO_CAPABILITY_KEYBOARD_DISPLAY);
+    sm_set_authentication_requirements(SM_AUTHREQ_BONDING | SM_AUTHREQ_SECURE_CONNECTION);
+    sm_set_secure_connections_only_mode(false);
+    sm_set_encryption_key_size_range(7, 16);
+    gatt_client_init();
+    hids_host_init(le_descriptor, sizeof(le_descriptor));
+    le_hci_cb.callback = &le_handler;
+    hci_add_event_handler(&le_hci_cb);
+    le_sm_cb.callback = &le_handler;
+    sm_add_event_handler(&le_sm_cb);
+    printf("Starting Bluetooth...\n");
+    t_start = cmm2->micros();
+    hci_power_control(HCI_POWER_ON);
+    uint64_t limit = t_start + (uint64_t)secs * 1000000u;
+    while (le_state != 9) {
+        cyw43_cmm2_poll();
+        btstack_run_loop_cmm2_poll();
+        // the keyboard did not ask for pairing within 2 s: ask it (BTKeyboard.c's pair_kickoff_timeout)
+        if (le_state == 3 && !le_pairing_started && cmm2->micros() - le_connected_at > 2000000u) {
+            printf("No request from the keyboard: asking it to pair\n");
+            le_pairing_started = 1;
+            sm_request_pairing(le_handle);
+        }
+        if (cmm2->poll()) break;
+        if (cmm2->micros() > limit) {
+            printf("Time up (%lu s)\n", (unsigned long)secs);
+            break;
+        }
+    }
+    printf("%lu reports; %lu bus errors\n", (unsigned long)kb_reports, (unsigned long)cyw43_cmm2_bus_errors());
+    if (le_handle != HCI_CON_HANDLE_INVALID) gap_disconnect(le_handle);
+    uint64_t t = cmm2->micros();
+    while (cmm2->micros() - t < 300000) {
+        cyw43_cmm2_poll();
+        btstack_run_loop_cmm2_poll();
+    }
+    hci_power_control(HCI_POWER_OFF);
+    hci_close();
+    cyw43_arch_deinit();
+    return kb_reports ? 0 : 1;
+}
+
 int main(int argc, char **argv) {
     const char *cmd = argc > 1 ? argv[1] : "scan";
     int rc = 0;
@@ -453,8 +709,10 @@ int main(int argc, char **argv) {
         rc = scan();
     } else if (!strcasecmp(cmd, "kbd") && argc > 2) {
         rc = kbd(argv[2], argc > 3 ? (uint32_t)atoi(argv[3]) : 120);
+    } else if (!strcasecmp(cmd, "ble")) {
+        rc = ble(argc > 2 ? (uint32_t)atoi(argv[2]) : 120);
     } else {
-        printf("RUN \"bt.app\", scan [seconds] | kbd address [seconds]\n");
+        printf("RUN \"bt.app\", scan [seconds] | kbd address [seconds] | ble [seconds]\n");
     }
     cyw43_cmm2_restore_pins();
     return rc;

@@ -45,7 +45,8 @@ def sources():
         'btstack_run_loop_base.c', 'btstack_tlv.c', 'btstack_tlv_none.c', 'btstack_util.c', 'hci.c', 'hci_cmd.c',
         'hci_dump.c', 'hci_event.c', 'l2cap.c', 'l2cap_signaling.c')]
     s += [os.path.join(b, 'ble', f) for f in ('att_db.c', 'att_dispatch.c', 'att_server.c', 'gatt_client.c',
-                                              'le_device_db_tlv.c', 'sm.c')]
+                                              'le_device_db_tlv.c', 'sm.c', 'gatt_service_client.c')]
+    s += [os.path.join(b, 'ble', 'gatt-service', 'hids_host.c')]
     s += [os.path.join(b, 'classic', f) for f in ('btstack_link_key_db_tlv.c', 'sdp_client.c', 'sdp_util.c',
                                                   'sdp_server.c', 'hid_host.c')]
     for f in ('hci_event_builder.c',):
