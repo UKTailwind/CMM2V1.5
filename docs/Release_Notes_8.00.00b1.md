@@ -2,7 +2,9 @@
 
 *16 November 2026. Compared with 7.00.00RC6, the last version released.*
 
-This is the first beta of MMBasic 8.00 for the Colour Maximite 2. Version 7.00 carries on separately: 7.00.00RC6 stays the current release candidate and will become 7.00.00. Version 8 is where the new hardware and the larger changes go. Please report problems on the Back Shed forum.
+This is the first beta of MMBasic 8.00 for the Colour Maximite 2. Please report problems on the Back Shed forum.
+
+**7.00.00RC6 is the last release of version 7.** It is highly functional and well tested, and can be used as it is, but there will be no full 7.00.00 release: version 8 is needed for the new Generation 3 and for WiFi, and all further work goes into it.
 
 The same firmware file runs on the Generation 1, the Generation 2 and the new Generation 3.
 
