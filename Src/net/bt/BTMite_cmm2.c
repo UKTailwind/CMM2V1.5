@@ -7,7 +7,8 @@
      process_consumer_report   the media keys, as the PicoMite's (input/KeyboardMap.c): codes 0x8A-0x90 into the keys
      BtNunstruct and the rest  the PicoMite's nunstruct[] for DEVICE(GAMEPAD): BTKeyboard.c's game controller ([3])
      bt_audio_pull and the rest   OPTION AUDIO BLUETOOTH's sound: the audio interrupt's pairs (HdmiAudio.h's BtPut)
-     BtMouse                   a Bluetooth mouse or touchpad is connected (USBMouse.c's MouseOpenChannel) */
+     BtMouse                   a Bluetooth mouse or touchpad is connected (USBMouse.c's MouseOpenChannel)
+     BtSaveOptions             the pairings' save (BTKeyboard.c's bt_tlv_save, by tools/port_bt.py) */
 #include "BTMite_cmm2.h"                         // (first, as the PicoMite's files have it: Inc/net/BTMite_cmm2.h)
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
@@ -25,6 +26,31 @@ void process_mouse_input(int16_t x_delta, int16_t y_delta, int8_t wheel_delta, u
 
 int BtMouse(void) {
     return bt_keyboard_has_pointer() || bt_ckbd_has_pointer();
+}
+
+/* ---- the pairings' save ----
+   BTKeyboard.c saves Option.bt_tlv from the Bluetooth poll once BTstack has stopped writing it. SaveOptions rewrites
+   sector 2 with mmbrun after the options, which needs a 128 KB copy of it in RAM: on a G1 running a program that is the
+   heap's, and there may be none. Then the pairings stay in RAM (LoadOptions keeps them while bt_tlv_dirty is set) and
+   the save is tried again every 2 s, not an error that ends the program. */
+void BtSaveOptions(void) {
+    extern int OptionSaveSoft, OptionSaveFailed;
+    extern volatile bool bt_tlv_dirty;
+    static uint32_t failed_ms;
+    static int waiting;
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    if (waiting && now - failed_ms < 2000) {
+        bt_tlv_dirty = true;
+        return;
+    }
+    OptionSaveFailed = 0;
+    OptionSaveSoft = 1;
+    SaveOptions(1);
+    waiting = OptionSaveFailed;
+    if (waiting) {
+        failed_ms = now;
+        bt_tlv_dirty = true;
+    }
 }
 
 /* ---- the media keys: the PicoMite's process_consumer_report (input/KeyboardMap.c), as it is ---- */

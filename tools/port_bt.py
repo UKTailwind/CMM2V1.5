@@ -14,6 +14,9 @@ Mechanical changes only, so that a later PicoMite's Bluetooth code can be taken 
   - __wrap_pico_flash_bank_instance -> pico_flash_bank_instance: the PicoMite links with --wrap so that pico-sdk's
     btstack_cyw43.c takes the bond store from Option.bt_tlv; the CMM2's own btstack_cyw43 (Src/net/bt) calls it by
     its plain name
+  - SaveOptions() -> BtSaveOptions() where BTKeyboard.c saves the pairings (bt_tlv_save, from the Bluetooth poll):
+    the CMM2's (Src/net/bt/BTMite_cmm2.c) waits and tries again when there is no RAM for sector 2's copy just then
+    (a G1 running a program), where SaveOptions would end the program with an error
   - COM7 -> COM8 (the words in messages and comments): the PicoMite's Bluetooth serial device is its COM7, the CMM2's
     is COM8, its COM4 to COM7 being the USB serial devices (the variable com7 is mapped by BTMite_cmm2.h)
 Everything else the PicoMite's own headers and core give these files comes from Inc/net/BTMite_cmm2.h, which
@@ -38,7 +41,7 @@ dst = os.path.join(cmm2, 'Src', 'net', 'bt', 'picomite')
 os.makedirs(dst, exist_ok=True)
 FILES = ['BTKeyboard.c', 'BTKeyboard.h', 'BTClassicKeyboard.c', 'BTClassicKeyboard.h', 'BTSerial.c', 'BTSerial.h',
          'BTAudio.c', 'BTAudio.h', 'btstack_config.h']
-REWRITES = [('SaveOptions()', 'SaveOptions(1)'), ('SoftReset(SOFT_RESET)', 'SoftReset()'),
+REWRITES = [('SaveOptions()', 'SaveOptions(1)'), ('    SaveOptions(1);', '    BtSaveOptions();'), ('SoftReset(SOFT_RESET)', 'SoftReset()'),
             ('routinechecks()', 'routinechecks(0)'),
             ('__wrap_pico_flash_bank_instance', 'pico_flash_bank_instance'), ('COM7', 'COM8')]
 commit = subprocess.run(['git', '-C', pico, 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()

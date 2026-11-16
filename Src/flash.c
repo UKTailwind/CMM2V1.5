@@ -437,8 +437,11 @@ static uint32_t SectorSum(const uint8_t *p) {                      // (a check t
    These routines are used to load or save the global Option structure from/to flash.
    These options are stored in the beginning of the flash used to save stored variables.
 ***********************************************************************************************/
+int OptionSaveSoft, OptionSaveFailed;   // SaveOptions: with OptionSaveSoft, no RAM for sector 2's copy sets OptionSaveFailed
+                                        // and returns, not an error (BtSaveOptions, Src/net/bt/BTMite_cmm2.c). Once only.
 void SaveOptions(int check) {
-	int i,tries;
+	int i,tries, soft = OptionSaveSoft;
+	OptionSaveSoft = 0;
     uint32_t address=FLASH_SAVED_OPTION_ADDR;
     char *p, *SavedOptionsFlash;
     SavedOptionsFlash=(char*)FLASH_SAVED_OPTION_ADDR;
@@ -463,7 +466,10 @@ void SaveOptions(int check) {
         for(w = (uint32_t *)(sector + SAVED_OPTIONS_SIZE); w < (uint32_t *)(sector + 0x20000); w++)
             if(*w != 0xFFFFFFFF) { rest = 1; break; }
         if(rest) {
-            if((buf = OptionSectorBuffer(&freeme)) == NULL) error("Not enough memory to save the options");
+            if((buf = OptionSectorBuffer(&freeme)) == NULL) {
+                if(soft) { OptionSaveFailed = 1; return; }          // (nothing written yet)
+                error("Not enough memory to save the options");
+            }
             memcpy(buf, sector, 0x20000);
             if(memcmp(buf, sector, 0x20000)) {                      // (nothing erased if the copy is not right)
                 if(freeme) FreeMemory(freeme);

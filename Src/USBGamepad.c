@@ -69,6 +69,20 @@ typedef struct {
 } gamepad_t;
 static volatile gamepad_t Pad[HID_SLOTS + 1];       // by channel, 1-4
 
+/* A Bluetooth game controller (Src/net/bt/picomite/BTKeyboard.c, the PicoMite's) is channel 3, as on the PicoMite,
+   unless a USB pad has that channel: BTKeyboard.c keeps its state in the PicoMite's nunstruct[3] (BtNunstruct here,
+   Src/net/bt/BTMite_cmm2.c), and DEVICE(GAMEPAD 3) reads it as the PicoMite's does: B the HID buttons 1-12 as they
+   are (bits 0-11), H the hat (0-7 from north clockwise, 0xFF centred), LX LY RX RY L R the first six axes, T 16980
+   (&H4254, "BT"). GAMEPAD INTERRUPT ENABLE 3 calls its sub when anything on it changes (the mask is for USB pads). */
+#define BT_PAD 3
+#define BT_PAD_TYPE 0x4254u
+extern volatile struct s_nunstruct *const BtNunstruct;
+extern volatile int BtNunfoundc[4];
+extern char *BtNunInterruptc[4];
+static int BtPad(int n) {
+    return n == BT_PAD && Pad[BT_PAD].type == 0 && BtNunstruct[BT_PAD].type == BT_PAD_TYPE;
+}
+
 static char monbuf[1024];                           // GAMEPAD MONITOR's lines, printed by USBGamepadService()
 static void MonAdd(const char *s) {
     if(strlen(monbuf) + strlen(s) < sizeof(monbuf)) strcat(monbuf, s);
@@ -564,6 +578,20 @@ void USBGamepadDevice(char *tp) {
     volatile gamepad_t *g = &Pad[n];
     char *k = argv[2];
     targ = T_INT;
+    if(BtPad(n)) {                                                  // the Bluetooth game controller (above)
+        volatile struct s_nunstruct *b = &BtNunstruct[BT_PAD];
+        if(checkstring(k, "LX")) iret = b->ax;
+        else if(checkstring(k, "LY")) iret = b->ay;
+        else if(checkstring(k, "RX")) iret = b->Z;
+        else if(checkstring(k, "RY")) iret = b->C;
+        else if(checkstring(k, "L")) iret = b->L;
+        else if(checkstring(k, "R")) iret = b->R;
+        else if(checkstring(k, "B")) iret = b->x0;
+        else if(checkstring(k, "H")) iret = b->y0;
+        else if(checkstring(k, "T")) iret = b->type;
+        else iret = 0;
+        return;
+    }
     if(checkstring(k, "LX")) iret = g->lx;
     else if(checkstring(k, "LY")) iret = g->ly;
     else if(checkstring(k, "RX")) iret = g->rx;
@@ -616,6 +644,10 @@ char *GamepadInterrupt(void) {
             Pad[n].found = 0;
             return Pad[n].interrupt;
         }
+    if(Pad[BT_PAD].interrupt != NULL && BtNunfoundc[BT_PAD] && BtPad(BT_PAD)) {   // the Bluetooth one
+        BtNunfoundc[BT_PAD] = 0;
+        return Pad[BT_PAD].interrupt;
+    }
     return NULL;
 }
 
@@ -626,6 +658,7 @@ void GamepadInterruptsOff(void) {
         Pad[n].found = 0;
         Pad[n].mask = 0;
     }
+    BtNunInterruptc[BT_PAD] = NULL;                                 // (BTKeyboard.c signals the interrupt only with this set)
 }
 
 // GAMEPAD INTERRUPT ENABLE n, sub [, mask] | INTERRUPT DISABLE n | MONITOR [SILENT] | CONFIGURE vid, pid, 16 x (index,
@@ -640,6 +673,10 @@ void cmd_gamepad(void) {
         Pad[n].interrupt = GetIntAddress(argv[2]);
         Pad[n].found = 0;
         Pad[n].mask = argc == 5 ? getint(argv[4], 0, 0xFFFF) : 0xFFFF;
+        if(n == BT_PAD) {                                           // the Bluetooth one's too
+            BtNunfoundc[BT_PAD] = 0;
+            BtNunInterruptc[BT_PAD] = Pad[n].interrupt;
+        }
         IntSignal();
     } else if((tp = checkstring(cmdline, "INTERRUPT DISABLE"))) {
         getargs(&tp, 1, ",");
@@ -647,6 +684,7 @@ void cmd_gamepad(void) {
         n = getint(argv[0], 1, HID_SLOTS);
         Pad[n].interrupt = NULL;
         Pad[n].found = 0;
+        if(n == BT_PAD) BtNunInterruptc[BT_PAD] = NULL;
     } else if((tp = checkstring(cmdline, "MONITOR SILENT"))) {
         monitor = nooutput = true;
     } else if((tp = checkstring(cmdline, "MONITOR OFF"))) {       // (the PicoMite's: it was taken as MONITOR)

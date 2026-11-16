@@ -626,7 +626,7 @@ static volatile uint32_t kbd_pairings, kbd_reencryptions, kbd_interrupted;
 static void bt_tlv_save(void)
 {
     uint32_t t0 = time_us_32();
-    SaveOptions(1);
+    BtSaveOptions();
     uint32_t us = time_us_32() - t0;
     tlv_saves++;
     tlv_save_total_us += us;
