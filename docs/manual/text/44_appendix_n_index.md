@@ -51,6 +51,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | BITBANG | Commands, Obsolete Commands and Functions |
 | BITSTREAM | Commands |
 | BLIT | Commands |
+| BLUETOOTH | Commands |
 | BOUND( | Functions |
 | BOX | Commands |
 | BYTE( | Commands, Functions |

@@ -5,6 +5,14 @@
 This command switches trig functions between degrees and radians.  Acts on SIN, COS, TAN, ATN, ATAN2, ACOS and ASIN, and on MATH ATAN3, MATH V_ROTATE, MATH Q_EULER, MATH Q_CREATE, MATH(C_POLAR), MATH(C_PHASE) and MATH SENSORFUSION.
 This is a temporary option that is reset to the default (RADIANS) when a program is run, when it ends, after an error and after CTRL-C, so it should be set at the top of any program that uses angles in degrees.  MM.INFO(OPTION ANGLE) returns the current setting.
 
+=== OPTION AUDIO BLUETOOTH [idle]
+or
+OPTION AUDIO DAC
+--- P keep roomy
+__WITH THE WIFI MODULE ONLY__ OPTION AUDIO BLUETOOTH sends the sound to a Bluetooth speaker or headphones as well as the audio output (see Speakers and Headphones in the chapter Bluetooth): every PLAY sound but a loadable program's own stream.  The speaker is connected with BLUETOOTH CONNECT and is then connected again by itself.
+‘idle’ is the seconds without sound after which the stream to the speaker is suspended, to be started again by the next sound (1 to 250, the default 60); 0 keeps it running all the time.  OPTION AUDIO DAC ends the sound to Bluetooth.  MM.INFO$(OPTION AUDIO) returns "BLUETOOTH" while it is set.
+Bluetooth must be on (see OPTION RADIO).  The option restarts the Colour Maximite 2 and can then only be used at the command prompt, except for a new ‘idle’ with Bluetooth already the output, which neither restarts it nor is refused in a program.
+
 === OPTION AUTORUN ON
 or
 OPTION AUTORUN OFF
@@ -324,9 +332,14 @@ Turns the profiler on or off.  While it is on, each time a program is run MMBasi
 The counters take 8 bytes of the heap for each line of the program, and collecting them makes the program run a little slower.  MM.INFO(OPTION PROFILING) returns the current setting.
 This command will cause a reboot.  In a program it does nothing: there OPTION PROFILING ON or OFF (with anything after it, such as the PicoMite's ", SAMPLE") is accepted so that programs written for the PicoMite, whose run-time profiler it turns on, run unchanged.
 
+=== OPTION RADIO BOTH | WEB | BLUETOOTH | NONE
+--- P keep roomy
+__WITH THE WIFI MODULE ONLY__ Says which halves of the WiFi module's chip are used from the next start: BOTH the WiFi and Bluetooth, WEB the WiFi only, BLUETOOTH Bluetooth only, and NONE neither (the default).  OPTION WIFI turns the WiFi's half on, so OPTION RADIO BOTH adds Bluetooth to the WiFi (see the chapter Bluetooth).  With the WiFi's half off the WEB commands refuse; with Bluetooth's off the BLUETOOTH command does, and its 64KB is not taken.  The stored WiFi network and the Bluetooth pairings are kept.  OPTION AUDIO BLUETOOTH must be ended (OPTION AUDIO DAC) before Bluetooth can be turned off.
+This is the PicoMitePC3's option.  OPTION LIST shows it when it is not what OPTION WIFI alone gives.  The command restarts the Colour Maximite 2, and can only be used at the command prompt.
+
 === OPTION RESET
 --- P keep roomy
-Reset all saved options to their default values (those kept through a firmware upgrade too).  The program in program memory and the saved variables are not erased: the program is kept over the restart as with any option that restarts MMBasic (see Running Programs in the chapter Using MMBasic).
+Reset all saved options to their default values (those kept through a firmware upgrade too), and delete the Bluetooth pairings.  The program in program memory and the saved variables are not erased: the program is kept over the restart as with any option that restarts MMBasic (see Running Programs in the chapter Using MMBasic).
 This command can only be run from the command line and will cause a reboot.
 
 === OPTION RESOLUTION resolution [, speed]
@@ -453,7 +466,7 @@ or
 OPTION WIFI ssid$, password$ [, name$] [, ipaddress$, mask$, gateway$] [, country$]
 --- P keep roomy
 __WITH THE WIFI MODULE ONLY__ Turns the WiFi on and sets the network that the Colour Maximite 2 joins at every start-up (see Connecting to a WiFi Network in the chapter WiFi and Internet Functions).  ‘ssid$’ is the network's name and ‘password$’ its password.  ‘name$’ is the Colour Maximite 2's name on the network; without it a name is made from the processor's ID.  ‘ipaddress$’, ‘mask$’ and ‘gateway$’ give a fixed address instead of one from the router (DHCP).  ‘country$’ is a two letter ISO country code that sets the WiFi's regulatory domain: the default, "XX", is worldwide, with the most cautious channels and transmit power.
-With the WiFi on, 128KB of memory and pins 32, 33, 38 and 40 belong to the network (see The WiFi Module and Memory in the chapter WiFi and Internet Functions).  OPTION WIFI "", "" turns the WiFi off.  OPTION LIST shows the password as stars.
+With the WiFi on, 128KB of memory and pins 32, 33, 38 and 40 belong to the network (see The WiFi Module and Memory in the chapter WiFi and Internet Functions).  The command turns the WiFi's half of OPTION RADIO on as well.  OPTION WIFI "", "" turns the WiFi off.  OPTION LIST shows the password as stars.
 The command restarts the Colour Maximite 2, and can only be used at the command prompt.
 
 === OPTION Y_AXIS DOWN | UP

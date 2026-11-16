@@ -89,6 +89,12 @@ MM.INFO(FCOLOUR)
 --- keep
 The current background and foreground colours (see COLOUR).  BCOLOR and FCOLOR are accepted too.
 
+=+= MM.INFO$(BLUETOOTH KEYBOARD)
+MM.INFO$(BLUETOOTH SPEAKER)
+MM.INFO$(BLUETOOTH SERIAL)
+--- keep
+__WITH THE WIFI MODULE ONLY__ The address of the connected Bluetooth keyboard (a Bluetooth LE one first, then the Classic one), speaker or serial device (COM8), as "AA:BB:CC:DD:EE:FF", or an empty string if none is connected (see the chapter Bluetooth).
+
 =+= MM.INFO(BOOT COUNT)
 --- keep
 The number of this start of the Colour Maximite 2, counted at every start: power up, the reset switch, CPU RESTART, a watchdog timeout, an OPTION that restarts and a firmware update.  The count is kept in the real time clock's battery-backed memory, so it begins again at 1 if that battery is flat or removed.  This is the PicoMite's key (the PicoMite counts in a file on its flash drive, which a firmware update clears).
@@ -220,7 +226,7 @@ The current video mode and colour depth as a number: the mode, then the depth as
 ---
 The current setting of one of the options that affect how a program runs.  ‘option’ is one of:
 {l=720}ANGLE: "RADIANS" or "DEGREES" (see OPTION ANGLE)
-{l=720}AUDIO: "DAC", the audio output (with OPTION PICOMITE "PWM", the PicoMite's name for the audio that does what the Colour Maximite 2's does)
+{l=720}AUDIO: "DAC", the audio output (with OPTION PICOMITE "PWM", the PicoMite's name for the audio that does what the Colour Maximite 2's does), or "BLUETOOTH" with OPTION AUDIO BLUETOOTH
 {l=720}AUTORUN: "On" or "Off", or the flash slot's number ("1" to "3") with OPTION AUTORUN n
 {l=720}BASE: 0 or 1 (a number)
 {l=720}BREAK: the character code of the break key (a number: 3 for Ctrl-C, 0 when it is disabled)

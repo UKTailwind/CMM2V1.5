@@ -245,6 +245,39 @@ If the top bit of either the width or height is set to 1 then the colour data is
 ---
 As BLIT MEMORY, but the colour data is always treated as compressed, whatever the top bits of the width and height.  This is the PicoMite's form for compressed data whose width and height have no flag.
 
+=== BLUETOOTH CONNECT [SPEAKER | SERIAL | KEYBOARD] name$ [, pin$]
+or
+BLUETOOTH CONNECT [SPEAKER | SERIAL | KEYBOARD] addr$ [, pin$]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Pairs with and connects to a Bluetooth speaker or headphones, a Bluetooth Classic keyboard (one that BLUETOOTH SCAN marked ‘Keyboard’) or a Bluetooth serial device, which becomes the serial port COM8 (see the chapter Bluetooth).  ‘name$’ is the device's name as the last BLUETOOTH SCAN listed it (upper and lower case are the same).  ‘addr$’ is its address, "AA:BB:CC:DD:EE:FF", which can be used without a scan; it must be used when the scan found two devices of the same name.
+Without a word before the name, the device's Class of Device decides what it is connected as.  A word says it for a device that is more than one thing, or one whose Class of Device does not say what it is: SPEAKER connects it as a speaker without asking it for a serial port, SERIAL connects its serial port as COM8 (or stops with "The device has no serial port"), and KEYBOARD connects a Bluetooth Classic keyboard whose Class of Device does not say it is one.  CONNECT SPEAKER and CONNECT SERIAL to the same device give both, for example for an RN52 module, a speaker with a serial port.  A Bluetooth LE device cannot be a speaker, and a Bluetooth LE keyboard pairs by itself, without this command.
+‘pin$’ is the PIN for a speaker or a Bluetooth Classic serial device that asks for one when it pairs (the older way, from before Bluetooth 2.1): 1 to 16 characters, needed only when the device does not take 0000, which is given when ‘pin$’ is left out (some car radios and serial modules use 1234).  A keyboard or a Bluetooth LE device cannot be given a PIN.
+For a speaker the command waits up to 30 seconds for it to answer, then shows the format of the sound stream agreed; for a keyboard up to 60 seconds, as a passkey may have to be typed on it.  If the device does not answer its page (it is not in pairing mode) the error is "Connection failed (Bluetooth error 0x04)".  Only one speaker can be connected at a time.
+The device is remembered: a speaker is connected again by itself after a restart and when it is switched off and on (with OPTION AUDIO BLUETOOTH), a Classic keyboard whenever it wakes, and a serial device while COM8 is open, so the command is normally needed once.  Connecting another of the same kind replaces the remembered one.  Bluetooth must be on (see OPTION RADIO).
+
+=== BLUETOOTH DISCONNECT
+or
+BLUETOOTH DISCONNECT SERIAL
+--- keep
+__WITH THE WIFI MODULE ONLY__ Disconnects the speaker.  It is not connected again by itself until the next BLUETOOTH CONNECT or restart.  The pairing is kept (see BLUETOOTH FORGET).
+BLUETOOTH DISCONNECT SERIAL disconnects the serial device on COM8 instead.  It is not connected again by itself until COM8 is next opened or the next BLUETOOTH CONNECT, and its pairing is kept.
+
+=== BLUETOOTH FORGET [addr$]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Deletes stored Bluetooth pairings.  With no argument every device's are deleted: the keyboards, mice and game controllers, the remembered Classic keyboard, the remembered serial device and the remembered speaker.  With ‘addr$’ only that device's (its address as BLUETOOTH STATUS or MM.INFO$(BLUETOOTH ...) gives it).  A connected device that is forgotten is disconnected.
+This clears a pairing that has stopped working, after which the device can be paired again.  A forgotten speaker, Classic keyboard or serial device is no longer connected again by itself.  OPTION RESET deletes all the pairings as well.
+
+=== BLUETOOTH SCAN [seconds]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Searches for nearby Bluetooth Classic devices (speakers, headphones, keyboards and serial devices such as a Bluetooth GPS receiver) and for Bluetooth LE serial devices, and lists the address, signal strength and name of each one found.  Audio devices are marked ‘Audio’, keyboards ‘Keyboard’ and Bluetooth LE serial devices ‘BLE serial’.  A device is found only while it is discoverable, which for most speakers and keyboards means while they are in pairing mode, and is listed only once it has given its name.
+‘seconds’ is how long to search (2 to 60, the default 10).  The names are asked for after the search, so the command can take a few seconds longer.
+Bluetooth LE keyboards, mice and game controllers are not listed: they pair by themselves (see the chapter Bluetooth).
+
+=== BLUETOOTH STATUS [#nbr]
+--- keep
+__WITH THE WIFI MODULE ONLY__ Lists the Bluetooth connections: whether a Bluetooth LE keyboard (or mouse or game controller) is connected, the Bluetooth Classic keyboard, the serial device on COM8 (with the bytes received and sent), the address of the speaker and whether sound is streaming to it (or the remembered speaker if it is not connected), and the format of the stream.  The lines after them are diagnostic information, which may be useful when reporting a problem.
+BLUETOOTH STATUS #nbr sends the list to the serial port or file open as ‘nbr’.
+
 === BOX x, y, w, h [,lw] [,c] [,fill]
 --- keep
 Draws a box on the screen with the top left hand corner at ‘x’ and ‘y’ with a width of ‘w’ pixels and a height of ‘h’ pixels.
@@ -935,7 +968,7 @@ GAMEPAD MONITOR OFF
 {}
 GAMEPAD CONFIGURE vid,pid,i0,c0,i1,c1,i2,c2,i3,c3,i4,c4,i5,c5,i6,c6,i7,c7,i8,c8,i9,c9,i10,c10,i11,c11,i12,c12,i13,c13,i14,c14,i15,c15
 ---
-Enables interrupts on the button presses on a USB game controller. The optional parameter ‘mask’ defines which of the switches will trigger the interrupt (defaults to all). ‘mask’ is a bitmap corresponding to the output of the DEVICE(GAMEPAD channel,B) function.
+Enables interrupts on the button presses on a USB game controller. The optional parameter ‘mask’ defines which of the switches will trigger the interrupt (defaults to all). ‘mask’ is a bitmap corresponding to the output of the DEVICE(GAMEPAD channel,B) function.  A Bluetooth LE game controller on channel 3 (see the chapter Bluetooth) calls the subroutine whenever anything on it changes.
 {}
 Disables interrupts from the gamepad on the channel specified
 {}
@@ -2049,13 +2082,13 @@ See also ON ERROR and MM.ERRNO for error handling.
 
 === OPEN comspec$ AS [#]fnbr
 --- keep
-{t=l2592}Will open a serial communications port for reading and writing.  COM1: and COM2: are on the rear I/O connector.  COM3: is the port of the serial console (on the USB connector used for power) and can be opened when the serial console is disabled with OPTION CONSOLE SCREEN.  COM4: to COM7: are USB serial devices plugged into the USB connector (see the chapter *Keyboard, Mouse and Gamepad*).
-‘comspec$’ is the communication specification, a string of the form "COMn: baud, buf, int, int-trigger, tx-int" followed by any of the options DEP or DEN, 7BIT, ODD or EVEN, INV, OC and S2.  The default is 9600 baud (the minimum is 1200), a receive buffer of 1024 bytes, 8 data bits, no parity and one stop bit.  DEP and DEN (RS485 mode, using the COM1 DE pin, pin 37) are available on COM1: only, and INV, OC, DEP and DEN do not apply to COM4: to COM7:.  For a full description with examples see *Appendix A*.
+{t=l2592}Will open a serial communications port for reading and writing.  COM1: and COM2: are on the rear I/O connector.  COM3: is the port of the serial console (on the USB connector used for power) and can be opened when the serial console is disabled with OPTION CONSOLE SCREEN.  COM4: to COM7: are USB serial devices plugged into the USB connector (see the chapter *Keyboard, Mouse and Gamepad*).  COM8: is a Bluetooth serial device, with the WiFi module (see the chapter *Bluetooth*).
+‘comspec$’ is the communication specification, a string of the form "COMn: baud, buf, int, int-trigger, tx-int" followed by any of the options DEP or DEN, 7BIT, ODD or EVEN, INV, OC and S2.  The default is 9600 baud (the minimum is 1200), a receive buffer of 1024 bytes, 8 data bits, no parity and one stop bit.  DEP and DEN (RS485 mode, using the COM1 DE pin, pin 37) are available on COM1: only, and INV, OC, DEP and DEN do not apply to COM4: to COM8: (on COM8: neither does tx-int, and the baud rate is ignored).  For a full description with examples see *Appendix A*.
 ‘fnbr’ is the file number (1 to 10).  Using ‘fnbr’ the port can be written to and read from using any command or function that uses a file number, and it is closed with CLOSE.
 
 === OPEN comspec$ AS GPS [, timezone_offset] [, monitor]
 ---
-{t=l2592}Will open a serial communications port (COM1: to COM7:) for reading from a GPS receiver.  ‘comspec$’ is as for the OPEN command above.  The data can then be retrieved using the GPS() function.  The sentences interpreted are GPRMC, GNRMC, GPGGA and GNGGA (those with a correct checksum).
+{t=l2592}Will open a serial communications port (COM1: to COM8:) for reading from a GPS receiver.  ‘comspec$’ is as for the OPEN command above.  The data can then be retrieved using the GPS() function.  The sentences interpreted are GPRMC, GNRMC, GPGGA and GNGGA (those with a correct checksum).
 The ‘timezone_offset’ parameter is used to convert UTC as received from the GPS to the local timezone.  If omitted the timezone will default to UTC.  The ‘timezone_offset’ is in hours and can be any number between -12 and 14 allowing the time to be set correctly even for the Chatham Islands in New Zealand (UTC +12:45, an offset of 12.75).
 If the ‘monitor’ parameter is set to 1 then all GPS input is also directed to the console.  This can be stopped by closing the GPS channel.
 The port takes the first free file number.  It is closed with CLOSE GPS, and PRINT #GPS sends a sentence to the receiver.

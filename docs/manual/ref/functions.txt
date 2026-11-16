@@ -193,7 +193,7 @@ Converts 'radians' to degrees.
 === DEVICE(GAMEPAD channel, funct)
 ---
 Returns data from a USB gamepad: a PS3 or PS4 controller, a Nintendo Switch Pro Controller, an Xbox 360, Xbox One or Xbox Series controller, or a generic gamepad that the firmware supports or GAMEPAD CONFIGURE describes (see USB Gamepads in the chapter Keyboard, Mouse and Gamepad).
-‘channel’ is 1 to 4: the first gamepad is normally channel 3 and the second channel 4.  The values are 0 when there is no gamepad on the channel.
+‘channel’ is 1 to 4: the first gamepad is normally channel 3 and the second channel 4.  The values are 0 when there is no gamepad on the channel.  With the WiFi module, a Bluetooth LE game controller is channel 3 while no USB gamepad has it, and gives the PicoMite's values: B its buttons 1 to 12 as it numbers them, H its hat, the sticks and L and R as it reports them, and T 16980 (see Game Controllers in the chapter Bluetooth).
 'funct' is a 1 to 3 letter code indicating the information to return as follows:
 {b=20 a=20 l=941 h=567}LX 	the position of the analog left joystick x axis (0 to 255)
 {b=20 a=20 l=941 h=567}LY 	the position of the analog left joystick y axis (0 to 255)
