@@ -270,7 +270,7 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
     size changed: lines.bas's "6" became "7") and match when sent again (--put). The corpus's webnoserv and webudp go
     from ERROR to DIFF with the WiFi working. SP Tools 686 of 727, as before.
   - G1, Bluetooth and the WiFi on: no regression (the same langsys and web differences; intsrc now matches).
-  - G3: see below.
+  - G3, no module: no change at all, in all six; SP Tools 686 of 727.
 - **The manual** (2757a99): the chapter Bluetooth after WiFi and Internet Functions (the PicoMite's Bluetooth Versions,
   for the CMM2), the reference entries, the introduction and Appendix N; the PDF rebuilt (329 pages, 710 bookmarks).
 
