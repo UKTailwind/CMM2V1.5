@@ -215,7 +215,8 @@ starts Bluetooth and runs a Classic inquiry and an LE scan together, then asks t
   BLUETOOTH STATUS #n prints to a file or COM port (ConsoleRedirect, as the PicoMite's).
 - **Keyboards:** process_kbd_report with KBD_SOURCE_BT_LE / _CLASSIC, whose lock-key LEDs go back to the keyboard
   (KeyboardMap.c's kbd_send_leds, as the PicoMite's). A mouse, or a keyboard's touchpad, moves the CMM2's mouse on
-  channel 2 (USBMouse.c's BtMouseInput), so MM.MOUSE, DEVICE(MOUSE) and the GUI cursor follow it.
+  channel 2 (USBMouse.c's BtMouseInput), so MM.MOUSE, DEVICE(MOUSE) and the GUI cursor follow it. Peter's keyboard's
+  touchpad works perfectly as a mouse (16 November).
 - **On the G2 (COM10):** OPTION RADIO BOTH: the WiFi joined and Bluetooth came up together; BLUETOOTH STATUS "on";
   BLUETOOTH SCAN listed the speakers nearby. BLUETOOTH CONNECT KEYBOARD paged once (Bluetooth error 0x04 when the
   keyboard was not in pairing mode: the PicoMite's CONNECT does not try again). Then Peter, at the G2: "keyboard
