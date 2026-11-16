@@ -29,11 +29,11 @@ You do not need to be a programmer to use any of them, apart from the C compiler
 | WordGrinder | A word processor, with spelling on a Generation 2 | A:/wordgrinder |
 | sc-im | A spreadsheet, worked from the keyboard as the vi editor is | A:/scim |
 
-All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each, and Quake and the Amiga, which need a Generation 2.
+All of them run on both the Generation 1 and the Generation 2, from the same files, except zeptoforth, which has a file for each, and Quake and the Amiga, which need a Generation 2. A Generation 3 runs them as a Generation 2 does, with the picture and the sound through HDMI.
 
 ## Installing the Programs
 
-The programs are in the file CMM2_Programs_7.00.00RC6.zip, which is posted with the firmware.
+The programs are in the file CMM2_Programs_8.00.00b1.zip, which is posted with the firmware.
 
 1. Update the firmware first. Some of these programs need the firmware of the same release.
 
@@ -99,6 +99,6 @@ When a program ends, MMBasic tidies up after it: its files are closed, its sound
 | Not a loadable program | The file is not a program, or is not the one you meant. |
 | The program file is damaged | Copy it to the card again. |
 | Needs a G2 | The program needs a Generation 2. Of the programs in this guide, only Quake does. |
-| Needs n KB, n KB free in one block | There is not enough memory. Restart the Colour Maximite 2 and try it from the command prompt, not from inside a BASIC program. On a Generation 1, OPTION RAM leaves less: use OPTION FLASH. |
+| Needs n KB, n KB free in one block | There is not enough memory. Restart the Colour Maximite 2 and try it from the command prompt, not from inside a BASIC program. |
 
 If a program cannot find its files, you have probably started it from the wrong folder. CHDIR to its folder and try again.

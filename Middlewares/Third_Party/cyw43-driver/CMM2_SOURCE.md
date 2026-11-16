@@ -1,6 +1,8 @@
 # cyw43-driver in the CMM2 firmware
 
-George Robotics' driver for the Infineon CYW43439 (LICENSE: MIT), from https://github.com/georgerobotics/cyw43-driver
+George Robotics' driver for the Infineon CYW43439 (LICENSE: George Robotics' licence of 2019-2022, which allows
+redistribution for personal, non-commercial use only; the driver moved to the MIT licence upstream on 2 Sep 2026, at
+1828b5a, ten commits later), from https://github.com/georgerobotics/cyw43-driver
 at 055d64274b014dd7b1c2fc94d26e8a18face7124, the commit the PicoMite's pico-sdk (2.3.1) has. Unchanged.
 
 Taken: src/*.h, and src/cyw43_ll.c, cyw43_ctrl.c, cyw43_stats.c and cyw43_lwip.c (the SPI bus's register code is

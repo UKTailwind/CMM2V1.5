@@ -66,8 +66,9 @@ The port follows the rule for PicoMite code: copy it as it is, and change only w
 
 ## The radio's driver on an STM32
 
-- **The driver:** pico-sdk drives the CYW43439 with George Robotics' **cyw43-driver**. It is now under the **MIT**
-  licence, with no limit to Raspberry Pi chips.
+- **The driver:** pico-sdk drives the CYW43439 with George Robotics' **cyw43-driver**. Upstream it is under the
+  **MIT** licence since 2 Sep 2026 (1828b5a), with no limit to Raspberry Pi chips; the commit pico-sdk 2.3.1 has, and
+  the firmware copies (055d642), still carries the older licence: personal, non-commercial use only (found 16 Nov).
   - MicroPython's STM32 port already uses it, on the Pyboard-D, so it runs on STM32s.
   - The firmware blob it loads into the chip (w43439A0_7_95_49_00_combined.h) is Infineon's. The PicoMite and pico-sdk
     distribute it, but its own terms are still to be read before release.
