@@ -124,7 +124,16 @@ char *LineFileNameAt(char *p) {
    PrepareProgram before any input is possible, so it is checked at boot and before a .lib file is written; the walk
    is PrepareProgramExt's: the text, the zeros, the FF, the symbol table, then the records, each inside the limit. */
 int LibraryImageValid(const unsigned char *lib, int limit) {
-    return ImageLayout(lib, limit, NULL);
+    return LibStamp(lib) == IMAGE_FORMAT ? ImageLayout(lib, limit, NULL) : 0;
+}
+
+/* The image format its first name line carries (' IMAGE_TAG IMAGE_FORMAT name), or 0 if it has none.  An image of
+   another format has other tokens: 7.00's (format 6) was saved before 8.00.00b1 folded EOF( LOC( LOF( into one token,
+   which moved every function token after them, so its INPUT$(, SPI( ... would run as other functions (16 Nov 2026: the
+   flash library outlives a firmware update, and OPTION DISK LOAD brings back the option that says it is there). */
+int LibStamp(const unsigned char *lib) {
+    if(lib == NULL || lib[0] != T_NEWLINE || lib[T_NEWLINE_HDR] != '\'' || lib[T_NEWLINE_HDR + 1] != IMAGE_TAG) return 0;
+    return lib[T_NEWLINE_HDR + 2];
 }
 
 /* The same for a program's image or a library's: its length (0 if it is not sound), and in *records (if records is
@@ -160,12 +169,15 @@ int ImageLayout(const unsigned char *lib, int limit, const unsigned int **record
     return (int)((const unsigned char *)(cfp + 1) - lib);           // its length, the terminator included
 }
 
-// boot: a flash library that is not sound is discarded (reflashing the firmware leaves sector 6 as it was)
+// boot: a flash library that is not sound, or was saved by a firmware of another image format, is discarded (writing
+// the firmware leaves sector 7 as it was)
 void LibBoot(void) {
     RamLibMemory = NULL;
     if(LibFlashPresent() && !LibraryImageValid((unsigned char *)LIB_FLASH_ADDR, LIB_MAX)) {
+        int s = LibStamp((unsigned char *)LIB_FLASH_ADDR);
         LibSetFlash(0, 0);
-        MMPrintString("Library was corrupt and has been discarded\r\n");
+        MMPrintString(s && s != IMAGE_FORMAT ? "The library was saved by another firmware version and has been discarded: LIBRARY LOAD its files again\r\n"
+                                             : "Library was corrupt and has been discarded\r\n");
     }
     LibAttach();
 }
@@ -786,7 +798,8 @@ void cmd_library(void) {
         memset(img, 0xFF, LIB_MAX);
         for(int i = 0; i < len; i++) img[i] = FileGetChar(fnbr);
         FileClose(fnbr);
-        if(!LibraryImageValid(img, LIB_MAX)) error("Not a library file");
+        if(!LibraryImageValid(img, LIB_MAX))
+            error(LibStamp(img) && LibStamp(img) != IMAGE_FORMAT ? "Saved by another firmware version: LIBRARY LOAD its files again" : "Not a library file");
         ClearRuntime();                                             // (a RAM library goes)
         LibWriteFlash(img, len, 0);
         LibAttach();

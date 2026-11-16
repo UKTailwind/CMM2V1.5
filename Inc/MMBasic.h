@@ -396,6 +396,7 @@ int RamLibBlock(void **blk, int *size);
 void LibBoot(void);
 int LibFlashPresent(void);
 int LibraryImageValid(const unsigned char *lib, int limit);
+int LibStamp(const unsigned char *lib);
 int ImageLayout(const unsigned char *lib, int limit, const unsigned int **records);
 #include "USBMouse.h"                                  // (UsbMouse, MouseOpenChannel: USBMouse.c)
 #include "USBGamepad.h"                                // (GamepadInterrupt, GamepadInterruptsOff: USBGamepad.c)
