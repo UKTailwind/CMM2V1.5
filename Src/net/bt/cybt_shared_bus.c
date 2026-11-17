@@ -202,7 +202,9 @@ static cybt_result_t cybt_hci_write_buf(const uint8_t *p_data, uint32_t length) 
 
     // total length including header
     length = ROUNDUP(length, 4);
-    cybt_get_bt_buf_index(&fw_membuf_info);
+    if (cybt_get_bt_buf_index(&fw_membuf_info) != CYBT_SUCCESS) {   // (an index outside the ring: nothing written)
+        return CYBT_ERR_QUEUE_FULL;
+    }
     uint32_t buf_space = CIRC_BUF_SPACE(fw_membuf_info.host2bt_in_val, fw_membuf_info.host2bt_out_val);
     assert(length <= buf_space); // queue full?
     if (length > buf_space) {
@@ -256,7 +258,10 @@ static cybt_result_t cybt_hci_read(uint8_t *p_data, uint32_t *p_length) {
 
     uint32_t read_len = ROUNDUP(*p_length, 4);
 
-    cybt_get_bt_buf_index(&fw_membuf_info);
+    if (cybt_get_bt_buf_index(&fw_membuf_info) != CYBT_SUCCESS) {   // (an index outside the ring: nothing read)
+        *p_length = 0;
+        return CYBT_ERR_HCI_READ_FAILED;
+    }
     fw_b2h_buf_count = CIRC_BUF_CNT(fw_membuf_info.bt2host_in_val,
                                     fw_membuf_info.bt2host_out_val);
     cybt_debug("cybt_hci_read: bt2host_in_val=%lu bt2host_out_val=%lu fw_b2h_buf_count=%ld\n",

@@ -498,6 +498,7 @@ void cybt_debug_dump(void) {
 #endif
 }
 
+volatile uint32_t cybt_bad_index;              // (the indices refused below: for a debugger)
 cybt_result_t cybt_get_bt_buf_index(cybt_fw_membuf_index_t *p_buf_index) {
     uint32_t buf[4];
 
@@ -524,10 +525,14 @@ cybt_result_t cybt_get_bt_buf_index(cybt_fw_membuf_index_t *p_buf_index) {
     }
 #endif
 
-    assert(p_buf_index->host2bt_in_val < BTSDIO_FWBUF_SIZE);
-    assert(p_buf_index->host2bt_out_val < BTSDIO_FWBUF_SIZE);
-    assert(p_buf_index->bt2host_in_val < BTSDIO_FWBUF_SIZE);
-    assert(p_buf_index->bt2host_out_val < BTSDIO_FWBUF_SIZE);
+    // The Colour Maximite 2 (8.00.00b2, 17 Nov 2026): an index outside the ring, which pico-sdk only asserts (and a
+    // release build does not), is refused, so the read or write that asked for it does nothing: from one, cybt_hci_read
+    // made a length of almost 4 GB and wrote on through the D2 RAM until it ran off its end (a hard fault, on a G2)
+    if (p_buf_index->host2bt_in_val >= BTSDIO_FWBUF_SIZE || p_buf_index->host2bt_out_val >= BTSDIO_FWBUF_SIZE ||
+        p_buf_index->bt2host_in_val >= BTSDIO_FWBUF_SIZE || p_buf_index->bt2host_out_val >= BTSDIO_FWBUF_SIZE) {
+        cybt_bad_index++;
+        return CYBT_ERR_BADARG;
+    }
 
     return CYBT_SUCCESS;
 }

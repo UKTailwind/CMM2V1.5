@@ -4962,6 +4962,12 @@ static void MIPS16 ClearRuntimeAll(int keep) {
 	CloseAllFiles();  //also clears sprites and 3D objects
     OptionFileErrorAbort = true;
     ClearStack();
+    ClearExternalIO();                                              // this MUST come before the heap's wipe, as the
+                                                                    // PicoMite has it: what it frees (the GUI controls'
+                                                                    // captions, the COM ports' buffers...) is in the heap,
+                                                                    // and freed after the wipe each free walked on from a
+                                                                    // free page and freed Bluetooth's or the network's
+                                                                    // block above the heap (8.00.00b2, 17 Nov 2026)
     if(keep) {
         RamLibRelease();                                            // (a RAM library goes with the heap)
         ClearVars(1);                                               // CHAIN: the locals go, the globals stay where they are
@@ -4983,7 +4989,6 @@ static void MIPS16 ClearRuntimeAll(int keep) {
     SymBindGlobalsChanged();                                        // what an unsuffixed name may bind to (Symbols.h)
     ds18b20Timers = NULL;                                           // InitHeap() will recover the memory allocated to this array
     findlabel(NULL);                                                // clear the label cache
-    ClearExternalIO();                                              // this MUST come before InitHeap()
     CSubInterrupt = NULL; CSubComplete = 0;                         // INTERRUPT's SUB and the CSUBs' interrupt vectors go with
     CFuncInt1 = CFuncInt2 = CFuncInt3 = CFuncInt4 = CFuncmSec = 0;  // the program (a pin or the 1 ms tick called them after NEW)
     OptionErrorSkip = 0;

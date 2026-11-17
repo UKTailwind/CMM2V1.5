@@ -1,6 +1,7 @@
 ' gppins.bas - OPTION PICOMITE's GP pin names (External.c, GPPin). Run with OPTION PICOMITE HDMI set:
 '   python -I tools/goldens.py COM4 OUT --corpus tests/picomite --dir A:/p --nomodemap --pre "OPTION PICOMITE HDMI"
-' and OPTION PICOMITE NONE after. Each GP is the pin that has its function here (MM.INFO(PINNO)); MM.INFO(MAX GP);
+' and OPTION PICOMITE NONE after. Each GP is the pin that has its function here (MM.INFO(PINNO)), GP40-46 second names
+' for the analog pins (GP26-28, GP6-9: the RP2350B's ADC pins, 8.00.00b2); MM.INFO(MAX GP);
 ' GP names, unquoted and as strings, in SETPIN, PIN(), PIN() =, PORT, PULSE and MM.INFO(PIN); the GPs with no pin; the
 ' PicoMite's SETPINs for a port's pins and PWM, which are checked and change nothing; SETPIN pin, IR; FFIN. It drives
 ' only the pins that are free on Peter's board: 3, 5, 7, 19, 21 and 23 (GP16, GP17, GP6, GP19, GP20 and GP18).

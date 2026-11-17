@@ -1023,6 +1023,10 @@ int MemSize(void *addr){ //returns the amount of heap memory allocated to an add
 
 void FreeSDMemory(void *addr) {
     int bits;
+    if(!(SDBitsGet(addr) & PUSED)) return;                          // not in use: freed already (a stale pointer after
+                                                                    // a heap wipe). Walking on from it would free every
+                                                                    // page up to the next block's last, which could be a
+                                                                    // block kept above the heap (Bluetooth's, the network's)
     do {
         bits = SDBitsGet(addr);
         SDBitsSet(addr, 0);
@@ -1033,6 +1037,7 @@ void FreeSDMemory(void *addr) {
 
 void FreeOMemory(void *addr) {
     int bits;
+    if(!(MBitsGet(addr) & PUSED)) return;                           // not in use: freed already (as FreeSDMemory)
     if((unsigned char *)addr < RamLowFree) RamLowFree = (unsigned char *)addr;    // (a free page below the hint)
     do {
         bits = MBitsGet(addr);
