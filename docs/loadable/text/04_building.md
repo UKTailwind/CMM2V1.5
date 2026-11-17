@@ -91,8 +91,10 @@ The table of services only grows: each version of the firmware keeps the entries
 | 18 | A DMA2D copy without writing the source back from the cache first (dma2d_copy_nc). The ITCM from 0xA000 is kept for programs (--itcm), and the sound stream goes to the DACs by DMA. |
 | 19 | A file cut short (file_truncate, and the C library's ftruncate()). |
 | 20 | No new services: a USER module's table of the interpreter's routines (the start block's basic: see the chapter USER Modules). |
+| 21 | The clock's daily alarm (rtc_alarm), and the network: the Wi-Fi connection and eight TCP or UDP handles (net_poll to sock_close). |
+| 22 | The SD card's LED as the program's own (led), a GP's connector pin (gp_pin), and pin_setup's pull for an open drain output. |
 
-Firmware 7.00.00RC3 has version 15, 7.00.00RC4 version 16, 7.00.00RC5 version 18, 7.00.00RC6 version 19, and 8.00.00b1 version 20. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
+Firmware 7.00.00RC3 has version 15, 7.00.00RC4 version 16, 7.00.00RC5 version 18, 7.00.00RC6 version 19, 8.00.00b1 version 20, and 8.00.00b2 version 22. A program that uses a service added after version 1 should be built with --api set to the highest version it uses, so that older firmware refuses it with a clear error rather than calling an entry it does not have. A program that can do without a service can instead check the version itself and work with less:
 
 ```
 if(cmm2->version >= 4) cmm2->con_screen(0);

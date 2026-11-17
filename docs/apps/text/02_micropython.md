@@ -2,6 +2,8 @@
 
 MicroPython is the Python language for small computers. This is the MicroPython of the Pico Computer 3, so programs written for that run here too.
 
+The book *Programming the Pico Computer 3*, a course in Python from the first keystroke to games, graphics and real applications, works here as it is: every one of its example programs runs in this app. Its Appendix K, Running this book on a Colour Maximite 2, gives the few differences: how to start it, where the files are, and which connector pin is which. The book, its examples and their source are in the pico-computer-3 branch of github.com/UKTailwind/micropython (ports/rp2/boards/PICO_COMPUTER_3/book).
+
 ## Starting It
 
 micropython.app goes in the root of the card. At the MMBasic prompt:

@@ -212,6 +212,8 @@ A module has the services table too (cmm2, as a program has: the chapter The Ser
 | Drawing: gfx_cls to gfx_save, gfx_target, font_size | Yes: MMBasic's own routines, drawing where BASIC's drawing goes (its PAGE WRITE). gfx_font and gfx_colour set BASIC's own FONT and COLOUR, which stay set when the command returns. |
 | Memory and maths: mem_copy, mem_fill, mem_move, the libm table | Yes. |
 | I/O: pin_setup to com_connected | Yes, with one catch: a loadable program run later undoes them when it ends, as it undoes its own. RUN, which takes the module away, resets the pins too. |
+| The clock's alarm (rtc_alarm), led and gp_pin | Yes; a loadable program run later puts the LED out when it ends. |
+| The network: net_poll to sock_close | Not tried in a module. A loadable program run later closes the handles when it ends. |
 | alloc and release | No: a loadable program's end frees every block they gave. Use malloc() or B->temp(). |
 | font_define | No: a program's end puts the fonts back. |
 | The display: video_mode, video_scaled, video_palette, video_wait, frame_hook, dma2d_copy, dma2d_copy_nc, dma2d_busy | No: use BASIC's MODE, MAP and drawing. |

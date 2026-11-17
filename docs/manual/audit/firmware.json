@@ -1,5 +1,5 @@
 {
- "version": "8.00.00b1",
+ "version": "8.00.00b2",
  "keywords": [
   {
    "table": "command",
@@ -2438,7 +2438,7 @@
      "kw": "IR",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2850,
+     "line": 2855,
      "via": [
       "cmd_setpin"
      ]
@@ -2447,7 +2447,7 @@
      "kw": "PWM",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2855,
+     "line": 2860,
      "via": [
       "cmd_setpin"
      ]
@@ -2456,7 +2456,7 @@
      "kw": "PWM1A",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2858,
+     "line": 2863,
      "via": [
       "cmd_setpin"
      ]
@@ -2465,7 +2465,7 @@
      "kw": "PWM1B",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2858,
+     "line": 2863,
      "via": [
       "cmd_setpin"
      ]
@@ -2474,7 +2474,7 @@
      "kw": "PWM2A",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2858,
+     "line": 2863,
      "via": [
       "cmd_setpin"
      ]
@@ -2483,7 +2483,7 @@
      "kw": "PWM2B",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2858,
+     "line": 2863,
      "via": [
       "cmd_setpin"
      ]
@@ -2492,7 +2492,7 @@
      "kw": "FFIN",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2861,
+     "line": 2866,
      "via": [
       "cmd_setpin"
      ]
@@ -2501,7 +2501,7 @@
      "kw": "COM1",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2864,
+     "line": 2869,
      "via": [
       "cmd_setpin"
      ]
@@ -2510,7 +2510,7 @@
      "kw": "COM2",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2864,
+     "line": 2869,
      "via": [
       "cmd_setpin"
      ]
@@ -2519,7 +2519,7 @@
      "kw": "I2C",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2864,
+     "line": 2869,
      "via": [
       "cmd_setpin"
      ]
@@ -2528,7 +2528,7 @@
      "kw": "I2C2",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2864,
+     "line": 2869,
      "via": [
       "cmd_setpin"
      ]
@@ -2537,7 +2537,7 @@
      "kw": "SPI",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2864,
+     "line": 2869,
      "via": [
       "cmd_setpin"
      ]
@@ -2546,7 +2546,7 @@
      "kw": "SPI2",
      "func": "PicoSetpin",
      "file": "External.c",
-     "line": 2864,
+     "line": 2869,
      "via": [
       "cmd_setpin"
      ]
@@ -8571,7 +8571,7 @@
    "handler": "cmd_cc",
    "line": 584,
    "subkeywords": [],
-   "where": "Loader.c:1912"
+   "where": "Loader.c:1975"
   },
   {
    "table": "command",

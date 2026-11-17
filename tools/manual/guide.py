@@ -23,13 +23,13 @@ MANUAL = os.path.join(ROOT, 'docs', 'manual', 'Colour_Maximite_2_User_Manual.doc
 DIR = os.path.join(ROOT, 'docs', 'loadable')
 OUT = os.path.join(DIR, 'Colour_Maximite_2_Loadable_Programs.docx')
 NAME = 'Colour Maximite 2 Loadable Programs'
-FIRMWARE = '8.00.00b1'
-DATE = '16 November 2026'
+FIRMWARE = '8.00.00b2'
+DATE = '17 November 2026'
 
 TITLE = {                                               # the title page: its paragraphs by their start
     'User Manual': 'Loadable Programs',
     'MMBasic Ver': 'Programs in C and C++',
-    'Matches firmware': 'For firmware %s (services version 20)' % FIRMWARE,
+    'Matches firmware': 'For firmware %s (services version 22)' % FIRMWARE,
     'Geoff Graham': 'Peter Mather',
     'For updates to this manual': 'The firmware, this guide and the tools that build a program are at',
     'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
@@ -179,7 +179,7 @@ CC = {                                                  # guide.py cc: the C com
     'DIR': os.path.join(ROOT, 'docs', 'cc'),
     'OUT': os.path.join(ROOT, 'docs', 'cc', 'Colour_Maximite_2_C_Compiler.docx'),
     'NAME': 'Colour Maximite 2 C Compiler',
-    'DATE': '16 November 2026',
+    'DATE': '17 November 2026',
     'TITLE': {
         'User Manual': 'C Compiler',
         'MMBasic Ver': 'Compiling C and MMBasic programs on the Colour Maximite 2',
@@ -207,7 +207,7 @@ APPS = {                                                # guide.py apps: all the
     'DIR': os.path.join(ROOT, 'docs', 'apps'),
     'OUT': os.path.join(ROOT, 'docs', 'apps', 'Colour_Maximite_2_App_User_Guide.docx'),
     'NAME': 'Colour Maximite 2 App User Guide',
-    'DATE': '16 November 2026',
+    'DATE': '17 November 2026',
     'TITLE': {
         'User Manual': 'App User Guide',
         'MMBasic Ver': 'The programs that come with the Colour Maximite 2',

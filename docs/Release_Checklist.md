@@ -18,6 +18,8 @@ Peter's word.
 - [ ] Every worktree on the release branch is clean (`git worktree list`, then `git status` in each).
 - [ ] The boards are free: ask before driving a board Peter may be using. Today: G1 COM47 (115200, ST-Link
       37FF71064E5734367D2B1643), G2 COM10 (460800, 0667FF575255878281071917), G3 COM46.
+- [ ] Each board's console is plugged into the PC as well as its ST-Link: flashing erases the options, and only the
+      console can load them again (for 8.00.00b2 the G3 had its ST-Link, 37FF71064E5734367D2B1643, but no console).
 
 ## 2. The version
 
@@ -31,6 +33,9 @@ Peter's word.
 - [ ] The zip's name in the guides: docs/apps/text/01_introduction.md and 20_appendix_a_licences.md,
       docs/cc/text/01_introduction.md and 02_getting_started.md.
 - [ ] docs/loadable/text/04_building.md: the services version of this firmware in its list.
+- [ ] New services (Inc/cmm2img.h) in the Loadable Programs guide, in four places: 04_building.md's table of versions,
+      the chapter that describes them, Appendix A (20_appendix_a_services.md) and the USER modules' table
+      (14_user_modules.md). For 8.00.00b2 versions 21 and 22 were in the header only.
 - [ ] `git grep -n "<previous version>"` (for example 7.00.00RC6), and check each hit. Minimum versions ("needs
       firmware 7.00.00RC3 or later") stay.
 
@@ -48,7 +53,7 @@ What a user brings from the previous release must work, or be refused with a mes
 - [ ] **The update itself**, on a board, as a user does it (STM32CubeProgrammer without a full erase, so the library's
       sector 7 is kept): the previous release written fresh, a library (using EOF( LOF( INPUT$( ), a .lib file and
       the options saved under it, then the new firmware, OPTION DISK LOAD, and the library and .lib checked
-      (scratchpad upg/upgrade_test.py, 16 Nov).
+      (scratchpad upg/upgrade_test.py, 16 Nov; rel_b2/upgrade_b1b2.py from 8.00.00b1, 17 Nov).
 - [ ] **Going back:** say in the notes how (full chip erase, the old options file) when the new version cannot be
       undone by writing the old firmware alone.
 
@@ -109,7 +114,8 @@ screen). Check each title page's version and date, and the bookmarks.
       What behaves differently; (V8: Structural changes); The programs; Tested; Known problems; The manuals;
       Licences. Written for forum readers. Every claim checked against the code, the manual or a test.
 - [ ] The full notes: V7's docs/Release_Notes_7.00.00.md (from 5.07.02) is the `_full.md` asset. V8's start with
-      8.00.00b1, whose notes are themselves the full notes; from b2, docs/Release_Notes_8.00.00.md collects them.
+      8.00.00b1, whose notes are themselves the full notes; from b2, docs/Release_Notes_8.00.00.md collects them
+      (`python tools/v8notes.py`: add the new beta to its BETAS), published as Release_Notes_<version>_full.md.
 - [ ] The Back Shed copy: `python tools/md2bb.py docs/Release_Notes_<version>.md docs/Release_Notes_<version>.backshed.txt`.
 - [ ] The release's known problems: the previous release's, less those fixed, plus the new ones.
 

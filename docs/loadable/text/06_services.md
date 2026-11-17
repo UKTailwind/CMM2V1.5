@@ -45,9 +45,12 @@ con_screen(0) sends the console's output to the serial port only, so that a prog
 uint64_t micros(void);
 void     delay_us(uint32_t us);
 void     datetime(int t[6]);
+int      rtc_alarm(int op, int hour, int minute, int second);   /* version 21 */
 ```
 
 micros returns the microseconds since the Colour Maximite 2 started, from a hardware timer. delay_us waits that many microseconds, without looking after the USB devices. datetime fills t with MMBasic's date and time: year, month, day, hour, minute and second.
+
+rtc_alarm, from version 21 of the services, is the clock's daily alarm. op 1 sets it to go off every day at hour:minute:second (0 to 23, 0 to 59, 0 to 59) and clears its flag; op 2 asks whether it has gone off since the flag was cleared (1 or 0); op 3 clears the flag; op 0 turns the alarm off. With OPTION DS3231 ON it is the DS3231's alarm 1, otherwise the processor's own clock's. Nothing interrupts the program: it asks with op 2. It returns 0 (or op 2's answer), -1 if the DS3231 did not answer, or -3 for a wrong op or time. MMBasic's DATE$ and TIME$ set the clock (basic_cmd, below).
 
 ## Files
 
@@ -174,3 +177,32 @@ int basic_exec(char *tokens);
 basic_cmd runs one MMBasic statement, a command with its arguments as text, as the interpreter runs it: it returns 0, or -4 with the message in io_error(), or -3 if the line is too long. It cannot call a SUB. basic_eval works out an expression, for what only the firmware knows, such as MM.INFO(SOUND), and gives its value as text in out, which has to be 256 bytes.
 
 Tokenising a statement takes far longer than most statements take to run: 85 microseconds against 4 for PAGE WRITE. basic_prep does it once, with the character 1 in the line for each value to come, and basic_exec runs the tokens that it made, with the values written in as digits or a quoted string. A compiled MMBasic program uses these for the commands it hands to the firmware. Both use the interpreter, so a program should call them from its main code only.
+
+## The Network
+
+```
+int net_poll(void);                                       /* version 21 */
+int net_join(const char *ssid, const char *password);
+int net_leave(void);
+int net_ifconfig(uint8_t a[16]);
+int net_dns(const char *name, uint8_t ip[4]);
+int sock_open(int type);
+int sock_bind(int h, int port);
+int sock_connect(int h, const uint8_t ip[4], int port);
+int sock_listen(int h, int backlog);
+int sock_accept(int h, uint8_t ip[4], int *port);
+int sock_send(int h, const uint8_t *buf, int n, const uint8_t *ip, int port);
+int sock_recv(int h, uint8_t *buf, int n, uint8_t *ip, int *port);
+int sock_state(int h);
+int sock_close(int h);
+```
+
+From version 21 of the services a program can use the firmware's network: the Wi-Fi module and its connection, which OPTION WIFI makes at power up (see the user manual's chapter WiFi and Internet Functions). While a program runs the firmware does not look after the network: net_poll does, and a program that uses the network calls it every few milliseconds, as it calls poll. net_poll returns 0 if there is no Wi-Fi (no module, or no OPTION WIFI), 1 if no network is joined, and 2 if one is, with an address.
+
+net_join joins a network (password "" or NULL for an open one) and waits up to 30 seconds for an address: it returns 0, -13 for a wrong password, -110 if it timed out, or -113 if it did not join. net_leave leaves the network. Neither changes the options, so at the next power up the firmware joins the network that OPTION WIFI names. net_ifconfig gives the address, the mask, the gateway and the DNS server, four bytes each. net_dns finds a name's address, or reads a dotted one: it returns 0 with the address in ip, 1 when it has asked the DNS server (call net_poll, then ask again with the same name), or -2 if the name was not found.
+
+The sock_ services are eight handles, 0 to 7, much as the sockets of a PC's C library. sock_open makes one for TCP (type 1) or UDP (2), or returns -24 when all eight are in use. sock_bind gives it a local port. For TCP, sock_connect starts a connection and sock_state says when it is made, or its error; for UDP it sets the peer that sock_send sends to when it is given no address. sock_listen listens on the bound port, and sock_accept returns the handle of a connection made to it, with the peer's address and port, or -11 if there is none yet.
+
+sock_send returns the number of bytes TCP took, 0 if there is no room now; for UDP it sends one datagram to ip and port, or to the peer if ip is NULL. sock_recv returns up to n bytes of TCP, 0 once the peer has closed and everything has been taken; for UDP it takes one datagram, cut to n bytes, and gives its sender in ip and port if they are not NULL. Either returns -11 if there is nothing yet. sock_state returns bits: 1 connected, 2 data waiting (or, when listening, a connection), 4 room to send and 8 the peer has closed; or the handle's error. Apart from net_join none of them waits: a program calls net_poll and tries again.
+
+The errors are negative errno numbers, Linux's (as MicroPython's): -11 (EAGAIN) nothing yet, -19 (ENODEV) no Wi-Fi, -107 (ENOTCONN) not connected, -111 (ECONNREFUSED) refused, and others. A program's handles are closed when it ends. MicroPython's socket, network and tls modules are made from these services (see the App User Guide).

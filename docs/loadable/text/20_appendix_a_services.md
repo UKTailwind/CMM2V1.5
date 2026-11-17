@@ -62,5 +62,14 @@ The services in the order of the table (struct cmm2_services, in Inc/cmm2img.h),
 | 13 | `int gamepad(n, *lx, *ly)` | 15 | `int com_connected(int com)` |
 | 16 | `int gamepad_axes(n, int v[6])` | | |
 | 18 | `int dma2d_copy_nc(src, sp, dst, dp, w, h)` | 19 | `int file_truncate(int h)` |
+| 21 | `int rtc_alarm(op, hour, minute, second)` | 21 | `int net_poll(void)` |
+| 21 | `int net_join(ssid, password)` | 21 | `int net_leave(void)` |
+| 21 | `int net_ifconfig(uint8_t a[16])` | 21 | `int net_dns(name, uint8_t ip[4])` |
+| 21 | `int sock_open(int type)` | 21 | `int sock_bind(int h, int port)` |
+| 21 | `int sock_connect(h, ip, port)` | 21 | `int sock_listen(h, backlog)` |
+| 21 | `int sock_accept(h, ip, *port)` | 21 | `int sock_send(h, buf, n, ip, port)` |
+| 21 | `int sock_recv(h, buf, n, ip, *port)` | 21 | `int sock_state(int h)` |
+| 21 | `int sock_close(int h)` | 22 | `int led(int v)` |
+| 22 | `int gp_pin(int gp)` | | |
 
-The console, the clock, files, directories, the system and the FM synthesiser are in the chapter The Services; the screen and drawing in The Screen; the keys and mouse in The Keyboard and Mouse; audio and music in Sound and Music; and the I/O services in The I/O Pins. Inc/cmm2img.h has the full declarations, with a comment on each.
+The console, the clock, files, directories, the system, the FM synthesiser, MMBasic's statements and the network are in the chapter The Services; the screen and drawing in The Screen; the keys and mouse in The Keyboard and Mouse; audio and music in Sound and Music; and the I/O services and the LED in The I/O Pins. Inc/cmm2img.h has the full declarations, with a comment on each.
