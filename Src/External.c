@@ -2620,13 +2620,18 @@ int IsInvalidPin(int pin) {
    one does, so that a PicoMite program's wiring carries over: COM1 on GP0 and GP1, PWM 1A, 1B, 2A and 2B on GP2-5, the
    counting inputs on GP6-9 (the PicoMite's INT1-4 pins), SPI2 on GP10-12, the fast counting pin on GP13, I2C2 on GP14
    and GP15, I2C on GP16 and GP17, SPI on GP18-20, the analog inputs on GP26-28, and COM2 on GP36 and GP37 (the
-   RP2350B's UART1 pins: the connector has two pins more than a Pico has GPs). 0: no pin here. */
+   RP2350B's UART1 pins: the connector has two pins more than a Pico has GPs). 0: no pin here.
+   GP40-46 are the RP2350B's analogue inputs (the Pico Computer 3's ADC pins, and an RP2350B PicoMite's): every I/O pin
+   of the connector has a GP number already, so they are second names for its analogue pins, the ones a program using
+   them is least likely to want as well (Peter, 17 Nov 2026, docs/MicroPython_Book_Gaps.md): GP40-42 the pins of
+   GP26-28 (the RP2040's ADC0-2, so ADC channel n is GP40+n on both), GP43-46 those of GP6-9. A pin's own name (its
+   lowest GP) is the one PinGP gives. */
 static const unsigned char GPPin[48] = {
      8, 10, 12, 22, 36, 31,  7, 13, 15, 24,                        // GP0-9
     40, 38, 35, 18, 27, 28,  3,  5, 23, 19,                        // GP10-19
     21, 33, 32,  0,  0,  0, 26, 29, 37,  0,                        // GP20-29
      0,  0,  0,  0,  0,  0, 16, 11,  0,  0,                        // GP30-39
-     0,  0,  0,  0,  0,  0,  0,  0};                               // GP40-47
+    26, 29, 37,  7, 13, 15, 24,  0};                               // GP40-47 (GP40-46: second names, above)
 #define NBRGP (int)sizeof(GPPin)
 
 // the GP number of a PicoMite pin name, GPn (any case), at 's', -1 if it is not one; 'end': what may follow it
@@ -2671,7 +2676,7 @@ int GPPinOf(int gp) {
    writes are atomic, so an interrupt that changes other pins of the same port is safe. (Peter, 25 Oct 2026.) */
 #define GPPORTS 11                                                  // GPIOA to GPIOK at most
 static GPIO_TypeDef *GPPortReg[GPPORTS];                            // the ports that have GPs
-static uint8_t GPPortN[GPPORTS], GPPortGP[GPPORTS][16];             // and each one's GPs
+static uint8_t GPPortN[GPPORTS], GPPortGP[GPPORTS][24];             // and each one's GPs (second names too: GP40-46)
 static uint8_t GPPortOf[NBRGP];                                     // a GP's port (an index into GPPortReg)
 static uint16_t GPBit[NBRGP];                                       // and its bit there (PinDef's bitnbr), 0: no pin
 static int8_t PinGPOf[NBRPINS + 1];                                 // a pin's GP, -1: none
@@ -2688,7 +2693,7 @@ static void GPMaskInit(void) {
         GPPortOf[gp] = i;
         GPBit[gp] = PinDef[pin].bitnbr;
         GPPortGP[i][GPPortN[i]++] = gp;
-        PinGPOf[pin] = gp;
+        if(PinGPOf[pin] < 0) PinGPOf[pin] = gp;                     // (its own name, not a second one: GP26, not GP40)
     }
 }
 

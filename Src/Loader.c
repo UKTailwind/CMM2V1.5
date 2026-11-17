@@ -40,6 +40,7 @@ The loader is in bank 2 (the linker script's .bank2): it runs in the foreground 
 #include "Loader.h"
 #include "PicoMode.h"
 #include "USBGamepad.h"
+#include "LoaderNet.h"
 
 extern TIM_HandleTypeDef htim16;
 extern volatile uint64_t uSecTimer;
@@ -240,6 +241,46 @@ static int32_t ld_size(int h) { FIL *f = ld_fil(h); return f ? (int32_t)f_size(f
 static int ld_sync(int h) { FIL *f = ld_fil(h); return f ? ld_fail(f_sync(f)) : -FR_INVALID_OBJECT; }
 // version 19: the file ends at its position. A map of its clusters stays right for what is left of it
 static int ld_truncate(int h) { FIL *f = ld_fil(h); return f ? ld_fail(f_truncate(f)) : -FR_INVALID_OBJECT; }
+/* the clock's daily alarm (version 21), for MicroPython's ds3231 module: the DS3231's alarm 1 (OPTION DS3231 ON), as
+   a PC3's ds3231.py sets it, else the H743 RTC's alarm A (MMBasic uses neither). Polled through its flag. */
+extern RTC_HandleTypeDef hrtc;
+static uint8_t ld_bcd(int d) { return (uint8_t)(((d / 10) << 4) | (d % 10)); }
+static int ld_rtcalarm(int op, int h, int m, int s) {
+    if(op < 0 || op > 3 || (op == 1 && (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59))) return -3;
+    if(Option.RTCinstalled) {
+        uint8_t c[4];
+        if(op == 1) {
+            c[0] = ld_bcd(s); c[1] = ld_bcd(m); c[2] = ld_bcd(h); c[3] = 0x80;   // A1M4: any day
+            if(DS3231_WR_Reg(0x07, c, 4)) return -1;
+        }
+        DS3231_RD_Reg(0x0F, c, 1);                                  // status: A1F is bit 0
+        if(op == 2) return c[0] & 1;
+        if(c[0] & 1) {
+            c[0] &= ~1;
+            if(DS3231_WR_Reg(0x0F, c, 1)) return -1;
+        }
+        if(op == 3) return 0;
+        DS3231_RD_Reg(0x0E, c, 1);                                  // control: INTCN (bit 2) and A1IE (bit 0)
+        c[0] = op == 1 ? (c[0] | 0x05) : (c[0] & ~1);
+        return DS3231_WR_Reg(0x0E, c, 1) ? -1 : 0;
+    }
+    if(op == 2) return __HAL_RTC_ALARM_GET_FLAG(&hrtc, RTC_FLAG_ALRAF) ? 1 : 0;
+    __HAL_RTC_ALARM_CLEAR_FLAG(&hrtc, RTC_FLAG_ALRAF);
+    if(op == 3) return 0;
+    if(op == 0) {
+        HAL_RTC_DeactivateAlarm(&hrtc, RTC_ALARM_A);
+        return 0;
+    }
+    RTC_AlarmTypeDef a;
+    memset(&a, 0, sizeof(a));
+    a.AlarmTime.Hours = h; a.AlarmTime.Minutes = m; a.AlarmTime.Seconds = s;
+    a.AlarmMask = RTC_ALARMMASK_DATEWEEKDAY;                        // every day
+    a.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
+    a.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
+    a.AlarmDateWeekDay = 1;
+    a.Alarm = RTC_ALARM_A;
+    return HAL_RTC_SetAlarm(&hrtc, &a, RTC_FORMAT_BIN) == HAL_OK ? 0 : -1;
+}
 static int ld_remove(const char *name) { char p[FF_MAX_LFN + 4]; ld_path(name, p); return ld_fail(f_unlink(p)); }
 static int ld_rename(const char *from, const char *to) {
     char a[FF_MAX_LFN + 4], b[FF_MAX_LFN + 4];
@@ -722,8 +763,23 @@ static int ld_pinsetup(int gp, int mode, int pull) {
     if(r == 0) {
         if(mode == CMM2_PIN_OFF) ldpins &= ~(1ULL << gp);
         else ldpins |= 1ULL << gp;
+        if(mode == CMM2_PIN_OD && pull != CMM2_PULL_NONE) {        // (version 22: an open-drain line's pull, which SETPIN
+            GPIO_TypeDef *g = PinDef[pin].sfr;                      // has not: a software I2C's lines, as the PC3's bus has
+            int b = __builtin_ctz(PinDef[pin].bitnbr);              // its pull-ups)
+            g->PUPDR = (g->PUPDR & ~(3u << (b * 2))) | ((pull == CMM2_PULL_UP ? 1u : 2u) << (b * 2));
+        }
     }
     return r;
+}
+
+// version 22: the SD card's activity LED as the program's LED (card access also lights it, and puts it out after), and
+// a GP's pin (GP40-46 are second names for pins: External.c)
+static int ld_led(int v) {
+    if(v >= 0) SD_LED_GPIO_Port->BSRR = v ? SD_LED_Pin : (uint32_t)SD_LED_Pin << 16;
+    return (SD_LED_GPIO_Port->ODR & SD_LED_Pin) != 0;
+}
+static int ld_gppin(int gp) {
+    return GPPinNone(gp);
 }
 static int ld_pinread(int gp) {
     int pin = GPPinNone(gp);
@@ -912,6 +968,8 @@ static void ld_iotidy(void) {
             }
         }
     ldpins = 0;
+    LoaderNetClose();                                               // its sockets (version 21: Src/net/LoaderNet.c)
+    SD_LED_GPIO_Port->BSRR = (uint32_t)SD_LED_Pin << 16;            // its LED out (version 22: ld_led)
 }
 
 /*******************************************************************************************
@@ -1301,7 +1359,12 @@ static const struct cmm2_services ldsvc = {
     .basic_cmd = ld_basic, .gfx_target = ld_gtarget, .font_size = ld_fontsize, .font_define = ld_fontdef,
     .basic_eval = ld_eval, .sound_state = ld_soundstate, .basic_prep = ld_prep, .basic_exec = ld_exec,
     .image_resize = ld_resize, .gamepad = USBGamepadState, .com_connected = ld_comconnected, .gamepad_axes = USBGamepadAxes,
-    .dma2d_copy_nc = ld_dma2dcopync, .file_truncate = ld_truncate,
+    .dma2d_copy_nc = ld_dma2dcopync, .file_truncate = ld_truncate, .rtc_alarm = ld_rtcalarm,
+    .net_poll = LoaderNetPoll, .net_join = LoaderNetJoin, .net_leave = LoaderNetLeave, .net_ifconfig = LoaderNetIfconfig,
+    .net_dns = LoaderNetDns, .sock_open = LoaderSockOpen, .sock_bind = LoaderSockBind,
+    .sock_connect = LoaderSockConnect, .sock_listen = LoaderSockListen, .sock_accept = LoaderSockAccept,
+    .sock_send = LoaderSockSend, .sock_recv = LoaderSockRecv, .sock_state = LoaderSockState,
+    .sock_close = LoaderSockClose, .led = ld_led, .gp_pin = ld_gppin,
 };
 
 /*******************************************************************************************

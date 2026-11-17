@@ -148,7 +148,11 @@ PicoMite programs refer to the I/O pins by their GP numbers (GP0 to GP28, and up
 | GP12 | 35 | SPI2 MISO | GP36 | 16 | COM2: TX |
 | GP13 | 18 | FAST COUNT | GP37 | 11 | COM2: RX |
 
-COM2 is on GP36 and GP37, which are COM2 pins on a PicoMite with an RP2350B too, so that all 28 pins of the connector have a GP name. The other GPs (GP23 to GP25, GP29 to GP35 and GP38 to GP47) have no pin on the Colour Maximite 2 and give an error.
+COM2 is on GP36 and GP37, which are COM2 pins on a PicoMite with an RP2350B too, so that all 28 pins of the connector have a GP name.
+
+GP40 to GP46 are the analog inputs of an RP2350B (and of the Pico Computer 3). As every pin of the connector already has a GP name, they are second names for its analog inputs: GP40, GP41 and GP42 are pins 26, 29 and 37 (GP26 to GP28, the analog inputs of an RP2040, so that ADC channel n is GP40+n on both chips), and GP43 to GP46 are pins 7, 13, 15 and 24 (GP6 to GP9). A program that uses a second name must not use the pin's first name as well, as they are the same pin. MM.INFO(PINNO GP40) is 26.
+
+The other GPs (GP23 to GP25, GP29 to GP35, GP38, GP39 and GP47) have no pin on the Colour Maximite 2 and give an error.
 
 - A GP name can be used wherever a pin number can (SETPIN, PIN(), PIN() =, PORT, PULSE, PULSIN(), DISTANCE(), IR SEND, HUMID, WS2812, BITBANG, DEVICE, ONEWIRE, TEMPR START, TEMPR() and MM.INFO$(PIN)). As on the PicoMite it can be written as it is (SETPIN GP2, DOUT) or as a string (PIN("GP2"), or SETPIN "GP" + STR$(n), DIN).
 - A pin number is still the Colour Maximite 2's (SETPIN 1 on a PicoMite is GP0; here pin 1 is 3.3V).

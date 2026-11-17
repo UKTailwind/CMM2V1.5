@@ -33,7 +33,7 @@
 
 #define CMM2IMG_MAGIC        "CMM2IMG"         /* the header's first 8 bytes, its NUL included */
 #define CMM2IMG_HDR_VERSION  1
-#define CMM2IMG_API_VERSION  20                /* the services below (2: the screen and the keys held; 3: sound;
+#define CMM2IMG_API_VERSION  22                /* the services below (2: the screen and the keys held; 3: sound;
                                                   4: the mouse; 5: Ctrl-C taken, a file's details; 6: a display in
                                                   the program's memory, the DMA2D; 7: I/O; 8: the start block's
                                                   heap2, a G1's display memory lent; 9: the keyboard's own codes;
@@ -43,7 +43,9 @@
                                                   15: com_connected; 16: a gamepad's right stick and analogue
                                                   triggers, gamepad_axes; 17: video_mode and video_scaled take depth
                                                   12; 18: dma2d_copy_nc; 19: file_truncate; 20: the start
-                                                  block's basic, a USER module's interpreter table (cmm2user.h)) */
+                                                  block's basic, a USER module's interpreter table (cmm2user.h);
+                                                  21: rtc_alarm, the clock's daily alarm, and the network; 22: led,
+                                                  gp_pin, and pin_setup's pull for an open-drain output) */
 #define CMM2IMG_KIND_APP     1                 /* an application: it runs, then MMBasic goes on */
 #define CMM2IMG_KIND_MODULE  2                 /* a module (7.00.00RC6, docs/SQL_Plan.md): loaded into MMBasic's heap beside the
                                                   BASIC program and kept there, its functions called by the firmware
@@ -267,7 +269,8 @@ struct cmm2_services {
        value) or a negative error: -1 no such GP or bus, -2 its pins are in use (a COM port, SPI...), -3 not possible
        (that mode on that pin, a bus not open...), -4 the firmware's error, whose message io_error() gives. What a
        program sets up is put back when it ends: pins unconfigured, buses and ports closed, PWM stopped. */
-    int      (*pin_setup)(int gp, int mode, int pull);   /* CMM2_PIN_*, CMM2_PULL_* (for an input) */
+    int      (*pin_setup)(int gp, int mode, int pull);   /* CMM2_PIN_*, CMM2_PULL_* (for an input; from version 22
+                                                  for an open-drain output too, as a software I2C's lines want) */
     int      (*pin_read)(int gp);              /* 0 or 1 (an output's level too) */
     void     (*pin_write)(int gp, int v);      /* an output's level (nothing if it is not one) */
     int      (*adc_read)(int gp, uint32_t *uv);   /* an analog input (CMM2_PIN_ANALOG): 0-65535, and its microvolts
@@ -383,6 +386,51 @@ struct cmm2_services {
        longer is rolled back) */
     int      (*file_truncate)(int h);          /* the file ends at its position (FatFs's f_truncate): 0, or an error
                                                   (-7, FR_DENIED, if it was not opened for writing) */
+    /* version 21 (V8; 17 Nov 2026, docs/MicroPython_Book_Gaps.md M2): the clock's daily alarm, for MicroPython's ds3231
+       module (a PC3's DS3231 alarm): the DS3231's alarm 1 with OPTION DS3231 ON, else the H743's own RTC's alarm A.
+       Polled: neither raises an interrupt (the DS3231's INT line is not on the connector). DATE$ and TIME$ set the
+       time. */
+    int      (*rtc_alarm)(int op, int hour, int minute, int second);   /* op 0: the alarm off; 1: on, every day at
+                                                  hour:minute:second (0-23, 0-59, 0-59), its flag cleared; 2: has it
+                                                  gone off since the flag was cleared (1 or 0); 3: the flag cleared.
+                                                  0 (or op 2's answer), -1 the DS3231 did not answer, -3 a bad op or
+                                                  time */
+    /* version 21 too (docs/MicroPython_Book_Gaps.md M7): the network, for MicroPython's network and socket modules:
+       the firmware's Wi-Fi and lwIP (V8 with the Wi-Fi module and OPTION WIFI, which starts it at power-up), as eight
+       BSD-style handles over TCP and UDP (Src/net/LoaderNet.c). While a program runs the firmware does not pump the
+       network: net_poll does, and must be called every few ms while it is in use. Errors are negative errno values
+       (Linux's numbers, as MicroPython's): -11 EAGAIN nothing yet, -19 ENODEV no Wi-Fi, -107 ENOTCONN, -111
+       ECONNREFUSED... A program's handles are closed when it ends; its joins and leaves do not change the options. */
+    int      (*net_poll)(void);                /* the network pumped: 0 no Wi-Fi here (no module or OPTION WIFI), 1 not
+                                                  joined, 2 joined (with an address) */
+    int      (*net_join)(const char *ssid, const char *password);   /* that network joined (password "" or NULL: an open
+                                                  one), waiting up to 30 s for an address: 0, -13 a wrong password,
+                                                  -110 timed out, -113 not joined */
+    int      (*net_leave)(void);               /* the network left */
+    int      (*net_ifconfig)(uint8_t a[16]);   /* address, mask, gateway and DNS server, 4 bytes each */
+    int      (*net_dns)(const char *name, uint8_t ip[4]);   /* a name's address (or a dotted address's): 0 in ip; 1
+                                                  asked: net_poll, then ask again with the same name; -2 not found */
+    int      (*sock_open)(int type);           /* 1 TCP, 2 UDP: a handle 0-7, or -24 none free */
+    int      (*sock_bind)(int h, int port);    /* the local port (any address) */
+    int      (*sock_connect)(int h, const uint8_t ip[4], int port);   /* TCP: started, sock_state says when it is made
+                                                  (or its error); UDP: the peer for sock_send without an address */
+    int      (*sock_listen)(int h, int backlog);   /* TCP: listening on its bound port */
+    int      (*sock_accept)(int h, uint8_t ip[4], int *port);   /* a connection to a listening handle: its own handle
+                                                  and the peer's address, or -11 none yet */
+    int      (*sock_send)(int h, const uint8_t *buf, int n, const uint8_t *ip, int port);   /* TCP: the bytes taken (0:
+                                                  no room now; ip unused); UDP: one datagram to ip:port, or the
+                                                  connected peer if ip is NULL */
+    int      (*sock_recv)(int h, uint8_t *buf, int n, uint8_t *ip, int *port);   /* TCP: up to n bytes, 0 once the
+                                                  peer has closed and all is taken; UDP: one datagram (cut to n) and,
+                                                  if ip and port are not NULL, its sender; -11 nothing yet */
+    int      (*sock_state)(int h);             /* bits: 1 connected, 2 data (or, listening, a connection) waiting, 4
+                                                  room to send, 8 the peer closed; or its error */
+    int      (*sock_close)(int h);
+    /* version 22 (17 Nov 2026, the PC3 book's pin examples): the SD card's activity LED, which is on the front, as a
+       program's LED (MicroPython's Pin("LED"); card access lights it too, and puts it out after); and a GP's pin, for a
+       program that keeps account of pins by their GP numbers when some pins have two (GP40-46: External.c) */
+    int      (*led)(int v);                    /* 1 on, 0 off, -1 left: its state (1 or 0) */
+    int      (*gp_pin)(int gp);                /* the connector pin of GPn, 0 if it has none */
 };
 
 /* the start of a module's table of functions (CMM2IMG_KIND_MODULE): what the loader itself calls */
