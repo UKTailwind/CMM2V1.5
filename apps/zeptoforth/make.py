@@ -20,8 +20,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 SRC = os.path.join(HERE, 'zeptoforth')
 URL = 'https://github.com/tabemann/zeptoforth.git'
-COMMIT = '0aca1381f91f54e7a6a4d775d693c608560ac68e'   # v1.17.2, 9 Nov 2026
-VERSION = '1.17.2'
+COMMIT = 'c14ae4a003740161669765405d06a5c128f6948e'   # v1.17.2.1, 16 Nov 2026 (0x in the kernel's PARSE-BASE)
+VERSION = '1.17.2.1'
 
 
 def patch():
@@ -81,6 +81,7 @@ def package():
         if not os.path.exists(os.path.join(HERE, f)):
             sys.exit('%s is not there' % f)
         shutil.copy(os.path.join(HERE, f), folder)
+    shutil.copy(os.path.join(SRC, 'extra', 'common', 'bezier.fs'), folder)    # (zeptoforth's Bezier curves, from 1.17.2.1: WORDS.md, Drawing)
     shutil.copy(os.path.join(SRC, 'LICENSE'), os.path.join(licences, 'zeptoforth-LICENSE.txt'))
     print('out/package:', ' '.join(sorted(os.listdir(folder))))
 
