@@ -60,6 +60,12 @@ The SD card is at / and also at /sd. A USB flash drive is at /usb when one is pl
 
 - The Pico Computer 3's modules for the display, the keyboard, the mouse, sound and pictures.
 - SQLite, the database, and ulab, for arrays and fast numerical work.
-- The machine module, for the rear I/O pins, by the PicoMite's GP numbers.
+- The machine module, for the rear I/O pins, by the PicoMite's GP numbers. As on the Pico Computer 3, `ADC(n)` and
+  GP40 to GP46 are the analog inputs (second names for the analog pins: GP40 is pin 26, the same pin as GP26), and
+  `Pin("LED")` is the SD card's activity light on the front. `I2C(0, sda=Pin(20), scl=Pin(21))` is a software I2C on
+  those pins, or, where pin 33 (GP21) is the Wi-Fi module's, the I2C on pins 3 and 5.
+- The clock (`gettime()`, `settime()`, `machine.RTC`, a daily alarm), the watchdog (`machine.WDT`), `asyncio`, and
+  `@micropython.native` and `viper`.
+- With the Wi-Fi module and OPTION WIFI: `wifi()`, `ntpsync()`, sockets, `requests` (HTTPS too), MQTT and `mip`.
 
 Python runs about twice as fast here as it does on the RP2350.
