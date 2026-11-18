@@ -103,7 +103,7 @@ def main():
     vt = vt100()
     r = build(vt, 'zeptoforth.app', ['--g2', '--heap', str(0x680000)])
     if r == 0:                                  # (a G1: linked in its heap, and moved there by zf_g1.c)
-        r = build(vt, 'zeptoforth_g1.app', ['--base', '0xD0400000', '--fixed', '--heap', str(0x100000), '--cflag=-DZF_G1',
+        r = build(vt, 'zeptoforth_g1.app', ['--base', '0xD0390000', '--fixed', '--heap', str(0x100000), '--cflag=-DZF_G1',
                                             '--cflag=-Wa,--defsym,ZF_G1=1', '--ldflag=-Wl,-e,zf_g1_start'], [os.path.join(HERE, 'zf_g1.c')])
     sys.exit(r)
 

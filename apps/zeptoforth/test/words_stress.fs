@@ -68,7 +68,9 @@ create r2 512 allot
   errs @ 0 s" no stack or file disturbed" eq
   bad-answers @ 0 s" no answer disturbed" eq
   n1 @ 1000 > s" the datetime task ran" check
-  n2 @ 100 > s" the stat task ran" check
+  \ (5, as the file tasks: each round is a file-stat and a cwd$ on the card, 3.4 ms each on a fast card but 17.7 ms on
+  \ an old 4 GB one, where it made 16 rounds: the check is that it ran, not how fast the card is. 18 Nov 2026)
+  n2 @ 5 > s" the stat task ran" check
   n3 @ 5 > s" one file task ran" check
   n4 @ 5 > s" the other file task ran" check
   draws 1000 > s" the main task ran" check

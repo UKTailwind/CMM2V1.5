@@ -28,11 +28,13 @@
 	.equ cortex_m7, 1
         .equ cortex_m33, 0
 	.ifdef ZF_G1
-	.equ ram_start, 0xD0610000
-	.equ ram_end, 0xD0710000
-	.equ flash_start, 0xD0400000
-	.equ flash_dict_start, 0xD0550000
-	.equ flash_dict_end, 0xD0610000
+	@ (V8, 18 Nov 2026: a G1's loader gives a program D0340000-D06F0000 from a fresh prompt, so the 3.1 MB block moved
+	@ down from D0400000-D0710000, which ran past that top, to the middle of it; make.py's --base with it)
+	.equ ram_start, 0xD05A0000
+	.equ ram_end, 0xD06A0000
+	.equ flash_start, 0xD0390000
+	.equ flash_dict_start, 0xD04E0000
+	.equ flash_dict_end, 0xD05A0000
 	.else
 	.equ ram_start, 0xD1C00000
 	.equ ram_end, 0xD1F00000
