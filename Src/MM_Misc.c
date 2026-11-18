@@ -1320,8 +1320,11 @@ void fun_LGetStr(void){
         s+=(start-1);
         p=(char *)sret+1;
         *sret=nbr;
-        while(nbr--)*p++=*s++;
-        *p=0;
+        while(nbr--)*p++=*s++;                                          // (no C terminator: with 255 characters it was the
+                                                                        // 257th byte of this 256-byte block, a zero in the
+                                                                        // next heap page: the first byte of an SQL database's
+                                                                        // FatFs record, so COMMIT failed "disk I/O error",
+                                                                        // Matthias, 18 Nov 2026. The PicoMite's has it too)
         targ = T_STR;
 }
 
@@ -1924,8 +1927,7 @@ void fun_LGetStr(void){
         s+=(start-1);
         p=sret+1;
         *sret=nbr;
-        while(nbr--)*p++=*s++;
-        *p=0;
+        while(nbr--)*p++=*s++;                                          // (no C terminator: see the fun_LGetStr above)
         targ = T_STR;
 }
 
