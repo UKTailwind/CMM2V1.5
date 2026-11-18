@@ -76,7 +76,13 @@ On the release's firmware, or on one whose later commits change only documents (
 - [ ] What is new in this release, on each generation it runs on. For 8.00.00b1: WiFi (tests/wifi and the pc*.py
       scripts), the G3's HDMI and its sound, USER modules (tests/user), SQL (the zip's sql folder: computers.bas, a
       LONGSTRING).
-- [ ] Each program in the zip starts on each generation it supports (one start each).
+- [ ] Each program in the zip starts on each generation it supports (one start each), on that board with the release's
+      firmware, from a fresh prompt. Not done for 8.00.00b1 and b2 (no G1 connected), so zeptoforth_g1.app went out
+      unable to start under version 8. If a generation is not connected, the notes say which programs were not started
+      on it.
+- [ ] Each program changed since the last release (section 7) passes its own tests on each generation it runs on,
+      run as its README says (apps/zeptoforth/test from A:/zeptoforth with zt/a.bin; MicroPython's book run; the
+      sql folder's tests), each result in the notes' Tested.
 
 ## 6. The PDFs
 
@@ -99,6 +105,16 @@ screen). Check each title page's version and date, and the bookmarks.
 
 - [ ] Start from the previous release's zip **as published**: download it from GitHub and check its sha256. Never
       rebuild it from a local folder (Peter's own games are in some of them).
+- [ ] Which programs changed: `python tools/zip_apps_check.py <the previous zip> --since <the previous tag>`. A
+      program whose source (apps/<name>) has no commit since that release is UNCHANGED and carries over; every other
+      one must be OK (the zip holds its newest build, made after its last commit) or REVIEWed: rebuild it, test it
+      (section 5), replace it. EXTERNAL programs are checked by hand in their own repository: micropython.app
+      (WSL ~/src/micropython, branch cmm2) and cc.app's compiler (FUZIX, branch cmm2): their commits since the last
+      release. Run it again on the new zip at the end: 0 to review.
+- [ ] Saved images hold their program's addresses and are made on a board, not built: when a program or its link
+      address changes, make them again on a board of each kind it runs on (zeptoforth.img on a G2 or G3,
+      zeptoforth_g1.img on a G1: setup.fs typed in, then save-image; apps/zeptoforth/make.py) and say in the notes that
+      a user's own saved image must be made again.
 - [ ] Replace or add only the programs that changed. Python's zipfile: `copy.copy` each ZipInfo, or `writestr` breaks
       the source zip.
 - [ ] README.txt (CRLF) for this version: its name, what changed, and each program's licence.
@@ -118,6 +134,9 @@ screen). Check each title page's version and date, and the bookmarks.
       (`python tools/v8notes.py`: add the new beta to its BETAS), published as Release_Notes_<version>_full.md.
 - [ ] The Back Shed copy: `python tools/md2bb.py docs/Release_Notes_<version>.md docs/Release_Notes_<version>.backshed.txt`.
 - [ ] The release's known problems: the previous release's, less those fixed, plus the new ones.
+- [ ] Every program fix since the last release is in the notes: the commits that `tools/zip_apps_check.py --since`
+      lists for apps/ and tools/sdk, and the EXTERNAL programs' commits, each in What is new, Fixes or The programs, or
+      not visible to a user. (8.00.00b2 first went out without zeptoforth 1.17.2.1's fixes, made after 8.00.00b1.)
 
 ## 9. Licences
 
@@ -156,6 +175,9 @@ screen). Check each title page's version and date, and the bookmarks.
 - [ ] Download every asset back from the draft and compare its sha256 with the local file.
 - [ ] Publish at Peter's word: `gh release edit v<version> --draft=false` (the tag is made then, at the target).
 - [ ] After publishing, check the release page: pre-release or not, Latest or not, the assets, the body.
+- [ ] An asset replaced after publishing (as the zip and notes of 8.00.00b2 on 18 Nov): `gh release upload --clobber`,
+      the body again from the .md (`gh release edit --notes-file`), each replaced asset downloaded back and compared,
+      and the Back Shed post's page made again. The tag stays where it is when the firmware has not changed.
 
 ## 12. The announcement
 
