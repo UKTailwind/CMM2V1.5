@@ -7,7 +7,7 @@ Dim tests, pass
 Check "MM.DEVICE$ is the CMM2's (no OPTION PICOMITE)", Instr(MM.Device$, "Colour Maximite 2") = 1, 1
 Check "MM.INFO(PINNO GP16)", MM.Info(PINNO GP16), 3
 Check "MM.INFO(PINNO with GP2 as a string)", MM.Info(PINNO "GP2"), 12
-Check "MM.INFO(MAX GP): 37, the highest GP with a pin here", MM.Info(MAX GP), 37
+Check "MM.INFO(MAX GP): 46, the highest GP with a pin here", MM.Info(MAX GP), 46
 SetPin GP16, DOut
 Pin(GP16) = 1
 Check "SETPIN GP16, DOUT and PIN(GP16) = 1: pin 3 high", Pin(3), 1

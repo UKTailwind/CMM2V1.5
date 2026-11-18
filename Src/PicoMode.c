@@ -82,10 +82,11 @@ const char *PicoDeviceName(void) {
 }
 
 // MM.INFO(MAX GP): under OPTION PICOMITE the PicoMite's highest GP, 47 on an RP2350B and 29 on the others; without it
-// the highest GP with a pin here, 37
+// the highest GP with a pin here, 46 (GP40-46, the RP2350B's analogue inputs, are second names since 8.00.00b2: it
+// was 37, Peter 18 Nov 2026)
 int PicoMaxGP(void) {
     const char *n = PicoDeviceName();
-    if(n == NULL) return 37;                                        // (no OPTION PICOMITE: the highest GP with a pin here)
+    if(n == NULL) return 46;                                        // (no OPTION PICOMITE: the highest GP with a pin here)
     return strstr(n, "RP2350B") ? 47 : 29;
 }
 
