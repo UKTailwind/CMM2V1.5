@@ -668,7 +668,11 @@ void cmd_web(void)
                 }
                 else
                 {
-                        if (cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA) < 0)
+                        // joined again unless it is joined now: the PicoMite's tested only for a failed link (< 0),
+                        // so one that was down (0: left, as a loadable program's failed join to another network
+                        // leaves it) was never joined again, and only CPU RESTART brought the network back (18 Nov
+                        // 2026, the G1's MicroPython book run, Peter)
+                        if (cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA) != CYW43_LINK_JOIN || !WIFIconnected)
                         {
                                 WebConnect();
                         }
