@@ -15,6 +15,7 @@ The same firmware file runs on the Generation 1, the Generation 2 and the Genera
 - **Bluetooth.** The WiFi module's chip is a Bluetooth radio too. Bluetooth keyboards, mice (and a keyboard's touchpad) and game controllers; the sound through a Bluetooth speaker or headphones; and a Bluetooth serial device as COM8. It is the PicoMite's Bluetooth, with its BLUETOOTH command, and the WiFi and Bluetooth can be used at the same time.
 - **MicroPython** runs every example program of the book *Programming the Pico Computer 3*, with the clock and its alarm, asyncio, native code, the I/O pins as on a Pico Computer 3 and, with the WiFi module, the network: sockets, HTTPS, MQTT.
 - **Loadable programs** can use the network, the clock's alarm and the LED (services versions 21 and 22).
+- **zeptoforth 1.17.2.1**, with fixes to code it writes as it runs (closures, CREATE and DOES>, DEFER) and to DEFER! on the Colour Maximite 2's memory; and zeptoforth_g1.app starts on a Generation 1 again.
 - **Fixes:** a program that left GUI controls behind could, at the next RUN, damage the WiFi's and Bluetooth's memory (since 8.00.00b1); WEB TCP CLIENT with a 64KB receive array; a memory fault that could give a program memory already in use; LGETSTR$ of 255 characters, which could spoil an open file (an SQL COMMIT failed with "disk I/O error"); and WEB CONNECT, which did not join the WiFi again once it was down.
 
 ### Before you update
@@ -66,9 +67,19 @@ New in the app:
 - **The clock:** gettime(), settime(), machine.RTC and a daily alarm, on the DS3231 with OPTION DS3231 ON or on the processor's own clock.
 - **machine.WDT** (the watchdog), **asyncio**, and **@micropython.native, viper and asm_thumb**.
 - **The network**, with the WiFi module and OPTION WIFI: wifi() and ntpsync() at the prompt, socket, network.WLAN, TLS (HTTPS), requests, MQTT (umqtt), ntptime and mip.
-- **Fixes:** SQLite's memory is set aside at start-up (after a long session connect() could fail with memory free); `import ulab.numpy`; files that a program dropped without closing them are closed when the limit of open files is reached; and a program's end now lets go of its off-screen buffer (hdmi.create()) and its sprites and collects the memory, so that the book's games run one after another on a Generation 1, which has less memory.
+- **Fixes:** SQLite's memory is set aside at start-up (after a long session connect() could fail with memory free); `import ulab.numpy`; files that a program dropped without closing them are closed when the limit of open files is reached; pins are given back at a soft reset (Ctrl-D), and a pin another part has says "GPn is in use"; and a program's end now lets go of its off-screen buffer (hdmi.create()) and its sprites and collects the memory, so that the book's games run one after another on a Generation 1, which has less memory.
 
 It needs 8.00.00b2, as it uses the new services below.
+
+#### zeptoforth
+
+The zip's zeptoforth is version 1.17.2.1: Bezier curves (bezier.fs, in the zeptoforth folder, with an example in WORDS.md under Drawing), 0x before a hexadecimal number, and zeptoed leaving the cursor where it belongs when it ends. Fixed:
+
+- **Code written as it runs** reached the processor's instruction cache only by chance in three places: closures (bind and the words built on it), CREATE, <BUILDS and DOES>, and DEFER. A closure bound in a loop could run its first binding again, and a word made and used on one line could run what was there before. Each now makes the caches agree.
+- **DEFER!** (and IS) on a word deferred at the prompt said "attempted to write past flash end" and left zeptoforth compiling to flash: it took the Colour Maximite 2's memory for flash.
+- **zeptoforth_g1.app** did not start on a Generation 1 under version 8 ("the memory it is linked for is not free"): it is now linked where version 8 leaves room, so it needs version 8 (7.00's zip keeps the one for 7.00). zeptoforth.app is unchanged in that.
+
+The two saved systems, zeptoforth.img and zeptoforth_g1.img, are made again for the new kernel. A zeptoforth.img you saved yourself with an earlier zeptoforth does not load into this one: keep your source files, include them again and save-image.
 
 #### Loadable programs: services 21 and 22
 
@@ -110,7 +121,7 @@ For those who build the firmware or study its source:
 
 ### The programs
 
-CMM2_Programs_8.00.00b2.zip is 8.00.00b1's zip with micropython.app replaced (it needs 8.00.00b2) and README.txt for this version. The licences folder adds BTstack's licence (for the firmware's Bluetooth) and micropython-lib's (for MicroPython's network modules). The other programs are unchanged and run on 8.00.00b2 as on 8.00.00b1.
+CMM2_Programs_8.00.00b2.zip is 8.00.00b1's zip with micropython.app replaced (it needs 8.00.00b2), the zeptoforth folder replaced (1.17.2.1, with bezier.fs) and README.txt for this version. The licences folder adds BTstack's licence (for the firmware's Bluetooth) and micropython-lib's (for MicroPython's network modules). The other programs are unchanged and run on 8.00.00b2 as on 8.00.00b1.
 
 ### Tested
 
@@ -122,6 +133,7 @@ On a Generation 2 with the WiFi module, Bluetooth on and a speaker connected, an
 - **MicroPython** (the zip's micropython.app) on both: its new modules, the pins and the LED, the clock, SQLite and an HTTPS fetch; on the Generation 3 also the book's Appendix K example and a short sound through HDMI. Every one of the book's 162 example programs ran on the Generation 2 with this release's services (on a build before the RUN and Bluetooth fixes, which do not touch loadable programs).
 - **Bluetooth** on the Generation 3 with the WiFi: turned on, a scan finding a speaker, the 64KB set aside, COM8's message with no device. On 16 November, with this release's Bluetooth code: a Bluetooth Classic keyboard and its touchpad, a speaker and an HM-10 serial module on COM8 (both ways) on a Generation 2, and the regression on all three generations.
 - **Generation 1**, on 18 November: the regression, with the LGETSTR$ fix, the same as on 15 November but for one test now right (SP Tools 686 of 727); then this release's file: MM.INFO(MAX GP), the program corpus's WiFi programs and TFTP as on 15 November, WEB CONNECT after a failed join, SQL, and MicroPython: 159 of the book's 162 example programs in one session, the network's included (two run out of memory there: below; the last restarts the board, as it is meant to, and was run on its own). The LGETSTR$ fix also on the Generation 2: the reporter's programs and the SQL tests.
+- **zeptoforth** (the zip's), on the Generation 1 and a Generation 3, each with the saved system made on it: float64 108 of 108, the Black-Scholes and solar eclipse programs (the eclipse identical to MMBasic's output), the words tests for the documentation, the graphics and tasks under stress, and the fixes above (closures bound in a loop, DEFER and IS, CREATE and DOES> on one line). The stress test's count of a task's card reads now asks only that it ran: an old 4GB card reads at a fifth of the speed.
 
 ### Known problems
 
