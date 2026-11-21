@@ -420,6 +420,7 @@ void I2C2_EV_IRQHandler(void)
 /**
   * @brief This function handles USART1 global interrupt.
   */
+extern volatile int ConsoleUartUp;                                  // (Serial.c: the console has its UART)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
@@ -427,7 +428,9 @@ void USART1_IRQHandler(void)
   	__HAL_UART_CLEAR_OREFLAG(&huart1);
   	__HAL_UART_CLEAR_NEFLAG(&huart1);
   	__HAL_UART_CLEAR_FEFLAG(&huart1);
-  	if(OptionConsole & 1 && Option.ConsolePort==3){
+  	if(Option.ConsolePort==3 && ConsoleUartUp){                      // the console has the port (OPTION CONSOLE only chooses where its
+  	                                                                  // output goes, so input still arrives with
+  	                                                                  // SCREEN or NONE: Matthias, 21 Nov 2026)
   		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET){
   			ConsoleRxBuf[ConsoleRxBufHead]  = huart1.Instance->RDR;   // store the byte in the ring buffer
   			if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
@@ -457,7 +460,7 @@ void USART1_IRQHandler(void)
   			}
 
   		}
-  	} else {
+  	} else if(com3) {
   		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET){
   			char cc = huart1.Instance->RDR;
   	        if(GPSchannel==3){
@@ -502,7 +505,10 @@ void USART1_IRQHandler(void)
   		        if(com3_TX_interrupt != NULL) { com3_TX_complete = true; IntSignal(); }  // all of it sent: OPEN's transmit interrupt
   			}
   		}
-  	}
+  	} else {                                                           // nobody's (the console stopped, COM3 not open): a
+  		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET) (void)huart1.Instance->RDR;   // byte read and
+  		huart1.Instance->CR1 &= ~USART_CR1_TCIE;                                 // dropped, never put in a buffer
+  	}                                                                     // that is not there
   	return;
 
   /* USER CODE END USART1_IRQn 0 */
@@ -522,7 +528,9 @@ void USART2_IRQHandler(void)
  	__HAL_UART_CLEAR_OREFLAG(&huart2);
   	__HAL_UART_CLEAR_NEFLAG(&huart2);
   	__HAL_UART_CLEAR_FEFLAG(&huart2);
-  	if(OptionConsole & 1 && Option.ConsolePort==1){
+  	if(Option.ConsolePort==1 && ConsoleUartUp){                      // the console has the port (OPTION CONSOLE only chooses where its
+  	                                                                  // output goes, so input still arrives with
+  	                                                                  // SCREEN or NONE: Matthias, 21 Nov 2026)
   		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET){
   			ConsoleRxBuf[ConsoleRxBufHead]  = huart2.Instance->RDR;   // store the byte in the ring buffer
   			if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
@@ -550,7 +558,7 @@ void USART2_IRQHandler(void)
   			}
 
   		}
-  	} else {
+  	} else if(com1) {
 		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET){
 			char cc = huart2.Instance->RDR;
 			if(GPSchannel==1){
@@ -595,7 +603,10 @@ void USART2_IRQHandler(void)
 				if(com1_TX_interrupt != NULL) { com1_TX_complete = true; IntSignal(); }  // all of it sent: OPEN's transmit interrupt
 			}
 		}
-  	}
+  	} else {                                                           // nobody's (the console stopped, COM1 not open): a
+  		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET) (void)huart2.Instance->RDR;   // byte read and
+  		huart2.Instance->CR1 &= ~USART_CR1_TCIE;                                 // dropped, never put in a buffer
+  	}                                                                     // that is not there
 	return;
 
   /* USER CODE END USART2_IRQn 0 */
@@ -615,7 +626,9 @@ void UART4_IRQHandler(void)
  	__HAL_UART_CLEAR_OREFLAG(&huart4);
   	__HAL_UART_CLEAR_NEFLAG(&huart4);
   	__HAL_UART_CLEAR_FEFLAG(&huart4);
-  	if(OptionConsole & 1 && Option.ConsolePort==2){
+  	if(Option.ConsolePort==2 && ConsoleUartUp){                      // the console has the port (OPTION CONSOLE only chooses where its
+  	                                                                  // output goes, so input still arrives with
+  	                                                                  // SCREEN or NONE: Matthias, 21 Nov 2026)
   		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET){
   			ConsoleRxBuf[ConsoleRxBufHead]  = huart4.Instance->RDR;   // store the byte in the ring buffer
   			if(BreakKey && ConsoleRxBuf[ConsoleRxBufHead] == BreakKey) {// if the user wants to stop the progran
@@ -643,7 +656,7 @@ void UART4_IRQHandler(void)
   			}
 
   		}
-  	} else {
+  	} else if(com2) {
 		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET){
 			char cc = huart4.Instance->RDR;
 			if(GPSchannel==2){
@@ -688,7 +701,10 @@ void UART4_IRQHandler(void)
 				if(com2_TX_interrupt != NULL) { com2_TX_complete = true; IntSignal(); }  // all of it sent: OPEN's transmit interrupt
 			}
 		}
-  	}
+  	} else {                                                           // nobody's (the console stopped, COM2 not open): a
+  		if ((isrflags & USART_ISR_RXNE_RXFNE) != RESET) (void)huart4.Instance->RDR;   // byte read and
+  		huart4.Instance->CR1 &= ~USART_CR1_TCIE;                                 // dropped, never put in a buffer
+  	}                                                                     // that is not there
 	return;
 
   /* USER CODE END UART4_IRQn 0 */

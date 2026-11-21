@@ -102,6 +102,11 @@ unsigned char com2_bit9 = 0;                                        // used to t
 
 // variables for com3
 int com3 = 0;														// true if COM2 is enabled
+// the console's UART is running as the console (start_console to stop_console). OPTION CONSOLE in a program no longer
+// stops and starts it, as it did (its input was lost, or arrived as rubbish, at every switch: Matthias, 21 Nov 2026):
+// it only chooses where output goes, as on the PicoMite. A program that opens the console's own port takes the UART
+// over then (ConsoleHandOver), and the console starts again at OPTION CONSOLE SERIAL or BOTH, or when the program ends
+volatile int ConsoleUartUp = 0;
 int com3_buf_size;													// size of the buffer used to receive chars
 int com3_baud = 0;													// determines the baud rate
 char *com3_interrupt, *com3_TX_interrupt;												// pointer to the interrupt routine
@@ -308,6 +313,7 @@ static void ConsoleUartStart(UART_HandleTypeDef *huart){
 	HAL_UART_Receive_IT(huart, &RxBuffer, 1);
 }
 void start_console(void){
+	  ConsoleUartUp = 1;                                               // (first: the interrupt then takes what comes for the console)
 	  if(Option.ConsolePort==3){
 		  MX_USART1_UART_Init1();
 		  ConsoleUartStart(&huart1);
@@ -341,6 +347,18 @@ void stop_console(void){
 		    ExtCfg(COM2_RX_PIN, EXT_NOT_CONFIG, 0);
 		    ExtCfg(COM2_TX_PIN, EXT_NOT_CONFIG, 0);
 	  }
+	  ConsoleUartUp = 0;
+}
+// the console's port (OPTION CONSOLE PORT n: COM n) opened by a program: only while the console sends nothing to it
+// (OPTION CONSOLE SCREEN or NONE), and its UART is then stopped and handed over (COM1's and COM2's pins freed)
+static void ConsoleHandOver(int n) {
+    if(Option.ConsolePort != n) return;
+    if(OptionConsole & 1) error("Serial Console must be disabled");
+    if(ConsoleUartUp) stop_console();
+}
+// the console's port open as a program's COM port
+int ConsolePortOpen(void) {
+    return Option.ConsolePort == 3 ? com3 : Option.ConsolePort == 1 ? com1 : com2;
 }
 int get_baudrate(int comport, int timeout){
     float rates[14]={110,300,600,1200,2400,4800,9600,14400,19200,38400,57600,115200,230400, 460800};
@@ -519,6 +537,7 @@ void OPTSIZE SerialOpen(char *spec) {
 	///////////////////////////////// this is COM1 ////////////////////////////////////
 
 		if(com1) error("Already open");
+		ConsoleHandOver(1);                                          // (before the pins are checked: the console's)
         CheckPin(COM1_RX_PIN, CP_CHECKALL);
         CheckPin(COM1_TX_PIN, CP_CHECKALL);
 
@@ -580,6 +599,7 @@ void OPTSIZE SerialOpen(char *spec) {
 	///////////////////////////////// this is COM2 ////////////////////////////////////
 
 		if(com2) error("Already open");
+		ConsoleHandOver(2);                                          // (before the pins are checked: the console's)
         CheckPin(COM2_RX_PIN, CP_CHECKALL);
         CheckPin(COM2_TX_PIN, CP_CHECKALL);
 
@@ -630,6 +650,7 @@ void OPTSIZE SerialOpen(char *spec) {
 
 	if(com3) error("Already open");
 	if(Option.ConsolePort==3 && (Option.Console & 1 || OptionConsole & 1))error("Serial Console must be disabled");
+	ConsoleHandOver(3);
 	com3_buf_size = bufsize;									// extracted from the comspec above
 	com3_interrupt = interrupt;
 	com3_ilevel	= ilevel;

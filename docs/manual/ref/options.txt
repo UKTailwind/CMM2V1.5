@@ -83,11 +83,11 @@ OPTION CONSOLE SERIAL
 or
 OPTION CONSOLE NONE
 --- roomy
-OPTION CONSOLE SCREEN will disable the serial console for both input and output and direct all output to the VGA monitor.  This will allow the VGA output to update much faster.  With this option the serial port used for the console can be opened as COM3.
+OPTION CONSOLE SCREEN sends all output to the VGA monitor only, which lets it update much faster.  Keys typed on the serial console are still taken, CTRL-C too.  With this option the serial port used for the console can be opened as COM3 (or as COM1 or COM2 when OPTION CONSOLE PORT has put the console there): the console gives the port up while it is open.
 OPTION CONSOLE SERIAL will disable the console output to the VGA screen and send all output to the serial console.  This is useful for debugging graphics applications as diagnostic PRINT statements will not corrupt the screen display.
 OPTION CONSOLE BOTH will enable both the serial console and the VGA screen for console input and output.  This is the default unless OPTION CONSOLE SAVE has saved another setting.  The optional ‘font’ (1 to 8), ‘fc’ and ‘bc’ set the font and the foreground and background colours of the console's text on the screen (by default white on black); OPTION CONSOLE SAVE keeps them.
 OPTION CONSOLE NONE (the PicoMite's) sends the output to neither.  The serial console, if it was running, still takes input, so CTRL-C still works.
-These settings are temporary: when a program ends or an error occurs the console returns to the saved setting.  OPTION CONSOLE BOTH and OPTION CONSOLE SERIAL give the error "Console port in use" while COM3 is open.  MM.INFO(OPTION CONSOLE) returns the current setting.
+These settings are temporary: when a program ends or an error occurs the console returns to the saved setting.  They only choose where the output goes, and the serial port keeps running, so a program can switch between them as often as it likes and nothing that arrives on the serial console is lost.  OPTION CONSOLE BOTH and OPTION CONSOLE SERIAL give the error "Console port in use" while the console's port is open as a COM port.  MM.INFO(OPTION CONSOLE) returns the current setting.
 
 =+= OPTION CONSOLE PORT n
 --- P keep roomy

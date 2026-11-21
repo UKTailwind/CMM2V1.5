@@ -227,6 +227,7 @@ volatile int ConsoleTxBufTail = 0;
 uint8_t BlinkSpeed = 0;//, str[20];
 extern void printoptions(void);
 extern void setterminal(void);
+extern volatile int ConsoleUartUp;
 void initConsole(void);
 void EditInputLine(void);
 extern void ScreenShot(void);                                       // Console.c: Print Screen
@@ -899,8 +900,8 @@ if(setjmp(mark) != 0) {
 		giffnbr=0;
 	  }
 	  deferredcopy=0;
-	  if((Option.Console & 1) && !(OptionConsole & 1)){
-		  SerialClose(3);
+	  if((Option.Console & 1) && !ConsoleUartUp){                    // (the console's UART runs on under OPTION CONSOLE SCREEN:
+		  SerialClose(Option.ConsolePort);                       // only stopped when a program opened its port)
 		  start_console();
 	  }
 	  OptionConsole=Option.Console;

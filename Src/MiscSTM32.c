@@ -1852,6 +1852,8 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
         } else error("Invalid mode");
         goto saveandreset;
 	}
+    extern volatile int ConsoleUartUp;
+    extern int ConsolePortOpen(void);
     tp = checkstring(cmdline, "CONSOLE");
     int maxW=PageTable[WritePage].xmax;
 	int maxH=PageTable[WritePage].ymax;
@@ -1873,8 +1875,8 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
                 if(argc > 4) Option.DefaultBC = getint(argv[4], BLACK, WHITE);
                 if(Option.DefaultFC == Option.DefaultBC) error("Same colours");
             } //else
-            if(com3)error("Console port in use");
-         	if(!(OptionConsole & 1))start_console();
+            if(ConsolePortOpen())error("Console port in use");
+         	if(!ConsoleUartUp)start_console();               // (it runs on under SCREEN and NONE)
             OptionConsole = 3;
             Option.colourmode = true;
             PromptFont = Option.DefaultFont;
@@ -1882,15 +1884,17 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
             PromptBC = Option.DefaultBC;
             HAL_NVIC_EnableIRQ(USART1_IRQn);
         } else if(checkstring(tp, "SCREEN")) {
-        	if(OptionConsole & 1)stop_console();
+        	;                                                       // output to the screen only: the serial port runs on
+        	                                                        // (it was stopped here, and its input lost: an OPEN of it
+        	                                                        // hands it over now, Serial.c ConsoleHandOver)
         	OptionConsole = 2;
         } else if((ttp = checkstring(tp, "PORT"))) {
             getargs(&ttp, 1, ",");                              // this is a macro and must be the first executable stmt in a block
         	Option.ConsolePort=getint(argv[0],1,3);
             goto saveandreset;
         } else if(checkstring(tp, "SERIAL")) {
-            if(com3)error("Console port in use");
-        	if(!(OptionConsole & 1))start_console();
+            if(ConsolePortOpen())error("Console port in use");
+        	if(!ConsoleUartUp)start_console();
         	OptionConsole = 1;
             HAL_NVIC_EnableIRQ(USART1_IRQn);
         } else if(checkstring(tp, "NONE")) {                        // the PicoMite's: output to neither (the serial
