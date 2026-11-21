@@ -621,7 +621,7 @@ const char *  const __attribute__((section(".rodata")))help[] = {
  "SQL INSERT","SQL INSERT var [, table$]",
  "SQL OPEN","SQL OPEN file$ [, poolKB [, cacheKB]]",
  "SQL QUERY","SQL QUERY sql$ [, value ...]",
- "SQL(","SQL( NEXT | n | FETCH var | SELECT sql$, array() [, value ...] | COLUMNS | NAME n | ISNULL n | ROWS | ID | LONGSTRING n, array%() )",
+ "SQL(","SQL( NEXT | n | FETCH var | SELECT sql$, array() [, value ...] | COLUMNS | NAME n | ISNULL n | TYPE n | ROWS | ID | LONGSTRING n, array%() )",
  "SQR(","SQR( number )",
  "STAR","STAR body alt, az [, ra, dec]  or  STAR alt, az, ra2000, dec2000 [, pm_ra, pm_dec] [, ra, dec]",
  "STATIC","STATIC variable [, variables]",

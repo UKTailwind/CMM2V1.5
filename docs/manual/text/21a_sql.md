@@ -70,7 +70,7 @@ DO WHILE SQL(NEXT)
 LOOP
 ```
 
-SQL(COLUMNS) is the number of columns, SQL(NAME n) the name of column n. A column with no value (SQL's NULL) gives 0, or an empty string for a text column; SQL(ISNULL n) is 1 if column n has no value.
+SQL(COLUMNS) is the number of columns, SQL(NAME n) the name of column n. A column with no value (SQL's NULL) gives 0, or an empty string for a text column; SQL(ISNULL n) is 1 if column n has no value. SQL(TYPE n) says what SQLite holds in column n of the row: 1 an integer, 2 a floating point number, 3 text, 4 a BLOB, 5 no value (sqlite3_column_type()'s numbers). It tells a BLOB from text and 2.0 from 2, which SQL(n) gives alike, so a program that writes the data out again, as a dump does, can keep each value's type.
 
 A query holds memory, and its tables, until it has given all its rows. A query read only in part (one row of a count, say) is ended by SQL CLOSE QUERY, by the next SQL QUERY, or by SQL CLOSE. A statement that needs a table such a query still holds (DROP or CREATE INDEX on it) ends the query first.
 

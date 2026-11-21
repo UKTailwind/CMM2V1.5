@@ -27,6 +27,7 @@ values bound to a statement's parameters, the rows into variables, arrays and st
     SQL(SELECT sql$, array() [, value ...])   the rows into a 1 or 2 dimensional array (row, column), or an array of
                                     structures: how many it held
     SQL(COLUMNS), SQL(NAME n), SQL(ISNULL n), SQL(ROWS), SQL(ID)
+    SQL(TYPE n)                     column n's type in this row: 1 INTEGER, 2 FLOAT, 3 TEXT, 4 BLOB, 5 NULL (SQLite's)
     SQL(LONGSTRING n, a%())         column n into the LONGSTRING a%(): its length (text of any length; SQL(n) has 255)
 
 A LONGSTRING a%() can also be a statement (sql$), and a value after one (its text bound). Ctrl-C (the break key) in a
@@ -567,6 +568,11 @@ void fun_sql(void) {
         nc = CALL(int (*)(void *), sq->columns)(sqlcur);
         int c = getint(p, 1, nc);
         iret = CALL(int (*)(void *, int), sq->column_type)(sqlcur, c - 1) == SQLMOD_NULL;
+    } else if((p = checkstring(ep, "TYPE"))) {                      // SQL(TYPE n): what SQLite holds in column n of this row,
+        sqlneedrow();                                               // sqlite3_column_type()'s numbers: 1 INTEGER, 2 FLOAT,
+        nc = CALL(int (*)(void *), sq->columns)(sqlcur);            // 3 TEXT, 4 BLOB, 5 NULL. SQL(n) gives a BLOB as a string
+        int c = getint(p, 1, nc);                                   // and 2.0 as 2 (Matthias, 21 Nov 2026: mmsql's .dump
+        iret = CALL(int (*)(void *, int), sq->column_type)(sqlcur, c - 1);   // added typeof() for every column to tell)
     } else if((p = checkstring(ep, "ROWS"))) {
         sqlneedopen();
         iret = CALL(int64_t (*)(void), sq->changes)();
