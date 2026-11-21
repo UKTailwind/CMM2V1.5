@@ -4807,10 +4807,15 @@ void OPTSIZE EditInputLine(void) {
                             }
                             MMPrintString(inpbuf);                                          // display the line
                             CharIndex = strlen(inpbuf);                                     // get the current cursor position in the line
-                            for(i = 1; i <= maxchars - strlen(inpbuf) - startline; i++) {
-                                MMputchar(' ');                                             // erase the rest of the line
-                                CharIndex++;
-                            }
+                            for(i = 1; i < maxchars - strlen(inpbuf) - startline; i++) {    // erase the rest of the line, all but
+                                MMputchar(' ');                                             // its last column: a space there left a
+                                CharIndex++;                                                // serial terminal as wide as the screen
+                            }                                                               // in that column with its wrap pending, so
+                                                                                            // the backspaces after it stopped one short
+                                                                                            // and each line recalled after the first
+                                                                                            // was shown and edited a column to the left
+                                                                                            // (Matthias, Tera Term, 21 Nov 2026). A
+                                                                                            // recalled line never reaches that column
                             while(CharIndex > strlen(inpbuf)) { MMputchar('\b'); CharIndex--; } // return the cursor to the right position
                             break;
 
@@ -4819,7 +4824,9 @@ void OPTSIZE EditInputLine(void) {
                                 i = CharIndex;
                                 j = strlen(inpbuf);
                                 if(insert) {
-                                    if(strlen(inpbuf) >= maxchars - 1) break;               // sorry, line full
+                                    if(strlen(inpbuf) + startline >= maxchars - 1) break;   // sorry, line full (the
+                                                                                            // prompt counted: without it an insert
+                                                                                            // pushed the line past the right edge)
                                     for(p = inpbuf + strlen(inpbuf); j >= CharIndex; p--, j--) *(p + 1) = *p;
                                     inpbuf[CharIndex] = buf[0];                             // insert the char
                                     MMPrintString(&inpbuf[CharIndex]);                      // display new part of the line
