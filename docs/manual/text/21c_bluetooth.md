@@ -15,7 +15,7 @@ OPTION RADIO BLUETOOTH
 
 OPTION RADIO says which halves of the chip are used: BOTH (the WiFi and Bluetooth), WEB (the WiFi only), BLUETOOTH (Bluetooth only) or NONE. NONE is the default, and OPTION WIFI turns the WiFi's half on, so a Colour Maximite 2 that uses the WiFi needs OPTION RADIO BOTH to add Bluetooth. The option is saved and the Colour Maximite 2 restarts. OPTION LIST shows it when it is not what OPTION WIFI alone gives.
 
-With Bluetooth on, its pins are the WiFi's four (32, 33, 38 and 40), which then belong to the radio as described in the chapter WiFi and Internet Functions. If no module answers at start-up the Colour Maximite 2 prints "WiFi module not found" and carries on without the radio.
+With Bluetooth on, on a Generation 1 or 2, the module's four pins (32, 33, 38 and 40) belong to the radio as described in the chapter WiFi and Internet Functions; a Generation 3's module uses none of the connector's pins. If no module answers at start-up the Colour Maximite 2 prints "WiFi module not found" and carries on without the radio.
 
 ## Memory and Pairings
 
@@ -161,7 +161,7 @@ BLUETOOTH FORGET deletes the stored pairings of every device, and BLUETOOTH FORG
 ## Differences from the PicoMite
 
 - The Bluetooth serial device is COM8, not COM7.
-- OPTION RADIO is the PicoMitePC3's, with NONE the default (the module is an option), and OPTION WIFI turns the WiFi's half on.
+- OPTION RADIO is the PicoMitePC3's, with NONE the default (the module is an option on a Generation 1 or 2), and OPTION WIFI turns the WiFi's half on.
 - OPTION AUDIO DAC, not OPTION AUDIO DISABLE, ends the sound to Bluetooth, and the Colour Maximite 2's audio output plays the sound as well.
 - A Bluetooth LE game controller is channel 3 only while no USB game controller has it.
 - Bluetooth is not serviced while a loadable program runs.

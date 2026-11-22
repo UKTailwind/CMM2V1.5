@@ -1,7 +1,7 @@
 # WiFi and Internet Functions
 
 
-With a WiFi module plugged into its rear I/O connector the Colour Maximite 2 can join a WiFi network and use the Internet. It can serve web pages, fetch data from web sites (with or without encryption), send and receive UDP messages, use an MQTT broker, get the time from a time server, and give its console to a remote terminal over Telnet. A PC can copy files to and from it with TFTP.
+With the WiFi module, which is on the board of a Generation 3 and plugs into the rear I/O connector of a Generation 1 or 2, the Colour Maximite 2 can join a WiFi network and use the Internet. It can serve web pages, fetch data from web sites (with or without encryption), send and receive UDP messages, use an MQTT broker, get the time from a time server, and give its console to a remote terminal over Telnet. A PC can copy files to and from it with TFTP.
 
 The networking is the PicoMite's: the WebMite firmware's code, unchanged, with the same WEB commands, options and functions. A program written for a WebMite runs as it does there, apart from the I/O pins it uses (see Differences from the WebMite at the end of this chapter).
 
@@ -10,6 +10,8 @@ This chapter describes how the Colour Maximite 2 works with WiFi and the Interne
 The protocols are complex, and a program that runs unattended should be ready for the network to fail. A WATCHDOG will restart the Colour Maximite 2 if the program stops, and with OPTION AUTORUN the program then starts again. A forced restart from time to time (for example once a week, with CPU RESTART) also starts the network afresh.
 
 ## The WiFi Module
+
+A Generation 3 has the module on the board, joined to the processor by a bus of its own, so nothing is plugged in and the module uses none of the rear I/O connector's pins: with the WiFi on, pins 32, 33, 38 and 40 (and GP10 and GP11) and SPI2 stay free for other uses. The link to its chip runs at up to 30MHz. The rest of this section is about the module for a Generation 1 or 2.
 
 The module carries a Raspberry Pi RM2, the WiFi chip of the Raspberry Pi Pico W (an Infineon CYW43439), with its own 3.3V supply taken from the 5V pin. It plugs onto the rear I/O connector and passes the connector through to a second connector on its back, so that other things can still be wired to the pins it does not use. It uses four pins:
 
@@ -25,7 +27,7 @@ The connector of a Generation 1 is the Generation 2's turned through 180 degrees
 
 Without OPTION WIFI the module is switched off and the four pins are free for other uses. With OPTION WIFI set the four pins and SPI2 belong to the WiFi: SETPIN refuses them ("Pin 32 is reserved on startup"), the SPI2 command cannot open SPI2, and GP10 and GP11, the PicoMite names that refer to pins 40 and 38, go with them. If OPTION WIFI is set and no module answers at start-up, the Colour Maximite 2 prints "WiFi module not found", gives back the memory and the pins, and carries on without the network.
 
-The link to the chip runs at 24MHz on a Generation 2 or 3, and at 20MHz on a Generation 1 running at 400MHz.
+The link to the chip runs at 24MHz on a Generation 2, and at 20MHz on a Generation 1 running at 400MHz.
 
 ## Memory
 
@@ -531,7 +533,7 @@ The Colour Maximite 2 answers pings, so a PC can check that it is running and re
 
 A WebMite program runs on the Colour Maximite 2 as it is, apart from these:
 
-- The I/O pins. A PicoMite's pin numbers are its own; GP names refer to the Colour Maximite 2's pins with the same functions (see the chapter Porting Programs), except GP10 and GP11, which are the WiFi module's, and GP22, pin 32 here. A program that uses those must use other pins.
+- The I/O pins. A PicoMite's pin numbers are its own; GP names refer to the Colour Maximite 2's pins with the same functions (see the chapter Porting Programs). On a Generation 1 or 2, GP10 and GP11 are the WiFi module's, and so is GP22 (pin 32 here): a program that uses those must use other pins there.
 - OPTION COUNT is accepted with OPTION PICOMITE only when it names the Colour Maximite 2's own counting pins, and WATCHDOG HW is the ordinary WATCHDOG with OPTION PICOMITE (see their entries).
 - The network takes memory as described above, and is not serviced while a loadable program runs.
 - There is no LED for the heartbeat.

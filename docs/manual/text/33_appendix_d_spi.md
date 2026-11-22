@@ -4,6 +4,8 @@
 
 The Serial Peripheral Interface (SPI) communications protocol is used to send and receive data between integrated circuits. The command SPI refers to channel 1 and SPI2 refers to channel 2. SPI2 is not listed below however it is available on the Colour Maximite 2 and has an identical syntax (its function is SPI2()).
 
+On a Generation 1 or 2 with OPTION WIFI set, SPI2 belongs to the WiFi module and cannot be opened (see the chapter WiFi and Internet Functions). A Generation 3's WiFi has a bus of its own, so SPI2 can be used with the WiFi on.
+
 ## I/O Pins
 
 The SPI OPEN command will automatically configure the relevant I/O pins on the rear I/O connector (listed in the chapter Hardware Features). MISO stands for Master In Slave Out and because the Colour Maximite 2 is always the master that pin will be configured as an input. Similarly MOSI stands for Master Out Slave In and that pin will be configured as an output.

@@ -2744,7 +2744,7 @@ SPI WRITE discards any data returned by the slave and SPI READ sends zeros while
 
 === SPI2
 --- keep
-The same set of commands as for SPI (above) but applying to the second SPI channel.  It shares its pins with COM2: the two cannot be open at the same time.
+The same set of commands as for SPI (above) but applying to the second SPI channel.  It shares its pins with COM2: the two cannot be open at the same time.  On a Generation 1 or 2 it belongs to the WiFi module while OPTION WIFI is set, and cannot then be opened.
 
 === SPRITE
 ---

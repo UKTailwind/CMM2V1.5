@@ -466,7 +466,7 @@ or
 OPTION WIFI ssid$, password$ [, name$] [, ipaddress$, mask$, gateway$] [, country$]
 --- P keep roomy
 __WITH THE WIFI MODULE ONLY__ Turns the WiFi on and sets the network that the Colour Maximite 2 joins at every start-up (see Connecting to a WiFi Network in the chapter WiFi and Internet Functions).  ‘ssid$’ is the network's name and ‘password$’ its password.  ‘name$’ is the Colour Maximite 2's name on the network; without it a name is made from the processor's ID.  ‘ipaddress$’, ‘mask$’ and ‘gateway$’ give a fixed address instead of one from the router (DHCP).  ‘country$’ is a two letter ISO country code that sets the WiFi's regulatory domain: the default, "XX", is worldwide, with the most cautious channels and transmit power.
-With the WiFi on, 128KB of memory and pins 32, 33, 38 and 40 belong to the network (see The WiFi Module and Memory in the chapter WiFi and Internet Functions).  The command turns the WiFi's half of OPTION RADIO on as well.  OPTION WIFI "", "" turns the WiFi off.  OPTION LIST shows the password as stars.
+With the WiFi on, 128KB of memory belongs to the network, and on a Generation 1 or 2 pins 32, 33, 38 and 40 do too (see The WiFi Module and Memory in the chapter WiFi and Internet Functions).  The command turns the WiFi's half of OPTION RADIO on as well.  OPTION WIFI "", "" turns the WiFi off.  OPTION LIST shows the password as stars.
 The command restarts the Colour Maximite 2, and can only be used at the command prompt.
 
 === OPTION Y_AXIS DOWN | UP
