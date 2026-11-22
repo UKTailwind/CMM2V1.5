@@ -165,7 +165,8 @@ int WebBlockInHeap(void **addr, int *size) {
 static void reserve_pins(void);
 
 // with no module answering: the network block given back to the heap, SPI2 off, and pins 32, 33, 38 and 40 as they are
-// without OPTION WIFI (not configured), so that the header's passed-through pins work as before
+// without OPTION WIFI (not configured), so that the header's passed-through pins work as before. (A G3 V1.2's module
+// is on the board, on SPI6: the connector's pins and SPI2 were never Wi-Fi's there.)
 static void release_all(void) {
     void *b = NetBlock;
     NetBlock = NULL;
@@ -173,6 +174,11 @@ static void release_all(void) {
     b = BtBlock;                                        // (Bluetooth's is the heap's on every generation)
     BtBlock = NULL;
     if (b) FreeMemory(b);
+    if (RM2OnBoard) {
+        SPI6->CR1 = 0;
+        GPIOF->BSRR = 1u << (8 + 16);                   // the module off (WL_ON, PF8), as pin 32 freed turns the
+        return;                                         // add-on's off
+    }
     SPI2->CR1 = 0;
     ExtCfg(32, EXT_NOT_CONFIG, 0);
     ExtCfg(33, EXT_NOT_CONFIG, 0);
@@ -522,8 +528,10 @@ void WebRunStart(void) {
     if (startupcomplete) cleanserver();
 }
 
-// the four pins (32 WL_ON, 33 CS, 38 data, 40 clock) and SPI2 are Wi-Fi's: SETPIN, SPI2 OPEN and SPI2Close leave them
+// the four pins (32 WL_ON, 33 CS, 38 data, 40 clock) and SPI2 are Wi-Fi's: SETPIN, SPI2 OPEN and SPI2Close leave them.
+// Not on a G3 V1.2, whose module is on the board, on SPI6: the pins and SPI2 stay BASIC's.
 static void reserve_pins(void) {
+    if (RM2OnBoard) return;
     ExtCfg(32, EXT_BOOT_RESERVED, 0);
     ExtCfg(33, EXT_BOOT_RESERVED, 0);
     ExtCfg(38, EXT_BOOT_RESERVED, 0);

@@ -244,6 +244,7 @@ char errstring[256]={0};
 int errpos=0;
 int ShortScroll;
 int G1Hardware;
+int RM2OnBoard;                     // a G3 V1.2: the RM2 Wi-Fi module on the board, on SPI6 (getVersion's PF6 strap)
 int Overclock;
 int executerun=0;
 char canopen=0;	  //CAN has no pins assigned
@@ -2711,22 +2712,24 @@ static void USBearly(void){
 	  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
 	  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
-static int getVersion(void){ //check for one of the test keys being tied low
+// the straps: PF9 to ground on a G2 and a G3 (high on a G1), and PF6 to ground on a G3 V1.2 as well, whose RM2 Wi-Fi
+// module is on the board (docs/G3_V1.2_Header_Plan.md); both pins are left analog with no pull afterwards
+static int getVersion(void){
 	  int j, k=1000;
 	  __HAL_RCC_GPIOF_CLK_ENABLE();
 	  GPIO_InitTypeDef GPIO_InitStruct = {0};
-	  GPIO_InitStruct.Pin = /*GPIO_PIN_1| GPIO_PIN_3 | */GPIO_PIN_9;
+	  GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_9;
 	  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 	  GPIO_InitStruct.Pull = GPIO_PULLUP;
 	  HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 	  while(k--){
-		  j = HAL_GPIO_ReadPin(GPIOF, GPIO_PIN_9);
+		  j = GPIOF->IDR & (GPIO_PIN_6 | GPIO_PIN_9);
 	  }
 	  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
 	  GPIO_InitStruct.Pull = GPIO_NOPULL;
-	  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-	  if(j==0)return 0;
-	  else return 1;
+	  HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+	  RM2OnBoard = (j == 0);
+	  return (j & GPIO_PIN_9) != 0;
 }
 
 static void MX_GPIO_Init(void)

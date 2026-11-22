@@ -26,11 +26,18 @@
 static volatile bool poll_pending;
 static uint32_t last_poll_ms;
 
-static const struct { GPIO_TypeDef *port; uint8_t bit; } pins[] = {
+typedef struct { GPIO_TypeDef *port; uint8_t bit; } wl_pin_t;
+static const wl_pin_t pins_addon[] = {          // the add-on module, on the rear connector
     {GPIOI, 8},                                  // CYW43_PIN_WL_REG_ON: PI8, MMBasic pin 32
     {GPIOI, 3},                                  // CYW43_PIN_WL_CS: PI3, pin 33
     {GPIOB, 15},                                 // CYW43_PIN_WL_HOST_WAKE: PB15, pin 38, the data line
+}, pins_onboard[] = {                            // a G3 V1.2's module, on the board (main.c RM2OnBoard)
+    {GPIOF, 8},                                  // CYW43_PIN_WL_REG_ON: PF8
+    {GPIOF, 7},                                  // CYW43_PIN_WL_CS: PF7
+    {GPIOG, 14},                                 // CYW43_PIN_WL_HOST_WAKE: PG14, the data line
 };
+extern int RM2OnBoard;
+#define pins (RM2OnBoard ? pins_onboard : pins_addon)
 
 void cyw43_cmm2_pin_mode(GPIO_TypeDef *port, int bit, int moder) {   // 0 input, 1 output, 2 alternate function
     port->MODER = (port->MODER & ~(3u << (2 * bit))) | ((uint32_t)moder << (2 * bit));

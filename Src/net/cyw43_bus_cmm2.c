@@ -20,6 +20,13 @@
  *
  * Pins: PB13 SPI2_SCK (AF5), PB15 SPI2_MOSI (AF5) during a transfer and an input (pulled down, as pico-sdk does)
  * between transfers, so that cyw43_hal_pin_read() sees the chip's IRQ; PI3 CS; PI8 WL_ON (cyw43_driver_cmm2.c).
+ *
+ * A G3 V1.2 (main.c RM2OnBoard, docs/G3_V1.2_Header_Plan.md) has the module on the board, on SPI6: PG13 SCK and PG14
+ * the data line (both AF5), CS PF7, WL_ON PF8. SPI6 is one of the H743's limited SPIs: frames of 16 bits at most, an
+ * 8-byte FIFO and at most 1023 frames a transfer (TSIZE). So each word, byte-reversed as above, goes as two 16-bit
+ * frames, its high half first, and the wire carries the same bits; a transfer of more than SPI16_PART_WORDS words is
+ * made in parts, with CS held low. SPI6's kernel clock is the D3 bus clock (120 MHz on a 480 MHz board), divided to
+ * 30 MHz at most.
  */
 
 #include <stdlib.h>
@@ -51,8 +58,14 @@ static inline __attribute__((always_inline)) uint32_t __swap16x2(uint32_t a) {
 #define SWAP32(a) __swap16x2(a)
 
 #define SPI2_TIMEOUT_US 20000                    // (a transfer is at most 2 KB: 700 us at 24 MHz)
+#define SPI6_MAX_HZ 30000000u                    // a G3 V1.2's bus clock at most (docs/G3_V1.2_Header_Plan.md)
+#define SPI16_PART_WORDS 511u                    // a limited SPI's TSIZE: 1023 frames at most, two to a word
 
 void cyw43_cmm2_pin_mode(GPIO_TypeDef *port, int bit, int moder);   // cyw43_driver_cmm2.c: 0 input, 1 output, 2 AF
+
+extern int RM2OnBoard;                           // main.c: a G3 V1.2, the module on the board, on SPI6
+#define DATA_PORT (RM2OnBoard ? GPIOG : GPIOB)   // the data line: PG14 on the board, PB15 on the add-on
+#define DATA_BIT (RM2OnBoard ? 14 : 15)
 
 typedef struct {
     uint32_t errors;
@@ -60,6 +73,29 @@ typedef struct {
 
 static bus_data_t bus_data_instance;
 static uint32_t cpu_mhz = 480;
+
+// a G3 V1.2: SPI6, as SPI2 is set below but for the frames (16 bits) and the clock (pclk4, divided to SPI6_MAX_HZ)
+static void spi6_init(void) {
+    RCC->AHB4ENR |= RCC_AHB4ENR_GPIOFEN | RCC_AHB4ENR_GPIOGEN;
+    RCC->D3CCIPR &= ~RCC_D3CCIPR_SPI6SEL;        // SPI6's kernel clock: pclk4, the D3 bus clock (its reset value)
+    RCC->APB4ENR |= RCC_APB4ENR_SPI6EN;
+    (void)RCC->APB4ENR;
+    RCC->APB4RSTR |= RCC_APB4RSTR_SPI6RST;
+    RCC->APB4RSTR &= ~RCC_APB4RSTR_SPI6RST;
+
+    // PG13 (SCK) and PG14 (the data line): AF5, medium speed; PG14 pulled down
+    GPIOG->AFR[1] = (GPIOG->AFR[1] & ~((0xFu << 20) | (0xFu << 24))) | (5u << 20) | (5u << 24);
+    GPIOG->OSPEEDR = (GPIOG->OSPEEDR & ~((3u << 26) | (3u << 28))) | (1u << 26) | (1u << 28);
+    GPIOG->OTYPER &= ~((1u << 13) | (1u << 14));
+    GPIOG->PUPDR = (GPIOG->PUPDR & ~((3u << 26) | (3u << 28))) | (2u << 28);
+    cyw43_cmm2_pin_mode(GPIOG, 13, 2);
+
+    uint32_t mbr = 0, pclk = HAL_RCCEx_GetD3PCLK1Freq();   // the divider: 2 << mbr
+    while (mbr < 7 && (pclk >> (mbr + 1)) > SPI6_MAX_HZ) mbr++;
+    SPI6->CR1 = SPI_CR1_SSI;
+    SPI6->CFG1 = (mbr << SPI_CFG1_MBR_Pos) | (15u << SPI_CFG1_DSIZE_Pos);
+    SPI6->CFG2 = SPI_CFG2_AFCNTR | SPI_CFG2_SSM | SPI_CFG2_MASTER | SPI_CFG2_COMM_0 | SPI_CFG2_COMM_1;
+}
 
 int cyw43_spi_init(cyw43_int_t *self) {
     // Only does something if CYW43_LOGIC_DEBUG=1
@@ -71,6 +107,10 @@ int cyw43_spi_init(cyw43_int_t *self) {
     cpu_mhz = SystemCoreClock / 1000000u;
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;   // the cycle counter, for ns_delay
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    if (RM2OnBoard) {
+        spi6_init();
+        return 0;
+    }
     RCC->AHB4ENR |= RCC_AHB4ENR_GPIOBEN | RCC_AHB4ENR_GPIOIEN;
     RCC->APB1LENR |= RCC_APB1LENR_SPI2EN;
     (void)RCC->APB1LENR;
@@ -94,13 +134,14 @@ int cyw43_spi_init(cyw43_int_t *self) {
 
 void cyw43_spi_deinit(cyw43_int_t *self) {
     if (self->bus_data) {
-        SPI2->CR1 = SPI_CR1_SSI;
+        (RM2OnBoard ? SPI6 : SPI2)->CR1 = SPI_CR1_SSI;
         self->bus_data = NULL;
     }
 }
 
 static void cs_set(bool value) {
-    GPIOI->BSRR = value ? (1u << 3) : (1u << (3 + 16));
+    if (RM2OnBoard) GPIOF->BSRR = value ? (1u << 7) : (1u << (7 + 16));
+    else GPIOI->BSRR = value ? (1u << 3) : (1u << (3 + 16));
 }
 
 static void ns_delay(uint32_t ns) {
@@ -111,7 +152,7 @@ static void ns_delay(uint32_t ns) {
 
 static void start_spi_comms(cyw43_int_t *self) {
     (void)self;
-    cyw43_cmm2_pin_mode(GPIOB, 15, 2);           // the data line to SPI2
+    cyw43_cmm2_pin_mode(DATA_PORT, DATA_BIT, 2); // the data line to the SPI
     // Pull CS low
     cs_set(false);
 }
@@ -120,7 +161,7 @@ static void start_spi_comms(cyw43_int_t *self) {
 static void stop_spi_comms(void) {
     // from this point a positive edge will cause an IRQ to be pending
     cs_set(true);
-    cyw43_cmm2_pin_mode(GPIOB, 15, 0);           // the data line an input: the chip's IRQ
+    cyw43_cmm2_pin_mode(DATA_PORT, DATA_BIT, 0); // the data line an input: the chip's IRQ
     // we need to wait a bit in case the irq line is incorrectly high
     ns_delay(IRQ_SAMPLE_DELAY_NS);
 }
@@ -172,6 +213,84 @@ static int spi2_receive(uint32_t *w, uint32_t n) {
     return ret;
 }
 
+// A limited SPI (a G3 V1.2's SPI6): the same transfers in 16-bit frames, two to a word, its high half first, and in
+// parts of at most SPI16_PART_WORDS words (TSIZE). Frame i of w: half of the byte-reversed word i / 2.
+static inline uint16_t half_out(const uint32_t *w, uint32_t i) {
+    uint32_t v = __REV(w[i >> 1]);
+    return (i & 1) ? (uint16_t)v : (uint16_t)(v >> 16);
+}
+
+static int spi16_send(SPI_TypeDef *s, const uint32_t *w, uint32_t n) {
+    volatile uint16_t *txdr = (volatile uint16_t *)&s->TXDR;    // (one frame a write)
+    while (n) {
+        uint32_t part = n < SPI16_PART_WORDS ? n : SPI16_PART_WORDS, f = 2 * part, i = 0;
+        s->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR;
+        s->CR2 = f;
+        s->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR | SPI_CR1_SPE;
+        while (i < f && (s->SR & SPI_SR_TXP)) { *txdr = half_out(w, i); i++; }
+        s->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR | SPI_CR1_SPE | SPI_CR1_CSTART;
+        uint64_t t0 = MicrosNow();
+        int ret = 0;
+        for (;;) {
+            uint32_t sr = s->SR;
+            if (i < f) {
+                if (sr & SPI_SR_TXP) { *txdr = half_out(w, i); i++; continue; }
+            } else if (sr & SPI_SR_EOT) break;
+            if (MicrosNow() - t0 > SPI2_TIMEOUT_US) { ret = -CYW43_EIO; break; }
+        }
+        s->IFCR = 0xFF8;
+        s->CR1 = SPI_CR1_SSI;
+        if (ret) return ret;
+        w += part;
+        n -= part;
+    }
+    return 0;
+}
+
+static int spi16_receive(SPI_TypeDef *s, uint32_t *w, uint32_t n) {
+    volatile uint16_t *rxdr = (volatile uint16_t *)&s->RXDR;    // (one frame a read)
+    while (n) {
+        uint32_t part = n < SPI16_PART_WORDS ? n : SPI16_PART_WORDS, f = 2 * part, i = 0, hi = 0;
+        s->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX;
+        s->CR2 = f;
+        s->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX | SPI_CR1_SPE;
+        s->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX | SPI_CR1_SPE | SPI_CR1_CSTART;
+        uint64_t t0 = MicrosNow();
+        int ret = 0;
+        for (;;) {
+            uint32_t sr = s->SR;
+            if (i < f) {
+                if (sr & SPI_SR_RXP) {
+                    uint32_t v = *rxdr;
+                    if (i & 1) w[i >> 1] = __REV((hi << 16) | v);
+                    else hi = v;
+                    i++;
+                    continue;
+                }
+                if (sr & SPI_SR_SUSP) {          // suspended with the FIFO read: go on
+                    s->IFCR = SPI_IFCR_SUSPC;
+                    s->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX | SPI_CR1_SPE | SPI_CR1_CSTART;
+                }
+            } else if (sr & SPI_SR_EOT) break;
+            if (MicrosNow() - t0 > SPI2_TIMEOUT_US) { ret = -CYW43_EIO; break; }
+        }
+        s->IFCR = 0xFF8;
+        s->CR1 = SPI_CR1_SSI;
+        if (ret) return ret;
+        w += part;
+        n -= part;
+    }
+    return 0;
+}
+
+static int bus_send(const uint32_t *w, uint32_t n) {
+    return RM2OnBoard ? spi16_send(SPI6, w, n) : spi2_send(w, n);
+}
+
+static int bus_receive(uint32_t *w, uint32_t n) {
+    return RM2OnBoard ? spi16_receive(SPI6, w, n) : spi2_receive(w, n);
+}
+
 int cyw43_spi_transfer(cyw43_int_t *self, const uint8_t *tx, size_t tx_length, uint8_t *rx,
                        size_t rx_length) {
 
@@ -192,16 +311,16 @@ int cyw43_spi_transfer(cyw43_int_t *self, const uint8_t *tx, size_t tx_length, u
         assert(!(((uintptr_t)rx) & 3));
         assert(!(rx_length & 3));
 
-        ret = spi2_send((const uint32_t *)tx, tx_length / 4);
+        ret = bus_send((const uint32_t *)tx, tx_length / 4);
         if (ret == 0) {
-            ret = spi2_receive((uint32_t *)(rx + tx_length), rx_length / 4 - tx_length / 4);
+            ret = bus_receive((uint32_t *)(rx + tx_length), rx_length / 4 - tx_length / 4);
         }
 
         memset(rx, 0, tx_length); // make sure we don't have garbage in what would have been returned data if using real SPI
     } else if (tx != NULL) {
         assert(!(((uintptr_t)tx) & 3));
         assert(!(tx_length & 3));
-        ret = spi2_send((const uint32_t *)tx, tx_length / 4);
+        ret = bus_send((const uint32_t *)tx, tx_length / 4);
     }
 
     stop_spi_comms();
@@ -217,12 +336,13 @@ void cyw43_spi_gpio_setup(void) {
     cyw43_hal_pin_config(CYW43_PIN_WL_REG_ON, CYW43_HAL_PIN_MODE_OUTPUT, CYW43_HAL_PIN_PULL_UP, 0);
 
     // Setup DO, DI and IRQ: the data line low while the chip powers up
-    GPIOB->BSRR = 1u << (15 + 16);
-    cyw43_cmm2_pin_mode(GPIOB, 15, 1);
+    DATA_PORT->BSRR = 1u << (DATA_BIT + 16);
+    cyw43_cmm2_pin_mode(DATA_PORT, DATA_BIT, 1);
 
     // Setup CS
     cs_set(true);
-    cyw43_cmm2_pin_mode(GPIOI, 3, 1);
+    if (RM2OnBoard) cyw43_cmm2_pin_mode(GPIOF, 7, 1);
+    else cyw43_cmm2_pin_mode(GPIOI, 3, 1);
 }
 
 // Reset wifi chip
@@ -233,7 +353,7 @@ void cyw43_spi_reset(void) {
     cyw43_delay_ms(250);
 
     // Setup IRQ - also used for DO, DI
-    cyw43_cmm2_pin_mode(GPIOB, 15, 0);
+    cyw43_cmm2_pin_mode(DATA_PORT, DATA_BIT, 0);
 }
 
 uint32_t cyw43_cmm2_bus_errors(void) {

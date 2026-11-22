@@ -154,6 +154,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern char *cursorsave;
     extern int G1Hardware;
     extern int G3Hardware;                                      // a G3: its MS7210 (HDMI) answered (MS7210.c)
+    extern int RM2OnBoard;                                      // a G3 V1.2: the RM2 on the board, on SPI6 (main.c)
     extern void MS7210_ResetStart(void);
     extern void MS7210_Release(void);
     extern int MS7210_Start(void);
