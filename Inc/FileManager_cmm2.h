@@ -65,7 +65,7 @@ extern volatile int ConsoleRxBufHead, ConsoleRxBufTail;
 extern volatile uint8_t pagesetdone;
 extern char errstring[];                                // MMBasic.c's error(): the message the prompt shows
 extern int errpos;
-#define MMgetchar()         MMgetchar(1)
+#define MMgetchar()         MMgetchar(0)    // 0: not the prompt's: 1 drew OPTION STATUS ON's line over FM's prompts
 #define routinechecks()     routinechecks(1)
 #define mytoupper(c)        toupper(c)
 #define time_us_64()        ((uint64_t)Getuptime())     // the uptime clock: GetuSec() is TIMER, which a program moves

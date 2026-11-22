@@ -3321,6 +3321,7 @@ void PrintStatus(int now){
 	if((c = ProgName()) != NULL){
 	    FRESULT fr=0;
 	    FILINFO fno;
+	    char *stored = c;                                           // (the name as the program keeps it: what f_stat checks)
 	    mymemset(&fno,0,sizeof(FILINFO));
 		if(c[1] == ':') strcpy(buff, c);                            // (with the drive it was loaded from)
 		else {
@@ -3334,8 +3335,8 @@ void PrintStatus(int now){
 			strcat(buff," - Check Disk");
 		}
 		else if(docheck==1){ //new disk so check my file is on it
-			c--;
-		    fr = f_stat(c, &fno);
+		    fr = f_stat(stored, &fno);                              // (c-- found it only without a drive: with one, the byte
+		                                                            // before the name went too, and every program read "Wrong Disk")
 		    if(fr != FR_OK || (fno.fattrib & AM_DIR)){
 		    	docheck++;
 		    	strcat(buff," - Wrong Disk");
