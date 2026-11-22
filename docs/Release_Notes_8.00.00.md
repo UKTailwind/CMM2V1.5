@@ -14,7 +14,7 @@ The same firmware file runs on the Generation 1, the Generation 2 and the Genera
 
 - **The Generation 3's WiFi and Bluetooth module on the board.** The Generation 3 carries the module on its board, on a bus of its own, so nothing is plugged into the rear I/O connector: with the WiFi and Bluetooth on, pins 32, 33, 38 and 40 and SPI2 stay free for other uses. The firmware finds the module by itself. On a Generation 1 or 2 the plug-in module works as before.
 - **SQL(TYPE n)**, which says what SQLite holds in a column of the row: an integer, a floating point number, text, a BLOB or no value.
-- **Fixes:** text arriving on the serial console was lost or garbled while a program switched OPTION CONSOLE; a key typed under OPTION CONSOLE NONE was stored in the wrong memory; and the prompt's history recall drew and edited each recalled line a column to the left on a serial terminal exactly as wide as the screen.
+- **Fixes:** text arriving on the serial console was lost or garbled while a program switched OPTION CONSOLE; a key typed under OPTION CONSOLE NONE was stored in the wrong memory; the prompt's history recall drew and edited each recalled line a column to the left on a serial terminal exactly as wide as the screen; and under OPTION STATUS ON the file manager's prompts were hidden on the screen and the status line said "Check Disk" for a program that was on the card.
 
 ### Before you update
 
@@ -64,6 +64,8 @@ SQL(TYPE n), beside SQL(ISNULL n), returns what SQLite holds in column n of the 
 - **OPTION CONSOLE in a program.** OPTION CONSOLE SCREEN stopped the serial console's port, and BOTH or SERIAL set it up again, so text arriving while a program switched between them was lost or came in garbled (Matthias: mmsql switches while reading pasted text). The original Colour Maximite 2 firmware did this to free the port for OPEN "COM3:". OPTION CONSOLE now only chooses where the output goes, as on the PicoMite: the port keeps running, and nothing that arrives is lost however often a program switches. A program can still open the console's port as COM3 (or COM1 or COM2 under OPTION CONSOLE PORT) as before: the console gives the port up while it is open.
 - **OPTION CONSOLE NONE:** a key typed on the serial console was stored through COM3's receive buffer, which does not exist unless COM3 is open, so it was written to the wrong memory. It now reaches the program, as under the other settings.
 - **The prompt's history recall** (the Up and Down keys): on a serial terminal exactly as wide as the screen (Tera Term at 100 columns for MODE 1, for example) each recalled line, from the second on, was drawn over the space after the prompt (">option list") and edits landed one place to the left (Matthias). The VGA screen was right. In the Colour Maximite 2's firmware from the start: a terminal one column wider, which EDIT, FM and Shift-F6 ask for, hid it. Also, insert mode could push a line past the screen's right edge.
+- **The file manager's prompts under OPTION STATUS ON:** while FM waited for a name (to rename, duplicate, go to a path, filter, or make a new file or directory), the screen's bottom row showed the prompt's status line (the program's name and the time) in place of the question, redrawn every second. The serial terminal was right. In the firmware since 7.00.00b4 (Peter).
+- **The status line under OPTION STATUS ON** said "Wrong Disk" and then "Check Disk" after a program was loaded, although its file was on the card: the check looked for the name with a stray character in front of it. Since 7.00.00b4, when a program's name began to keep its drive.
 - **MM.VER** is 8.000003.
 
 ### What behaves differently
@@ -117,6 +119,8 @@ CMM2_Programs_8.00.00b3.zip is 8.00.00b2's zip with README.txt for this version.
   - The final code ran the plug-in module as before.
 
 The Generation 2 and the Generation 3 have not run the release file itself: only one board could be connected.
+
+**The release file was replaced on 22 November** with the two OPTION STATUS fixes above, an hour after it was first published. They change two lines, and no other code moved. The tests above ran on the first file. The new file runs on the same Generation 1 with its options loaded back unchanged. Under OPTION STATUS ON, FM's rename prompt there reads "Rename occom3.bas to: occom3.bas", and after RUN the status line shows "A:/T21/sqltype2.bas" with no "Check Disk".
 
 ### Known problems
 
