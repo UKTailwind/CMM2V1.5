@@ -881,7 +881,7 @@ In WARPH the destination pixel (x, y) is the source pixel (x - offset, y): a pos
 ‘rows%()’ (WARPH only) has an element for each band, the band using the same element of it as of ‘xoff%()’.  -1 leaves the band as it is.  Otherwise the element is the source row shown on the band's first row, and the band's next rows show the source rows after it, round to the top.  It picks a hill or the colour of the kerbs for each line of a road, for example.  Its values are -1 or 0 to the source's height minus 1.
 The source and the destination can be of different sizes: the offsets wrap at the source's width or height, so that WARPH from a framebuffer wider than the screen is a FRAMEBUFFER WINDOW for each line.  The columns (WARPV) or rows (WARPH without ‘rows%()’) that the bands cover must be in the source ("Rows 0 to 299 are not all in the source (240 high)").
 When ‘to’ is the display, use FRAMEBUFFER WAIT first: the destination is written from the top down, ahead of the frame.  For example, a parallax scroll in 2-row bands under a still score line 16 rows high (MODE 7):
-{b=0 a=0}`  DIM speed!(111), off%(111)\n  FOR i = 0 TO 111 : speed!(i) = -(0.1 + i / 112) : NEXT\n  DO\n    camx = camx + 2\n    MATH SCALE speed!(), camx, off%()\n    FRAMEBUFFER WAIT\n    FRAMEBUFFER WARPH F, N, off%(), 2, 16\n  LOOP`
+{b=0 a=0}`  DIM speed!(111), off%(111)\n  FOR i = 0 TO 111\n    speed!(i) = -(0.1 + i / 112)\n  NEXT\n  DO\n    camx = camx + 2\n    MATH SCALE speed!(), camx, off%()\n    FRAMEBUFFER WAIT\n    FRAMEBUFFER WARPH F, N, off%(), 2, 16\n  LOOP`
 
 =+= FRAMEBUFFER WAIT
 --- keep

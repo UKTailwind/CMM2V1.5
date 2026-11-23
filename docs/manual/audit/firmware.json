@@ -1584,7 +1584,7 @@
    "handler": "cmd_triangle",
    "line": 465,
    "subkeywords": [],
-   "where": "Draw.c:4984"
+   "where": "Draw.c:4987"
   },
   {
    "table": "command",
@@ -1596,7 +1596,7 @@
    "handler": "cmd_text",
    "line": 466,
    "subkeywords": [],
-   "where": "Draw.c:3272"
+   "where": "Draw.c:3275"
   },
   {
    "table": "command",
@@ -1612,11 +1612,11 @@
      "kw": "FILL",
      "func": "cmd_pixel",
      "file": "Draw.c",
-     "line": 3557,
+     "line": 3560,
      "via": []
     }
    ],
-   "where": "Draw.c:3556"
+   "where": "Draw.c:3559"
   },
   {
    "table": "command",
@@ -1628,7 +1628,7 @@
    "handler": "cmd_circle",
    "line": 468,
    "subkeywords": [],
-   "where": "Draw.c:4114"
+   "where": "Draw.c:4117"
   },
   {
    "table": "command",
@@ -1644,25 +1644,25 @@
      "kw": "PLOT",
      "func": "cmd_line",
      "file": "Draw.c",
-     "line": 4393,
+     "line": 4396,
      "via": []
     },
     {
      "kw": "GRAPH",
      "func": "cmd_line",
      "file": "Draw.c",
-     "line": 4427,
+     "line": 4430,
      "via": []
     },
     {
      "kw": "AA",
      "func": "cmd_line",
      "file": "Draw.c",
-     "line": 4435,
+     "line": 4438,
      "via": []
     }
    ],
-   "where": "Draw.c:4356"
+   "where": "Draw.c:4359"
   },
   {
    "table": "command",
@@ -1678,32 +1678,32 @@
      "kw": "AND_PIXELS",
      "func": "cmd_box",
      "file": "Draw.c",
-     "line": 4521,
+     "line": 4524,
      "via": []
     },
     {
      "kw": "OR_PIXELS",
      "func": "cmd_box",
      "file": "Draw.c",
-     "line": 4521,
+     "line": 4524,
      "via": []
     },
     {
      "kw": "XOR_PIXELS",
      "func": "cmd_box",
      "file": "Draw.c",
-     "line": 4521,
+     "line": 4524,
      "via": []
     },
     {
      "kw": "FRAMEBUFFER",
      "func": "cmd_box",
      "file": "Draw.c",
-     "line": 4557,
+     "line": 4560,
      "via": []
     }
    ],
-   "where": "Draw.c:4516"
+   "where": "Draw.c:4519"
   },
   {
    "table": "command",
@@ -1715,7 +1715,7 @@
    "handler": "cmd_rbox",
    "line": 471,
    "subkeywords": [],
-   "where": "Draw.c:4858"
+   "where": "Draw.c:4861"
   },
   {
    "table": "command",
@@ -1727,7 +1727,7 @@
    "handler": "cmd_cls",
    "line": 472,
    "subkeywords": [],
-   "where": "Draw.c:5076"
+   "where": "Draw.c:5079"
   },
   {
    "table": "command",
@@ -1739,7 +1739,7 @@
    "handler": "cmd_font",
    "line": 473,
    "subkeywords": [],
-   "where": "Draw.c:5183"
+   "where": "Draw.c:5186"
   },
   {
    "table": "command",
@@ -1755,11 +1755,11 @@
      "kw": "MAP",
      "func": "cmd_colour",
      "file": "Draw.c",
-     "line": 5241,
+     "line": 5244,
      "via": []
     }
    ],
-   "where": "Draw.c:5239"
+   "where": "Draw.c:5242"
   },
   {
    "table": "command",
@@ -1775,81 +1775,108 @@
      "kw": "WRITE",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2750,
+     "line": 2751,
      "via": []
     },
     {
      "kw": "COPY",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2750,
+     "line": 2751,
      "via": []
     },
     {
      "kw": "SCROLL",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2750,
+     "line": 2751,
      "via": []
     },
     {
      "kw": "DISPLAY",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2752,
+     "line": 2754,
      "via": []
     },
     {
      "kw": "FRAMEBUFFER",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2798,
+     "line": 2800,
      "via": []
     },
     {
      "kw": "RESIZE",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2810,
+     "line": 2812,
      "via": []
     },
     {
      "kw": "MERGE",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2822,
+     "line": 2824,
      "via": []
     },
     {
      "kw": "STITCH",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 2993,
+     "line": 2995,
      "via": []
     },
     {
      "kw": "AND_PIXELS",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 3055,
+     "line": 3057,
      "via": []
     },
     {
      "kw": "OR_PIXELS",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 3115,
+     "line": 3117,
      "via": []
     },
     {
      "kw": "XOR_PIXELS",
      "func": "cmd_page",
      "file": "Draw.c",
-     "line": 3175,
+     "line": 3177,
      "via": []
+    },
+    {
+     "kw": "WARPH",
+     "func": "WarpCommand",
+     "file": "Warp.c",
+     "line": 578,
+     "via": [
+      "cmd_page"
+     ]
+    },
+    {
+     "kw": "WARPV",
+     "func": "WarpCommand",
+     "file": "Warp.c",
+     "line": 580,
+     "via": [
+      "cmd_page"
+     ]
+    },
+    {
+     "kw": "WAIT",
+     "func": "WarpCommand",
+     "file": "Warp.c",
+     "line": 582,
+     "via": [
+      "cmd_page"
+     ]
     }
    ],
-   "where": "Draw.c:2745"
+   "where": "Draw.c:2746"
   },
   {
    "table": "command",
@@ -1861,7 +1888,7 @@
    "handler": "cmd_arc",
    "line": 476,
    "subkeywords": [],
-   "where": "Draw.c:3749"
+   "where": "Draw.c:3752"
   },
   {
    "table": "command",
@@ -1873,7 +1900,7 @@
    "handler": "cmd_polygon",
    "line": 477,
    "subkeywords": [],
-   "where": "Draw.c:4110"
+   "where": "Draw.c:4113"
   },
   {
    "table": "command",
@@ -1890,39 +1917,39 @@
      "kw": "SET",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2672,
+     "line": 2673,
      "via": []
     },
     {
      "kw": "RESET",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2677,
+     "line": 2678,
      "via": []
     },
     {
      "kw": "GREYSCALE",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2679,
+     "line": 2680,
      "via": []
     },
     {
      "kw": "GRAYSCALE",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2679,
+     "line": 2680,
      "via": []
     },
     {
      "kw": "MAXIMITE",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2706,
+     "line": 2707,
      "via": []
     }
    ],
-   "where": "Draw.c:2669"
+   "where": "Draw.c:2670"
   },
   {
    "table": "command",
@@ -1938,39 +1965,39 @@
      "kw": "SET",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2672,
+     "line": 2673,
      "via": []
     },
     {
      "kw": "RESET",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2677,
+     "line": 2678,
      "via": []
     },
     {
      "kw": "GREYSCALE",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2679,
+     "line": 2680,
      "via": []
     },
     {
      "kw": "GRAYSCALE",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2679,
+     "line": 2680,
      "via": []
     },
     {
      "kw": "MAXIMITE",
      "func": "cmd_clut",
      "file": "Draw.c",
-     "line": 2706,
+     "line": 2707,
      "via": []
     }
    ],
-   "where": "Draw.c:2669"
+   "where": "Draw.c:2670"
   },
   {
    "table": "command",
@@ -1986,53 +2013,53 @@
      "kw": "ROTATE_FAST",
      "func": "cmd_image",
      "file": "Draw.c",
-     "line": 2138,
+     "line": 2139,
      "via": []
     },
     {
      "kw": "FRAMEBUFFER",
      "func": "cmd_image",
      "file": "Draw.c",
-     "line": 2148,
+     "line": 2149,
      "via": []
     },
     {
      "kw": "ROTATE",
      "func": "cmd_image",
      "file": "Draw.c",
-     "line": 2248,
+     "line": 2249,
      "via": []
     },
     {
      "kw": "WARP_H",
      "func": "cmd_image",
      "file": "Draw.c",
-     "line": 2288,
+     "line": 2289,
      "via": []
     },
     {
      "kw": "WARP_V",
      "func": "cmd_image",
      "file": "Draw.c",
-     "line": 2429,
+     "line": 2430,
      "via": []
     },
     {
      "kw": "RESIZE_FAST",
      "func": "cmd_image",
      "file": "Draw.c",
-     "line": 2569,
+     "line": 2570,
      "via": []
     },
     {
      "kw": "RESIZE",
      "func": "cmd_image",
      "file": "Draw.c",
-     "line": 2580,
+     "line": 2581,
      "via": []
     }
    ],
-   "where": "Draw.c:2135"
+   "where": "Draw.c:2136"
   },
   {
    "table": "command",
@@ -2184,6 +2211,26 @@
      "via": [
       "cmd_framebuffer"
      ]
+    },
+    {
+     "kw": "WARPH",
+     "func": "WarpCommand",
+     "file": "Warp.c",
+     "line": 578,
+     "via": [
+      "cmd_framebuffer",
+      "Rgb121Framebuffer"
+     ]
+    },
+    {
+     "kw": "WARPV",
+     "func": "WarpCommand",
+     "file": "Warp.c",
+     "line": 580,
+     "via": [
+      "cmd_framebuffer",
+      "Rgb121Framebuffer"
+     ]
     }
    ],
    "where": "Draw.c:997"
@@ -2202,102 +2249,102 @@
      "kw": "CREATE",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1448,
+     "line": 1449,
      "via": []
     },
     {
      "kw": "DIAGNOSE",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1680,
+     "line": 1681,
      "via": []
     },
     {
      "kw": "LIGHT",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1693,
+     "line": 1694,
      "via": []
     },
     {
      "kw": "SHOW",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1703,
+     "line": 1704,
      "via": []
     },
     {
      "kw": "SET FLAGS",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1720,
+     "line": 1721,
      "via": []
     },
     {
      "kw": "ROTATE",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1738,
+     "line": 1739,
      "via": []
     },
     {
      "kw": "HIDE ALL",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1772,
+     "line": 1773,
      "via": []
     },
     {
      "kw": "RESET",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1783,
+     "line": 1784,
      "via": []
     },
     {
      "kw": "HIDE",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1799,
+     "line": 1800,
      "via": []
     },
     {
      "kw": "RESTORE",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1814,
+     "line": 1815,
      "via": []
     },
     {
      "kw": "WRITE",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1825,
+     "line": 1826,
      "via": []
     },
     {
      "kw": "CLOSE ALL",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1842,
+     "line": 1843,
      "via": []
     },
     {
      "kw": "CLOSE",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1845,
+     "line": 1846,
      "via": []
     },
     {
      "kw": "CAMERA",
      "func": "cmd_3D",
      "file": "Draw.c",
-     "line": 1856,
+     "line": 1857,
      "via": []
     }
    ],
-   "where": "Draw.c:1446"
+   "where": "Draw.c:1447"
   },
   {
    "table": "command",
@@ -6920,7 +6967,7 @@
    "handler": "cmd_bezier",
    "line": 558,
    "subkeywords": [],
-   "where": "Draw.c:3889"
+   "where": "Draw.c:3892"
   },
   {
    "table": "command",
@@ -6932,7 +6979,7 @@
    "handler": "cmd_fill",
    "line": 559,
    "subkeywords": [],
-   "where": "Draw.c:3502"
+   "where": "Draw.c:3505"
   },
   {
    "table": "command",
@@ -9106,186 +9153,186 @@
      "kw": "WHITE",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5098,
+     "line": 5101,
      "via": []
     },
     {
      "kw": "BLACK",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5099,
+     "line": 5102,
      "via": []
     },
     {
      "kw": "NOTBLACK",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5100,
+     "line": 5103,
      "via": []
     },
     {
      "kw": "BLUE",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5101,
+     "line": 5104,
      "via": []
     },
     {
      "kw": "GREEN",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5102,
+     "line": 5105,
      "via": []
     },
     {
      "kw": "CYAN",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5103,
+     "line": 5106,
      "via": []
     },
     {
      "kw": "RED",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5104,
+     "line": 5107,
      "via": []
     },
     {
      "kw": "MAGENTA",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5105,
+     "line": 5108,
      "via": []
     },
     {
      "kw": "YELLOW",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5106,
+     "line": 5109,
      "via": []
     },
     {
      "kw": "BROWN",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5107,
+     "line": 5110,
      "via": []
     },
     {
      "kw": "GRAY",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5108,
+     "line": 5111,
      "via": []
     },
     {
      "kw": "GREY",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5109,
+     "line": 5112,
      "via": []
     },
     {
      "kw": "LIGHTGRAY",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5110,
+     "line": 5113,
      "via": []
     },
     {
      "kw": "LIGHTGREY",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5111,
+     "line": 5114,
      "via": []
     },
     {
      "kw": "ORANGE",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5112,
+     "line": 5115,
      "via": []
     },
     {
      "kw": "PINK",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5113,
+     "line": 5116,
      "via": []
     },
     {
      "kw": "GOLD",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5114,
+     "line": 5117,
      "via": []
     },
     {
      "kw": "SALMON",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5115,
+     "line": 5118,
      "via": []
     },
     {
      "kw": "LILAC",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5116,
+     "line": 5119,
      "via": []
     },
     {
      "kw": "FUCHSIA",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5117,
+     "line": 5120,
      "via": []
     },
     {
      "kw": "RUST",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5118,
+     "line": 5121,
      "via": []
     },
     {
      "kw": "CERULEAN",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5119,
+     "line": 5122,
      "via": []
     },
     {
      "kw": "MIDGREEN",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5120,
+     "line": 5123,
      "via": []
     },
     {
      "kw": "COBALT",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5121,
+     "line": 5124,
      "via": []
     },
     {
      "kw": "MYRTLE",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5122,
+     "line": 5125,
      "via": []
     },
     {
      "kw": "BEIGE",
      "func": "fun_rgb",
      "file": "Draw.c",
-     "line": 5123,
+     "line": 5126,
      "via": []
     }
    ],
-   "where": "Draw.c:5093"
+   "where": "Draw.c:5096"
   },
   {
    "table": "token",
@@ -9302,11 +9349,11 @@
      "kw": "FRAMEBUFFER",
      "func": "fun_pixel",
      "file": "Draw.c",
-     "line": 4970,
+     "line": 4973,
      "via": []
     }
    ],
-   "where": "Draw.c:4958"
+   "where": "Draw.c:4961"
   },
   {
    "table": "token",
@@ -9323,60 +9370,60 @@
      "kw": "XMIN",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1879,
+     "line": 1880,
      "via": []
     },
     {
      "kw": "XMAX",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1884,
+     "line": 1885,
      "via": []
     },
     {
      "kw": "YMIN",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1889,
+     "line": 1890,
      "via": []
     },
     {
      "kw": "YMAX",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1894,
+     "line": 1895,
      "via": []
     },
     {
      "kw": "X",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1899,
+     "line": 1900,
      "via": []
     },
     {
      "kw": "Y",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1904,
+     "line": 1905,
      "via": []
     },
     {
      "kw": "DISTANCE",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1909,
+     "line": 1910,
      "via": []
     },
     {
      "kw": "Z",
      "func": "fun_3D",
      "file": "Draw.c",
-     "line": 1914,
+     "line": 1915,
      "via": []
     }
    ],
-   "where": "Draw.c:1877"
+   "where": "Draw.c:1878"
   },
   {
    "table": "token",
@@ -9389,7 +9436,7 @@
    "handler": "fun_clut",
    "line": 634,
    "subkeywords": [],
-   "where": "Draw.c:2658"
+   "where": "Draw.c:2659"
   },
   {
    "table": "token",
@@ -9402,7 +9449,7 @@
    "handler": "fun_getscanline",
    "line": 635,
    "subkeywords": [],
-   "where": "Draw.c:2645"
+   "where": "Draw.c:2646"
   },
   {
    "table": "token",
@@ -9415,7 +9462,7 @@
    "handler": "fun_at",
    "line": 636,
    "subkeywords": [],
-   "where": "Draw.c:1126"
+   "where": "Draw.c:1127"
   },
   {
    "table": "token",

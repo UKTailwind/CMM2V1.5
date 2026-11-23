@@ -4,7 +4,7 @@
 
 ## 8.00.00b3 (22 November 2026)
 
-*22 November 2026. Compared with 8.00.00b2, the last version released.*
+*22 November 2026. Updated on 23 November with FRAMEBUFFER WARPH and WARPV. Compared with 8.00.00b2, the last version released.*
 
 This is the third beta of MMBasic 8.00 for the Colour Maximite 2. Please report problems on the Back Shed forum. 7.00.00RC6 remains the last release of version 7.
 
@@ -14,6 +14,7 @@ The same firmware file runs on the Generation 1, the Generation 2 and the Genera
 
 - **The Generation 3's WiFi and Bluetooth module on the board.** The Generation 3 carries the module on its board, on a bus of its own, so nothing is plugged into the rear I/O connector: with the WiFi and Bluetooth on, pins 32, 33, 38 and 40 and SPI2 stay free for other uses. The firmware finds the module by itself. On a Generation 1 or 2 the plug-in module works as before.
 - **SQL(TYPE n)**, which says what SQLite holds in a column of the row: an integer, a floating point number, text, a BLOB or no value.
+- **FRAMEBUFFER WARPH and WARPV** (added on 23 November): each row or column of one buffer is copied to another, moved by its own offset from an integer array. One command makes racing roads, parallax, water that wobbles and screen melts, what the arcade hardware called row scroll and column scroll. PAGE WARPH and WARPV do the same with page numbers. FRAMEBUFFER WAIT now works in every colour depth. The PicoMite's 8.00.00b1 has the same commands.
 - **Fixes:** text arriving on the serial console was lost or garbled while a program switched OPTION CONSOLE; a key typed under OPTION CONSOLE NONE was stored in the wrong memory; the prompt's history recall drew and edited each recalled line a column to the left on a serial terminal exactly as wide as the screen; and under OPTION STATUS ON the file manager's prompts were hidden on the screen and the status line said "Check Disk" for a program that was on the card.
 
 ### Before you update
@@ -59,6 +60,26 @@ The User Manual says so in Hardware Features, WiFi and Internet Functions (The W
 
 SQL(TYPE n), beside SQL(ISNULL n), returns what SQLite holds in column n of the current row: 1 an integer, 2 a floating point number, 3 text, 4 a BLOB, 5 no value (SQLite's own numbers, from sqlite3_column_type()). SQL(n) gives a BLOB as a string, as it gives text, and a column read into a float cannot tell 2.0 from 2, so a program that writes the data out again, as a dump does, can now keep each value's type (Matthias's wish, for mmsql). It uses what sql.mod already gives the firmware, so the zip's sql.mod is unchanged.
 
+#### FRAMEBUFFER WARPH and WARPV (added on 23 November)
+
+```
+FRAMEBUFFER WARPH from, to, xoff%() [, step] [, first] [, phase] [, edge] [, transparent] [, rows%()]
+FRAMEBUFFER WARPV from, to, yoff%() [, step] [, first] [, phase] [, edge] [, transparent]
+```
+
+Each row (WARPH) or column (WARPV) of the buffer `from` is copied to the buffer `to`, moved by its own offset from an integer array: a positive offset moves a row to the right, or a column up, as PAGE SCROLL does. The old games made these effects by changing the scroll position on chosen lines (the arcade hardware's *row scroll*, or *line scroll*, and *column scroll*): the curves and hills of a racing road, parallax layers that move at different speeds, water that wobbles and a screen that melts away. An array operation such as MATH SCALE makes a frame's offsets, so there is no BASIC loop over the lines. They are Peter's design for the PicoMite, whose 8.00.00b1 has the same commands, and a program that uses them runs on both.
+
+- **Bands:** each element of the array moves a band of `step` rows or columns (default 1), from the row or column `first` (default 0). Rows or columns outside the bands are left as they are, so a score line can stay still.
+- **phase** rotates the element each band takes ((band + phase) MOD the number of elements), so a table holding a wave is animated by counting `phase` up.
+- **edge:** if it is omitted the source wraps round, so any offset can be given (a camera position that keeps growing, for example). -1 leaves the destination's pixel as it is, and a colour fills it.
+- **transparent** is a pixel that is not copied, so layers moved by different offsets can be stacked in one buffer. In the 12-bit colour depth the pixels with an alpha of 0 are not copied, whatever colour is given (give 0).
+- **rows%()** (WARPH only) picks the source row shown on each band: a hill, or the colour of a road's kerbs, for each line.
+- **The buffers:** in the 8, 12, 16 and 32-bit colour depths `from` and `to` are N (the display, page 0) and F (the framebuffer of FRAMEBUFFER CREATE). They can be of different sizes: the offsets wrap at the source's size, so WARPH from a framebuffer wider than the screen is a FRAMEBUFFER WINDOW for each line. In the 4-bit depth (the PicoMite's VGA and HDMI) they take the PicoMite's letters N, L, F, 2 and T.
+- **PAGE WARPH and PAGE WARPV** do the same with page numbers (`PAGE WARPH 1 TO 0, off%()`), in every colour depth but 1 bit. The 1-bit depth does not have WARPH and WARPV ("Invalid for this screen mode").
+- **FRAMEBUFFER WAIT,** which waits for the next frame blanking, now works in the 8, 12, 16 and 32-bit colour depths, as it did in the 4 and 1-bit ones. Use it before writing to the display, so that the picture is whole when it is shown.
+
+The User Manual has them in the FRAMEBUFFER and PAGE entries, with an example, and in the chapters Video Modes and Pages and Game Playing Features. The PicoMite's warp_demo.bas runs unchanged under OPTION PICOMITE VGA at 59.5 to 59.9 frames a second on a Generation 1.
+
 #### Fixes
 
 - **OPTION CONSOLE in a program.** OPTION CONSOLE SCREEN stopped the serial console's port, and BOTH or SERIAL set it up again, so text arriving while a program switched between them was lost or came in garbled (Matthias: mmsql switches while reading pasted text). The original Colour Maximite 2 firmware did this to free the port for OPEN "COM3:". OPTION CONSOLE now only chooses where the output goes, as on the PicoMite: the port keeps running, and nothing that arrives is lost however often a program switches. A program can still open the console's port as COM3 (or COM1 or COM2 under OPTION CONSOLE PORT) as before: the console gives the port up while it is open.
@@ -81,7 +102,8 @@ For those who build the firmware or study its source:
 - **The module's bus on a Generation 3** (Src/net/cyw43_bus_cmm2.c): SPI6, with the clock on PG13 and the data, in both directions and with the chip's interrupt, on PG14 (both alternate function 5), chip select PF7 and power on PF8, all on the board. SPI6 is in the D3 domain, clocked from its bus clock (120MHz at 480MHz) divided by 4. It is a limited SPI (16-bit frames at most, an 8-byte FIFO), so each 32-bit word of the chip's protocol goes as two 16-bit frames, and a long transfer in parts of at most 511 words. The plug-in module's path (SPI2, 32-bit frames) is unchanged.
 - **The pins:** cyw43_driver_cmm2.c has the board's pins beside the plug-in module's; Src/net/WebMite_cmm2.c reserves the connector's four pins and SPI2 only for the plug-in module.
 - **The console's port** (Src/Serial.c): ConsoleUartUp says whether the console has its UART; a program's OPEN of that port hands it over (ConsoleHandOver) and ConsolePortOpen gives "Console port in use". The interrupt handlers of USART1, USART2 and UART4 (Src/stm32h7xx_it.c) give a byte to whoever has the port: the console, else the COM port if it is open, else it is read and dropped.
-- **Unchanged:** the options record (layout 5), the tokens (image format 7) and the loadable programs' services (version 22).
+- **WARPH and WARPV** (Src/Warp.c): the PicoMite's core (its graphics/Warp.c), with the Colour Maximite 2's additions: 32-bit pixels, the 12-bit depth's alpha, pages that hold each row twice, a source and destination of different sizes, and the routine checks every 16 rows. It is all in the .extra section, entered through one call, WarpCommand, from cmd_framebuffer (Src/Draw.c), Rgb121Framebuffer (Src/Rgb121.c) and cmd_page, so the code run for every statement moved by 64 bytes and the statements' timings are as before. The tests are tests/cmm2/warpn.bas and tests/picomite/warp.bas.
+- **Unchanged:** the options record (layout 5), the tokens (image format 7) and the loadable programs' services (version 22). WARPH and WARPV are words of the FRAMEBUFFER and PAGE commands, not new tokens.
 - docs/G3_V1.2_Header_Plan.md records the board's connections, the antenna's keep-out and the firmware for the module on the board.
 
 ### The programs
@@ -124,11 +146,19 @@ The Generation 2 and the Generation 3 have not run the release file itself: only
 
 **The release file was replaced on 22 November** with the two OPTION STATUS fixes above, an hour after it was first published. They change two lines, and no other code moved. The tests above ran on the first file. The new file runs on the same Generation 1 with its options loaded back unchanged. Under OPTION STATUS ON, FM's rename prompt there reads "Rename occom3.bas to: occom3.bas", and after RUN the status line shows "A:/T21/sqltype2.bas" with no "Check Disk".
 
+**The release file was replaced again on 23 November,** before 8.00.00b3 was announced, with FRAMEBUFFER WARPH and WARPV. Nothing else changed in the firmware. The release file runs on the same Generation 1, with its options loaded back unchanged:
+- **tests/cmm2** (114 programs, now with warpn.bas: WARPH and WARPV in the Colour Maximite 2's own colour depths, in 13 configurations, and 18 error tests) and **the PicoMite tests** (now with warp.bas, the PicoMite's own WARP test under OPTION PICOMITE VGA in MODE 2 and 3): warpn.bas and warp.bas give their expected output. Every other program gave what it gave under the first 8.00.00b3 file, byte for byte, but for one line: a test that lists the options now also shows OPTION STATUS OFF, which was set on this board for the OPTION STATUS tests. The crash tests, the corpus, the test files and SP Tools were not run again. The statements' timings, measured with the same code before the release build, are as before.
+- **The manual's example** for FRAMEBUFFER WARPH, as printed, ran in MODE 7 at 75 frames a second: every frame of that mode's 75Hz display.
+- **The PicoMite's warp_demo.bas** ran unchanged under OPTION PICOMITE VGA at 59.5 to 59.9 frames a second, with the same code before the release build.
+- **The programs:** after a restart, each program in the zip that runs on a Generation 1 started from the prompt with no error, the 386 PC and the NES included, and the prompt came back when it was left. The Generation 2 programs refused with "Needs a G2", as before.
+- **The timings** over a whole 800 x 600 page are under Known problems.
+
 ### Known problems
 
 - **No Generation 3 with the module on its board has been made yet.** Its path has run only in a test build that took a Generation 3 without the module for one with it: the firmware found no chip, said "WiFi module not found" and carried on with every pin free. The same 16-bit transfer code has carried the plug-in module's traffic without an error (see Tested). If the first boards misread at 30MHz, the bus can be slowed to 15MHz in the next beta.
 - **Opening the console's own port as COM3** (or COM1 or COM2 under OPTION CONSOLE PORT) in a program has not been tried on a board since the OPTION CONSOLE change. COM3 still opens only when the saved option is OPTION CONSOLE SCREEN or NONE, as before.
 - **A large loadable program on a Generation 1 after many BASIC programs.** After a long session the 386 PC and the NES emulator stopped with "Needs n KB, n KB free in one block". In this testing that came after about 400 test programs. Each started at once after a restart (CPU RESTART or the reset button). Something those programs used is held until a restart and keeps the loader from joining the display memory to the heap. 8.00.00b2 has the same code. Which statement does this is not yet known.
+- **FRAMEBUFFER WARPV a column at a time over a whole 800 x 600 page** is slow. With offsets that differ from column to column it took 108 ms in the 8-bit colour depth, 253 ms in 16 bits and 594 ms in 12 bits on a Generation 1. Bands of four columns (`step` 4) took 20, 39 and 70 ms, and WARPH over the same page 4, 26 and 53 ms.
 - **Bluetooth game controllers** have not been tried with a real controller yet.
 - **Why the radio chip once gave a wrong Bluetooth buffer position** is not known; the firmware refuses it, so it costs at most a packet.
 - **Bluetooth and the network wait while a loadable program runs:** a Bluetooth keyboard does not type into it and a speaker plays nothing (MicroPython's network is the exception: it services the network itself).
@@ -141,6 +171,11 @@ The Generation 2 and the Generation 3 have not run the release file itself: only
 ### The manuals
 
 - **The User Manual** is for 8.00.00b3: the Generation 3's module on the board (Hardware Features, WiFi and Internet Functions, Bluetooth, Porting Programs, Appendices D and M, OPTION WIFI and SPI2), SQL(TYPE n) (in SQL( and the chapter SQL Databases), and OPTION CONSOLE.
+- **The User Manual was replaced on 23 November** (its title page says 23 November). It adds FRAMEBUFFER WARPH, WARPV and WAIT, and PAGE WARPH and WARPV, in the Commands and in the chapters Video Modes and Pages and Game Playing Features. It also carries changes made to the manual's text for 8.00.00b1 and later that the manuals of 8.00.00b1 to 8.00.00b3 had missed:
+  - **Using MMBasic:** the program is held in RAM, not in the flash, and is lost at a reset or power off (MMBasic keeps it over the restart of an option change); AUTORUN.BAS for a program to run at power up; the library has 128KB of flash of its own; a loadable program on a Generation 1 borrows about 3.75MB.
+  - **MMBasic Characteristics:** the memory map of version 8 (the flash and the SDRAM of each generation).
+  - **Appendix K:** what a firmware upgrade keeps and clears in version 8.
+  - **Video Modes and Pages:** MODE 19 is 720 x 400 (the PicoMite's), and its pages; the PicoMite's 640x480 at 75Hz (OPTION RESOLUTION 640x480, 315000); on VGA, MODE 18 and the PicoMite's 1024x600 are shown in a 1024 x 768 frame.
 - **Colour Maximite 2 Loadable Programs:** its title page (firmware 8.00.00b3), and 8.00.00b3 in the list of services versions (still 22).
 - **The App User Guide and the C Compiler guide** are unchanged apart from the zip's name. The 386 PC Emulator guide and the Stepper reference are unchanged.
 
