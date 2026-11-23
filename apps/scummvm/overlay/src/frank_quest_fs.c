@@ -53,6 +53,26 @@ struct CabalDir {
 #define FR_NO_PATH  5
 #define FR_EXIST    8
 
+// CMM2 (as on the PicoMite): the loader's services may not be called from an interrupt, and the sound fill, which
+// mixes ScummVM's sound, is one. The firmware's FatFs is not reentrant: a read there while the program itself reads
+// could damage the card. So a call made in an interrupt is refused here, counted, and reported by the next call made
+// outside one. (The speech is read into memory before it plays, audio/decoders/voc.cpp, so that none should come.)
+static volatile uint32_t g_irq_refused, g_irq_reported;
+
+static int fs_in_irq(void) {
+    uint32_t ipsr;
+    __asm volatile("mrs %0, ipsr" : "=r"(ipsr));
+    if (ipsr & 0x1ff) {
+        g_irq_refused++;
+        return 1;
+    }
+    if (g_irq_refused != g_irq_reported) {
+        g_irq_reported = g_irq_refused;
+        printf("Cabal FS: %lu file calls from the sound interrupt refused\n", (unsigned long)g_irq_reported);
+    }
+    return 0;
+}
+
 // Pool of file handles (avoid malloc for small allocations)
 #define MAX_OPEN_FILES 8
 static struct CabalFile g_files[MAX_OPEN_FILES];
@@ -147,6 +167,7 @@ static void build_fullpath(char *fullpath, size_t size, const char *path) {
 }
 
 CabalFile *cabal_file_open(const char *path) {
+    if (fs_in_irq()) return NULL;   // CMM2: (above)
     if (!g_initialized || !path) return NULL;
 
     struct CabalFile *file = alloc_file_handle();
@@ -174,6 +195,7 @@ CabalFile *cabal_file_open(const char *path) {
 }
 
 CabalFile *cabal_file_open_write(const char *path) {
+    if (fs_in_irq()) return NULL;   // CMM2: (above)
     if (!g_initialized || !path) return NULL;
 
     struct CabalFile *file = alloc_file_handle();
@@ -198,6 +220,7 @@ CabalFile *cabal_file_open_write(const char *path) {
 }
 
 void cabal_file_close(CabalFile *file) {
+    if (fs_in_irq()) return;   // CMM2: (above)
     if (!file || !file->valid) return;
 
     cmm2->file_close(file->fil);
@@ -205,6 +228,7 @@ void cabal_file_close(CabalFile *file) {
 }
 
 int32_t cabal_file_read(CabalFile *file, void *buffer, uint32_t size) {
+    if (fs_in_irq()) return -1;   // CMM2: (above)
     if (!file || !file->valid || !buffer) return -1;
 
 #ifdef USE_I2S_AUDIO
@@ -239,6 +263,7 @@ int32_t cabal_file_read(CabalFile *file, void *buffer, uint32_t size) {
 }
 
 int32_t cabal_file_write(CabalFile *file, const void *buffer, uint32_t size) {
+    if (fs_in_irq()) return -1;   // CMM2: (above)
     if (!file || !file->valid || !buffer) return -1;
 
 #ifdef USE_I2S_AUDIO
@@ -271,12 +296,14 @@ int32_t cabal_file_write(CabalFile *file, const void *buffer, uint32_t size) {
 }
 
 CabalFsResult cabal_file_flush(CabalFile *file) {
+    if (fs_in_irq()) return CABAL_FS_ERROR;   // CMM2: (above)
     if (!file || !file->valid) return CABAL_FS_INVALID_PARAM;
 
     return cmm2->file_sync(file->fil) == 0 ? CABAL_FS_OK : CABAL_FS_ERROR;
 }
 
 void *cabal_file_read_all(const char *path, uint32_t *size_out) {
+    if (fs_in_irq()) return NULL;   // CMM2: (above)
     if (size_out) *size_out = 0;
 
     CabalFile *file = cabal_file_open(path);
@@ -311,24 +338,28 @@ void *cabal_file_read_all(const char *path, uint32_t *size_out) {
 }
 
 uint32_t cabal_file_size(CabalFile *file) {
+    if (fs_in_irq()) return 0;   // CMM2: (above)
     if (!file || !file->valid) return 0;
     int32_t n = cmm2->file_size(file->fil);
     return n < 0 ? 0 : (uint32_t)n;
 }
 
 uint32_t cabal_file_tell(CabalFile *file) {
+    if (fs_in_irq()) return 0;   // CMM2: (above)
     if (!file || !file->valid) return 0;
     int32_t n = cmm2->file_tell(file->fil);
     return n < 0 ? 0 : (uint32_t)n;
 }
 
 CabalFsResult cabal_file_seek(CabalFile *file, uint32_t offset) {
+    if (fs_in_irq()) return CABAL_FS_ERROR;   // CMM2: (above)
     if (!file || !file->valid) return CABAL_FS_INVALID_PARAM;
 
     return cmm2->file_seek(file->fil, offset) == 0 ? CABAL_FS_OK : CABAL_FS_ERROR;
 }
 
 bool cabal_file_eof(CabalFile *file) {
+    if (fs_in_irq()) return true;   // CMM2: (above)
     if (!file || !file->valid) return true;
     return cmm2->file_tell(file->fil) >= cmm2->file_size(file->fil);
 }
@@ -348,6 +379,7 @@ static struct CabalDir *alloc_dir_handle(void) {
 }
 
 CabalDir *cabal_dir_open(const char *path) {
+    if (fs_in_irq()) return NULL;   // CMM2: (above)
     if (!g_initialized || !path) return NULL;
 
     struct CabalDir *dir = alloc_dir_handle();
@@ -371,6 +403,7 @@ CabalDir *cabal_dir_open(const char *path) {
 }
 
 void cabal_dir_close(CabalDir *dir) {
+    if (fs_in_irq()) return;   // CMM2: (above)
     if (!dir || !dir->valid) return;
 
     cmm2->dir_close(dir->dir);
@@ -378,6 +411,7 @@ void cabal_dir_close(CabalDir *dir) {
 }
 
 bool cabal_dir_read(CabalDir *dir, CabalDirEntry *entry) {
+    if (fs_in_irq()) return false;   // CMM2: (above)
     if (!dir || !dir->valid || !entry) return false;
 
     static cmm2_dirent fno;                 // (CMM2: the loader's entry; static, as it is 264 bytes)
@@ -394,6 +428,7 @@ bool cabal_dir_read(CabalDir *dir, CabalDirEntry *entry) {
 }
 
 bool cabal_path_exists(const char *path) {
+    if (fs_in_irq()) return false;   // CMM2: (above)
     if (!g_initialized || !path) return false;
 
     char fullpath[512];
@@ -414,6 +449,7 @@ bool cabal_path_exists(const char *path) {
 }
 
 bool cabal_path_is_dir(const char *path) {
+    if (fs_in_irq()) return false;   // CMM2: (above)
     if (!g_initialized || !path) return false;
 
     char fullpath[512];
@@ -427,6 +463,7 @@ bool cabal_path_is_dir(const char *path) {
 }
 
 CabalFsResult cabal_mkdir(const char *path) {
+    if (fs_in_irq()) return CABAL_FS_ERROR;   // CMM2: (above)
     if (!g_initialized || !path) return CABAL_FS_INVALID_PARAM;
 
     char fullpath[512];
@@ -440,6 +477,7 @@ CabalFsResult cabal_mkdir(const char *path) {
 }
 
 CabalFsResult cabal_remove(const char *path) {
+    if (fs_in_irq()) return CABAL_FS_ERROR;   // CMM2: (above)
     if (!g_initialized || !path) return CABAL_FS_INVALID_PARAM;
 
     char fullpath[512];

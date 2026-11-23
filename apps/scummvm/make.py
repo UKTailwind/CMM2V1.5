@@ -8,6 +8,11 @@ Game, a public-domain SCI fan game shipped as an example) and a game named after
 program is GPL-2.0-or-later, as ScummVM is: its source must go with any copy given out (frank-quest's, at that commit,
 and this directory).
 
+The sound stream's fill, which runs ScummVM's mixer, is an interrupt and may call no service, so two more
+overlay files keep the speech off the SD card while it plays (the PicoMite's fix, 23 Nov 2026): audio/decoders/
+voc.cpp reads each VOC stream (the talkies' MONSTER.SOU, Kyrandia's speech) into memory when it is made, and
+frank_quest_fs.c refuses a file call made in an interrupt, counts it, and reports the count on the next call.
+
 Built --vram, so that a G1 runs it too (3 Nov 2026): a G1 loads it at 0xD0000000 into one area, as a G2's 8 MB, of
 its display memory and the heap's bottom (about 7 MB at the prompt). A G2 loads it into its 8 MB as before.
 
