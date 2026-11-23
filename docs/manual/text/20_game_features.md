@@ -20,6 +20,8 @@ This and other features of the graphics subsystem are explained in detail in a t
 
 The PAGE SCROLL command will scroll a page horizontally or vertically by a specified number of pixels allowing the games programmer to create a smoothly scrolling background for platform games and the like.
 
+FRAMEBUFFER WARPH and WARPV (and PAGE WARPH and WARPV) copy each row or column of one page to another, each moved by its own offset from an integer array. They make the effects that old games made by changing the scroll position on chosen lines: the curves and hills of a racing road, parallax layers that move at different speeds, water that wobbles and a screen that melts away. An array operation such as MATH SCALE makes the offsets for a frame, so there is no BASIC loop over the lines.
+
 The Colour Maximite 2 has extensive support for sprites which is an image that can be moved over the background without disturbing the background. This feature is far more sophisticated than that available on the original Colour Maximite. The sprite can be a PNG image or an image defined in a text file and can be of any size up to the video horizontal and vertical resolution. The transparency colour can be either black or defined in the image depending on the colour depth specified by the MODE command.
 
 Multiple sprites can be loaded and they can be moved around the screen, hidden or displayed as a group or individually. MMBasic also includes a versatile mechanism for detecting when two sprites collide allowing (for example) the programmer to create a realistic bounce effect.

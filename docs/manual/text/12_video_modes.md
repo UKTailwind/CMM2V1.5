@@ -104,7 +104,7 @@ A colour depth of 4 bits gives the display that the PicoMite's VGA and HDMI vers
 
 - The 16 colours are the PicoMite's RGB121 colours. The MAP command changes them (MAP(n) returns the PicoMite's value for colour n), and MAP RESET restores them.
 - The pixels are held two to a byte, the left one in the low four bits, at MM.INFO(WRITEBUFF) as on the PicoMite.
-- The FRAMEBUFFER command works as it does on the PicoMite: FRAMEBUFFER CREATE makes the framebuffer F, LAYER the layer L (shown over the display, with a transparent colour), LAYER TOP the top layer T, and CREATE 2 a second framebuffer; WRITE, COPY, MERGE, WAIT and CLOSE act on them. The framebuffers are pages 0 to 4 (N, L, F, 2 and T) and the pages after them are more 4-bit pages, for PAGE WRITE, PAGE COPY, BLIT and the like.
+- The FRAMEBUFFER command works as it does on the PicoMite: FRAMEBUFFER CREATE makes the framebuffer F, LAYER the layer L (shown over the display, with a transparent colour), LAYER TOP the top layer T, and CREATE 2 a second framebuffer; WRITE, COPY, MERGE, WAIT, WARPH, WARPV and CLOSE act on them. The framebuffers are pages 0 to 4 (N, L, F, 2 and T) and the pages after them are more 4-bit pages, for PAGE WRITE, PAGE COPY, BLIT and the like.
 - BLIT, SPRITE and TILEMAP work on 4-bit pages, with colour 0 (black) as the transparent colour of a sprite.
 
 ## The PicoMite's MODE 1 (MODE n,1)
@@ -119,7 +119,7 @@ A colour depth of 1 bit gives the PicoMite's MODE 1, its default mode, so that p
 - BLIT, SPRITE and TILEMAP work on 1-bit pages, a pixel of a sprite set unless its colour is black or nearly black (black among the PicoMite's 16 colours). BLIT also moves the tiles' colours when the area lines up with the tiles.
 - MAP, PAGE DISPLAY, the IMAGE commands, GUI CURSOR and RAY are not available.
 
-In the other colour depths FRAMEBUFFER is the Colour Maximite 2's own: a working area larger than the screen, with FRAMEBUFFER CREATE width, height, WRITE, BACKUP, RESTORE, WINDOW and CLOSE (see the FRAMEBUFFER command). While a framebuffer exists, a MODE command that changes the colour depth is refused with the error "Colour mismatch with framebuffer": use FRAMEBUFFER CLOSE first.
+In the other colour depths FRAMEBUFFER is the Colour Maximite 2's own: a working area larger than the screen, with FRAMEBUFFER CREATE width, height, WRITE, BACKUP, RESTORE, WINDOW, WAIT, WARPH, WARPV and CLOSE (see the FRAMEBUFFER command). While a framebuffer exists, a MODE command that changes the colour depth is refused with the error "Colour mismatch with framebuffer": use FRAMEBUFFER CLOSE first.
 
 ## Image Slots
 

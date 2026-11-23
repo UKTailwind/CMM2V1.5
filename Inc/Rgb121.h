@@ -50,4 +50,11 @@ void Rgb121BlitFramebuffer(char *p);
 void Rgb121BlitResize(char *p);
 void Rgb121Row(uint8_t *d, int dx, const uint8_t *s, int sx, int w, int t);
 void Rgb121MergeRequest(void);
+// FRAMEBUFFER and PAGE WARPH and WARPV, and the 8, 12, 16 and 32-bit modes' FRAMEBUFFER WAIT (Warp.c): 1 if cmd was
+// one of them (and it has been run, unless WARP_TEST)
+#define WARP_FRAMEBUFFER  0                     // FRAMEBUFFER in an 8, 12, 16 or 32-bit mode: WARPH, WARPV and WAIT
+#define WARP_FRAMEBUFFER4 1                     // FRAMEBUFFER in a 4 or 1-bit mode (Rgb121Framebuffer): WARPH and WARPV
+#define WARP_PAGE         2                     // PAGE WARPH and WARPV
+#define WARP_TEST         3                     // whether cmd is WARPH or WARPV, not run (cmd_page's 4-bit list)
+int WarpCommand(char *cmd, int form);
 #endif

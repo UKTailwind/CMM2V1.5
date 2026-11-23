@@ -12,7 +12,7 @@ loop), each pixel a byte of the display.
 
 The PicoMite's framebuffers are pages 0 to 4 (N, L, F, 2, T: Rgb121.h), laid out by pagegen after the display, in AXI
 SRAM and then SDRAM. FRAMEBUFFER CREATE, CREATE 2, LAYER [t], LAYER TOP [t], WRITE, COPY, MERGE, WAIT and CLOSE act as
-the PicoMite's (graphics/FrameBuffer.c) on those pages; a buffer not created is N, as the PicoMite's pointer to it is
+the PicoMite's (graphics/FrameBuffer.c) on those pages, and WARPH and WARPV (Warp.c, its graphics/Warp.c); a buffer not created is N, as the PicoMite's pointer to it is
 DisplayBuf. Pages 5 on are more 4-bit pages, for PAGE WRITE, PAGE COPY, BLIT and the like. Nothing assumes a size: any
 mode whose display fits AXI SRAM can be 4-bit (Rgb121ModeFits), MODE 7,4 being the PicoMite's MODE 2 and MODE 8,4 its
 MODE 3.
@@ -703,7 +703,7 @@ void Rgb121Framebuffer(void) {
         }
         if(s == d) error("Buffer not created");
         mycopy(PageTable[d].address, PageTable[s].address, Stride(d) * PageTable[d].ymax);
-    } else error("Syntax");
+    } else if(!WarpCommand(cmdline, WARP_FRAMEBUFFER4)) error("Syntax");   // WARPH and WARPV (Warp.c: not in a 1-bit mode)
 }
 
 /* BLIT FRAMEBUFFER from, to, x1, y1, x2, y2, w, h [, colour]: a rectangle of one framebuffer into another, a pixel of
