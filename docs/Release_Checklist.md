@@ -98,8 +98,18 @@ screen). Check each title page's version and date, and the bookmarks.
 | Colour_Maximite_2_386_PC_Emulator.pdf | docs/pc386/text | `python tools/manual/guide.py pc386` |
 | Stepper_Reference.pdf | docs/Stepper_Reference.pdf (tracked) | docs/stepper/generate_stepper_pdf.py, only when STEPPER changes |
 
-- [ ] Each PDF rebuilt when its text, the zip's name or the version on its title page changed; otherwise the
-      previous release's copy is reused and the notes say it is unchanged.
+- [ ] **The User Manual: every chapter and every reference section rebuilt at every release**, not only those this
+      release's commits touched, as text committed without a rebuild never reaches the .docx: 8.00.00b1 to b3 went out
+      with the program held in flash, 7.00's memory map and Appendix K, and the old MODE 19, all fixed in the text since
+      8 and 14 November. Keep a copy of the .docx first, then:
+      `python tools/manual/inventory.py`, `python tools/manual/appendix_n.py`, `python tools/manual/reftext.py build`,
+      `python tools/manual/chapter.py docs/manual/text/*.md`, the title page, then word.ps1 for the PDF.
+- [ ] The User Manual's text compared before and after the rebuild (every paragraph of the two .docx, tables
+      included, through python-docx): each difference is this release's change or text that had not been built
+      before; say the latter in the notes' The manuals. No [MANUAL TODO] note may be left in it. Leave
+      docs/manual/audit/refcheck.md as it is: refcheck.py reads OPTION's and MM.INFO's sub-keywords as missing.
+- [ ] Each other PDF rebuilt when its text, the zip's name or the version on its title page changed (guide.py builds the
+      whole guide from its text); otherwise the previous release's copy is reused and the notes say it is unchanged.
 
 ## 7. The programs zip
 
