@@ -137,6 +137,8 @@ char WAVfilename[FF_MAX_LFN] = "";                                 // the file p
 int WAV_fnbr=0;
 int PWM_FREQ=44100;
 volatile int swingbuf = 0,nextbuf = 0, playreadcomplete = 1;
+#define MOD_FRAMES 512                                      // the sample frames in each of a MOD file's two buffers (they were
+                                                            // 2048): PLAY MODSAMPLE is heard one to two buffers after the command
 volatile int swingbufe = 0,nextbufe = 0, playreadcompletee = 1;
 char *sbuff1=NULL, *sbuff2=NULL;
 uint32_t *dacdma = NULL;                                            // a program's sound stream's DMA buffer (DACDMAStart, Loader.c), freed by CloseAudio
@@ -1530,6 +1532,64 @@ int PlayAlbumTrack(int n) {
 }
 
 // The MMBasic command:  PLAY
+// PLAY MODSAMPLE, in .extra so that the code after cmd_play keeps its place:
+//   PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, LOOP]    a sample of the MOD file playing over it
+//   PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate]               a playing one's volume or rate, where it is
+//   PLAY MODSAMPLE STOP [channel]                                         one channel stopped, or all four
+// LOOP may end the list after any argument from the channel on. The rate is the MOD player's period, 3579545 / rate.
+__attribute__((section(".extra"), noinline)) static void ModSampleCommand(char *tp){
+    char *q;
+    if((q = checkstring(tp, "STOP"))) {
+        int ch = -1;
+        if(*q) ch = getint(q, 1, NUMMAXSEFFECTS) - 1;
+        if(CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_PAUSE_MOD) hxcmod_stopsoundeffect(&mcontext, ch);
+        return;                                                     // (no MOD file: nothing is playing, and no error)
+    }
+    if((q = checkstring(tp, "CHANGE"))) {
+        getargs(&q, 5, ",");
+        if(!(argc == 1 || argc == 3 || argc == 5)) error("Argument count");
+        if(!(CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_PAUSE_MOD)) error("Samples play over MOD file");
+        int ch = getint(argv[0], 1, NUMMAXSEFFECTS) - 1, volume = -1;
+        unsigned int period = 0;
+        if(argc >= 3 && *argv[2]) {
+            int v = getint(argv[2], 0, 64);
+            volume = v ? v - 1 : 0;                                 // (as the start's: 1 to 64 is 0 to 63)
+        }
+        if(argc == 5 && *argv[4]) period = 3579545 / getint(argv[4], 150, 500000);
+        hxcmod_changesoundeffect(&mcontext, ch, volume, period);    // (a channel that has ended: no matter)
+        return;
+    }
+    unsigned short sampnum, seffectnum;
+    unsigned char volume;
+    unsigned int samprate, period;
+    int loop = 0;
+    getargs(&tp, 9, ",");
+    if(!(argc == 3 || argc == 5 || argc == 7 || argc == 9)) error("Argument count");
+    if(argc >= 5 && (q = checkstring(argv[argc - 1], "LOOP")) && *q == 0) {
+        loop = 1;
+        argc -= 2;
+    }
+    if(argc > 7) error("Argument count");
+
+    if(!(CurrentlyPlaying == P_MOD)) error("Samples play over MOD file");
+
+    sampnum = getint(argv[0],1,32) - 1;
+
+    seffectnum = getint(argv[2],1,NUMMAXSEFFECTS) - 1;
+
+    volume=63;
+    if(argc >= 5 && *argv[4]) {
+        int v = getint(argv[4],0,64);
+        volume = v ? v - 1 : 0;                                     // (0 - 1 in an unsigned char was 255)
+    }
+    samprate = 16000;
+    if(argc == 7 && *argv[6]) samprate = getint(argv[6], 150,500000);
+
+    period = 3579545 / samprate;
+
+    hxcmod_playsoundeffect( &mcontext, sampnum, seffectnum, volume, period, loop );
+}
+
 void cmd_play(void) {
     char *tp;
     if(audiofinished) audio_checks();                               // a TONE or TTS that ended since the last check
@@ -2011,29 +2071,7 @@ void cmd_play(void) {
     }
 
     if((tp = checkstring(cmdline, "MODSAMPLE"))) {
-        unsigned short sampnum, seffectnum;
-        unsigned char volume;
-        unsigned int samprate, period;
-        getargs(&tp, 7,",");                                  // this MUST be the first executable line in the function
-        if(!(argc == 7 || argc == 5 || argc == 3)) error("Argument count");
-
-        if(!(CurrentlyPlaying == P_MOD)) error("Samples play over MOD file");
-
-        sampnum = getint(argv[0],1,32) - 1;
-
-        seffectnum = getint(argv[2],1,NUMMAXSEFFECTS) - 1;
-
-        volume=63;
-        if(argc >= 5 && *argv[4]) {
-        	int v = getint(argv[4],0,64);
-        	volume = v ? v - 1 : 0;                                // (0 - 1 in an unsigned char was 255)
-        }
-    	samprate = 16000;
-		if(argc == 7) samprate = getint(argv[6], 150,500000);
-
-        period = 3579545 / samprate;
-
-        hxcmod_playsoundeffect( &mcontext, sampnum, seffectnum, volume, period );
+        ModSampleCommand(tp);                                       // (in .extra: below)
         return;
     }
 
@@ -2203,9 +2241,9 @@ void cmd_play(void) {
 			error("Not a MOD file it can play");
 		}
         playreadcomplete=0;
-        if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, WAV_BUFFER_SIZE/4, NULL, modnoloop )) playreadcomplete = 1;
+        if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, MOD_FRAMES, NULL, modnoloop )) playreadcomplete = 1;
         wav_filesize=WAV_BUFFER_SIZE/2;
-        bcount[1]=WAV_BUFFER_SIZE/2;
+        bcount[1]=MOD_FRAMES*2;
         bcount[2]=0;
         i2convert((int16_t *)ibuff1, (int16_t *)sbuff1, bcount[1]);
 //        i2convert((int16_t *)ibuff2, (int16_t *)sbuff2, bcount[2]);
@@ -2381,16 +2419,16 @@ void checkWAVinput(void){
         	       wav_filesize=WAV_BUFFER_SIZE/2;                    // (EFFECT's end test reads it: kept)
         	       if(playreadcomplete) bcount[1]=0;                 // a module played once has ended
         	       else {
-        	           if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, WAV_BUFFER_SIZE/4, NULL, modnoloop )) playreadcomplete = 1;
-        	           bcount[1]=WAV_BUFFER_SIZE/2;
+        	           if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff1, MOD_FRAMES, NULL, modnoloop )) playreadcomplete = 1;
+        	           bcount[1]=MOD_FRAMES*2;
                        i2convert((int16_t *)ibuff1, (int16_t *)sbuff1, bcount[1]);
         	       }
         	  } else {
         	       wav_filesize=WAV_BUFFER_SIZE/2;                    // (EFFECT's end test reads it: kept)
         	       if(playreadcomplete) bcount[2]=0;                 // a module played once has ended
         	       else {
-        	           if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff2, WAV_BUFFER_SIZE/4, NULL, modnoloop )) playreadcomplete = 1;
-        	           bcount[2]=WAV_BUFFER_SIZE/2;
+        	           if(hxcmod_fillbuffer( &mcontext, (msample*)sbuff2, MOD_FRAMES, NULL, modnoloop )) playreadcomplete = 1;
+        	           bcount[2]=MOD_FRAMES*2;
                        i2convert((int16_t *)ibuff2, (int16_t *)sbuff2, bcount[2]);
         	       }
         	  }
