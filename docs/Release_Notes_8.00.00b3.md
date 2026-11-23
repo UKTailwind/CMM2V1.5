@@ -82,7 +82,9 @@ For those who build the firmware or study its source:
 
 ## The programs
 
-CMM2_Programs_8.00.00b3.zip is 8.00.00b2's zip with README.txt for this version. No program in it has changed since 8.00.00b2 (tools/zip_apps_check.py: none to review; micropython.app is the same build), and each runs on 8.00.00b3 as on 8.00.00b2.
+CMM2_Programs_8.00.00b3.zip is 8.00.00b2's zip with README.txt for this version. When it was published no program in it had changed since 8.00.00b2 (tools/zip_apps_check.py: none to review; micropython.app is the same build), and each runs on 8.00.00b3 as on 8.00.00b2.
+
+**quest/scummvm.app was replaced on 23 November.** In the games that speak, the first one read each line of speech from the SD card as it played, in the interrupt that makes the sound: Day of the Tentacle, Sam & Max Hit the Road, Indiana Jones and the Fate of Atlantis on CD, Full Throttle, and the CD versions of The Legend of Kyrandia 1 and 2. A line that played while the game loaded a room or saved could have read the wrong data, or damaged a file on the card; no one is known to have seen it happen. The new one reads each line into memory before it plays it: on a Generation 1 Day of the Tentacle played for two minutes with it, each line read in 111 ms at most. Copy the new A:/quest/scummvm.app from the zip if you downloaded it before then. 7.00.00RC6's zip has the same new file.
 
 ## Tested
 
