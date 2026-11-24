@@ -1573,7 +1573,7 @@ __attribute__((section(".extra"), noinline)) static void ModSampleCommand(char *
 
     if(!(CurrentlyPlaying == P_MOD)) error("Samples play over MOD file");
 
-    sampnum = getint(argv[0],1,32) - 1;
+    sampnum = getint(argv[0],1,31) - 1;                     // (a MOD file's 31 samples: 32 read past the player's tables)
 
     seffectnum = getint(argv[2],1,NUMMAXSEFFECTS) - 1;
 
