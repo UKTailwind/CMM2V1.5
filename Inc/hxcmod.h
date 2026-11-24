@@ -195,6 +195,8 @@ typedef struct {
 
 	mint    last_r_sample;
 	mint    last_l_sample;
+	mint    last_el_sample;  // CMM2: the effects' filter history (PLAY MODSAMPLE), as last_l_sample
+	mint    last_er_sample;  // and last_r_sample are the music's
 
 	mint    stereo;
 	mint    stereo_separation;
