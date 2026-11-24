@@ -71,6 +71,7 @@ extern void RtcGetTime(void);
 extern volatile int diskcheckrate;
 const uint8_t high[512]={[0 ... 511]=0xFF};
 int CurrentSPISpeed=NONE_SPI_SPEED;
+static int sd_bitbanging;                                       // OPTION SD TIMING FAST's card start, bit-banged (sd_start_bitbang)
 BYTE (*xchg_byte) (BYTE data_out);
 void (*xmit_byte_multi) (
 	const BYTE* buff,	// Data to be sent
@@ -461,7 +462,7 @@ BYTE send_cmd (
         }
 	}
 	/* Send command packet */
-	if(Option.SDspeed==0){
+	if(Option.SDspeed==0 || sd_bitbanging){
 		xchg_byte(0x40 | cmd);			/* Start + Command index */
 		xchg_byte((BYTE)(arg >> 24));	/* Argument[31..24] */
 		xchg_byte((BYTE)(arg >> 16));	/* Argument[23..16] */
@@ -535,6 +536,72 @@ int CMD0send(void){
     return response;
 }
 
+/* OPTION SD TIMING FAST: the card's start bit-banged as NORMAL's is (about 50 kHz, BitBangSwapSPI at SD_SLOW_SPI_SPEED),
+   and SPI3 used from FCLK_FAST on: Peter's hybrid, the slow phase bit-banged and SPI for the fast (23 Nov 2026). On a G3
+   just switched on, the card was "SD Card not found" at FAST, every time, and was read once NORMAL had started it. FAST
+   left MISO with no pull, and with the card not driving it the pin reads 0 (measured on a G3, card deselected); a card
+   just powered is in SD mode and does not drive it before CMD0, so wait_ready read 0x00 for its 500 ms and CMD0 was never
+   sent. NORMAL pulls MISO up. For the start the pins are GPIOs, as InitFileIO makes them for NORMAL (MISO pulled up); then
+   SPI3's again, as they were (their AF6 is kept in AFR meanwhile). SPI3's slowest clock, 187.5 kHz, is not used */
+static uint32_t sd_pinmodes, sd_pinpulls;                       // SPI3's pins' MODER and PUPDR bits, as they were
+#define SD_PIN_BITS(pin, v)	((uint32_t)(v) << (2 * __builtin_ctz(pin)))
+#define SD_PINS_MASK	(SD_PIN_BITS(SD_CLK_Pin, 3) | SD_PIN_BITS(SD_MISO_Pin, 3) | SD_PIN_BITS(SD_MOSI_Pin, 3))
+__attribute__((section(".extra"), noinline)) static void sd_start_bitbang(void)
+{
+	GPIO_TypeDef *p = SD_CLK_GPIO_Port;                         // (CLK, MISO and MOSI are PC10-PC12: one port)
+	if(!sd_bitbanging) {                                        // (not left on by a start that did not end)
+		sd_pinmodes = p->MODER & SD_PINS_MASK;
+		sd_pinpulls = p->PUPDR & SD_PINS_MASK;
+	}
+	p->BSRR = SD_CLK_Pin << 16;                                 // CLK low, MOSI high
+	p->BSRR = SD_MOSI_Pin;
+	MODIFY_REG(p->PUPDR, SD_PINS_MASK, SD_PIN_BITS(SD_MISO_Pin, 1));
+	MODIFY_REG(p->MODER, SD_PINS_MASK, SD_PIN_BITS(SD_CLK_Pin, 1) | SD_PIN_BITS(SD_MOSI_Pin, 1));   // MISO an input
+	xchg_byte = xchg_bitbang;
+	xmit_byte_multi = xmit_bitbang_multi;
+	rcvr_byte_multi = rcvr_bitbang_multi;
+	sd_bitbanging = 1;
+}
+__attribute__((section(".extra"), noinline)) static void sd_end_bitbang(void)
+{
+	GPIO_TypeDef *p = SD_CLK_GPIO_Port;
+	MODIFY_REG(p->MODER, SD_PINS_MASK, sd_pinmodes);
+	MODIFY_REG(p->PUPDR, SD_PINS_MASK, sd_pinpulls);
+	xchg_byte = xchg_spi;
+	xmit_byte_multi = xmit_spi_multi;
+	rcvr_byte_multi = rcvr_spi_multi;
+	sd_bitbanging = 0;
+}
+
+/* A card that did not answer CMD0. A reset of the board leaves the card powered and as it was: in a multi-block read it
+   sends on, in a multi-block write it waits for its next block, or it is busy, and the reply to CMD0 is lost or never
+   comes. CMD12 stops a read and the Stop Tran token ends a write (in any other state each is an illegal command, which
+   the card only reports); then the busy is waited for and 80 clocks are given with the card deselected */
+__attribute__((section(".extra"), noinline)) static void sd_stop_transfer(void)
+{
+	BYTE c[6] = {0x40 | CMD12, 0, 0, 0, 0, 0};
+	int n;
+	c[5] = (CRC7(c, 5) << 1) | 1;
+	HAL_GPIO_WritePin(SD_CE_GPIO_Port, SD_CE_Pin, GPIO_PIN_RESET);
+	for (n = 0; n < 6; n++) xchg_byte(c[n]);
+	for (n = 0; n < 8; n++) xchg_byte(0xFF);                    // its stuff byte and R1b
+	xchg_byte(0xFD);                                            // Stop Tran
+	xchg_byte(0xFF);
+	wait_ready();
+	deselect();
+	for (n = 10; n; n--) xchg_byte(0xFF);
+}
+
+/* CMD0 (GO_IDLE_STATE), tried up to 10 times within 2 s (it was sent once), the transfer stopped between tries */
+__attribute__((section(".extra"), noinline)) static BYTE sd_go_idle(void)
+{
+	int tries = 10;
+	unsigned long long end = mSecTimer + 2000;
+	BYTE r;
+	while ((r = send_cmd(CMD0, 0)) != 1 && --tries && mSecTimer < end) sd_stop_transfer();
+	return r;
+}
+
 /*-----------------------------------------------------------------------*/
 /* Initialize Disk Drive                                                 */
 /*-----------------------------------------------------------------------*/
@@ -548,12 +615,13 @@ static DSTATUS sd_disk_initialize (
 
 	if (pdrv != 0) return STA_NOINIT;	/* Supports only single drive */
 	if (SDCardStat & STA_NODISK) return SDCardStat;	/* No card in the socket */
+	if (Option.SDspeed) sd_start_bitbang();	/* FAST: the start bit-banged, as NORMAL's is */
 	FCLK_SLOW();
 	deselect();							/* Initialize memory card interface */
 	for (n = 10; n; n--) xchg_byte(0xFF);	/* 80 dummy clocks */
 	ty = 0;
 
-	if (send_cmd(CMD0, 0) == 1) {			/* Enter Idle state */
+	if (sd_go_idle() == 1) {			/* Enter Idle state */
 		Timer1 = 1000;						/* Initialization timeout of 1000 msec */
 		if (send_cmd(CMD8, 0x1AA) == 1) {	/* SDv2? */
 //			MMPrintString("sdv2\r\n");
@@ -580,6 +648,7 @@ static DSTATUS sd_disk_initialize (
 	}
 	CardType = ty;
 	deselect();
+	if (Option.SDspeed) sd_end_bitbang();	/* SPI3 from here on */
 /*
 	int  k;
 	send_cmd(CMD6,0x80FFFFF1);
