@@ -670,7 +670,8 @@ Each drive keeps its own current directory, so DRIVE returns to the directory th
 --- keep
 Invokes the full screen editor (see the chapter Full Screen Editor).  It can only be used at the command prompt.
 EDIT ‘file$’ edits the file ‘file$’ on the SD card or USB flash drive: a program or any other text file, up to 1MB long.  If ‘file$’ has no extension and no file of that name exists, ".BAS" is added.  A file that does not exist is created when the editor saves it.
-EDIT on its own edits the current program's file (see MM.INFO$(CURRENT)), with the cursor where it was when the editor last saved it or, if the program stopped with an error, at the line that caused the error.
+EDIT on its own edits the current program's file (see MM.INFO$(CURRENT)).
+The cursor starts where it was when the editor was last left (with F1, F2 or Esc) or, if the program has stopped with an error since then, at the line that caused the error.  This is the same for EDIT ‘file$’ and for E in the file manager.  Only the last file edited, or stopped by an error, is remembered: any other file opens at its top.
 F1 saves the file and returns to the command prompt and F2 saves it and runs it; Esc leaves without saving.  A .BAS file that is saved is also loaded into program memory, so that it becomes the current program.  The file as it was before is kept with .bak added to its name.  Only BASIC programs (.BAS files) are colour coded (see OPTION COLOURCODE).
 
 === ELSE

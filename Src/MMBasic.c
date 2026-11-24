@@ -145,7 +145,7 @@ int StackLowDepth;                                                  // LocalInde
 // track the state of OPTION BASE
 extern char errstring[256];
 extern int errpos;
-extern int StartEditLine,StartEditCharacter;
+extern void EdNoteStart(const char *file, int line, int chr);
 extern long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *CallersLinePtr);
 extern volatile int ConsoleTxBufHead;
 extern volatile int ConsoleTxBufTail;
@@ -4367,8 +4367,7 @@ void error(char *msg, ...) {
        		IntToStr(inpbuf, LHDR_LINE(CurrentLinePtr), 10);
        		MMErrorString(inpbuf);
        		if(LHDR_FILE(CurrentLinePtr) == 1 && !inlib && !OptionErrorSkip) {
-       			StartEditLine = LHDR_LINE(CurrentLinePtr) - 1;     // EDIT opens the program at the line
-       			StartEditCharacter = 0;
+       			EdNoteStart(ProgName(), LHDR_LINE(CurrentLinePtr) - 1, 0); // EDIT opens the program at the line (Editor.c)
        			fmline = LHDR_LINE(CurrentLinePtr);                 // (and FM's E, for a program FM ran)
        		}
        		MMErrorString(": ");

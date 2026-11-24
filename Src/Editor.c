@@ -9,7 +9,8 @@ fixed by hand where the CMM2 differs; the platform layer is Inc/Editor_cmm2.h. I
 #include "Editor_cmm2.h"
 #include "UiMouse.h"                               // CMM2: the mouse, shared with FM
 
-// (CMM2: where EDIT opens a program is StartEditLine and StartEditCharacter, Console.c, which error() sets; the
+// (CMM2: where EDIT opens a file is StartEditLine and StartEditCharacter, Console.c, which error() and the editor set
+// by EdNoteStart; the
 // PicoMite's StartEditPoint is a place in its program memory)
 static bool markmode = false;
 
@@ -872,9 +873,45 @@ static void EdHelp(void)
     PositionCursor(txtp);
 }
 
-/* EDIT [file$] (CMM2): the file, or with none the program's own file (ProgName) at the line an error left in it
-   (StartEditLine and StartEditCharacter, which error() sets); FM's EDIT opens at the line its error status names
-   (fm_pending_edit_seek_valid). A file that is not there is made by the first save, and a path where it could not be
+/* Where EDIT opens a file again (CMM2, a user's request, 24 Nov 2026): StartEditLine and StartEditCharacter (Console.c)
+   are the line and column of the file StartEditFile, written by whichever came last: the editor left by any key, there
+   at its cursor, or an error in a line of the program's own file (error(), MMBasic.c), there at the line. EDIT, EDIT
+   "file" and FM's E open that file there (an error after a run still wins, as before), and any other file at the top:
+   the place was the program's only, so that after RUN "other" EDIT opened other at the line left in the first. The
+   names are full paths (the editor's from getfullfilepath, the program's from its image), given their drive by
+   DrivePath, as fullpath leaves out the current drive's */
+void DrivePath(char *out);                              // FileIO.c
+static char StartEditFile[FF_MAX_LFN + 2];
+__attribute__((section(".extra"), noinline)) void EdNoteStart(const char *file, int line, int chr)
+{
+    StartEditLine = line;
+    StartEditCharacter = chr;
+    StartEditFile[0] = 0;
+    if (file && strlen(file) < FF_MAX_LFN)
+    {
+        strcpy(StartEditFile, file);
+        DrivePath(StartEditFile);
+    }
+}
+// the line and column EDIT opens filename at: StartEditFile's place if it is that file, otherwise the top
+__attribute__((section(".extra"), noinline)) static void EdStartFor(const char *filename, int *line, int *chr)
+{
+    char f[FF_MAX_LFN + 2];
+    *line = *chr = 0;
+    if (!*StartEditFile || strlen(filename) >= FF_MAX_LFN)
+        return;
+    strcpy(f, filename);
+    DrivePath(f);
+    if (strcasecmp(f, StartEditFile) == 0)
+    {
+        *line = StartEditLine;
+        *chr = StartEditCharacter;
+    }
+}
+
+/* EDIT [file$] (CMM2): the file, or with none the program's own file (ProgName), at the place the editor or an error
+   left in it (EdStartFor, above); FM's EDIT opens at the line its error status names (fm_pending_edit_seek_valid), and
+   otherwise as EDIT "file". A file that is not there is made by the first save, and a path where it could not be
    is refused before the screen changes (kilo made the file and killed it to prove the path). The PicoMite's EDIT edits
    its program memory, and its EDIT FILE a file with the program's variables kept: the CMM2 has neither (D4). */
 static void edit(char *cmdline)
@@ -904,6 +941,8 @@ static void edit(char *cmdline)
             seekchar = fm_pending_edit_seek_char;
             fm_pending_edit_seek_valid = 0;
         }
+        else
+            EdStartFor(filename, &seekline, &seekchar);
     }
     else
     {
@@ -915,8 +954,7 @@ static void edit(char *cmdline)
             return;
         if (!EdFileExists(filename, NULL))
             error("File not found");
-        seekline = StartEditLine;
-        seekchar = StartEditCharacter;
+        EdStartFor(filename, &seekline, &seekchar);
     }
     exists = EdFileExists(filename, &fsize);
     if (exists && fsize > edit_buff_size - 10)
@@ -2311,9 +2349,9 @@ void FullScreenEditor(int xx, int yy, char *fname, int edit_buff_size)
                         EdFileMsg("SAVE FAILED", r, fname);
                         break;
                     }
-                    StartEditLine = edy + cury;         // EDIT with no file opens here next (kilo's editorSave)
-                    StartEditCharacter = edx + curx;
                 }
+                EdNoteStart(fname, edy + cury, edx + curx);  // EDIT of this file opens here next (by any key: kilo's
+                                                        // editorSave, on a save only, kept it for EDIT with no file)
                 UiTermMouse(0);                    // Tera Term turn off mouse click report in vt200 mode
                 PrintString("\033[?7h");           // restore autowrap (was disabled by setterminal on entry)
                 PrintString("\0338\033[2J\033[H"); // vt100 clear screen and home cursor

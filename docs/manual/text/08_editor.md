@@ -16,7 +16,7 @@ The best way to learn how to use the editor is to simply fire it up and experime
 
 ## Edit Functions
 
-When the editor starts the cursor will be positioned at the last editing position or, if your program had been stopped by an error, the line that caused the error. At the bottom of the screen the status line will list details such as the current cursor position and the common functions supported by the editor.
+When the editor starts, the cursor is where you left it the last time you edited that file (with F1, F2 or Esc) or, if your program has stopped with an error since then, at the line that caused the error. This works with EDIT, with EDIT "file" and with E in the file manager. Only the last file edited, or stopped by an error, is remembered: any other file opens at its top. At the bottom of the screen the status line will list details such as the current cursor position and the common functions supported by the editor.
 
 In more detail these functions are:
 
