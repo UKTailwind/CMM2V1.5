@@ -11,7 +11,7 @@ The protocols are complex, and a program that runs unattended should be ready fo
 
 ## The WiFi Module
 
-A Generation 3 has the module on the board, joined to the processor by a bus of its own, so nothing is plugged in and the module uses none of the rear I/O connector's pins: with the WiFi on, pins 32, 33, 38 and 40 (and GP10 and GP11) and SPI2 stay free for other uses. The link to its chip runs at up to 30MHz. The rest of this section is about the module for a Generation 1 or 2.
+A Generation 3 has the module on the board, joined to the processor by a bus of its own, so nothing is plugged in and the module uses none of the rear I/O connector's pins: with the WiFi on, pins 32, 33, 38 and 40 (and GP10 and GP11) and SPI2 stay free for other uses. The link to its chip runs at up to 30MHz. A Generation 3 can be built without its module: then the first start that looks for it (after OPTION WIFI, or OPTION RADIO with a half on) finds nothing, prints "WiFi module not found" and "No module on this board: OPTION RADIO NONE", sets OPTION RADIO NONE so that later starts do not look for it again, and carries on to the prompt. OPTION WIFI or OPTION RADIO turns the radio on again, once a module is fitted. The rest of this section is about the module for a Generation 1 or 2.
 
 The module carries a Raspberry Pi RM2, the WiFi chip of the Raspberry Pi Pico W (an Infineon CYW43439), with its own 3.3V supply taken from the 5V pin. It plugs onto the rear I/O connector and passes the connector through to a second connector on its back, so that other things can still be wired to the pins it does not use. It uses four pins:
 

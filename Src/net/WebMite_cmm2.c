@@ -185,6 +185,19 @@ static void release_all(void) {
     ExtCfg(38, EXT_NOT_CONFIG, 0);
     ExtCfg(40, EXT_NOT_CONFIG, 0);
 }
+// a G3 V1.2 built without its RM2 module (the straps, PF6 and PF9 low, say it is on the board, and nothing answered):
+// OPTION RADIO NONE saved, as a board with no module has by default, so that later starts do not look for it again and
+// the user is left at the prompt; OPTION WIFI or OPTION RADIO turn it on again. The sound comes off Bluetooth with it.
+// (An add-on module's OPTION RADIO is kept: it may only be unplugged for now.) A save that finds no RAM for the
+// sector's copy leaves the option set until the next start, which then tries again.
+static void radio_none(void) {
+    extern int OptionSaveSoft;
+    Option.Radio = RADIO_WIFI_OFF | RADIO_BT_OFF;
+    Option.audio_bluetooth = 0;
+    OptionSaveSoft = 1;
+    SaveOptions(1);
+    MMPrintString("No module on this board: OPTION RADIO NONE\r\n");
+}
 // OPTION RADIO's halves (the PicoMite PC3's): the WiFi with OPTION WIFI set and its half on, Bluetooth with its own
 // (docs/Bluetooth_Plan.md). Both on the one chip: one cyw43_arch_init (which also sets BTstack up with Bluetooth's half
 // on: cyw43_arch_cmm2.c), then the WiFi's join and the Bluetooth host's start, as the PC3's main has them.
@@ -208,7 +221,8 @@ void WebStart(void) {
         MMPrintString("WiFi module not found\r\n");
         cyw43_arch_deinit();
         release_all();                          // the board as without OPTION WIFI: the block back in the heap,
-        return;                                 // SPI2 off and the four pins free again
+        if (RM2OnBoard) radio_none();           // SPI2 off and the four pins free again; a G3 V1.2 without its module:
+        return;                                 // OPTION RADIO NONE
     }
     reserve_pins();
     if (wifi) {
