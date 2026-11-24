@@ -54,6 +54,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef AUDIO_HEADER
 #define AUDIO_HEADER
+/* The audio socket's left (its tip) is wired to the DACs' channel 2 (PA5) and its right to channel 1 (PA4) on every
+   generation, the other way round from what the firmware took them to be from the first (Peter, 24 Nov 2026: PLAY
+   TONE's left came out of the right speaker, against a PicoMite, on a G1 and a G3). Every left sample, and DAC 1, go
+   to DAC_LEFT; a write that holds both channels takes DAC_CH1(left, right) for channel 1 and DAC_CH2 for channel 2. */
+#define DAC_LEFT        DAC_CHANNEL_2
+#define DAC_RIGHT       DAC_CHANNEL_1
+#define DAC_CH1(l, r)   (r)
+#define DAC_CH2(l, r)   (l)
+#define DAC_LEFT_DHR    (DAC1->DHR12R2)                              // the values last written (a G3's HDMI takes them)
+#define DAC_RIGHT_DHR   (DAC1->DHR12R1)
 typedef enum { P_NOTHING, P_PAUSE_TONE, P_TONE, P_PAUSE_SOUND, P_SOUND, P_WAV, P_PAUSE_WAV, P_FLAC, P_MP3, P_MOD, P_PAUSE_MOD, P_PAUSE_FLAC, P_TTS, P_DAC, P_PAUSE_MP3, P_ARRAY, P_PAUSE_ARRAY, P_SAMPLE, P_PAUSE_SAMPLE, P_BBC, P_PAUSE_BBC, P_OPL, P_PAUSE_OPL, P_STREAM} e_CurrentlyPlaying;
 // P_STREAM: a loadable program's sound, made by it in PendSV (Loader.c) and played as MOD is; its music by the synth:
 extern uint32_t OPLRate(void);                                      // the rate the audio timer gives for 44.1 kHz

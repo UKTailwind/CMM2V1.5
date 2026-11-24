@@ -727,7 +727,7 @@ void TIM6_DAC_IRQHandler(void)
   /* USER CODE BEGIN TIM6_DAC_IRQn 1 */
 	if(d1max){
 		if(!d2max){
-			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, d1point[d1pos]);
+			HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, d1point[d1pos]);
 			d1pos++;
 			if(d1pos>d1max){
 				if(DACInterrupt != NULL){
@@ -738,7 +738,7 @@ void TIM6_DAC_IRQHandler(void)
 				else d1pos=0;
 			}
 		} else {
-			HAL_DACEx_DualSetValue(&hdac1, DAC_ALIGN_12B_R, d1point[d1pos], d2point[d2pos]);
+			HAL_DACEx_DualSetValue(&hdac1, DAC_ALIGN_12B_R, DAC_CH1(d1point[d1pos], d2point[d2pos]), DAC_CH2(d1point[d1pos], d2point[d2pos]));
 			d1pos++;
 			if(d1pos>d1max){
 				if(DACInterrupt != NULL){
@@ -969,14 +969,14 @@ void Audio_Interrupt(void)  {
         if(!SoundPlay){                                             // ended: stop here; audio_checks does the rest (2a, 2d)
         	if(!audiofinished) {
         		HAL_TIM_Base_Stop_IT(&htim4);
-        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
-        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
+        		HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, 2000);
+        		HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, 2000);
         		audiofinished = 1;
         	}
         } else {
         	SoundPlay--;
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, (((SineTable[(int)PhaseAC_left]-2000)  * mapping[vol_left]) / 2000)+2000);
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, (((SineTable[(int)PhaseAC_right]-2000)  * mapping[vol_right]) / 2000)+2000);
+        	HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, (((SineTable[(int)PhaseAC_left]-2000)  * mapping[vol_left]) / 2000)+2000);
+        	HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, (((SineTable[(int)PhaseAC_right]-2000)  * mapping[vol_right]) / 2000)+2000);
         	PhaseAC_left = PhaseAC_left + PhaseM_left;
         	PhaseAC_right = PhaseAC_right + PhaseM_right;
         	if(PhaseAC_left>=4096.0)PhaseAC_left-=4096.0;
@@ -995,11 +995,11 @@ void Audio_Interrupt(void)  {
         		if(ppos<bcount[swingbuf]){
         			if(h16) {
         				hl = hr = (int16_t)flacbuff[ppos++];
-        				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, HDMI_DAC(hl));
-        				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, HDMI_DAC(hl));
+        				HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, HDMI_DAC(hl));
+        				HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, HDMI_DAC(hl));
         			} else {
-					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos]);
-					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos++]);
+					HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, flacbuff[ppos]);
+					HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, flacbuff[ppos++]);
         			}
         		}
         	} else {
@@ -1007,11 +1007,11 @@ void Audio_Interrupt(void)  {
 					if(h16) {
 						hl = (int16_t)flacbuff[ppos];
 						hr = (int16_t)flacbuff[ppos+1];
-						HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, HDMI_DAC(hl));
-						HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, HDMI_DAC(hr));
+						HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, HDMI_DAC(hl));
+						HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, HDMI_DAC(hr));
 					} else {
-					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, flacbuff[ppos]);
-					HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, flacbuff[ppos+1]);
+					HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, flacbuff[ppos]);
+					HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, flacbuff[ppos+1]);
 					}
 					if(++repeat >= audiorepeat) { repeat = 0; ppos += 2; }
 				}
@@ -1103,19 +1103,19 @@ void Audio_Interrupt(void)  {
         if(out && h16){
         	hl = c1 + c3;
         	hr = c2 + c4;
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, HDMI_DAC2(hl));
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, HDMI_DAC2(hr));
+        	HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, HDMI_DAC2(hl));
+        	HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, HDMI_DAC2(hr));
         } else if(out){                                             // together up to +-1900 about 2000, as the other sources (the
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000 + ((c1 + c3) * 1900) / 32768);   // centre was 2048, and the
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000 + ((c2 + c4) * 1900) / 32768);   // MOD stopped while the
+        	HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, 2000 + ((c1 + c3) * 1900) / 32768);   // centre was 2048, and the
+        	HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, 2000 + ((c2 + c4) * 1900) / 32768);   // MOD stopped while the
         }                                                           // EFFECT waited for data)
     } else if(CurrentlyPlaying == P_TTS) {
     	int a, b;
         if(bcount[1]==0){                                           // ended: stop here; audio_checks does the rest (2a, 2d)
         	if(!audiofinished) {
         		HAL_TIM_Base_Stop_IT(&htim4);
-        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
-        		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
+        		HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, 2000);
+        		HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, 2000);
         		audiofinished = 1;
         	}
         } else {
@@ -1124,8 +1124,8 @@ void Audio_Interrupt(void)  {
 			a = 2000 + (a * mapping[vol_left] * 19) / 2560;
 			b = 2000 + (b * mapping[vol_right] * 19) / 2560;
 			if(ppos == bcount[1])bcount[1] = 0;                       //buffer used up
-			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, a);
-			HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, b);
+			HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, a);
+			HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, b);
         }
     } else if(CurrentlyPlaying == P_SOUND) {
     	static int noisedwellleft[MAXSOUNDS]={0}, noisedwellright[MAXSOUNDS]={0};
@@ -1188,13 +1188,13 @@ void Audio_Interrupt(void)  {
     	}
 		leftv+=2000;
 		rightv+=2000;
-    	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)leftv);
-    	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t)rightv);
+    	HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, (uint16_t)leftv);
+    	HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, (uint16_t)rightv);
     } else {
         // play must be paused: glide to the midpoint, a sixty-fourth of the way a tick, not a step there (a click)
-        int l = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1), r = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_2), s;
-        if(l != 2000) { s = (2000 - l) / 64; l += s ? s : (l < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, l); }
-        if(r != 2000) { s = (2000 - r) / 64; r += s ? s : (r < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, r); }
+        int l = HAL_DAC_GetValue(&hdac1, DAC_LEFT), r = HAL_DAC_GetValue(&hdac1, DAC_RIGHT), s;
+        if(l != 2000) { s = (2000 - l) / 64; l += s ? s : (l < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, l); }
+        if(r != 2000) { s = (2000 - r) / 64; r += s ? s : (r < 2000 ? 1 : -1); HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, r); }
         if(HdmiRate) {                                              // (HDMI's glides from its own last pair: the DACs' widened
         	h16 = 1;                                                // would step by up to a sixteenth)
         	hl -= hl / 64 ? hl / 64 : (hl > 0) - (hl < 0);
@@ -1203,8 +1203,8 @@ void Audio_Interrupt(void)  {
     }
     if(HdmiRate || BtRing) {                                        // a G3: the tick's pair to HDMI's ring too, the 12-bit
     	if(!h16) {                                                  // sources' (tone, SOUND, the BBC's, speech, the glide)
-    		hl = ((int32_t)(DAC1->DHR12R1 & 0xFFF) - 2000) * 16;    // widened from the DACs' values
-    		hr = ((int32_t)(DAC1->DHR12R2 & 0xFFF) - 2000) * 16;
+    		hl = ((int32_t)(DAC_LEFT_DHR & 0xFFF) - 2000) * 16;    // widened from the DACs' values
+    		hr = ((int32_t)(DAC_RIGHT_DHR & 0xFFF) - 2000) * 16;
     	}
     	if(HdmiRate) HdmiPut(hl, hr);
     	if(BtRing) BtPut(hl, hr);                                   // and with OPTION AUDIO BLUETOOTH, to Bluetooth's

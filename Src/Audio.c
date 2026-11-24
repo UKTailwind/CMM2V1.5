@@ -2383,14 +2383,14 @@ void StopAudio(void) {
 	DACDMAStop();                                                   // (the stream's DMA first: the ramp below writes the DACs)
 	if(CurrentlyPlaying != P_NOTHING ) {
         HAL_TIM_Base_Stop_IT(&htim4);
-        int l = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_1) - 2000, r = HAL_DAC_GetValue(&hdac1, DAC_CHANNEL_2) - 2000;
+        int l = HAL_DAC_GetValue(&hdac1, DAC_LEFT) - 2000, r = HAL_DAC_GetValue(&hdac1, DAC_RIGHT) - 2000;
         if(l || r) for(int i = 99; i > 0; i--) {                    // to the midpoint over about 2 ms, not a step: a click
-            HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000 + l * i / 100);
-            HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000 + r * i / 100);
+            HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, 2000 + l * i / 100);
+            HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, 2000 + r * i / 100);
             uSec(22);
         }
-        HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
-        HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
+        HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, 2000);
+        HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, 2000);
         ppos=0;
         CurrentlyPlaying = P_NOTHING;
     }

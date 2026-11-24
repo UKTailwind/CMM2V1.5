@@ -549,8 +549,8 @@ void dacclose(void){
 		HAL_TIM_Base_Stop(&htim6);
 		HAL_TIM_Base_DeInit(&htim6);
 	}
-    HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2000);
-    HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, 2000);
+    HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, 2000);
+    HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, 2000);
 	d1max=0;
 	d2max=0;
 }
@@ -637,11 +637,11 @@ void cmd_DAC(void){
 	dacvalue=(uint16_t)(voltage/VCC*4096.0);
     switch(channel) {
         case 1:  {
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1, DAC_ALIGN_12B_R, dacvalue);
+        	HAL_DAC_SetValue(&hdac1,DAC_LEFT, DAC_ALIGN_12B_R, dacvalue);
         	break;
         }
         case 2:  {
-        	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2, DAC_ALIGN_12B_R, dacvalue);
+        	HAL_DAC_SetValue(&hdac1,DAC_RIGHT, DAC_ALIGN_12B_R, dacvalue);
         	break;
         default: error("No such DAC");
         }

@@ -482,12 +482,13 @@ static void ld_make_dma(int h) {
         uint32_t *hd = hdmistream ? hdmistream + h * LD_FRAMES : NULL;
         for(int i = 0; i < LD_FRAMES; i++) {
             const int32_t l = s[2 * i], r = s[2 * i + 1];
-            d[i] = (uint32_t)HDMI_DAC2(l) | (uint32_t)HDMI_DAC2(r) << 16;
+            d[i] = (uint32_t)DAC_CH1(HDMI_DAC2(l), HDMI_DAC2(r)) | (uint32_t)DAC_CH2(HDMI_DAC2(l), HDMI_DAC2(r)) << 16;
             if(hd) hd[i] = (uint16_t)l | (uint32_t)r << 16;
         }
     } else for(int i = 0; i < LD_FRAMES; i++) {
         const int32_t l = s[2 * i], r = s[2 * i + 1];
-        d[i] = (uint32_t)(2000 + (l * 1900) / 32768) | (uint32_t)(2000 + (r * 1900) / 32768) << 16;
+        d[i] = (uint32_t)DAC_CH1(2000 + (l * 1900) / 32768, 2000 + (r * 1900) / 32768)
+             | (uint32_t)DAC_CH2(2000 + (l * 1900) / 32768, 2000 + (r * 1900) / 32768) << 16;
     }
     SCB_CleanDCache_by_Addr((uint32_t *)d, LD_FRAMES * 4);         // (the DMA reads the SRAM, not the cache)
 }
