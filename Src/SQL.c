@@ -502,7 +502,9 @@ static int sqlnext(void) {
 void fun_sql(void) {
     char *p;
     int nc;
-    targ = T_INT;
+    int rtype = T_INT;                                              // the result's type, given to targ last: evaluating
+                                                                    // an argument sets targ (an operator's type: after a
+                                                                    // string +, T_STR, and the result was taken as that)
     if((p = checkstring(ep, "NEXT"))) {
         iret = sqlnext();
     } else if((p = checkstring(ep, "FETCH"))) {
@@ -562,7 +564,7 @@ void fun_sql(void) {
         sret = GetTempMemory(STRINGSIZE);
         strncpy(sret, s ? s : "", MAXSTRLEN);
         CtoM(sret);
-        targ = T_STR;
+        rtype = T_STR;
     } else if((p = checkstring(ep, "ISNULL"))) {
         sqlneedrow();
         nc = CALL(int (*)(void *), sq->columns)(sqlcur);
@@ -604,15 +606,16 @@ void fun_sql(void) {
             ct = SQLMOD_INTEGER;
             if(sqlhas(dt, "CHAR") || sqlhas(dt, "TEXT") || sqlhas(dt, "CLOB")) ct = SQLMOD_TEXT;   // (SQLite's own affinity
             else if(sqlhas(dt, "REAL") || sqlhas(dt, "FLOA") || sqlhas(dt, "DOUB")) ct = SQLMOD_FLOAT;   // rules, its words)
-            if(ct == SQLMOD_TEXT) { sret = GetTempMemory(STRINGSIZE); targ = T_STR; }
-            else if(ct == SQLMOD_FLOAT) { fret = 0; targ = T_NBR; }
+            if(ct == SQLMOD_TEXT) { sret = GetTempMemory(STRINGSIZE); rtype = T_STR; }
+            else if(ct == SQLMOD_FLOAT) { fret = 0; rtype = T_NBR; }
             else iret = 0;
         } else if(ct == SQLMOD_INTEGER) iret = CALL(int64_t (*)(void *, int), sq->column_int)(sqlcur, c);
-        else if(ct == SQLMOD_FLOAT) { fret = CALL(double (*)(void *, int), sq->column_double)(sqlcur, c); targ = T_NBR; }
+        else if(ct == SQLMOD_FLOAT) { fret = CALL(double (*)(void *, int), sq->column_double)(sqlcur, c); rtype = T_NBR; }
         else {
             sret = GetTempMemory(STRINGSIZE);
             sqlput(sqlcur, c, T_STR, sret, MAXSTRLEN);
-            targ = T_STR;
+            rtype = T_STR;
         }
     }
+    targ = rtype;
 }
