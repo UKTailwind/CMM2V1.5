@@ -6,6 +6,8 @@
 
 *24 November 2026. Compared with 8.00.00b3, the last version released.*
 
+*Later on 24 November the release's .bin was replaced by one with PLAY MODSAMPLE's pan, and the User Manual and these notes with it. The new .bin is built from v8-dev 0e75330; the tag v8.00.00b4 stays at the first .bin's source (fbf8bb3), and the next release's tag will hold the pan's code.*
+
 This is the fourth beta of MMBasic 8.00 for the Colour Maximite 2. Please report problems on the Back Shed forum. 7.00.00RC6 remains the last release of version 7.
 
 The same firmware file runs on the Generation 1, the Generation 2 and the Generation 3.
@@ -13,7 +15,7 @@ The same firmware file runs on the Generation 1, the Generation 2 and the Genera
 8.00.00b4 brings:
 
 - **EDIT opens a file where you left it.** After F2 runs the program, or after F1 or Esc, EDIT opens the program at the line and column the cursor was on, as the file manager comes back to the program it ran. If the program stops with an error, EDIT still opens at the error's line. This works for EDIT, EDIT "file" and E in the file manager.
-- **PLAY MODSAMPLE LOOP, CHANGE and STOP:** a MOD file's samples as continuous sound effects over its music (an engine whose note follows its revs, wind, a tyre's squeal), changed while they play and stopped when they should stop. Effects are heard sooner after the command.
+- **PLAY MODSAMPLE LOOP, CHANGE, STOP and pan:** a MOD file's samples as continuous sound effects over its music (an engine whose note follows its revs, wind, a tyre's squeal), placed between the speakers, changed while they play (a car crossing from one speaker to the other as it goes by) and stopped when they should stop. Effects are heard sooner after the command.
 - **Fixes:** a board switched on with OPTION SD TIMING FAST could say "SD Card not found" until the timing was set to NORMAL and back, and PLAY MODSAMPLE accepted a sample number of 32, which a MOD file does not have.
 
 ### Before you update
@@ -53,23 +55,24 @@ A Back Shed user's request: change a line, press F2 to run the program, and EDIT
 
 The PicoMite keeps the place in its own way, as its editor works on the program in its flash: this is the Colour Maximite 2's. The User Manual says so in EDIT and in the chapter Full Screen Editor.
 
-#### PLAY MODSAMPLE LOOP, CHANGE and STOP
+#### PLAY MODSAMPLE LOOP, CHANGE, STOP and pan
 
 ```
-PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, LOOP]
-PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate]
+PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, pan] [, LOOP]
+PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate] [, pan]
 PLAY MODSAMPLE STOP [channel]
 ```
 
 A Back Shed user's racing game needs sounds that run on over the MOD music (an engine whose revs change, a tyre's squeal, gravel) and effects heard close to the frame that asks for them. Until now an effect played once from its start each time, could not be stopped, and changing its rate started it again.
 
 - **LOOP** plays the sample until it is stopped: to the end of the loop the sample has in the MOD file and back to the loop's start, as the MOD player plays it, or, if it has no loop, the whole sample over and over. LOOP can end the list after any argument from the channel on: PLAY MODSAMPLE 5, 1, LOOP plays sample 5 on channel 1 at the full volume and 16000.
-- **CHANGE** changes the volume or the rate of the sample playing on a channel, or both, where it is, without starting it again, so that an engine's sound can follow its revs. An empty or missing argument is left as it is, and a channel that is not playing is left alone.
+- **CHANGE** changes the volume, the rate or the pan of the sample playing on a channel, or any of them, where it is, without starting it again, so that an engine's sound can follow its revs. An empty or missing argument is left as it is, and a channel that is not playing is left alone.
+- **pan** places the sample between the speakers: -100 is the left speaker only, 100 the right only, and 0 (the default) both at the full volume. Between, the far speaker is turned down in proportion: at -50 the sample plays at its full volume on the left and at half on the right. With CHANGE a car can cross from one speaker to the other as it goes by.
 - **STOP** stops one channel at once, or all four if no channel is given. It is not an error when no MOD file is playing.
 - **Sooner:** a MOD file's sound is now made 512 samples at a time, not 2048, so an effect starts, changes or stops 12 to 23 ms after the command at 44100 samples a second (it was 46 to 93 ms). See What behaves differently for what this costs.
 - **The sample's number** is 1 to 31, the samples a MOD file has (see Fixes).
 
-The User Manual has them in PLAY MODSAMPLE, and PLAY MODFILE's entry says how the music is made. The PicoMite does not have them yet.
+The User Manual has them in PLAY MODSAMPLE, and PLAY MODFILE's entry says how the music is made. The PicoMite's 8.00.00b2 has the same, the pan included, so a program that uses them runs on both.
 
 #### Fixes
 
@@ -82,15 +85,16 @@ The User Manual has them in PLAY MODSAMPLE, and PLAY MODFILE's entry says how th
 - **EDIT "file" and E in the file manager** open the file where it was left, if it is the last file edited or stopped by an error, not always at the top. Any other file opens at its top, as before.
 - **A MOD file's music** is made in pieces of 512 samples (12 ms at 44100), between the program's statements. A single statement that runs for longer than that without letting the MOD player in can make the music repeat a short piece: on a Generation 1, CLS of an 800 x 600 page in the 12-bit colour depth (37 ms) or a SORT of a large array. Most long commands (BLIT, PAGE COPY, PAUSE, file access) let it in as they run. The pieces were 2048 samples (46 ms), which hid this. Peter chose the shorter pieces for the effects' sake.
 - **PLAY MODSAMPLE** with a sample number of 32 is an error.
+- **PLAY MODSAMPLE's effects are mixed after the MOD music's stereo spread,** so that a pan is exact (mixed before it, a sample panned to one side was heard at half its level in the other speaker). A centred effect is now as loud in both speakers: 1.5 times its sample, as the left speaker had it, where the right speaker had 1.75 times (about 1.3 dB more).
 
 ### Structural changes
 
 For those who build the firmware or study its source:
 
 - **The editor's place** (Src/Editor.c): EdNoteStart records the file (its full path, with the drive: DrivePath), the line and the column in StartEditFile, StartEditLine and StartEditCharacter. The editor calls it on every way out, and error() (Src/MMBasic.c) calls it for an error in the program's own lines in place of setting the line itself. EdStartFor gives edit() the place for a file if it is that file (strcasecmp of the full paths), otherwise the top; the file manager's pending error seek is checked first.
-- **PLAY MODSAMPLE** (Src/Audio.c, Src/hxcmod.c): ModSampleCommand and the MOD player's start, change and stop of an effect. The effect's step is worked out when it starts and at CHANGE, not divided out for each sample made. MOD_FRAMES (512) is the size of each of a MOD file's two buffers.
+- **PLAY MODSAMPLE** (Src/Audio.c, Src/hxcmod.c): ModSampleCommand and the MOD player's start, change and stop of an effect. The effect's step is worked out when it starts and at CHANGE, not divided out for each sample made. The pan gives each effect a volume for each speaker (lvol and rvol, set by hxcmod_seffectbalance); hxcmod_fillbuffer sums the effects in el and er, passes them through the MOD player's filter with their own history (last_el_sample and last_er_sample in the modcontext), and adds them after the music's stereo separation, made 1.5 times as loud there. MOD_FRAMES (512) is the size of each of a MOD file's two buffers.
 - **The SD card's start at FAST** (Src/mmc_stm32.c): sd_start_bitbang and sd_end_bitbang make SPI3's pins plain I/O with MISO pulled up for the start and give them back to SPI3, as they were, at FCLK_FAST; sd_go_idle tries CMD0 up to 10 times, with sd_stop_transfer (CMD12, the Stop Tran token and 80 clocks) between.
-- **The code's place:** the new code is in the .extra section, called from the commands, so the code run for every statement moved by a few bytes. Against 8.00.00b3 on a Generation 1 the statements' timings are within 3%, and PIXEL and BOX within 0.5% in six modes. BLIT WRITE is 2.5 to 5% slower (0.2 to 0.4 us), though none of its code changed: the code after PLAY's moved, as PLAY's own code is now smaller.
+- **The code's place:** the new code is in the .extra section, called from the commands, so the code run for every statement moved by a few bytes. Against 8.00.00b3 on a Generation 1 the statements' timings are within 3%, PIXEL within 0.5% and BOX within 1.5% in six modes. BLIT WRITE is 1 to 5.5% slower (0.1 to 0.4 us), though none of its code changed: the code after PLAY's moved, as PLAY's own code is now smaller.
 - **Unchanged:** the options record (layout 5), the tokens (image format 7) and the loadable programs' services (version 22). LOOP, CHANGE and STOP are words of PLAY MODSAMPLE, not new tokens.
 
 ### The programs
@@ -100,6 +104,8 @@ CMM2_Programs_8.00.00b4.zip is 8.00.00b3's zip with README.txt for this version.
 ### Tested
 
 **The release file on a Generation 1** (400MHz, with the plug-in WiFi module and OPTION WIFI set: it joined at start-up). The options file saved under the build before it loaded unchanged.
+
+The first .bin (without the pan) ran the test suites, EDIT's checks and the programs. The .bin with the pan, which replaced it, ran PLAY MODSAMPLE's tests, the pan's own, tests/cmm2 and the timings; nothing else changed between them.
 
 - **The test suites, compared with 8.00.00b3's run on the same board** (22 November, before WARPH and WARPV were added). These are:
   - tests/cmm2 (114 programs);
@@ -113,13 +119,21 @@ CMM2_Programs_8.00.00b4.zip is 8.00.00b3's zip with README.txt for this version.
   - the two WARPH and WARPV tests, new since that run, matched;
   - two tests that differed under 8.00.00b3 now match: they expect the 640 x 480 default mode the board has now, and 8.00.00b3's run was made in MODE 1 (800 x 600);
   - one corpus program could not find the picture that a later program in the run writes: this card is not the one 8.00.00b3 was tested with, so the picture was not on it yet. Run again once the picture was there, it gave no error.
+
+  With the pan, tests/cmm2 gave the same output as with the first .bin, byte for byte, for all 114 programs.
 - **EDIT:** 10 checks by a script at the console, each reading where the editor's cursor opened:
   - a file opens at its top the first time;
   - after F1, after F2 (the program ran to its end) and after Esc, EDIT opens it where the cursor was;
   - EDIT "file" with the name written without its drive and in other capitals opens at the same place;
   - after an error, EDIT opens at the error's line, and so does EDIT "name" (relative, without .bas) after RUN stops at the error again;
   - after another program runs with no error, EDIT opens that program at its top, and the first file, opened again, opens at its top.
-- **PLAY MODSAMPLE,** quietly, over a MOD file: a sample played once; with LOOP it was still playing after three times its length; STOP 1 stopped it at once and left channel 2 playing; CHANGE to twice the rate halfway through made the rest take half as long, without starting again; CHANGE of the volume alone kept the rate; each form's errors were as the manual says. Sample 32 is refused.
+- **PLAY MODSAMPLE,** quietly, over a MOD file: a sample played once; with LOOP it was still playing after three times its length; STOP 1 stopped it at once and left channel 2 playing; CHANGE to twice the rate halfway through made the rest take half as long, without starting again; CHANGE of the volume alone kept the rate; each form's errors were as the manual says. Sample 32 is refused. With the pan, one form with too many arguments (PLAY MODSAMPLE 1, 1, 64, 16000, LOOP, 1) now says "Argument count" where it said "Syntax"; the rest is the same.
+- **The pan:**
+  - its forms and errors, 20 of them at the start and in CHANGE: -101 and 101 refused, an empty pan kept, LOOP only at the end;
+  - the doppler demo's engine (its MOD's music blanked) measured in the MOD player's output at pans -100, -50, 0, 50, 100, -30 and 75: the far speaker exactly silent at -100 and 100, both the same at 0, the far side at 0.49 of the near at 50 and -50, and as the balance gives it at the others; a CHANGE of the volume or the rate alone kept the pan;
+  - the effects go through the MOD player's filter, as before: at 16000, 31 to 32% of the output's samples equal the one before, where unfiltered steps give about 64%;
+  - DAC1's two outputs read through the ST-Link while the engine played full left and full right, at the start and by CHANGE: the far channel stayed at silence for each whole 4 seconds;
+  - the doppler demo (an engine and a horn passing at 20, 40 and 60 m/s) ran to its end.
 - **Timings,** against 8.00.00b3's on the same board: see The code's place in Structural changes.
 - **The programs:** that board's card held none of the zip's programs, so six were copied to it from the zip and each started once from the prompt, with no error: Doom (with Freedoom), the Apple //e, the CPC, the C64 and zeptoforth for the G1, which was left by `bye` back to the prompt. Quake refused with "Needs a G2", as it should. The other programs in the zip were not started on 8.00.00b4. They are the same files that 8.00.00b3 started on a Generation 1, and the loader and its services have not changed since.
 
@@ -149,7 +163,7 @@ The editor change ran only on the Generation 1. The Generation 2 and the Generat
 
 ### The manuals
 
-- **The User Manual** is for 8.00.00b4: EDIT and the chapter Full Screen Editor (where the editor opens a file), PLAY MODSAMPLE (LOOP, CHANGE, STOP and the samples 1 to 31), PLAY MODFILE (the music made 512 samples at a time) and the chapter Sound (PLAY MODSAMPLE in its list). It was built again from every chapter and reference section, and nothing else in it changed.
+- **The User Manual** is for 8.00.00b4: EDIT and the chapter Full Screen Editor (where the editor opens a file), PLAY MODSAMPLE (LOOP, CHANGE, STOP, the pan and the samples 1 to 31), PLAY MODFILE (the music made 512 samples at a time) and the chapter Sound (PLAY MODSAMPLE in its list). It was built again from every chapter and reference section, and nothing else in it changed.
 - **Colour Maximite 2 Loadable Programs:** its title page (firmware 8.00.00b4), and 8.00.00b4 in the list of services versions (still 22).
 - **The App User Guide and the C Compiler guide** are unchanged apart from the zip's name. The 386 PC Emulator guide and the Stepper reference are unchanged.
 

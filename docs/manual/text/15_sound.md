@@ -43,7 +43,7 @@ There are a number of specialised audio commands that are mostly used in compute
 
 - PLAY MODFILE which will play synthesised music using the MOD format.
 - PLAY EFFECT which will play a WAV file at the same time as a MOD file is playing, with its own interrupt.
-- PLAY MODSAMPLE which plays the MOD file's own samples over its music on up to four channels, once or looped, with the volume and rate changed while they play (an engine's revs, for example).
+- PLAY MODSAMPLE which plays the MOD file's own samples over its music on up to four channels, once or looped, placed between the speakers, with the volume, rate and pan changed while they play (an engine's revs, or a car crossing from one speaker to the other, for example).
 - PLAY TTS which will generate robotic speech.
 - PLAY SOUND which will generate an output based on a mixture of sine, square, triangular, sawtooth and noise waveforms, on up to four sound channels. PLAY LOAD SOUND loads a wave of your own for it.
 - PLAY ARRAY which plays 16-bit samples held in integer arrays.
