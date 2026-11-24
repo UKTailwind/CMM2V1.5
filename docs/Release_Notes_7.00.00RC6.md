@@ -64,6 +64,7 @@ Copy the new CMM2_Programs_7.00.00RC6.zip to the card as well: the sql folder is
 ## The programs
 
 - **sql** is new: sql.mod (the SQL command's module), sql.app, computers.db and computers.bas. On 16 November sql.mod and sql.app were replaced in the zip, so that a database made in UTF-16 on a PC opens: with the first ones, every query of such a database failed with "malformed database schema", and PRAGMA encoding returned nothing. Copy the new A:/sql/sql.mod and A:/sql/sql.app from the zip if you downloaded it before then.
+- **quest**: on 23 November scummvm.app was replaced. In the games that speak, the first one read each line of speech from the SD card as it played, in the interrupt that makes the sound: Day of the Tentacle, Sam & Max Hit the Road, Indiana Jones and the Fate of Atlantis on CD, Full Throttle, and the CD versions of The Legend of Kyrandia 1 and 2. A line that played while the game loaded a room or saved could have read the wrong data, or damaged a file on the card; no one is known to have seen it happen. The new one reads each line into memory before it plays it. Copy the new A:/quest/scummvm.app from the zip if you downloaded it before then.
 - **bbc** and **wordgrinder** are as the RC5 zip has had them since 13 November: bbc.app no longer stops about 18 minutes after it starts, and WordGrinder's message when its memory is damaged stays on the screen until a key is pressed. The zip downloaded before then had the first versions.
 - Every other program in the zip is unchanged.
 
