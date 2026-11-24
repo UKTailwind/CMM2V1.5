@@ -33,7 +33,7 @@ All of them run on both the Generation 1 and the Generation 2, from the same fil
 
 ## Installing the Programs
 
-The programs are in the file CMM2_Programs_8.00.00b3.zip, which is posted with the firmware.
+The programs are in the file CMM2_Programs_8.00.00b4.zip, which is posted with the firmware.
 
 1. Update the firmware first. Some of these programs need the firmware of the same release.
 

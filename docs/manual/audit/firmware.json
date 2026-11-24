@@ -1,5 +1,5 @@
 {
- "version": "8.00.00b3",
+ "version": "8.00.00b4",
  "keywords": [
   {
    "table": "command",
@@ -15,161 +15,161 @@
      "kw": "STOP",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1536,
+     "line": 1596,
      "via": []
     },
     {
      "kw": "NEXT",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1540,
+     "line": 1600,
      "via": []
     },
     {
      "kw": "PREVIOUS",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1551,
+     "line": 1611,
      "via": []
     },
     {
      "kw": "PAUSE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1562,
+     "line": 1622,
      "via": []
     },
     {
      "kw": "RESUME",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1582,
+     "line": 1642,
      "via": []
     },
     {
      "kw": "CLOSE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1598,
+     "line": 1658,
      "via": []
     },
     {
      "kw": "VOLUME",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1603,
+     "line": 1663,
      "via": []
     },
     {
      "kw": "TONE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1613,
+     "line": 1673,
      "via": []
     },
     {
      "kw": "BBC SOUND",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1656,
+     "line": 1716,
      "via": []
     },
     {
      "kw": "BBC ENVELOPE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1715,
+     "line": 1775,
      "via": []
     },
     {
      "kw": "LOAD SOUND",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1726,
+     "line": 1786,
      "via": []
     },
     {
      "kw": "ARRAY",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1734,
+     "line": 1794,
      "via": []
     },
     {
      "kw": "SAMPLE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1790,
+     "line": 1850,
      "via": []
     },
     {
      "kw": "RELEASE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1872,
+     "line": 1932,
      "via": []
     },
     {
      "kw": "SOUND",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1877,
+     "line": 1937,
      "via": []
     },
     {
      "kw": "WAV",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 1949,
+     "line": 2009,
      "via": []
     },
     {
      "kw": "TTS",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 2008,
+     "line": 2068,
      "via": []
     },
     {
      "kw": "MODSAMPLE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 2013,
+     "line": 2073,
      "via": []
     },
     {
      "kw": "EFFECT",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 2040,
+     "line": 2078,
      "via": []
     },
     {
      "kw": "FLAC",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 2098,
+     "line": 2136,
      "via": []
     },
     {
      "kw": "MODFILE",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 2158,
+     "line": 2196,
      "via": []
     },
     {
      "kw": "MP3",
      "func": "cmd_play",
      "file": "Audio.c",
-     "line": 2221,
+     "line": 2259,
      "via": []
     },
     {
      "kw": "PHONETIC",
      "func": "cmd_tts",
      "file": "Audio.c",
-     "line": 1224,
+     "line": 1226,
      "via": [
       "cmd_play"
      ]
@@ -271,7 +271,7 @@
      ]
     }
    ],
-   "where": "Audio.c:1533"
+   "where": "Audio.c:1593"
   },
   {
    "table": "command",
@@ -5736,7 +5736,7 @@
    "handler": "cmd_newedit",
    "line": 530,
    "subkeywords": [],
-   "where": "Editor.c:1022"
+   "where": "Editor.c:1060"
   },
   {
    "table": "command",

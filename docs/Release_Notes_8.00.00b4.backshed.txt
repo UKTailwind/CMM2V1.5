@@ -1,0 +1,144 @@
+[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: MMBasic 8.00.00b4 (beta) release notes[/B][/COLOR][/SIZE][/CENTER]
+[I]24 November 2026. Compared with 8.00.00b3, the last version released.[/I]
+
+This is the fourth beta of MMBasic 8.00 for the Colour Maximite 2. Please report problems on the Back Shed forum. 7.00.00RC6 remains the last release of version 7.
+
+The same firmware file runs on the Generation 1, the Generation 2 and the Generation 3.
+
+8.00.00b4 brings:
+
+• [B]EDIT opens a file where you left it.[/B] After F2 runs the program, or after F1 or Esc, EDIT opens the program at the line and column the cursor was on, as the file manager comes back to the program it ran. If the program stops with an error, EDIT still opens at the error's line. This works for EDIT, EDIT "file" and E in the file manager.
+• [B]PLAY MODSAMPLE LOOP, CHANGE and STOP:[/B] a MOD file's samples as continuous sound effects over its music (an engine whose note follows its revs, wind, a tyre's squeal), changed while they play and stopped when they should stop. Effects are heard sooner after the command.
+• [B]Fixes:[/B] a board switched on with OPTION SD TIMING FAST could say "SD Card not found" until the timing was set to NORMAL and back, and PLAY MODSAMPLE accepted a sample number of 32, which a MOD file does not have.
+
+
+[SIZE=4][COLOR=BLUE][B]Before you update[/B][/COLOR][/SIZE]
+[B]From 8.00.00b3:[/B] save the options first and load them again afterwards, as with every update. Writing the firmware erases them:
+
+[CODE]OPTION DISK SAVE "A:/myoptions"[/CODE]
+
+Then write the firmware, and:
+
+[CODE]OPTION DISK LOAD "A:/myoptions"[/CODE]
+
+The options are kept in the same form as in 8.00.00b3, so a file saved under 8.00.00b3 loads into 8.00.00b4, and one saved under 8.00.00b4 loads into 8.00.00b3. The console runs at 115200 baud until the options are loaded. Save the program in memory to the SD card first: version 8 does not keep it over a reset.
+
+The flash library is kept and works as before, and .lib files and flash slots saved by 8.00.00b3 load, as no tokens have moved. The loadable programs' services are unchanged (version 22).
+
+[B]From 7.00:[/B] read "Before you update" in 8.00.00b1's notes first (they are in Release_Notes_8.00.00b4_full.md): the program held in the flash is lost, and the library and flash slots must be saved again. Everything there applies to 8.00.00b4 too.
+
+[B]Going back to 8.00.00b3:[/B] write it as you wrote this one, and OPTION DISK LOAD the same options file.
+
+CMM2_Programs_8.00.00b4.zip holds the same programs as 8.00.00b3's zip, unchanged: only its README.txt is new. If your card has 8.00.00b3's programs (with the scummvm.app of 23 November), there is nothing to copy.
+
+
+[SIZE=4][COLOR=BLUE][B]What is new[/B][/COLOR][/SIZE]
+[SIZE=3][B]EDIT opens a file where you left it[/B][/SIZE]
+A Back Shed user's request: change a line, press F2 to run the program, and EDIT again should open at that line, not at the top, as the file manager comes back to the program it ran.
+
+• [B]On leaving the editor,[/B] by F1, F2 or Esc, it remembers the file, the line and the column. Until now only a save did, and only EDIT with no file name used it.
+• [B]EDIT, EDIT "file" and E in the file manager[/B] open that file at that place. A file named without its drive, or in other capitals, is the same file.
+• [B]An error still wins:[/B] if the program stops with an error after that, EDIT opens at the line of the error, as before. Whichever came last decides. The file manager's own return to an error's line is unchanged.
+• [B]Only the last file is remembered:[/B] any other file opens at its top. So after RUN "other", EDIT now opens that program at its top, where it used to open at the line remembered from the first one.
+
+The PicoMite keeps the place in its own way, as its editor works on the program in its flash: this is the Colour Maximite 2's. The User Manual says so in EDIT and in the chapter Full Screen Editor.
+
+[SIZE=3][B]PLAY MODSAMPLE LOOP, CHANGE and STOP[/B][/SIZE]
+[CODE]PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, LOOP]
+PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate]
+PLAY MODSAMPLE STOP [channel][/CODE]
+
+A Back Shed user's racing game needs sounds that run on over the MOD music (an engine whose revs change, a tyre's squeal, gravel) and effects heard close to the frame that asks for them. Until now an effect played once from its start each time, could not be stopped, and changing its rate started it again.
+
+• [B]LOOP[/B] plays the sample until it is stopped: to the end of the loop the sample has in the MOD file and back to the loop's start, as the MOD player plays it, or, if it has no loop, the whole sample over and over. LOOP can end the list after any argument from the channel on: PLAY MODSAMPLE 5, 1, LOOP plays sample 5 on channel 1 at the full volume and 16000.
+• [B]CHANGE[/B] changes the volume or the rate of the sample playing on a channel, or both, where it is, without starting it again, so that an engine's sound can follow its revs. An empty or missing argument is left as it is, and a channel that is not playing is left alone.
+• [B]STOP[/B] stops one channel at once, or all four if no channel is given. It is not an error when no MOD file is playing.
+• [B]Sooner:[/B] a MOD file's sound is now made 512 samples at a time, not 2048, so an effect starts, changes or stops 12 to 23 ms after the command at 44100 samples a second (it was 46 to 93 ms). See What behaves differently for what this costs.
+• [B]The sample's number[/B] is 1 to 31, the samples a MOD file has (see Fixes).
+
+The User Manual has them in PLAY MODSAMPLE, and PLAY MODFILE's entry says how the music is made. The PicoMite does not have them yet.
+
+[SIZE=3][B]Fixes[/B][/SIZE]
+• [B]OPTION SD TIMING FAST at power up.[/B] A board switched on with OPTION SD TIMING FAST could say "SD Card not found" until the timing was set to NORMAL and back to FAST. It was seen with 8.00.00b3 on a Generation 3 and on a Generation 1. At FAST the card's data line from the card had no pull-up, and a card that has just been powered does not drive it until it is told to change to SPI, so the firmware waited for a card that looked busy and never sent it the first command. NORMAL pulls the line up, which is why it worked. At FAST the card's start is now made as NORMAL makes it, at the slow speed, and the SPI hardware takes over at the full speed once the card is ready. The first command is also tried again, up to 10 times in 2 seconds, with any transfer a reset left running stopped in between.
+• [B]PLAY MODSAMPLE 32[/B] was accepted, and played whatever lay after the MOD player's 31 samples: its length and data came from other memory. It is now refused ("32 is invalid (valid is 1 to 31)"), and the manual says 1 to 31.
+• [B]MM.VER[/B] is 8.000004.
+
+
+[SIZE=4][COLOR=BLUE][B]What behaves differently[/B][/COLOR][/SIZE]
+• [B]EDIT "file" and E in the file manager[/B] open the file where it was left, if it is the last file edited or stopped by an error, not always at the top. Any other file opens at its top, as before.
+• [B]A MOD file's music[/B] is made in pieces of 512 samples (12 ms at 44100), between the program's statements. A single statement that runs for longer than that without letting the MOD player in can make the music repeat a short piece: on a Generation 1, CLS of an 800 x 600 page in the 12-bit colour depth (37 ms) or a SORT of a large array. Most long commands (BLIT, PAGE COPY, PAUSE, file access) let it in as they run. The pieces were 2048 samples (46 ms), which hid this. Peter chose the shorter pieces for the effects' sake.
+• [B]PLAY MODSAMPLE[/B] with a sample number of 32 is an error.
+
+
+[SIZE=4][COLOR=BLUE][B]Structural changes[/B][/COLOR][/SIZE]
+For those who build the firmware or study its source:
+
+• [B]The editor's place[/B] (Src/Editor.c): EdNoteStart records the file (its full path, with the drive: DrivePath), the line and the column in StartEditFile, StartEditLine and StartEditCharacter. The editor calls it on every way out, and error() (Src/MMBasic.c) calls it for an error in the program's own lines in place of setting the line itself. EdStartFor gives edit() the place for a file if it is that file (strcasecmp of the full paths), otherwise the top; the file manager's pending error seek is checked first.
+• [B]PLAY MODSAMPLE[/B] (Src/Audio.c, Src/hxcmod.c): ModSampleCommand and the MOD player's start, change and stop of an effect. The effect's step is worked out when it starts and at CHANGE, not divided out for each sample made. MOD_FRAMES (512) is the size of each of a MOD file's two buffers.
+• [B]The SD card's start at FAST[/B] (Src/mmc_stm32.c): sd_start_bitbang and sd_end_bitbang make SPI3's pins plain I/O with MISO pulled up for the start and give them back to SPI3, as they were, at FCLK_FAST; sd_go_idle tries CMD0 up to 10 times, with sd_stop_transfer (CMD12, the Stop Tran token and 80 clocks) between.
+• [B]The code's place:[/B] the new code is in the .extra section, called from the commands, so the code run for every statement moved by a few bytes. Against 8.00.00b3 on a Generation 1 the statements' timings are within 3%, and PIXEL and BOX within 0.5% in six modes. BLIT WRITE is 2.5 to 5% slower (0.2 to 0.4 us), though none of its code changed: the code after PLAY's moved, as PLAY's own code is now smaller.
+• [B]Unchanged:[/B] the options record (layout 5), the tokens (image format 7) and the loadable programs' services (version 22). LOOP, CHANGE and STOP are words of PLAY MODSAMPLE, not new tokens.
+
+
+[SIZE=4][COLOR=BLUE][B]The programs[/B][/COLOR][/SIZE]
+CMM2_Programs_8.00.00b4.zip is 8.00.00b3's zip with README.txt for this version. When it was published no program in it had changed since 8.00.00b3 (tools/zip_apps_check.py: none to review; micropython.app is the same build), and each runs on 8.00.00b4 as on 8.00.00b3. It has the new quest/scummvm.app of 23 November (see 8.00.00b3's notes).
+
+
+[SIZE=4][COLOR=BLUE][B]Tested[/B][/COLOR][/SIZE]
+[B]The release file on a Generation 1[/B] (400MHz, with the plug-in WiFi module and OPTION WIFI set: it joined at start-up). The options file saved under the build before it loaded unchanged.
+
+• [B]The test suites, compared with 8.00.00b3's run on the same board[/B] (22 November, before WARPH and WARPV were added). These are:
+    ◦ tests/cmm2 (114 programs);
+    ◦ the PicoMite tests (4 programs);
+    ◦ the crash tests: all passed;
+    ◦ the corpus (212 programs);
+    ◦ the test files (66 programs);
+    ◦ SP Tools: 686 of 727, the same results as under 8.00.00b3 (the rest need a USB flash drive).
+
+  Every program gave what it gave under 8.00.00b3, apart from five, each explained:
+    ◦ the two WARPH and WARPV tests, new since that run, matched;
+    ◦ two tests that differed under 8.00.00b3 now match: they expect the 640 x 480 default mode the board has now, and 8.00.00b3's run was made in MODE 1 (800 x 600);
+    ◦ one corpus program could not find the picture that a later program in the run writes: this card is not the one 8.00.00b3 was tested with, so the picture was not on it yet. Run again once the picture was there, it gave no error.
+• [B]EDIT:[/B] 10 checks by a script at the console, each reading where the editor's cursor opened:
+    ◦ a file opens at its top the first time;
+    ◦ after F1, after F2 (the program ran to its end) and after Esc, EDIT opens it where the cursor was;
+    ◦ EDIT "file" with the name written without its drive and in other capitals opens at the same place;
+    ◦ after an error, EDIT opens at the error's line, and so does EDIT "name" (relative, without .bas) after RUN stops at the error again;
+    ◦ after another program runs with no error, EDIT opens that program at its top, and the first file, opened again, opens at its top.
+• [B]PLAY MODSAMPLE,[/B] quietly, over a MOD file: a sample played once; with LOOP it was still playing after three times its length; STOP 1 stopped it at once and left channel 2 playing; CHANGE to twice the rate halfway through made the rest take half as long, without starting again; CHANGE of the volume alone kept the rate; each form's errors were as the manual says. Sample 32 is refused.
+• [B]Timings,[/B] against 8.00.00b3's on the same board: see The code's place in Structural changes.
+• [B]The programs:[/B] that board's card held none of the zip's programs, so six were copied to it from the zip and each started once from the prompt, with no error: Doom (with Freedoom), the Apple //e, the CPC, the C64 and zeptoforth for the G1, which was left by [FONT=Courier]bye[/FONT] back to the prompt. Quake refused with "Needs a G2", as it should. The other programs in the zip were not started on 8.00.00b4. They are the same files that 8.00.00b3 started on a Generation 1, and the loader and its services have not changed since.
+
+[B]The SD card's start at FAST,[/B] in builds of the same code before the version number changed:
+• [B]A Generation 1[/B] that said "SD Card not found" when switched on at FAST under 8.00.00b3 found its card when switched on with the card in. 10 resets during 2MB reads each recovered, and SPI3's pins were back as they were after the start.
+• [B]A Generation 3[/B] (V1.1) found its card when switched on with the card in, and when a card was put in while it was on. 10 resets during reads each recovered.
+
+[B]PLAY MODSAMPLE on a Generation 3[/B] (23 November, a build before the editor change and the SD fix): the same test gave the same results through the HDMI sound.
+
+The editor change ran only on the Generation 1. The Generation 2 and the Generation 3 have not run the release file itself: only the Generation 1 was connected.
+
+
+[SIZE=4][COLOR=BLUE][B]Known problems[/B][/COLOR][/SIZE]
+• [B]No Generation 3 with the module on its board has been made yet.[/B] Its path has run only in a test build that took a Generation 3 without the module for one with it: the firmware found no chip, said "WiFi module not found" and carried on with every pin free. The same 16-bit transfer code has carried the plug-in module's traffic without an error. If the first boards misread at 30MHz, the bus can be slowed to 15MHz in the next beta.
+• [B]Opening the console's own port as COM3[/B] (or COM1 or COM2 under OPTION CONSOLE PORT) in a program has not been tried on a board since 8.00.00b3's OPTION CONSOLE change. COM3 still opens only when the saved option is OPTION CONSOLE SCREEN or NONE, as before.
+• [B]A large loadable program on a Generation 1 after many BASIC programs.[/B] After a long session the 386 PC and the NES emulator stopped with "Needs n KB, n KB free in one block". In 8.00.00b3's testing that came after about 400 test programs. Each started at once after a restart (CPU RESTART or the reset button). Something those programs used is held until a restart and keeps the loader from joining the display memory to the heap. Which statement does this is not yet known.
+• [B]A MOD file's music can repeat a short piece[/B] during a single statement that runs for longer than 12 ms without letting the MOD player in (see What behaves differently).
+• [B]FRAMEBUFFER WARPV a column at a time over a whole 800 x 600 page[/B] is slow. With offsets that differ from column to column it took 108 ms in the 8-bit colour depth, 253 ms in 16 bits and 594 ms in 12 bits on a Generation 1. Bands of four columns ([FONT=Courier]step[/FONT] 4) took 20, 39 and 70 ms, and WARPH over the same page 4, 26 and 53 ms.
+• [B]Bluetooth game controllers[/B] have not been tried with a real controller yet.
+• [B]Why the radio chip once gave a wrong Bluetooth buffer position[/B] is not known; the firmware refuses it, so it costs at most a packet.
+• [B]Bluetooth and the network wait while a loadable program runs:[/B] a Bluetooth keyboard does not type into it and a speaker plays nothing (MicroPython's network is the exception: it services the network itself).
+• [B]The Bluetooth serial device:[/B] a Bluetooth LE module passes on only part of a long burst at 115200 baud (the module's limit): send in pieces or more slowly.
+• [B]MicroPython on a Generation 1[/B] has about 1.6MB for Python. In one long session two of the book's games (ch19/05 and ch25/02) still run out of memory after the examples before them; each runs after Ctrl-D (a soft reset).
+• [B]The WebMite's own example programs[/B] have not all been tried yet.
+• [B]A Generation 3 can reset when its HDMI cable is unplugged[/B] (the cable's shield meeting the monitor's ground on the reset line). The next board has a fix.
+• The known problems of 7.00.00RC6 remain, apart from the three SQL faults fixed in 8.00.00b1.
+
+
+[SIZE=4][COLOR=BLUE][B]The manuals[/B][/COLOR][/SIZE]
+• [B]The User Manual[/B] is for 8.00.00b4: EDIT and the chapter Full Screen Editor (where the editor opens a file), PLAY MODSAMPLE (LOOP, CHANGE, STOP and the samples 1 to 31), PLAY MODFILE (the music made 512 samples at a time) and the chapter Sound (PLAY MODSAMPLE in its list). It was built again from every chapter and reference section, and nothing else in it changed.
+• [B]Colour Maximite 2 Loadable Programs:[/B] its title page (firmware 8.00.00b4), and 8.00.00b4 in the list of services versions (still 22).
+• [B]The App User Guide and the C Compiler guide[/B] are unchanged apart from the zip's name. The 386 PC Emulator guide and the Stepper reference are unchanged.
+
+
+[SIZE=4][COLOR=BLUE][B]Licences[/B][/COLOR][/SIZE]
+Unchanged since 8.00.00b3. The firmware's own licence (LICENSE) is unchanged. For the WiFi and Bluetooth it includes lwIP, Mbed TLS, the cyw43-driver, BTstack, puff and the CYW43439's firmware. [B]BTstack[/B]'s licence allows redistribution and use "solely for personal benefit and not for any commercial purpose or for monetary gain" (Raspberry Pi's licence for BTstack covers only its own chips): free for the free firmware, but anyone who sells boards with it needs a commercial licence from BlueKitchen. cyw43-driver's copy carries the same condition. Each licence is beside its code in Middlewares/Third_Party, and in the licences folder of the zip.
