@@ -2,9 +2,12 @@
 Python's own SQLite (the file is the same on the Colour Maximite 2): a table COMPUTER of home computers, its columns the
 members of the example's TYPE Computer. Peter, 13 Nov 2026: "The release should include a sample database the example
 can work on". The models and years are the machines' launches as usually given; RAMKB is the base model's memory."""
+# The column is PROCESSOR, not CPU: on the PicoMite a line inside TYPE that starts with a command's name (CPU) is read
+# as that command, and the sample is the same on both machines (SQL INSERT and SQL(FETCH match members to columns by
+# name, so the column and the member are renamed together).
 import os, sqlite3, sys
 
-ROWS = [   # name, maker, year, cpu, ramkb
+ROWS = [   # name, maker, year, processor, ramkb
     ('Apple II', 'Apple', 1977, '6502', 4),
     ('PET 2001', 'Commodore', 1977, '6502', 4),
     ('TRS-80 Model I', 'Tandy', 1977, 'Z80', 4),
@@ -32,9 +35,9 @@ def main():
         os.remove(out)
     db = sqlite3.connect(out)
     db.execute('PRAGMA page_size = 4096')
-    db.execute('CREATE TABLE computer(id INTEGER PRIMARY KEY, name TEXT, maker TEXT, year INTEGER, cpu TEXT, ramkb INTEGER)')
+    db.execute('CREATE TABLE computer(id INTEGER PRIMARY KEY, name TEXT, maker TEXT, year INTEGER, processor TEXT, ramkb INTEGER)')
     db.execute('CREATE INDEX computer_year ON computer(year)')
-    db.executemany('INSERT INTO computer(name, maker, year, cpu, ramkb) VALUES(?, ?, ?, ?, ?)', ROWS)
+    db.executemany('INSERT INTO computer(name, maker, year, processor, ramkb) VALUES(?, ?, ?, ?, ?)', ROWS)
     db.commit()
     db.execute('VACUUM')
     db.close()

@@ -146,7 +146,7 @@ TYPE Computer
   name AS STRING LENGTH 30
   maker AS STRING LENGTH 20
   year AS INTEGER
-  cpu AS STRING LENGTH 10
+  processor AS STRING LENGTH 10
   ramkb AS INTEGER
 END TYPE
 DIM c AS Computer, z80(20) AS Computer
@@ -160,13 +160,13 @@ DO WHILE SQL(FETCH c)
   PRINT c.year, c.name, c.maker
 LOOP
 
-n = SQL(SELECT "SELECT * FROM computer WHERE cpu = ? ORDER BY ramkb DESC", z80(), "Z80")
+n = SQL(SELECT "SELECT * FROM computer WHERE processor = ? ORDER BY ramkb DESC", z80(), "Z80")
 PRINT : PRINT n; " with a Z80:"
 FOR i = 0 TO n - 1
   PRINT z80(i).name, z80(i).ramkb; "K"
 NEXT i
 
-c.id = 0 : c.name = "ZX80" : c.maker = "Sinclair" : c.year = 1980 : c.cpu = "Z80" : c.ramkb = 1
+c.id = 0 : c.name = "ZX80" : c.maker = "Sinclair" : c.year = 1980 : c.processor = "Z80" : c.ramkb = 1
 SQL EXEC "DELETE FROM computer WHERE name = ?", c.name
 SQL INSERT c
 PRINT : PRINT "The ZX80 added as number"; c.id
