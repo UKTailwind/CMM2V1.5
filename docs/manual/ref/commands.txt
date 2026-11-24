@@ -2244,16 +2244,16 @@ Without ‘interrupt’ the MOD file plays continuously, in a loop, until PLAY S
 ‘samplerate’ is the number of samples a second that the MOD player generates: 8000, 16000, 22050, 44100 (the default) or 48000.  A lower rate reduces the processor's work.  A WAV file played with PLAY EFFECT while the MOD file plays must have the same sample rate.
 The MOD player makes its sound 512 samples at a time (12 ms at 44100), between the statements of the program, so that PLAY MODSAMPLE is heard soon after the command.  A single statement that runs for longer than that without letting it in can make the music repeat a short piece: on a Generation 1, CLS of an 800 x 600 page in the 12-bit colour depth (37 ms) or a SORT of a large array.  Most long commands (BLIT, PAGE COPY, PAUSE, file access) let it in as they run.
 
-=+= PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, LOOP]
+=+= PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, pan] [, LOOP]
 or
-PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate]
+PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate] [, pan]
 or
 PLAY MODSAMPLE STOP [channel]
 ---
 Plays one of the samples of the MOD file that is playing, at the same time as the MOD file, so that the MOD file's samples can be used as sound effects.  ‘sampleno’ is the sample's number, 1 to 31.  Up to four samples can play at once on independent channels: ‘channel’ is 1 to 4, and a sample started on a channel that is playing replaces the sample there (MM.INFO(SAMPLE PLAYING n) says whether channel n is playing).
-‘volume’ is 0 to 64 (the default).  ‘samplerate’ is the rate at which the sample is played, 150 to 500000 (default 16000): changing it changes the pitch and the duration, and it should be the sample's own rate to play it as it was recorded.
+‘volume’ is 0 to 64 (the default).  ‘samplerate’ is the rate at which the sample is played, 150 to 500000 (default 16000): changing it changes the pitch and the duration, and it should be the sample's own rate to play it as it was recorded.  ‘pan’ places the sample between the speakers: -100 is the left speaker only, 100 the right only, and 0 (the default) both at the full volume; between, the far speaker is turned down in proportion, so that -50 plays it at the full volume on the left and half on the right.
 With LOOP the sample plays until it is stopped: to the end of the loop the sample has in the MOD file and back to its start, as the MOD player plays it, or, if it has no loop, the whole sample over and over.  LOOP ends the list after any argument from ‘channel’ on, so PLAY MODSAMPLE 5, 1, LOOP plays sample 5 on channel 1 at the full volume and 16000.  This is for continuous sounds such as an engine, wind or a tyre's squeal.
-PLAY MODSAMPLE CHANGE changes the volume or the rate (or both: an empty or missing argument is left as it is) of the sample playing on ‘channel’, where it is, without starting it again, so that an engine's sound can follow its revs.  A channel that is not playing is left alone.
+PLAY MODSAMPLE CHANGE changes the volume, the rate or the pan (or any of them: an empty or missing argument is left as it is) of the sample playing on ‘channel’, where it is, without starting it again, so that an engine's sound can follow its revs, or a car can cross from one speaker to the other as it goes by.  A channel that is not playing is left alone.
 PLAY MODSAMPLE STOP stops the sample on ‘channel’ at once, or the samples on all four channels if no channel is given.  It is not an error when no MOD file is playing.
 A sample starts, changes or stops 12 to 23 ms after the command (one to two of the MOD player's buffers, at 44100 samples a second; twice that at 22050).
 A MOD file must be playing (otherwise the error is "Samples play over MOD file"), except for STOP.

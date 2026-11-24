@@ -1533,10 +1533,11 @@ int PlayAlbumTrack(int n) {
 
 // The MMBasic command:  PLAY
 // PLAY MODSAMPLE, in .extra so that the code after cmd_play keeps its place:
-//   PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, LOOP]    a sample of the MOD file playing over it
-//   PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate]               a playing one's volume or rate, where it is
-//   PLAY MODSAMPLE STOP [channel]                                         one channel stopped, or all four
+//   PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, pan] [, LOOP]   a sample of the MOD file over it
+//   PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate] [, pan]   a playing one's volume, rate or pan, where it is
+//   PLAY MODSAMPLE STOP [channel]                                     one channel stopped, or all four
 // LOOP may end the list after any argument from the channel on. The rate is the MOD player's period, 3579545 / rate.
+// pan is -100 (the left speaker only) to 100 (the right only), 0 (both, the default) between: a simple balance.
 __attribute__((section(".extra"), noinline)) static void ModSampleCommand(char *tp){
     char *q;
     if((q = checkstring(tp, "STOP"))) {
@@ -1546,8 +1547,8 @@ __attribute__((section(".extra"), noinline)) static void ModSampleCommand(char *
         return;                                                     // (no MOD file: nothing is playing, and no error)
     }
     if((q = checkstring(tp, "CHANGE"))) {
-        getargs(&q, 5, ",");
-        if(!(argc == 1 || argc == 3 || argc == 5)) error("Argument count");
+        getargs(&q, 7, ",");
+        if(!(argc == 1 || argc == 3 || argc == 5 || argc == 7)) error("Argument count");
         if(!(CurrentlyPlaying == P_MOD || CurrentlyPlaying == P_PAUSE_MOD)) error("Samples play over MOD file");
         int ch = getint(argv[0], 1, NUMMAXSEFFECTS) - 1, volume = -1;
         unsigned int period = 0;
@@ -1555,21 +1556,23 @@ __attribute__((section(".extra"), noinline)) static void ModSampleCommand(char *
             int v = getint(argv[2], 0, 64);
             volume = v ? v - 1 : 0;                                 // (as the start's: 1 to 64 is 0 to 63)
         }
-        if(argc == 5 && *argv[4]) period = 3579545 / getint(argv[4], 150, 500000);
-        hxcmod_changesoundeffect(&mcontext, ch, volume, period);    // (a channel that has ended: no matter)
+        if(argc >= 5 && *argv[4]) period = 3579545 / getint(argv[4], 150, 500000);
+        int pan = HXCMOD_PAN_KEEP;
+        if(argc == 7 && *argv[6]) pan = getint(argv[6], -100, 100);
+        hxcmod_changesoundeffect(&mcontext, ch, volume, period, pan);    // (a channel that has ended: no matter)
         return;
     }
     unsigned short sampnum, seffectnum;
     unsigned char volume;
     unsigned int samprate, period;
-    int loop = 0;
-    getargs(&tp, 9, ",");
-    if(!(argc == 3 || argc == 5 || argc == 7 || argc == 9)) error("Argument count");
+    int loop = 0, pan = 0;
+    getargs(&tp, 11, ",");
+    if(!(argc == 3 || argc == 5 || argc == 7 || argc == 9 || argc == 11)) error("Argument count");
     if(argc >= 5 && (q = checkstring(argv[argc - 1], "LOOP")) && *q == 0) {
         loop = 1;
         argc -= 2;
     }
-    if(argc > 7) error("Argument count");
+    if(argc > 9) error("Argument count");
 
     if(!(CurrentlyPlaying == P_MOD)) error("Samples play over MOD file");
 
@@ -1583,11 +1586,12 @@ __attribute__((section(".extra"), noinline)) static void ModSampleCommand(char *
         volume = v ? v - 1 : 0;                                     // (0 - 1 in an unsigned char was 255)
     }
     samprate = 16000;
-    if(argc == 7 && *argv[6]) samprate = getint(argv[6], 150,500000);
+    if(argc >= 7 && *argv[6]) samprate = getint(argv[6], 150,500000);
+    if(argc == 9 && *argv[8]) pan = getint(argv[8], -100, 100);
 
     period = 3579545 / samprate;
 
-    hxcmod_playsoundeffect( &mcontext, sampnum, seffectnum, volume, period, loop );
+    hxcmod_playsoundeffect( &mcontext, sampnum, seffectnum, volume, period, loop, pan );
 }
 
 void cmd_play(void) {
