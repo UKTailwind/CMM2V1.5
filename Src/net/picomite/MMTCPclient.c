@@ -96,13 +96,27 @@ static err_t tcp_client_sent(void *arg, struct altcp_pcb *tpcb, u16_t len)
 
 static void tcp_client_err(void *arg, err_t err)
 {
+    /* Whatever the error, lwIP frees the pcb when this returns, ERR_ABRT
+       included, so the reference always goes. ERR_ABRT used to be passed over
+       altogether, and it is what lwIP's TLS layer gives when the server closes
+       a connection that has not yet delivered any data (altcp_tls_mbedtls.c,
+       "before connection setup is done": its UPPER_CALLED flag is set by the
+       first data passed up, not by the handshake): a server that closes during
+       the handshake, or one that closes an idle connection before any reply.
+       The pcb was then freed with tcp_pcb still pointing at it and connected
+       still true, and the next WEB CLOSE TCP CLIENT, WEB OPEN or RUN closed
+       freed memory: no harm if nothing had reused it, a hard fault in
+       altcp_poll if something had (seen on a Colour Maximite 2, 25 Nov 2026).
+       tcp_client_close() takes this callback off before it closes or aborts,
+       so an ERR_ABRT here is never one of our own. */
+    TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
+    if (state)
+    {
+        state->tcp_pcb = NULL;
+        state->connected = false;
+    }
     if (err != ERR_ABRT)
     {
-        /* lwIP has already aborted the pcb. Drop our reference so the next
-           command starting up doesn't try to reuse a dead pcb. */
-        TCP_CLIENT_T *state = (TCP_CLIENT_T *)arg;
-        if (state)
-            state->tcp_pcb = NULL;
         /* Include the err_t code for diagnosis. For TLS connections this is
            usually ERR_ABRT (above, silently ignored) or ERR_CLSD/ERR_RST
            when the server reset us mid-handshake; in either case a
