@@ -794,9 +794,11 @@ static void PauseFor(MMFLOAT f, char *pausetoken) {
         // from where it was when interrupted
         if(!PauseInterrupted) PauseUntil = GetuSec() + (long long int)(f * 1000);
         PauseInterrupted = false;
+        ThreadDoing(1);                                             // (the list after Ctrl-C: in PAUSE)
         while(GetuSec() < PauseUntil) {
             CheckAbort();
             if(check_interrupt()) {
+                ThreadDoing(0);
                 // if there is an interrupt fake the return point to the start of this stmt
                 // and return immediately to the program processor so that it can send us off
                 // to the interrupt routine.  When the interrupt routine finishes we should reexecute
@@ -808,6 +810,7 @@ static void PauseFor(MMFLOAT f, char *pausetoken) {
             }
             if(ThreadCount) ThreadSleepUntil(PauseUntil);           // the threads run meanwhile; back at the time, for an
         }                                                           // interrupt, or when none of them can run
+        ThreadDoing(0);
     } else {
         // we are running pause in an interrupt: no interrupt is taken, and no thread runs
         t = GetuSec() + (long long int)(f * 1000);

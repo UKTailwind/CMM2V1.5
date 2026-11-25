@@ -15,9 +15,8 @@ Sub Check(n$, got, want)
   EndIf
 End Sub
 
-Sub Idle
-  Local Integer me = MM.Info(Thread)
-  go(me) = 1
+Sub Idle                                ' (go(n) is set before thread n starts: set here, it could come after the
+  Local Integer me = MM.Info(Thread)     '  main program had cleared it, and the thread would never end)
   Do While go(me) : Pause 5 : Loop
 End Sub
 
@@ -38,14 +37,14 @@ Sub GoDeep
   deep = Down%(14)
 End Sub
 
-Thread Start 9, Idle                    ' (the main program's record made first, and kept while a thread exists)
+go(9) = 1 : Thread Start 9, Idle                    ' (the main program's record made first, and kept while a thread exists)
 h0 = MM.Info(Heap)
-Thread Start 1, Idle
+go(1) = 1 : Thread Start 1, Idle
 h1 = MM.Info(Heap)
 used1 = h0 - h1
 go(1) = 0 : Thread Wait 1
 h1 = MM.Info(Heap)
-Thread Start 1 Size 12 Locals 8, Idle
+go(1) = 1 : Thread Start 1 Size 12 Locals 8, Idle
 h2 = MM.Info(Heap)
 used2 = h1 - h2
 go(1) = 0 : Thread Wait 1 : go(9) = 0 : Thread Wait 9

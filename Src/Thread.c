@@ -90,6 +90,8 @@ struct s_thread {
     union cell *splice;                                             // the compiler's spliced values (RBSplice, Stream.c)
     char *pending;                                                  // an interrupt routine another thread handed to this one
     char *profline;                                                 // OPTION PROFILING: the line it was running (ProfileSwitch)
+    unsigned char doing;                                            // in PAUSE (1) or THREAD WAIT or LOCK (2): for the list, while
+                                                                    // it is the one running (its state is then T_READY)
     unsigned char deaf;                                             // in a wait that takes no interrupt (Deaf)
     int pauseint, waitresume;                                       // PAUSE's and THREAD WAIT's state for an interrupt that
     long long pauseuntil, waitlimit;                                // cuts them short (PauseInterrupted, PauseUntil; WaitFor)
@@ -553,6 +555,11 @@ static void WaitSwitch(int kind, int arg, long long limit) {
    interrupt is due', the command returns at once, the routine runs, and the statement ('token') runs again and goes
    on to the same time. Where no other thread can run (an interrupt routine, a hold, BASIC called from a CSUB) a wait
    could never end, and is an error. */
+// PAUSE and THREAD WAIT's loops: what the running thread is doing, for the list after Ctrl-C (0 nothing)
+void ThreadDoing(int d) {
+    if(Cur != NULL) Cur->doing = d;
+}
+
 static int WaitFor(int kind, int arg, long long us, char *token) {
     if(WaitOver(kind, arg)) {
         if(InterruptReturn == NULL) WaitResume = 0;
@@ -563,13 +570,19 @@ static int WaitFor(int kind, int arg, long long us, char *token) {
     if(HoldCount || ThreadHoldDepth != INT_MAX) error("Cannot wait while the threads are held");
     if(!WaitResume) WaitLimit = us < 0 ? NOLIMIT : GetuSec() + us;
     WaitResume = 0;
+    if(Cur != NULL) {                                               // (for the list after Ctrl-C, while this one runs)
+        Cur->wkind = kind;
+        Cur->warg = arg;
+        Cur->doing = 2;
+    }
     for(;;) {
-        if(WaitOver(kind, arg)) return 1;
-        if(GetuSec() >= WaitLimit) return 0;
+        if(WaitOver(kind, arg)) { ThreadDoing(0); return 1; }
+        if(GetuSec() >= WaitLimit) { ThreadDoing(0); return 0; }
         CheckAbort();
         if(check_interrupt()) {
             InterruptReturn = token;                                // this statement again after the routine
             WaitResume = 1;
+            ThreadDoing(0);
             return -1;
         }
         if(ThreadCount) WaitSwitch(kind, arg, WaitLimit);
@@ -833,21 +846,23 @@ static void ThreadList(int withstack) {
         if(i) ListNumber("Thread ", i); else ListText("Main program");
         line = LineOf(t == Cur ? CurrentLinePtr : t->CurrentLinePtr);
         if(line) ListNumber(": line ", line); else ListText(":");
-        if(t == Cur) ListText(", running");
-        else if(t->paused) ListText(", paused");
-        else if(t->state == T_SLEEP) ListText(", in PAUSE");
-        else if(t->state == T_WAIT && t->wkind == W_LOCK) {
+        int sleeping = t->state == T_SLEEP || (t == Cur && t->doing == 1);
+        int waiting = t->state == T_WAIT || (t == Cur && t->doing == 2);
+        if(t->paused) ListText(", paused");
+        else if(sleeping) ListText(", in PAUSE");
+        else if(waiting && t->wkind == W_LOCK) {
             ListNumber(", waiting for lock ", t->warg);
             if(LockOwner[t->warg] == 1) ListText(" (the main program has it)");
             else if(LockOwner[t->warg]) { ListNumber(" (thread ", LockOwner[t->warg] - 1); ListText(" has it)"); }
-        } else if(t->state == T_WAIT && t->wkind == W_THREAD) ListNumber(", waiting for thread ", t->warg);
-        else if(t->state == T_WAIT && t->wkind == W_FRAME) ListText(", waiting for the next frame");
-        else if(t->state == T_WAIT && t->wkind == W_NET) {
+        } else if(waiting && t->wkind == W_THREAD) ListNumber(", waiting for thread ", t->warg);
+        else if(waiting && t->wkind == W_FRAME) ListText(", waiting for the next frame");
+        else if(waiting && t->wkind == W_NET) {
             ListText(t->warg ? ", waiting for Bluetooth" : ", waiting for the network");
             ListNumber(" (thread ", NetBusy[t->warg] - 1);
             ListText(" has it)");
         }
-        else if(t->state == T_WAIT) ListNumber(", waiting for flag ", t->warg);
+        else if(waiting) ListNumber(", waiting for flag ", t->warg);
+        else if(t == Cur) ListText(", running");
         else ListText(", ready");
         if(withstack) ListStack(t);
         ListText("\r\n");
