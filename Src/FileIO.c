@@ -188,7 +188,7 @@ const char *FErrorMsg[] = {	"",
 		"Could not find the path",
 		"The path name format is invalid",
 		"Access denied due to prohibited access or directory full",
-		"Access denied due to prohibited access",
+		"The file or directory already exists",                     // FR_EXIST (FatFs words it "Access denied due to prohibited access")
 		"The file/directory object is invalid",
 		"The physical drive is write protected",
 		"The logical drive number is invalid",
