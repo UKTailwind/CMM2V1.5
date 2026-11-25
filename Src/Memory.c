@@ -697,6 +697,16 @@ void MIPS16 cmd_memory(void) {
     IntToStrPad(inpbuf, (CurrentRAM + 512)/1024 - VarSize - GeneralSize, ' ', 4, 10); strcat(inpbuf, "K (");
     IntToStrPad(inpbuf + strlen(inpbuf), 100 - VarPercent - GeneralPercent, ' ', 2, 10); strcat(inpbuf, "%) Free\r\n");
 	MMPrintString(inpbuf);
+    {   // the program's threads, run from a program (Thread.c): their stacks and records, part of General and the
+        int tk, tn = ThreadMemory(&tk);                             // on-chip heap
+        if(tn) {
+            IntToStrPad(inpbuf, tk, ' ', 4, 10);
+            strcat(inpbuf, "K      ");
+            IntToStr(inpbuf + strlen(inpbuf), tn, 10);
+            strcat(inpbuf, tn == 1 ? " Thread (its stack and the records)\r\n" : " Threads (their stacks and the records)\r\n");
+            MMPrintString(inpbuf);
+        }
+    }
 #else
     // count the number of lines in the program
     char *p = ProgMemory;

@@ -58,6 +58,7 @@ int ThreadLockOwner(int k);                         // MM.INFO(THREAD LOCK k): t
 int ThreadArg(int n, long long int *i, MMFLOAT *f, char *s);    // MM.INFO(THREAD ARG n), for a thread's own call
 void ThreadsStopped(void);                          // the prompt's landing: the list of threads after an error or Ctrl-C,
 void ThreadsStoppedShow(void);                      // written down, and then printed after the error's message
+int ThreadMemory(int *kb);                          // MEMORY: the threads running, and their memory in K
 int ThreadsEnd(void);                               // the program has stopped or is being replaced: 1 if it had threads
 void ThreadsStop(void);                             // END: no other thread runs from here on
 int ThreadNumber(void);                             // the running thread's number: 0 the main program

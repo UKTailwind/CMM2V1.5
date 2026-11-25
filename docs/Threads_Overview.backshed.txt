@@ -34,10 +34,10 @@ These run on a test board now:
 • [B]THREAD LOCK k[/B] and [B]THREAD UNLOCK k[/B]: sixteen locks. Only one thread at a time gets past THREAD LOCK k; the others wait there, without using any processor time, until it unlocks. THREAD LOCK k, ms gives up after that many milliseconds with an error.
 • [B]THREAD HOLD[/B] and [B]THREAD RELEASE[/B]: no other thread runs between them. For a few statements that must not be split.
 • [B]THREAD WAIT n[/B] waits until thread n has ended. [B]THREAD WAIT FLAG f[/B] waits until FLAG(f) is 1, which any thread or an interrupt routine can set. Either can have a time limit: THREAD WAIT n, ms.
-• [B]THREAD LIST[/B] shows each thread, the line it is at and what it is doing or waiting for.
+• [B]THREAD LIST[/B] shows each thread, the line it is at, what it is doing or waiting for, and the most stack it has used. TRACE ON shows a thread's lines as [#n:line], MEMORY has a line for the threads, and OPTION PROFILING charges each line only the time its own thread spent on it.
 • [B]MM.INFO(THREAD)[/B] is the number of the thread that runs it. [B]MM.INFO(THREAD n)[/B] is 0 if thread n is not running, 1 if it is running, 2 if it is in a PAUSE, 3 if it has been paused and 4 if it is waiting. [B]MM.INFO(THREAD LOCK k)[/B] is the thread that has lock k, or -1.
 
-Still to come: THREAD LIST with each thread's free stack, and the manual.
+Still to come: the manual chapter.
 
 
 [SIZE=4][COLOR=BLUE][B]How they work[/B][/COLOR][/SIZE]

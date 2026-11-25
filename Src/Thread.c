@@ -60,6 +60,10 @@ struct s_targ {                                                     // one of th
     union { long long int i; MMFLOAT f; char *s; } v;               // (s: an MMBasic string, kept after the thread's record)
 };
 #define STACK_MARK 0x54485244                                       // the word at the bottom of a thread's stack
+#define STACK_PAINT 0x5354414B                                      // the rest of it at the start, as StackPaint's (MMBasic.c)
+extern char *ProfileSwitch(char *line);                             // (MMBasic.c)
+extern uint32_t StackLowest(void);
+extern char _estack[], _ebss[];
 
 struct s_thread {
     uint32_t *sp;                                                   // its stack pointer while it is not running (ThreadSwap)
@@ -85,6 +89,7 @@ struct s_thread {
     unsigned int screwup;                                           // EXECUTE's time left (ScrewUpTimer), stopped while it waits
     union cell *splice;                                             // the compiler's spliced values (RBSplice, Stream.c)
     char *pending;                                                  // an interrupt routine another thread handed to this one
+    char *profline;                                                 // OPTION PROFILING: the line it was running (ProfileSwitch)
     unsigned char deaf;                                             // in a wait that takes no interrupt (Deaf)
     int pauseint, waitresume;                                       // PAUSE's and THREAD WAIT's state for an interrupt that
     long long pauseuntil, waitlimit;                                // cuts them short (PauseInterrupted, PauseUntil; WaitFor)
@@ -467,6 +472,7 @@ static int Held(void) {
 
 static void ThreadSwitchTo(struct s_thread *to) {
     struct s_thread *from = Cur;
+    from->profline = ProfileSwitch(to->profline);                   // (OPTION PROFILING: each line's time its own thread's)
     if(from->stack != NULL && *(uint32_t *)from->stack != STACK_MARK) error("Thread % overflowed its stack", (int)from->id);
     ContextSave(from);
     ContextLoad(to);
@@ -486,6 +492,7 @@ __attribute__((noreturn)) static void ThreadFinish(void) {
     Disown(old->id);
     ScrewUpTimer = 0;
     to = NextReady();                                               // (the main program at least)
+    ProfileSwitch(to->profline);
     ContextLoad(to);
     Cur = to;
     ThreadSliceLeft = ThreadSliceLen;
@@ -796,8 +803,24 @@ static void ListNumber(const char *before, int n) {
     ListText(b);
 }
 
+// a thread's stack for THREAD LIST: the most it has used, and its size
+static void ListStack(struct s_thread *t) {
+    uint32_t *p, low, top;
+    if(t->stack == NULL) {                                          // the main program's: painted at RUN (StackPaint)
+        low = StackLowest();
+        top = (uint32_t)_estack;
+        ListNumber(", stack used at most ", (int)(top - low));
+        ListNumber(" of ", (int)(top - (uint32_t)_ebss));
+        return;
+    }
+    for(p = (uint32_t *)t->stack + 1; (char *)p < t->stack + t->stacksize && *p == STACK_PAINT; p++) {}
+    ListNumber(", stack used at most ", (int)(t->stack + t->stacksize - (char *)p));
+    ListNumber(" of ", t->stacksize);
+}
+
 // THREAD LIST, and the prompt's landing after an error or Ctrl-C: each thread, the line it is at and what it is doing
-static void ThreadList(void) {
+// (and for THREAD LIST its stack: withstack)
+static void ThreadList(int withstack) {
     struct s_thread *t;
     int i, line;
     if(Cur == NULL) {
@@ -826,6 +849,7 @@ static void ThreadList(void) {
         }
         else if(t->state == T_WAIT) ListNumber(", waiting for flag ", t->warg);
         else ListText(", ready");
+        if(withstack) ListStack(t);
         ListText("\r\n");
     }
 }
@@ -840,7 +864,22 @@ void ThreadsStopped(void) {
     if((ListBuf = GetMemoryNull(1536)) == NULL) return;
     ListAt = ListBuf;
     ListEnd = ListBuf + 1535;
-    ThreadList();
+    ThreadList(0);
+}
+
+// MEMORY: the threads' stacks and records, in K, and how many there are (0: none)
+int ThreadMemory(int *kb) {
+    int i, n = 0, b = 0;
+    *kb = 0;
+    if(Cur == NULL) return 0;
+    for(i = 1; i <= MAXTHREADS; i++)
+        if(Thr[i] != NULL && ALIVE(Thr[i])) {
+            n++;
+            b += MemSize(Thr[i]) + MemSize(Thr[i]->stack);
+        }
+    b += MemSize(Thr[0]);
+    *kb = (b + 512) / 1024;
+    return n;
 }
 
 void ThreadsStoppedShow(void) {
@@ -1094,6 +1133,7 @@ static void ThreadStart(int n, int StackSize, int LocalSlots, char *name, int ar
     t->stack = stack;
     t->stacksize = StackSize;
     *(uint32_t *)stack = STACK_MARK;
+    for(sp = (uint32_t *)stack + 1; (char *)sp < stack + StackSize - 128; sp++) *sp = STACK_PAINT;   // (THREAD LIST's depth)
     t->floor = (uint32_t)stack + THREAD_GUARD;
     t->lbase = t->localtop = base;
     t->llimit = base + LocalSlots;
@@ -1267,7 +1307,7 @@ void cmd_thread(void) {
         WaitFor(kind, k, TimeLimit(argc, argv), token);             // (at its time limit the program looks for itself)
     } else if((p = checkstring(cmdline, "LIST")) != NULL) {
         checkend(p);
-        ThreadList();
+        ThreadList(1);
     } else if((p = checkstring(cmdline, "EXIT")) != NULL) {
         checkend(p);
         if(Cur == NULL || Cur->id == 0) error("Not in a thread");

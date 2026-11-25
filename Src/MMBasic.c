@@ -397,6 +397,21 @@ void ProfileStart(void) {
     }
 }
 
+/* A thread switch (Thread.c): the time since the running line started is charged to it now, and the line the thread
+   that runs next was in (NULL: none yet) takes up from now; the line left is returned, for that thread to take up
+   again. So each line's time is its own thread's, not the threads' that ran while its thread waited. */
+char *ProfileSwitch(char *line) {
+    char *left = ProfileLast;
+    if(ProfileTable == NULL) return NULL;
+    if(ProfileLast != NULL) {
+        struct s_profent *e = ProfileEntry(ProfileLast);
+        if(e != NULL) e->us += ((ReadCoreTimer() + FastTimer) - statement_time) / ticks_per_microsecond;
+    }
+    statement_time = ReadCoreTimer() + FastTimer;
+    ProfileLast = line;
+    return left;
+}
+
 // the entry of the line at p (a T_NEWLINE), or NULL
 struct s_profent *ProfileEntry(char *p) {
     int f, l;
@@ -438,6 +453,12 @@ void ITCM_CODE ExecuteProgram(char *p) {
             if(TraceOn && (InProgMemory(p) || InLibrary(p)) && LHDR_LINE(p)) {   // (line 0: a file name line)
             	char buff[10];
           		MMPrintString("[");
+          		if(ThreadNumber()) {                               // a thread other than the main program: [#n:line]
+          			IntToStr(buff, ThreadNumber(), 10);
+          			MMPrintString("#");
+          			MMPrintString(buff);
+          			MMPrintString(":");
+          		}
           		if(LHDR_FILE(p) > 1 || InLibrary(p)) {             // an #INCLUDE or library file: [name:line]
           			MMPrintString(LineFileNameAt(p));
           			MMPrintString(":");

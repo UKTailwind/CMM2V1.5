@@ -1046,3 +1046,21 @@ finished first and then come back to it"):
 - **The record's size.** About 16.9 KB, mostly full-size save areas: 100 FOR levels (3.2 KB), 100 DO levels (4 KB),
   the temporary strings' list for 1,024 (5 KB). They could be sized per thread. This matters most for an RP2040
   port, where the guard too must come from the PicoMite's own measurements.
+
+### Stage 5, its tools (25 November)
+
+The functional part of Stage 5, after Peter's "Let's get the functionality finished first".
+
+| Tool | How it was done |
+|---|---|
+| `THREAD LIST` | Each thread's line and state as before, and its stack: the most it has used and its size. A thread's stack is painted when it starts (`STACK_PAINT`, as the main stack's at RUN) and read from the bottom up. The list after an error or Ctrl-C leaves the stack out, so that it reads the same from run to run |
+| `MEMORY` | A line under Data for the threads: their stacks and the records, in K, and how many threads run |
+| `TRACE` | A line a thread other than the main program runs is `[#n:line]` (`[#n:file:line]` for an #INCLUDE's), as text and compiled (`RBTraceLine`) |
+| OPTION PROFILING | A switch charges the time since the running line started to that line, and the thread that runs next takes up its own line from then (`ProfileSwitch`): each line's time is the time its own thread spent on it. A main program in `PAUSE 300` while a thread counts: the PAUSE line 15 us, the thread's `Inc n` and `Loop` 58,199 times each |
+
+On the G1, `THREAD LIST` gave the main program 3,456 bytes used at most of 27,720 and a thread in PAUSE 660 of
+16,384. `tests/threads/ttools.bas` shows the three; it is read, not compared, since the stack's depths differ between
+the compile modes.
+
+Left in Stage 5: the manual chapter, the commands and functions reference, release notes, and the full regression on
+a G1, a G2 and a G3.

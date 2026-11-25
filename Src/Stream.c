@@ -4182,13 +4182,20 @@ static __attribute__((noinline)) unsigned char *RBExecSub(const uint16_t *r, uns
 }
 
 // TRACE ON: the line, as the CMM2's text loop prints it from the line's header: [n], or [file:n] for an #INCLUDE file's
-// or the library's (line 0 is a file name line)
+// or the library's (line 0 is a file name line); [#t:...] in a thread other than the main program (Thread.c)
 static __attribute__((noinline)) void RBTraceLine(unsigned char *entry)
 {
     char buff[10];
     if (!(InProgMemory(entry) || InLibrary(entry)) || !LHDR_LINE(entry))
         return;
     MMPrintString("[");
+    if (ThreadNumber())
+    {
+        IntToStr(buff, ThreadNumber(), 10);
+        MMPrintString("#");
+        MMPrintString(buff);
+        MMPrintString(":");
+    }
     if (LHDR_FILE(entry) > 1 || InLibrary(entry))
     {
         MMPrintString(LineFileNameAt(entry));
