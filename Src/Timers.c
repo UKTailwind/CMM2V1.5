@@ -140,6 +140,14 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 		static int IrTimeout, IrTick, NextIrTick;
 		int ElapsedMicroSec, IrDevTmp, IrCmdTmp;
 		if((mSecTimer % Option.USBPolling)==0)USBtime=1; //trigger USB processing
+		{
+			/* The network: a packet waiting in the radio asks for the checks at this millisecond, whatever OPTION USB
+			   POLLING is (2 by default: a running program took each packet up to 2 ms late). One read of the radio's
+			   IRQ line; during one of the driver's own transfers it may read high for nothing, which costs one poll. */
+			extern volatile int WIFIconnected;
+			extern int cyw43_cmm2_waiting(void);
+			if(WIFIconnected && cyw43_cmm2_waiting()) USBtime = 1;
+		}
 		/////////////////////////////// count up timers /////////////////////////////////////
 
 		// if we are measuring period increment the count
