@@ -329,6 +329,14 @@ __WITH THE WIFI MODULE ONLY__ The state of the network connection (TCPIP STATUS)
 --- keep
 __WITH THE WIFI MODULE ONLY__ 1 while a Telnet client is connected to the console, otherwise 0.  It reports the connection, not the setting: it is 0 whenever nothing is connected, even with OPTION TELNET CONSOLE ON or ONLY.
 
+=+= MM.INFO(THREAD)
+MM.INFO(THREAD n)
+MM.INFO(THREAD LOCK k)
+--- keep
+MM.INFO(THREAD) is the number of the thread that runs it: 0 in the main program, 1 to 16 in a thread (see THREAD).
+MM.INFO(THREAD n) is the state of thread 'n': 0 not running, 1 running or ready to run, 2 in a PAUSE, 3 paused by THREAD PAUSE, 4 waiting (for a lock, a thread, a flag, the next frame or the network). MM.INFO(THREAD 0) is 1.
+MM.INFO(THREAD LOCK k) is the thread that holds lock 'k' (0 the main program), or -1 if it is free.
+
 =+= MM.INFO(TILE HEIGHT)
 --- keep
 The height of the tiles in the 1-bit colour depth (see TILE).

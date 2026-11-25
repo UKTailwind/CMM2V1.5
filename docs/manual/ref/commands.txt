@@ -1912,6 +1912,7 @@ List the amount of memory currently in use.  For example:
 {n=1 v=0 t=x1152,n360 b=0 l=360 h=181}‘Program’ is the program memory: the program last run (see the chapter Using MMBasic) and, when there are any, its embedded C routines and fonts and the saved variables (see VAR SAVE), each on a line of its own.  When there is a library (see LIBRARY) it is listed under Library.
 {n=1 v=0 t=x1152,n360 b=0 l=360 h=181}General memory (RAM)  is used by arrays, strings, serial I/O buffers, etc. 
 {n=1 v=0 t=x1152,n360 b=0 l=360 h=181}The amount of RAM depends on the generation: the example is from a Generation 2 (see the memory map in the chapter MMBasic Characteristics).
+{n=1 v=0 t=x1152,n360 b=0 l=360 h=181}In a program with threads running, a last line gives the memory of their stacks and records (see THREAD).
 
 === MEMORY SET address, byte, numberofbytes
 {}
@@ -3042,6 +3043,69 @@ A third letter can be used in the alignment string to indicate the rotation of t
 {t=l2592}'c' is the drawing colour and 'bc' is the background colour.  They are optional and default to the current foreground and background colours.  'bc' can be -1, and then the background of the characters is not drawn (see Transparent Text in the chapter *Graphics Functions*).
 {t=l2592}See the chapter *Graphics Functions* for a definition of the colours and graphics coordinates.
 
+=== THREAD
+--- keep
+Threads run SUBs of the program alongside the main program, each with its own loops, local variables and PAUSEs. One runs at a time; they take turns between statements, 1 ms each by default. See *Appendix R* for an overview, and the *Colour Maximite 2 Threads User Manual* for the details and worked programs.
+The main program is thread 0. Threads are numbered 1 to 16, as the program chooses. A thread ends when its SUB ends, at THREAD EXIT or at THREAD STOP; an error in any thread, END in any thread, or Ctrl-C stops the whole program and every thread.
+
+=+= THREAD START n [SIZE kb] [LOCALS m], sub [, argument ...]
+--- keep
+Starts thread 'n' (1 to 16) running the SUB 'sub'. The thread runs when its turn comes: THREAD START returns at once.
+Up to 16 arguments may follow. Each is evaluated by THREAD START, in the thread that runs it, and given to the SUB's parameters by value, so the new thread has its own copy. A whole array, written as its name with empty brackets (eg, data()), is passed as itself and must be a global array ("Only a global array can be passed to a thread").
+SIZE and LOCALS, in either order, apply to this thread only: its stack in Kbytes (12 to 512) and the number of local variables it may have (8 to 256). Without them THREAD SIZE's are used (20 and 48 unless the program set others).
+The new thread starts with the print position, colours, font and write page of the thread that started it. Its interrupts are its own (see *Appendix R*).
+'n' must not be running ("Thread n is running"). THREAD START is for programs, not the command prompt.
+
+=+= THREAD EXIT
+--- keep
+Ends the thread that runs it, wherever it is: in a loop, a SUB or a FUNCTION. Its local variables and memory are freed, and its locks and ownership of the network are given up. It is an error in the main program ("Not in a thread"), which ends with END.
+
+=+= THREAD YIELD
+--- keep
+Gives up the rest of the running thread's time slice: the next thread that can run does. It has no effect when there is no thread. It is an error in an interrupt routine.
+
+=+= THREAD STOP n
+--- keep
+Ends thread 'n' where it stands, as THREAD EXIT would. Nothing happens if 'n' is not running. A thread may stop itself.
+
+=+= THREAD PAUSE n
+or
+THREAD RESUME n
+--- keep
+THREAD PAUSE holds thread 'n': it does not run, and its interrupts wait, until THREAD RESUME. A thread may pause itself (it stops at the end of that statement). 'n' must be running ("Thread n is not running").
+
+=+= THREAD SLICE ms
+--- keep
+The time slice, 1 to 100 milliseconds: how long a thread runs before the next one does, if it does not wait or yield first. It is 1 ms at RUN.
+
+=+= THREAD SIZE kb [, locals]
+--- keep
+The stack, in Kbytes (12 to 512), and the number of local variables (8 to 256) of the threads started after it without SIZE and LOCALS of their own. They are 20 and 48 at RUN. A thread of 20 Kbytes can call about nine FUNCTIONs inside each other (SUB calls use no stack); a thread takes about 17 Kbytes more than its stack.
+
+=+= THREAD LOCK k [, timeout]
+or
+THREAD UNLOCK k
+--- keep
+Sixteen locks, numbered 1 to 16. Only one thread at a time gets past THREAD LOCK 'k': another that comes to it waits there, using no processor time, until the owner reaches THREAD UNLOCK 'k'. With 'timeout' (milliseconds), a lock not obtained in that time is the error "Lock k timed out".
+A lock belongs to the thread that took it: taking it again is an error ("Lock k is already held by this thread"), and so is unlocking another's ("Lock k is not held by this thread"). A thread that ends gives up its locks. MM.INFO(THREAD LOCK k) is the owner.
+
+=+= THREAD HOLD
+or
+THREAD RELEASE
+--- keep
+No other thread runs between THREAD HOLD and THREAD RELEASE, and other threads' interrupts wait. For a few statements that must not be split (eg, reading a total and writing it back). They nest. A wait inside a hold that cannot end at once is an error ("Cannot wait while the threads are held").
+
+=+= THREAD WAIT n [, timeout]
+or
+THREAD WAIT FLAG f [, timeout]
+--- keep
+THREAD WAIT 'n' waits until thread 'n' has ended (at once if it is not running). THREAD WAIT FLAG 'f' waits until FLAG('f') is 1 (0 to 63); any thread or an interrupt routine may set it, and the wait does not clear it.
+The thread uses no processor time while it waits, and takes its own interrupts. With 'timeout' (milliseconds) the command ends after that time whether or not what it waited for has happened: the program can look with MM.INFO(THREAD n) or FLAG(f).
+
+=+= THREAD LIST
+--- keep
+Lists the threads: for each, the line it is at, what it is doing (running, ready, in a PAUSE, paused, or what it is waiting for) and the most stack it has used, of its size. The same list (without the stack) is printed after the error message when a program with threads stops at an error or Ctrl-C.
+
 === TIME$ = "HH:MM:SS"
 or
 TIME$ = "HH:MM"
@@ -3094,7 +3158,7 @@ TRACE OFF
 or
 TRACE LIST [nn]
 --- keep
-TRACE ON/OFF will turn on/off the trace facility. This facility will print the number of each line (counting from the beginning of the program) in square brackets as the program is executed (a line of an #INCLUDE file or of the library as [file:n]).  This is useful in debugging programs. 
+TRACE ON/OFF will turn on/off the trace facility. This facility will print the number of each line (counting from the beginning of the program) in square brackets as the program is executed (a line of an #INCLUDE file or of the library as [file:n], and a line run by a thread other than the main program as [#t:n], t its number).  This is useful in debugging programs. 
 TRACE LIST will list the last 'nn' lines executed (0 to 127, or 127 if 'nn' is omitted) in the format described above.  MMBasic is always logging the lines executed so this facility is always available (ie, it does not have to be turned on).
 
 === TRIANGLE X1, Y1, X2, Y2, X3, Y3 [, C [, FILL]]

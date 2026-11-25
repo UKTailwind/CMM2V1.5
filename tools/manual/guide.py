@@ -1,6 +1,6 @@
-"""guide.py [loadable|pc386|cc|apps]: a companion manual, made in the user manual's template: Colour Maximite 2 Loadable
+"""guide.py [loadable|pc386|cc|apps|threads]: a companion manual, made in the user manual's template: Colour Maximite 2 Loadable
 Programs (docs/loadable/, the default), Colour Maximite 2 386 PC Emulator (docs/pc386/), Colour Maximite 2 C Compiler
-(docs/cc/) or Colour Maximite 2 App User Guide (docs/apps/). Its title page, styles,
+(docs/cc/), Colour Maximite 2 App User Guide (docs/apps/) or Colour Maximite 2 Threads User Manual (docs/threads/). Its title page, styles,
 page size and footer, with the guide's own front matter, a table of contents and a chapter for each file of the
 guide's text/ (written by chapter.py --docx --rawcode). Run it again after an edit; then tools/manual/word.ps1
 docs/loadable/Colour_Maximite_2_Loadable_Programs.docx docs/loadable/...pdf (or the pc386 guide's) makes the PDF.
@@ -230,6 +230,34 @@ APPS = {                                                # guide.py apps: all the
 }
 
 
+THREADS = {                                             # guide.py threads: threads in MMBasic programs, for users
+    'DIR': os.path.join(ROOT, 'docs', 'threads'),
+    'OUT': os.path.join(ROOT, 'docs', 'threads', 'Colour_Maximite_2_Threads_User_Manual.docx'),
+    'NAME': 'Colour Maximite 2 Threads User Manual',
+    'DATE': '25 November 2026',
+    'TITLE': {
+        'User Manual': 'Threads User Manual',
+        'MMBasic Ver': 'Threads in MMBasic programs on the Colour Maximite 2',
+        'Matches firmware': 'For firmware 8.00 with threads (branch threads)',
+        'Geoff Graham': 'Peter Mather',
+        'For updates to this manual': 'The firmware and this manual are at',
+        'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
+    },
+    'ABOUT': ('This manual is for MMBasic programmers who want a program to do several things at once with threads: '
+              'SUBs that run alongside the main program, started with THREAD START. It covers starting and ending '
+              'threads, how they take turns, which commands let the others run while they wait, sharing data safely '
+              'with locks, holds and flags, interrupts and the network with threads, errors and debugging, memory and '
+              'limits, and complete programs. It assumes a working knowledge of MMBasic; the user manual has the same '
+              'commands in its reference sections and an overview in its Appendix R.'),
+    'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '
+                'and problems with threads reported as issues of the repository above.'),
+    'COPYRIGHT': ('This manual is copyright 2026 Peter Mather and is distributed under a Creative Commons '
+                  'Attribution-NonCommercial-ShareAlike 3.0 Australia license (CC BY-NC-SA 3.0), as the user manual is.'),
+    'SUBJECT': 'Threads in MMBasic programs on the Colour Maximite 2',
+    'TITLE_ADD': {},
+}
+
+
 def main():
     which = sys.argv[1] if len(sys.argv) > 1 else 'loadable'
     if which == 'pc386':
@@ -238,8 +266,10 @@ def main():
         globals().update(CC)
     elif which == 'apps':
         globals().update(APPS)
+    elif which == 'threads':
+        globals().update(THREADS)
     elif which != 'loadable':
-        sys.exit('guide.py [loadable|pc386|cc|apps]')
+        sys.exit('guide.py [loadable|pc386|cc|apps|threads]')
     os.makedirs(DIR, exist_ok=True)
     files = sorted(glob.glob(os.path.join(DIR, 'text', '*.md')))
     titles = [open(f, encoding='utf-8').readline()[2:].strip() for f in files]
