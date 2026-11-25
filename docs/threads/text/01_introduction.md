@@ -59,7 +59,7 @@ THREAD START 1, Heart starts thread 1 running the SUB Heart. From then on two th
 ## How this manual is arranged
 
 - **Starting and Ending Threads**: THREAD START, its arguments, and the ways a thread ends.
-- **How Threads Run**: the time slice, which commands let the other threads run while they wait, and what threads cost.
+- **How Threads Run**: the time slice, priorities, which commands let the other threads run while they wait, and what threads cost.
 - **Sharing Data Safely**: what each thread has of its own, what they share, and the locks, holds and flags that keep shared data right.
 - **Interrupts and Threads**: interrupts belong to the thread that sets them up.
 - **The Network and Bluetooth**: each belongs to one thread.

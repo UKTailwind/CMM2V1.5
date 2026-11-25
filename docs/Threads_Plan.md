@@ -1162,7 +1162,11 @@ The download found a fault that was not the threads': WEB TRANSMIT FILE of a fil
 three chunks ("Warning: LWIP send data timeout", then "The file/directory object is invalid" and the program's
 end). The PicoMite's #157 and #158, fixed there on 15 November (aa0bda9) and not brought to the CMM2: now v8-dev
 f96f6cc, merged here. With it curl on a PC and the G1 both get the whole file from the G3. It takes 13.5 s for
-40 KB, half a second a chunk: the large-file path queues one chunk and waits for its acknowledgement, and nothing
-sends the chunk until lwIP's 500 ms timer. Noted for Peter, not changed. Two more of the PicoMite's network fixes
-are not on the CMM2 either: WEB TCP INTERRUPT 0 (#155, 6a4161d), and WEB TLS CA and NOVERIFY refused while a TLS
-connection is open (7ffee2a).
+40 KB, half a second a chunk: the large-file path queued one chunk and waited for its acknowledgement, and nothing
+sent the chunk until lwIP's 500 ms timer. At Peter's word ("optimise the network to the extent possible") that was
+put right the same day on v8-dev (8853571, merged here): the server sends what it writes at once and streams a
+large file into lwIP's send buffer (1,000,000 bytes in 1.41 s), and a packet waiting in the radio is taken within
+a millisecond while a program runs, where it rode on OPTION USB POLLING's 2 ms. TFTP was at the link's speed
+already: one 512-byte block a round trip, about 85 KB/s from a PC whose own WiFi link pings the router at 3 to
+4 ms. Two more of the PicoMite's network fixes are not on the CMM2 yet: WEB TCP INTERRUPT 0 (#155, 6a4161d), and
+WEB TLS CA and NOVERIFY refused while a TLS connection is open (7ffee2a).

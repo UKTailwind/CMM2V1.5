@@ -28,7 +28,7 @@ CONTINUE is not possible after a program with threads has stopped: their stacks 
 
 ## THREAD LIST
 
-THREAD LIST prints the same list while the program runs, with each thread's stack: the most it has used, and its size.
+THREAD LIST prints the same list while the program runs, with each thread's stack: the most it has used, and its size. Both lists show a thread's priority when it is not 1, and "priority 1 (7 while its lock is waited for)" for a thread that has a longer turn for the moment because a thread at priority 7 waits for a lock it holds.
 
 ```
 Main program: line 22, running, stack used at most 3456 of 27720

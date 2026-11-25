@@ -70,6 +70,7 @@ The rules:
 - THREAD LOCK k, timeout waits at most 'timeout' milliseconds; if the lock is still taken then, it is the error "Lock k timed out". A program that wants to go on without the lock catches the error with ON ERROR SKIP.
 - MM.INFO(THREAD LOCK k) is the thread that holds lock k (0 the main program), or -1.
 - Keep the statements between LOCK and UNLOCK few and quick: other threads that want the lock wait meanwhile.
+- While a thread of a higher priority waits for a lock, the thread that holds it has that thread's longer turn until it unlocks (see *Priority* in *How Threads Run*), so a thread of a low priority does not keep it waiting long.
 
 ### Deadlock
 
