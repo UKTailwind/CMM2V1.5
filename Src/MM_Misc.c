@@ -4542,12 +4542,20 @@ int check_interrupt(void) {
     ProcessTouch();                                             // check GUI touch
     if(CheckGuiFlag) CheckGui();                                // This implements a LED flash
 
+    if(ThreadFrameDue) {                                            // a frame has started, and a thread waits for it
+        ThreadFrameDue = 0;
+        tick |= INT_TICK_SLICE;
+    }
     if((tick & INT_TICK_SLICE) && ThreadCount) ThreadSchedule();    // another thread's turn (Thread.c): back here when this
                                                                     // one's comes round, its state in the globals again
     if(!IntReady.any && ThreadIntPending == NULL) return 0;         // quick exit: nothing signalled and nothing to poll (S1c)
     if(PrintScreenPending) PrintScreenNow();                        // OPTION PRINTSCREEN: Print Screen or Ctrl-\ while the
                                                                     // program runs (Console.c)
 	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
+    if(ThreadCount && ThreadNumber() && ThreadMainDeaf) {           // the main program is in INPUT or another wait that takes
+        ThreadBank();                                               // no interrupt: the signals keep until it is out
+        return 0;
+    }
     if(ThreadCount && ThreadNumber()) {                             // a thread other than the main program: an interrupt that
         if(ThreadIntPending == NULL) ThreadIntPending = IntScan();  // is due is the main program's, which runs now and takes
         if(ThreadIntPending != NULL) ThreadToMain();                // it (back here when this thread's turn comes round)

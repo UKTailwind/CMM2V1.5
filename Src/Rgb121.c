@@ -589,8 +589,7 @@ static int FbCreated(int page) { return page == RGB121_N || (Rgb121Buffers & (1 
 
 // to the end of the frame (",B"): the merge has then been made from what was drawn before
 static void WaitFrame(void) {
-    pagesetdone = 0;
-    while(!pagesetdone) CheckAbort();
+    ThreadFrameWait();                                              // (the other threads run meanwhile: Thread.c)
 }
 
 static void FbCreate(int page, int colour, char *exists) {

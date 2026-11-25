@@ -1630,7 +1630,10 @@ void cmd_sync(void){
 	getargs(&cmdline, 3, ",");
 	if(synctime && argc == 0){
 		while(GetuSec() < endtime){
-			if(endtime - GetuSec() > 2000) CheckAbort();
+			if(endtime - GetuSec() > 2000) {
+				CheckAbort();
+				if(ThreadCount) ThreadSleepDeaf(endtime - 2000);        // the other threads run until 2 ms before the time
+			}
 		}
 		endtime += synctime;
 	} else {

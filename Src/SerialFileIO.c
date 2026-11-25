@@ -300,7 +300,10 @@ void MMgetline(int filenbr, char *p) {
 
         c = MMfgetc(filenbr);
 
-        if(c == -1) continue;                                       // keep looping if there are no chars
+        if(c == -1) {                                               // keep looping if there are no chars
+            if(ThreadCount) ThreadPoll();                           // (a COM port's line not all in: the other threads run)
+            continue;
+        }
          // xxxxxx=c; // G.A. Dont know why this was here but appears to break it. gives line is too long
 //        PIntComma(c);
         // if this is the console, check for a programmed function key and insert the text

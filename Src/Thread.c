@@ -49,6 +49,7 @@ extern int StrTmpIndex;
 #define W_LOCK 1                                                    // what a thread waits for (wkind), and which (warg)
 #define W_THREAD 2
 #define W_FLAG 3
+#define W_FRAME 4                                                   // the frame after frame number warg
 #define NOLIMIT LLONG_MAX                                           // a wait with no time limit
 #define CALLMAX 240                                                 // the longest call of a thread's SUB: a call is read with
                                                                     // a program line's room (makeargs, DefinedSubFun)
@@ -81,6 +82,8 @@ struct s_thread {
     int NextData, restorepointer, SymTextLocals;
     char *NextDataLine;
     unsigned int screwup;                                           // EXECUTE's time left (ScrewUpTimer), stopped while it waits
+    union cell *splice;                                             // the compiler's spliced values (RBSplice, Stream.c)
+    int CurrentX, CurrentY, fcolour, bcolour, font, fontw, fonth;   // its print position, colours and font (ScreenSave)
     jmp_buf ErrNext;
     char errmsg[STRINGSIZE];                                        // MM.ERRMSG$
     char *call;                                                     // the statement that calls its SUB: the name, its
@@ -112,6 +115,11 @@ static char EndErrMsg[STRINGSIZE];                                  // MM.ERRMSG
 extern uint64_t g_flag;                                             // (Commands.c: FLAG(n), which THREAD WAIT FLAG waits for)
 static unsigned char LockOwner[MAXLOCKS + 1];                       // THREAD LOCK k's owner, as its thread number + 1; 0 free
 static int HoldCount = 0, HoldBy = 0;                               // THREAD HOLD: its depth, and the thread that holds
+unsigned char ThreadMainDeaf = 0;                                   // (Thread.h)
+volatile unsigned char ThreadFrameWaiters = 0, ThreadFrameDue = 0;
+static unsigned int Banked = 0;                                     // interrupt signals kept while the main program was deaf
+union cell;
+extern union cell *RBSplice;                                        // (Stream.c: a spliced command's values, on its thread's stack)
 static int MainWaiting = 0;                                         // the main program's wait was cut short by an interrupt, and
 static long long MainLimit_us;                                      // goes on to this time when its statement runs again
 
@@ -133,7 +141,29 @@ __attribute__((naked, noinline)) static void ThreadSwap(uint32_t **from, uint32_
     );
 }
 
+/* Each thread has its own print position, colours and font: what PRINT, COLOUR and FONT leave for the next statement.
+   A thread starts with those of the thread that started it. One for the whole program, as they were until Stage 4,
+   a thread's TEXT moved the place the main program's INPUT was echoing its line at, and one thread's COLOUR was the
+   next thread's PRINT's (Peter, 25 Nov 2026: "Each thread will need to maintain some extra context"). */
+static void ScreenSave(struct s_thread *t) {
+    t->CurrentX = CurrentX; t->CurrentY = CurrentY;
+    t->fcolour = gui_fcolour; t->bcolour = gui_bcolour;
+    t->font = gui_font; t->fontw = gui_font_width; t->fonth = gui_font_height;
+}
+
+static void ScreenLoad(struct s_thread *t) {
+    CurrentX = t->CurrentX; CurrentY = t->CurrentY;
+    gui_fcolour = t->fcolour; gui_bcolour = t->bcolour;
+    if(gui_font == t->font || t->fontw == 0 || t->fonth == 0) return;
+    gui_font = t->font; gui_font_width = t->fontw; gui_font_height = t->fonth;
+    if(OptionConsole & 2) {                                         // (the console's size in characters, as SetFont)
+        Option.Height = ConsoleVRes() / gui_font_height;
+        Option.Width = PageTable[WritePage].xmax / gui_font_width;
+    }
+}
+
 static void ContextSave(struct s_thread *t) {
+    ScreenSave(t);
     t->nextstmt = nextstmt; t->cmdline = cmdline; t->CmdTokenPtr = CmdTokenPtr; t->CurrentLinePtr = CurrentLinePtr;
     t->cmdtoken = cmdtoken; t->ExecDepth = ExecDepth; t->LocalIndex = LocalIndex;
     t->gosubindex = gosubindex;
@@ -158,6 +188,7 @@ static void ContextSave(struct s_thread *t) {
     }
     memcpy(t->ErrNext, ErrNext, sizeof(jmp_buf));
     t->DefinedSubFunMem = DefinedSubFunMem; t->DefinedSubFunLocalIndex = DefinedSubFunLocalIndex;
+    t->splice = RBSplice;                                           // (a command that waits may be a spliced one: Stage 4)
     t->FunReturnArrayCount = FunReturnArrayCount;
     t->NextData = NextData; t->NextDataLine = NextDataLine; t->restorepointer = restorepointer;
     memcpy(t->data, datastore, restorepointer * sizeof(struct sa_data));
@@ -211,6 +242,8 @@ static void ContextLoad(struct s_thread *t) {
     MMErrMsg = t->errmsg;
     memcpy(ErrNext, t->ErrNext, sizeof(jmp_buf));
     DefinedSubFunMem = t->DefinedSubFunMem; DefinedSubFunLocalIndex = t->DefinedSubFunLocalIndex;
+    RBSplice = t->splice;
+    ScreenLoad(t);
     FunReturnArrayCount = t->FunReturnArrayCount;
     NextData = t->NextData; NextDataLine = t->NextDataLine; restorepointer = t->restorepointer;
     memcpy(datastore, t->data, restorepointer * sizeof(struct sa_data));
@@ -267,6 +300,7 @@ static void ThreadReap(void) {
 static int WaitOver(int kind, int arg) {
     if(kind == W_LOCK) return LockOwner[arg] == 0;
     if(kind == W_THREAD) return Thr[arg] == NULL || !ALIVE(Thr[arg]);
+    if(kind == W_FRAME) return FrameCount != (uint32_t)arg;
     return (int)((g_flag >> arg) & 1);
 }
 
@@ -278,6 +312,20 @@ static void Disown(int id) {
     if(HoldCount && HoldBy == id) HoldCount = 0;
 }
 
+// The main program goes into (1) or comes out of (0) a wait that takes no interrupt: INPUT, a frame wait, SYNC. Out of
+// it, the signals the threads kept for it are the statement tail's again.
+static void Deaf(int on) {
+    uint32_t primask;
+    if(Cur != Thr[0]) return;
+    ThreadMainDeaf = on;
+    if(on || Banked == 0) return;
+    primask = __get_PRIMASK();
+    __disable_irq();
+    IntReady.count += Banked;
+    __set_PRIMASK(primask);
+    Banked = 0;
+}
+
 /* The thread to run next, made ready if it was asleep: the main program when an interrupt waits for it; else the
    sleeping thread whose PAUSE ended first, so that a timed thread is on time among busy ones; else the next ready one
    in number order after the one running (which is itself the last tried). With none of those it is the main program,
@@ -286,13 +334,18 @@ static struct s_thread *NextReady(void) {
     struct s_thread *t, *due = NULL;
     long long now = GetuSec();
     int i;
-    if(ThreadIntPending != NULL && Cur != Thr[0]) {
+    if(ThreadIntPending != NULL && Cur != Thr[0] && !ThreadMainDeaf) {
         Thr[0]->state = T_READY;
         return Thr[0];
     }
     for(i = 0; i <= MAXTHREADS; i++) {
         t = Thr[i];
-        if(t == NULL || t->paused || !(t->state == T_SLEEP || t->state == T_WAIT) || t->wake > now) continue;
+        if(t == NULL || t->paused) continue;
+        if(t->state == T_WAIT && t->wkind == W_FRAME && FrameCount != (uint32_t)t->warg) {   // its frame has started: first
+            t->state = T_READY;
+            return t;
+        }
+        if(!(t->state == T_SLEEP || t->state == T_WAIT) || t->wake > now) continue;
         if(due == NULL || t->wake < due->wake) due = t;
     }
     if(due != NULL) {
@@ -452,6 +505,66 @@ static int WaitFor(int kind, int arg, long long us, char *token) {
     }
 }
 
+/* A command's wait loop has found nothing yet (INPUT with no key, ADC START with its samples not all in): the other
+   threads have their turns, and this returns when this thread's comes round, to look again. With no other thread
+   ready it returns at once. The command takes no interrupt while it waits, as it never did. */
+void ThreadPoll(void) {
+    struct s_thread *to;
+    if(Cur == NULL || Held()) return;
+    Deaf(1);
+    to = NextReady();
+    if(to != Cur) ThreadSwitchTo(to);
+    Deaf(0);
+}
+
+/* FRAMEBUFFER WAIT, PAGE COPY ...,B and the others that wait for a frame's start. With no thread it is the wait it
+   always was, on the flag the LTDC's interrupt sets. With threads the others run meanwhile, and the wait is on that
+   interrupt's count of frames: each waiter clears the flag, so of two that wait at once one could miss its frame.
+   The interrupt ends the running thread's slice when a thread waits, and the waiter runs first. */
+void ThreadFrameWait(void) {
+    extern volatile uint8_t pagesetdone;
+    struct s_thread *to;
+    uint32_t f;
+    if(Cur == NULL || Held()) {
+        pagesetdone = 0;
+        while(!pagesetdone) CheckAbort();
+        return;
+    }
+    f = FrameCount;
+    pagesetdone = 0;                                                // (PAGE COPY ...,D's copy waits on it still: CheckAbort)
+    while(FrameCount == f) {
+        CheckAbort();
+        Deaf(1);
+        Cur->wkind = W_FRAME;
+        Cur->warg = (int)f;
+        Cur->wake = NOLIMIT;
+        Cur->state = T_WAIT;
+        ThreadFrameWaiters++;
+        to = NextReady();
+        if(to != Cur) ThreadSwitchTo(to);
+        ThreadFrameWaiters--;
+        Cur->state = T_READY;
+        Deaf(0);
+    }
+}
+
+// SYNC: the other threads run until the microsecond clock reads t; back then, or sooner (the caller's loop looks)
+void ThreadSleepDeaf(long long t) {
+    Deaf(1);
+    ThreadSleepUntil(t);
+    Deaf(0);
+}
+
+// check_interrupt in a thread while the main program is deaf: the signals are kept for it (Deaf), so that the
+// statement loop is not sent here after every statement until then
+void ThreadBank(void) {
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    if(Banked < 255) Banked += IntReady.count > 255 ? 255 : IntReady.count;   // (a scan each: more than the sources there are)
+    IntReady.count = 0;
+    __set_PRIMASK(primask);
+}
+
 // A thread has found an interrupt due (ThreadIntPending): the main program runs now, and takes it at once
 // (check_interrupt). Back when this thread's turn comes round again.
 void ThreadToMain(void) {
@@ -527,6 +640,7 @@ static void ThreadList(void) {
             if(LockOwner[t->warg] == 1) ListText(" (the main program has it)");
             else if(LockOwner[t->warg]) { ListNumber(" (thread ", LockOwner[t->warg] - 1); ListText(" has it)"); }
         } else if(t->state == T_WAIT && t->wkind == W_THREAD) ListNumber(", waiting for thread ", t->warg);
+        else if(t->state == T_WAIT && t->wkind == W_FRAME) ListText(", waiting for the next frame");
         else if(t->state == T_WAIT) ListNumber(", waiting for flag ", t->warg);
         else ListText(", ready");
         ListText("\r\n");
@@ -601,11 +715,16 @@ int ThreadsEnd(void) {
     memset(LockOwner, 0, sizeof(LockOwner));                        // (the locks, the hold and a wait are the program's too)
     HoldCount = 0;
     MainWaiting = 0;
+    ThreadMainDeaf = 0;
+    ThreadFrameWaiters = 0;
+    ThreadFrameDue = 0;
+    Banked = 0;
     if(Cur == NULL) return 0;
     if(!OnMainStack()) error("Not allowed in a thread");
     strncpy(EndErrMsg, MMErrMsg, STRINGSIZE - 1);
     EndErrMsg[STRINGSIZE - 1] = 0;
     ContextSave(Cur);
+    if(Cur != Thr[0]) ScreenLoad(Thr[0]);                           // (the main program's print position, colours and font)
     for(i = 0; i <= MAXTHREADS; i++) {
         if(Thr[i] == NULL) continue;
         if(ALIVE(Thr[i])) {
@@ -795,6 +914,7 @@ static void ThreadStart(int n, char *name, int argc, char **argv) {
     }
     t->CurrentLinePtr = CurrentLinePtr;                             // its SUB's call is reported at this line
     t->NextDataLine = (char *)ProgMemory;
+    ScreenSave(t);                                                  // (the print position, colours and font of its starter)
     t->args = (struct s_targ *)(t + 1);
     t->nargs = nta;
     t->call = (char *)(t->args + nta) + bindings;
@@ -851,6 +971,7 @@ static void ThreadStop(int n) {
     LocalIndex = 0;
     ClearTempMemory();
     ContextLoad(Cur);
+    if(t->state == T_WAIT && t->wkind == W_FRAME) ThreadFrameWaiters--;
     t->state = T_DONE;
     ThreadCount--;
     Disown(n);

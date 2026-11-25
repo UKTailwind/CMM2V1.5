@@ -1014,10 +1014,7 @@ void cmd_framebuffer(void){
     		char *p=argv[6];
     		if (toupper(*p)!='I'){
     			if(toupper(*p)=='B'){
-    				pagesetdone=0;
-    				while(!pagesetdone){
-    					CheckAbort();
-    				}
+    				ThreadFrameWait();                                     // (the other threads run meanwhile)
     			} else error("Syntax");
     		}
         }
@@ -2671,8 +2668,7 @@ void cmd_clut(void){
 	char *p;
 	if(VideoColour==1)error("Invalid for this screen mode");       // (the CLUT is the tiles': Mono.c)
     if((p=checkstring(cmdline, "SET"))) {
-		pagesetdone=0;
-		while(!pagesetdone)CheckAbort();
+		ThreadFrameWait();                                         // (the other threads run meanwhile)
 		HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
 		if(VideoColour==4) CommitMapRGB();                          // (the colours shown now: SAVE IMAGE's, Rgb121.c)
     } else if((p=checkstring(cmdline, "RESET"))){
@@ -2701,8 +2697,7 @@ void cmd_clut(void){
             }
             CommitMapRGB();                                         // (shown at once, below)
         } else error("Set 8-bit or 4-bit mode");
-    	pagesetdone=0;
-    	while(!pagesetdone)CheckAbort();
+    	ThreadFrameWait();                                         // (the other threads run meanwhile)
     	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
     } else if((p=checkstring(cmdline, "MAXIMITE"))){
     	if(VideoColour!=8)error("Set 8-bit mode to use compatibility");
@@ -2723,8 +2718,7 @@ void cmd_clut(void){
     	CLUT[6]=0xFFFF00;
     	CLUT[7]=0xFFFFFF;
     	CLUT[32]=0;
-    	pagesetdone=0;
-    	while(!pagesetdone)CheckAbort();
+    	ThreadFrameWait();                                         // (the other threads run meanwhile)
     	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
     } else {
     	int cl = getint(cmdline,0,255);
@@ -2774,10 +2768,7 @@ void cmd_page(void){
 		if((VideoMode==3 || VideoMode==5 || VideoMode==6 || VideoMode==7 || VideoMode==12 || VideoMode==13 || VideoMode==17) && fadd>(VideoColour==12 ? 2: 1))error(VideoColour==12 ? "Display page limited to 0, 1 and 2 in this mode": "Display page limited to 0 and 1 in this mode");
     	Address=(uint32_t)PageTable[fadd].address;
     	if(Address>=0x24000000 &&  Address < 0x24000000+512*1024-PageTable[0].size){
-			pagesetdone=0;
-			while(!pagesetdone){
-				CheckAbort();
-			}
+			ThreadFrameWait();                                     // (the other threads run meanwhile)
         	HAL_LTDC_SetAddress(&hltdc,  Address, LayerIDX);
         	return;
     	}
@@ -2785,10 +2776,7 @@ void cmd_page(void){
     		ShareNeeded=RoundUptoPage512(Address+PageTable[fadd].size);
     		if(ShareNeeded>0xD0300000)error("Display page address > $ - use a lower page number", "&HD0300000");   // (& is error()'s hex code)
     		MPU_Config_nCacheable(0);
-			pagesetdone=0;
-			while(!pagesetdone){
-				CheckAbort();
-			}
+			ThreadFrameWait();                                     // (the other threads run meanwhile)
     		HAL_LTDC_SetAddress(&hltdc,  Address, LayerIDX);
         	return;
     	}
@@ -2957,10 +2945,7 @@ void cmd_page(void){
     		char *p=argv[4];
     		if (toupper(*p)!='I'){
     			if(toupper(*p)=='B'){
-    				pagesetdone=0;
-    				while(!pagesetdone){
-    					CheckAbort();
-    				}
+    				ThreadFrameWait();                                     // (the other threads run meanwhile)
     			} else if (toupper(*p)=='D'){
     				deferred=1;
     				deferredcopy=0;										// (one still waiting is replaced)

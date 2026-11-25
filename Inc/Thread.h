@@ -21,6 +21,17 @@ extern volatile int ThreadSliceLeft;                // milliseconds left of the 
 extern int ThreadSliceLen;                          // THREAD SLICE
 extern volatile unsigned int ThreadWakeMs;          // mSecTimer when the first sleeping thread is due (the tick); 0 none
 extern char *ThreadIntPending;                      // an interrupt a thread found due: the main program's (check_interrupt)
+/* Stage 4: a command's own wait (INPUT for a key, a frame's start, SYNC) lets the other threads run. No interrupt is
+   taken in such a wait, as none ever was, so while the main program is in one it is 'deaf': the threads do not hand
+   it interrupts (check_interrupt), and the signals that came are kept for when it is out (ThreadBank). */
+extern unsigned char ThreadMainDeaf;
+extern volatile uint32_t FrameCount;                // frames shown: counted by the LTDC's interrupt (ltdc.c)
+extern volatile unsigned char ThreadFrameWaiters;   // threads waiting for the next one, which that interrupt wakes by
+extern volatile unsigned char ThreadFrameDue;       // this and IntSignal
+void ThreadPoll(void);                              // a wait loop found nothing yet: the other threads have their turns
+void ThreadFrameWait(void);                         // to the start of the next frame
+void ThreadSleepDeaf(long long t);                  // to the microsecond clock's t, with no interrupt taken (SYNC)
+void ThreadBank(void);                              // check_interrupt in a thread, the main program deaf
 /* No thread switch while BASIC runs from inside a CSUB or a module's call (its own data is not a thread's, and a
    module's call has one stack): ThreadHoldDepth is the ExecDepth such BASIC runs at, or more. The caller brackets its
    call with the two macros. An error that leaves the call by longjmp leaves the depth set: the scheduler clears it

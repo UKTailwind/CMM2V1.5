@@ -138,8 +138,14 @@ int pagegen(int Vmode, int Vcol){
   return pageno-1;
 }
 
+volatile uint32_t FrameCount = 0;                                   // frames shown (Thread.h: ThreadFrameWait)
 void __attribute__ ((optimize("-O2"))) HAL_LTDC_LineEventCallback(LTDC_HandleTypeDef *ltdc){
 		pagesetdone=1;
+		FrameCount++;
+		if(ThreadFrameWaiters) {                                    // a thread waits for this frame: the statement tail
+			ThreadFrameDue=1;                                       // lets it run (check_interrupt)
+			IntSignal();
+		}
 		if(FrameInterrupt != NULL) {                                // (a frame is recorded only for MODE's interrupt: one from
 			Framecomplete=1;                                        // before it called it at once, not at a frame's start)
 			IntSignal();

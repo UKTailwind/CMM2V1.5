@@ -3734,6 +3734,9 @@ void SerialConsolePutC(int c) {
 		       if(PrintScreenPending) PrintScreenNow();               // OPTION PRINTSCREEN: Print Screen or Ctrl-\ in INPUT
 		       c = MMInkey();
 		       if(update && Option.showstatus)PrintStatus(0);
+		       if(c == -1 && ThreadCount) ThreadPoll();              // INPUT in a program with threads: they run meanwhile
+		                                                            // (the line keeps its place: the print position is each
+		                                                            // thread's own, Thread.c)
 		    } while(c == -1);
 		    if(sleeping){
 				GPIO_InitTypeDef GPIO_InitStruct = {0};

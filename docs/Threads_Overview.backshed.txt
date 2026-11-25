@@ -37,15 +37,16 @@ These run on a test board now:
 • [B]THREAD LIST[/B] shows each thread, the line it is at and what it is doing or waiting for.
 • [B]MM.INFO(THREAD)[/B] is the number of the thread that runs it. [B]MM.INFO(THREAD n)[/B] is 0 if thread n is not running, 1 if it is running, 2 if it is in a PAUSE, 3 if it has been paused and 4 if it is waiting. [B]MM.INFO(THREAD LOCK k)[/B] is the thread that has lock k, or -1.
 
-Still to come: INPUT and the other commands that wait, which hold every thread for now (see below).
+Still to come: the network's commands, which hold every thread while they wait for an answer.
 
 
 [SIZE=4][COLOR=BLUE][B]How they work[/B][/COLOR][/SIZE]
 • [B]One thread runs at a time, and the switch comes only between statements,[/B] never in the middle of one. A statement is always whole: Inc count in two threads never loses a count.
 • [B]The threads take turns,[/B] 1 ms each, in number order. A thread whose PAUSE has just ended goes next, so things that are timed stay on time among busy threads.
 • [B]Each thread has its own[/B] LOCAL variables, FOR and DO loops, SUB and FUNCTION calls, GOSUBs, ON ERROR setting with MM.ERRNO and MM.ERRMSG$, and place in the DATA for READ. Two threads can run the same SUB at the same time, each with its own locals, recursion included.
-• [B]Everything else is shared:[/B] global variables and arrays, STATIC variables, the screen with its current colours, font and print position, open files, sound, the pins and the options.
-• [B]PAUSE in a thread costs nothing.[/B] The other threads run meanwhile, and a program whose threads are all waiting is idle.
+• [B]Each thread has its own print position, colours and font,[/B] starting with those of the thread that started it. A thread's COLOUR, FONT, TEXT or PRINT @ does not disturb another thread's printing, or the line someone is typing at an INPUT.
+• [B]Everything else is shared:[/B] global variables and arrays, STATIC variables, the screen and its pages, open files, sound, the pins and the options.
+• [B]A thread that waits costs nothing.[/B] PAUSE, INPUT and LINE INPUT, the waits for the next frame (PAGE COPY ...,B and FRAMEBUFFER WAIT), THREAD LOCK and THREAD WAIT all let the other threads run meanwhile. A program can sit in INPUT for its user while its threads keep the screen moving.
 • [B]Interrupts work as before[/B] (SETTICK, SETPIN, ON KEY and the rest). Their routines always run in the main program, whichever thread was running when the interrupt came, and no thread runs until the routine returns.
 • [B]END in any thread, an error in any thread, or Ctrl-C stops the whole program.[/B] An error says where it was: "Error in thread 3, line 5". After an error or Ctrl-C the firmware also lists the threads, each with its line and what it was waiting for, which is how you find two threads that are each waiting for the other's lock.
 • [B]OPTION COMPILE ON works with threads.[/B]
@@ -54,32 +55,35 @@ Still to come: INPUT and the other commands that wait, which hold every thread f
 
 [SIZE=4][COLOR=BLUE][B]What they cannot do[/B][/COLOR][/SIZE]
 • [B]They do not make a program faster.[/B] There is one processor: four busy threads get a quarter of it each. Threads are for doing several things at once, not for doing one thing sooner.
-• [B]They cannot cut into a statement.[/B] A statement that takes a long time (a SORT of a large array, a file copy, loading a picture, INPUT waiting for the user) holds every thread until it is done. For now PAUSE is the only wait that lets the others run, so read keys with INKEY$ in a loop, not with INPUT. Later INPUT and the other commands that wait will let the others run too.
+• [B]They cannot cut into a statement.[/B] A statement that takes a long time (a SORT of a large array, a file copy, loading a picture) holds every thread until it is done. So do the network's commands while they wait for an answer, for now.
 • [B]No priorities.[/B] Every thread that is ready gets its turn.
 • [B]Limits:[/B] with the usual sizes a thread can go about nine FUNCTIONs deep (SUB calls take nothing) and have 48 local variables, and about ten threads can run at once. THREAD SIZE changes that: more stack for deep recursion, or fewer locals each for all sixteen threads.
 • [B]Not allowed in a thread:[/B] RUN, CHAIN, FLASH RUN, LIBRARY LOAD, MsgBox() and GUI CLICK. Not allowed while any thread is running: ERASE, REDIM, CLEAR, SAVE CONTEXT and LOAD CONTEXT. THREAD START is for programs, not the command prompt, and CONTINUE does not work after Ctrl-C in a program with threads.
 
 
 [SIZE=4][COLOR=BLUE][B]The one thing to watch: what the threads share[/B][/COLOR][/SIZE]
-A switch can come between any two statements. Suppose two threads do this:
+A switch can come between any two statements. Suppose two threads both do this to a global:
 
-[CODE]' thread 1                    ' thread 2
-Colour RGB(red)               Colour RGB(green)
-Print "Alarm!"                Print "All well"[/CODE]
+[CODE]v = total
+total = v + 1[/CODE]
 
-If the switch comes after thread 1's COLOUR, "Alarm!" is printed in green. There are simple ways round it, and a lock for when they do not fit:
+If the switch comes between the two statements, both threads read the same total, both add one, and one count is lost. The ways round it:
 
-• [B]One owner.[/B] One thread does all the drawing, or all the writing to a file, and the others only set variables for it.
-• [B]One statement.[/B] Text x, y, "Alarm!", , , , RGB(red) carries its colour with it, and nothing can come between.
+• [B]One statement.[/B] Inc total is a single statement, and nothing can come between.
 • [B]One writer.[/B] A variable that one thread sets and the others only read is always safe.
-• [B]A lock.[/B] Every thread that prints does it between THREAD LOCK 1 and THREAD UNLOCK 1, and they print one at a time:
+• [B]One owner.[/B] One thread does all the writing to a file, and the others only set variables for it.
+• [B]A lock.[/B] Every thread does it between THREAD LOCK 1 and THREAD UNLOCK 1, and they go one at a time:
 
 [CODE]Thread Lock 1
-Colour RGB(red)
-Print "Alarm!"
+v = total
+total = v + 1
 Thread Unlock 1[/CODE]
 
-A test and the action after it are two statements, so If free > 0 Then free = free - 1 can be cut in the middle when two threads run it. Inc, and a single assignment, cannot. For a pair like that, THREAD HOLD before and THREAD RELEASE after is enough.
+• [B]A hold.[/B] For two or three quick statements, THREAD HOLD before and THREAD RELEASE after: no other thread runs between them.
+
+A test and the action after it are two statements too, so If free > 0 Then free = free - 1 can be cut in the middle when two threads run it.
+
+[B]The screen[/B] is one, though each thread has its own print position: two threads that simply PRINT, without saying where, start from the same place and write over each other. Give each thread its own part of the screen with PRINT @ or TEXT.
 
 
 [SIZE=4][COLOR=BLUE][B]Ideas for using them[/B][/COLOR][/SIZE]
@@ -90,6 +94,7 @@ A test and the action after it are two statements, so If free > 0 Then free = fr
 • [B]Logging:[/B] one thread samples a sensor every 100 ms into an array, another writes the array to the SD card every ten seconds, and the main program draws the graph.
 • [B]Communications:[/B] a thread watches a COM port or the network, puts the lines together, leaves each one in a global and sets a flag. The main program, or another thread, sits in THREAD WAIT FLAG until there is one.
 • [B]A timeout:[/B] a thread that waits five seconds and then sets a flag, or stops another thread.
+• [B]A program that listens while it works:[/B] the main program sits in INPUT for the next command while threads run the machine, the display or the game.
 
 [B]Thread or interrupt?[/B] An interrupt is for something that happens and wants a quick, short answer. A thread is for something that goes on: it waits, loops and has a flow of its own. They work well together: the interrupt sets a variable and a thread acts on it.
 

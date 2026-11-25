@@ -583,9 +583,7 @@ int WARP_CODE WarpCommand(char *cmd, int form)
     else if (form == WARP_FRAMEBUFFER && (p = checkstring(cmd, "WAIT")))
     {
         // FRAMEBUFFER WAIT in the 8, 12, 16 and 32-bit modes: to the end of the frame, as the 4-bit modes' (Rgb121.c)
-        pagesetdone = 0;
-        while (!pagesetdone)
-            CheckAbort();
+        ThreadFrameWait();                                          // (the other threads run meanwhile: Thread.c)
         return 1;
     }
     else

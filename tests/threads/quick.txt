@@ -98,6 +98,11 @@ threads/tlock
 threads/twait
 threads/targs
 
+' Stage 4: waits that let the other threads run; each thread's print position, colours and font
+threads/tinput
+threads/tframe
+threads/tscreen
+
 ' timings: a statement of each kind, a SUB call and a FUNCTION call
 time threads/tstmt
 time threads/tswitch

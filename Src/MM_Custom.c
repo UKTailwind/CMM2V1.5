@@ -486,6 +486,7 @@ void cmd_ADC(void){
 		if(ADCInterrupt==NULL){
     		while(!ADCcomplete){
     			routinechecks(1);
+    			if(ThreadCount) ThreadPoll();                           // (the other threads run while it samples)
     		}
  		}
     	return;

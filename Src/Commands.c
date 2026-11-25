@@ -2292,7 +2292,8 @@ void cmd_case(void) {
 
 void cmd_input(void) {
 	char s[STRINGSIZE];
-	char *p, *sp, *tp;
+	char line[STRINGSIZE];                                           // (its own, not inpbuf: other threads run while the line
+	char *p, *sp, *tp;                                              // is typed, and inpbuf is theirs too)
 	int i, fnbr;
 	getargs(&cmdline, (MAX_ARG_COUNT * 2) - 1, ",;");				// this is a macro and must be the first executable stmt
 
@@ -2320,8 +2321,8 @@ void cmd_input(void) {
 
 	if(argc - i < 1) error("Syntax");						        // no variable to input to
 
-	MMgetline(fnbr, inpbuf);									    // get the line
-	p = inpbuf;
+	MMgetline(fnbr, line);									    // get the line
+	p = line;
 
 	// step through the variables listed for the input statement
 	// and find the next item on the line and assign it to the variable
@@ -3523,7 +3524,8 @@ void cmd_restore(void) {
 
 void cmd_lineinput(void) {
 	char *vp;
-	int i, fnbr;
+	char line[STRINGSIZE];                                           // (its own, not inpbuf: as INPUT)
+	int i, fnbr, size;
 	getargs(&cmdline, 3, ",;");										// this is a macro and must be the first executable stmt
 	if(argc == 0 || argc == 2) error("Syntax");
 
@@ -3547,9 +3549,10 @@ void cmd_lineinput(void) {
 	vp = findvar(argv[i], V_FIND);
     if(VREC(VarIndex)->type & T_CONST) error("Cannot change a constant");
 	if(!(FoundType() & T_STR)) error("Invalid variable");
-	MMgetline(fnbr, inpbuf);									    // get the input line
-	if(strlen(inpbuf) > FoundSize()) error("String too long");
-	strcpy(vp, inpbuf);
+	size = FoundSize();                                             // (before the wait: other threads run in it, and what
+	MMgetline(fnbr, line);									    // findvar found last is then theirs)
+	if((int)strlen(line) > size) error("String too long");
+	strcpy(vp, line);
 	CtoM(vp);														// convert to a MMBasic string
 }
 

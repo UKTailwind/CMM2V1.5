@@ -282,7 +282,8 @@ hold on: the scheduler drops it the first time it is asked at a shallower depth.
   statement runs again, going on to the same time limit (`InterruptReturn`, as PAUSE). The first draft of this plan had
   every wait run its statement again; one mechanism, PAUSE's, was simpler and already tested.
 - **Other commands that wait** (`INPUT`, a serial or network read with a timeout, `PLAY` to the end) hold every
-  thread until Stage 4 gives each one a call that lets the others run. Each needs a look at what it keeps in shared
+  thread until Stage 4 gives each one a call that lets the others run (as built: `ThreadPoll` and `ThreadFrameWait`,
+  "Stage 4" under Progress; the network's waits not yet). Each needs a look at what it keeps in shared
   buffers while it waits: `INPUT` collects its line in `inpbuf`, which `error()` also uses as scratch for a line
   number.
 
@@ -297,9 +298,13 @@ The compiled stream needs no change to its code.
   again if it moved (`RBRebind`). A thread switch inside the body moves it, so the statement that called the FUNCTION
   is rebound when the body returns. This matters: while the thread was away, another thread running the same record
   may have written its own addresses into the record's cache.
-- **One rule to keep:** a thread may only be switched out from inside `RBRun` through `RBCallFun`. The other ops that
-  call out of the executor (LOCAL, STATIC, string ops, the spliced handlers) must never reach a wait. None does
-  today; a debug-build assertion in the scheduler will hold the rule.
+- **One rule to keep:** a thread may be switched out from inside `RBRun` only through `RBCallFun`, which binds the
+  statement again after the body, or through a command that ends its statement (as Stage 4 made them: INPUT, the
+  frame waits, run as a CMD record or a spliced command). After such a command the next record's start compares its
+  stamp again (`RBCALLOUT`), and `BindsStale` has made every stamp before the switch stale. What must never wait is an
+  op in the middle of an expression: the spliced built-in functions (`RBFnSplice`'s list: LEN, MID$, PIXEL, KEYDOWN,
+  PEEK and the rest). None does. `EVAL()` and `TEMPR()` are not on the list, so a compiled statement with either
+  runs as text. A function that waits must not be added to the list.
 - The stream's other caches (`RBCache`, `RBLoopRec`, a patched `RC_GOTO`) are keyed by program position and checked
   before use, so threads share them safely.
 - **A switch makes every bind stamp stale, at every level** (`BindsStale`, found in Stage 2). A record's stamp is the
@@ -582,6 +587,29 @@ timers across the wait. In the order programs need them:
 
 **Tests**: a thread animating the screen while the main program sits in `INPUT`; two threads each waiting for the
 frame; a network request with a timeout while a thread counts.
+
+### Stage 4b: the network's waits, Bluetooth's and TEMPR()
+
+Added 25 November (Peter: "yes add it as stage 4b, and also tempr"). These hold every thread today for up to 100 s.
+
+1. **The network's waits** (`WEB CONNECT`, `WEB OPEN TCP CLIENT`, `TCP CLIENT REQUEST`, `WEB NTP`, `WEB MQTT`,
+   `WEB PING`, `WEB TRANSMIT`). Each is a loop in the PicoMite's files, ported unchanged (`Src/net/picomite`), of the
+   form `Timer4 = timeout; while(!done && Timer4) cyw43_arch_poll();`. Each loop gets a call that lets the other
+   threads run, and a deadline of its own in place of `Timer4`, which is one for the firmware: a thread's wait would
+   set it again under another's. The change goes in as a rule of `tools/port_net.py`, so that a new port of the
+   PicoMite's files keeps it, and the files stay the PicoMite's otherwise. What each client keeps (the TCP client's
+   one `state`, MQTT's one client) is one for the program: a second thread that starts a request while one is under
+   way waits for it (a lock inside the firmware) or is refused; to decide when the code is read.
+2. **Bluetooth's waits** (connect, inquiry, query, up to 30 s): the same, in `Src/net/bt/picomite`.
+3. **`TEMPR()`**: its conversion time (100 ms to 2 s, `MM_Delay`) and its wait for a `TEMPR START` conversion become
+   a sleep that lets the other threads run and takes no interrupt, as SYNC's. It waits inside an expression, which is
+   safe as text (a FUNCTION call does the same) and never happens in compiled code (above).
+
+**Tests**: a thread counts while the main program makes a TCP request to an address that does not answer, with a
+5 s timeout: the count goes on, the timeout comes at 5 s. A request in each of two threads. `WEB NTP` while a thread
+animates. `TEMPR()` on a pin with no sensor (it waits its whole conversion time and gives 1000) while a thread counts.
+
+**Done when** those pass on a G1 and a G2 with the Wi-Fi module, and the Wi-Fi tests (`tests/wifi`) are as before.
 
 ### Stage 5: tools, the manual and release
 
@@ -910,3 +938,46 @@ The new tests:
 
 `tend` now starts with `THREAD SLICE 100`, as the other tests of order do: it differed once in a run of many.
 `tfail`'s expected output has the list of threads after its error.
+
+### Stage 4 (25 November): waits that let the other threads run
+
+Peter: "The big one is stage 4 when a thread can wait for user input without blocking everything else."
+
+| Wait | How it was done |
+|---|---|
+| `INPUT`, `LINE INPUT`, console or COM port | The key or byte loop (`MMgetchar`, `MMgetline`) calls `ThreadPoll` when nothing has come: the other threads run, and the loop looks again when this thread's turn comes round. Each command collects its line in a buffer of its own, not `inpbuf`, which the other threads use too. LINE INPUT takes the variable's size before the wait |
+| The frame waits: `FRAMEBUFFER WAIT`, `PAGE COPY ...,B`, `PAGE DISPLAY`, `FRAMEBUFFER WINDOW ...,B`, `CLUT SET`, `MAP SET` | `ThreadFrameWait`, in place of each `pagesetdone = 0; while(!pagesetdone)` loop. With threads it waits on a count of frames the LTDC's interrupt keeps (`FrameCount`): each waiter cleared the one flag, so of two waiters one could miss its frame. The interrupt ends the running thread's slice when a thread waits, and the waiter runs first. With no thread it is the loop it was |
+| `SYNC` | The other threads run until 2 ms before the period ends; the last 2 ms are timed as before |
+| `ADC START` with no interrupt | `ThreadPoll` while the samples come in |
+
+**No interrupt is taken in these waits, as none ever was.** While the main program is in one, the threads do not
+hand it interrupts: the signals are kept (`ThreadBank`) and the statement tail takes them when the wait is over.
+`tinput` checks it: a SETTICK interrupt that came during an INPUT runs once the line is in.
+
+**Each thread's own print position, colours and font.** Peter tried a demo (four balls and a clock as threads, the
+main program in INPUT) on the G1 with a USB keyboard: the typed characters were echoed a line down. The clock's TEXT
+had moved the print position, which was the program's, while the line was being typed. Peter: "Each thread will need
+to maintain some extra context". `CurrentX`, `CurrentY`, `gui_fcolour`, `gui_bcolour` and `gui_font` are now saved
+and loaded at every switch (`ScreenSave`, `ScreenLoad`), and a new thread starts with its starter's. The demo then
+worked ("That works perfectly"). `tests/threads/demo_input.bas` is the demo.
+
+Not done in Stage 4: the network's waits (each loop is in the PicoMite's files, ported unchanged, and all time
+themselves with the one `Timer4`), Bluetooth's, `TEMPR()` (a wait inside an expression), output to a full console or
+COM buffer (a PRINT would be split), `PLAY BBC SOUND` with a full queue.
+
+**On the G1:**
+
+| Check | Result |
+|---|---|
+| `tinput` (9 checks), `tframe` (6), `tscreen` (9), OPTION COMPILE OFF, ON and SHADOW | all pass |
+| The quick check's regression programs, the other thread tests, three modes | every output as the Stage 3 build's |
+| Crasher suite; the Route B programs | all passed; the same result for every program |
+| Timings | within 3% of Stage 3's |
+
+The new tests:
+
+| Test | What it shows |
+|---|---|
+| `tinput` | The main program in INPUT while two threads count and a SETTICK runs: the line, the threads' counts, the interrupt after the line. INPUT in a thread (a string and a number). LINE INPUT in a thread while another assigns to strings of five. A line typed while a thread draws text elsewhere: the print position after it is where the line was |
+| `tframe` | Two threads that each wait for every frame both get all thirty while a third is busy; thirty PAGE COPY ...,B take thirty frames with a busy thread running |
+| `tscreen` | A thread's COLOUR, FONT, PRINT @ and TEXT leave the main program's untouched; each keeps its own while the other changes; a new thread starts with its starter's |
