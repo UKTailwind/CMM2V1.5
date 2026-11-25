@@ -3561,6 +3561,9 @@ void cmd_pixel(void) {
 		fillmaxH=PageTable[WritePage].ymax;
 	    fillmaxW=PageTable[WritePage].xmax;
  		uint32_t oldstack = __get_MSP();
+		if(ThreadNumber()) stackwarn = 0;                           // (a thread's stack is in the heap, above this one: the
+		                                                            // stack check, which would take it for an overflow, is off
+		                                                            // until the fill is done: Thread.c)
 		__set_MSP((uint32_t)MinHeap());
 		{
 			int x1, y1, f, red, blue, green, trans;
@@ -3591,6 +3594,7 @@ void cmd_pixel(void) {
 			floodFillScanline(x1, y1);
 		}
 	__set_MSP(oldstack);
+	ThreadStackLimits();
 	return;
 	}
 	if(CMM1){

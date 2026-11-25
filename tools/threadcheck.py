@@ -75,8 +75,8 @@ def send(b, corpus, names):
 def classify(corpus, name, status, out, inputs):
     """The program's class against its .expected, as goldens.py's score gives it."""
     exp = os.path.join(REPO, "tests", corpus, name + ".expected")
-    if status != "OK":
-        return status
+    if status != "OK" and not (corpus == "threads" and status == "ERROR" and os.path.exists(exp)):
+        return status                                   # (a thread test may end in an error its .expected holds)
     if not os.path.exists(exp):
         return "NO-EXPECTED"
     return "MATCH" if norm(open(exp, encoding="latin-1").read()) == norm(out, inputs) else "DIFF"

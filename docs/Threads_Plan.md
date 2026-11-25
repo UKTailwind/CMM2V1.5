@@ -23,7 +23,7 @@ end).*
   the others run.
 - **Everything else a thread owns is copied out of the interpreter's globals when it stops and back when it runs**:
   the statement pointers, the GOSUB, FOR and DO stacks, the list of its local variables, its temporary memory, its
-  error state. Only the parts in use are copied, so a switch costs about a microsecond (to measure).
+  error state. Only the parts in use are copied; a switch takes about 4.5 microseconds on a G1 (Stage 1's figure).
 - **Locals are safe when two threads run the same SUB.** Each thread has its own range of local variable slots, its
   own call depth and its own name bindings. STATIC variables and globals are shared.
 - **Interrupt routines stay with the main program.** A thread that finds an interrupt due hands it to the main thread
@@ -147,7 +147,8 @@ colour, then draw; read a value, then write it back) needs a lock if another thr
 The question was what happens when two threads call the same SUB at the same time. Four things keep them apart.
 
 1. **Slots.** Each thread has its own range of local variable slots. The main thread has slots 0 up; a new thread is
-   given a range from the top of the 512 (64 by default, to settle). `localtop` starts at the range's base, and
+   given a range from the top of the 512 (48 by default, so ten threads at most until `THREAD SIZE` lets a program
+   choose). `localtop` starts at the range's base, and
    "Too many local variables" is tested against the range's end. A slot number is still unique across the program,
    so everything keyed by slot (`SymLShadow`, `SymLCanon`, DO's fast path) needs no change.
 2. **The list.** `hashlist`, which `find_local_slot` and `ClearVars` walk, holds only the running thread's locals: it
@@ -296,10 +297,10 @@ The compiled stream needs no change to its code.
 - **An error in any thread ends the program**, as now. The message names the thread ("Error in thread 2, line 140:").
   `longjmp(mark)` goes from the thread's stack to `main()`'s frame on the main stack, which is still there because the
   main thread is only suspended.
-- **`ThreadsReset()`** is called first thing where `setjmp(mark)` returns (`Src/main.c` 868) and before a RUN: the
-  main stack's `StackFloor` and `stackwarn` again, the main thread's `SymL`, every thread marked ended, the blocks
-  freed. The globals are left holding the state of the thread that stopped, so its locals can be printed at the
-  prompt, as a SUB's can today.
+- **`ThreadsEnd()`** is called first thing where `setjmp(mark)` returns (`Src/main.c` 868), in `ClearRuntime` (RUN,
+  CHAIN) and at the prompt: each thread's locals and temporary memory are freed through `ClearVars` and
+  `ClearTempMemory`, with that thread's state in the globals for the moment, then the blocks go. What is left is a
+  program with no threads, no locals and empty stacks, the main stack's limits and the main program's `SymL`.
 - **ON ERROR SKIP, IGNORE and ABORT are per thread**, and so are `MM.ERRNO` and `MM.ERRMSG$`. A new thread starts
   with ABORT.
 - **`END`** in any thread ends the program: the other threads are stopped where they stand, `MM.END` runs in the
@@ -405,7 +406,7 @@ The design keeps these small on purpose. `DefinedSubFun` and the statement loops
 
 | File | Change |
 |---|---|
-| `Src/Thread.c`, `Inc/Thread.h` (new) | the records, the stacks, `ContextSave` and `ContextLoad`, `ThreadSwap`, the scheduler, `cmd_thread`, `ThreadsReset` |
+| `Src/Thread.c`, `Inc/Thread.h` (new) | the records, the stacks, `ContextSave` and `ContextLoad`, `ThreadSwap`, the scheduler, `cmd_thread`, `ThreadsEnd` |
 | `Inc/allcommands.h` | the `Thread` command |
 | `Src/MM_Misc.c` | `check_interrupt` split into `IntScan` and `IntDispatch` with the scheduler's call between them; `PauseFor` on the microsecond clock, its path for a thread and the call in its loop; `MM.INFO(THREAD)` |
 | `Src/CFunctions.c`, `Src/User.c`, `Src/Loader.c` | the hold count raised around a CSUB, a module call and a loadable program |
@@ -413,7 +414,7 @@ The design keeps these small on purpose. `DefinedSubFun` and the statement loops
 | `Src/MMBasic.c` | the local stack's base and limit as variables (`LocalBase`, `LocalLimit`) at five places; `error()`: the thread's number, its own scratch buffer in place of `inpbuf`; the stack's high-water mark (`StackPaint`, `StackLowest`) |
 | `Src/Symbols.c` | `SymBindInit` sets all of `SymL` to -1 |
 | `Src/Commands.c` | `cmd_end` stops the other threads; ERASE, REDIM and CLEAR refused; `execute()` in a thread runs from the thread's token buffer; RUN starts the stack's high-water mark |
-| `Src/main.c` | `ThreadsReset()` where `setjmp(mark)` and `setjmp(run)` return; no `ContinuePoint` after threads |
+| `Src/main.c` | `ThreadsEnd()` where `setjmp(mark)` returns and at the prompt; no `ContinuePoint` after threads |
 | `Src/Draw.c` | PIXEL FILL moves the stack to free heap, which may be below a thread's `stackwarn`: the check is switched off for its length |
 | `Src/Memory.c` | MEMORY lists the threads' memory |
 | `Src/Stream.c` | none (the debug assertion apart) |
@@ -493,7 +494,7 @@ within noise of it.
 1. `Thread.c`: the records, a stack from the heap with its guard and check word, the save areas, `ContextSave` and
    `ContextLoad`, `ThreadSwap`, `ThreadMain`, `ThreadFinish`, freeing an ended thread from another thread's stack.
 2. The slot ranges and each thread's `SymL`.
-3. `ThreadsReset` at the prompt's landing, at RUN and at END; the thread's number in error messages; `END` in a
+3. `ThreadsEnd` at the prompt's landing, at RUN and at END; the thread's number in error messages; `END` in a
    thread; `EXECUTE` in a thread from the thread's token buffer.
 4. The bind generation moved at every switch; the assertion for the compiled executor.
 
@@ -723,3 +724,56 @@ answered. It now waits for the listing's own end (a minute saved on each run, fo
 
 **Still open in Stage 0:** the stack depth of the image decoders in 32-bit modes, of SQL, sound and Bluetooth, and
 the same checks on a G2.
+
+### Stage 1 (25 November): threads that take turns
+
+`THREAD START n, sub`, `THREAD YIELD`, `THREAD EXIT` and `MM.INFO(THREAD)`, as planned. A thread runs until it yields
+or ends, and the next in number order runs.
+
+| Part | How it was done |
+|---|---|
+| The record | One block from the heap for each thread (17 KB, its names' bindings after it), and one for the main program made with the first thread and freed when the last has ended: from then on nothing here is active |
+| The stack | 20 KB with a 6 KB guard and a check word at its bottom, from the on-chip heap while 96 KB of that stays free, else from SDRAM |
+| The switch | `ThreadSwap`, six instructions; `ContextSave` and `ContextLoad` copy the table of "What is switched", the stacks' entries in use only |
+| A thread's first run | Its SUB is called as a statement of its own, the SUB's name in the thread's record, so that the call is made by `DefinedSubFun` as any other and `END SUB` returns to the end of that statement |
+| The statement tail | `check_interrupt` calls `ThreadSchedule` when `INT_TICK_SLICE` was set, which only `THREAD YIELD` does so far. No switch in an interrupt routine, nor once the program is ending |
+| Interrupts | Taken at the main program's own statement tail only: with a thread running they wait for the main program's turn (Stage 2 hands them over at once) |
+| The end | `ThreadsEnd` at the prompt's landing, in `ClearRuntime` and at the prompt; `END` in a thread runs `MM.END` there; an error names its thread; no `CONTINUE` after threads |
+| EXECUTE | A thread's line runs from a buffer in its record; `tknbuf`, which the main program may be part way through, is kept while the tokeniser uses it. EXECUTE's one-second timer runs only while its thread does |
+| Refused | RUN, CHAIN, FLASH RUN, LIBRARY LOAD and EXECUTE "RUN" in a thread; ERASE, REDIM, CLEAR, SAVE CONTEXT and LOAD CONTEXT while a thread exists; THREAD START at the prompt |
+| PIXEL FILL | The stack check is off for its length in a thread (its borrowed stack is below a thread's) |
+
+Not done in Stage 1, against the plan: the assertion that the compiled executor is only left through a FUNCTION call.
+Nothing can leave it any other way yet (a yield is made at the statement tail); it belongs with Stage 2's waits.
+
+Firmware: 3.5 KB in bank 2, 280 bytes in bank 1, none in the ITCM.
+
+**On the G1**, against the Stage 0 baseline:
+
+| Check | Result |
+|---|---|
+| The ten thread tests (`tests/threads/t*.bas`), with OPTION COMPILE OFF, ON and SHADOW | all pass, the same output in the three modes |
+| The 58 regression programs of the quick check, three modes | every output the same as Stage 0's |
+| Crasher suite; the Route B programs on locals, calls and bind caches | all passed; the same result for every program |
+| Ctrl-C with three threads running, three times (twice inside a thread) | the prompt back, CONTINUE refused, the heap as before the run, the next program runs |
+| Timings | within 2% of Stage 0's on the final build (`Colour 7` 0.28 to 0.27 us) |
+| `THREAD YIELD` with no thread | 3.5 us |
+| A yield to another thread and back (two switches, three statements) | 17.7 us: about 4.5 us a switch |
+
+The thread tests: turn-taking in a fixed order (`tyield`); the same SUBs and FUNCTIONs in four threads with their
+own locals, strings, arrays, parameters by reference and recursion (`tlocals`); FOR, DO, SELECT CASE, IF and GOSUB in
+three at once (`tloops`); strings built across yields in FUNCTIONs (`ttemp`); ON ERROR SKIP, MM.ERRNO and MM.ERRMSG$
+per thread (`terror`); READ's place and EXECUTE's line per thread (`tdata`); 500 threads started and ended with the
+heap unchanged, and what THREAD refuses (`tmany`); END in a thread (`tend`); the main program ending first
+(`tmainend`); an error in a thread (`tfail`).
+
+**Found on the way:** a GOSUB's routine inside a SUB does not see the SUB's locals (GOSUB makes a level of its own).
+Not a thread matter, and as it was before; the loop test uses globals there.
+
+**Merged from v8-dev the same day** (not thread work; the final Stage 1 build and its checks include them): the web
+server's receive no longer leaves the program's errors skipped (the fault of "What the sweep found", fixed as the
+PicoMite fixed it, with `GetMemoryNull`), and BLIT RESIZE steps exactly (`tests/picomite/resize.bas`).
+
+**The quick check's tools:** `tools/goldens.py`'s card listing gives `NEW` first. After a program with OPTION
+EXPLICIT the option is still on at the prompt, the listing's own variable was refused, and every file was sent
+again. `tests/threads/quick_G1` is now this build's run, thread tests and all.

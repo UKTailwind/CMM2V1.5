@@ -321,19 +321,25 @@ void execute(char *mycmd){
 	if(!(toupper(rp[0])=='R' && toupper(rp[1])=='U' && toupper(rp[2])=='N' && !isnamechar(rp[3]))){ //convert the string to upper case
 		 char savetkn[TKNBUFSIZE];                                      // an EXECUTE run from inside another (by a SUB that one
 		 int savescrew = ScrewUpTimer;                                  // called) keeps the outer one's line, which runs from
-		 memcpy(savetkn, tknbuf, TKNBUFSIZE);                           // tknbuf, and its timeout (it cleared it)
-		 TokeniseStatement();
+		 char *line = ThreadTokenBuffer();                              // tknbuf, and its timeout (it cleared it). A thread's
+		 memcpy(savetkn, line, TKNBUFSIZE);                             // line runs from a buffer of its own (Thread.c): the
+		 if(line != tknbuf) memcpy(line, tknbuf, TKNBUFSIZE);           // main program may be part way through one in tknbuf,
+		 TokeniseStatement();                                           // which is kept here while the tokeniser uses it, and
+		 if(line != tknbuf) {                                           // put back before any statement runs
+			 for(int k = 0; k < TKNBUFSIZE; k++) { char c = line[k]; line[k] = tknbuf[k]; tknbuf[k] = c; }
+		 }
 		 ttp = nextstmt;                                                 // save the globals used by commands
 		 ScrewUpTimer=1000;
-		 ExecuteProgram(tknbuf);                                              // execute the function's code
+		 ExecuteProgram(line);                                                // execute the function's code
 		 ScrewUpTimer=savescrew;
-		 memcpy(tknbuf, savetkn, TKNBUFSIZE);
+		 memcpy(line, savetkn, TKNBUFSIZE);
 // TempMemoryIsChanged = true;                                     // signal that temporary memory should be checked
 		 nextstmt = ttp;
 		 return;
     } else {
     	char *p=inpbuf;
 		char *q, *s;
+		ThreadMainOnly();                                           // (EXECUTE "RUN ...": as RUN)
 		char fn[FF_MAX_LFN];
 		FRESULT fr;
 		FILINFO fno;
@@ -1517,6 +1523,7 @@ static int RunNameExpr(char *p, char *name) {
 
 void MIPS16 cmd_run(void) {
 	char *c;
+	ThreadMainOnly();                                               // (a thread cannot replace the program: Thread.c)
 	/* Erase the OSK and surrender the reserved strip up front. Calling
 	   this AFTER the conditional ClearScreen / library run below would let
 	   those paths trigger an OSK redraw via the ClearScreen hook, leaving
@@ -1564,6 +1571,7 @@ extern int executerun;
 // heap is cleared as RUN and CHAIN clear it (CHAIN: the globals kept); slot 0 is program memory's. MM.CMDLINE$ is
 // runcmd's.
 void MIPS16 FlashRunSlot(int slot, int chain) {
+	ThreadMainOnly();
 	SlotProgramCheck(slot);                                         // (before anything is cleared)
 	RunStarting = 1;
 	if(chain) ClearRuntimeKeepGlobals();
@@ -1615,6 +1623,7 @@ static void MIPS16 RunStart(int runlib) {
 // TYPEs in the same order.
 void MIPS16 cmd_chain(void) {
 	char fn[STRINGSIZE], args[STRINGSIZE];
+	ThreadMainOnly();
 	/* Erase OSK and surrender the strip before anything else runs. Mirrors
 	   do_run - see comment there for the rationale. (The PicoMite's.) */
 	OSK_OnRunStart();
@@ -2096,6 +2105,7 @@ int InMMEND = false;                                                // MM.END is
 void cmd_end(void) {
 	getargs(&cmdline, 1, ",");
 	int noend = (argc == 1 && checkstring(argv[0], "NOEND") != NULL);
+	ThreadsStop();                                                  // (no other thread runs from here on: Thread.c)
 	if(!noend && !InMMEND && FindSubFun("MM.END", 0) >= 0) {
 		InMMEND = true;
 		ExecuteProgram("MM.END\0");
@@ -2111,6 +2121,7 @@ void cmd_end(void) {
 // a program that runs off its last line ends as END does: SUB MM.END runs first (the PicoMite manual's "actual or
 // implied END"; only the END command ran it)
 void ImpliedEnd(void) {
+	ThreadsStop();
 	if(!InMMEND && FindSubFun("MM.END", 0) >= 0) {
 		InMMEND = true;
 		ExecuteProgram("MM.END\0");
@@ -3923,6 +3934,8 @@ uint32_t erase(char *p, int nofree) {
 void cmd_erasevar(char *erase_args) {
 	int i;
 	char p[STRINGSIZE];
+	ThreadsNone();                                                  // (a thread waiting in the middle of a statement may hold
+	                                                                // the address of the variable's data: Thread.c)
 	getargs(&erase_args, (MAX_ARG_COUNT * 2) - 1, ",");            // getargs macro must be the first executable stmt in a block
 	if((argc & 0x01) == 0) error("Argument count");
 	for(i = 0; i < argc; i += 2) {
@@ -3987,6 +4000,7 @@ void cmd_redim(void) {
 	char *oldmemory = NULL, *newmemory, *tp, old[STRINGSIZE], bounds[STRINGSIZE];
 	int oldsize = 0, newsize, length = -1, structIdx = -1;
 	int preserve = ((tp = checkstring(cmdline, "PRESERVE")) != NULL);
+	ThreadsNone();                                                  // (as ERASE: the array's data moves)
 	if(tp == NULL) tp = cmdline;
 	{
 		getargs(&tp, MAX_ARG_COUNT, ",");
@@ -4045,6 +4059,7 @@ void cmd_clear(void) {
 	}
 	checkend(cmdline);
 	if(LocalIndex)error("Invalid in a subroutine");
+	ThreadsNone();                                                  // (every thread's locals would go with the rest)
 	ClearVars(0);
 }
 

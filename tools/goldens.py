@@ -158,7 +158,9 @@ class Board:
 def card_sizes(b, gdir):
     """The files in gdir on the card, by lower-case name, with their sizes. The listing ends with a marker of its own:
     the command is longer than the console is wide, and its echo could look like a prompt to wait_prompt before the
-    card had given a line, so every file was sent again on every run."""
+    card had given a line, so every file was sent again on every run. NEW first: the last program's OPTION EXPLICIT
+    is still on at the prompt, and the listing's own variable was then refused, with the same result."""
+    b.cmd("NEW", 10)
     b.drain(0.05)
     b.send_line('gsf$=Dir$("%s/*",FILE):Do While gsf$<>"":Print gsf$;"|";MM.INFO(FILESIZE "%s/"+gsf$):gsf$=Dir$():Loop:Print "gs";"-end"' % (gdir, gdir))
     buf, t0 = "", time.time()

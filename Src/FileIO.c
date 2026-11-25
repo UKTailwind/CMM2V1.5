@@ -381,6 +381,7 @@ void OPTSIZE cmd_save(void) {
 	int maxH=PageTable[ReadPage].ymax;
     int maxW=PageTable[ReadPage].xmax;
     if((p = checkstring(cmdline, "CONTEXT")) != NULL) {            // SAVE CONTEXT [CLEAR]: the globals, to A:/.vars
+        ThreadsNone();                                              // (the globals are every thread's: Thread.c)
         SaveContext();
         if(checkstring(p, "CLEAR")) ClearGlobals();
         else checkend(p);
@@ -1090,6 +1091,7 @@ void cmd_load(void) {
 	if(p) {
         int keep = checkstring(p, "KEEP") != NULL;
         if(!keep) checkend(p);
+        ThreadsNone();
         RestoreContext(keep);
         return;
     }

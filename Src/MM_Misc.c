@@ -3409,6 +3409,9 @@ void OPTSIZE fun_info(void){
 	} else if(checkstring(ep, "FRAMEV")){
 	    iret = PageTable[WPN].ymax;
 		rettype='I';
+	} else if(checkstring(ep, "THREAD")){                           // the thread running: 0 the main program (Thread.c)
+		iret = ThreadNumber();
+		rettype='I';
 	} else if(checkstring(ep, "STACK LOW")){                        // the lowest the stack has reached since RUN (MMBasic.c)
 		iret=(int64_t)StackLowest();
 		rettype='I';
@@ -4525,7 +4528,7 @@ static inline unsigned int IntTickTake(void) {
 
 int check_interrupt(void) {
 	char *intaddr;
-	(void)IntTickTake();                                            // (the tick's call for the GUI: answered here)
+	unsigned int tick = IntTickTake();                              // (the tick's call for the GUI: answered here)
 	if(GUIactive && GUITimer1>=16){
 		GuiPointer();                                               // (the pointer, once there is a mouse: linked to it, it follows
 		GUITimer1=0;                                                // it as GUI CURSOR LINK MOUSE's does, below)
@@ -4535,10 +4538,14 @@ int check_interrupt(void) {
     ProcessTouch();                                             // check GUI touch
     if(CheckGuiFlag) CheckGui();                                // This implements a LED flash
 
+    if((tick & INT_TICK_SLICE) && ThreadCount) ThreadSchedule();    // another thread's turn (Thread.c): back here when this
+                                                                    // one's comes round, its state in the globals again
     if(!IntReady.any) return 0;                                     // quick exit: nothing signalled and nothing to poll (S1c)
     if(PrintScreenPending) PrintScreenNow();                        // OPTION PRINTSCREEN: Print Screen or Ctrl-\ while the
                                                                     // program runs (Console.c)
 	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
+    if(ThreadCount && ThreadNumber()) return 0;                     // an interrupt routine is the main program's: its signal
+                                                                    // waits for the main thread's own statement tail
     if((intaddr = IntScan()) == NULL) return 0;                     // nothing signalled is due, and nothing polled
     IntDispatch(intaddr);
 	return 1;

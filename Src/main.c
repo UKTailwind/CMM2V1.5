@@ -866,6 +866,8 @@ MouseOptionStart();                                                 // OPTION MO
 while ((i = getConsole()) != -1){;} //clear anything in console
 MMAbort = false;                                                    // (and a Ctrl-C typed during start-up, with the rest)
 if(setjmp(mark) != 0) {
+	  int hadthreads = ThreadsEnd();                                // the program's threads end with it (Thread.c): this is
+	                                                                // the main stack, whichever thread stopped the program
 	  SerUSBPutS("\033[?25h");
 	  SerUSBPutS("\033[37m");
 	  SerUSBPutS("\033[m");
@@ -928,6 +930,7 @@ if(setjmp(mark) != 0) {
     // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
     ContinuePoint = nextstmt;                                   // in case the user wants to use the continue command
     ContinueLocalIndex = LocalIndex;                            // (and the level it goes on at: in a SUB, its own)
+    if(hadthreads) ContinuePoint = NULL;                        // (nor a program that had threads: their stacks have gone)
     if(ProgMemory != ProgFlash) ContinuePoint = NULL;           // (but not a flash slot's program: ProgMemory goes back to
     SlotProgramLeave();                                         // program memory, ImageSlots.c)
     *tknbuf = 0;                                                // we do not want to run whatever is in the token buffer
@@ -995,6 +998,7 @@ if(Option.sleep)SleepTimer=Option.sleep*1000*60;
       EchoOption = true;
       // (the locals an error or a break left in a SUB or FUNCTION stay, for CONTINUE: a call typed here clears them,
       // DefinedSubFun)
+      ThreadsEnd();                                               // (threads live while a program runs: none at the prompt)
       LocalIndex = 0;                                             // this should not be needed but it ensures that all space will be cleared
       ClearTempMemory();                                           // clear temp string space (might have been used by the prompt)
       CurrentLinePtr = NULL;                                      // do not use the line number in error reporting

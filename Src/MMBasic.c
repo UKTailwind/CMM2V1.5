@@ -65,6 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "MMBasic.h"
 #include "Symbols.h"
+#include "Thread.h"
 
 #include "Functions.h"
 #include "Commands.h"
@@ -127,7 +128,7 @@ int hashlistpointer=0;
 /* P6 F2 (the PicoMite's a7154a1): the local region (slots 0 to MAXLOCALVARS - 1) is a stack.  Each local is
    made in the next slot up, and hashlist lists the live ones in the order they were made, each with its
    level: a level's locals are the topmost entries of that level.  localtop is the next slot to use. */
-static int localtop = 0;
+int localtop = 0;                                                   // (Thread.c keeps each thread's)
 /* The part of the local region the running code may use: all of it, until a program starts a thread, which is given a
    range of its own (docs/Threads_Plan.md). localtop starts at LocalBase, and the stack is full at LocalLimit. */
 int LocalBase = 0;
@@ -4383,6 +4384,13 @@ void error(char *msg, ...) {
        	if((inlib || InProgMemory(CurrentLinePtr)) && *CurrentLinePtr == T_NEWLINE) {
        		if(MMCharPos > 1)MMErrorString("\r\n");
        		MMErrorString("Error in ");
+       		if(ThreadNumber()) {                                    // a thread other than the main program: "thread 2, "
+       			char tb[12];
+       			MMErrorString("thread ");
+       			IntToStr(tb, ThreadNumber(), 10);
+       			MMErrorString(tb);
+       			MMErrorString(", ");
+       		}
        		if(LHDR_FILE(CurrentLinePtr) > 1 || inlib) {           // an #INCLUDE file, or a library's
        			MMErrorString(LineFileNameAt(CurrentLinePtr));
        			MMErrorString(" ");
@@ -4977,6 +4985,7 @@ extern volatile char CSubComplete;
 extern unsigned int CFuncInt1, CFuncInt2, CFuncInt3, CFuncInt4, CFuncmSec;
 static void MIPS16 ClearRuntimeAll(int keep) {
     int i;
+    ThreadsEnd();                                                   // the program's threads end with it (Thread.c)
 #ifdef PCSAMPLER
     PcsAbandon();                                                   // its tables are in the heap about to go
 #endif

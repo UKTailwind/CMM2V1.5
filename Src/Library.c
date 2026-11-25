@@ -541,6 +541,7 @@ static char *LibFirstStatement(void) {
 // after the library changed: the program prepared again over it, and in a program its top level run and the
 // program restarted at its first line (where LIBRARY LOAD now finds the library it asked for)
 static void LibRestart(char *savedline) {
+    ThreadMainOnly();                                               // (the program starts again: as RUN, Thread.c)
     CurrentLinePtr = savedline;
     ClearRuntime();                                                 // as RUN: a RAM library is kept only through RamLibKeep,
     RamLibKeep = 0;                                                 // for this wipe alone (an error in the library's top level

@@ -70,5 +70,18 @@ cmm2/context
 cmm2/library
 cmm2/libcsub
 
+' the threads' own tests, Stage 1: threads that take turns
+threads/tyield
+threads/tlocals
+threads/tloops
+threads/ttemp
+threads/terror
+threads/tdata
+threads/tmany
+threads/tend
+threads/tmainend
+threads/tfail
+
 ' timings: a statement of each kind, a SUB call and a FUNCTION call
 time threads/tstmt
+time threads/tswitch

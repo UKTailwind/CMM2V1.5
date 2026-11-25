@@ -68,5 +68,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Custom.h"
 #include "Functions.h"
 #include "Operators.h"
+#include "Thread.h"
 
 
