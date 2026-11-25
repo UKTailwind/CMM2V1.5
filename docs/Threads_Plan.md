@@ -28,7 +28,8 @@ end).*
   own call depth and its own name bindings. STATIC variables and globals are shared.
 - **Interrupt routines stay with the main program.** A thread that finds an interrupt due hands it to the main thread
   at once, so interrupt latency stays at one statement.
-- **Per thread: about 32 KB** from the heap (a 16 KB C stack, about 16 KB of save areas), sizes to confirm in Stage 0.
+- **Per thread: about 36 KB** from the heap (a 20 KB C stack, about 16 KB of save areas). Stage 0 measured the
+  stack's needs on a G1: a nested FUNCTION call takes 1.4 to 1.6 KB of C stack, a SUB call none.
 - **Six stages**, each leaving a working firmware: groundwork with no visible change, threads that take turns, time
   slices with `PAUSE` and interrupts, locks and flags, waits that let other threads run, tools and the manual.
 
@@ -195,9 +196,10 @@ The thread's first `gosubstack` entry returns to an end marker (the `"\0\0\0"` t
 and `EXIT SUB` end `ExecuteProgram` and the thread with it. Its `errorstack` entry is the `THREAD START` line.
 
 All threads run on the main stack pointer (MSP), as the interpreter does now. Hardware interrupt handlers therefore
-run on whichever thread's stack is current, so each thread stack keeps the same 4 KB guard the main stack has
-(`STACK_GUARD`), and `TestStackOverflow` works unchanged against the thread's own `stackwarn`. A word at the bottom of
-each stack is checked at every switch, to report an overflow the guard did not catch.
+run on whichever thread's stack is current, so each thread stack keeps a guard as the main stack does (`STACK_GUARD`,
+4 KB there; 6 KB for a thread, since Stage 0 measured built-in commands going 5 KB below their last check), and
+`TestStackOverflow` works unchanged against the thread's own `stackwarn`. A word at the bottom of each stack is
+checked at every switch, to report an overflow the guard did not catch.
 
 ### The scheduler
 
@@ -310,12 +312,12 @@ The compiled stream needs no change to its code.
 
 | For each thread | Size | From |
 |---|---|---|
-| C stack | 16 KB by default (12 KB usable above the guard), `THREAD SIZE` | on-chip heap while 96 KB of it stays free, else SDRAM |
+| C stack | 20 KB by default: a 6 KB guard and 14 KB usable, about nine nested FUNCTION calls (Stage 0's figures, in "Progress"); `THREAD SIZE` | on-chip heap while 96 KB of it stays free, else SDRAM |
 | Save areas: GOSUB 1.2 KB, FOR about 3.2 KB, DO about 4 KB, temporary memory 5 KB, locals, DATA, scalars | about 16 KB | SDRAM heap |
 | `SymL` array | 2 bytes for each name in the program | with the save areas |
 
 The save areas are full size so that a switch can never run out of memory. They are only touched for the entries in
-use. On a G2 (about 15 MB of heap) and a G1 (about 4.5 MB, 3.5 MB with OPTION COMPILE ON) 32 KB a thread is small. The
+use. On a G2 (about 15 MB of heap) and a G1 (about 4.5 MB, 3.5 MB with OPTION COMPILE ON) 36 KB a thread is small. The
 on-chip heap is 192 KB and is wanted for strings and audio buffers, which is why only the first few stacks go there.
 
 The main stack is in DTCM, the fastest RAM. A thread's stack in D2 SRAM or SDRAM will be a little slower, through the
@@ -418,11 +420,11 @@ The design keeps these small on purpose. `DefinedSubFun` and the statement loops
 
 ## Risks
 
-1. **Stack depth.** Nobody knows how deep the firmware's commands and its housekeeping go. `CheckAbort` runs USB, the
-   network (`WebPoll`) and Bluetooth from any thread's tail, and a TLS handshake may need several KB. The main stack's
-   24 KB is known to be enough; a 12 KB thread stack is not known to be. Stage 0 measures it. If housekeeping is deep,
-   it can be run on the main thread's stack from any thread (a call that borrows the suspended main stack below its
-   saved pointer), which takes it out of every thread's budget.
+1. **Stack depth.** `CheckAbort` runs USB, the network (`WebPoll`) and Bluetooth from any thread's tail, on that
+   thread's stack. Stage 0 measured it on a G1 ("Progress"): the housekeeping and the hardware interrupts' handlers
+   stay within 1.2 KB of the statement loop with Wi-Fi joined and idle, and a TLS request within 2.6 KB, so they do
+   not need a stack of their own. What goes deepest is a built-in command, about 5 KB, and nested FUNCTION calls.
+   Not yet measured: the image decoders in 32-bit modes and SQL (a G2), Bluetooth, sound.
 2. **State missed from the table.** A global that a statement sets and a later statement of the same thread relies
    on, and that is not in the table, would be trampled. "The inventory" below is the guard, and Stage 1's tests run
    every control structure in two threads at once with a yield after every statement.
@@ -452,9 +454,20 @@ Peter agreed all ten as recommended, 25 November.
 
 ## Stages
 
-Each stage ends with the regression (tests/cmm2 and tests/picomite with OPTION COMPILE OFF, ON and SHADOW) unchanged
-on a G1 and a G2, and with the thread tests of every earlier stage passing. Thread tests go in tests/threads, each a
-`.bas` with an `.expected`, run with OFF, ON and SHADOW.
+There are two levels of testing (Peter, 25 November: the full regression is the right baseline but takes too long to
+run at every step).
+
+- **The quick check**, `tools/threadcheck.py`, at every step. It runs the regression programs that bear on what
+  threads touch (58 of tests/cmm2, listed in `tests/threads/quick.txt`: the statement loop and control structures,
+  SUBs, FUNCTIONs, locals and bindings, interrupts and PAUSE, errors and END), each once with OPTION COMPILE OFF, ON
+  and SHADOW, then a timing program and the crasher suite. Every output is compared with the build before, nothing
+  masked. About five minutes on a G1. `--rb` adds the Route B programs on locals, calls and the bind caches (eight
+  minutes more), for a step that touches what the compiler shares with the threads; `--stack` reads the stack's
+  depth after each program. The thread tests of tests/threads, each a `.bas` with an `.expected`, join the list as
+  each stage writes them.
+- **The full regression** (`tools/goldens.py`, every program twice; over an hour with its other suites) for the
+  baseline, which is the G1's compile-off run of 545908b on 25 November, and again before the branch goes back to
+  v8-dev, on a G1 and a G2. A stage that changes something the quick check cannot see runs the part of it that can.
 
 ### Stage 0: groundwork, nothing visible
 
@@ -470,8 +483,8 @@ on a G1 and a G2, and with the thread tests of every earlier stage passing. Thre
 6. `error()` formats the line number in a buffer of its own.
 7. The network's receive callback that sets `OptionErrorSkip` looked at (see "The inventory").
 
-**Done when** the regression output is identical and the timing programs (tests/bench) are within noise of the build
-before, on both boards.
+**Done when** the quick check and one full compile-off run print the same as the build before, and the timings are
+within noise of it.
 
 ### Stage 1: threads that take turns
 
@@ -641,7 +654,7 @@ temporary memory code, `Symbols.c` and the stream's executor; the sweep found no
 
 ### Stage 0 (25 November, on branch `threads`)
 
-In the source and built (Release); not yet run on a board.
+In the source and built (Release); run on the G1 the same day (below).
 
 | Item | What was done |
 |---|---|
@@ -660,5 +673,53 @@ after a break today: with Ctrl-C inside a SUB that `EXECUTE` called, `CONTINUE` 
 returns into the line's buffer. In `tknbuf` that finds the end of a line; in a dead stack frame it would find
 whatever is there. So the main thread keeps `tknbuf`, and only a thread gets a buffer of its own, in its record.
 
-**Still to do for Stage 0, on the boards:** the regression with OPTION COMPILE OFF, ON and SHADOW against this
-build and the build before; the timing programs against both; the stack measurements.
+### Stage 0 on the G1 (25 November)
+
+The G1 (COM51, 400 MHz, Wi-Fi joined) was flashed with 545908b, tested, then with the Stage 0 build, tested, and left
+on it with its options as they were. The image it had before is kept.
+
+| Check | Result |
+|---|---|
+| Full regression, OPTION COMPILE OFF: tests/cmm2 (114 programs) and tests/picomite (4), every program twice | every first output the same as 545908b's, byte for byte |
+| Quick check: 58 programs with OFF, ON and SHADOW | every output the same as 545908b's |
+| Crasher suite | all passed, both builds |
+| Route B programs on locals, calls and the bind caches (78, each OFF, ON and SHADOW) | the same result for each on both builds: 52 same three ways, 26 with the same error three ways, none differing |
+| Timings, compile off (`tests/threads/tstmt.bas`) | within 2% of 545908b, but `Line` of one pixel +3.1% and `Colour 7` 0.34 to 0.28 us; a SUB call +0.4%, a FUNCTION call +0.9% |
+| Timings, compile on | within 2.7% |
+
+The two statements that moved do not run any changed code and moved in opposite directions: the flash layout, as
+seen before. Not run: a full pass with ON or SHADOW (the quick check covers its 58 programs in both), the corpus,
+the Testfiles, SP Tools, and anything on a G2.
+
+**The stack**, as bytes below its top (24,568 are usable above the 4 KB guard):
+
+| What | Bytes |
+|---|---|
+| The stack pointer inside a function called from a top-level statement | 2,400 |
+| The deepest a RUN goes before the program's first line | 4,032 |
+| Ten seconds of a loop and five of PAUSE, Wi-Fi joined: the statements, the housekeeping and the interrupts' handlers | 3,056 |
+| A plain HTTP request | 3,464 |
+| A request over TLS | 4,476 |
+| The deepest programs of tests/cmm2 that do not recurse: `sprites` and `json` 7,408, `savepng` 7,268, `raydepth` 6,732, `mode1` 6,632 | up to 7,408 |
+| One nested FUNCTION call returning a number, as text | 1,440 a level |
+| The same, compiled | 664 a level |
+| One nested FUNCTION call returning a string, text or compiled | 1,560 to 1,592 a level |
+| One nested SUB call | 0 |
+| `locals.bas`, which recurses a FUNCTION 20 deep | 21,564 |
+
+What this says for a thread's stack:
+
+- **The housekeeping is shallow**, so it can run on any thread's stack: no need to borrow the main stack for it.
+- **A built-in goes about 5 KB below the statement that runs it** (7,408 less the 2,400 its arguments were checked
+  at). That is more than the 4 KB guard, on the main stack too: a program at the very end of its stack could
+  overrun on those commands today. A thread's stack takes a 6 KB guard.
+- **FUNCTION nesting is what a program spends stack on**: 1.4 to 1.6 KB a level. The default of 20 KB gives a thread
+  14 KB above its guard, about nine levels; the main program has about seventeen. `THREAD SIZE` for more.
+
+**Tools made on the way** (in the repository): `tools/threadcheck.py` and `tests/threads/quick.txt` (the quick
+check), `tests/threads/tstmt.bas` (timings), `stack0.bas`, `stack1.bas` and `stack2.bas` (the measurements above).
+`tools/goldens.py` sent every file again on every run: its listing of the card could be read before the card had
+answered. It now waits for the listing's own end (a minute saved on each run, for every user of it).
+
+**Still open in Stage 0:** the stack depth of the image decoders in 32-bit modes, of SQL, sound and Bluetooth, and
+the same checks on a G2.

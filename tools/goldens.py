@@ -155,6 +155,28 @@ class Board:
         return self.wait_prompt(30)
 
 
+def card_sizes(b, gdir):
+    """The files in gdir on the card, by lower-case name, with their sizes. The listing ends with a marker of its own:
+    the command is longer than the console is wide, and its echo could look like a prompt to wait_prompt before the
+    card had given a line, so every file was sent again on every run."""
+    b.drain(0.05)
+    b.send_line('gsf$=Dir$("%s/*",FILE):Do While gsf$<>"":Print gsf$;"|";MM.INFO(FILESIZE "%s/"+gsf$):gsf$=Dir$():Loop:Print "gs";"-end"' % (gdir, gdir))
+    buf, t0 = "", time.time()
+    while "gs-end" not in ANSI.sub("", buf) and not re.search(r"(?m)^Error", ANSI.sub("", buf)) and time.time() - t0 < 90:
+        buf += b._read()
+    try:
+        b.wait_prompt(5)
+    except TimeoutError:
+        pass
+    sizes = {}
+    for line in ANSI.sub("", buf).splitlines():
+        if "|" in line:
+            name, size = line.rsplit("|", 1)
+            if size.strip().isdigit():
+                sizes[name.strip().lower()] = int(size)
+    return sizes
+
+
 USBNOTE = re.compile(r"^(?:> ?)*(?:Multi-touch|USB [\w ]+?) (?:Connected|Disconnected)\b")
 
 
@@ -437,14 +459,7 @@ def main():
     b.cmd('MKDIR "%s"' % gdir, 10)                     # an error if it is there already, which is fine
     b.cmd('CHDIR "%s"' % gdir, 10)
     # Send a file only if the card lacks it or has a different size, or everything with --put.
-    onboard = {}
-    if "--put" not in sys.argv:
-        listing = b.cmd('f$=Dir$("%s/*",FILE):Do While f$<>"":Print f$;"|";MM.INFO(FILESIZE "%s/"+f$):f$=Dir$():Loop' % (gdir, gdir), 60)
-        for line in listing.splitlines():
-            if "|" in line:
-                name, size = line.rsplit("|", 1)
-                if size.strip().isdigit():
-                    onboard[name.strip().lower()] = int(size)
+    onboard = card_sizes(b, gdir) if "--put" not in sys.argv else {}
     files = [f for f in os.listdir(corpus) if f.lower().endswith(".bas") and f[:-4] in names]   # every program: some run or read others
     files += [f for f in os.listdir(corpus) if f.lower().endswith((".dat", ".txt", ".csv", ".inc", ".bmp", ".jpg", ".png", ".gif", ".map"))]
     stage = tempfile.mkdtemp(prefix="goldens_")

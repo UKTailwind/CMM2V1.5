@@ -1,0 +1,74 @@
+' quick.txt - the programs tools/threadcheck.py runs: the quick check for the threads work (docs/Threads_Plan.md).
+' Each line is corpus/name (tests/<corpus>/<name>.bas); "time" before one makes it a timing program, whose RESULT lines
+' are compared. Chosen from the full regression for what threads touch, and for running in a second or two each. Every
+' one prints the same on each run (the G1's full run of 25 Nov 2026), so a difference from the build before is a change.
+' The thread tests of tests/threads are added here as each stage writes them.
+
+' the statement loop and the control structures
+cmm2/ctlflow
+cmm2/forif
+cmm2/tokens
+cmm2/gosubbad
+cmm2/bugs
+cmm2/behfix
+cmm2/p1fixes
+cmm2/pmfix
+cmm2/m4fixes
+cmm2/parity1
+cmm2/langsys
+cmm2/subst
+cmm2/folds
+cmm2/datakw
+cmm2/printpos
+cmm2/bitflag
+
+' SUBs, FUNCTIONs, locals, their bindings and the variable table
+cmm2/locals
+cmm2/locals30
+cmm2/localfast
+cmm2/binding
+cmm2/symbols
+cmm2/static
+cmm2/names
+cmm2/vartable
+cmm2/globals7
+cmm2/bounds
+cmm2/emptyarr
+cmm2/funarray
+cmm2/shortarr
+cmm2/name32
+cmm2/structs
+cmm2/types
+cmm2/onedim
+cmm2/onedim1
+cmm2/arrays
+cmm2/redim
+cmm2/cmdvars
+cmm2/prep6
+cmm2/manystr
+
+' interrupts and PAUSE
+cmm2/inttick
+cmm2/intsrc
+cmm2/pauseint
+cmm2/csubint
+cmm2/csubint2
+
+' errors, END and the commands that replace or restart the program
+cmm2/onerror
+cmm2/dupl
+cmm2/typeerr1
+cmm2/typeerr2
+cmm2/endcmd
+cmm2/endhook
+cmm2/endnoend
+cmm2/runself
+cmm2/chain1
+cmm2/chain2
+cmm2/chain
+cmm2/context
+cmm2/library
+cmm2/libcsub
+
+' timings: a statement of each kind, a SUB call and a FUNCTION call
+time threads/tstmt
