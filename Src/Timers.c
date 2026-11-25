@@ -341,6 +341,14 @@ void Timer1msHandler(void) {                            /* ----- SysTick_Handler
 	                                                                    // as a read here can be 50 mS behind while TIM16 wraps)
 	    GuiPressTick();                                                 // the GUI's press: a finger, a mouse, GUI CLICK (GUI.c)
 	    if(GUI_INPUT_ON || autocursor) IntReady.tick |= INT_TICK_GUI;  // and check_interrupt after the next statement sees to it
+	    if(ThreadSliceLeft && --ThreadSliceLeft == 0) {                 // threads (Thread.c): the running one's time slice is up,
+	    	ThreadSliceLeft = ThreadSliceLen;                           // and the statement tail lets the next run. Nothing while
+	    	IntReady.tick |= INT_TICK_SLICE;                            // a program has no thread
+	    }
+	    if(ThreadWakeMs && (int)((unsigned int)mSecTimer - ThreadWakeMs) >= 0) {   // a thread's PAUSE has ended: likewise
+	    	ThreadWakeMs = 0;
+	    	IntReady.tick |= INT_TICK_SLICE;
+	    }
 
 		// Handle any IR remote control activity
 		ElapsedMicroSec = readusclock();

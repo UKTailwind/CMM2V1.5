@@ -923,6 +923,7 @@ static void GuiClick(char *p){
         GuiClickDown = 0;
         return;
     }
+    ThreadMainOnly();                                               // (its wait takes interrupts, with one saved state: Thread.c)
     if(GuiClickPhase == 0) {
         skipspace(p);
         if(*p && *p != '\'') {
@@ -3204,6 +3205,7 @@ void fun_msgbox(void) {
     if(!Option.MaxCtrls)error("No memory allocated for GUI controls");
     if(GuiClickEmulated)                                            // (the PicoMite's: nothing could steer the pointer to its buttons)
         error("MsgBox needs a real touch or mouse - cursor cannot be steered while MsgBox is open");
+    ThreadMainOnly();                                               // (it runs interrupt routines while it waits: Thread.c)
     getargs(&ep, 9, ",");
     if(argc < 3) error("Argument count");
     mouseon();

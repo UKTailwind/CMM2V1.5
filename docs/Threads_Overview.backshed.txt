@@ -1,0 +1,140 @@
+[CENTER][SIZE=5][COLOR=BLUE][B]Colour Maximite 2: threads for MMBasic, an overview[/B][/COLOR][/SIZE][/CENTER]
+[I]25 November 2026. Work in progress: threads are not in any release yet, and the details may still change. Comments and ideas are welcome.[/I]
+
+MMBasic has long had interrupts: something happens, a short routine runs, and the program carries on. Threads are a different tool. A thread is an ordinary SUB that runs [B]alongside[/B] the main program for as long as it likes, with its own loops, its own LOCAL variables and its own PAUSEs. The firmware shares the processor between the threads, a millisecond at a time.
+
+[CODE]Option Explicit
+Dim Integer beats
+
+Sub Heart
+  Do
+    Inc beats
+    Pause 500                 ' the rest of the program runs meanwhile
+  Loop
+End Sub
+
+Thread Start 1, Heart
+Do
+  Text 0, 0, "Beats: " + Str$(beats) + "  "
+  Pause 100
+Loop Until Inkey$ <> ""
+End                           ' the threads stop with the program[/CODE]
+
+
+[SIZE=4][COLOR=BLUE][B]What works today[/B][/COLOR][/SIZE]
+These run on a test board now:
+
+• [B]THREAD START n, sub[/B] starts thread n (1 to 16) running a SUB. The main program is thread 0.
+• [B]THREAD EXIT[/B] ends the thread that runs it. A thread also ends when its SUB ends.
+• [B]THREAD YIELD[/B] gives up the rest of the thread's time slice.
+• [B]THREAD STOP n[/B] ends thread n where it stands. Its local variables and memory are freed.
+• [B]THREAD PAUSE n[/B] and [B]THREAD RESUME n[/B] hold thread n and let it go on.
+• [B]THREAD SLICE ms[/B] sets the time slice, 1 to 100 ms. It is 1 ms unless you say otherwise.
+• [B]THREAD SIZE kb [, locals][/B] sets the stack and the number of local variables for threads started after it.
+• [B]MM.INFO(THREAD)[/B] is the number of the thread that runs it. [B]MM.INFO(THREAD n)[/B] is 0 if thread n is not running, 1 if it is running, 2 if it is in a PAUSE and 3 if it has been paused.
+
+Still to come: locks (THREAD LOCK and UNLOCK), THREAD HOLD and RELEASE for a few statements that must not be split, THREAD WAIT (for a thread to end, or for a flag), arguments for a thread's SUB, and THREAD LIST.
+
+
+[SIZE=4][COLOR=BLUE][B]How they work[/B][/COLOR][/SIZE]
+• [B]One thread runs at a time, and the switch comes only between statements,[/B] never in the middle of one. A statement is always whole: Inc count in two threads never loses a count.
+• [B]The threads take turns,[/B] 1 ms each, in number order. A thread whose PAUSE has just ended goes next, so things that are timed stay on time among busy threads.
+• [B]Each thread has its own[/B] LOCAL variables, FOR and DO loops, SUB and FUNCTION calls, GOSUBs, ON ERROR setting with MM.ERRNO and MM.ERRMSG$, and place in the DATA for READ. Two threads can run the same SUB at the same time, each with its own locals, recursion included.
+• [B]Everything else is shared:[/B] global variables and arrays, STATIC variables, the screen with its current colours, font and print position, open files, sound, the pins and the options.
+• [B]PAUSE in a thread costs nothing.[/B] The other threads run meanwhile, and a program whose threads are all waiting is idle.
+• [B]Interrupts work as before[/B] (SETTICK, SETPIN, ON KEY and the rest). Their routines always run in the main program, whichever thread was running when the interrupt came, and no thread runs until the routine returns.
+• [B]END in any thread, an error in any thread, or Ctrl-C stops the whole program.[/B] An error says where it was: "Error in thread 3, line 5".
+• [B]OPTION COMPILE ON works with threads.[/B]
+• [B]The cost:[/B] a program that starts no thread runs as fast as before. A switch takes about 5 microseconds, so 1 ms slices cost about half a percent. A thread takes about 37 KB of memory while it runs, given back when it ends.
+
+
+[SIZE=4][COLOR=BLUE][B]What they cannot do[/B][/COLOR][/SIZE]
+• [B]They do not make a program faster.[/B] There is one processor: four busy threads get a quarter of it each. Threads are for doing several things at once, not for doing one thing sooner.
+• [B]They cannot cut into a statement.[/B] A statement that takes a long time (a SORT of a large array, a file copy, loading a picture, INPUT waiting for the user) holds every thread until it is done. For now PAUSE is the only wait that lets the others run, so read keys with INKEY$ in a loop, not with INPUT. Later INPUT and the other commands that wait will let the others run too.
+• [B]No priorities.[/B] Every thread that is ready gets its turn.
+• [B]No arguments for the thread's SUB yet.[/B] Until there are, MM.INFO(THREAD) tells a SUB which thread it is, to pick its row of an array (the second example).
+• [B]Limits:[/B] with the usual sizes a thread can go about nine FUNCTIONs deep (SUB calls take nothing) and have 48 local variables, and about ten threads can run at once. THREAD SIZE changes that: more stack for deep recursion, or fewer locals each for all sixteen threads.
+• [B]Not allowed in a thread:[/B] RUN, CHAIN, FLASH RUN, LIBRARY LOAD, MsgBox() and GUI CLICK. Not allowed while any thread is running: ERASE, REDIM, CLEAR, SAVE CONTEXT and LOAD CONTEXT. THREAD START is for programs, not the command prompt, and CONTINUE does not work after Ctrl-C in a program with threads.
+
+
+[SIZE=4][COLOR=BLUE][B]The one thing to watch: what the threads share[/B][/COLOR][/SIZE]
+A switch can come between any two statements. Suppose two threads do this:
+
+[CODE]' thread 1                    ' thread 2
+Colour RGB(red)               Colour RGB(green)
+Print "Alarm!"                Print "All well"[/CODE]
+
+If the switch comes after thread 1's COLOUR, "Alarm!" is printed in green. Until the locks arrive there are three simple ways round it:
+
+• [B]One owner.[/B] One thread does all the drawing, or all the writing to a file, and the others only set variables for it.
+• [B]One statement.[/B] Text x, y, "Alarm!", , , , RGB(red) carries its colour with it, and nothing can come between.
+• [B]One writer.[/B] A variable that one thread sets and the others only read is always safe.
+
+A test and the action after it are two statements, so If free > 0 Then free = free - 1 can be cut in the middle when two threads run it. Inc, and a single assignment, cannot.
+
+
+[SIZE=4][COLOR=BLUE][B]Ideas for using them[/B][/COLOR][/SIZE]
+• [B]Something with a rhythm of its own:[/B] a clock in the corner, a heartbeat LED, a status line, a tune played note by note with a PAUSE between the notes while the game goes on.
+• [B]Straight-line code in place of a state machine:[/B] traffic lights, a sequence of valves and timers, an alien that moves, waits and fires. Each is written as steps with PAUSEs between them, not as a SETTICK routine and a variable that remembers where it had got to.
+• [B]Many of the same thing:[/B] every ball, alien or robot is the same SUB in a thread of its own, with its own LOCALs (the second example).
+• [B]A long job with a live screen:[/B] a Mandelbrot or a big calculation runs in a thread while the main program shows progress and reads the keys, and can pause it, let it go on or stop it (the third example).
+• [B]Logging:[/B] one thread samples a sensor every 100 ms into an array, another writes the array to the SD card every ten seconds, and the main program draws the graph.
+• [B]Communications:[/B] a thread watches a COM port or the network, puts the lines together and leaves each one in a global for the main program.
+• [B]A timeout:[/B] a thread that waits five seconds and then sets a flag, or stops another thread.
+
+[B]Thread or interrupt?[/B] An interrupt is for something that happens and wants a quick, short answer. A thread is for something that goes on: it waits, loops and has a flow of its own. They work well together: the interrupt sets a variable and a thread acts on it.
+
+
+[SIZE=4][COLOR=BLUE][B]Two more examples[/B][/COLOR][/SIZE]
+[B]Four balls, one SUB.[/B] Each thread runs Ball with its own x, y, dx and dy. Each CIRCLE carries its own colour, so the threads cannot mix them up.
+
+[CODE]Option Explicit
+Dim Integer i
+Dim Integer col(4) = (0, RGB(red), RGB(green), RGB(yellow), RGB(cyan))
+
+Sub Ball
+  Local Integer me = MM.Info(Thread)
+  Local Float x = 100 * me, y = 60 * me, dx = 2 + me, dy = 1 + me
+  Do
+    Circle x, y, 5, 1, 1, 0, 0                    ' rub the old one out
+    x = x + dx : y = y + dy
+    If x < 10 Or x > MM.HRes - 10 Then dx = -dx
+    If y < 10 Or y > MM.VRes - 10 Then dy = -dy
+    Circle x, y, 5, 1, 1, col(me), col(me)
+    Pause 20
+  Loop
+End Sub
+
+CLS
+For i = 1 To 4 : Thread Start i, Ball : Next
+Do : Pause 50 : Loop Until Inkey$ <> ""
+End[/CODE]
+
+[B]A long job that listens.[/B] The picture is drawn by a thread. The main program reads the keys: P pauses the drawing, R lets it go on, Q stops it.
+
+[CODE]Option Explicit
+Dim Integer done, row
+Dim k$
+
+Sub Picture
+  Local Integer x, y
+  For y = 0 To MM.VRes - 1
+    For x = 0 To MM.HRes - 1
+      Pixel x, y, RGB(x And 255, y And 255, (x Xor y) And 255)
+    Next
+    row = y
+  Next
+  done = 1
+End Sub
+
+CLS
+Thread Start 1, Picture
+Do While done = 0
+  k$ = UCase$(Inkey$)
+  If k$ = "P" Then Thread Pause 1
+  If k$ = "R" Then Thread Resume 1
+  If k$ = "Q" Then Exit Do
+  Pause 50
+Loop
+Thread Stop 1                 ' (does nothing if the thread has ended)
+Print @(0, 0) "Ended at row"; row[/CODE]

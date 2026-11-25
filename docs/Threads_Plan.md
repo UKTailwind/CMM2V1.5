@@ -49,7 +49,7 @@ These are the facts the design rests on.
 | A program saved with symbols finds a local through `SymL[name]`, the newest live local of that name. The compiler's records cache what they bound, stamped with a generation number that every change to the bindings moves on. | `Inc/Symbols.h` 172-217, `Src/Stream.c` 4921, 5037-5053 |
 | Temporary memory is a list (`StrTmp`) tagged with the level it was taken at; the tail frees the entries at the current level or deeper. | `Src/Memory.c` 936-970 |
 | An error ends in `longjmp(mark)`, back to `main()`, or `longjmp(ErrNext)` under ON ERROR SKIP or IGNORE, back to the `ExecuteProgram` that ran the statement. | `Src/MMBasic.c` 4322-4456, `Src/main.c` 868 |
-| The main stack is 28 KB at the top of the DTCM, with a 4 KB guard above the static variables; the evaluator tests the stack pointer against `stackwarn` at every value. | `STM32H743II_FLASH.ld`, `Src/MMBasic.c` 134-144, `Inc/MMBasic.h` 415 |
+| The main stack is 28 KB at the top of the DTCM, with a 6 KB guard (4 KB until 25 November) above the static variables; the evaluator tests the stack pointer against `stackwarn` at every value. | `STM32H743II_FLASH.ld`, `Src/MMBasic.c` 134-144, `Inc/MMBasic.h` 415 |
 | The firmware already runs code on other stacks in two places: loadable programs on the process stack, and PIXEL FILL on free heap. | `Src/Loader.c` 982, `Src/Draw.c` 3563 |
 
 ## Why each thread needs its own C stack
@@ -198,7 +198,8 @@ and `EXIT SUB` end `ExecuteProgram` and the thread with it. Its `errorstack` ent
 
 All threads run on the main stack pointer (MSP), as the interpreter does now. Hardware interrupt handlers therefore
 run on whichever thread's stack is current, so each thread stack keeps a guard as the main stack does (`STACK_GUARD`,
-4 KB there; 6 KB for a thread, since Stage 0 measured built-in commands going 5 KB below their last check), and
+6 KB on both: Stage 0 measured built-in commands going 5 KB below their last check, and the main stack's guard was
+raised from 4 KB to match on 25 November), and
 `TestStackOverflow` works unchanged against the thread's own `stackwarn`. A word at the bottom of each stack is
 checked at every switch, to report an overflow the guard did not catch.
 
@@ -215,8 +216,12 @@ checked at every switch, to report an overflow the guard did not catch.
   statements.
 - **Skipping.** The scheduler passes over a thread that is paused, sleeping before its time, or waiting for a lock, a
   flag or a thread that is not ready for it. Those tests are a compare each: no switch is made to find out.
-- **Nothing ready.** The scheduler loops on the current stack: `CheckAbort()` (so Ctrl-C, USB and the network go on),
-  the interrupt scan, the sleepers' times.
+- **A sleeper that is due goes first** (as built in Stage 2): the thread whose `PAUSE` ended earliest runs before the
+  next in the round, and the tick ends the running thread's slice at that time, so a timed thread is on time among
+  busy ones.
+- **Nothing ready** (as built in Stage 2): the main program runs, asleep or not. Its `PAUSE` loop is the idle loop,
+  as it always was: `CheckAbort()` (so Ctrl-C, USB and the network go on), the interrupt scan, the GUI's work. There
+  is no second idle loop to keep in step with it.
 
 With N ready threads and a slice of S ms, a thread waits at most (N - 1) x S plus the longest single statement. A
 statement that takes a long time (a `SORT` of a large array, a file copy) holds every thread until it ends:
@@ -244,7 +249,10 @@ meant to be short, this keeps the single saved state in `check_interrupt` valid,
 atomic with respect to the threads. A lock that is not free, or any other wait, inside an interrupt routine is an
 error.
 
-**The same hold applies in four other places**, through one count that the scheduler tests:
+**The same hold applies in four other places**, each tested by the scheduler (`Held`, `Src/Thread.c`; the last three
+built in Stage 2, the first for Stage 3). For a CSUB and a module the hold is the depth of the interpreter that BASIC
+called from inside one runs at (`ThreadHoldDepth`), so an error that leaves the call by `longjmp` cannot leave the
+hold on: the scheduler drops it the first time it is asked at a shallower depth.
 
 - between `THREAD HOLD` and `THREAD RELEASE`;
 - while a USER or SQL module call is under way (`usercall`, `Src/User.c` 187, puts its own `jmp_buf` in `mark` for
@@ -254,7 +262,8 @@ error.
 - while a loadable program runs (`LoaderActive`).
 
 `MsgBox()` and `GUI CLICK` take interrupts while they wait, each with one saved state (`ServiceInterrupts`,
-`Src/GUI.c` 3173; `GuiClickPhase`). They are for the main thread only at first.
+`Src/GUI.c` 3173; `GuiClickPhase`). They are for the main thread only at first: in another thread they are an error
+("Not allowed in a thread", Stage 2). In the main program the other threads run while either waits.
 
 ### PAUSE and other waits
 
@@ -291,6 +300,11 @@ The compiled stream needs no change to its code.
   today; a debug-build assertion in the scheduler will hold the rule.
 - The stream's other caches (`RBCache`, `RBLoopRec`, a patched `RC_GOTO`) are keyed by program position and checked
   before use, so threads share them safely.
+- **A switch makes every bind stamp stale, at every level** (`BindsStale`, found in Stage 2). A record's stamp is the
+  sum of the last global event's number and the last local event's at its level. One new global event at a switch is
+  not enough: with the global number moved on, the sum at one level can equal a sum made earlier at another level, by
+  this thread or another, and the record then uses that level's addresses. So a switch gives every level an event of
+  its own and the globals a newer one: every sum made after it is greater than any made before.
 
 ### Errors, END and Ctrl-C
 
@@ -777,3 +791,77 @@ PicoMite fixed it, with `GetMemoryNull`), and BLIT RESIZE steps exactly (`tests/
 **The quick check's tools:** `tools/goldens.py`'s card listing gives `NEW` first. After a program with OPTION
 EXPLICIT the option is still on at the prompt, the listing's own variable was refused, and every file was sent
 again. `tests/threads/quick_G1` is now this build's run, thread tests and all.
+
+### Stage 2 (25 November): time slices, PAUSE and interrupts
+
+Threads are now pre-empted: `THREAD STOP`, `PAUSE`, `RESUME`, `SLICE`, `SIZE` and `MM.INFO(THREAD n)`, as planned.
+
+| Part | How it was done |
+|---|---|
+| The slice | The 1 ms tick counts the running thread's slice down and sets `INT_TICK_SLICE`; nothing is counted while a program has no thread. The switch is made at the statement tail, as a yield is |
+| A sleeping thread | `PAUSE` gives the thread a time to wake at and lets the others run (`ThreadSleepUntil`). The tick ends the running thread's slice when the first sleeper is due, and a sleeper that is due runs before the next in the round |
+| Nothing to run | The main program runs, asleep or not: its PAUSE loop is the idle loop (Ctrl-C, the interrupts, the GUI's work), as it always was |
+| PAUSE | Measured against the microsecond clock in every thread, **and in a program with no threads**: `PauseTimer` and `IntPauseTimer` are no longer what a pause counts. An interrupted pause in the main program goes on to the same end time |
+| Interrupts | A thread that finds one due (`IntScan`) stores its routine's address and switches to the main program, which takes it at once (`ThreadIntPending`). No scan is made twice for one interrupt |
+| The hold | No switch in an interrupt routine, while a loadable program runs, once the program is ending, or in BASIC called from inside a CSUB or a USER or SQL module (`ThreadHoldDepth`) |
+| `THREAD STOP n` | The thread's locals and temporary memory are freed with its state in the globals for the moment, as `ThreadsEnd` does, then its blocks go. A thread that stops itself ends as `THREAD EXIT` |
+| `THREAD PAUSE n`, `RESUME n` | A flag the scheduler tests. A thread may pause itself: it stops at the end of that statement |
+| `THREAD SIZE kb [, locals]` | 12 to 512 KB of stack and 8 to 256 local slots, for threads started after it; back to 20 KB and 48 at the next RUN |
+| `MM.INFO(THREAD n)` | 0 not running, 1 running or ready, 2 in a PAUSE, 3 paused by `THREAD PAUSE` |
+| Refused in a thread | `GUI CLICK`'s wait and `MsgBox()` ("Not allowed in a thread"): each takes interrupts while it waits, with one saved state. In the main program the threads run while either waits |
+
+Not done in Stage 2: where the housekeeping runs was left as it is (Stage 0 found it shallow enough for any stack),
+and the assertion on the compiled executor still waits for Stage 3's waits, the first that could trip it.
+
+**On the G1**, against the Stage 1 build:
+
+| Check | Result |
+|---|---|
+| The seventeen thread tests, with OPTION COMPILE OFF, ON and SHADOW | all pass, the same output in the three modes |
+| The regression programs of the quick check, three modes | every output the same as Stage 1's |
+| Crasher suite; the Route B programs on locals, calls and bind caches | all passed; the same result for every program |
+| Ctrl-C with three threads running, three times | as Stage 1 |
+| Timings with no thread, text and compiled | within 2.5% of Stage 1's |
+| A yield to another thread and back | 21.0 us, was 17.7: at each switch the scheduler now looks for sleepers (1 us) and every level's bind stamp is made stale (0.7 us) |
+
+The new tests:
+
+| Test | What it shows |
+|---|---|
+| `tslice` | Four loops that never yield (three threads and the main program) for 400 ms: each has the same share within a tenth, and together they do what one does alone, within a tenth |
+| `tpause` | PAUSE of 60 to 90 ms in three threads and the main program at once, four times each: every pause within 4 ms of its time, with and without a busy thread beside them, and the pauses run side by side |
+| `ttick` | A 5 ms `SETTICK` for 300 ms with two busy threads, with the main program in a PAUSE, and with every thread in a PAUSE: 60 ticks, each in the main program, none more than 3 ms late |
+| `tkey` | `ON KEY` with keys typed while two threads are busy, while the main program is in a PAUSE, and with a thread inside a FUNCTION: every key, in order, its routine in the main program |
+| `tpin` | A pin interrupt (`SETPIN INTB`) twenty times in each of the same three states. No wire: the pin's level is moved through its pull-up |
+| `tbind` | Four threads and the main program recursing the same FUNCTION to different depths for two seconds, switched by the clock and by yields, each checking every result and local: the compiler's bind stamps (below) |
+| `tstop` | A thread stopped in a loop, inside a FUNCTION and in a PAUSE: the heap and the variable count as before. PAUSE and RESUME, `MM.INFO(THREAD n)`, `THREAD SIZE` (a FUNCTION twelve deep in a thread), `THREAD SLICE` |
+
+`tyield` and `tmainend` now start with `THREAD SLICE 100`: they test the order threads take turns in, and with a
+1 ms slice a PRINT can end one.
+
+Not tested: a COM port's interrupt (the G1 has no loop-back wire) and a GUI interrupt with threads running. Both are
+found by the same scan as the tick, the key and the pin.
+
+**For every program, threads or not:** PAUSE now counts microseconds from the moment it starts. Before, it waited for
+the next tick and then counted ticks, so the time was the same; what has changed is that DISTANCE() and XMODEM,
+which zero the counter a pause used, can no longer stretch one that an interrupt routine calls them during.
+
+**Found on the way:**
+
+- **A compiled statement could use another call depth's variables after a thread switch.** `tlocals` failed two runs
+  in eight with OPTION COMPILE ON: a recursing FUNCTION returned (n - 2)! for n!. The record's bind stamp, a sum of two
+  event numbers, came out the same at one depth as a stamp made at another depth before the switch ("OPTION COMPILE",
+  above). It could happen in Stage 1 too; there the switches came at the same statements every run, and that order
+  happened to miss it. `BindsStale` fixes it, and `tbind` failed on nearly every run before the fix and passes since
+  (six runs of six, and `tlocals` twelve of twelve). The same sum can in theory collide without threads, when a
+  global is made or erased between two depths of a recursion: not seen, and not changed.
+- `MM.INFO(HEAP)` read inside a SUB call's arguments is 3,072 bytes lower than at the statement before: the call's
+  own argument block is in use. `tstop` reads the heap into variables first.
+- The stack each built-in command takes below its last stack check was measured for the guard (Peter's question,
+  25 November). Only three go beyond 4 KB: `LOAD PNG` (4.5 KB, 5.6 KB for an image 704 wide), `SPRITE LOADPNG`
+  (4.6 KB) and `JSON$()` (96 + 40 bytes for each level of nesting: 5.2 KB at the 128 levels the build allowed). On
+  v8-dev since (0d1c8be, f31df74 and 9527b60, merged here): the main stack's guard is 6 KB, as a thread's, and
+  `JSON$()` reads 100 levels at most (4.1 KB; `tests/cmm2/jsondeep.bas`). With the larger guard a FUNCTION with locals
+  20 deep, as text, comes within 848 bytes of the stack's warning line: `tests/cmm2/locals.bas` now goes 18 deep.
+  Not measured: RAY, DRAW3D, FRAMEBUFFER WARP, the sound decoders, SQL, Bluetooth and
+  image loads in 32-bit modes.

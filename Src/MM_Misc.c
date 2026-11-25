@@ -773,9 +773,14 @@ void fun_epoch(void){
 // that at RUN: an interrupt that ended in an error never came back to it (Gerry, 27 Oct 2026: the next run's first
 // PAUSE took the old one's count and timer and ended at once, so its SETTICK interrupt was not called)
 int PauseInterrupted = false;
+/* The pause is measured against the microsecond clock (GetuSec, which only runs forward: TIMER = n does not move it),
+   not PauseTimer: that counter is one for the whole firmware, zeroed here, by DISTANCE() and by XMODEM, and a pause now
+   lets the program's other threads run (docs/Threads_Plan.md, Stage 2: ThreadSleepUntil). A thread's own pause keeps
+   its time in a local, on its own stack. The main program's keeps it in 'until' across an interrupt that cuts the
+   pause short, as it kept its count; the main program is the only thread interrupt routines run in. */
 static void PauseFor(MMFLOAT f, char *pausetoken) {
-    static int64_t end,count;
-    int64_t start, stop, tick;
+    static long long int until;
+    long long int t;
     if(f < 0) error("Number out of bounds");
     if(f < 0.05) return;
 
@@ -783,48 +788,39 @@ static void PauseFor(MMFLOAT f, char *pausetoken) {
 		uSec(f * 1000);                                             // if less than 1.5mS do the pause right now
 		return;                                                     // and exit straight away
     }
-	if(!PauseInterrupted){
-		count=(int64_t)(f*1000);
-		start=GetuSec();
-		tick=PauseTimer;
-		while(PauseTimer==tick){}  //wait for the next clock tick
-		stop=GetuSec();
-		count-=(stop-start);
-		end = (count % 1000); //get the number of ticks remaining
-		count/=1000;
-		PauseTimer=0;
-	}
-    if(count){
-		if(InterruptReturn == NULL) {
-			// we are running pause in a normal program
-			// first check if we have reentered (from an interrupt) and only zero the timer if we have NOT been interrupted.
-			// This means an interrupted pause will resume from where it was when interrupted
-			if(!PauseInterrupted) PauseTimer = 0;
-			PauseInterrupted = false;
-
-			while(PauseTimer < count) {
-				CheckAbort();
-				if(check_interrupt()) {
-					// if there is an interrupt fake the return point to the start of this stmt
-					// and return immediately to the program processor so that it can send us off
-					// to the interrupt routine.  When the interrupt routine finishes we should reexecute
-					// this stmt and because PauseInterrupted is kept we can see that we need to
-					// resume pausing rather than start a new pause time.
-					InterruptReturn = pausetoken;						// point to this command's token
-					PauseInterrupted = true;								    // show that this stmt was interrupted
-					return;											    // and let the interrupt run
-				}
-			}
-			PauseInterrupted = false;
-		}
-		else {
-			// we are running pause in an interrupt, this is much simpler but note that
-			// we use a different timer from the main pause code (above)
-			IntPauseTimer = 0;
-			while(IntPauseTimer < FloatToInt32(f)) CheckAbort();
-		}
+    if(ThreadNumber()) {                                            // a thread other than the main program
+        t = GetuSec() + (long long int)(f * 1000);
+        while(GetuSec() < t) {
+            CheckAbort();
+            ThreadSleepUntil(t);
+        }
+        return;
     }
-	uSec(end);
+    if(InterruptReturn == NULL) {
+        // we are running pause in a normal program
+        // if we have reentered (from an interrupt) the time the pause ends at is kept: an interrupted pause resumes
+        // from where it was when interrupted
+        if(!PauseInterrupted) until = GetuSec() + (long long int)(f * 1000);
+        PauseInterrupted = false;
+        while(GetuSec() < until) {
+            CheckAbort();
+            if(check_interrupt()) {
+                // if there is an interrupt fake the return point to the start of this stmt
+                // and return immediately to the program processor so that it can send us off
+                // to the interrupt routine.  When the interrupt routine finishes we should reexecute
+                // this stmt and because PauseInterrupted is kept we can see that we need to
+                // resume pausing rather than start a new pause time.
+                InterruptReturn = pausetoken;                       // point to this command's token
+                PauseInterrupted = true;                            // show that this stmt was interrupted
+                return;                                             // and let the interrupt run
+            }
+            if(ThreadCount) ThreadSleepUntil(until);                // the threads run meanwhile; back at the time, for an
+        }                                                           // interrupt, or when none of them can run
+    } else {
+        // we are running pause in an interrupt: no interrupt is taken, and no thread runs
+        t = GetuSec() + (long long int)(f * 1000);
+        while(GetuSec() < t) CheckAbort();
+    }
 }
 void cmd_pause(void) {
     char *pausetoken = CmdTokenPtr;                                 // this statement, to re-run if an interrupt cuts the pause
@@ -3409,8 +3405,9 @@ void OPTSIZE fun_info(void){
 	} else if(checkstring(ep, "FRAMEV")){
 	    iret = PageTable[WPN].ymax;
 		rettype='I';
-	} else if(checkstring(ep, "THREAD")){                           // the thread running: 0 the main program (Thread.c)
-		iret = ThreadNumber();
+	} else if((tp = checkstring(ep, "THREAD")) != NULL){            // the thread running: 0 the main program (Thread.c);
+		if(*tp) iret = ThreadState(getint(tp, 0, MAXTHREADS));      // THREAD n: 0 not running, 1 running or ready, 2 in
+		else iret = ThreadNumber();                                 // PAUSE, 3 paused
 		rettype='I';
 	} else if(checkstring(ep, "STACK LOW")){                        // the lowest the stack has reached since RUN (MMBasic.c)
 		iret=(int64_t)StackLowest();
@@ -4540,13 +4537,19 @@ int check_interrupt(void) {
 
     if((tick & INT_TICK_SLICE) && ThreadCount) ThreadSchedule();    // another thread's turn (Thread.c): back here when this
                                                                     // one's comes round, its state in the globals again
-    if(!IntReady.any) return 0;                                     // quick exit: nothing signalled and nothing to poll (S1c)
+    if(!IntReady.any && ThreadIntPending == NULL) return 0;         // quick exit: nothing signalled and nothing to poll (S1c)
     if(PrintScreenPending) PrintScreenNow();                        // OPTION PRINTSCREEN: Print Screen or Ctrl-\ while the
                                                                     // program runs (Console.c)
 	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
-    if(ThreadCount && ThreadNumber()) return 0;                     // an interrupt routine is the main program's: its signal
-                                                                    // waits for the main thread's own statement tail
-    if((intaddr = IntScan()) == NULL) return 0;                     // nothing signalled is due, and nothing polled
+    if(ThreadCount && ThreadNumber()) {                             // a thread other than the main program: an interrupt that
+        if(ThreadIntPending == NULL) ThreadIntPending = IntScan();  // is due is the main program's, which runs now and takes
+        if(ThreadIntPending != NULL) ThreadToMain();                // it (back here when this thread's turn comes round)
+        return 0;
+    }
+    if(ThreadIntPending != NULL) {                                  // one a thread found due and handed over
+        intaddr = ThreadIntPending;
+        ThreadIntPending = NULL;
+    } else if((intaddr = IntScan()) == NULL) return 0;              // nothing signalled is due, and nothing polled
     IntDispatch(intaddr);
 	return 1;
 }

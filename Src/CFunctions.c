@@ -337,6 +337,7 @@ long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *Calle
     // run the function in flash
     ii = *p++;
     p = (unsigned int *)((unsigned int) p | 0x1);
+    THREAD_HOLD_BEGIN();                                            // (no thread switch in BASIC the CSUB runs: Thread.h)
     ret = ((long long int (*)(void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *)) (p + ii))
         (arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7], arg[8], arg[9], arg[10], arg[11], arg[12], arg[13], arg[14], arg[15]);   // run the CFunction
 
@@ -349,6 +350,7 @@ long long int CallCFunction(char *CmdPtr, char *ArgList, char *DefP, char *Calle
         }
     }
 #endif
+    THREAD_HOLD_END();
     return ret;
 }
 // If the CFuncmSec vector is set then call the CFunction
