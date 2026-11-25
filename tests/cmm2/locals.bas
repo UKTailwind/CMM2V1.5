@@ -7,8 +7,10 @@ Dim arr%(5), sarr$(3) Length 10
 
 ' ---- recursion: every frame keeps its own locals --------------------------------------------
 base% = MM.Info(VARCNT)
-Check "recursive FUNCTION with locals, depth 20", Rec(20), 210
-Check "each frame's locals survive the deeper calls", Frames(20), 20
+' (18 deep, not 20: with OPTION COMPILE OFF 20 takes 21.5K of the stack, which the 6K guard of 25 Nov 2026 leaves
+' 848 bytes short of its warning line, and the prompt then says so)
+Check "recursive FUNCTION with locals, depth 18", Rec(18), 171
+Check "each frame's locals survive the deeper calls", Frames(18), 18
 Check "VARCNT back after deep recursion", MM.Info(VARCNT) - base%, 0
 
 ' ---- a local hides a global of the same name, which comes back ----------------------------
@@ -45,7 +47,7 @@ Print "  the message: "; s$
 Print "  depth reached:"; deep%
 Check "it went deep first", deep% > 50, 1
 Check "VARCNT back after the overflow", MM.Info(VARCNT) - base%, 0
-Check "calls work after the overflow", Rec(20), 210
+Check "calls work after the overflow", Rec(18), 171
 
 ' ---- parameters: kinds and forms, each SUB called more than once -----------------------------
 For j% = 1 To 3
