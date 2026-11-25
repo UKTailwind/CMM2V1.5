@@ -169,6 +169,11 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, int pcb)
         {
                 // telnet's buffer is refilled at once, so lwIP gets a copy; the other senders keep theirs until sent
                 err = tcp_write(tpcb, state->buffer_sent[pcb], state->to_send[pcb], pcb == state->telnet_pcb_no ? TCP_WRITE_FLAG_COPY : 0);
+                /* Send it now. tcp_write() only queues: with nothing coming in on the connection the data waited
+                   for lwIP's 500 ms timer, half a second for each chunk of a large WEB TRANSMIT FILE. (Telnet's is
+                   sent by its own flush.) */
+                if (err == ERR_OK && pcb != state->telnet_pcb_no)
+                        tcp_output(tpcb);
         }
         else
                 err = 1;
@@ -489,6 +494,35 @@ static bool tcp_server_open(void *arg)
 
         return true;
 }
+/* A chunk of a large file (WEB TRANSMIT FILE): copied into lwIP's send buffer as soon as that has room for it, and
+   sent at once, so the file goes at the connection's own pace and the caller's buffer is free for the next chunk.
+   Returns 1 if the connection went, or made no progress for 5 s: the caller closes the file and the connection. */
+static int tcp_server_stream(TCP_SERVER_T *state, int pcb, const void *data, int len)
+{
+        struct tcp_pcb *tpcb = state->client_pcb[pcb];
+        int last = state->sent_len[pcb];
+        uint64_t limit = time_us_64() + 5000000;
+
+        for (;;)
+        {
+                if (!pcb_live(state->client_pcb[pcb]) || state->client_pcb[pcb] != tpcb)
+                        return 1; // closed, reset or timed out while we waited: tpcb is freed
+                if (tcp_sndbuf(tpcb) >= len && tcp_sndqueuelen(tpcb) < TCP_SND_QUEUELEN - 2 &&
+                    tcp_write(tpcb, data, len, TCP_WRITE_FLAG_COPY) == ERR_OK)
+                        break;
+                if (state->sent_len[pcb] != last)
+                {
+                        last = state->sent_len[pcb];
+                        limit = time_us_64() + 5000000;
+                }
+                else if (time_us_64() > limit)
+                        return 1;
+                CheckAbort(); // (the network's poll: acknowledgements make room)
+        }
+        tcp_output(tpcb);
+        state->pcbopentime[pcb] = time_us_64();
+        return 0;
+}
 /* Wait until the client has acknowledged everything sent on this connection.
    Give up only after 5 s with no new acknowledgement, so a slow but live
    client is served and a dead one is still let go.  This was 1,000,000 passes
@@ -625,6 +659,10 @@ void cmd_transmit(unsigned char *cmd)
                         }
                         else
                         {
+                                /* A large file. Each chunk is copied into lwIP's send buffer as soon as that has room,
+                                   so the file goes at the connection's own pace. (It was one chunk, then a wait for
+                                   its acknowledgement, which a client may hold back 40 to 200 ms.) total_sent counts
+                                   the header and every chunk; checksent waits for the last of them at the end. */
                                 char *pBuf = GetTempMainMemory(TCP_MSS);
                                 while (1)
                                 {
@@ -632,16 +670,19 @@ void cmd_transmit(unsigned char *cmd)
                                             f_eof(FileTable[fn].fptr))
                                                 break;
                                         FileGetData(fn, pBuf, TCP_MSS, &n_read);
-                                        state->to_send[pcb] = n_read;
-                                        state->buffer_sent[pcb] = (unsigned char *)pBuf;
+                                        if (n_read == 0)
+                                                break; // (a read error: no more comes)
+                                        if (tcp_server_stream(state, pcb, pBuf, n_read))
+                                        {
+                                                ForceFileClose(fn);
+                                                tcp_server_close(state, pcb);
+                                                MMPrintString("Warning: LWIP send data timeout\r\n");
+                                                return;
+                                        }
                                         state->total_sent[pcb] += n_read;
-                                        // DEBUG_printf("sending file content to pcb %d\r\n",pcb);
-                                        tcp_server_send_data(state, state->client_pcb[pcb], pcb);
-                                        if (checksent(state, fn, pcb))
-                                                return; // timed out: the file and the connection are closed already (#158)
-                                        state->total_sent[pcb] = 0;
-                                        state->sent_len[pcb] = 0;
                                 }
+                                if (checksent(state, fn, pcb))
+                                        return; // timed out: the file and the connection are closed already (#158)
                         }
                         tcp_server_close(state, pcb);
                         //                {if(startupcomplete)ProcessWeb(0);}

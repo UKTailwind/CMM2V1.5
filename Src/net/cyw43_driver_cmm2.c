@@ -104,6 +104,11 @@ void cyw43_schedule_internal_poll_dispatch(void (*func)(void)) {
 void cyw43_post_poll_hook(void) {
 }
 
+// The chip has something for the driver: its IRQ is up (the data line, while CS is high), or the driver asked for a poll
+int cyw43_cmm2_waiting(void) {
+    return cyw43_poll != NULL && (poll_pending || cyw43_hal_pin_read(CYW43_PIN_WL_HOST_WAKE));
+}
+
 void cyw43_cmm2_poll(void) {
     if (cyw43_poll == NULL) {
         return;
