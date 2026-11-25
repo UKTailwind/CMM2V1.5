@@ -16,6 +16,10 @@ Mechanical changes only, so that a later PicoMite's network code can be taken by
   - MMtcpserver.c, WEB TRANSMIT FILE's end-of-file test: its LittleFS half (the PicoMite's flash drive) left out, as the
     CMM2's drives are all FatFS: "(flash file && at its end) || (not flash file && f_eof)" -> f_eof
   - lwipopts.h: its "extern char MMErrMsg[];" left out (the CMM2's is a char *; the line is not used there)
+  - MMtcpserver.c, tcp_server_recv's "OptionErrorSkip = 1;": made only when the program has no ON ERROR state of
+    its own, and with ErrorSkipDepth = ExecDepth, without which the statement loop never counted it down and every
+    later error in the program was skipped (25 Nov 2026; the PicoMite session was told). When the PicoMite's file
+    has its own fix this finds nothing to change and says so
 Everything else the PicoMite's own headers and core give these files comes from Inc/net/WebMite_cmm2.h, which
 CMakeLists.txt makes their first include (-include). Then build, and check on the board.
 """
@@ -43,9 +47,23 @@ REWRITES = [('SaveOptions()', 'SaveOptions(1)'), ('SoftReset(SOFT_RESET)', 'Soft
 LFS_EOF = re.compile(r'\(\(filesource\[fn\] == FLASHFILE\) && \(lfs_file_tell\(&lfs, FileTable\[fn\]\.lfsptr\) == '
                      r'lfs_file_size\(&lfs, FileTable\[fn\]\.lfsptr\)\)\) \|\|\s*'
                      r'\(\(filesource\[fn\] != FLASHFILE\) && (f_eof\(FileTable\[fn\]\.fptr\))\)')
+SKIP_ONE = re.compile(r'^([ \t]*)OptionErrorSkip = 1;[ \t]*(\r?\n)', re.M)
+SKIP_FIX = ('{i}/* An error raised below, in getting the buffer, is not to stop the program. But the statement loop only counts{n}'
+            '{i}   a skip down at the depth ErrorSkipDepth holds, which only ON ERROR SKIP set: in a program that had not used{n}'
+            '{i}   it this count never dropped, and every later error in the program was skipped without a word (a web server{n}'
+            '{i}   after its first request). It also replaced the program\'s own ON ERROR SKIP n, IGNORE or RESTART. (The CMM2\'s,{n}'
+            '{i}   25 Nov 2026: tools/port_net.py makes this change until the PicoMite\'s file has its own.) */{n}'
+            '{i}if (OptionErrorSkip == 0){n}'
+            '{i}{{{n}'
+            '{i}        OptionErrorSkip = 1;{n}'
+            '{i}        ErrorSkipDepth = ExecDepth;{n}'
+            '{i}}}{n}')
 for f in files:
     t = rd(os.path.join(pico, f))
     n = []
+    if os.path.basename(f) == 'MMtcpserver.c':
+        t, k = SKIP_ONE.subn(lambda m: SKIP_FIX.format(i=m.group(1), n=m.group(2)), t)
+        n.append('tcp_server_recv error skip x%d' % k if k else 'tcp_server_recv error skip: NOT FOUND (fixed in the PicoMite?)')
     t, k = LFS_EOF.subn(lambda m: m.group(1), t)
     if k:
         n.append('LittleFS end-of-file test x%d' % k)

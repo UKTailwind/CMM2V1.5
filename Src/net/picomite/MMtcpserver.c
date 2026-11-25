@@ -216,7 +216,16 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
                 }
                 else
                 {
-                        OptionErrorSkip = 1;
+                        /* An error raised below, in getting the buffer, is not to stop the program. But the statement loop only counts
+                           a skip down at the depth ErrorSkipDepth holds, which only ON ERROR SKIP set: in a program that had not used
+                           it this count never dropped, and every later error in the program was skipped without a word (a web server
+                           after its first request). It also replaced the program's own ON ERROR SKIP n, IGNORE or RESTART. (The CMM2's,
+                           25 Nov 2026: tools/port_net.py makes this change until the PicoMite's file has its own.) */
+                        if (OptionErrorSkip == 0)
+                        {
+                                OptionErrorSkip = 1;
+                                ErrorSkipDepth = ExecDepth;
+                        }
                         if (state->buffer_recv[pcb] != NULL)
                         {
                                 FreeMemorySafe((void **)&state->buffer_recv[pcb]);
