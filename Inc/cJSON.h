@@ -133,12 +133,8 @@ typedef int cJSON_bool;
 
 /* Limits how deeply nested arrays/objects can be before cJSON rejects to parse them.
  * This is to prevent stack overflows. */
-/* CMM2: 100, not cJSON's 1000. The parser calls itself for each level, 40 bytes of stack a level (measured on a G1,
- * 25 Nov 2026: JSON$() goes 96 + 40 x levels below its last stack check), and the stack check's guard is 6K
- * (STACK_GUARD, MMBasic.c; a thread's is the same): 100 levels take 4.1K of it and leave 2K for interrupt handlers.
- * At 1000 the 40K would run through the guard and the variables below it. Deeper JSON is "Invalid JSON data". */
 #ifndef CJSON_NESTING_LIMIT
-#define CJSON_NESTING_LIMIT 100
+#define CJSON_NESTING_LIMIT 1000
 #endif
 
 /* Limits the length of circular references can be before cJSON rejects to parse them.

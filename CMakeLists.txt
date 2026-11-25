@@ -63,7 +63,10 @@ set(CMAKE_ASM_FLAGS_RELEASE "")
 set(MCU_FLAGS -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb)
 
 target_compile_definitions(${TARGET} PRIVATE USE_HAL_DRIVER STM32H743xx
-    CJSON_NESTING_LIMIT=128)     # JSON$: well inside the stack (cJSON's 1000 is about 100 KB of it)
+    CJSON_NESTING_LIMIT=100)     # JSON$: the parser calls itself for each level, and JSON$() goes 96 + 40 bytes a level
+                                 # below its last stack check (measured on a G1, 25 Nov 2026). 100 levels are 4.1K of the
+                                 # stack check's 6K guard (STACK_GUARD, MMBasic.c; a thread's is the same) and leave 2K
+                                 # for interrupt handlers. It was 128 (5.2K); cJSON's own 1000 would be 40K
 
 target_include_directories(${TARGET} PRIVATE
     FATFS
