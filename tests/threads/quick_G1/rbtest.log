@@ -1,0 +1,237 @@
+sent rbcache_0.bas, 206 bytes
+sent rbcache_1.bas, 226 bytes
+sent rbcache_2.bas, 200 bytes
+sent rbcache_3.bas, 212 bytes
+sent rbcache_4.bas, 185 bytes
+sent rbcache_5.bas, 331 bytes
+sent rbcache_6.bas, 219 bytes
+sent rbcache_7.bas, 287 bytes
+sent rbcache_8.bas, 280 bytes
+sent rbcache_9.bas, 238 bytes
+sent rbcache_10.bas, 233 bytes
+sent rbcallname_0.bas, 3079 bytes
+sent rbcallname_1.bas, 838 bytes
+sent rbcallname_2.bas, 280 bytes
+sent rbcallname_3.bas, 315 bytes
+sent rbcallname_4.bas, 588 bytes
+sent rbcallname_5.bas, 209 bytes
+sent rbcallname_6.bas, 91 bytes
+sent rbcallname_7.bas, 94 bytes
+sent rbcallname_8.bas, 114 bytes
+sent rbcallname_9.bas, 122 bytes
+sent rbcallname_10.bas, 98 bytes
+sent rbcallname_11.bas, 127 bytes
+sent rblocal_0.bas, 224 bytes
+sent rblocal_1.bas, 263 bytes
+sent rblocal_2.bas, 257 bytes
+sent rblocal_3.bas, 392 bytes
+sent rblocal_4.bas, 199 bytes
+sent rblocal_5.bas, 256 bytes
+sent rblocal_6.bas, 194 bytes
+sent rblocal_7.bas, 264 bytes
+sent rblocal_8.bas, 176 bytes
+sent rblocal_9.bas, 428 bytes
+sent rblocal_10.bas, 70 bytes
+sent rblocal_11.bas, 70 bytes
+sent rblocal_12.bas, 156 bytes
+sent rblocal_13.bas, 186 bytes
+sent rblocal_14.bas, 162 bytes
+sent rblocal_15.bas, 301 bytes
+sent rblocal_16.bas, 418 bytes
+40 files, 12588 bytes in 6.60 s = 1.9 KB/s
+sent rblocal_17.bas, 158 bytes
+sent rblocal_18.bas, 187 bytes
+sent rblocal_19.bas, 64 bytes
+sent rblocal_20.bas, 120 bytes
+sent rblocal_21.bas, 140 bytes
+sent rblocal_22.bas, 81 bytes
+sent rblocal_23.bas, 73 bytes
+sent rblocal_24.bas, 63 bytes
+sent rblocal_25.bas, 107 bytes
+sent rblocal_26.bas, 90 bytes
+sent rblocal_27.bas, 227 bytes
+sent rbnopchain_0.bas, 151 bytes
+sent rbnopchain_1.bas, 127 bytes
+sent rbnopchain_2.bas, 149 bytes
+sent rbnopchain_3.bas, 143 bytes
+sent rbnopchain_4.bas, 136 bytes
+sent rbnopchain_5.bas, 156 bytes
+sent rb_cmm2_0.bas, 411 bytes
+sent rb_cmm2_1.bas, 112 bytes
+sent rb_cmm2_2.bas, 120 bytes
+sent rb_cmm2_3.bas, 209 bytes
+sent rb_cmm2_4.bas, 149 bytes
+sent rb_cmm2_5.bas, 99 bytes
+sent rb_cmm2_6.bas, 113 bytes
+sent rb_cmm2_7.bas, 110 bytes
+sent rb_cmm2_8.bas, 149 bytes
+sent rb_cmm2_9.bas, 75 bytes
+sent rb_cmm2_10.bas, 78 bytes
+sent rb_cmm2_11.bas, 84 bytes
+sent rb_cmm2_12.bas, 181 bytes
+sent rb_cmm2_13.bas, 110 bytes
+sent rb_cmm2_14.bas, 156 bytes
+sent rb_cmm2_15.bas, 184 bytes
+sent rb_cmm2_16.bas, 56 bytes
+sent rb_cmm2_17.bas, 387 bytes
+sent rb_cmm2_18.bas, 690 bytes
+sent rb_cmm2_19.bas, 686 bytes
+sent rb_cmm2_20.bas, 362 bytes
+38 files, 6693 bytes in 7.09 s = 0.9 KB/s
+SAME rbcache    main around calls          CODE 1801     40600 599
+SAME rbcache    local hides a global mid-l CODE 55       345 100
+SAME rbcache    gosub from a sub into main CODE -1       8
+SAME rbcache    erase and dim between call CODE 40       27 7
+SAME rbcache    option default between cal CODE 29       10
+SAME rbcache    sub loop around calls      CODE 30008   00 6005 9006000 | TIME  95.067 |  4501500 6005 18012000 | TIME  95.875
+SAME rbcache    a callee's local hides a c CODE 39       50 5
+SAME rbcache    a local made mid-loop afte CODE 63       642 100
+SAME rbcache    interrupt locals during a  CODE 40149    20001 |  1
+SAME rbcache    a gosub's local in a sub   CODE -1       4040 3
+SAME rbcache    speed                      CODE 40001    12502500 10000 6427 | TIME  39.026
+SAME rbcallname table dispatch             CODE 6424     10 993 | TIME 71.732 |  110 893
+SAME rbcallname argument kinds             CODE 11      |  7 3.5 const |  41 1 ab!cd |  8 5 a |  21 25 |  2 2 float to integer
+ERRS rbcallname byval and byref            CODE -1       1 102 |  3.25 | Error in line 13: BYREF requires same types: A
+       OFF     1 102 |  3.25 | Error in line 13: BYREF requires same types: A
+       ON      1 102 |  3.25 | Error in line 13: BYREF requires same types: A
+       SHADOW  1 102 |  3.25 | Error in line 13: BYREF requires same types: A
+SAME rbcallname locals static recursion    CODE 19      calls 6 |  30 | calls 10 |  42
+SAME rbcallname call function              CODE 11       10 1.25 cba |  10 |  9
+SAME rbcallname names                      CODE 4       mixed 1 | mixed 2 | mixed 3 | mixed 4
+ERRS rbcallname unknown name               CODE -1      go | Error in line 4: Unknown user subroutine
+       OFF    go | Error in line 4: Unknown user subroutine
+       ON     go | Error in line 4: Unknown user subroutine
+       SHADOW go | Error in line 4: Unknown user subroutine
+ERRS rbcallname too many arguments         CODE -1      go | Error in line 4: Argument list
+       OFF    go | Error in line 4: Argument list
+       ON     go | Error in line 4: Argument list
+       SHADOW go | Error in line 4: Argument list
+ERRS rbcallname byref type                 CODE -1      go | Error in line 5: BYREF requires same types: F
+       OFF    go | Error in line 5: BYREF requires same types: F
+       ON     go | Error in line 5: BYREF requires same types: F
+       SHADOW go | Error in line 5: BYREF requires same types: F
+ERRS rbcallname a function called as a sub CODE -1      go | Error in line 5: Unknown user subroutine
+       OFF    go | Error in line 5: Unknown user subroutine
+       ON     go | Error in line 5: Unknown user subroutine
+       SHADOW go | Error in line 5: Unknown user subroutine
+ERRS rbcallname a sub called as a function CODE -1      go | Error in line 4: Unknown user function
+       OFF    go | Error in line 4: Unknown user function
+       ON     go | Error in line 4: Unknown user function
+       SHADOW go | Error in line 4: Unknown user function
+ERRS rbcallname error inside               CODE -1      go | Error in line 3: Divide by zero
+       OFF    go | Error in line 3: Divide by zero
+       ON     go | Error in line 3: Divide by zero
+       SHADOW go | Error in line 3: Divide by zero
+SAME rblocal    a trailing comment         CODE 801      10100
+SAME rblocal    AS after the names         CODE 901      6412.5 101
+SAME rblocal    LENGTH, and a String type  CODE 901      1791
+SAME rblocal    arrays, with types and LEN CODE 2301     20500
+ERRS rblocal    a String array with LENGTH CODE -1       2 5 | Error in line 6: String too long
+       OFF     2 5 | Error in line 6: String too long
+       ON      2 5 | Error in line 6: String too long
+       SHADOW  2 5 | Error in line 6: String too long
+SAME rblocal    AS INTEGER and LENGTH in o CODE 801      21150
+SAME rblocal    OPTION DEFAULT INTEGER     CODE 701      5049
+SAME rblocal    P7b values from parameters CODE 701      5650
+SAME rblocal    P7b a TIMER value, then a  CODE 501      100
+SAME rblocal    P7b types: AS, &H, a comme CODE 1001     31150 ab0x
+ERRS rblocal    P7b a string for a number  CODE -1      Error in line 2: Expected a number
+       OFF    Error in line 2: Expected a number
+       ON     Error in line 2: Expected a number
+       SHADOW Error in line 2: Expected a number
+ERRS rblocal    P7b a number for a string  CODE -1      Error in line 2: Expected a string
+       OFF    Error in line 2: Expected a string
+       ON     Error in line 2: Expected a string
+       SHADOW Error in line 2: Expected a string
+SAME rblocal    P7b a value naming the LOC CODE 401      10200
+SAME rblocal    P7b a FUNCTION call in a v CODE 601      10100
+SAME rblocal    P7b an array's list: text  CODE 401      5350
+SAME rblocal    P7c STATIC as walkr's timi CODE 1004     100 0 1 955
+SAME rblocal    P7c STATIC: AS, LENGTH wit CODE 1209    A 5050abcd | B 1100
+SAME rblocal    P7c STATIC in a recursive  CODE 83       7 |  14
+SAME rblocal    P7c an AS type is its own  CODE 65       5 0 27.5
+ERRS rblocal    P7c STATIC outside a SUB   CODE -1      Error in line 1: Invalid here
+       OFF    Error in line 1: Invalid here
+       ON     Error in line 1: Invalid here
+       SHADOW Error in line 1: Invalid here
+ERRS rblocal    P7c STATIC twice in one ca CODE -1      Error in line 4: Q Local variable already declared
+       OFF    Error in line 4: Q Local variable already declared
+       ON     Error in line 4: Q Local variable already declared
+       SHADOW Error in line 4: Q Local variable already declared
+ERRS rblocal    P7c STATIC string too long CODE -1      Error in line 3: String too long
+       OFF    Error in line 3: String too long
+       ON     Error in line 3: String too long
+       SHADOW Error in line 3: String too long
+ERRS rblocal    Type specified twice       CODE -1      Error in line 2: Type specified twice
+       OFF    Error in line 2: Type specified twice
+       ON     Error in line 2: Type specified twice
+       SHADOW Error in line 2: Type specified twice
+ERRS rblocal    an unknown type            CODE -1      Error in line 2: Variable type
+       OFF    Error in line 2: Variable type
+       ON     Error in line 2: Variable type
+       SHADOW Error in line 2: Variable type
+ERRS rblocal    LOCAL outside a SUB        CODE -1      Error in line 1: Invalid here
+       OFF    Error in line 1: Invalid here
+       ON     Error in line 1: Invalid here
+       SHADOW Error in line 1: Invalid here
+ERRS rblocal    declared twice             CODE -1      Error in line 4: W Local variable already declared
+       OFF    Error in line 4: W Local variable already declared
+       ON     Error in line 4: W Local variable already declared
+       SHADOW Error in line 4: W Local variable already declared
+ERRS rblocal    too long for LENGTH        CODE -1      Error in line 3: String too long
+       OFF    Error in line 3: String too long
+       ON     Error in line 3: String too long
+       SHADOW Error in line 3: String too long
+SAME rblocal    a structure type stays cmd CODE 31       165
+SAME rbnopchain loop with comments         CODE 601      200 400
+ERRS rbnopchain error after a comment line CODE -1      Error in line 4: Index out of bounds
+       OFF    Error in line 4: Index out of bounds
+       ON     Error in line 4: Index out of bounds
+       SHADOW Error in line 4: Index out of bounds
+ERRS rbnopchain MM.ERRLINE after comments  CODE -1      Error in line 5: Index out of bounds
+       OFF    Error in line 5: Index out of bounds
+       ON     Error in line 5: Index out of bounds
+       SHADOW Error in line 5: Index out of bounds
+SAME rbnopchain TRACE LIST                 CODE 10      [6] [7] [3] [6] [7] [8]
+SAME rbnopchain comment as the loop's firs CODE 301      100
+SAME rbnopchain comments in a SUB body     CODE 401      5050
+SAME rb_cmm2    int compare far apart      CODE 9        1 0 1 1 1 1 1 | gt | do | case gt |  3
+SAME rb_cmm2    LOCAL LENGTH ok            CODE 6       hello 3 | hello 3
+ERRS rb_cmm2    LOCAL LENGTH too long      CODE -1      before | Error in line 2: String too long
+       OFF    before | Error in line 2: String too long
+       ON     before | Error in line 2: String too long
+       SHADOW before | Error in line 2: String too long
+SAME rb_cmm2    STATIC                     CODE 17       1 10 |  2 20 |  3 30
+ERRS rb_cmm2    STATIC name too long       CODE -1      Error in line 2: Variable name too long
+       OFF    Error in line 2: Variable name too long
+       ON     Error in line 2: Variable name too long
+       SHADOW Error in line 2: Variable name too long
+SAME rb_cmm2    LET = in the index         CODE 1        4 |  5
+ERRS rb_cmm2    FOR = in the start         CODE -1       1 2 | Error in line 2: FOR with misplaced = or TO
+       OFF     1 2 | Error in line 2: FOR with misplaced = or TO
+       ON      1 2 | Error in line 2: FOR with misplaced = or TO
+       SHADOW  1 2 | Error in line 2: FOR with misplaced = or TO
+SAME rb_cmm2    LOCAL value of a name it m CODE 4        1 |  1
+SAME rb_cmm2    CHOICE of strings          CODE 0       x | y |  1
+ERRS rb_cmm2    LOCAL declared twice       CODE -1      Error in line 3: Q Local variable already declared
+       OFF    Error in line 3: Q Local variable already declared
+       ON     Error in line 3: Q Local variable already declared
+       SHADOW Error in line 3: Q Local variable already declared
+ERRS rb_cmm2    STATIC over a LOCAL        CODE -1      Error in line 3: Z Local variable already declared
+       OFF    Error in line 3: Z Local variable already declared
+       ON     Error in line 3: Z Local variable already declared
+       SHADOW Error in line 3: Z Local variable already declared
+ERRS rb_cmm2    error in a body on the SUB CODE -1      before | Error in line 1: Divide by zero
+       OFF    before | Error in line 1: Divide by zero
+       ON     before | Error in line 1: Divide by zero
+       SHADOW before | Error in line 1: Divide by zero
+SAME rb_cmm2    INC                        CODE 15       14 2.25 abccc
+SAME rb_cmm2    TRACE and line numbers     CODE 3       [5][6] 6
+SAME rb_cmm2    ON ERROR SKIP              CODE 10      e 4e 5 |  1 3
+SAME rb_cmm2    interrupt in a loop        CODE 193178   1
+SAME rb_cmm2    RUN in a slot's program    CODE 0        0
+SAME rb_cmm2    splice TEXT justification  CODE 50310    268
+SAME rb_cmm2    splice graphics            CODE 50345    24748 224
+SAME rb_cmm2    splice functions           CODE 1       81634 3 |  268369920 252318750 |  1 |  1 1OFF 1 |  57344 57344 |  77 0
+SAME rb_cmm2    splice under OPTION LEGACY CODE 8783     1 |  1 |  310
+78 programs: 52 same, 26 with the same errors, 0 differ

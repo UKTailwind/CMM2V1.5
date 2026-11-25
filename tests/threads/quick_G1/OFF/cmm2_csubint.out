@@ -1,0 +1,7 @@
+set: fired 0
+raised: fired 1 after 1 statements
+again: fired 2
+forgotten: fired 2
+set again: fired 3
+done
+

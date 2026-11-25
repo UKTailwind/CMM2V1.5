@@ -1,0 +1,40 @@
+ok  a float a(0)
+ok  an integer b%(0)
+ok  a string c$(0) in the heap
+ok  d$(0) LENGTH 5 in its record
+ok  e$(0,0) LENGTH 11 in its record
+ok  f$(0) LENGTH 12 in the heap
+ok  and d$(0) is untouched
+ok  BOUND(a())
+ok  BOUND(m(),1)
+ok  BOUND(m(),2)
+ok  BOUND(n(),1)
+ok  BOUND(n(),2)
+ok  BOUND(o(),2)
+ok  BOUND(a(),0) is OPTION BASE
+ok  BOUND(a(),2) past the rank is an error
+ok  BOUND of a scalar is an error
+ok  a(1) is out of bounds
+ok  m(0,1) is out of bounds
+ok  n(1,0) is out of bounds
+ok  DIM w(-1) is still an error
+ok  BOUND of the parameter
+ok  a() passed by reference
+ok  LOCAL q%(0) starts at zero
+ok  LOCAL q%(0)
+ok  LOCAL r$(0,0) LENGTH 3
+ok  LOCAL q%(0) starts at zero
+ok  LOCAL q%(0)
+ok  LOCAL r$(0,0) LENGTH 3
+ok  DIM v(n-1) for n = 3, 2, 1
+ok  SORT b%()
+ok  MATH(SUM m())
+ok  MATH M_MULT (1x3).(3x1) into o(0,0)
+ok  MATH SLICE m(), , 0 counts both dimensions
+ok  MATH INSERT m(), , 0
+ok  MATH SLICE n(), 0, , s()
+ok  MATH(CHI) of a 2x2
+ok  MATH(CHI_P) of a 2x2 (df 1)
+ok  MATH(CHI) of a single row is an error
+onedim: 38 of 38 passed
+

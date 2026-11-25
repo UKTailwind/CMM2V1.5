@@ -1,0 +1,4 @@
+run again: second
+PAUSE 100 after the one cut short: 100 ms
+its SETTICK interrupt called: 1
+

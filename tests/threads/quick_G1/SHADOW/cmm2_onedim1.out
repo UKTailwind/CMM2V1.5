@@ -1,0 +1,13 @@
+ok  a(1)
+ok  b$(1) LENGTH 5 in its record
+ok  BOUND(a())
+ok  BOUND(a(),0) is OPTION BASE
+ok  BOUND(m(),2)
+ok  a(2) is out of bounds
+ok  a(0) is below OPTION BASE
+ok  DIM w(0) is still an error
+ok  MATH SLICE m(), , 1 counts both dimensions
+ok  MATH(CHI) of a 2x2
+ok  MATH(CHI_P) of a 2x2 is df 1, as under OPTION BASE 0
+onedim1: 11 of 11 passed
+

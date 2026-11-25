@@ -1,0 +1,15 @@
+ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+ 16 17 18
+ 19 s 2.5
+tile(1) 20
+IF (x And 1) = 0: the IF
+ELSEIF (x) = 4: the ELSEIF
+CASE = 4: the CASE
+button 2 flash 0
+button 3 flash 1
+after REM
+FOR = 1: error 1
+MM.FLAGS 5
+DRIVE A:
+DRIVE A:
+

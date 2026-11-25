@@ -1,0 +1,1220 @@
+[
+ {
+  "mode": "OFF",
+  "prog": "cmm2/ctlflow",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 13032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/forif",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4216
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/tokens",
+  "class": "MATCH",
+  "secs": 0.8,
+  "stack": 12288
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/gosubbad",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/bugs",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/behfix",
+  "class": "MATCH",
+  "secs": 1.1,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/p1fixes",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/pmfix",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4432
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/m4fixes",
+  "class": "MATCH",
+  "secs": 1.0,
+  "stack": 5548
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/parity1",
+  "class": "DIFF",
+  "secs": 0.9,
+  "stack": 4136
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/langsys",
+  "class": "DIFF",
+  "secs": 7.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/subst",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4428
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/folds",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5152
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/datakw",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4344
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/printpos",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/bitflag",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/locals",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 21704
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/locals30",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/localfast",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 13796
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/binding",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 10676
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/symbols",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4952
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/static",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4136
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/names",
+  "class": "MATCH",
+  "secs": 1.7,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/vartable",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 4288
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/globals7",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4416
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/bounds",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4124
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/emptyarr",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/funarray",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/shortarr",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/name32",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/structs",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 4608
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/types",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/onedim",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/onedim1",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/arrays",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/redim",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/cmdvars",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/prep6",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/manystr",
+  "class": "MATCH",
+  "secs": 0.9,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/inttick",
+  "class": "MATCH",
+  "secs": 5.2,
+  "stack": 4332
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/intsrc",
+  "class": "DIFF",
+  "secs": 5.6,
+  "stack": 4944
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/pauseint",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/csubint",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/csubint2",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/onerror",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4216
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/dupl",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/typeerr1",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/typeerr2",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/endcmd",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/endhook",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/endnoend",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/runself",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/chain1",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/chain2",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/chain",
+  "class": "MATCH",
+  "secs": 2.5,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/context",
+  "class": "MATCH",
+  "secs": 3.7,
+  "stack": 4100
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/library",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4944
+ },
+ {
+  "mode": "OFF",
+  "prog": "cmm2/libcsub",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/ctlflow",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 9568
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/forif",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5112
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/tokens",
+  "class": "MATCH",
+  "secs": 0.8,
+  "stack": 8856
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/gosubbad",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4736
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/bugs",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5640
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/behfix",
+  "class": "MATCH",
+  "secs": 1.1,
+  "stack": 5976
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/p1fixes",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4800
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/pmfix",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5576
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/m4fixes",
+  "class": "MATCH",
+  "secs": 1.0,
+  "stack": 5612
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/parity1",
+  "class": "DIFF",
+  "secs": 0.9,
+  "stack": 5496
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/langsys",
+  "class": "DIFF",
+  "secs": 7.5,
+  "stack": 4896
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/subst",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5976
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/folds",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5328
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/datakw",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4376
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/printpos",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5124
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/bitflag",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4804
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/locals",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 16612
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/locals30",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4816
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/localfast",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 10020
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/binding",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 6912
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/symbols",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5268
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/static",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5128
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/names",
+  "class": "MATCH",
+  "secs": 1.7,
+  "stack": 4872
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/vartable",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 4952
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/globals7",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5400
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/bounds",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5448
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/emptyarr",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4248
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/funarray",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4800
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/shortarr",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4216
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/name32",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4680
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/structs",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 5128
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/types",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4736
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/onedim",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5128
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/onedim1",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5128
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/arrays",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4832
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/redim",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4800
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/cmdvars",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5080
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/prep6",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4804
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/manystr",
+  "class": "MATCH",
+  "secs": 0.9,
+  "stack": 5248
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/inttick",
+  "class": "MATCH",
+  "secs": 5.2,
+  "stack": 5360
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/intsrc",
+  "class": "DIFF",
+  "secs": 4.9,
+  "stack": 5360
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/pauseint",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4872
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/csubint",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4736
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/csubint2",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/onerror",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5448
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/dupl",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/typeerr1",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/typeerr2",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/endcmd",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/endhook",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4680
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/endnoend",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4192
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/runself",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/chain1",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/chain2",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/chain",
+  "class": "MATCH",
+  "secs": 2.6,
+  "stack": 4032
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/context",
+  "class": "MATCH",
+  "secs": 3.9,
+  "stack": 4272
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/library",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5120
+ },
+ {
+  "mode": "ON",
+  "prog": "cmm2/libcsub",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5472
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/ctlflow",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 9904
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/forif",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5112
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/tokens",
+  "class": "MATCH",
+  "secs": 0.8,
+  "stack": 9192
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/gosubbad",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4736
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/bugs",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5640
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/behfix",
+  "class": "MATCH",
+  "secs": 1.1,
+  "stack": 5976
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/p1fixes",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4800
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/pmfix",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5576
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/m4fixes",
+  "class": "MATCH",
+  "secs": 1.0,
+  "stack": 5612
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/parity1",
+  "class": "DIFF",
+  "secs": 0.9,
+  "stack": 5496
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/langsys",
+  "class": "DIFF",
+  "secs": 7.4,
+  "stack": 4896
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/subst",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5976
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/folds",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5328
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/datakw",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4376
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/printpos",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5124
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/bitflag",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4804
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/locals",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 16700
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/locals30",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4816
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/localfast",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 10032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/binding",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 7248
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/symbols",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5268
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/static",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5128
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/names",
+  "class": "MATCH",
+  "secs": 1.7,
+  "stack": 4872
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/vartable",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 4952
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/globals7",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5400
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/bounds",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5448
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/emptyarr",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4248
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/funarray",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4800
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/shortarr",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4216
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/name32",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4680
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/structs",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 5128
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/types",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4736
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/onedim",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5128
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/onedim1",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5128
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/arrays",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4816
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/redim",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4800
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/cmdvars",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 5080
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/prep6",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4804
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/manystr",
+  "class": "MATCH",
+  "secs": 0.9,
+  "stack": 5248
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/inttick",
+  "class": "MATCH",
+  "secs": 5.2,
+  "stack": 5360
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/intsrc",
+  "class": "DIFF",
+  "secs": 5.4,
+  "stack": 5360
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/pauseint",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 4872
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/csubint",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4736
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/csubint2",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/onerror",
+  "class": "MATCH",
+  "secs": 0.6,
+  "stack": 5448
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/dupl",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/typeerr1",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/typeerr2",
+  "class": "ERROR",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/endcmd",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/endhook",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4680
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/endnoend",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4192
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/runself",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/chain1",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4216
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/chain2",
+  "class": "MATCH",
+  "secs": 0.4,
+  "stack": 4032
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/chain",
+  "class": "MATCH",
+  "secs": 2.6,
+  "stack": 4216
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/context",
+  "class": "MATCH",
+  "secs": 3.6,
+  "stack": 4272
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/library",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 5120
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "cmm2/libcsub",
+  "class": "MATCH",
+  "secs": 0.7,
+  "stack": 5472
+ }
+]
