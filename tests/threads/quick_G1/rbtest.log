@@ -38,7 +38,7 @@ sent rblocal_13.bas, 186 bytes
 sent rblocal_14.bas, 162 bytes
 sent rblocal_15.bas, 301 bytes
 sent rblocal_16.bas, 418 bytes
-40 files, 12588 bytes in 7.02 s = 1.8 KB/s
+40 files, 12588 bytes in 6.71 s = 1.8 KB/s
 sent rblocal_17.bas, 158 bytes
 sent rblocal_18.bas, 187 bytes
 sent rblocal_19.bas, 64 bytes
@@ -77,19 +77,19 @@ sent rb_cmm2_17.bas, 387 bytes
 sent rb_cmm2_18.bas, 690 bytes
 sent rb_cmm2_19.bas, 686 bytes
 sent rb_cmm2_20.bas, 362 bytes
-38 files, 6693 bytes in 6.83 s = 1.0 KB/s
+38 files, 6693 bytes in 6.78 s = 1.0 KB/s
 SAME rbcache    main around calls          CODE 1801     40600 599
 SAME rbcache    local hides a global mid-l CODE 55       345 100
 SAME rbcache    gosub from a sub into main CODE -1       8
 SAME rbcache    erase and dim between call CODE 40       27 7
 SAME rbcache    option default between cal CODE 29       10
-SAME rbcache    sub loop around calls      CODE 30008   00 6005 9006000 | TIME  95.889 |  4501500 6005 18012000 | TIME  96.644
+SAME rbcache    sub loop around calls      CODE 30008   500 6005 9006000 | TIME  95.59 |  4501500 6005 18012000 | TIME  96.347
 SAME rbcache    a callee's local hides a c CODE 39       50 5
 SAME rbcache    a local made mid-loop afte CODE 63       642 100
 SAME rbcache    interrupt locals during a  CODE 40154    20001 |  1
 SAME rbcache    a gosub's local in a sub   CODE -1       4040 3
-SAME rbcache    speed                      CODE 40001    12502500 10000 6427 | TIME  38.97
-SAME rbcallname table dispatch             CODE 6424     10 993 | TIME 71.631 |  110 893
+SAME rbcache    speed                      CODE 40001    12502500 10000 6427 | TIME  39.041
+SAME rbcallname table dispatch             CODE 6424     10 993 | TIME 71.751 |  110 893
 SAME rbcallname argument kinds             CODE 11      |  7 3.5 const |  41 1 ab!cd |  8 5 a |  21 25 |  2 2 float to integer
 ERRS rbcallname byval and byref            CODE -1       1 102 |  3.25 | Error in line 13: BYREF requires same types: A
        OFF     1 102 |  3.25 | Error in line 13: BYREF requires same types: A
@@ -228,7 +228,7 @@ ERRS rb_cmm2    error in a body on the SUB CODE -1      before | Error in line 1
 SAME rb_cmm2    INC                        CODE 15       14 2.25 abccc
 SAME rb_cmm2    TRACE and line numbers     CODE 3       [5][6] 6
 SAME rb_cmm2    ON ERROR SKIP              CODE 10      e 4e 5 |  1 3
-SAME rb_cmm2    interrupt in a loop        CODE 192930   1
+SAME rb_cmm2    interrupt in a loop        CODE 193182   1
 SAME rb_cmm2    RUN in a slot's program    CODE 0        0
 SAME rb_cmm2    splice TEXT justification  CODE 50310    268
 SAME rb_cmm2    splice graphics            CODE 50345    24748 224

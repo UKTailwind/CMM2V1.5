@@ -8,6 +8,7 @@ Sub Ender
   End
   Print "not reached"
 End Sub
+Thread Slice 100                      ' (the order is what is tested: with 1 ms slices a PRINT can end one)
 Thread Start 2, Ender
 Do
   Thread Yield

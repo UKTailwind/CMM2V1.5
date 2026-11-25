@@ -14,6 +14,7 @@ See MMBasic.h for the licence.
 #define THREAD_STACK (20 * 1024)                    // a thread's C stack
 #define THREAD_GUARD (6 * 1024)                     // the part of it below the stack check's floor (Stage 0's figures)
 #define THREAD_LOCALS 48                            // its local variable slots
+#define MAXLOCKS 16                                 // THREAD LOCK's locks, numbered 1 to MAXLOCKS
 
 extern int ThreadCount;                             // the threads started and not yet ended: 0, and nothing here is active
 extern volatile int ThreadSliceLeft;                // milliseconds left of the running thread's slice (the tick, Timers.c)
@@ -32,6 +33,10 @@ void ThreadSchedule(void);                          // the statement tail's call
 void ThreadSleepUntil(long long t);                 // PAUSE: the other threads run until the microsecond clock reads t
 void ThreadToMain(void);                            // an interrupt waits for the main program: it runs now
 int ThreadState(int n);                             // MM.INFO(THREAD n)
+int ThreadLockOwner(int k);                         // MM.INFO(THREAD LOCK k): the thread that has lock k, -1 none
+int ThreadArg(int n, long long int *i, MMFLOAT *f, char *s);    // MM.INFO(THREAD ARG n), for a thread's own call
+void ThreadsStopped(void);                          // the prompt's landing: the list of threads after an error or Ctrl-C,
+void ThreadsStoppedShow(void);                      // written down, and then printed after the error's message
 int ThreadsEnd(void);                               // the program has stopped or is being replaced: 1 if it had threads
 void ThreadsStop(void);                             // END: no other thread runs from here on
 int ThreadNumber(void);                             // the running thread's number: 0 the main program

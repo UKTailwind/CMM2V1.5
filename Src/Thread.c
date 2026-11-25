@@ -44,14 +44,28 @@ extern int StrTmpIndex;
 #define T_READY 1
 #define T_DONE 2                                                    // ended: its blocks are freed from another thread's stack
 #define T_SLEEP 3                                                   // in PAUSE until the microsecond clock reads 'wake'
-#define ALIVE(t) ((t)->state == T_READY || (t)->state == T_SLEEP)
+#define T_WAIT 4                                                    // waiting for a lock, a thread or a flag, until 'wake' at most
+#define ALIVE(t) ((t)->state == T_READY || (t)->state == T_SLEEP || (t)->state == T_WAIT)
+#define W_LOCK 1                                                    // what a thread waits for (wkind), and which (warg)
+#define W_THREAD 2
+#define W_FLAG 3
+#define NOLIMIT LLONG_MAX                                           // a wait with no time limit
+#define CALLMAX 240                                                 // the longest call of a thread's SUB: a call is read with
+                                                                    // a program line's room (makeargs, DefinedSubFun)
+#define MAXTARGS 16                                                 // the arguments THREAD START can hand to a thread's SUB
+struct s_targ {                                                     // one of them, evaluated by THREAD START
+    int type;                                                       // T_INT, T_NBR or T_STR
+    union { long long int i; MMFLOAT f; char *s; } v;               // (s: an MMBasic string, kept after the thread's record)
+};
 #define STACK_MARK 0x54485244                                       // the word at the bottom of a thread's stack
 
 struct s_thread {
     uint32_t *sp;                                                   // its stack pointer while it is not running (ThreadSwap)
     unsigned char state, id;
     unsigned char paused;                                           // THREAD PAUSE: passed over until THREAD RESUME
-    long long wake;                                                 // T_SLEEP: when its PAUSE ends
+    long long wake;                                                 // T_SLEEP: when its PAUSE ends; T_WAIT: its time limit
+    unsigned char wkind;                                            // T_WAIT: W_LOCK, W_THREAD or W_FLAG
+    int warg;                                                       // and the lock, thread or flag
     int stacksize;
     char *stack;                                                    // its C stack (NULL: the main program's, in the DTCM)
     uint32_t floor;                                                 // the stack check's floor (StackFloor while it runs)
@@ -69,7 +83,10 @@ struct s_thread {
     unsigned int screwup;                                           // EXECUTE's time left (ScrewUpTimer), stopped while it waits
     jmp_buf ErrNext;
     char errmsg[STRINGSIZE];                                        // MM.ERRMSG$
-    char call[MAXVARLEN + 4];                                       // the statement that calls its SUB: the name, then zeros
+    char *call;                                                     // the statement that calls its SUB: the name, its
+                                                                    // arguments, then zeros (after the record: CallText)
+    struct s_targ *args;                                            // the arguments' values, which the call asks for by
+    int nargs;                                                      // MM.INFO(THREAD ARG n)
     char tknbuf[TKNBUFSIZE];                                        // EXECUTE's line
     char *gosub[MAXGOSUB], *errs[MAXGOSUB], *subs[MAXGOSUB];
     struct s_forstack fors[MAXFORLOOPS + 1];
@@ -92,6 +109,11 @@ static struct s_thread *Thr[MAXTHREADS + 1];                        // by number
 static struct s_thread *Cur = NULL;                                 // the one running (NULL: no thread has been started)
 static int Stopping = 0;                                            // the program is ending: no more switches
 static char EndErrMsg[STRINGSIZE];                                  // MM.ERRMSG$'s home once the records have gone
+extern uint64_t g_flag;                                             // (Commands.c: FLAG(n), which THREAD WAIT FLAG waits for)
+static unsigned char LockOwner[MAXLOCKS + 1];                       // THREAD LOCK k's owner, as its thread number + 1; 0 free
+static int HoldCount = 0, HoldBy = 0;                               // THREAD HOLD: its depth, and the thread that holds
+static int MainWaiting = 0;                                         // the main program's wait was cut short by an interrupt, and
+static long long MainLimit_us;                                      // goes on to this time when its statement runs again
 
 /*******************************************************************************************
  the switch
@@ -241,6 +263,21 @@ static void ThreadReap(void) {
     if(ThreadCount == 0 && Cur == Thr[0]) ThreadsOff();
 }
 
+// what a thread waits for is so: the lock is free, the thread has ended, the flag is set
+static int WaitOver(int kind, int arg) {
+    if(kind == W_LOCK) return LockOwner[arg] == 0;
+    if(kind == W_THREAD) return Thr[arg] == NULL || !ALIVE(Thr[arg]);
+    return (int)((g_flag >> arg) & 1);
+}
+
+// a thread has ended: its locks are free, and its hold is over
+static void Disown(int id) {
+    int k;
+    for(k = 1; k <= MAXLOCKS; k++)
+        if(LockOwner[k] == id + 1) LockOwner[k] = 0;
+    if(HoldCount && HoldBy == id) HoldCount = 0;
+}
+
 /* The thread to run next, made ready if it was asleep: the main program when an interrupt waits for it; else the
    sleeping thread whose PAUSE ended first, so that a timed thread is on time among busy ones; else the next ready one
    in number order after the one running (which is itself the last tried). With none of those it is the main program,
@@ -255,7 +292,7 @@ static struct s_thread *NextReady(void) {
     }
     for(i = 0; i <= MAXTHREADS; i++) {
         t = Thr[i];
-        if(t == NULL || t->paused || t->state != T_SLEEP || t->wake > now) continue;
+        if(t == NULL || t->paused || !(t->state == T_SLEEP || t->state == T_WAIT) || t->wake > now) continue;
         if(due == NULL || t->wake < due->wake) due = t;
     }
     if(due != NULL) {
@@ -264,7 +301,12 @@ static struct s_thread *NextReady(void) {
     }
     for(i = 1; i <= MAXTHREADS + 1; i++) {
         t = Thr[(Cur->id + i) % (MAXTHREADS + 1)];
-        if(t != NULL && t->state == T_READY && !t->paused) return t;
+        if(t == NULL || t->paused) continue;
+        if(t->state == T_READY) return t;
+        if(t->state == T_WAIT && WaitOver(t->wkind, t->warg)) {     // what it waited for is so: its statement goes on
+            t->state = T_READY;
+            return t;
+        }
     }
     Thr[0]->state = T_READY;
     return Thr[0];
@@ -277,7 +319,8 @@ static void ArmWake(void) {
     unsigned int ms;
     int i;
     for(i = 0; i <= MAXTHREADS; i++)
-        if(Thr[i] != NULL && Thr[i]->state == T_SLEEP && !Thr[i]->paused && (first == 0 || Thr[i]->wake < first)) first = Thr[i]->wake;
+        if(Thr[i] != NULL && !Thr[i]->paused && (Thr[i]->state == T_SLEEP || (Thr[i]->state == T_WAIT && Thr[i]->wake != NOLIMIT))
+           && (first == 0 || Thr[i]->wake < first)) first = Thr[i]->wake;
     if(first == 0) {
         ThreadWakeMs = 0;
         return;
@@ -288,10 +331,11 @@ static void ArmWake(void) {
 }
 
 // no switch now: an interrupt routine is running (it is the main program's, and its saved state is single), BASIC is
-// running from inside a CSUB or a module's call, a loadable program has the machine, or the program is ending
+// running from inside a CSUB or a module's call, a loadable program has the machine, the program is ending, or the
+// running thread is between THREAD HOLD and THREAD RELEASE
 static int Held(void) {
     if(ExecDepth < ThreadHoldDepth) ThreadHoldDepth = INT_MAX;      // (a call that held has ended: Thread.h)
-    return Stopping || InterruptReturn != NULL || LoaderActive || ThreadHoldDepth != INT_MAX;
+    return Stopping || InterruptReturn != NULL || LoaderActive || ThreadHoldDepth != INT_MAX || HoldCount;
 }
 
 static void ThreadSwitchTo(struct s_thread *to) {
@@ -311,6 +355,7 @@ __attribute__((noreturn)) static void ThreadFinish(void) {
     struct s_thread *old = Cur, *to;
     old->state = T_DONE;
     ThreadCount--;
+    Disown(old->id);
     ScrewUpTimer = 0;
     to = NextReady();                                               // (the main program at least)
     ContextLoad(to);
@@ -355,6 +400,58 @@ void ThreadSleepUntil(long long t) {
     Cur->state = T_READY;
 }
 
+// the running thread waits: the others run until what it waits for is so, its time is up, or (the main program) an
+// interrupt is due or nothing else can run. The caller's loop looks, and calls again.
+static void WaitSwitch(int kind, int arg, long long limit) {
+    struct s_thread *to;
+    Cur->wkind = kind;
+    Cur->warg = arg;
+    Cur->wake = limit;
+    Cur->state = T_WAIT;
+    to = NextReady();
+    if(to != Cur) ThreadSwitchTo(to);
+    Cur->state = T_READY;
+}
+
+/* THREAD LOCK and THREAD WAIT: the running thread waits until the thing is so (1), or for us microseconds (0); no
+   limit if us is less than 0. The main program takes interrupts while it waits, as it does in PAUSE: -1 is 'an
+   interrupt is due', the command returns at once, the routine runs, and the statement ('token') runs again and goes
+   on to the same time. Where no other thread can run (an interrupt routine, a hold, BASIC called from a CSUB) a wait
+   could never end, and is an error. */
+static int WaitFor(int kind, int arg, long long us, char *token) {
+    long long limit;
+    int ismain = (Cur == NULL || Cur == Thr[0]);
+    if(WaitOver(kind, arg)) {
+        if(ismain && InterruptReturn == NULL) MainWaiting = 0;
+        return 1;
+    }
+    if(InterruptReturn != NULL) error("Cannot wait in an interrupt routine");
+    if(ExecDepth < ThreadHoldDepth) ThreadHoldDepth = INT_MAX;      // (a call that held has ended: as Held)
+    if(HoldCount || ThreadHoldDepth != INT_MAX) error("Cannot wait while the threads are held");
+    if(!ismain) {
+        limit = us < 0 ? NOLIMIT : GetuSec() + us;
+        for(;;) {
+            if(WaitOver(kind, arg)) return 1;
+            if(GetuSec() >= limit) return 0;
+            CheckAbort();
+            WaitSwitch(kind, arg, limit);
+        }
+    }
+    if(!MainWaiting) MainLimit_us = us < 0 ? NOLIMIT : GetuSec() + us;
+    MainWaiting = 0;
+    for(;;) {
+        if(WaitOver(kind, arg)) return 1;
+        if(GetuSec() >= MainLimit_us) return 0;
+        CheckAbort();
+        if(check_interrupt()) {
+            InterruptReturn = token;                                // this statement again after the routine
+            MainWaiting = 1;
+            return -1;
+        }
+        if(ThreadCount) WaitSwitch(kind, arg, MainLimit_us);
+    }
+}
+
 // A thread has found an interrupt due (ThreadIntPending): the main program runs now, and takes it at once
 // (check_interrupt). Back when this thread's turn comes round again.
 void ThreadToMain(void) {
@@ -363,11 +460,98 @@ void ThreadToMain(void) {
     ThreadSwitchTo(Thr[0]);
 }
 
-// MM.INFO(THREAD n): 0 not running, 1 running or ready to, 2 in PAUSE, 3 paused by THREAD PAUSE
+// MM.INFO(THREAD n): 0 not running, 1 running or ready to, 2 in PAUSE, 3 paused by THREAD PAUSE, 4 waiting for a lock,
+// a thread or a flag
 int ThreadState(int n) {
     if(n == 0) return 1;
     if(Thr[n] == NULL || !ALIVE(Thr[n])) return 0;
-    return Thr[n]->paused ? 3 : (Thr[n]->state == T_SLEEP ? 2 : 1);
+    return Thr[n]->paused ? 3 : (Thr[n]->state == T_SLEEP ? 2 : (Thr[n]->state == T_WAIT ? 4 : 1));
+}
+
+int ThreadLockOwner(int k) {
+    return (int)LockOwner[k] - 1;
+}
+
+// the number of the program line p is in: 0 if it is not in the program
+static int LineOf(char *p) {
+    char *line, *next;
+    if(p == NULL || !InProgMemory(p)) return 0;
+    if(*p != T_NEWLINE) {
+        for(line = (char *)ProgMemory; *line == T_NEWLINE; line = next) {
+            next = NextLine(line);
+            if(p < next) break;
+        }
+        if(*line != T_NEWLINE) return 0;
+        p = line;
+    }
+    return LHDR_LINE(p);
+}
+
+// the list's text: printed, or kept at ListAt (to ListEnd) for the prompt's landing to print after the error's message
+static char *ListBuf = NULL, *ListAt, *ListEnd;
+static void ListText(const char *s) {
+    if(ListBuf == NULL) {
+        MMPrintString((char *)s);
+        return;
+    }
+    while(*s && ListAt < ListEnd) *ListAt++ = *s++;
+    *ListAt = 0;
+}
+
+static void ListNumber(const char *before, int n) {
+    char b[16];
+    ListText(before);
+    IntToStr(b, n, 10);
+    ListText(b);
+}
+
+// THREAD LIST, and the prompt's landing after an error or Ctrl-C: each thread, the line it is at and what it is doing
+static void ThreadList(void) {
+    struct s_thread *t;
+    int i, line;
+    if(Cur == NULL) {
+        ListText("No threads\r\n");
+        return;
+    }
+    for(i = 0; i <= MAXTHREADS; i++) {
+        t = Thr[i];
+        if(t == NULL || !ALIVE(t)) continue;
+        if(i) ListNumber("Thread ", i); else ListText("Main program");
+        line = LineOf(t == Cur ? CurrentLinePtr : t->CurrentLinePtr);
+        if(line) ListNumber(": line ", line); else ListText(":");
+        if(t == Cur) ListText(", running");
+        else if(t->paused) ListText(", paused");
+        else if(t->state == T_SLEEP) ListText(", in PAUSE");
+        else if(t->state == T_WAIT && t->wkind == W_LOCK) {
+            ListNumber(", waiting for lock ", t->warg);
+            if(LockOwner[t->warg] == 1) ListText(" (the main program has it)");
+            else if(LockOwner[t->warg]) { ListNumber(" (thread ", LockOwner[t->warg] - 1); ListText(" has it)"); }
+        } else if(t->state == T_WAIT && t->wkind == W_THREAD) ListNumber(", waiting for thread ", t->warg);
+        else if(t->state == T_WAIT) ListNumber(", waiting for flag ", t->warg);
+        else ListText(", ready");
+        ListText("\r\n");
+    }
+}
+
+/* The prompt's landing (main.c), first thing: a program with threads has stopped at an error or Ctrl-C (not at END,
+   which stops the threads itself). Where each thread was is written down before ThreadsEnd frees the records, and
+   printed by ThreadsStoppedShow after the error's own message. With no memory for it there is no list. */
+void ThreadsStopped(void) {
+    if(ListBuf != NULL) FreeMemory(ListBuf);
+    ListBuf = NULL;
+    if(Cur == NULL || ThreadCount == 0 || Stopping) return;
+    if((ListBuf = GetMemoryNull(1536)) == NULL) return;
+    ListAt = ListBuf;
+    ListEnd = ListBuf + 1535;
+    ThreadList();
+}
+
+void ThreadsStoppedShow(void) {
+    char *b = ListBuf;
+    if(b == NULL) return;
+    ListBuf = NULL;
+    MMPrintString(b);
+    FreeMemory(b);
 }
 
 int ThreadNumber(void) {
@@ -414,6 +598,9 @@ int ThreadsEnd(void) {
     ThreadSliceLen = 1;
     ThreadIntPending = NULL;
     ThreadHoldDepth = INT_MAX;
+    memset(LockOwner, 0, sizeof(LockOwner));                        // (the locks, the hold and a wait are the program's too)
+    HoldCount = 0;
+    MainWaiting = 0;
     if(Cur == NULL) return 0;
     if(!OnMainStack()) error("Not allowed in a thread");
     strncpy(EndErrMsg, MMErrMsg, STRINGSIZE - 1);
@@ -465,11 +652,81 @@ static int OnChipFree(void) {
     return n * RAMPAGESIZE;
 }
 
-// THREAD START n, sub
-static void ThreadStart(int n, char *name) {
+#define PUT(c) do { if(o >= end) error("Arguments too long for a thread"); *o++ = (c); } while(0)
+/* The statement a new thread starts with, written at out (CALLMAX bytes): its SUB's name and its arguments. Each
+   argument of THREAD START (argv[4], argv[6]...) is evaluated here, in the thread that starts the new one, and kept in
+   ta[]. In the call it is written MM.INFO(THREAD ARG n), which gives the new thread that value back, exactly, when
+   its call is made: the call takes it as any call takes an expression, by value, and DefinedSubFun is as it was. (The
+   values cannot be written into the call as constants: a call is read with a program line's room, 255 characters,
+   and one string can be that long.) A whole array (a()) is written as its name: the new thread finds the same global
+   by it, so a global it must be. The call's length; *nta the number of values kept. */
+static int CallText(char *out, struct s_targ *ta, int *nta, char *sub, int len, int argc, char **argv) {
+    char *o = out, *end = out + CALLMAX - 4, *a, *b, *s, nb[12];
+    const char *w;
+    MMFLOAT f;
+    long long int i64;
+    int i, j, t, n = 0, info = GetTokenValue("MM.Info(");
+    for(j = 0; j < len; j++) PUT(sub[j]);
+    for(i = 4; i < argc; i += 2) {
+        PUT(i == 4 ? ' ' : ',');
+        a = argv[i];
+        skipspace(a);
+        if(*a == 0) continue;                                       // (left out: the SUB's own default)
+        if(isnamestart(*a) && *skipvar(a, false) == 0 && (b = strchr(a, '(')) != NULL && FindSubFun(a, 1) < 0) {
+            b++;
+            skipspace(b);
+            if(*b == ')') {                                         // a whole array
+                findvar(a, V_FIND | V_EMPTY_OK | V_NOFIND_ERR);
+                if(VREC(VarIndex)->level != 0 || (VREC(VarIndex)->type & T_PTR))
+                    error("Only a global array can be passed to a thread");
+                while(*a) PUT(*a++);
+                continue;
+            }
+        }
+        if(n == MAXTARGS) error("Too many arguments for a thread");
+        t = T_NOTYPE;
+        s = NULL;
+        evaluate(a, &f, &i64, &s, &t, false);
+        if(t & T_INT) {
+            ta[n].type = T_INT;
+            ta[n].v.i = i64;
+        } else if(t & T_NBR) {
+            ta[n].type = T_NBR;
+            ta[n].v.f = f;
+        } else if(t & T_STR) {
+            ta[n].type = T_STR;
+            ta[n].v.s = GetTempMemory(STRINGSIZE);                  // (evaluate's own place is the next argument's too)
+            Mstrcpy(ta[n].v.s, s);
+        } else
+            error("Invalid argument for a thread");
+        n++;
+        PUT(info);
+        for(w = "THREAD ARG "; *w; w++) PUT(*w);
+        IntToStr(nb, n, 10);
+        for(j = 0; nb[j]; j++) PUT(nb[j]);
+        PUT(')');
+    }
+    *nta = n;
+    return o - out;
+}
+
+// MM.INFO(THREAD ARG n): argument n of the THREAD START that started the running thread (its type; a string copied to s)
+int ThreadArg(int n, long long int *i, MMFLOAT *f, char *s) {
+    struct s_targ *a;
+    if(Cur == NULL || n < 1 || n > Cur->nargs) error("Thread argument % does not exist", n);
+    a = &Cur->args[n - 1];
+    if(a->type == T_INT) *i = a->v.i;
+    else if(a->type == T_NBR) *f = a->v.f;
+    else Mstrcpy(s, a->v.s);
+    return a->type;
+}
+
+// THREAD START n, sub [, argument ...]
+static void ThreadStart(int n, char *name, int argc, char **argv) {
     struct s_thread *t;
-    char *stack, sub[MAXVARLEN + 1];
-    int i, len = 0, base, maintop, bindings;
+    struct s_targ ta[MAXTARGS];
+    char *stack, sub[MAXVARLEN + 1], call[CALLMAX], *strs;
+    int i, len = 0, base, maintop, bindings, calllen, nta, strbytes = 0;
     uint32_t *sp;
     if(CurrentLinePtr == NULL) error("Invalid at the command prompt");
     skipspace(name);
@@ -483,6 +740,10 @@ static void ThreadStart(int n, char *name) {
     checkend(name + len);
     if(Thr[n] != NULL && ALIVE(Thr[n])) error("Thread % is running", n);
     if((i = FindSubFun(sub, 0)) < 0 || commandtbl_at(subfun[i]) != cmdSUB) error("$ is not a SUB", sub);
+    calllen = CallText(call, ta, &nta, sub, len, argc, argv);       // (an argument may call a FUNCTION, in which the
+    for(i = 0; i < nta; i++)                                        // threads take their turns: the checks again after it)
+        if(ta[i].type == T_STR) strbytes += (unsigned char)*ta[i].v.s + 1;
+    if(Thr[n] != NULL && ALIVE(Thr[n])) error("Thread % is running", n);
 
     if(Cur != NULL) ThreadReap();                                   // (a number that has just ended is free to use again;
                                                                     // with the last of them gone, Cur is NULL after it)
@@ -513,7 +774,8 @@ static void ThreadStart(int n, char *name) {
     bindings = SymL != NULL ? SymCanonCount * sizeof(int16_t) : 0;
     stack = (OnChipFree() >= StackSize + 96 * 1024) ? GetInternalMemoryNull(StackSize) : NULL;
     if(stack == NULL) stack = GetMemoryNull(StackSize);
-    t = stack != NULL ? GetMemoryNull(sizeof(struct s_thread) + bindings) : NULL;
+    // (after the record: its arguments, its names' bindings, its call, and its arguments' strings)
+    t = stack != NULL ? GetMemoryNull(sizeof(struct s_thread) + nta * sizeof(struct s_targ) + bindings + calllen + 4 + strbytes) : NULL;
     if(t == NULL) {
         if(stack != NULL) FreeMemory(stack);
         if(ThreadCount == 0) ThreadsOff();
@@ -528,12 +790,23 @@ static void ThreadStart(int n, char *name) {
     t->lbase = t->localtop = base;
     t->llimit = base + LocalSlots;
     if(bindings) {
-        t->syml = (int16_t *)(t + 1);
+        t->syml = (int16_t *)((struct s_targ *)(t + 1) + nta);
         memset(t->syml, 0xFF, bindings);                            // (-1: no name has a local)
     }
     t->CurrentLinePtr = CurrentLinePtr;                             // its SUB's call is reported at this line
     t->NextDataLine = (char *)ProgMemory;
-    memcpy(t->call, sub, len);                                      // (the zeros after it end the statement and the "program")
+    t->args = (struct s_targ *)(t + 1);
+    t->nargs = nta;
+    t->call = (char *)(t->args + nta) + bindings;
+    memcpy(t->call, call, calllen);                                 // (the zeros after it end the statement and the "program")
+    strs = t->call + calllen + 4;
+    for(i = 0; i < nta; i++) {
+        t->args[i] = ta[i];
+        if(ta[i].type != T_STR) continue;
+        Mstrcpy(strs, ta[i].v.s);
+        t->args[i].v.s = strs;
+        strs += (unsigned char)*strs + 1;
+    }
 
     // its stack as ThreadSwap leaves one: d8-d15, r4-r11, then where to go on, ThreadMain, with the stack 8-byte aligned
     // there as a function's is on entry
@@ -580,6 +853,7 @@ static void ThreadStop(int n) {
     ContextLoad(Cur);
     t->state = T_DONE;
     ThreadCount--;
+    Disown(n);
     ThreadReap();
 }
 
@@ -590,16 +864,61 @@ static struct s_thread *Named(char *p) {
     return Thr[n];
 }
 
+// THREAD LOCK's and THREAD WAIT's time limit, in milliseconds: as microseconds, -1 for none
+static long long TimeLimit(int argc, char **argv) {
+    MMFLOAT ms;
+    if(argc != 3) return -1;
+    ms = getnumber(argv[2]);
+    if(ms < 0) error("Number out of bounds");
+    return (long long)(ms * 1000);
+}
+
 void cmd_thread(void) {
-    char *p;
-    if((p = checkstring(cmdline, "START")) != NULL) {
-        getargs(&p, 3, ",");
-        if(argc != 3) error("Syntax");
-        ThreadStart(getint(argv[0], 1, MAXTHREADS), argv[2]);
-    } else if((p = checkstring(cmdline, "YIELD")) != NULL) {
+    char *p, *q, *token = CmdTokenPtr;                              // (this statement, to run again after an interrupt)
+    int k, me = ThreadNumber();
+    if((p = checkstring(cmdline, "YIELD")) != NULL) {               // (first: the one a loop is made of)
         checkend(p);
         if(InterruptReturn != NULL) error("Invalid in an interrupt routine");
         if(ThreadCount) AskSwitch();                                // the statement tail makes the switch (ThreadSchedule)
+    } else if((p = checkstring(cmdline, "START")) != NULL) {
+        getargs(&p, MAX_ARG_COUNT * 2 - 1, ",");
+        if(argc < 3 || !(argc & 1)) error("Syntax");
+        ThreadStart(getint(argv[0], 1, MAXTHREADS), argv[2], argc, argv);
+    } else if((p = checkstring(cmdline, "LOCK")) != NULL) {
+        getargs(&p, 3, ",");
+        if(!(argc == 1 || argc == 3)) error("Syntax");
+        k = getint(argv[0], 1, MAXLOCKS);
+        if(LockOwner[k] == me + 1) error("Lock % is already held by this thread", k);
+        switch(WaitFor(W_LOCK, k, TimeLimit(argc, argv), token)) {
+            case 1: LockOwner[k] = me + 1; break;                   // (no statement ends between the test and this)
+            case 0: error("Lock % timed out", k);
+        }
+    } else if((p = checkstring(cmdline, "UNLOCK")) != NULL) {
+        k = getint(p, 1, MAXLOCKS);
+        if(LockOwner[k] != me + 1) error("Lock % is not held by this thread", k);
+        LockOwner[k] = 0;
+    } else if((p = checkstring(cmdline, "HOLD")) != NULL) {
+        checkend(p);
+        HoldCount++;                                                // (no other thread runs from here: Held)
+        HoldBy = me;
+    } else if((p = checkstring(cmdline, "RELEASE")) != NULL) {
+        checkend(p);
+        if(HoldCount == 0) error("The threads are not held");
+        HoldCount--;
+    } else if((p = checkstring(cmdline, "WAIT")) != NULL) {
+        int kind = W_THREAD;
+        if((q = checkstring(p, "FLAG")) != NULL) {
+            kind = W_FLAG;
+            p = q;
+        }
+        getargs(&p, 3, ",");
+        if(!(argc == 1 || argc == 3)) error("Syntax");
+        k = (kind == W_FLAG) ? getint(argv[0], 0, 63) : getint(argv[0], 1, MAXTHREADS);
+        if(kind == W_THREAD && k == me) error("A thread cannot wait for itself");
+        WaitFor(kind, k, TimeLimit(argc, argv), token);             // (at its time limit the program looks for itself)
+    } else if((p = checkstring(cmdline, "LIST")) != NULL) {
+        checkend(p);
+        ThreadList();
     } else if((p = checkstring(cmdline, "EXIT")) != NULL) {
         checkend(p);
         if(Cur == NULL || Cur->id == 0) error("Not in a thread");

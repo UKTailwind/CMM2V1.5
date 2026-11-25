@@ -275,10 +275,12 @@ hold on: the scheduler drops it the first time it is asked at a shallower depth.
 - **`PAUSE` in the main thread** keeps its way of handling an interrupt (return, run the routine, run the statement
   again, `PauseInterrupted`), with the time to wake at in place of its saved count, and a call in its loop that lets
   the other threads run until the pause ends or an interrupt is due.
-- **`THREAD LOCK`, `THREAD WAIT`** do not wait inside the command. If they cannot go on they mark the thread waiting,
-  point `nextstmt` back at their own token (as PAUSE does through `InterruptReturn`) and let the tail switch. When the
-  scheduler finds the thing they wait for, the statement runs again. Every wait is then at a statement boundary, and
-  the main thread can take an interrupt between tries.
+- **`THREAD LOCK`, `THREAD WAIT`** (as built in Stage 3) wait as PAUSE does. A thread marks itself waiting, with what
+  it waits for and its time limit, and lets the others run from inside the command; the scheduler passes over it
+  until the lock is free, the thread has ended, the flag is set or the time has come (a compare each), and its loop
+  then looks again. The main program takes interrupts while it waits: the command returns, the routine runs and the
+  statement runs again, going on to the same time limit (`InterruptReturn`, as PAUSE). The first draft of this plan had
+  every wait run its statement again; one mechanism, PAUSE's, was simpler and already tested.
 - **Other commands that wait** (`INPUT`, a serial or network read with a timeout, `PLAY` to the end) hold every
   thread until Stage 4 gives each one a call that lets the others run. Each needs a look at what it keeps in shared
   buffers while it waits: `INPUT` collects its line in `inpbuf`, which `error()` also uses as scratch for a line
@@ -367,20 +369,21 @@ one function token (0xFE) is left, which this does not take.
 | Statement | Does | Stage |
 |---|---|---|
 | `THREAD START n, sub` | starts thread n (1 to 16) running SUB `sub` | 1 |
-| `THREAD START n, sub, arg [, arg ...]` | with arguments, each evaluated now and passed by value (a global array by reference) | 3 |
+| `THREAD START n, sub, arg [, arg ...]` | with up to 16 arguments, each evaluated now and passed by value (a global array by reference) | 3 |
 | `THREAD EXIT` | ends the thread that runs it, as its SUB's `END SUB` does | 1 |
 | `THREAD YIELD` | gives up the rest of the time slice | 1 |
 | `THREAD STOP n` | ends thread n where it stands; its locals, temporary memory and locks are freed | 2 |
 | `THREAD PAUSE n`, `THREAD RESUME n` | the scheduler skips thread n until it is resumed | 2 |
 | `THREAD SLICE ms` | the time slice, 1 to 100 ms | 2 |
 | `THREAD SIZE kb [, locals]` | the stack and local slots of threads started after it | 2 |
-| `THREAD LOCK k [, timeout]`, `THREAD UNLOCK k` | lock k (1 to 16): one thread at a time between them | 3 |
+| `THREAD LOCK k [, timeout]`, `THREAD UNLOCK k` | lock k (1 to 16): one thread at a time between them. With a time limit in milliseconds, not getting the lock in that time is the error "Lock k timed out" | 3 |
 | `THREAD HOLD`, `THREAD RELEASE` | no other thread runs between them (for a few statements) | 3 |
-| `THREAD WAIT n [, timeout]` | waits until thread n has ended | 3 |
-| `THREAD WAIT FLAG f [, timeout]` | waits until `FLAG(f)` is 1 (the 64 flags the program already has) | 3 |
-| `THREAD LIST` | each thread's number, state, line and free stack | 5 |
+| `THREAD WAIT n [, timeout]` | waits until thread n has ended, or for the time limit: the program then looks for itself (`MM.INFO(THREAD n)`) | 3 |
+| `THREAD WAIT FLAG f [, timeout]` | waits until `FLAG(f)` is 1 (the 64 flags the program already has, 0 to 63), or for the time limit | 3 |
+| `THREAD LIST` | each thread's number, line and state, and what it waits for (3); its free stack (5) | 3, 5 |
 | `MM.INFO(THREAD)` | the number of the thread that runs it, 0 in the main program | 1 |
-| `MM.INFO(THREAD n)` | thread n's state | 2 |
+| `MM.INFO(THREAD n)` | thread n's state: 0 not running, 1 running or ready, 2 in a PAUSE, 3 paused, 4 waiting for a lock, a thread or a flag | 2, 3 |
+| `MM.INFO(THREAD LOCK k)` | the thread that has lock k (0 the main program), -1 if it is free | 3 |
 
 ```basic
 Option Explicit
@@ -865,3 +868,45 @@ which zero the counter a pause used, can no longer stretch one that an interrupt
   20 deep, as text, comes within 848 bytes of the stack's warning line: `tests/cmm2/locals.bas` now goes 18 deep.
   Not measured: RAY, DRAW3D, FRAMEBUFFER WARP, the sound decoders, SQL, Bluetooth and
   image loads in 32-bit modes.
+
+### Stage 3 (25 November): locks, flags, waits and arguments
+
+`THREAD LOCK` and `UNLOCK`, `THREAD HOLD` and `RELEASE`, `THREAD WAIT n`, `THREAD WAIT FLAG f`, time limits, arguments
+for a thread's SUB, `THREAD LIST`, `MM.INFO(THREAD LOCK k)`, and the list of threads at an error or Ctrl-C.
+
+| Part | How it was done |
+|---|---|
+| Locks | Sixteen, each with its owner (a thread's number, or the main program). A thread that ends or is stopped gives up its locks; the program's end frees them all. Taking a lock twice, and unlocking one that is another's, are errors. A lock is not handed to the next in a queue: when it is free, the first waiter whose turn comes takes it |
+| A lock's time limit | An error when it passes, "Lock k timed out", so that a program that does not look cannot run on without the lock; ON ERROR SKIP for one that wants to go on |
+| `THREAD HOLD`, `RELEASE` | A count the scheduler tests: no other thread runs until it is back to 0. They nest. Interrupt routines wait too if a thread other than the main program holds. A thread that ends while it holds releases |
+| `THREAD WAIT` | For a thread to end, or for `FLAG(f)` to be 1: an interrupt routine or any thread may set the flag. At a time limit the statement just ends |
+| The waits | One mechanism for a lock, a thread and a flag, PAUSE's ("PAUSE and other waits"). Where no other thread can run (an interrupt routine, a hold, BASIC called from a CSUB) a wait that cannot be met at once is an error |
+| Arguments | Up to 16. Each is evaluated by `THREAD START`, in the thread that runs it, and kept in the new thread's record; the new thread's call of its SUB is written with `MM.INFO(THREAD ARG n)` for each, which gives the value back exactly, of any type. So the call is made by `DefinedSubFun` as any other, by value, with the usual conversions and errors. A whole array is written as its name and must be a global |
+| The list | `THREAD LIST`, and after the message when a program with threads stops at an error or Ctrl-C (not at END): each thread's line and what it is doing or waiting for, with a lock's owner |
+| Refused in a thread | `LIST`, `DEBUG BREAK`, `XMODEM` and `ZMODEM`, with Stage 1's and 2's |
+
+**Arguments were first written into the call as constants** (an integer as `&H` and sixteen digits, a float with
+seventeen significant digits, a string in quotes). Every value came back exact, but a call is read with a program
+line's room: `makeargs` copies the arguments into a 256-byte buffer with no check, because no program line is longer.
+A call with a 255-character string overran it and hung the board. The values now stay out of the call.
+
+**On the G1**, against the Stage 2 build:
+
+| Check | Result |
+|---|---|
+| `tlock` (17 checks), `twait` (15), `targs` (12), with OPTION COMPILE OFF, ON and SHADOW | all pass, six more runs of each compiled and four as text |
+| Ctrl-C with three threads running, three times | as before, and the list of threads is printed each time |
+| The twenty thread tests and the quick check's regression programs, three modes | every output as the Stage 2 build's, but `tfail`'s, which has the list |
+| Crasher suite; the Route B programs | all passed; the same result for every program |
+| Timings | within 3% of Stage 2's; `THREAD YIELD` with no thread 3.5 us (YIELD is the first keyword THREAD tests) |
+
+The new tests:
+
+| Test | What it shows |
+|---|---|
+| `tlock` | Four threads add to a total with a read, a yield and a write: counts are lost with nothing, all 1,200 are there with a lock, and with a hold. A lock's time limit (the error, at 50 ms); a wait with no limit while a SETTICK routine runs; a lock whose owner ends, and whose owner is stopped; the refusals |
+| `twait` | `THREAD WAIT n` with and without a limit; a producer and a consumer handing twenty items over through two flags; the main program waiting for a flag a SETTICK routine sets; a thread waiting for a flag |
+| `targs` | Integers (the largest and smallest), 246 floats bit for bit, strings with quotes, zero bytes, every byte from 1 to 255 and none; conversions; by value; evaluated when THREAD START runs; a global array filled by a thread; a SUB's own array refused |
+
+`tend` now starts with `THREAD SLICE 100`, as the other tests of order do: it differed once in a run of many.
+`tfail`'s expected output has the list of threads after its error.

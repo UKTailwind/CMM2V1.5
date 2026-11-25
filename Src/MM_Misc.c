@@ -3406,8 +3406,15 @@ void OPTSIZE fun_info(void){
 	    iret = PageTable[WPN].ymax;
 		rettype='I';
 	} else if((tp = checkstring(ep, "THREAD")) != NULL){            // the thread running: 0 the main program (Thread.c);
-		if(*tp) iret = ThreadState(getint(tp, 0, MAXTHREADS));      // THREAD n: 0 not running, 1 running or ready, 2 in
-		else iret = ThreadNumber();                                 // PAUSE, 3 paused
+		char *lp = checkstring(tp, "LOCK");                         // THREAD LOCK k: the thread that has lock k, -1 none
+		char *ap = checkstring(tp, "ARG");                          // THREAD ARG n: a thread's own call asks for its
+		if(ap) {                                                    // arguments by it (Thread.c, CallText), of any type
+			targ = ThreadArg(getinteger(ap), &iret, &fret, sret);
+			return;
+		}
+		if(lp) iret = ThreadLockOwner(getint(lp, 1, MAXLOCKS));
+		else if(*tp) iret = ThreadState(getint(tp, 0, MAXTHREADS)); // THREAD n: 0 not running, 1 running or ready, 2 in
+		else iret = ThreadNumber();                                 // PAUSE, 3 paused, 4 waiting
 		rettype='I';
 	} else if(checkstring(ep, "STACK LOW")){                        // the lowest the stack has reached since RUN (MMBasic.c)
 		iret=(int64_t)StackLowest();

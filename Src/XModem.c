@@ -73,6 +73,7 @@ void cmd_xmodem(void) {
     int rcv = 0, fnbr;
     int commport=0;
 	char *fname;
+    ThreadMainOnly();                                               // (XMODEM and ZMODEM take the console: Thread.c)
     // ZMODEM shares this token: tokenise() rewrites "ZMODEM ..." as "XMODEM Z ..." (the command table is full)
     if(toupper(*cmdline) == 'Z' && !IsAlpha(cmdline[1])) {
         cmdline++;

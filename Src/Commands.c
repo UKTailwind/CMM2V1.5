@@ -436,6 +436,7 @@ void cmd_inc(void){
 void cmd_debug(void){
 	char *p;
 		if((p = checkstring(cmdline, "BREAK"))) {
+		ThreadMainOnly();                                           // (it takes the console: Thread.c)
 		char *q=GetStringMemory();
 		while(1){
 			MMPrintString("DEBUG> ");
@@ -1097,6 +1098,7 @@ extern void printoptions(void);
 void MIPS16 OPTSIZE cmd_list(void) {
 	char *p, *tp;
 	int i,j,k,m, step=5;
+	ThreadMainOnly();                                               // (it takes the console: Thread.c)
 	hidecursor(0);
 	FreeMemorySafe((void *)&cursorsave);
 	cursorenable=0;

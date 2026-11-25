@@ -93,6 +93,11 @@ threads/tkey
 threads/tpin
 threads/tbind
 
+' Stage 3: locks, THREAD HOLD, THREAD WAIT, arguments
+threads/tlock
+threads/twait
+threads/targs
+
 ' timings: a statement of each kind, a SUB call and a FUNCTION call
 time threads/tstmt
 time threads/tswitch

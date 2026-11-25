@@ -866,6 +866,7 @@ MouseOptionStart();                                                 // OPTION MO
 while ((i = getConsole()) != -1){;} //clear anything in console
 MMAbort = false;                                                    // (and a Ctrl-C typed during start-up, with the rest)
 if(setjmp(mark) != 0) {
+	  ThreadsStopped();                                             // (after an error or Ctrl-C: where each thread was)
 	  int hadthreads = ThreadsEnd();                                // the program's threads end with it (Thread.c): this is
 	                                                                // the main stack, whichever thread stopped the program
 	  SerUSBPutS("\033[?25h");
@@ -927,6 +928,7 @@ if(setjmp(mark) != 0) {
 	  errpos=0;
 	  errstring[0]=0;
 	  MMPrintString("\r\n");
+	  ThreadsStoppedShow();                                         // where each thread was (Thread.c)
     // we got here via a long jump which means an error or CTRL-C or the program wants to exit to the command prompt
     ContinuePoint = nextstmt;                                   // in case the user wants to use the continue command
     ContinueLocalIndex = LocalIndex;                            // (and the level it goes on at: in a SUB, its own)
