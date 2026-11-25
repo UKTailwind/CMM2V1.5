@@ -1579,8 +1579,11 @@ void MIPS16 FlashRunSlot(int slot, int chain) {
 	RunStart(!chain);                                               // through ImpliedEnd, and ProgMemory comes back)
 }
 
-// RUN and CHAIN, the program loaded and the runtime cleared: prepare it and start at its first line
+// RUN and CHAIN, the program loaded and the runtime cleared: prepare it and start at its first line. runlib is 0 for
+// CHAIN, FLASH CHAIN and RAM CHAIN, whose program LIBRARY LOAD then refuses (ChainedProgram, Library.c)
 static void MIPS16 RunStart(int runlib) {
+    extern int ChainedProgram;
+    ChainedProgram = !runlib;
 	PrepareProgram(true);                                           // (MM.WATCHDOG is kept for the program: cleanend clears it)
     IgnorePIN = false;
     if(*ProgMemory != T_NEWLINE) { RunStarting = 0; return; }        // no program to run
