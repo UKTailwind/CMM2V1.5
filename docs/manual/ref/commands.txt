@@ -3240,7 +3240,7 @@ __WITH THE WIFI MODULE ONLY__ Closes the TCP server's connection ‘cb%’ (1 to
 
 === WEB TCP INTERRUPT InterruptSub
 --- keep
-__WITH THE WIFI MODULE ONLY__ Starts the TCP server set up with OPTION TCP SERVER PORT passing its requests to the program: ‘InterruptSub’ is the subroutine to call when a request arrives.  It reads each connection's request with WEB TCP READ and answers it with a WEB TRANSMIT command (or with WEB TCP SEND and WEB TCP CLOSE).  See Implementing a Web Server in the chapter WiFi and Internet Functions.
+__WITH THE WIFI MODULE ONLY__ Starts the TCP server set up with OPTION TCP SERVER PORT passing its requests to the program: ‘InterruptSub’ is the subroutine to call when a request arrives.  It reads each connection's request with WEB TCP READ and answers it with a WEB TRANSMIT command (or with WEB TCP SEND and WEB TCP CLOSE).  WEB TCP INTERRUPT 0 stops the interrupt.  See Implementing a Web Server in the chapter WiFi and Internet Functions.
 
 === WEB TCP READ cb%, buff%()
 --- keep
@@ -3258,6 +3258,7 @@ WEB TLS NOVERIFY
 __WITH THE WIFI MODULE ONLY__ WEB TLS CA loads a bundle of trusted root certificates (in PEM format) from ‘file$’, and from then on every TLS connection, MQTT's on port 8883 included, checks the server's certificate: a connection whose certificate is not signed by one of them fails.  The clock must be right first (WEB NTP), as the check includes the certificate's dates.  A bundle of the common root certificates, cacert.pem, can be downloaded from https://curl.se/docs/caextract.html.
 The certificates take memory for variables while they are loaded: about 480KB for cacert.pem.
 WEB TLS NOVERIFY forgets the certificates, and gives their memory back: connections are encrypted but the server is not checked, as they are by default.
+Neither can be used while a TLS connection is open (a TLS client's, or MQTT's on port 8883): close it first, and load the certificates before opening the connection.
 
 === WEB TRANSMIT CODE cb%, code
 --- keep

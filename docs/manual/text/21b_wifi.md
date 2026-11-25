@@ -409,7 +409,7 @@ By default the connection is encrypted but the server's identity is not checked.
 WEB TLS CA "A:/cacert.pem"
 ```
 
-Every TLS connection after this needs a certificate signed by one of them, or it fails (with the error "TLS client error -15"). The check includes the certificate's dates, so the clock must be right first (WEB NTP). The usual bundle, cacert.pem, can be downloaded from https://curl.se/docs/caextract.html; loading it takes about a quarter of a second, and its certificates take about 480KB of the memory for variables. WEB TLS NOVERIFY turns the check off again and gives the memory back. The MQTT client uses TLS too when it connects to port 8883, the secure MQTT port.
+Every TLS connection after this needs a certificate signed by one of them, or it fails (with the error "TLS client error -15"). The check includes the certificate's dates, so the clock must be right first (WEB NTP). The usual bundle, cacert.pem, can be downloaded from https://curl.se/docs/caextract.html; loading it takes about a quarter of a second, and its certificates take about 480KB of the memory for variables. WEB TLS NOVERIFY turns the check off again and gives the memory back. Use either before a TLS connection is opened: with one open they stop with an error ("Close the TLS client connection first", or "Close the MQTT connection first"). The MQTT client uses TLS too when it connects to port 8883, the secure MQTT port.
 
 ## Using UDP
 
@@ -538,5 +538,4 @@ A WebMite program runs on the Colour Maximite 2 as it is, apart from these:
 - The network takes memory as described above, and is not serviced while a loadable program runs.
 - There is no LED for the heartbeat.
 - There is no PLAY STREAM (it needs a VS1053 chip), so WEB OPEN TCP STREAM and WEB TCP CLIENT STREAM fill their buffer, but nothing plays it.
-- WEB TCP INTERRUPT 0, which the WebMite's manual gives for stopping the interrupt, is an error at present, on the WebMite too. WEB UDP INTERRUPT 0 does stop the UDP interrupt.
 - A PicoMite's virtual displays (OPTION LCDPANEL VIRTUAL_C and VIRTUAL_M) are not needed: the Colour Maximite 2 draws on its own pages (see Live Graphics in a Web Page).
