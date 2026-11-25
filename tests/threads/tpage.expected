@@ -1,0 +1,8 @@
+ok  the thread writes to another page than the main program
+ok  and its PIXEL drew there and read back from there
+ok  the framebuffer a thread writes to cannot be closed
+ok  after MODE the thread's font is the mode's
+ok  and its colour
+ok  and its write page
+ok  and the framebuffer can then be closed
+tpage: 7 of 7 passed

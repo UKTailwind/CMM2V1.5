@@ -1050,7 +1050,7 @@ void cmd_framebuffer(void){
     p = checkstring(cmdline, "CLOSE");
     if(p) {
 		if(PageTable[WPN].address==NULL)error("Framebuffer not created");
-		if(WritePage==WPN)error("Framebuffer is set for write");
+		if(WritePage==WPN || ThreadPageInUse(WPN))error("Framebuffer is set for write");   // (by this thread or another)
 		FramebufferClose();
     	return;
     }
@@ -6326,9 +6326,16 @@ int GetFontHeight(int fnt) {
 
 
 void SetFont(int fnt) {
-    int maxW=PageTable[WritePage].xmax;
     if(FontTable[fnt >> 4] == NULL) error("Invalid font number #%", (fnt >> 4)+1);
 	ShowCursor(false);
+    FontMetrics(fnt);
+}
+
+// font fnt (its table's entry and its scale) made the current one: its size worked out from the table, and the
+// console's size in characters. Also a thread's own font at each switch (Thread.c): LOAD FONT may have put a font of
+// another size in its slot meanwhile. The entry must not be NULL.
+void FontMetrics(int fnt) {
+    int maxW=PageTable[WritePage].xmax;
     gui_font_width = FontTable[fnt >> 4][0] * (fnt & 0b1111);
     gui_font_height = FontTable[fnt >> 4][1] * (fnt & 0b1111);
     if(((fnt >> 4)+1)==7 && !PicoActive)gui_font_height=10 * (fnt & 0b1111);   // (font 7's lines 10 apart; the PicoMite's 8)

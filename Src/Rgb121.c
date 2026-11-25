@@ -604,6 +604,7 @@ static void FbClose(int page) {
     Rgb121Buffers &= ~(1 << page);
     if(WritePage == page) WritePage = RGB121_N;
     if(ReadPage == page) ReadPage = RGB121_N;
+    ThreadPageClosed(page);                                         // (and another thread's: Thread.c)
     if(page == RGB121_L) Rgb121Transparent = 0;
     if(page == RGB121_T) Rgb121TransparentTop = 0;
 }

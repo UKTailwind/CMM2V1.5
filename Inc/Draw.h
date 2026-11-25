@@ -139,6 +139,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     extern volatile int CurrentX, CurrentY;             // and the current default position
     
     extern volatile int gui_font;
+    extern void FontMetrics(int fnt);               // (SetFont's, with no checks: Thread.c)
     extern volatile int gui_font_width, gui_font_height;
     extern volatile int CursorTimer;                                // used to time the flashing cursor
 

@@ -1328,13 +1328,15 @@ void fun_eval(void) {
     }
     tokenise(true);                                                 // and tokenise it (the result is in tknbuf)
     strcpy(st, tknbuf + sizeof(CommandToken) + 2);                 // after the LET token, the r and the = token
+    strcpy(tknbuf, temp_tknbuf);                                    // and the token buffer given back before the expression
+                                                                    // runs: a FUNCTION in it can let another thread run,
+                                                                    // and the main program's EXECUTE line is there
     targ = T_NOTYPE;
     evaluate(st, &fret, &iret, &s, &targ, false);                   // get the value and type of the argument
     if(targ & T_STR) {
         Mstrcpy(st, s);                                             // if it is a string then save it
         sret = st;
     }
-    strcpy(tknbuf, temp_tknbuf);                                    // restore the saved token buffer
 }
 
 

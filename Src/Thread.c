@@ -83,7 +83,9 @@ struct s_thread {
     char *NextDataLine;
     unsigned int screwup;                                           // EXECUTE's time left (ScrewUpTimer), stopped while it waits
     union cell *splice;                                             // the compiler's spliced values (RBSplice, Stream.c)
-    int CurrentX, CurrentY, fcolour, bcolour, font, fontw, fonth;   // its print position, colours and font (ScreenSave)
+    int CurrentX, CurrentY, fcolour, bcolour, font, pixelmode;      // its print position, colours, font and PRINT @'s mode,
+    int wpage, rpage;                                               // and the pages it writes and reads (ScreenSave)
+    uint32_t wpageaddr, rpageaddr;
     jmp_buf ErrNext;
     char errmsg[STRINGSIZE];                                        // MM.ERRMSG$
     char *call;                                                     // the statement that calls its SUB: the name, its
@@ -141,25 +143,66 @@ __attribute__((naked, noinline)) static void ThreadSwap(uint32_t **from, uint32_
     );
 }
 
-/* Each thread has its own print position, colours and font: what PRINT, COLOUR and FONT leave for the next statement.
-   A thread starts with those of the thread that started it. One for the whole program, as they were until Stage 4,
-   a thread's TEXT moved the place the main program's INPUT was echoing its line at, and one thread's COLOUR was the
-   next thread's PRINT's (Peter, 25 Nov 2026: "Each thread will need to maintain some extra context"). */
+/* Each thread has its own print position, colours, font, PRINT @'s pixel mode and write and read pages: what PRINT,
+   COLOUR, FONT, PAGE WRITE and FRAMEBUFFER WRITE leave for the next statement. A thread starts with those of the
+   thread that started it, and MODE gives every thread the new mode's (ThreadsScreenReset). One for the whole
+   program, as they were until Stage 4, a thread's TEXT moved the place the main program's INPUT was echoing its
+   line at, and one thread's COLOUR was the next thread's PRINT's (Peter, 25 Nov 2026: "Each thread will need to
+   maintain some extra context"; the pages and the rest of the review the same day). */
 static void ScreenSave(struct s_thread *t) {
     t->CurrentX = CurrentX; t->CurrentY = CurrentY;
     t->fcolour = gui_fcolour; t->bcolour = gui_bcolour;
-    t->font = gui_font; t->fontw = gui_font_width; t->fonth = gui_font_height;
+    t->font = gui_font;
+    t->pixelmode = PrintPixelMode;
+    t->wpage = WritePage; t->rpage = ReadPage;
+    t->wpageaddr = WritePageAddressExternal; t->rpageaddr = ReadPageAddressExternal;
 }
 
 static void ScreenLoad(struct s_thread *t) {
     CurrentX = t->CurrentX; CurrentY = t->CurrentY;
     gui_fcolour = t->fcolour; gui_bcolour = t->bcolour;
-    if(gui_font == t->font || t->fontw == 0 || t->fonth == 0) return;
-    gui_font = t->font; gui_font_width = t->fontw; gui_font_height = t->fonth;
-    if(OptionConsole & 2) {                                         // (the console's size in characters, as SetFont)
-        Option.Height = ConsoleVRes() / gui_font_height;
-        Option.Width = PageTable[WritePage].xmax / gui_font_width;
+    PrintPixelMode = t->pixelmode;
+    if(t->wpage != WritePage || t->rpage != ReadPage) {
+        WritePage = t->wpage; ReadPage = t->rpage;
+        WritePageAddressExternal = t->wpageaddr; ReadPageAddressExternal = t->rpageaddr;
+        if(PageTable[WritePage].address == NULL || PageTable[ReadPage].address == NULL) {   // (a page gone meanwhile:
+            WritePage = ReadPage = 0;                               // the display, as FRAMEBUFFER CLOSE leaves it)
+            WritePageAddressExternal = ReadPageAddressExternal = (uint32_t)PageTable[0].address;
+        }
+        HRes = PageTable[WritePage].xmax;                           // (as PAGE WRITE sets them)
+        VRes = PageTable[WritePage].ymax;
     }
+    if(FontTable[t->font >> 4] == NULL) t->font = (0 << 4) | 1;     // (its font's slot emptied: font 1)
+    FontMetrics(t->font);                                           // (its size from the table: LOAD FONT may have changed it)
+}
+
+// MODE (setmode, ltdc.c) has set the screen up again: every thread has what the thread that ran it has now
+void ThreadsScreenReset(void) {
+    int i;
+    if(Cur == NULL) return;
+    for(i = 0; i <= MAXTHREADS; i++)
+        if(Thr[i] != NULL && ALIVE(Thr[i])) ScreenSave(Thr[i]);
+}
+
+// a page another thread writes to or reads from (FRAMEBUFFER CLOSE refuses it, as it does the running thread's)
+int ThreadPageInUse(int page) {
+    int i;
+    if(Cur == NULL) return 0;
+    for(i = 0; i <= MAXTHREADS; i++)
+        if(Thr[i] != NULL && Thr[i] != Cur && ALIVE(Thr[i]) && (Thr[i]->wpage == page || Thr[i]->rpage == page)) return 1;
+    return 0;
+}
+
+// a 4-bit mode's framebuffer has closed (Rgb121.c): a thread that wrote to it or read from it goes back to N, as
+// the running thread does there
+void ThreadPageClosed(int page) {
+    int i;
+    if(Cur == NULL) return;
+    for(i = 0; i <= MAXTHREADS; i++)
+        if(Thr[i] != NULL && Thr[i] != Cur && ALIVE(Thr[i])) {
+            if(Thr[i]->wpage == page) Thr[i]->wpage = 0;
+            if(Thr[i]->rpage == page) Thr[i]->rpage = 0;
+        }
 }
 
 static void ContextSave(struct s_thread *t) {

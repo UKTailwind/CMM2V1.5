@@ -649,17 +649,26 @@ temporary memory code, `Symbols.c` and the stream's executor; the sweep found no
 
 ### State that stays shared, and what a program must know
 
+Reviewed again in Stage 4 (25 November), with Peter's decisions. **Each thread's own** since then: the print position
+(`CurrentX`, `CurrentY`), the colours, the font, PRINT @'s pixel mode, and the write and read pages (`PAGE WRITE`,
+`FRAMEBUFFER WRITE`), besides Stage 1's locals, loops, error state and DATA place. A new thread starts with its
+starter's; `MODE` gives every thread the new mode's; a framebuffer another thread writes to cannot be closed (in a
+4-bit mode that thread goes back to N, as the running one does).
+
+**The program's, documented, not handled:**
+
 | State | Where | For threads |
 |---|---|---|
-| The drawing target: `WritePage`, `ReadPage`, `HRes`, `VRes` | `Src/main.c` 177, `Src/Draw.c` 343 | `PAGE WRITE` and `FRAMEBUFFER WRITE` in one thread change where every thread draws: a lock, or one thread draws |
-| Font and colours: `gui_font`, `gui_fcolour`, `gui_bcolour` | `Src/Draw.c` 262-264 | the same |
-| The text cursor and print column: `CurrentX`, `CurrentY`, `MMCharPos`, `FileCharPos[]` | `Src/Draw.c` 266, `Src/main.c` 201, `Src/Commands.c` 452 | a `PRINT` is whole; two that should stay together need a lock |
-| The console's key decoder: `InkeyUngot`, `MMInkey`'s and `MMgetchar`'s statics | `Src/main.c` 3537-3552, 3721 | one thread reads the keyboard |
-| The current drive and directory: `filepath`, `DrivePaths` | `Src/FileIO.c` 124, 1470 | shared; `DRIVE` and `CHDIR` in one thread move every thread |
-| `DIR$()` with no arguments, which goes on from the last search | `fun_dir`'s statics, `Src/FileIO.c` 1156 | one thread at a time |
-| `OPTION BASE`, `EXPLICIT`, `DEFAULT`, `ANGLE`, `Y_AXIS`, `BREAK` and the rest | `Src/MM_Misc.c` 2488-2757 | shared: set them before the threads start |
-| `TIMER`'s zero, `MATH RANDOMIZE`'s seed, the SENSORFUSION filter, `SYNC`'s period | `Src/MM_Misc.c` 671, `Src/MATHS.c` 127-138, `Src/External.c` 1629 | shared |
-| Turtle, sprites and their collision results, sound, the GUI's controls and its last-control defaults | `Src/turtle.c` 90, `Src/sprites.c` 47-65, `Src/Audio.c` 124, `Src/GUI.c` 138-169 | shared: one thread should own each |
+| The keyboard: `INKEY$`, `INPUT`, `LINE INPUT`, `KEYDOWN`, the key decoder's state, INPUT's flashing cursor | `Src/main.c` 3537-3552, 3721; `Src/SPI-LCD.c` 109 | one thread reads the keyboard at a time: two race for the keys |
+| The console stream's column (`MMCharPos`): `TAB()` and PRINT's comma | `Src/main.c` 201 | one stream for all |
+| The screen itself | | `CLS` and scrolling move what is under every thread's position; `CLS` resets the running thread's position only. Two threads that PRINT without saying where write over each other |
+| The current drive and directory: `DRIVE`, `CHDIR` | `Src/FileIO.c` 124, 1470 | FatFs keeps one per drive |
+| `DIR$()` with no arguments, which goes on from the last search | `fun_dir`'s statics, `Src/FileIO.c` | one thread lists at a time |
+| The last command's result: `MM.I2C`, `MM.ONEWIRE`, sprite collisions | `mmI2Cvalue`, `mmOWvalue`, `Src/sprites.c` | one thread for each bus; a transaction over several statements needs one thread or a lock |
+| `OPTION BASE`, `DEFAULT`, `EXPLICIT`, `ANGLE`, `Y_AXIS` and the rest | `Src/MM_Misc.c` | set them before the threads start |
+| `TIMER`'s zero, `RANDOMIZE`'s sequence, `SYNC`'s period, the SENSORFUSION filter | `Src/MM_Misc.c`, `Src/External.c`, `Src/MATHS.c` | shared |
+| `GUI SETUP`'s page for new controls | `SetupPage`, `Src/GUI.c` 138 | one thread makes the controls |
+| The turtle, sound, sprites, BLIT and IMAGE buffers, the GUI's controls | `Src/turtle.c`, `Src/Audio.c`, `Src/sprites.c`, `Src/GUI.c` | shared: one thread should own each |
 | TRACE's buffer | `Src/Commands.c` 82-84 | lines from every thread, in the order they ran |
 | The multi-line IF table, the label cache, the SUBs' parameter layouts | built by `PrepareProgram` | read-only while a program runs |
 
@@ -981,3 +990,19 @@ The new tests:
 | `tinput` | The main program in INPUT while two threads count and a SETTICK runs: the line, the threads' counts, the interrupt after the line. INPUT in a thread (a string and a number). LINE INPUT in a thread while another assigns to strings of five. A line typed while a thread draws text elsewhere: the print position after it is where the line was |
 | `tframe` | Two threads that each wait for every frame both get all thirty while a third is busy; thirty PAGE COPY ...,B take thirty frames with a busy thread running |
 | `tscreen` | A thread's COLOUR, FONT, PRINT @ and TEXT leave the main program's untouched; each keeps its own while the other changes; a new thread starts with its starter's |
+
+**The context review** (Peter: "there may be other commands that rely on context, do a scan"; then "1-5 yes,
+document the rest"). Handled:
+
+| | What | How |
+|---|---|---|
+| 1 | A thread's font after `LOAD FONT` put another size in its slot | the size worked out from the font table at each switch (`FontMetrics`, SetFont's own); an empty slot gives font 1 |
+| 2 | `MODE` while threads exist | every thread gets the new mode's position, colours, font and pages (`ThreadsScreenReset`, at both of setmode's ends) |
+| 3 | PRINT @(x, y, mode)'s pixel mode, which lasts to the PRINT's end, across a FUNCTION in its list | each thread's |
+| 4 | `EVAL()` borrowed the token buffer, where the main program's EXECUTE line is, while its expression ran | it gives the buffer back before the expression runs |
+| 5 | The write and read pages (`PAGE WRITE`, `FRAMEBUFFER WRITE`) | each thread's, with `HRes`, `VRes` and the pages' addresses for CSUBs. `FRAMEBUFFER CLOSE` refuses a framebuffer another thread writes to, as it refuses the running thread's; in a 4-bit mode a thread on a closed framebuffer goes back to N, as the running one does; a page gone otherwise gives the display |
+
+And `CLUT RESET` (`MAP RESET`), whose frame wait the first pass left, lets the other threads run. The rest is
+documented under "State that stays shared". Tests: `tpage` (a thread drawing into the framebuffer while the main
+program draws on the display, the close refused, MODE), `teval` (EVAL in a thread while the main program is in
+EXECUTE, both in FUNCTIONs that yield).

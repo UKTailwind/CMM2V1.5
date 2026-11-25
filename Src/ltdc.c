@@ -291,13 +291,11 @@ static uint32_t VgaAlpha(void) {
 void reset_CLUT(void){
 	if(VideoColour==8){
 		Clut8();
-    	pagesetdone=0;
-    	while(!pagesetdone)CheckAbort();
+		ThreadFrameWait();                                          // (the other threads run meanwhile)
     	HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
 	} else if(VideoColour==4){                                       // the PicoMite's 16 colours (Rgb121.c)
 		Rgb121Clut();
-		pagesetdone=0;
-		while(!pagesetdone)CheckAbort();
+		ThreadFrameWait();                                          // (the other threads run meanwhile)
 		HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
 	}
 }
@@ -337,6 +335,7 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 			  if(VideoColour==1)MonoStart();                            // (and its MODE 1 cleared, the tiles reset: Mono.c)
 		  }
 		  if(DisplayMerged)Rgb121Active=1;
+		  ThreadsScreenReset();                                         // (every thread: the mode's screen state, Thread.c)
 		  return;
 	}
 	cursoron=0;
@@ -635,6 +634,7 @@ void OPTSIZE setmode(int mode, int colour, int bc, int force){
 	Rgb121Active=DisplayMerged;                                       // a 4 or 1-bit mode: the merge at each frame (Rgb121.c)
 	if(VideoColour==1)OSK_DropState();                               // the on-screen keyboard: none in MODE n,1 (Peter, 27 Oct)
 	else OSK_Invalidate();                                           // (redrawn at the prompt: OSK.c)
+	ThreadsScreenReset();                                            // every thread: the mode's screen state (Thread.c)
 	MouseModeChange();                                               // the mice and the GUI cursor at the centre (USBMouse.c)
 }
 

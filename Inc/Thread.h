@@ -32,6 +32,9 @@ void ThreadPoll(void);                              // a wait loop found nothing
 void ThreadFrameWait(void);                         // to the start of the next frame
 void ThreadSleepDeaf(long long t);                  // to the microsecond clock's t, with no interrupt taken (SYNC)
 void ThreadBank(void);                              // check_interrupt in a thread, the main program deaf
+void ThreadsScreenReset(void);                      // MODE: every thread has the new mode's screen state
+int ThreadPageInUse(int page);                      // another thread writes to or reads from the page
+void ThreadPageClosed(int page);                    // a 4-bit mode's framebuffer has closed
 /* No thread switch while BASIC runs from inside a CSUB or a module's call (its own data is not a thread's, and a
    module's call has one stack): ThreadHoldDepth is the ExecDepth such BASIC runs at, or more. The caller brackets its
    call with the two macros. An error that leaves the call by longjmp leaves the depth set: the scheduler clears it

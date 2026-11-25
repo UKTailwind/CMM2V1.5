@@ -102,6 +102,8 @@ threads/targs
 threads/tinput
 threads/tframe
 threads/tscreen
+threads/tpage
+threads/teval
 
 ' timings: a statement of each kind, a SUB call and a FUNCTION call
 time threads/tstmt
