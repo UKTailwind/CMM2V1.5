@@ -44,6 +44,8 @@ char *LibMemory = NULL;                                             // the libra
 char *RamLibMemory = NULL;                                          // a RAM library's heap block
 static int RamLibSize = 0;                                          // its MemSize, for the heap wipe that keeps it
 static uint32_t RamLibHash = 0;                                     // the files it came from
+int ChainedProgram = 0;                                             // the program was started by CHAIN, FLASH CHAIN or RAM
+                                                                    // CHAIN (RunStart, Commands.c): LIBRARY LOAD refuses it
 int RamLibKeep = 0;                                                 // ClearRuntime keeps the RAM library (LIBRARY LOAD's restart)
 unsigned char *CFunctionLibrary = NULL;                             // its CSUB and font records (PrepareProgram)
 extern volatile uint8_t FlashDone;
@@ -570,6 +572,9 @@ static void LibLoad(char *tp) {
         }
     }
     if(nfiles == 0) error("Syntax");
+    /* In a program CHAIN started: its restart would clear the global variables CHAIN kept, and a RAM library, which
+       CHAIN releases, is loaded every time. Refused, whatever the library (the PicoMite's, Peter, 25 Nov 2026). */
+    if(savedline && ChainedProgram) error("Invalid in a chained program");
     if(savedline && savedline != LibFirstStatement()) error("Must be the first statement in the program");
     if(wantram) {
         if(RamLibMemory != NULL) skiphash = RamLibHash;
