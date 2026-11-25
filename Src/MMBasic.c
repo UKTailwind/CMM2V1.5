@@ -137,7 +137,7 @@ int OptionBase;
 // value and argument list; a built-in can go some KB deeper before its next one, and interrupts' handlers run on the
 // same stack).  Below StackFloor is the error; in the 1K above it, stackwarn, the stack is noted and the prompt warns.
 // 6K (4K until 25 Nov 2026): measured on a G1, LOAD PNG goes 4.5K below its last check (5.6K for an image 704 wide)
-// and SPRITE LOADPNG 4.6K; every other command measured stays within 2.3K, JSON$() by its nesting limit (cJSON.h).
+// and SPRITE LOADPNG 4.6K; every other command measured stays within 2.3K, JSON$() by its nesting limit (CMakeLists.txt).
 #define STACK_GUARD 6144
 extern char _ebss[];
 uint32_t StackFloor;                                                // MM.INFO(HEAPEND): the PicoMite's heapend

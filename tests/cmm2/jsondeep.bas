@@ -1,15 +1,20 @@
 ' jsondeep.bas - JSON$() and nesting: 100 levels of objects or arrays are read, 101 are "Invalid JSON data"
-' (CJSON_NESTING_LIMIT, Inc/cJSON.h). The parser calls itself for each level, 40 bytes of stack a level, and the stack
-' check's guard is 6K (STACK_GUARD, MMBasic.c): at cJSON's own limit of 1000 a deep document ran through the guard.
+' (CJSON_NESTING_LIMIT, CMakeLists.txt). The parser calls itself for each level, 40 bytes of stack a level, and the
+' stack check's guard is 6K (STACK_GUARD, MMBasic.c): the limit keeps the deepest document inside it.
 Option Explicit
 Dim Integer l%(200), k
-Dim q$ = Chr$(34)
+Dim q$ = Chr$(34), path$
 
-' n objects, one inside the other, the innermost {"x":5}
+' n objects, one inside the other, the innermost {"x":5}; path$ is the way down to x
 Sub Objects(n%)
   Local Integer j
   LongString Clear l%()
-  For j = 2 To n% : LongString Append l%(), "{" + q$ + "n" + q$ + ":" : Next
+  path$ = ""
+  For j = 2 To n%
+    LongString Append l%(), "{" + q$ + "n" + q$ + ":"
+    If Len(path$) < 250 Then path$ = path$ + "n."
+  Next
+  path$ = path$ + "x"
   LongString Append l%(), "{" + q$ + "x" + q$ + ":5}"
   For j = 2 To n% : LongString Append l%(), "}" : Next
 End Sub
@@ -18,6 +23,7 @@ End Sub
 Sub Arrays(n%)
   Local Integer j
   LongString Clear l%()
+  path$ = "x"
   LongString Append l%(), "{" + q$ + "x" + q$ + ":5," + q$ + "a" + q$ + ":"
   For j = 2 To n% : LongString Append l%(), "[" : Next
   LongString Append l%(), "7"
@@ -28,7 +34,7 @@ End Sub
 Sub Show(what$)
   Local r$
   On Error Skip
-  r$ = JSON$(l%(), "x")
+  r$ = JSON$(l%(), path$)
   If MM.Errno Then r$ = MM.ErrMsg$
   On Error Clear
   Print what$; ": "; r$
