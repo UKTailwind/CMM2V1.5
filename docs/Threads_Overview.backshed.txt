@@ -30,14 +30,14 @@ These run on a test board now:
 • [B]THREAD STOP n[/B] ends thread n where it stands. Its local variables and memory are freed.
 • [B]THREAD PAUSE n[/B] and [B]THREAD RESUME n[/B] hold thread n and let it go on.
 • [B]THREAD SLICE ms[/B] sets the time slice, 1 to 100 ms. It is 1 ms unless you say otherwise.
-• [B]THREAD SIZE kb [, locals][/B] sets the stack and the number of local variables for threads started after it.
+• [B]THREAD START n SIZE kb LOCALS m, sub[/B] gives one thread its own stack size and number of local variables, so a small thread takes less memory. [B]THREAD SIZE kb [, locals][/B] sets them for threads started without.
 • [B]THREAD LOCK k[/B] and [B]THREAD UNLOCK k[/B]: sixteen locks. Only one thread at a time gets past THREAD LOCK k; the others wait there, without using any processor time, until it unlocks. THREAD LOCK k, ms gives up after that many milliseconds with an error.
 • [B]THREAD HOLD[/B] and [B]THREAD RELEASE[/B]: no other thread runs between them. For a few statements that must not be split.
 • [B]THREAD WAIT n[/B] waits until thread n has ended. [B]THREAD WAIT FLAG f[/B] waits until FLAG(f) is 1, which any thread or an interrupt routine can set. Either can have a time limit: THREAD WAIT n, ms.
 • [B]THREAD LIST[/B] shows each thread, the line it is at and what it is doing or waiting for.
 • [B]MM.INFO(THREAD)[/B] is the number of the thread that runs it. [B]MM.INFO(THREAD n)[/B] is 0 if thread n is not running, 1 if it is running, 2 if it is in a PAUSE, 3 if it has been paused and 4 if it is waiting. [B]MM.INFO(THREAD LOCK k)[/B] is the thread that has lock k, or -1.
 
-Still to come: the network's commands, Bluetooth's and TEMPR(), which hold every thread while they wait.
+Still to come: THREAD LIST with each thread's free stack, and the manual.
 
 
 [SIZE=4][COLOR=BLUE][B]How they work[/B][/COLOR][/SIZE]
@@ -46,8 +46,8 @@ Still to come: the network's commands, Bluetooth's and TEMPR(), which hold every
 • [B]Each thread has its own[/B] LOCAL variables, FOR and DO loops, SUB and FUNCTION calls, GOSUBs, ON ERROR setting with MM.ERRNO and MM.ERRMSG$, and place in the DATA for READ. Two threads can run the same SUB at the same time, each with its own locals, recursion included.
 • [B]Each thread has its own print position, colours, font and write page,[/B] starting with those of the thread that started it. A thread's COLOUR, FONT, TEXT, PRINT @ or PAGE WRITE does not disturb another thread's printing or drawing, or the line someone is typing at an INPUT. MODE gives every thread the new mode's.
 • [B]Everything else is shared:[/B] global variables and arrays, STATIC variables, the screen itself, open files, sound, sprites, the turtle, the pins and the options.
-• [B]A thread that waits costs nothing.[/B] PAUSE, INPUT and LINE INPUT, the waits for the next frame (PAGE COPY ...,B and FRAMEBUFFER WAIT), THREAD LOCK and THREAD WAIT all let the other threads run meanwhile. A program can sit in INPUT for its user while its threads keep the screen moving.
-• [B]Interrupts work as before[/B] (SETTICK, SETPIN, ON KEY and the rest). Their routines always run in the main program, whichever thread was running when the interrupt came, and no thread runs until the routine returns.
+• [B]A thread that waits costs nothing.[/B] PAUSE, INPUT and LINE INPUT, the waits for the next frame (PAGE COPY ...,B and FRAMEBUFFER WAIT), the network's and Bluetooth's commands, TEMPR(), THREAD LOCK and THREAD WAIT all let the other threads run meanwhile. A program can sit in INPUT for its user while its threads keep the screen moving, or wait on a web request while the game goes on.
+• [B]An interrupt belongs to the thread that set it up.[/B] SETTICK, SETPIN, ON KEY and the rest work as before, and the routine runs in the thread that set it up, with its colours and print position, and to its end before any other thread runs. So a thread can set up a SETTICK and sit in THREAD WAIT FLAG until its routine sets the flag, while the main program sits in INPUT. Interrupts set up by the main program run in the main program, as they always did.
 • [B]END in any thread, an error in any thread, or Ctrl-C stops the whole program.[/B] An error says where it was: "Error in thread 3, line 5". After an error or Ctrl-C the firmware also lists the threads, each with its line and what it was waiting for, which is how you find two threads that are each waiting for the other's lock.
 • [B]OPTION COMPILE ON works with threads.[/B]
 • [B]The cost:[/B] a program that starts no thread runs as fast as before. A switch takes about 5 microseconds, so 1 ms slices cost about half a percent. A thread takes about 37 KB of memory while it runs, given back when it ends.
@@ -55,9 +55,9 @@ Still to come: the network's commands, Bluetooth's and TEMPR(), which hold every
 
 [SIZE=4][COLOR=BLUE][B]What they cannot do[/B][/COLOR][/SIZE]
 • [B]They do not make a program faster.[/B] There is one processor: four busy threads get a quarter of it each. Threads are for doing several things at once, not for doing one thing sooner.
-• [B]They cannot cut into a statement.[/B] A statement that takes a long time (a SORT of a large array, a file copy, loading a picture) holds every thread until it is done. So do the network's commands and TEMPR() while they wait, for now.
+• [B]They cannot cut into a statement.[/B] A statement that takes a long time (a SORT of a large array, a file copy, loading a picture) holds every thread until it is done.
 • [B]No priorities.[/B] Every thread that is ready gets its turn.
-• [B]Limits:[/B] with the usual sizes a thread can go about nine FUNCTIONs deep (SUB calls take nothing) and have 48 local variables, and about ten threads can run at once. THREAD SIZE changes that: more stack for deep recursion, or fewer locals each for all sixteen threads.
+• [B]Limits:[/B] with the usual sizes a thread can go about nine FUNCTIONs deep (SUB calls take nothing) and have 48 local variables, and about ten threads can run at once; each takes about 37 KB. SIZE and LOCALS on THREAD START, or THREAD SIZE for all, change that: more stack for deep recursion, or a small stack and few locals for a simple thread (about 28 KB with SIZE 12 LOCALS 8).
 • [B]Not allowed in a thread:[/B] RUN, CHAIN, FLASH RUN, LIBRARY LOAD, MsgBox() and GUI CLICK. Not allowed while any thread is running: ERASE, REDIM, CLEAR, SAVE CONTEXT and LOAD CONTEXT. THREAD START is for programs, not the command prompt, and CONTINUE does not work after Ctrl-C in a program with threads.
 
 
@@ -88,6 +88,7 @@ A test and the action after it are two statements too, so If free > 0 Then free 
 • [B]The screen itself.[/B] Each thread has its own print position, but two threads that simply PRINT without saying where write over each other, and CLS or a scroll moves everything under all of them. Give each thread its own part of the screen with PRINT @ or TEXT.
 • [B]The keyboard.[/B] INKEY$, INPUT and KEYDOWN in two threads at once race for the keys: one thread should read the keyboard at a time.
 • [B]The current drive and directory[/B] (DRIVE, CHDIR), and DIR$() going on from its last search.
+• [B]The network and Bluetooth belong to one thread.[/B] The main program may use them to set up (WEB CONNECT, WEB NTP); the first other thread to use one then has it until it ends, and a WEB or BLUETOOTH command in any other thread is an error that names the owner. Its interrupt routines (WEB TCP INTERRUPT and the rest) run in it.
 • [B]A bus.[/B] An I2C, SPI or 1-Wire conversation over several statements, and MM.I2C and MM.ONEWIRE after it, need one thread or a lock.
 • [B]The OPTIONs[/B] (BASE, DEFAULT, EXPLICIT, ANGLE and the rest): set them before the threads start.
 • [B]TIMER, RANDOMIZE, SYNC[/B], sound, sprites, the turtle and the GUI's controls.
@@ -99,11 +100,11 @@ A test and the action after it are two statements too, so If free > 0 Then free 
 • [B]Many of the same thing:[/B] every ball, alien or robot is the same SUB in a thread of its own, with its own variables (the second example).
 • [B]A long job with a live screen:[/B] a Mandelbrot or a big calculation runs in a thread while the main program shows progress and reads the keys, and can pause it, let it go on or stop it (the third example).
 • [B]Logging:[/B] one thread samples a sensor every 100 ms into an array, another writes the array to the SD card every ten seconds, and the main program draws the graph.
-• [B]Communications:[/B] a thread watches a COM port or the network, puts the lines together, leaves each one in a global and sets a flag. The main program, or another thread, sits in THREAD WAIT FLAG until there is one.
+• [B]Communications:[/B] a thread owns the network or a COM port: it makes the requests, or sets up the interrupt and puts the lines together, leaves each one in a global and sets a flag. The main program, or another thread, sits in THREAD WAIT FLAG until there is one.
 • [B]A timeout:[/B] a thread that waits five seconds and then sets a flag, or stops another thread.
 • [B]A program that listens while it works:[/B] the main program sits in INPUT for the next command while threads run the machine, the display or the game.
 
-[B]Thread or interrupt?[/B] An interrupt is for something that happens and wants a quick, short answer. A thread is for something that goes on: it waits, loops and has a flow of its own. They work well together: the interrupt sets a variable and a thread acts on it.
+[B]Thread or interrupt?[/B] An interrupt is for something that happens and wants a quick, short answer. A thread is for something that goes on: it waits, loops and has a flow of its own. They work well together: a thread sets up its interrupt, the routine sets a flag, and the thread, waiting in THREAD WAIT FLAG, acts on it.
 
 
 [SIZE=4][COLOR=BLUE][B]Two more examples[/B][/COLOR][/SIZE]

@@ -1,0 +1,9 @@
+  a thread of THREAD SIZE's (20 KB, 48 locals): 37376 bytes; SIZE 12 LOCALS 8: 27648
+ok  SIZE 12 LOCALS 8 takes at least 8 KB less
+ok  LOCALS 8: eight locals made
+ok  and a ninth refused
+ok  SIZE 48 (after LOCALS): a FUNCTION fourteen deep
+ok  SIZE 8 is refused
+ok  SIZE twice is refused
+tsize: 6 of 6 passed
+

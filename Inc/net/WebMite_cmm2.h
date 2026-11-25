@@ -127,6 +127,7 @@ extern volatile bool UDPreceive;
  * ============================================================================ */
 
 /* NTP functions */
+void NetYield(void);                            // a WEB command's wait: the other threads run (WebMite_cmm2.c)
 void GetNTPTime(void);
 void cmd_ntp(unsigned char *tp);
 

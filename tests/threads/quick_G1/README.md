@@ -1,10 +1,10 @@
 # The quick check's baseline on a G1
 
-What `tools/threadcheck.py` printed and kept for the Stage 4 build of the threads work, with the context review, (branch `threads`) on the G1
+What `tools/threadcheck.py` printed and kept for the Stage 4b build of the threads work (branch `threads`) on the G1
 (400 MHz, COM51 at 115200) on 25 November 2026: each program of `../quick.txt` with OPTION COMPILE OFF, ON and
 SHADOW, the timings, the Route B programs' results and each program's stack depth. The regression programs' outputs
-are the same as the Stage 3 build's on the same board (and through the stages before as v8-dev 545908b's, but for
-`locals`, which recurses 18 deep since v8-dev 9527b60). The twenty-five thread tests all pass, so this is the baseline a
+are the same as the Stage 4 build's on the same board (and through the stages before as v8-dev 545908b's, but for
+`locals`, which recurses 18 deep since v8-dev 9527b60). The twenty-nine thread tests all pass, so this is the baseline a
 later step is compared with:
 
 ```

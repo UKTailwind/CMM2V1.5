@@ -190,10 +190,10 @@ void fun_ds18b20(void) {
     if(ds18b20Timers == NULL || ds18b20Timers[pin] == 0) {
         // the TIMR command has not used
         Init_ds18b20(pin, 1);                                       // the default is 10 bits
-        MM_Delay(timeout);                                          // and the conversion
+        ThreadDelay(timeout);                                       // and the conversion (the other threads run meanwhile)
     } else {
         // the TIMR command has been used
-        while(ds18b20Timer < ds18b20Timers[pin])MM_Delay(10);   ;                   // wait for the conversion
+        while(ds18b20Timer < ds18b20Timers[pin]) ThreadDelay(10);   // wait for the conversion (and the other threads run)
         ds18b20Timers[pin] = 0;
     }
 

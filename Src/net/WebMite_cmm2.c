@@ -254,6 +254,35 @@ void BtPoll(void) {
 /* ---- the poll ---- */
 // from routinechecks' full checks (main.c), on its 1 ms tick: the PicoMite's CheckAbort's ProcessWeb(1). Not again
 // from inside itself (an lwIP callback that prints, say).
+/* WEB: the PicoMite's cmd_web, with the network the running thread's for the command (ThreadNetEnter, Thread.c), so
+   that one thread at a time is in the network's code (docs/Threads_Plan.md, Stage 4b). With no thread, cmd_web. */
+void cmd_web_threads(void) {
+    extern void cmd_web(void);
+    extern int ThreadNetEnter(int k);
+    extern void ThreadNetLeave(int k);
+    if (!ThreadNetEnter(0)) return;                                 // (an interrupt first: this statement again after it)
+    cmd_web();
+    ThreadNetLeave(0);
+}
+
+/* BLUETOOTH: the PicoMite's cmd_bluetooth, with Bluetooth the running thread's for the command, as WEB (Thread.c) */
+void cmd_bluetooth_threads(void) {
+    extern void cmd_bluetooth(void);
+    extern int ThreadNetEnter(int k);
+    extern void ThreadNetLeave(int k);
+    if (!ThreadNetEnter(1)) return;
+    cmd_bluetooth();
+    ThreadNetLeave(1);
+}
+
+/* In a WEB command's wait (the PicoMite's loops, each poll followed by this: tools/net_yield.py): the program's other
+   threads run meanwhile. Never in ProcessWeb or lwIP's callbacks, which every thread's CheckAbort reaches. */
+void NetYield(void) {
+    extern int ThreadCount;
+    extern void ThreadPoll(void);
+    if (ThreadCount) ThreadPoll();
+}
+
 void WebPoll(void) {
     static int busy = 0;
     if (busy || NetHold || !(WIFIconnected || WebScanActive)) return;
@@ -506,16 +535,17 @@ int WebInfo(char *ep) {
 // check_interrupt (MM_Misc.c): WEB TCP INTERRUPT, MQTT's and WEB UDP INTERRUPT's, in the PicoMite's order; NULL if none
 char *WebInterrupt(void) {
     char *a;
-    if (TCPreceived && TCPreceiveInterrupt) {
+    extern int IntMay(char *routine);                               // (its thread can take it now: Thread.c)
+    if (TCPreceived && TCPreceiveInterrupt && IntMay((char *)TCPreceiveInterrupt)) {
         a = (char *)TCPreceiveInterrupt;
         TCPreceived = 0;
         return a;
     }
-    if (MQTTComplete && MQTTInterrupt != NULL) {
+    if (MQTTComplete && MQTTInterrupt != NULL && IntMay((char *)MQTTInterrupt)) {
         MQTTComplete = false;
         return (char *)MQTTInterrupt;
     }
-    if (UDPreceive && UDPinterrupt != NULL) {
+    if (UDPreceive && UDPinterrupt != NULL && IntMay((char *)UDPinterrupt)) {
         UDPreceive = false;
         return (char *)UDPinterrupt;
     }

@@ -4351,6 +4351,7 @@ void error(char *msg, ...) {
     va_list ap;
     int fmline = 0;                                                 // the program's line, for FM (FmNoteError)
 	ScrewUpTimer=0;
+    ThreadErrorRelease();                                           // (the network, if this thread's command had it: Thread.c)
     {   // a command's #n output ends with it, unless ON ERROR SKIP carries on inside it (the PicoMite's error())
         extern volatile int ConsoleRedirect;
         extern int ConsoleRedirectDepth;

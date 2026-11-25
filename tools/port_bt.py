@@ -17,6 +17,8 @@ Mechanical changes only, so that a later PicoMite's Bluetooth code can be taken 
   - SaveOptions() -> BtSaveOptions() where BTKeyboard.c saves the pairings (bt_tlv_save, from the Bluetooth poll):
     the CMM2's (Src/net/bt/BTMite_cmm2.c) waits and tries again when there is no RAM for sector 2's copy just then
     (a G1 running a program), where SaveOptions would end the program with an error
+  - the BLUETOOTH commands' waits: each CheckAbort() followed by NetYield(), so that a program's other threads run
+    meanwhile (tools/net_yield.py --bt, docs/Threads_Plan.md Stage 4b)
   - COM7 -> COM8 (the words in messages and comments): the PicoMite's Bluetooth serial device is its COM7, the CMM2's
     is COM8, its COM4 to COM7 being the USB serial devices (the variable com7 is mapped by BTMite_cmm2.h)
 Everything else the PicoMite's own headers and core give these files comes from Inc/net/BTMite_cmm2.h, which
@@ -25,6 +27,8 @@ CMakeLists.txt makes their first include (-include). Then build, and check on th
 import os
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import net_yield
 
 pico, cmm2 = sys.argv[1], sys.argv[2]
 
@@ -52,6 +56,9 @@ for f in FILES:
         if a in t:
             n.append('%s x%d' % (a, t.count(a)))
             t = t.replace(a, b)
+    t, ys = net_yield.add_yields(t, f, net_yield.BT)
+    if ys:
+        n.append('NetYield x%d' % len(ys))
     wr(os.path.join(dst, f), t)
     print(f, ('(' + ', '.join(n) + ')') if n else '')
 print('from the PicoMite at', commit)

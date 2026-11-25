@@ -230,7 +230,8 @@ pre-emption is between statements.
 ### Interrupts
 
 Interrupt routines (`SETTICK`, `SETPIN ... INTH`, `ON KEY`, COM ports, the GUI, the network and the rest) run in the
-**main thread only**. The alternative, running one in whichever thread is current, would give it that thread's small
+**main thread only**. (So Stages 2 to 4 built it; Stage 4b changed it: each routine runs in the thread that set it
+up. See "Stage 4b" under Progress.) The alternative, running one in whichever thread is current, would give it that thread's small
 stack and slot range at random, and would need PAUSE's interrupt state for every thread.
 
 `check_interrupt` is split at its existing label:
@@ -463,7 +464,7 @@ The design keeps these small on purpose. `DefinedSubFun` and the statement loops
 | | Question | Recommended |
 |---|---|---|
 | Q1 | A C stack for each thread, or switching only outside FUNCTIONs? | A stack each |
-| Q2 | Where do interrupt routines run? | The main thread only |
+| Q2 | Where do interrupt routines run? | The main thread only. **Revised 25 November** (Peter: "surely an interrupt doesn't belong to any thread. It has its own context. If I set up an interrupt in a thread and then sit waiting for it to flag then that thread effectively owns the interrupt?"): in the thread that set it up (Stage 4b) |
 | Q3 | The main program ends while threads run? | The program ends and the threads stop; `THREAD WAIT` for a program that wants them to finish |
 | Q4 | May a thread start, stop, pause and resume other threads? | Yes: nothing in the design depends on who asks |
 | Q5 | Thread numbers chosen by the program (1 to 16), as file numbers are? | Yes |
@@ -1006,3 +1007,42 @@ And `CLUT RESET` (`MAP RESET`), whose frame wait the first pass left, lets the o
 documented under "State that stays shared". Tests: `tpage` (a thread drawing into the framebuffer while the main
 program draws on the display, the close refused, MODE), `teval` (EVAL in a thread while the main program is in
 EXECUTE, both in FUNCTIONs that yield).
+
+### Stage 4b (25 November): the network's waits, Bluetooth's, TEMPR(), and interrupts in their own thread
+
+| Part | How it was done |
+|---|---|
+| The network's waits | Each poll in the WEB commands' wait loops is followed by `NetYield`, which lets the other threads run: 28 polls in the PicoMite's files, by a rule (`tools/net_yield.py`) that `tools/port_net.py` applies, so a new port keeps it. Only in the commands' own functions: `ProcessWeb`, which every thread's CheckAbort runs, and the TCP server's send, which lwIP's callbacks reach, are left alone, since a switch inside them would let another thread into the network's code part way through |
+| The network belongs to one thread | Peter: "Only one thread should handle web activity". The main program's WEB commands before any thread has used the network do not claim it (WEB CONNECT, WEB NTP at the start); the first other thread to use it has it until it ends; a WEB command in any other thread, the main program's included, is the error "The network belongs to thread n". So one thread only is ever in the network's code, with its one timer (`Timer4`) and its clients' one state each. The one overlap, a thread's first WEB command while the main program's is under way, waits for it |
+| Bluetooth | The same: its four waits yield (`net_yield.py --bt`, applied by `tools/port_bt.py`), and it belongs to one thread, since its scan, its serial connection and its keyboard each keep one state ("Bluetooth belongs to thread n"). Built, not tested on a board (the G1's radio is set up for Wi-Fi) |
+| `TEMPR()` | Its conversion time is a sleep that lets the other threads run and takes no interrupt (`ThreadDelay`) |
+| Interrupts | **Each routine runs in the thread that set it up** (Q2 revised). Every interrupt is set up through `GetIntAddress`, which notes the thread. `IntScan` asks `IntMay` of each source before it takes it (42 sources, and those in `CdcInterrupt`, `GamepadInterrupt` and `WebInterrupt`): yes for the running thread's own; for another thread's only if that one can take it now and this one can switch to it. Otherwise the source is left as it is and found again, so no tick, key or pin edge is lost. One found for another thread is handed to it, and it runs at once. One set up by the main program or before the threads runs in the main program, as before; one whose thread has ended runs in the main program; a paused thread's wait for it; one in a wait that takes no interrupt (INPUT) waits until the wait ends. The routine has its thread's print position, colours, font and pages. PAUSE's and THREAD WAIT's state for an interrupt that cuts them short is each thread's |
+| A thread in a wait that takes no interrupt | It looks once for the other threads' interrupts as it goes in (`ScanForOthers`): with the main program in INPUT and a thread in THREAD WAIT FLAG, no statement tail runs, and a thread's SETTICK was not found until the line was in (the first run of `tintown`) |
+| `THREAD START n [SIZE kb] [LOCALS m], sub` | Peter: "can we make thread size a parameter when we start a specific thread". For that thread only; THREAD SIZE's otherwise. `LOCALS m` (and THREAD SIZE's) gives m locals: one slot more is kept, as findvar keeps one free |
+| The record | Its locals' list is as long as its local slots, not 512 |
+
+**On the G1** (Wi-Fi joined):
+
+| Test | What it shows |
+|---|---|
+| `tnet` (6 checks) | A thread counts while the main program waits 2 s on a TCP address that does not answer, and through `TEMPR()` on a pin with nothing on it; the main program counts while a thread waits on the network |
+| `tintown` (8) | A thread's SETTICK runs while the main program is in INPUT, in that thread, with its colour; the main program's waits for its INPUT; a paused thread's waits for it; one whose thread has ended runs in the main program |
+| `tnetown` (5) | The main program's WEB command before a thread; the thread's; then the main program's and another thread's refused; free again when the thread ends |
+| `tsize` (6) | A thread of THREAD SIZE's takes 37,376 bytes, one of `SIZE 12 LOCALS 8` 27,648; LOCALS 8 gives eight locals; SIZE 48 LOCALS 64 a FUNCTION fourteen deep; out of range refused |
+
+All of them pass with OPTION COMPILE OFF, ON and SHADOW; the earlier thread tests, the regression programs, the crashers
+and the Route B programs are as before. A thread is its stack and a record of about 16.9 KB.
+
+**Noted for later** (Peter: "don't worry about size for the moment just note the issue. Let's get the functionality
+finished first and then come back to it"):
+
+- **The stack's guard.** Every stack keeps 6 KB below its check's floor because a few commands go that far below
+  their last check (LOAD PNG 4.5 to 5.6 KB, SPRITE LOADPNG 4.6 KB, JSON$ 96 + 40 bytes a level). Peter: "a better
+  approach may be to have stack hogging commands test the stack before starting processing. So LOAD PNG would look
+  for 6K free before it starts and error if it isn't available." Then the guard need only cover the ordinary
+  commands (2.3 KB at most between checks, measured) and what runs on any stack at any time: the hardware
+  interrupts' handlers and the housekeeping in CheckAbort (1.2 KB idle, 2.6 KB during a TLS request; the audio
+  decoders, Bluetooth and USB not measured yet). Those set the true floor and must be measured first.
+- **The record's size.** About 16.9 KB, mostly full-size save areas: 100 FOR levels (3.2 KB), 100 DO levels (4 KB),
+  the temporary strings' list for 1,024 (5 KB). They could be sized per thread. This matters most for an RP2040
+  port, where the guard too must come from the PicoMite's own measurements.

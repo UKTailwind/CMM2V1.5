@@ -272,7 +272,7 @@
                     break;
                 for (int i = 0; i < 100; i++)
                 {
-                    cyw43_arch_poll();
+                    { cyw43_arch_poll(); NetYield(); }
                     uSec(10000);
                 }
             }
@@ -731,7 +731,7 @@ void cmd_web(void)
                 Timer4 = 500;
                 while (Timer4)
                         if (startupcomplete)
-                                ProcessWeb(0);
+                                { ProcessWeb(0); NetYield(); }
                 WebScanActive = 0;
 #ifdef PICOMITEPC3
                 if (btc_changed)

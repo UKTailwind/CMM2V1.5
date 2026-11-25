@@ -105,6 +105,12 @@ threads/tscreen
 threads/tpage
 threads/teval
 
+' Stage 4b: interrupts run in the thread that set them up; the network's and TEMPR's waits
+threads/tintown
+threads/tnet
+threads/tnetown
+threads/tsize
+
 ' timings: a statement of each kind, a SUB call and a FUNCTION call
 time threads/tstmt
 time threads/tswitch

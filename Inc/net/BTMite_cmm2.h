@@ -62,6 +62,7 @@ extern volatile struct s_nunstruct *const BtNunstruct;
 extern volatile int BtNunfoundc[4];
 extern char *BtNunInterruptc[4];
 // the PicoMite's input/KeyboardMap.c and misc/SDCard.c (OPTION AUDIO BLUETOOTH's sound)
+void NetYield(void);                            // a BLUETOOTH command's wait: the other threads run (WebMite_cmm2.c)
 void BtSaveOptions(void);                       // (Src/net/bt/BTMite_cmm2.c: tools/port_bt.py's rewrite in BTKeyboard.c)
 bool process_consumer_report(const uint8_t *report, uint16_t len);
 void process_mouse_input(int16_t x_delta, int16_t y_delta, int8_t wheel_delta, uint8_t buttons, uint8_t n);

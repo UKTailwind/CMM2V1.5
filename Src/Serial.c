@@ -261,13 +261,13 @@ char *CdcInterrupt(void) {
 	for(int i = 0; i < CDC_PORTS; i++) {
 		struct s_cdccom *p = &CdcCom[i];
 		if(!p->open) continue;
-		if(p->interrupt != NULL && SerialRxStatus(i + CDC_FIRST_COM) >= p->ilevel) return p->interrupt;
-		if(p->TX_interrupt != NULL && p->TX_complete) {
+		if(p->interrupt != NULL && SerialRxStatus(i + CDC_FIRST_COM) >= p->ilevel && IntMay(p->interrupt)) return p->interrupt;
+		if(p->TX_interrupt != NULL && p->TX_complete && IntMay(p->TX_interrupt)) {
 			p->TX_complete = false;
 			return p->TX_interrupt;
 		}
 	}
-	if(BtCom.open && BtCom.interrupt != NULL && SerialRxStatus(BT_COM) >= BtCom.ilevel) return BtCom.interrupt;   // and COM8
+	if(BtCom.open && BtCom.interrupt != NULL && SerialRxStatus(BT_COM) >= BtCom.ilevel && IntMay(BtCom.interrupt)) return BtCom.interrupt;   // and COM8
 	return NULL;
 }
 

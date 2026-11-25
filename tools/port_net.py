@@ -16,12 +16,16 @@ Mechanical changes only, so that a later PicoMite's network code can be taken by
   - MMtcpserver.c, WEB TRANSMIT FILE's end-of-file test: its LittleFS half (the PicoMite's flash drive) left out, as the
     CMM2's drives are all FatFS: "(flash file && at its end) || (not flash file && f_eof)" -> f_eof
   - lwipopts.h: its "extern char MMErrMsg[];" left out (the CMM2's is a char *; the line is not used there)
+  - the WEB commands' waits: each poll followed by NetYield(), so that a program's other threads run meanwhile
+    (tools/net_yield.py, docs/Threads_Plan.md Stage 4b)
 Everything else the PicoMite's own headers and core give these files comes from Inc/net/WebMite_cmm2.h, which
 CMakeLists.txt makes their first include (-include). Then build, and check on the board.
 """
 import os
 import re
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import net_yield
 
 pico, cmm2 = sys.argv[1], sys.argv[2]
 
@@ -53,6 +57,9 @@ for f in files:
         if a in t:
             n.append('%s x%d' % (a, t.count(a)))
             t = t.replace(a, b)
+    t, ys = net_yield.add_yields(t, os.path.basename(f))
+    if ys:
+        n.append('NetYield x%d' % len(ys))
     wr(os.path.join(dst, os.path.basename(f)), t)
     print(f, ('(' + ', '.join(n) + ')') if n else '')
 

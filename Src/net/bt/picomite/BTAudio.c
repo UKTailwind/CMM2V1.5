@@ -221,7 +221,7 @@ static bool bta_wait(bool (*cond)(void), uint32_t timeout_ms)
     uint64_t end = time_us_64() + (uint64_t)timeout_ms * 1000u;
     while (!cond())
     {
-        CheckAbort();
+        { CheckAbort(); NetYield(); }
         if (time_us_64() > end)
             return false;
     }

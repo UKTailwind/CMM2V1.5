@@ -773,13 +773,13 @@ void fun_epoch(void){
 // that at RUN: an interrupt that ended in an error never came back to it (Gerry, 27 Oct 2026: the next run's first
 // PAUSE took the old one's count and timer and ended at once, so its SETTICK interrupt was not called)
 int PauseInterrupted = false;
+long long int PauseUntil;                                           // (each thread's: Thread.c)
 /* The pause is measured against the microsecond clock (GetuSec, which only runs forward: TIMER = n does not move it),
    not PauseTimer: that counter is one for the whole firmware, zeroed here, by DISTANCE() and by XMODEM, and a pause now
-   lets the program's other threads run (docs/Threads_Plan.md, Stage 2: ThreadSleepUntil). A thread's own pause keeps
-   its time in a local, on its own stack. The main program's keeps it in 'until' across an interrupt that cuts the
-   pause short, as it kept its count; the main program is the only thread interrupt routines run in. */
+   lets the program's other threads run (docs/Threads_Plan.md, Stage 2: ThreadSleepUntil). The time it ends at is kept
+   in PauseUntil across an interrupt that cuts it short, as the count was; each thread has its own PauseUntil and
+   PauseInterrupted (Thread.c's context), since each takes the interrupts it set up (Stage 4b). */
 static void PauseFor(MMFLOAT f, char *pausetoken) {
-    static long long int until;
     long long int t;
     if(f < 0) error("Number out of bounds");
     if(f < 0.05) return;
@@ -788,21 +788,13 @@ static void PauseFor(MMFLOAT f, char *pausetoken) {
 		uSec(f * 1000);                                             // if less than 1.5mS do the pause right now
 		return;                                                     // and exit straight away
     }
-    if(ThreadNumber()) {                                            // a thread other than the main program
-        t = GetuSec() + (long long int)(f * 1000);
-        while(GetuSec() < t) {
-            CheckAbort();
-            ThreadSleepUntil(t);
-        }
-        return;
-    }
     if(InterruptReturn == NULL) {
         // we are running pause in a normal program
         // if we have reentered (from an interrupt) the time the pause ends at is kept: an interrupted pause resumes
         // from where it was when interrupted
-        if(!PauseInterrupted) until = GetuSec() + (long long int)(f * 1000);
+        if(!PauseInterrupted) PauseUntil = GetuSec() + (long long int)(f * 1000);
         PauseInterrupted = false;
-        while(GetuSec() < until) {
+        while(GetuSec() < PauseUntil) {
             CheckAbort();
             if(check_interrupt()) {
                 // if there is an interrupt fake the return point to the start of this stmt
@@ -814,7 +806,7 @@ static void PauseFor(MMFLOAT f, char *pausetoken) {
                 PauseInterrupted = true;                            // show that this stmt was interrupted
                 return;                                             // and let the interrupt run
             }
-            if(ThreadCount) ThreadSleepUntil(until);                // the threads run meanwhile; back at the time, for an
+            if(ThreadCount) ThreadSleepUntil(PauseUntil);           // the threads run meanwhile; back at the time, for an
         }                                                           // interrupt, or when none of them can run
     } else {
         // we are running pause in an interrupt: no interrupt is taken, and no thread runs
@@ -4222,20 +4214,20 @@ __attribute__((noinline)) char *IntScan(void) {
 
 //Deal with the fast tick interrupt first
     for(int i=1;i<=MAXPID;i++){
-        if(PIDchannels[i].interrupt!=NULL && Getuptime()>PIDchannels[i].timenext && PIDchannels[i].active){
+        if(PIDchannels[i].interrupt!=NULL && Getuptime()>PIDchannels[i].timenext && PIDchannels[i].active && IntMay((char *)PIDchannels[i].interrupt)){
             PIDchannels[i].timenext=Getuptime()+(PIDchannels[i].PIDparams->T * 1000000);
             intaddr=(char *)PIDchannels[i].interrupt;
             return intaddr;
         }
     }
-	if(TickInt[NBRSETTICKS] != NULL && TickTimer[NBRSETTICKS]) {
+	if(TickInt[NBRSETTICKS] != NULL && TickTimer[NBRSETTICKS] && IntMay(TickInt[NBRSETTICKS])) {
 		TickTimer[NBRSETTICKS]--;
 		intaddr = TickInt[NBRSETTICKS];
 		return intaddr;
 	}
 
     // check for an  ON KEY loc  interrupt
-    if(OnKeyGOSUB && kbhitConsole()) {
+    if(OnKeyGOSUB && kbhitConsole() && IntMay(OnKeyGOSUB)) {
         intaddr = OnKeyGOSUB;							            // set the next stmt to the interrupt location
 		return intaddr;
     }
@@ -4246,29 +4238,29 @@ __attribute__((noinline)) char *IntScan(void) {
     }
 	// interrupt routines for the serial ports
     if(com1 || com2 || com3){
-		if(com1_interrupt != NULL && SerialRxStatus(1) >= com1_ilevel) {// do we need to interrupt?
+		if(com1_interrupt != NULL && SerialRxStatus(1) >= com1_ilevel && IntMay(com1_interrupt)) {// do we need to interrupt?
 			intaddr = com1_interrupt;									// set the next stmt to the interrupt location
 			return intaddr;
 		}
-		if(com1_TX_interrupt && com1_TX_complete){
+		if(com1_TX_interrupt && com1_TX_complete && IntMay(com1_TX_interrupt)){
 			intaddr=com1_TX_interrupt;
 			com1_TX_complete=false;
 			return intaddr;
 		}
-		if(com2_interrupt != NULL && SerialRxStatus(2) >= com2_ilevel) {// do we need to interrupt?
+		if(com2_interrupt != NULL && SerialRxStatus(2) >= com2_ilevel && IntMay(com2_interrupt)) {// do we need to interrupt?
 			intaddr = com2_interrupt;									// set the next stmt to the interrupt location
 			return intaddr;
 		}
-		if(com2_TX_interrupt && com2_TX_complete){
+		if(com2_TX_interrupt && com2_TX_complete && IntMay(com2_TX_interrupt)){
 			intaddr=com2_TX_interrupt;
 			com2_TX_complete=false;
 			return intaddr;
 		}
-		if(com3_interrupt != NULL && SerialRxStatus(3) >= com3_ilevel) {// do we need to interrupt?
+		if(com3_interrupt != NULL && SerialRxStatus(3) >= com3_ilevel && IntMay(com3_interrupt)) {// do we need to interrupt?
 			intaddr = com3_interrupt;									// set the next stmt to the interrupt location
 			return intaddr;
 		}
-		if(com3_TX_interrupt && com3_TX_complete){
+		if(com3_TX_interrupt && com3_TX_complete && IntMay(com3_TX_interrupt)){
 			intaddr=com3_TX_interrupt;
 			com3_TX_complete=false;
 			return intaddr;
@@ -4276,103 +4268,103 @@ __attribute__((noinline)) char *IntScan(void) {
     }
     if((intaddr = CdcInterrupt()) != NULL) return intaddr;     // COM4-COM7, the USB serial devices
     if((intaddr = GamepadInterrupt()) != NULL) return intaddr; // GAMEPAD INTERRUPT ENABLE's (USBGamepad.c)
-    if(gui_int_down && GuiIntDownVector) {                          // interrupt on pen down
+    if(gui_int_down && GuiIntDownVector && IntMay(GuiIntDownVector)) {                          // interrupt on pen down
         intaddr = GuiIntDownVector;                                 // get a pointer to the interrupt routine
         gui_int_down = false;
         return intaddr;
     }
 
-    if(gui_int_up && GuiIntUpVector) {
+    if(gui_int_up && GuiIntUpVector && IntMay(GuiIntUpVector)) {
         intaddr = GuiIntUpVector;                                   // get a pointer to the interrupt routine
         gui_int_up = false;
         return intaddr;
     }
-    if(KeyInterrupt != NULL && Keycomplete) {
+    if(KeyInterrupt != NULL && Keycomplete && IntMay(KeyInterrupt)) {
 		Keycomplete=false;
 		intaddr = KeyInterrupt;									    // set the next stmt to the interrupt location
 		return intaddr;
 	}
-    if(WAVInterrupt != NULL && WAVcomplete) {
+    if(WAVInterrupt != NULL && WAVcomplete && IntMay(WAVInterrupt)) {
         WAVcomplete=false;
 		intaddr = WAVInterrupt;									    // set the next stmt to the interrupt location
 		WAVInterrupt = NULL;                                        // once: a later sound's end must not fire it again
 		return intaddr;
 	}
-    if(EFFECTInterrupt != NULL && EFFECTcomplete) {                 // PLAY EFFECT's end
+    if(EFFECTInterrupt != NULL && EFFECTcomplete && IntMay(EFFECTInterrupt)) {                 // PLAY EFFECT's end
         EFFECTcomplete=false;
 		intaddr = EFFECTInterrupt;
 		EFFECTInterrupt = NULL;
 		return intaddr;
 	}
-    if(COLLISIONInterrupt != NULL && CollisionFound) {
+    if(COLLISIONInterrupt != NULL && CollisionFound && IntMay(COLLISIONInterrupt)) {
         CollisionFound=false;
 		intaddr = COLLISIONInterrupt;									    // set the next stmt to the interrupt location
 		return intaddr;
 	}
-    if(STCollisionInterrupt != NULL && STCollisionFound) {         // a sprite on a static object (the PicoMite's: sprites.c)
+    if(STCollisionInterrupt != NULL && STCollisionFound && IntMay(STCollisionInterrupt)) {         // a sprite on a static object (the PicoMite's: sprites.c)
         STCollisionFound=false;
 		intaddr = STCollisionInterrupt;
 		return intaddr;
 	}
-    if(ADCInterrupt != NULL && ADCcomplete){
+    if(ADCInterrupt != NULL && ADCcomplete && IntMay(ADCInterrupt)){
  		ADCcomplete=false;
     	intaddr = ADCInterrupt;									    // set the next stmt to the interrupt location
     	return intaddr;
     }
 
-    if(DACInterrupt != NULL && DACcomplete){
+    if(DACInterrupt != NULL && DACcomplete && IntMay((char *)DACInterrupt)){
  		DACcomplete=false;
     	intaddr = (char *)DACInterrupt;									    // set the next stmt to the interrupt location
     	return intaddr;
     }
 
-    if(IrGotMsg && IrInterrupt != NULL) {
+    if(IrGotMsg && IrInterrupt != NULL && IntMay(IrInterrupt)) {
         IrGotMsg = false;
 		intaddr = IrInterrupt;									    // set the next stmt to the interrupt location
 		return intaddr;
 	}
 
-    if(FrameInterrupt != NULL && Framecomplete){
+    if(FrameInterrupt != NULL && Framecomplete && IntMay(FrameInterrupt)){
  		Framecomplete=false;
     	intaddr = FrameInterrupt;									    // set the next stmt to the interrupt location
     	return intaddr;
     }
-    if(Count5High!=lastCount5High && CountInterrupt){
+    if(Count5High!=lastCount5High && CountInterrupt && IntMay(CountInterrupt)){
     	intaddr=CountInterrupt;
     	lastCount5High=Count5High;
     	return intaddr;
     }
     if(nun1 || nun2 || nun3 || classic1 || classic2 || classic3){
-		if(nun1Interruptz !=NULL && nun1foundz){
+		if(nun1Interruptz !=NULL && nun1foundz && IntMay(nun1Interruptz)){
 			nun1foundz=0;
 			intaddr=nun1Interruptz;
 			return intaddr;
 		}
 
-		if(nun1Interruptc !=NULL && nun1foundc){
+		if(nun1Interruptc !=NULL && nun1foundc && IntMay(nun1Interruptc)){
 			nun1foundc=0;
 			intaddr=nun1Interruptc;
 			return intaddr;
 		}
-		if(nun2Interruptz !=NULL && nun2foundz){
+		if(nun2Interruptz !=NULL && nun2foundz && IntMay(nun2Interruptz)){
 			nun2foundz=0;
 			intaddr=nun2Interruptz;
 			return intaddr;
 		}
 
-		if(nun2Interruptc !=NULL && nun2foundc){
+		if(nun2Interruptc !=NULL && nun2foundc && IntMay(nun2Interruptc)){
 			nun2foundc=0;
 			intaddr=nun2Interruptc;
 			return intaddr;
 		}
 
-		if(nun3Interruptz !=NULL && nun3foundz){
+		if(nun3Interruptz !=NULL && nun3foundz && IntMay(nun3Interruptz)){
 			nun3foundz=0;
 			intaddr=nun3Interruptz;
 			return intaddr;
 		}
 
-		if(nun3Interruptc !=NULL && nun3foundc){
+		if(nun3Interruptc !=NULL && nun3foundc && IntMay(nun3Interruptc)){
 			nun3foundc=0;
 			intaddr=nun3Interruptc;
 			return intaddr;
@@ -4380,82 +4372,82 @@ __attribute__((noinline)) char *IntScan(void) {
     }
 
     if(mouse0 || mouse1 || mouse2 || mouse3){
-		if(mouse0Interruptz !=NULL && mouse0foundz){
+		if(mouse0Interruptz !=NULL && mouse0foundz && IntMay(mouse0Interruptz)){
 			mouse0foundz=0;
 			intaddr=mouse0Interruptz;
 			return intaddr;
 		}
 
-		if(mouse0Interruptu !=NULL && mouse0leftup){
+		if(mouse0Interruptu !=NULL && mouse0leftup && IntMay(mouse0Interruptu)){
 			mouse0leftup=0;
 			intaddr=mouse0Interruptu;
 			return intaddr;
 		}
 
-		if(mouse0Interruptc !=NULL && mouse0foundc){
+		if(mouse0Interruptc !=NULL && mouse0foundc && IntMay(mouse0Interruptc)){
 			mouse0foundc=0;
 			intaddr=mouse0Interruptc;
 			return intaddr;
 		}
 
-		if(mouse1Interruptz !=NULL && mouse1foundz){
+		if(mouse1Interruptz !=NULL && mouse1foundz && IntMay(mouse1Interruptz)){
 			mouse1foundz=0;
 			intaddr=mouse1Interruptz;
 			return intaddr;
 		}
 
-		if(mouse1Interruptc !=NULL && mouse1foundc){
+		if(mouse1Interruptc !=NULL && mouse1foundc && IntMay(mouse1Interruptc)){
 			mouse1foundc=0;
 			intaddr=mouse1Interruptc;
 			return intaddr;
 		}
-		if(mouse1Interruptu !=NULL && mouse1leftup){
+		if(mouse1Interruptu !=NULL && mouse1leftup && IntMay(mouse1Interruptu)){
 			mouse1leftup=0;
 			intaddr=mouse1Interruptu;
 			return intaddr;
 		}
-		if(MouseIntAny !=NULL && MouseIntAnyFound){                // MOUSE INTERRUPT ENABLE (the PicoMite's): any button, a double click
+		if(MouseIntAny !=NULL && MouseIntAnyFound && IntMay(MouseIntAny)){                // MOUSE INTERRUPT ENABLE (the PicoMite's): any button, a double click
 			MouseIntAnyFound=0;
 			intaddr=MouseIntAny;
 			return intaddr;
 		}
-		if(mouse2Interruptz !=NULL && mouse2foundz){
+		if(mouse2Interruptz !=NULL && mouse2foundz && IntMay(mouse2Interruptz)){
 			mouse2foundz=0;
 			intaddr=mouse2Interruptz;
 			return intaddr;
 		}
 
-		if(mouse2Interruptc !=NULL && mouse2foundc){
+		if(mouse2Interruptc !=NULL && mouse2foundc && IntMay(mouse2Interruptc)){
 			mouse2foundc=0;
 			intaddr=mouse2Interruptc;
 			return intaddr;
 		}
 
-		if(mouse2Interruptu !=NULL && mouse2leftup){
+		if(mouse2Interruptu !=NULL && mouse2leftup && IntMay(mouse2Interruptu)){
 			mouse2leftup=0;
 			intaddr=mouse2Interruptu;
 			return intaddr;
 		}
 
-		if(mouse3Interruptz !=NULL && mouse3foundz){
+		if(mouse3Interruptz !=NULL && mouse3foundz && IntMay(mouse3Interruptz)){
 			mouse3foundz=0;
 			intaddr=mouse3Interruptz;
 			return intaddr;
 		}
 
-		if(mouse3Interruptc !=NULL && mouse3foundc){
+		if(mouse3Interruptc !=NULL && mouse3foundc && IntMay(mouse3Interruptc)){
 			mouse3foundc=0;
 			intaddr=mouse3Interruptc;
 			return intaddr;
 		}
-		if(mouse3Interruptu !=NULL && mouse3leftup){
+		if(mouse3Interruptu !=NULL && mouse3leftup && IntMay(mouse3Interruptu)){
 			mouse3leftup=0;
 			intaddr=mouse3Interruptu;
 			return intaddr;
 		}
 
     }
-    if(CSubInterrupt != NULL && CSubComplete) {                     // a CSUB has finished (INTERRUPT)
+    if(CSubInterrupt != NULL && CSubComplete && IntMay(CSubInterrupt)) {                     // a CSUB has finished (INTERRUPT)
         intaddr = CSubInterrupt;
         CSubComplete = 0;
         return intaddr;
@@ -4465,6 +4457,7 @@ __attribute__((noinline)) char *IntScan(void) {
 			v = ExtInp(inttbl[i].pin);								// get the current value of the pin
 			// check if interrupt occured
 			if((inttbl[i].lohi == T_HILO && v < inttbl[i].last) || (inttbl[i].lohi == T_LOHI && v > inttbl[i].last) || (inttbl[i].lohi == T_BOTH && v != inttbl[i].last)) {
+				if(!IntMay(inttbl[i].intp)) continue;               // (its thread cannot take it now: the edge kept, Thread.c)
 				intaddr = inttbl[i].intp;							// set the next stmt to the interrupt location
 				inttbl[i].last = v;									// save the new pin value
 				return intaddr;
@@ -4474,7 +4467,7 @@ __attribute__((noinline)) char *IntScan(void) {
 	}
 	// check if one of the tick interrupts is enabled and if it has occured
 	for(i = 0; i < NBRSETTICKS; i++) {
-    	if(TickInt[i] != NULL && TickTimer[i] > TickPeriod[i]) {
+    	if(TickInt[i] != NULL && TickTimer[i] > TickPeriod[i] && IntMay(TickInt[i])) {
     		// reset for the next tick but skip any ticks completely missed
     		while(TickTimer[i] > TickPeriod[i]) TickTimer[i] -= TickPeriod[i];
     		intaddr = TickInt[i];
@@ -4548,22 +4541,15 @@ int check_interrupt(void) {
     }
     if((tick & INT_TICK_SLICE) && ThreadCount) ThreadSchedule();    // another thread's turn (Thread.c): back here when this
                                                                     // one's comes round, its state in the globals again
-    if(!IntReady.any && ThreadIntPending == NULL) return 0;         // quick exit: nothing signalled and nothing to poll (S1c)
+    if(!IntReady.any && !(ThreadCount && ThreadIntWaiting())) return 0;   // quick exit: nothing signalled, nothing to poll
     if(PrintScreenPending) PrintScreenNow();                        // OPTION PRINTSCREEN: Print Screen or Ctrl-\ while the
                                                                     // program runs (Console.c)
 	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
-    if(ThreadCount && ThreadNumber() && ThreadMainDeaf) {           // the main program is in INPUT or another wait that takes
-        ThreadBank();                                               // no interrupt: the signals keep until it is out
-        return 0;
-    }
-    if(ThreadCount && ThreadNumber()) {                             // a thread other than the main program: an interrupt that
-        if(ThreadIntPending == NULL) ThreadIntPending = IntScan();  // is due is the main program's, which runs now and takes
-        if(ThreadIntPending != NULL) ThreadToMain();                // it (back here when this thread's turn comes round)
-        return 0;
-    }
-    if(ThreadIntPending != NULL) {                                  // one a thread found due and handed over
-        intaddr = ThreadIntPending;
-        ThreadIntPending = NULL;
+    if(ThreadCount) {                                               // threads: an interrupt runs in the thread that set it up
+        if((intaddr = ThreadIntTake()) == NULL) {                   // (Thread.c): one handed to this one, or one found due,
+            if((intaddr = IntScan()) == NULL) return 0;             // which another's is handed to; that thread runs now, and
+            if(!ThreadIntHere(intaddr)) return 0;                   // this one goes on when its turn comes round
+        }
     } else if((intaddr = IntScan()) == NULL) return 0;              // nothing signalled is due, and nothing polled
     IntDispatch(intaddr);
 	return 1;
@@ -4573,7 +4559,14 @@ int check_interrupt(void) {
 // get the address for a MMBasic interrupt
 // this will handle a line number, a label or a subroutine
 // all areas of MMBasic that can generate an interrupt use this function
+char *GetIntAddressOf(char *p);
 char *GetIntAddress(char *p) {
+    char *r = GetIntAddressOf(p);
+    ThreadIntOwn(r);                                                // (its interrupts run in this thread: Thread.c)
+    return r;
+}
+
+char *GetIntAddressOf(char *p) {
     int i;
 	if(isnamestart(*p)) {                                           // if it starts with a valid name char
     	i = FindSubFun(p, 0);                                       // try to find a matching subroutine

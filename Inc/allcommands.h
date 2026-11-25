@@ -133,9 +133,11 @@ void cmd_ram(void);
 void cmd_cc(void);
 void cmd_sql(void);
 void cmd_web(void);                                // WEB ...: the PicoMite's network (Src/net/picomite/WiFi.c)
+void cmd_web_threads(void);                        // WEB, run with the network the thread's (Src/net/WebMite_cmm2.c)
 void cmd_user(void);                               // USER ...: the user's own module (User.c)
 void cmd_thread(void);                             // THREAD ...: threads for a BASIC program (Thread.c)
 void cmd_bluetooth(void);                          // BLUETOOTH ...: the PicoMite's Bluetooth host (Src/net/bt/picomite/BTAudio.c)
+void cmd_bluetooth_threads(void);                  // BLUETOOTH, run with Bluetooth the thread's (Src/net/WebMite_cmm2.c)
 void cmd_do(void);
 void cmd_else(void);
 void cmd_end(void);
@@ -584,9 +586,9 @@ void op_inv(void);
 	{ "Keyboard",	    T_CMD,				0, cmd_keyboard	},      // KEYBOARD ON|OFF: the on-screen keyboard (MM_Misc.c, OSK.c)
 	{ "CC",			    T_CMD,				0, cmd_cc		},      // CC file$ [, options$]: the C compiler, cc.app (Loader.c)
 	{ "SQL",		    T_CMD,				0, cmd_sql		},      // SQL OPEN|CLOSE|EXEC|QUERY|CREATE|INSERT: SQLite, A:/sql/sql.mod (SQL.c)
-	{ "WEB",		    T_CMD,				0, cmd_web		},      // WEB CONNECT|SCAN|PING|NTP|TCP|UDP|MQTT|...: the PicoMite's network (docs/Web_Plan.md)
+	{ "WEB",		    T_CMD,				0, cmd_web_threads	},      // WEB CONNECT|SCAN|PING|NTP|TCP|UDP|MQTT|...: the PicoMite's network (docs/Web_Plan.md)
 	{ "User",		    T_CMD,				0, cmd_user		},      // USER LOAD|CLOSE, and the user's module's own commands (User.c)
-	{ "Bluetooth",	    T_CMD,				0, cmd_bluetooth },     // BLUETOOTH SCAN|CONNECT|DISCONNECT|TEST|STATUS|FORGET: the PicoMite's (docs/Bluetooth_Plan.md)
+	{ "Bluetooth",	    T_CMD,				0, cmd_bluetooth_threads },     // BLUETOOTH SCAN|CONNECT|DISCONNECT|TEST|STATUS|FORGET: the PicoMite's (docs/Bluetooth_Plan.md)
 	{ "Thread",	    T_CMD,				0, cmd_thread	},      // THREAD START|EXIT|YIELD: threads for a BASIC program (docs/Threads_Plan.md)
 	{ "",   0,                  0, cmd_null,    }                   // this dummy entry is always at the end
 #endif

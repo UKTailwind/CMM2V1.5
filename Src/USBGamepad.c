@@ -640,11 +640,11 @@ int USBGamepadAxes(int n, int v[6]) {
 
 char *GamepadInterrupt(void) {
     for(int n = 1; n <= HID_SLOTS; n++)
-        if(Pad[n].interrupt != NULL && Pad[n].found) {
+        if(Pad[n].interrupt != NULL && Pad[n].found && IntMay(Pad[n].interrupt)) {
             Pad[n].found = 0;
             return Pad[n].interrupt;
         }
-    if(Pad[BT_PAD].interrupt != NULL && BtNunfoundc[BT_PAD] && BtPad(BT_PAD)) {   // the Bluetooth one
+    if(Pad[BT_PAD].interrupt != NULL && BtNunfoundc[BT_PAD] && BtPad(BT_PAD) && IntMay(Pad[BT_PAD].interrupt)) {   // the Bluetooth one
         BtNunfoundc[BT_PAD] = 0;
         return Pad[BT_PAD].interrupt;
     }
