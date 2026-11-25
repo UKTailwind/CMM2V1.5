@@ -31,6 +31,7 @@ These run on a test board now:
 • [B]THREAD PAUSE n[/B] and [B]THREAD RESUME n[/B] hold thread n and let it go on.
 • [B]THREAD SLICE ms[/B] sets the time slice, 1 to 100 ms. It is 1 ms unless you say otherwise.
 • [B]THREAD START n SIZE kb LOCALS m NEST d, sub[/B] gives one thread its own stack size, number of local variables and depth of loops and calls, so a small thread takes less memory. [B]THREAD SIZE kb [, locals [, nest]][/B] sets them for threads started without.
+• [B]THREAD PRIORITY n, p[/B] (or PRIORITY p on THREAD START) gives a thread a longer turn: at priority 5 it runs five time slices to a priority 1 thread's one. Priorities are 1 to 10 and everything starts at 1, the main program too (thread 0). No thread is ever left out, and a thread holding a lock that a higher priority thread waits for borrows that thread's priority until it unlocks.
 • [B]THREAD LOCK k[/B] and [B]THREAD UNLOCK k[/B]: sixteen locks. Only one thread at a time gets past THREAD LOCK k; the others wait there, without using any processor time, until it unlocks. THREAD LOCK k, ms gives up after that many milliseconds with an error.
 • [B]THREAD HOLD[/B] and [B]THREAD RELEASE[/B]: no other thread runs between them. For a few statements that must not be split.
 • [B]THREAD WAIT n[/B] waits until thread n has ended. [B]THREAD WAIT FLAG f[/B] waits until FLAG(f) is 1, which any thread or an interrupt routine can set. Either can have a time limit: THREAD WAIT n, ms.

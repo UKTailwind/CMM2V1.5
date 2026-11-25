@@ -92,6 +92,7 @@ struct s_thread {
     unsigned char doing;                                            // in PAUSE (1) or THREAD WAIT or LOCK (2): for the list, while
                                                                     // it is the one running (its state is then T_READY)
     unsigned char deaf;                                             // in a wait that takes no interrupt (Deaf)
+    unsigned char prio;                                             // THREAD PRIORITY: the time slices in its turn (Turn)
     int pauseint, waitresume;                                       // PAUSE's and THREAD WAIT's state for an interrupt that
     long long pauseuntil, waitlimit;                                // cuts them short (PauseInterrupted, PauseUntil; WaitFor)
     int CurrentX, CurrentY, fcolour, bcolour, font, pixelmode;      // its print position, colours, font and PRINT @'s mode,
@@ -125,6 +126,7 @@ volatile unsigned int ThreadWakeMs = 0;
 int ThreadHoldDepth = INT_MAX;
 static int StackSize = THREAD_STACK, LocalSlots = THREAD_LOCALS;    // THREAD SIZE: what the next THREAD START gives
 static int NestDepth = THREAD_NEST;
+static int MainPriority = 1;                                        // the main program's, kept while it has no record
 extern volatile int LoaderActive;                                   // (Loader.c: a loadable program is running)
 static struct s_thread *Thr[MAXTHREADS + 1];                        // by number: Thr[0] the main program's, made with the first thread
 static struct s_thread *Cur = NULL;                                 // the one running (NULL: no thread has been started)
@@ -474,6 +476,19 @@ static int Held(void) {
     return Stopping || InterruptReturn != NULL || LoaderActive || ThreadHoldDepth != INT_MAX || HoldCount;
 }
 
+/* THREAD PRIORITY (Peter, 25 Nov: "KISS principle is crucial for this"). The threads take turns in number order as
+   they always did, and a thread's priority is how many time slices its turn is: 5 beside 1 runs five slices to the
+   other's one. The count runs down as it runs, and it has a whole turn again when it next comes round, so no thread
+   waits longer than one round. While another thread waits for a lock this one holds, its turn is as long as the
+   longest of theirs: a thread of a low priority does not keep one of a high priority waiting at its own pace. */
+static int Turn(struct s_thread *t) {
+    int i, n = t->prio;
+    for(i = 0; i <= MAXTHREADS; i++)
+        if(Thr[i] != NULL && Thr[i]->state == T_WAIT && Thr[i]->wkind == W_LOCK && Thr[i]->prio > n
+           && LockOwner[Thr[i]->warg] == t->id + 1) n = Thr[i]->prio;
+    return n;
+}
+
 static void ThreadSwitchTo(struct s_thread *to) {
     struct s_thread *from = Cur;
     from->profline = ProfileSwitch(to->profline);                   // (OPTION PROFILING: each line's time its own thread's)
@@ -481,7 +496,7 @@ static void ThreadSwitchTo(struct s_thread *to) {
     ContextSave(from);
     ContextLoad(to);
     Cur = to;
-    ThreadSliceLeft = ThreadSliceLen;                               // a whole slice for it
+    ThreadSliceLeft = ThreadSliceLen * Turn(to);                    // a whole turn for it
     ArmWake();
     Resignal();                                                     // (an interrupt held back may be this one's)
     ThreadSwap(&from->sp, to->sp);                                  // back here when 'from' next runs
@@ -499,7 +514,7 @@ __attribute__((noreturn)) static void ThreadFinish(void) {
     ProfileSwitch(to->profline);
     ContextLoad(to);
     Cur = to;
-    ThreadSliceLeft = ThreadSliceLen;
+    ThreadSliceLeft = ThreadSliceLen * Turn(to);
     ArmWake();
     ThreadSwap(&old->sp, to->sp);
     for(;;) {}                                                      // (nothing switches to a thread that has ended)
@@ -866,6 +881,10 @@ static void ThreadList(int withstack) {
         else if(waiting) ListNumber(", waiting for flag ", t->warg);
         else if(t == Cur) ListText(", running");
         else ListText(", ready");
+        if(t->prio != 1 || Turn(t) != 1) {                           // (a program that sets none reads as it did)
+            ListNumber(", priority ", t->prio);
+            if(Turn(t) != t->prio) { ListNumber(" (", Turn(t)); ListText(" while its lock is waited for)"); }
+        }
         if(withstack) ListStack(t);
         ListText("\r\n");
     }
@@ -951,6 +970,7 @@ int ThreadsEnd(void) {
     StackSize = THREAD_STACK;                                       // (THREAD SIZE and SLICE are the program's)
     LocalSlots = THREAD_LOCALS;
     NestDepth = THREAD_NEST;
+    MainPriority = 1;
     ThreadSliceLen = 1;
     ThreadHoldDepth = INT_MAX;
     memset(LockOwner, 0, sizeof(LockOwner));                        // (the locks, the hold and a wait are the program's too)
@@ -1087,7 +1107,7 @@ int ThreadArg(int n, long long int *i, MMFLOAT *f, char *s) {
 }
 
 // THREAD START n, sub [, argument ...]
-static void ThreadStart(int n, int StackSize, int LocalSlots, int Nest, char *name, int argc, char **argv) {
+static void ThreadStart(int n, int StackSize, int LocalSlots, int Nest, int Priority, char *name, int argc, char **argv) {
     struct s_thread *t;
     char *q;
     int nfor = Nest, ndo = Nest, ngosub = Nest + 1, ntemp = 64 + 16 * Nest, ndata = Nest < MAXRESTORE ? Nest : MAXRESTORE;
@@ -1122,6 +1142,7 @@ static void ThreadStart(int n, int StackSize, int LocalSlots, int Nest, char *na
         t->gosub = gosubstack_main; t->errs = errorstack_main; t->subs = substack_main; t->ngosub = MAXGOSUB;
         t->tmp = StrTmp_main; t->tmplevel = StrTmpLocalIndex_main; t->ntemp = MAXTEMPSTRINGS;
         t->data = datastore_main; t->ndata = MAXRESTORE;
+        t->prio = MainPriority;
         t->state = T_READY;
         t->id = 0;
         t->floor = StackFloor;
@@ -1176,6 +1197,7 @@ static void ThreadStart(int n, int StackSize, int LocalSlots, int Nest, char *na
     t->gosub = (char **)(t->data + ndata); t->errs = t->gosub + ngosub; t->subs = t->errs + ngosub; t->ngosub = ngosub;
     t->tmp = (volatile char **)(t->subs + ngosub); t->ntemp = ntemp;
     t->locals = (struct s_hash *)(t->tmp + ntemp); t->nlocals = LocalSlots;
+    t->prio = Priority;
     q = (char *)(t->locals + LocalSlots);
     if(bindings) {
         t->syml = (int16_t *)q;
@@ -1208,7 +1230,7 @@ static void ThreadStart(int n, int StackSize, int LocalSlots, int Nest, char *na
     Thr[n] = t;
     ThreadCount++;
     MainLimit();
-    if(ThreadSliceLeft == 0) ThreadSliceLeft = ThreadSliceLen;      // the tick counts the slices from now
+    if(ThreadSliceLeft == 0) ThreadSliceLeft = ThreadSliceLen * Turn(Cur);   // the tick counts the slices from now
 }
 
 // the statement tail is to call ThreadSchedule (check_interrupt): THREAD YIELD, and a thread that has paused itself
@@ -1270,9 +1292,9 @@ static int OptionValue(char **pp, int lo, int hi) {
     return (int)i;
 }
 
-static char *StartOptions(char *p, int *n, int *size, int *slots, int *nest) {
+static char *StartOptions(char *p, int *n, int *size, int *slots, int *nest, int *prio) {
     char *q;
-    int gotsize = 0, gotslots = 0, gotnest = 0;
+    int gotsize = 0, gotslots = 0, gotnest = 0, gotprio = 0;
     *n = OptionValue(&p, 1, MAXTHREADS);
     for(;;) {
         skipspace(p);
@@ -1289,6 +1311,10 @@ static char *StartOptions(char *p, int *n, int *size, int *slots, int *nest) {
             p = q;
             *nest = OptionValue(&p, 4, MAXGOSUB);
             gotnest = 1;
+        } else if(!gotprio && (q = checkstring(p, "PRIORITY")) != NULL) {
+            p = q;
+            *prio = OptionValue(&p, 1, THREAD_PRIORITY_MAX);
+            gotprio = 1;
         } else
             error("Syntax");
     }
@@ -1311,11 +1337,11 @@ void cmd_thread(void) {
         if(InterruptReturn != NULL) error("Invalid in an interrupt routine");
         if(ThreadCount) AskSwitch();                                // the statement tail makes the switch (ThreadSchedule)
     } else if((p = checkstring(cmdline, "START")) != NULL) {
-        int n, size = StackSize, slots = LocalSlots, nest = NestDepth;
+        int n, size = StackSize, slots = LocalSlots, nest = NestDepth, prio = 1;
         getargs(&p, MAX_ARG_COUNT * 2 - 1, ",");
         if(argc < 3 || !(argc & 1)) error("Syntax");
-        q = StartOptions(argv[0], &n, &size, &slots, &nest);
-        ThreadStart(n, size, slots, nest, argv[2], argc, argv);
+        q = StartOptions(argv[0], &n, &size, &slots, &nest, &prio);
+        ThreadStart(n, size, slots, nest, prio, argv[2], argc, argv);
     } else if((p = checkstring(cmdline, "LOCK")) != NULL) {
         getargs(&p, 3, ",");
         if(!(argc == 1 || argc == 3)) error("Syntax");
@@ -1365,9 +1391,22 @@ void cmd_thread(void) {
     } else if((p = checkstring(cmdline, "RESUME")) != NULL) {
         Named(p)->paused = 0;
         Resignal();                                                 // (its interrupts held back)
+    } else if((p = checkstring(cmdline, "PRIORITY")) != NULL) {   // of a running thread, or the main program (0): from
+        int pr;                                                     // its next turn
+        getargs(&p, 3, ",");
+        if(argc != 3) error("Syntax");
+        k = getint(argv[0], 0, MAXTHREADS);
+        pr = getint(argv[2], 1, THREAD_PRIORITY_MAX);
+        if(k == 0) {
+            MainPriority = pr;
+            if(Thr[0] != NULL) Thr[0]->prio = pr;
+        } else {
+            if(Thr[k] == NULL || !ALIVE(Thr[k])) error("Thread % is not running", k);
+            Thr[k]->prio = pr;
+        }
     } else if((p = checkstring(cmdline, "SLICE")) != NULL) {
         ThreadSliceLen = getint(p, 1, 100);
-        if(ThreadSliceLeft) ThreadSliceLeft = ThreadSliceLen;
+        if(ThreadSliceLeft) ThreadSliceLeft = ThreadSliceLen * Turn(Cur);
     } else if((p = checkstring(cmdline, "SIZE")) != NULL) {
         getargs(&p, 5, ",");
         if(!(argc == 1 || argc == 3 || argc == 5)) error("Syntax");

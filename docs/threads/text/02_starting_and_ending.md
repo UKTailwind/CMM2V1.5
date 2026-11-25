@@ -4,7 +4,7 @@
 
 ```
 THREAD START n, sub [, argument ...]
-THREAD START n SIZE kb LOCALS m NEST d, sub [, argument ...]
+THREAD START n SIZE kb LOCALS m NEST d PRIORITY p, sub [, argument ...]
 ```
 
 THREAD START starts thread 'n', a number from 1 to 16 that you choose, running the SUB 'sub'. The main program is thread 0. THREAD START returns at once: the new thread runs when its turn comes, a moment later.
@@ -59,7 +59,7 @@ Thread Size 12, 16                               ' stack 12 KB, 16 locals
 Thread Size 12, 16, 8                            ' and loops and calls 8 deep
 ```
 
-They go back to 20 KB, 48 and 20 at the next RUN. The chapter *Memory and Limits* says how to choose them.
+They go back to 20 KB, 48 and 20 at the next RUN. PRIORITY p, in the same place, gives the thread more of the processor than the others: see *Priority* in the next chapter. The chapter *Memory and Limits* says how to choose them.
 
 ## How a thread ends
 

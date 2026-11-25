@@ -1115,3 +1115,54 @@ their usual scatter (a compiled SUB call +6% on the G1 and -0.6% on the G3: the 
 NEST 30, and the next refused; four FOR and four DO loops in threads of three sizes and the main program at once;
 strings; the main program still 100 deep beside a thread; THREAD SIZE's third value; the limits; and a fifth FOR
 loop in a NEST 4 thread stopping the program.
+
+### Priorities: a turn of as many slices as the priority (25 November)
+
+Peter asked for "some simple sort of thread priority mechanism that must also include some approach to dynamic
+priority decay so for example if thread 1 has a priority of 5 and thread 2 has a priority of 1 then thread 1 gets
+five slots to every one for thread 2. The main program will need a default priority and of course inter thread
+locking needs to be handled", and then: "KISS principle is crucial for this". A first proposal (a meter of the
+time each thread has used, divided by its priority; the lowest runs) was put aside for the simplest thing that does
+what he described. Agreed, and built:
+
+| Part | How it was done |
+|---|---|
+| The scheme | The round robin is as it was. A thread's priority (1 to 10, `THREAD_PRIORITY_MAX`; 1 by default, the main program's too) is how many time slices its turn is: `ThreadSliceLeft = ThreadSliceLen * Turn(to)` where a switch gave one slice. The count running down is the decay; a whole turn again when it next comes round. No thread waits longer than one round, and with every priority 1 nothing is different |
+| Locks | `Turn()`: while a thread waits at THREAD LOCK, the lock's owner has the waiter's priority if that is the higher, until it unlocks. One loop over the threads at a switch. No chains of locks, nothing for THREAD WAIT or flags, and a freed lock goes to the next waiter in number order as before |
+| Commands | `THREAD START n PRIORITY p`, `THREAD PRIORITY n, p` for a running thread (0 the main program, kept in `MainPriority` while it has no record), from its next turn; 1 again at RUN. The thread list shows a priority that is not 1, and "(7 while its lock is waited for)" |
+
+What it does not do, and Peter knows: a thread that is cut into (another's PAUSE coming due, an interrupt handed
+over) loses the rest of its turn, so the ratio is exact among busy threads and approximate beside threads that wake
+often; and a thread that waits by looking (INPUT, ADC START, the network's waits: `ThreadPoll`) looks once a round,
+so it waits for the others' turns, however long their priorities make them. The remedy for that, held back until
+measured (Peter: "build the simple version first, then measure"), is a look at every slice.
+
+Measured on the G1 (`tests/threads/tprio.bas`, as text and compiled): two busy threads at 5 and 1 count 5.09 to 1
+(5.12 compiled), changed over 1 to 5; at 3 and 1, 3.03 to 1; a thread beside a busy main program at priority 4 has
+0.40 of what it has at 1 to 1 (a fifth against a half); and a lock's holder at 1 beside a busy thread at 9 takes
+510 ms over 50 ms of work alone and 113 ms when a thread at 9 waits for the lock.
+
+What long turns cost a wait that looks:
+
+| LINE INPUT in the main program, a key typed to its echo (40 keys, the G1's USB serial console) | Median |
+|---|---|
+| no thread | 8.6 ms (the console's own delay) |
+| a busy thread at priority 1 | 8.5 ms |
+| a busy thread at priority 10 | 13.1 ms |
+| three busy threads at priority 10 | 24.7 ms |
+| a busy thread at priority 10, THREAD SLICE 10 | 45.3 ms |
+
+Half a round on average, as expected. The network: five request and answer exchanges (WEB OPEN TCP CLIENT, WEB TCP
+CLIENT REQUEST, WEB CLOSE) from a thread on the G1 to the G3 took 2 to 4 ms more each beside a busy thread at
+priority 10; a 40,000-byte download by WEB TCP CLIENT STREAM took the same 13.5 s beside no thread, a busy one at 1,
+one at 10 and three at 10, since what arrives is taken in on the 1 ms tick whichever thread runs. So the
+look-at-every-slice step is not needed for these; it stays noted, for Peter to decide.
+
+The download found a fault that was not the threads': WEB TRANSMIT FILE of a file over 5.8 KB stopped after one to
+three chunks ("Warning: LWIP send data timeout", then "The file/directory object is invalid" and the program's
+end). The PicoMite's #157 and #158, fixed there on 15 November (aa0bda9) and not brought to the CMM2: now v8-dev
+f96f6cc, merged here. With it curl on a PC and the G1 both get the whole file from the G3. It takes 13.5 s for
+40 KB, half a second a chunk: the large-file path queues one chunk and waits for its acknowledgement, and nothing
+sends the chunk until lwIP's 500 ms timer. Noted for Peter, not changed. Two more of the PicoMite's network fixes
+are not on the CMM2 either: WEB TCP INTERRUPT 0 (#155, 6a4161d), and WEB TLS CA and NOVERIFY refused while a TLS
+connection is open (7ffee2a).

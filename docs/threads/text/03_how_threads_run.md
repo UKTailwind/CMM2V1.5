@@ -13,6 +13,24 @@ The threads take turns in number order, the main program among them as thread 0.
 
 THREAD SLICE ms sets the slice, from 1 to 100 ms. A longer slice means fewer switches, so slightly less time lost to them, but a busy thread then keeps the others waiting longer. One millisecond suits almost every program.
 
+## Priority
+
+Every thread, the main program included, has a priority from 1 to 10. It is 1 unless you say otherwise. A thread's priority is the number of time slices in its turn: a thread at priority 5 beside one at priority 1 runs for five slices, then the other runs for one, and round again. So two busy threads at 5 and 1 share the processor five to one.
+
+```
+Thread Start 1 Priority 5, Compute        ' five slices a turn
+Thread Start 2, Logger                    ' one
+Thread Priority 0, 3                      ' the main program: three
+Thread Priority 2, 4                      ' thread 2 from now on: four
+```
+
+THREAD PRIORITY n, p changes the priority of a running thread (n = 0 is the main program) from its next turn. All priorities are 1 again at the next RUN, and THREAD LIST shows any that is not 1.
+
+- **No thread is left out.** The threads still take turns in number order: a higher priority only makes a turn longer. A thread waits for its turn while each of the others has its own, whatever its own priority is.
+- **Priority shares the time of busy threads.** A thread that waits (PAUSE, INPUT, THREAD LOCK and the rest) gives up what is left of its turn, as it always did, and a thread whose PAUSE has just ended still goes first. So a thread that mostly waits needs no priority to be on time.
+- **Long turns make the others wait.** With one busy thread at priority 10, the others run once every 10 ms instead of every 1 ms. A key typed into INPUT is then echoed about 5 ms later than usual, and beside three such threads about 15 ms later. THREAD SLICE multiplies this, so keep the slice at 1 ms when you use high priorities.
+- **A lock lends priority.** While a thread waits at THREAD LOCK, the thread that holds the lock has the waiting thread's turn, if that is longer than its own, until it unlocks. So a thread at priority 1 that holds a lock does not keep a thread at priority 9 waiting at its own slow pace. THREAD WAIT and the flags lend nothing.
+
 ## Statements are never split
 
 The switch to another thread is only ever made between two statements. A statement is always whole: no other thread can see it half done. This is what makes threads in MMBasic straightforward to use:

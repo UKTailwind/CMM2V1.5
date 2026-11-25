@@ -111,6 +111,8 @@ threads/tnet
 threads/tnetown
 threads/tsize
 threads/tnest
+threads/tprio
+threads/tpriolist
 
 ' timings: a statement of each kind, a SUB call and a FUNCTION call
 time threads/tstmt

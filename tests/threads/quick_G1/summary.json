@@ -46,13 +46,13 @@
   "prog": "cmm2/p1fixes",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "OFF",
   "prog": "cmm2/pmfix",
   "class": "MATCH",
-  "secs": 0.7,
+  "secs": 0.6,
   "stack": 4432
  },
  {
@@ -73,7 +73,7 @@
   "mode": "OFF",
   "prog": "cmm2/langsys",
   "class": "DIFF",
-  "secs": 7.5,
+  "secs": 7.6,
   "stack": 4032
  },
  {
@@ -81,7 +81,7 @@
   "prog": "cmm2/subst",
   "class": "MATCH",
   "secs": 0.5,
-  "stack": 4568
+  "stack": 4428
  },
  {
   "mode": "OFF",
@@ -95,14 +95,14 @@
   "prog": "cmm2/datakw",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4448
+  "stack": 4344
  },
  {
   "mode": "OFF",
   "prog": "cmm2/printpos",
   "class": "MATCH",
   "secs": 0.6,
-  "stack": 4216
+  "stack": 4032
  },
  {
   "mode": "OFF",
@@ -157,7 +157,7 @@
   "mode": "OFF",
   "prog": "cmm2/names",
   "class": "MATCH",
-  "secs": 1.7,
+  "secs": 1.6,
   "stack": 4032
  },
  {
@@ -165,14 +165,14 @@
   "prog": "cmm2/vartable",
   "class": "MATCH",
   "secs": 0.7,
-  "stack": 4144
+  "stack": 4384
  },
  {
   "mode": "OFF",
   "prog": "cmm2/globals7",
   "class": "MATCH",
   "secs": 0.6,
-  "stack": 4416
+  "stack": 4480
  },
  {
   "mode": "OFF",
@@ -207,7 +207,7 @@
   "prog": "cmm2/name32",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "OFF",
@@ -242,7 +242,7 @@
   "prog": "cmm2/arrays",
   "class": "MATCH",
   "secs": 0.5,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "OFF",
@@ -270,7 +270,7 @@
   "prog": "cmm2/manystr",
   "class": "MATCH",
   "secs": 0.9,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "OFF",
@@ -283,7 +283,7 @@
   "mode": "OFF",
   "prog": "cmm2/intsrc",
   "class": "DIFF",
-  "secs": 5.6,
+  "secs": 5.5,
   "stack": 4944
  },
  {
@@ -381,14 +381,14 @@
   "mode": "OFF",
   "prog": "cmm2/chain",
   "class": "MATCH",
-  "secs": 2.6,
+  "secs": 2.5,
   "stack": 4032
  },
  {
   "mode": "OFF",
   "prog": "cmm2/context",
   "class": "MATCH",
-  "secs": 3.9,
+  "secs": 3.4,
   "stack": 4100
  },
  {
@@ -403,7 +403,7 @@
   "prog": "cmm2/libcsub",
   "class": "MATCH",
   "secs": 0.7,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "OFF",
@@ -424,7 +424,7 @@
   "prog": "threads/tyield",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4216
+  "stack": 4032
  },
  {
   "mode": "OFF",
@@ -459,14 +459,14 @@
   "prog": "threads/tdata",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4912
+  "stack": 4920
  },
  {
   "mode": "OFF",
   "prog": "threads/tmany",
   "class": "MATCH",
   "secs": 0.7,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "OFF",
@@ -480,14 +480,14 @@
   "prog": "threads/tmainend",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4216
+  "stack": 4032
  },
  {
   "mode": "OFF",
   "prog": "threads/tfail",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4120
+  "stack": 4032
  },
  {
   "mode": "OFF",
@@ -501,7 +501,7 @@
   "prog": "threads/tpause",
   "class": "MATCH",
   "secs": 1.2,
-  "stack": 4216
+  "stack": 4032
  },
  {
   "mode": "OFF",
@@ -535,7 +535,7 @@
   "mode": "OFF",
   "prog": "threads/tbind",
   "class": "MATCH",
-  "secs": 2.5,
+  "secs": 2.4,
   "stack": 7016
  },
  {
@@ -543,7 +543,7 @@
   "prog": "threads/tlock",
   "class": "MATCH",
   "secs": 0.9,
-  "stack": 4216
+  "stack": 4032
  },
  {
   "mode": "OFF",
@@ -557,21 +557,21 @@
   "prog": "threads/targs",
   "class": "MATCH",
   "secs": 0.5,
-  "stack": 4188
+  "stack": 4176
  },
  {
   "mode": "OFF",
   "prog": "threads/tinput",
   "class": "MATCH",
   "secs": 2.0,
-  "stack": 4112
+  "stack": 4032
  },
  {
   "mode": "OFF",
   "prog": "threads/tframe",
   "class": "MATCH",
   "secs": 1.9,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "OFF",
@@ -630,6 +630,20 @@
   "stack": 4032
  },
  {
+  "mode": "OFF",
+  "prog": "threads/tprio",
+  "class": "MATCH",
+  "secs": 3.7,
+  "stack": 4032
+ },
+ {
+  "mode": "OFF",
+  "prog": "threads/tpriolist",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4032
+ },
+ {
   "mode": "ON",
   "prog": "cmm2/ctlflow",
   "class": "MATCH",
@@ -668,7 +682,7 @@
   "mode": "ON",
   "prog": "cmm2/behfix",
   "class": "MATCH",
-  "secs": 1.0,
+  "secs": 1.1,
   "stack": 6000
  },
  {
@@ -682,7 +696,7 @@
   "mode": "ON",
   "prog": "cmm2/pmfix",
   "class": "MATCH",
-  "secs": 0.7,
+  "secs": 0.6,
   "stack": 5600
  },
  {
@@ -690,7 +704,7 @@
   "prog": "cmm2/m4fixes",
   "class": "MATCH",
   "secs": 1.0,
-  "stack": 5556
+  "stack": 5612
  },
  {
   "mode": "ON",
@@ -725,7 +739,7 @@
   "prog": "cmm2/datakw",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4376
+  "stack": 4480
  },
  {
   "mode": "ON",
@@ -767,7 +781,7 @@
   "prog": "cmm2/binding",
   "class": "MATCH",
   "secs": 0.5,
-  "stack": 7024
+  "stack": 6912
  },
  {
   "mode": "ON",
@@ -788,7 +802,7 @@
   "prog": "cmm2/names",
   "class": "MATCH",
   "secs": 1.7,
-  "stack": 4896
+  "stack": 5032
  },
  {
   "mode": "ON",
@@ -816,7 +830,7 @@
   "prog": "cmm2/emptyarr",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4272
+  "stack": 4352
  },
  {
   "mode": "ON",
@@ -864,7 +878,7 @@
   "mode": "ON",
   "prog": "cmm2/onedim1",
   "class": "MATCH",
-  "secs": 0.5,
+  "secs": 0.4,
   "stack": 5152
  },
  {
@@ -879,7 +893,7 @@
   "prog": "cmm2/redim",
   "class": "MATCH",
   "secs": 0.5,
-  "stack": 5000
+  "stack": 4824
  },
  {
   "mode": "ON",
@@ -907,7 +921,7 @@
   "prog": "cmm2/inttick",
   "class": "MATCH",
   "secs": 5.2,
-  "stack": 5384
+  "stack": 5536
  },
  {
   "mode": "ON",
@@ -984,7 +998,7 @@
   "prog": "cmm2/endnoend",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4240
+  "stack": 4216
  },
  {
   "mode": "ON",
@@ -1012,13 +1026,13 @@
   "prog": "cmm2/chain",
   "class": "MATCH",
   "secs": 2.6,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "ON",
   "prog": "cmm2/context",
   "class": "MATCH",
-  "secs": 4.2,
+  "secs": 3.5,
   "stack": 4296
  },
  {
@@ -1032,7 +1046,7 @@
   "mode": "ON",
   "prog": "cmm2/libcsub",
   "class": "MATCH",
-  "secs": 0.6,
+  "secs": 0.5,
   "stack": 5472
  },
  {
@@ -1075,7 +1089,7 @@
   "prog": "threads/ttemp",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 5624
+  "stack": 5664
  },
  {
   "mode": "ON",
@@ -1089,7 +1103,7 @@
   "prog": "threads/tdata",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4976
+  "stack": 4984
  },
  {
   "mode": "ON",
@@ -1103,7 +1117,7 @@
   "prog": "threads/tend",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4216
+  "stack": 4400
  },
  {
   "mode": "ON",
@@ -1193,8 +1207,8 @@
   "mode": "ON",
   "prog": "threads/tinput",
   "class": "MATCH",
-  "secs": 1.9,
-  "stack": 5248
+  "secs": 2.0,
+  "stack": 5208
  },
  {
   "mode": "ON",
@@ -1222,7 +1236,7 @@
   "prog": "threads/teval",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4856
+  "stack": 4864
  },
  {
   "mode": "ON",
@@ -1258,6 +1272,20 @@
   "class": "MATCH",
   "secs": 0.6,
   "stack": 5328
+ },
+ {
+  "mode": "ON",
+  "prog": "threads/tprio",
+  "class": "MATCH",
+  "secs": 3.7,
+  "stack": 5152
+ },
+ {
+  "mode": "ON",
+  "prog": "threads/tpriolist",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4712
  },
  {
   "mode": "SHADOW",
@@ -1298,7 +1326,7 @@
   "mode": "SHADOW",
   "prog": "cmm2/behfix",
   "class": "MATCH",
-  "secs": 1.0,
+  "secs": 1.1,
   "stack": 6000
  },
  {
@@ -1312,7 +1340,7 @@
   "mode": "SHADOW",
   "prog": "cmm2/pmfix",
   "class": "MATCH",
-  "secs": 0.6,
+  "secs": 0.7,
   "stack": 5600
  },
  {
@@ -1333,7 +1361,7 @@
   "mode": "SHADOW",
   "prog": "cmm2/langsys",
   "class": "DIFF",
-  "secs": 7.5,
+  "secs": 7.6,
   "stack": 4920
  },
  {
@@ -1348,7 +1376,7 @@
   "prog": "cmm2/folds",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 5352
+  "stack": 5448
  },
  {
   "mode": "SHADOW",
@@ -1390,7 +1418,7 @@
   "prog": "cmm2/localfast",
   "class": "MATCH",
   "secs": 0.5,
-  "stack": 10128
+  "stack": 10020
  },
  {
   "mode": "SHADOW",
@@ -1418,7 +1446,7 @@
   "prog": "cmm2/names",
   "class": "MATCH",
   "secs": 1.7,
-  "stack": 4848
+  "stack": 4928
  },
  {
   "mode": "SHADOW",
@@ -1446,7 +1474,7 @@
   "prog": "cmm2/emptyarr",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4272
+  "stack": 4392
  },
  {
   "mode": "SHADOW",
@@ -1543,7 +1571,7 @@
   "mode": "SHADOW",
   "prog": "cmm2/intsrc",
   "class": "DIFF",
-  "secs": 5.5,
+  "secs": 5.4,
   "stack": 5384
  },
  {
@@ -1593,7 +1621,7 @@
   "prog": "cmm2/typeerr2",
   "class": "ERROR",
   "secs": 0.4,
-  "stack": 4032
+  "stack": 4216
  },
  {
   "mode": "SHADOW",
@@ -1641,14 +1669,14 @@
   "mode": "SHADOW",
   "prog": "cmm2/chain",
   "class": "MATCH",
-  "secs": 2.6,
+  "secs": 2.5,
   "stack": 4032
  },
  {
   "mode": "SHADOW",
   "prog": "cmm2/context",
   "class": "MATCH",
-  "secs": 3.9,
+  "secs": 3.8,
   "stack": 4296
  },
  {
@@ -1684,7 +1712,7 @@
   "prog": "threads/tyield",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4808
+  "stack": 4712
  },
  {
   "mode": "SHADOW",
@@ -1719,7 +1747,7 @@
   "prog": "threads/tdata",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 5000
+  "stack": 4984
  },
  {
   "mode": "SHADOW",
@@ -1796,7 +1824,7 @@
   "prog": "threads/tbind",
   "class": "MATCH",
   "secs": 2.5,
-  "stack": 5272
+  "stack": 5256
  },
  {
   "mode": "SHADOW",
@@ -1852,7 +1880,7 @@
   "prog": "threads/teval",
   "class": "MATCH",
   "secs": 0.4,
-  "stack": 4856
+  "stack": 4864
  },
  {
   "mode": "SHADOW",
@@ -1888,5 +1916,19 @@
   "class": "MATCH",
   "secs": 0.6,
   "stack": 5328
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "threads/tprio",
+  "class": "MATCH",
+  "secs": 3.7,
+  "stack": 5152
+ },
+ {
+  "mode": "SHADOW",
+  "prog": "threads/tpriolist",
+  "class": "MATCH",
+  "secs": 0.5,
+  "stack": 4712
  }
 ]

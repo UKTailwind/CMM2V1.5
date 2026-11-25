@@ -57,6 +57,7 @@ The main program's lists are the ones it always had, 100 deep, whatever the thre
 | Local variables (LOCALS) | 8 to 256, 48 by default |
 | Loops and calls deep (NEST) | 4 to 100, 20 by default |
 | Time slice (THREAD SLICE) | 1 to 100 ms, 1 by default |
+| Priority (PRIORITY, THREAD PRIORITY) | 1 to 10, 1 by default |
 | Locks | 16 |
 | Flags | 64 (FLAG(0) to FLAG(63)) |
 

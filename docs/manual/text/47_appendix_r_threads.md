@@ -31,12 +31,13 @@ The *Colour Maximite 2 Threads User Manual* describes threads in detail, with wo
 {widths: 42,58}
 | Command | What it does |
 |---|---|
-| THREAD START n [SIZE kb] [LOCALS m] [NEST d], sub [, argument ...] | Starts thread n (1 to 16) running the SUB, with its arguments by value |
+| THREAD START n [SIZE kb] [LOCALS m] [NEST d] [PRIORITY p], sub [, argument ...] | Starts thread n (1 to 16) running the SUB, with its arguments by value |
 | THREAD EXIT | Ends the thread that runs it |
 | THREAD YIELD | Gives up the rest of the time slice |
 | THREAD STOP n | Ends thread n where it stands |
 | THREAD PAUSE n, THREAD RESUME n | Holds thread n, and lets it go on |
 | THREAD SLICE ms | The time slice, 1 to 100 ms (1 at RUN) |
+| THREAD PRIORITY n, p | Thread n's priority (0 the main program): the slices in its turn, 1 to 10 (1 at RUN) |
 | THREAD SIZE kb [, locals [, nest]] | The stack, local variables and depth of loops and calls of later threads (20 KB, 48 and 20 at RUN) |
 | THREAD LOCK k [, timeout], THREAD UNLOCK k | One thread at a time between them (16 locks) |
 | THREAD HOLD, THREAD RELEASE | No other thread runs between them |

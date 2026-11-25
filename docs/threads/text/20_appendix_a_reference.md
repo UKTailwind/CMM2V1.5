@@ -3,13 +3,14 @@
 {widths: 45,55}
 | Command or function | What it does |
 |---|---|
-| THREAD START n [SIZE kb] [LOCALS m] [NEST d], sub [, argument ...] | Starts thread n (1 to 16) running the SUB, with up to 16 arguments by value (a global array by name). SIZE 12 to 512 KB, LOCALS 8 to 256, NEST 4 to 100, for this thread only |
+| THREAD START n [SIZE kb] [LOCALS m] [NEST d] [PRIORITY p], sub [, argument ...] | Starts thread n (1 to 16) running the SUB, with up to 16 arguments by value (a global array by name). SIZE 12 to 512 KB, LOCALS 8 to 256, NEST 4 to 100, PRIORITY 1 to 10, for this thread only |
 | THREAD EXIT | Ends the thread that runs it |
 | THREAD STOP n | Ends thread n where it stands (nothing if it is not running) |
 | THREAD YIELD | Gives up the rest of the time slice |
 | THREAD PAUSE n | Holds thread n, and its interrupts |
 | THREAD RESUME n | Lets thread n go on |
 | THREAD SLICE ms | The time slice, 1 to 100 ms (1 at RUN) |
+| THREAD PRIORITY n, p | The priority of running thread n (0 the main program): the time slices in its turn, 1 to 10 (1 at RUN). A lock's holder has the turn of a thread that waits for it |
 | THREAD SIZE kb [, locals [, nest]] | The stack, local variables and depth of loops and calls of threads started without SIZE, LOCALS and NEST (20, 48 and 20 at RUN) |
 | THREAD LOCK k [, timeout] | Takes lock k (1 to 16), waiting for it if another thread has it; "Lock k timed out" after 'timeout' ms |
 | THREAD UNLOCK k | Gives lock k up |
