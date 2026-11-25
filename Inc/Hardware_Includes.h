@@ -165,7 +165,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #include "HdmiAudio.h"                                      // a G3's sound through HDMI
     extern void (*docopy)(void *d, const void *s, int n);
     extern uint8_t DS3231_WR_Reg(uint16_t reg,uint8_t *buf,uint8_t len);
-    extern void DS3231_RD_Reg(uint16_t reg,uint8_t *buf,uint8_t len);
+    extern uint8_t DS3231_RD_Reg(uint16_t reg,uint8_t *buf,uint8_t len);   // 1: it did not answer (Analog_I2C.c)
     extern volatile int mouse0;
 	extern volatile int nun1, nun2, nun3;
 	extern volatile int classic1, classic2, classic3;

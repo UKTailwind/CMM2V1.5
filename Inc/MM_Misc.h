@@ -157,7 +157,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	extern int CRLFDefault(void);                                   // OPTION CRLF's default: CRLF, CR under OPTION PICOMITE
 	extern int BootCount;                                           // MM.INFO(BOOT COUNT): this start's number (main.c)
 	extern void update_clock(void);
-	extern void copy_clock(void);
+	extern int copy_clock(void);                                    // 1 copied, 0 not (no sensible time), -1 no DS3231 answered
+	extern void DS3231_PutClock(void);                              // the DS3231 set from the counters (OPTION DS3231 ON)
+	extern int ClockStart(int lost);                                // the start-up's check of the clocks: 1 to ask for the time
 	extern MMFLOAT optionangle;
 	extern int optiony;
 #endif

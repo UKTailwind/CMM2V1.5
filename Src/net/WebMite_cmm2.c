@@ -110,7 +110,8 @@ void set_time_epoch_us(int64_t epoch_us) {
     milliseconds = (int)(epoch_us / 1000 % 1000);
     mT4IntEnable(1);
     update_clock();
-}
+    DS3231_PutClock();                          // OPTION DS3231 ON: the DS3231 too, or the next copy from it (at RUN, at the
+}                                               // prompt, hourly: MM_Misc.c's copy_clock) put the old time back
 
 // the PicoMite's uptime offset from the CMM2's date and time (its RTC), so that mbedTLS's time is the real one
 static void time_from_clock(void) {

@@ -224,23 +224,29 @@ uint8_t DS3231_WR_Reg(uint16_t reg,uint8_t *buf,uint8_t len)
 	return ret;
 }
 
-void DS3231_RD_Reg(uint16_t reg,uint8_t *buf,uint8_t len)
+// 1 if the DS3231 did not answer: buf is then 0xFF throughout, as an unanswered read always gave, and the read ends
+// at the first missing acknowledge (I2C_Wait_Ack has sent the stop) rather than waiting 250 ms for each of three
+uint8_t DS3231_RD_Reg(uint16_t reg,uint8_t *buf,uint8_t len)
 {
 	uint8_t i;
 	DEV_Set_GPIOMode(DEV_SCL_PIN, 0);
  	I2C_Start();
  	I2C_Send_Byte(DS3231_CMD_WR);
-	I2C_Wait_Ack();
+	if(I2C_Wait_Ack()) goto noanswer;
  	I2C_Send_Byte(reg);
-	I2C_Wait_Ack();
+	if(I2C_Wait_Ack()) goto noanswer;
 	I2C_Stop();
  	I2C_Start();
 	I2C_Send_Byte(DS3231_CMD_RD);
-	I2C_Wait_Ack();
+	if(I2C_Wait_Ack()) goto noanswer;
 	for(i=0;i<len;i++)
 	{
     buf[i]=I2C_Read_Byte(i==(len-1)?0:1);
 	}
    I2C_Stop();
+   return 0;
+noanswer:
+	for(i=0;i<len;i++) buf[i]=0xFF;
+	return 1;
 }
 

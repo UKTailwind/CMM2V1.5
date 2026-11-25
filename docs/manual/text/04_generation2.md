@@ -38,7 +38,9 @@ The basic design uses a miniature 32KHz crystal and the real time clock hardware
 
 To enable this time source the command is: OPTION DS3231 ON
 
-Once enabled the time and date can be set and retrieved from the DS3231MZ+ using the normal MMBasic DATE/TIME commands and functions.
+Once enabled the time and date can be set and retrieved from the DS3231MZ+ using the normal MMBasic DATE/TIME commands and functions. WEB NTP sets it too.
+
+At power-up a correct time in the DS3231MZ+ is copied into the processor's clock, or the other way round if only the processor's clock has kept the time, so MMBasic asks for the time and date only when both have lost them. The time and date given then set both clocks.
 
 ## ESP-01 Module
 

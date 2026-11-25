@@ -543,7 +543,7 @@ Numerical constants can also be expressions such as 5 \* 60.
 --- keep
 Set the date of the internal clock/calendar.
 DD, MM and YY are numbers, for example:   DATE$ = "28-7-2024".  The year can be abbreviated to two digits (ie, 24), and the real time clock holds the years 2000 to 2099.
-The date is kept by the battery backed real time clock while the power is off (see Backup Battery in the chapter Hardware Features), and with OPTION DS3231 ON it is set in the DS3231 real time clock too.  If the clock holds a date before 2018 when the power is applied MMBasic takes it to have stopped: it sets the date and time to 01-01-2000 and 00:00:00 and asks for them (see Appendix K).  So the time (set with TIME$ =) is lost when the power is cycled unless a correct date has also been set.
+The date is kept by the battery backed real time clock while the power is off (see Backup Battery in the chapter Hardware Features), and with OPTION DS3231 ON it is set in the DS3231 real time clock too.  If the clock holds a date before 2018 when the power is applied MMBasic takes it to have stopped: it sets the date and time to 01-01-2000 and 00:00:00 and asks for them (see Appendix K).  With OPTION DS3231 ON the two clocks are checked together: a correct date and time in either one is copied into the other, and MMBasic asks only when neither has them (the answer then sets both).  So the time (set with TIME$ =) is lost when the power is cycled unless a correct date has also been set.
 
 === DEVICE device [arguments]
 --- keep
@@ -3190,7 +3190,7 @@ __WITH THE WIFI MODULE ONLY__ Stops the messages posted under ‘topic$’.
 
 === WEB NTP [timeoffset [, NTPserver$ [, timeout]]]
 --- keep
-__WITH THE WIFI MODULE ONLY__ Sets the clock, and the real time clock, from an NTP time server on the Internet.  ‘timeoffset’ is the time zone in hours from UTC (UTC without it).  ‘NTPserver$’ is the name or address of the server; without it a public pool of servers is used.  ‘timeout’ is the time to wait for the answer, in milliseconds (default 5000): without an answer it is an error.
+__WITH THE WIFI MODULE ONLY__ Sets the clock, and the real time clock (the DS3231 too with OPTION DS3231 ON), from an NTP time server on the Internet.  ‘timeoffset’ is the time zone in hours from UTC (UTC without it).  ‘NTPserver$’ is the name or address of the server; without it a public pool of servers is used.  ‘timeout’ is the time to wait for the answer, in milliseconds (default 5000): without an answer it is an error.
 
 === WEB OPEN TCP CLIENT address$, port [, timeout]
 --- keep

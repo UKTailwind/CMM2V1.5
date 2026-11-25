@@ -2077,15 +2077,30 @@ void fun_LLen(void) {
 }
 #endif
 
-void copy_clock(void){
-	if(Option.RTCinstalled==0)return;
+// OPTION DS3231 ON: the DS3231's time and date (BCD, its registers 0 to 6) sensible: 24-hour, every field in range and
+// a year from 2018, as MX_RTC_Init's test of the H743's RTC (main.c). A DS3231 that lost power starts again at 00:00:00
+// on 01/01/00, which fails, as do the 0xFF bytes of one that did not answer
+__attribute__((section(".extra"), noinline)) static int ClockSensible(uint8_t *c){
+	int s = ((c[0] & 0x70)>>4)*10 + (c[0] & 0x0f), m = ((c[1] & 0x70)>>4)*10 + (c[1] & 0x0f);
+	int h = ((c[2] & 0x30)>>4)*10 + (c[2] & 0x0f), d = ((c[4] & 0x30)>>4)*10 + (c[4] & 0x0f);
+	int mo = ((c[5] & 0x10)>>4)*10 + (c[5] & 0x0f), y = ((c[6] & 0xf0)>>4)*10 + (c[6] & 0x0f);
+	return !(c[2] & 0x40) && s < 60 && m < 60 && h < 24 && c[3] >= 1 && c[3] <= 7 &&
+	       d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y >= 18 && y <= 99;
+}
+
+// the DS3231's time into the H743's RTC: at every RUN and line typed at the prompt (PrepareProgram), hourly (Timers.c)
+// and at the start-up (ClockStart). 1 if it was copied; 0 if not: OPTION DS3231 OFF, or no sensible time in the DS3231
+// (ClockSensible), which is kept out of the H743's RTC; -1 if the DS3231 did not answer
+int copy_clock(void){
+	if(Option.RTCinstalled==0)return 0;
 	uint8_t c[7];
-	DS3231_RD_Reg(0,c,7);
+	if(DS3231_RD_Reg(0,c,7))return -1;
+	if(!ClockSensible(c))return 0;
 	hour=((c[2] & 0x30)>>4)*10 + (c[2] & 0x0f);
 	minute=((c[1] & 0x70)>>4)*10 + (c[1] & 0x0f);
 	second=((c[0] & 0x70)>>4)*10 + (c[0] & 0x0f);
-	year=((c[6] & 0xf0)>>4)*10 + (c[6] & 0x0f);
-	month=((c[5] & 0x10)>>4)*10 + (c[5] & 0x0f);
+	year=((c[6] & 0xf0)>>4)*10 + (c[6] & 0x0f) + 2000;             // (in full, as RtcGetTime leaves it: update_clock takes 2000
+	month=((c[5] & 0x10)>>4)*10 + (c[5] & 0x0f);                    // off, so TIME$ = after this set the H743's RTC to 2074)
 	day=((c[4] & 0x30)>>4)*10 + (c[4] & 0x0f);
 	day_of_week=c[3];
 	RTC_TimeTypeDef sTime;
@@ -2102,12 +2117,42 @@ void copy_clock(void){
 	sDate.WeekDay = day_of_week;
 	sDate.Month = month;
 	sDate.Date = day;
-	sDate.Year = year;
+	sDate.Year = year-2000;
 
 	if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
 	{
 		error("RTC hardware error");
 	}
+	return 1;
+}
+
+// the DS3231 set from the date and time counters (hour to year, the year in full, day_of_week 1 to 7) with OPTION
+// DS3231 ON, where the whole time is set: the start-up's question (firstinit, main.c), the H743's RTC's time at the
+// start-up (ClockStart) and WEB NTP (set_time_epoch_us). TIME$ and DATE$ set their own part (cmd_time, cmd_date)
+__attribute__((section(".extra"), noinline)) void DS3231_PutClock(void){
+	if(Option.RTCinstalled==0)return;
+	uint8_t c[7];
+	c[0]=((second/10)<<4) + (second % 10);
+	c[1]=((minute/10)<<4) + (minute % 10);
+	c[2]=((hour/10)<<4) + (hour % 10);
+	c[3]=day_of_week;
+	c[4]=((day/10)<<4) + (day % 10);
+	c[5]=((month/10)<<4) + (month % 10);
+	c[6]=(((year-2000)/10)<<4) + ((year-2000) % 10);
+	DS3231_WR_Reg(0,c,7);
+}
+
+// the start-up's check of the two clocks with OPTION DS3231 ON (main.c, before MM.STARTUP and AUTORUN). lost: the
+// H743's RTC had no sensible time (MX_RTC_Init set it to 2000). A sensible time in either clock goes into the other,
+// the DS3231's first (it has its own battery). 1 if neither had one: the time is then asked for (firstinit sets both)
+__attribute__((section(".extra"), noinline)) int ClockStart(int lost){
+	if(Option.RTCinstalled==0)return lost;
+	int r = copy_clock();
+	if(r > 0)return 0;                                              // the DS3231's time: the H743's RTC set from it
+	if(r < 0 || lost)return lost;                                   // no DS3231 answered (the H743's RTC alone), or neither had a time
+	RtcGetTime();                                                   // the H743's RTC kept its time and the DS3231 lost its:
+	DS3231_PutClock();                                              // the DS3231 set from it
+	return 0;
 }
 
 
@@ -2184,6 +2229,9 @@ void cmd_date(void) {
 	        error("Year is not valid");
 	    }
 
+		RtcGetTime();                                               // the time of day as it is now: update_clock writes it back with
+		                                                            // the new date (the counters do not tick, so it went back to their
+		                                                            // last reading)
 		mT4IntEnable(0);       										// disable the timer interrupt to prevent any conflicts while updating
 		day = dd;
 		month = mm;
@@ -2222,13 +2270,13 @@ void fun_date(void) {
 		sret[5] = '-'; IntToStr(sret + 6, year, 10);
 	} else {
 		DS3231_RD_Reg(4,c,3);
-		year=((c[2] & 0xf0)>>4)*10 + (c[2] & 0x0f);
+		year=((c[2] & 0xf0)>>4)*10 + (c[2] & 0x0f) + 2000;          // (in full: copy_clock)
 		month=((c[1] & 0x10)>>4)*10 + (c[1] & 0x0f);
 		day=((c[0] & 0x30)>>4)*10 + (c[0] & 0x0f);
 		IntToStrPad(sret, hour, '0', 2, 10);
 		IntToStrPad(sret, day, '0', 2, 10);
 		sret[2] = '-'; IntToStrPad(sret + 3, month, '0', 2, 10);
-		sret[5] = '-'; IntToStr(sret + 6, year+2000, 10);
+		sret[5] = '-'; IntToStr(sret + 6, year, 10);
 	}
 	CtoM(sret);
     targ = T_STR;
@@ -2304,6 +2352,7 @@ void cmd_time(void) {
 			if(argc >= 3) m = atoi(argv[2]);
 			if(argc == 5) s = atoi(argv[4]);
 			if(h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) error("Invalid time");
+			RtcGetTime();                                           // the date as it is now, which update_clock writes back (cmd_date)
 			mT4IntEnable(0);       										// disable the timer interrupt to prevent any conflicts while updating
 			hour = h;
 			minute = m;

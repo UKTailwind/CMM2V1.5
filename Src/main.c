@@ -937,6 +937,12 @@ if(setjmp(mark) != 0) {
     }
 } else {
 	MarkSet = true;                                                 // (a longjmp comes back through the branch above)
+	{   // the clocks (OPTION DS3231 ON: a sensible time in either goes into the other, MM_Misc.c) and the first start's
+	    // questions, before MM.STARTUP and AUTORUN: they came after them, so not until an AUTORUN program had ended,
+	    // and the time was asked for although the DS3231 had it
+	    int asktime = ClockStart(clockreset);
+	    if(asktime || (optionsreset && keptkb < 0)) firstinit(asktime, optionsreset && keptkb < 0);
+	}
 	if(_excep_code == RESTART_NOAUTORUN) ProgramKeepRestore();      // an option's restart: the program back from the card
 	ClearProgram();
 	PrepareProgram(true);
@@ -976,7 +982,6 @@ if(setjmp(mark) != 0) {
 	  mymemset(inpbuf,0,STRINGSIZE);
 	}
 }
-if(clockreset || (optionsreset && keptkb < 0)) firstinit(clockreset, optionsreset && keptkb < 0);
 copy_clock();
 if(Option.sleep)SleepTimer=Option.sleep*1000*60;
   /* USER CODE END 2 */
@@ -5019,7 +5024,8 @@ static void __attribute__((section(".bank2"))) CountBoot(void) {
 }
 
 // the first start's questions: the keyboard if it is not known (askkeyboard), the time and date if the RTC lost them
-// (asktime: its battery flat or out). Not after a reflash, which leaves both alone (Peter, 4 Nov 2026)
+// (asktime: its battery flat or out; with OPTION DS3231 ON, the DS3231's too: ClockStart, MM_Misc.c). Not after a
+// reflash, which leaves both alone (Peter, 4 Nov 2026). The time and date typed go into both clocks
 void firstinit(int asktime, int askkeyboard){
 	struct tm  *tm;
 	struct tm tma;
@@ -5201,13 +5207,15 @@ void firstinit(int asktime, int askkeyboard){
 		    if(day_of_week==0)day_of_week=7;
 			update_clock();
 			mT4IntEnable(1);       										// enable interrupt
+			DS3231_PutClock();                                          // OPTION DS3231 ON: the DS3231 too (else the restart undid it)
 		keepclock:
 			Option.USBKeyboard=keyboard;
 		    SaveOptions(0);
 		    KeepKeyboard(keyboard);
 		    MMPrintString("\r\n");
 		    while(ConsoleTxBufTail != ConsoleTxBufHead);
-		    _excep_code = 0;                            // otherwise do an automatic reset
+		    if(_excep_code != RESTART_NOAUTORUN) _excep_code = 0;      // otherwise do an automatic reset (an option's restart
+		                                                                // kept: its program is still on the card, ImageSlots.c)
 		    SoftReset();                                                // this will restart the processor
 
 }
