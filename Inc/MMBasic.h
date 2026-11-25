@@ -266,6 +266,7 @@ extern char *FindvarEnd;                        // where the reference the last 
 extern int VarIndex;                            // index of the current variable.  set after the findvar() function has found/created a variable
 extern int LocalIndex;                          // used to track the level of local variables
 extern int hashlistpointer;                     // the local stack's length (MMBasic.c)
+extern int LocalBase, LocalLimit;               // the local slots the running code may use (MMBasic.c)
 
 extern int OptionBase;                          // value of OPTION BASE
 extern char OptionExplicit,OptionEscape ;       // true if OPTION EXPLICIT has been used
@@ -412,6 +413,8 @@ char *CheckByKeyword(char *p, int kind);        // BYVAL ('V') or BYREF ('R') at
 extern uint32_t stackwarn, StackFloor, StackLow;   // the stack check (MMBasic.c): the PicoMite's
 extern int StackLowDepth;
 void StackNearLimit(uint32_t stack);
+void StackPaint(void);                          // the stack's high-water mark (MMBasic.c): started again from here,
+uint32_t StackLowest(void);                     // and the lowest address written since (MM.INFO(STACK LOW))
 static inline void TestStackOverflow(void) {    // at each value and argument list, and each compiled call (Stream.c)
     uint32_t stack;
     __asm volatile("MRS %0, msp" : "=r"(stack));

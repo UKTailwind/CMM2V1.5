@@ -1,4 +1,4 @@
-"""goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--from NAME] [--put] [--dir A:/g] [--pre CMD] [--listflash]
+"""goldens.py PORT OUTDIR [--baud N] [--corpus DIR] [--only NAME,...] [--from NAME] [--put] [--dir A:/g] [--pre CMD] [--post CMD] [--listflash]
                          [--cap SECONDS] [--nomodemap] [--inputs DIR]
 goldens.py --recompare OUTDIR [--corpus DIR]     re-diff saved outputs against .expected
 goldens.py --reclassify OUTDIR [--corpus DIR]    score saved outputs again from scratch
@@ -403,6 +403,9 @@ def main():
     gdir = arg("--dir", "A:/g").rstrip("/")
     mapped = "--nomodemap" not in sys.argv
     pre = arg("--pre")                                  # a command sent before each program
+    post = arg("--post")                                # one run at the prompt after each program's first run: what it
+                                                        # prints is kept in the program's row as "post" (the stack's
+                                                        # depth: --post "? Hex$(MM.Info(Stack Low))")
     listflash = "--listflash" in sys.argv               # also keep LIST FLASH ALL of each program (NAME.list)
     os.makedirs(outdir, exist_ok=True)
     names = sorted(f[:-4] for f in os.listdir(corpus) if f.lower().endswith(".bas"))
@@ -478,6 +481,7 @@ def main():
             rows.append({"name": n, "class": "HUNG", "secs": t1, "note": "no prompt after Ctrl-C, reset through the ST-Link: " + o1.strip()[-120:]})
             keep(rows[-1])
             continue
+        p1 = b.cmd(post, 10).strip() if post else None
         if listflash:                                   # the image as LIST FLASH spells it out (text against symbols)
             open(os.path.join(outdir, n + ".list"), "w", encoding="utf-8").write(b.cmd("LIST FLASH ALL", 60))
         fresh_slots(b, slots)
@@ -487,6 +491,8 @@ def main():
             s2 = "HUNG"
             o2 += "\n[no prompt after Ctrl-C, reset through the ST-Link]\n"
         rows.append(score(n, s1, o1, o2, t1, inputs, corpus, outdir))
+        if post:
+            rows[-1]["post"] = p1
         keep(rows[-1])
     write_summary(outdir, rows, device)
     json.dump(rows, open(os.path.join(outdir, "summary.json"), "w"), indent=1)

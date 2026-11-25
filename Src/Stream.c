@@ -4140,7 +4140,7 @@ static const uint16_t *RBRAM(RBFind)(unsigned char *p)
 //
 // The CMM2's: as its text loop (ExecuteProgram), CheckAbort when the 1 ms tick
 // (USBtime), a deferred page copy or an abort says so, and check_interrupt
-// when an interrupt is ready or the GUI's millisecond has come (IntReady.gui:
+// when an interrupt is ready or the GUI's millisecond has come (IntReady.tick:
 // the touch, the GUI's pointer, a linked cursor).  Those tests are a few
 // loads, so the PicoMite's 100 us cadence, which its housekeeping's cost
 // asked for, is not needed: compiled and text take an interrupt or a Ctrl-C

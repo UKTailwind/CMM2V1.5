@@ -128,6 +128,10 @@ int hashlistpointer=0;
    made in the next slot up, and hashlist lists the live ones in the order they were made, each with its
    level: a level's locals are the topmost entries of that level.  localtop is the next slot to use. */
 static int localtop = 0;
+/* The part of the local region the running code may use: all of it, until a program starts a thread, which is given a
+   range of its own (docs/Threads_Plan.md). localtop starts at LocalBase, and the stack is full at LocalLimit. */
+int LocalBase = 0;
+int LocalLimit = MAXLOCALVARS;
 int NextData;                                                       // used to track the next item to read in DATA & READ stmts
 char *NextDataLine;                                                 // used to track the next line to read in DATA & READ stmts
 int OptionBase;
@@ -278,6 +282,7 @@ char syscheck;
 // Initialise MMBasic
 void MIPS16 InitBasic(void) {
     StackFloor = (uint32_t)_ebss + STACK_GUARD;                     // (the stack check: see StackNearLimit)
+    StackPaint();                                                   // (and its high-water mark from here: StackLowest)
     stackwarn = StackFloor + 1024;
     DefaultType = T_NBR;
     CommandTableSize =  (sizeof(commandtbl)/sizeof(struct s_tokentbl));
@@ -503,7 +508,7 @@ void ITCM_CODE ExecuteProgram(char *p) {
 				}
                 if(TempMemoryIsChanged) ClearTempMemory();          // at the end of each command we need to clear any temporary string vars
                 if(USBtime | deferredcopy | MMAbort) CheckAbort();      // (it does nothing unless one is set: the 1 ms tick sets USBtime)
-                if(IntReady.any)check_interrupt();                  // an MMBasic interrupt, or the GUI's millisecond (IntReady.gui)
+                if(IntReady.any)check_interrupt();                  // an MMBasic interrupt, or the GUI's millisecond (IntReady.tick)
             }
             p = nextstmt;
         }
@@ -3566,7 +3571,7 @@ static void ITCM_CODE __attribute__((noinline)) *findvar_local(char *p, int acti
         vtype = (action & T_IMPLIED) ? (action & (T_NBR | T_INT | T_STR)) : DefaultType;
     }
     if((suffix && (action & T_IMPLIED) && !(action & vtype)) || (vtype != T_INT && vtype != T_NBR) || *q == '(' ||
-       (i = localtop) >= MAXLOCALVARS || Localvarcnt + 1 >= MAXLOCALVARS || (symk = SymCanonAt(p)) < 0) return NULL;
+       (i = localtop) >= LocalLimit || Localvarcnt + 1 >= LocalLimit - LocalBase || (symk = SymCanonAt(p)) < 0) return NULL;
     if(g_structcnt > 0 && (SymCold[symk].flags & SYMC_DOT)) return NULL;
     if((!(action & V_FUNCT) && !(SymCold[symk].flags & SYMC_NOSUB)) || (OptionExplicit && !(action & V_DIM_VAR)) ||
        ((k = SymL[symk]) >= 0 && VREC(k)->level >= LocalIndex)) return NULL;
@@ -3886,7 +3891,7 @@ static void __attribute__((noinline)) *findvar_body(char *p, int action, char **
     }
 	// we are not declaring the variable but it may need to be created
     if(action & V_LOCAL) {
-        if(localifree >= MAXLOCALVARS) error("Too many local variables");   // the local stack is full (P6 F2)
+        if(localifree >= LocalLimit) error("Too many local variables");     // the local stack is full (P6 F2)
     	ifree = i = localifree;
     } else if(localifree==-1){ // can only happen when a local variable has been found so we can ignore everything global
 		ifree= -1;
@@ -4041,7 +4046,7 @@ findvar_found:
 		if(Globalvarcnt+1>=MAXGLOBALVARS)error("Not enough Global variable memory");
 		VarRecordTake(ifree);                                       // its record, before anything is counted or allocated
 	} else {                                                        // (a global is counted once it is made: VarCounted)
-		if(Localvarcnt+1>=MAXLOCALVARS)error("Not enough Local variable memory");
+		if(Localvarcnt+1>=LocalLimit-LocalBase)error("Not enough Local variable memory");
 		Localvarcnt++;
 	}
 	varcnt=Globalvarcnt+Localvarcnt;
@@ -4308,6 +4313,26 @@ int InProgMemory(const char *p) {
 // the evaluator's stack test, for a recursion through the compiler's calls, which never reaches the evaluator (Stream.c)
 // the stack is in its last 1K above StackFloor (TestStackOverflow, MMBasic.h): below StackFloor it has overflowed,
 // otherwise the lowest is kept for a warning at the prompt (the PicoMite's)
+/* The stack's high-water mark, for sizing the threads' stacks (docs/Threads_Plan.md, Stage 0). StackPaint fills the
+   stack that is free now, from the end of the static variables to just below the stack pointer, with a pattern;
+   StackLowest is the lowest address written since: by the interpreter, a built-in, the housekeeping or an interrupt's
+   handler. Painted at start-up and at RUN, so MM.INFO(STACK LOW) after a program is that program's deepest. A frame
+   that reserves a buffer and does not write its low end reads that much shallower than it is. In bank 2: neither is
+   on a statement's path. */
+#define STACK_PAINT 0x5354414B
+extern char _estack[];
+void __attribute__((section(".bank2"), noinline)) StackPaint(void) {
+    uint32_t *p = (uint32_t *)(((uint32_t)_ebss + 3) & ~3u), sp;
+    __asm volatile("MRS %0, msp" : "=r"(sp));
+    if(sp <= (uint32_t)_ebss + 64 || sp > (uint32_t)_estack) return;   // not on the main stack (PIXEL FILL's, a thread's)
+    while((uint32_t)p < sp - 32) *p++ = STACK_PAINT;                // (below this frame: a handler that runs meanwhile
+}                                                                   // has gone again before the fill reaches its place)
+uint32_t __attribute__((section(".bank2"), noinline)) StackLowest(void) {
+    uint32_t *p = (uint32_t *)(((uint32_t)_ebss + 3) & ~3u);
+    while((uint32_t)p < (uint32_t)_estack && *p == STACK_PAINT) p++;
+    return (uint32_t)p;
+}
+
 void __attribute__((noinline)) StackNearLimit(uint32_t stack) {
     if(stack < StackFloor) {
         StackLow = 0;
@@ -4364,8 +4389,9 @@ void error(char *msg, ...) {
        		}
        		MMErrorString("line ");
        		MMerrline = LHDR_LINE(CurrentLinePtr);                  // MM.ERRLINE: the number this message gives
-       		IntToStr(inpbuf, LHDR_LINE(CurrentLinePtr), 10);
-       		MMErrorString(inpbuf);
+       		char lnbuf[12];                                         // (its own: it was inpbuf, which INPUT's line is in)
+       		IntToStr(lnbuf, LHDR_LINE(CurrentLinePtr), 10);
+       		MMErrorString(lnbuf);
        		if(LHDR_FILE(CurrentLinePtr) == 1 && !inlib && !OptionErrorSkip) {
        			EdNoteStart(ProgName(), LHDR_LINE(CurrentLinePtr) - 1, 0); // EDIT opens the program at the line (Editor.c)
        			fmline = LHDR_LINE(CurrentLinePtr);                 // (and FM's E, for a program FM ran)
@@ -4883,7 +4909,7 @@ void MIPS16 ClearVars(int level) {
 		}
 		if(compact) top = LocalListCompact();
 		hashlistpointer = top;
-		localtop = top ? hashlist[top - 1].hash + 1 : 0;
+		localtop = top ? hashlist[top - 1].hash + 1 : LocalBase;
 	} else {
 		for(i = 0; i < MAXVARS; i++) {
 			if(!VarRecordReal(VREC(i))) continue;                   // a free or blocked global slot: a placeholder, nothing of its own
@@ -4922,7 +4948,7 @@ void MIPS16 ClearVars(int level) {
     OptionBase = 0;
     DimUsed = false;
     hashlistpointer=0;
-    localtop = 0;
+    localtop = LocalBase;
 }
 
 

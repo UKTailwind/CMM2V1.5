@@ -202,20 +202,25 @@ extern int MIPS16 CheckPin(int pin, int action);
 // can be due and the scan is skipped. .count: interrupts signalled by their source (IntSignal: an ISR, a callback or a
 // command) and not yet scanned for; each scan consumes one, so interrupts that arrive together are served by
 // consecutive statements. .poll: INT_POLL_SCAN while an armed source has no signal of its own: scan every statement.
-// .gui: set by the 1 mS tick while the GUI's input is taken or a cursor is linked to the mouse, cleared by
-// check_interrupt: the touch, the GUI's pointer and the linked cursor are seen to once a millisecond, not after every
-// statement (which also kept compiled code from running one statement into the next)
+// .tick: bits set by the 1 mS tick and taken by check_interrupt (IntTickTake). INT_TICK_GUI, while the GUI's input is
+// taken or a cursor is linked to the mouse: the touch, the GUI's pointer and the linked cursor are seen to once a
+// millisecond, not after every statement (which also kept compiled code from running one statement into the next).
+// INT_TICK_SLICE is for the threads' time slice (docs/Threads_Plan.md): nothing sets it yet.
 #define INT_POLL_SCAN 1
+#define INT_TICK_GUI 1
+#define INT_TICK_SLICE 2
 typedef union {
     uint32_t any;
     struct {
         uint16_t count;
         uint8_t poll;
-        uint8_t gui;
+        uint8_t tick;
     };
 } IntReady_t;
 extern volatile IntReady_t IntReady;
 extern void IntSignal(void);
+extern char *IntScan(void);                                        // an interrupt that is due: its routine, or NULL (MM_Misc.c)
+extern void IntDispatch(char *intaddr);                            // and the running code sent to it
 #define IntPoll() (IntReady.poll |= INT_POLL_SCAN)                  // a source with no signal of its own was armed
 typedef enum
 {

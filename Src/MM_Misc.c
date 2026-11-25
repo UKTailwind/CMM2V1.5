@@ -3409,6 +3409,9 @@ void OPTSIZE fun_info(void){
 	} else if(checkstring(ep, "FRAMEV")){
 	    iret = PageTable[WPN].ymax;
 		rettype='I';
+	} else if(checkstring(ep, "STACK LOW")){                        // the lowest the stack has reached since RUN (MMBasic.c)
+		iret=(int64_t)StackLowest();
+		rettype='I';
 	} else if(checkstring(ep, "STACK")){
 		iret=(int64_t)((uint32_t)__get_MSP());
 		rettype='I';
@@ -4193,187 +4196,179 @@ void cmd_keyboard(void)
     error("Syntax");
 }
 
-int check_interrupt(void) {
+/* check_interrupt is in three parts, for the threads to come (docs/Threads_Plan.md). IntScan finds a source that is due
+   and uses nothing of the code that is running, so that any thread, and the scheduler with nothing to run, may call it.
+   IntDispatch sends the running code to the source's routine. check_interrupt is the GUI's work and then the two in
+   turn, as it always was. Neither part is inlined: one copy of each, for bank 1's room. */
+
+// The routine of an interrupt that is due, or NULL. One signal is consumed (sources only ever add), or the scan is the
+// one an armed source with no signal of its own asks for; with neither, nothing is looked at.
+__attribute__((noinline)) char *IntScan(void) {
 	int i, v;
 	char *intaddr;
-	static char rti[4];		// a dummy IRETURN statement: the token (up to two bytes) and zeros to end it
-	IntReady.gui = 0;                                               // (the tick's call for the GUI: answered here)
-	if(GUIactive && GUITimer1>=16){
-		GuiPointer();                                               // (the pointer, once there is a mouse: linked to it, it follows
-		GUITimer1=0;                                                // it as GUI CURSOR LINK MOUSE's does, below)
-	}
-	CursorFollowMouse();
-
-    ProcessTouch();                                             // check GUI touch
-    if(CheckGuiFlag) CheckGui();                                // This implements a LED flash
-
-    if(!IntReady.any) return 0;                                     // quick exit: nothing signalled and nothing to poll (S1c)
-    if(PrintScreenPending) PrintScreenNow();                        // OPTION PRINTSCREEN: Print Screen or Ctrl-\ while the
-                                                                    // program runs (Console.c)
-	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
     if(IntReady.count) {                                            // consume one signal (sources only ever add)
         uint32_t primask = __get_PRIMASK();
         __disable_irq();
         IntReady.count--;
         __set_PRIMASK(primask);
-    } else if(!(IntReady.poll & INT_POLL_SCAN)) return 0;
+    } else if(!(IntReady.poll & INT_POLL_SCAN)) return NULL;
 
 //Deal with the fast tick interrupt first
     for(int i=1;i<=MAXPID;i++){
         if(PIDchannels[i].interrupt!=NULL && Getuptime()>PIDchannels[i].timenext && PIDchannels[i].active){
             PIDchannels[i].timenext=Getuptime()+(PIDchannels[i].PIDparams->T * 1000000);
             intaddr=(char *)PIDchannels[i].interrupt;
-            goto GotAnInterrupt;
+            return intaddr;
         }
     }
 	if(TickInt[NBRSETTICKS] != NULL && TickTimer[NBRSETTICKS]) {
 		TickTimer[NBRSETTICKS]--;
 		intaddr = TickInt[NBRSETTICKS];
-		goto GotAnInterrupt;
+		return intaddr;
 	}
 
     // check for an  ON KEY loc  interrupt
     if(OnKeyGOSUB && kbhitConsole()) {
         intaddr = OnKeyGOSUB;							            // set the next stmt to the interrupt location
-		goto GotAnInterrupt;
+		return intaddr;
     }
     {   // the network's: WEB TCP INTERRUPT, MQTT's, WEB UDP INTERRUPT (the PicoMite's, Src/net/WebMite_cmm2.c)
         extern char *WebInterrupt(void);
         char *a = WebInterrupt();
-        if(a) { intaddr = a; goto GotAnInterrupt; }
+        if(a) { intaddr = a; return intaddr; }
     }
 	// interrupt routines for the serial ports
     if(com1 || com2 || com3){
 		if(com1_interrupt != NULL && SerialRxStatus(1) >= com1_ilevel) {// do we need to interrupt?
 			intaddr = com1_interrupt;									// set the next stmt to the interrupt location
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(com1_TX_interrupt && com1_TX_complete){
 			intaddr=com1_TX_interrupt;
 			com1_TX_complete=false;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(com2_interrupt != NULL && SerialRxStatus(2) >= com2_ilevel) {// do we need to interrupt?
 			intaddr = com2_interrupt;									// set the next stmt to the interrupt location
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(com2_TX_interrupt && com2_TX_complete){
 			intaddr=com2_TX_interrupt;
 			com2_TX_complete=false;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(com3_interrupt != NULL && SerialRxStatus(3) >= com3_ilevel) {// do we need to interrupt?
 			intaddr = com3_interrupt;									// set the next stmt to the interrupt location
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(com3_TX_interrupt && com3_TX_complete){
 			intaddr=com3_TX_interrupt;
 			com3_TX_complete=false;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
     }
-    if((intaddr = CdcInterrupt()) != NULL) goto GotAnInterrupt;     // COM4-COM7, the USB serial devices
-    if((intaddr = GamepadInterrupt()) != NULL) goto GotAnInterrupt; // GAMEPAD INTERRUPT ENABLE's (USBGamepad.c)
+    if((intaddr = CdcInterrupt()) != NULL) return intaddr;     // COM4-COM7, the USB serial devices
+    if((intaddr = GamepadInterrupt()) != NULL) return intaddr; // GAMEPAD INTERRUPT ENABLE's (USBGamepad.c)
     if(gui_int_down && GuiIntDownVector) {                          // interrupt on pen down
         intaddr = GuiIntDownVector;                                 // get a pointer to the interrupt routine
         gui_int_down = false;
-        goto GotAnInterrupt;
+        return intaddr;
     }
 
     if(gui_int_up && GuiIntUpVector) {
         intaddr = GuiIntUpVector;                                   // get a pointer to the interrupt routine
         gui_int_up = false;
-        goto GotAnInterrupt;
+        return intaddr;
     }
     if(KeyInterrupt != NULL && Keycomplete) {
 		Keycomplete=false;
 		intaddr = KeyInterrupt;									    // set the next stmt to the interrupt location
-		goto GotAnInterrupt;
+		return intaddr;
 	}
     if(WAVInterrupt != NULL && WAVcomplete) {
         WAVcomplete=false;
 		intaddr = WAVInterrupt;									    // set the next stmt to the interrupt location
 		WAVInterrupt = NULL;                                        // once: a later sound's end must not fire it again
-		goto GotAnInterrupt;
+		return intaddr;
 	}
     if(EFFECTInterrupt != NULL && EFFECTcomplete) {                 // PLAY EFFECT's end
         EFFECTcomplete=false;
 		intaddr = EFFECTInterrupt;
 		EFFECTInterrupt = NULL;
-		goto GotAnInterrupt;
+		return intaddr;
 	}
     if(COLLISIONInterrupt != NULL && CollisionFound) {
         CollisionFound=false;
 		intaddr = COLLISIONInterrupt;									    // set the next stmt to the interrupt location
-		goto GotAnInterrupt;
+		return intaddr;
 	}
     if(STCollisionInterrupt != NULL && STCollisionFound) {         // a sprite on a static object (the PicoMite's: sprites.c)
         STCollisionFound=false;
 		intaddr = STCollisionInterrupt;
-		goto GotAnInterrupt;
+		return intaddr;
 	}
     if(ADCInterrupt != NULL && ADCcomplete){
  		ADCcomplete=false;
     	intaddr = ADCInterrupt;									    // set the next stmt to the interrupt location
-    	goto GotAnInterrupt;
+    	return intaddr;
     }
 
     if(DACInterrupt != NULL && DACcomplete){
  		DACcomplete=false;
     	intaddr = (char *)DACInterrupt;									    // set the next stmt to the interrupt location
-    	goto GotAnInterrupt;
+    	return intaddr;
     }
 
     if(IrGotMsg && IrInterrupt != NULL) {
         IrGotMsg = false;
 		intaddr = IrInterrupt;									    // set the next stmt to the interrupt location
-		goto GotAnInterrupt;
+		return intaddr;
 	}
 
     if(FrameInterrupt != NULL && Framecomplete){
  		Framecomplete=false;
     	intaddr = FrameInterrupt;									    // set the next stmt to the interrupt location
-    	goto GotAnInterrupt;
+    	return intaddr;
     }
     if(Count5High!=lastCount5High && CountInterrupt){
     	intaddr=CountInterrupt;
     	lastCount5High=Count5High;
-    	goto GotAnInterrupt;
+    	return intaddr;
     }
     if(nun1 || nun2 || nun3 || classic1 || classic2 || classic3){
 		if(nun1Interruptz !=NULL && nun1foundz){
 			nun1foundz=0;
 			intaddr=nun1Interruptz;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(nun1Interruptc !=NULL && nun1foundc){
 			nun1foundc=0;
 			intaddr=nun1Interruptc;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(nun2Interruptz !=NULL && nun2foundz){
 			nun2foundz=0;
 			intaddr=nun2Interruptz;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(nun2Interruptc !=NULL && nun2foundc){
 			nun2foundc=0;
 			intaddr=nun2Interruptc;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(nun3Interruptz !=NULL && nun3foundz){
 			nun3foundz=0;
 			intaddr=nun3Interruptz;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(nun3Interruptc !=NULL && nun3foundc){
 			nun3foundc=0;
 			intaddr=nun3Interruptc;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
     }
 
@@ -4381,82 +4376,82 @@ int check_interrupt(void) {
 		if(mouse0Interruptz !=NULL && mouse0foundz){
 			mouse0foundz=0;
 			intaddr=mouse0Interruptz;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse0Interruptu !=NULL && mouse0leftup){
 			mouse0leftup=0;
 			intaddr=mouse0Interruptu;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse0Interruptc !=NULL && mouse0foundc){
 			mouse0foundc=0;
 			intaddr=mouse0Interruptc;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse1Interruptz !=NULL && mouse1foundz){
 			mouse1foundz=0;
 			intaddr=mouse1Interruptz;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse1Interruptc !=NULL && mouse1foundc){
 			mouse1foundc=0;
 			intaddr=mouse1Interruptc;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(mouse1Interruptu !=NULL && mouse1leftup){
 			mouse1leftup=0;
 			intaddr=mouse1Interruptu;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(MouseIntAny !=NULL && MouseIntAnyFound){                // MOUSE INTERRUPT ENABLE (the PicoMite's): any button, a double click
 			MouseIntAnyFound=0;
 			intaddr=MouseIntAny;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(mouse2Interruptz !=NULL && mouse2foundz){
 			mouse2foundz=0;
 			intaddr=mouse2Interruptz;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse2Interruptc !=NULL && mouse2foundc){
 			mouse2foundc=0;
 			intaddr=mouse2Interruptc;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse2Interruptu !=NULL && mouse2leftup){
 			mouse2leftup=0;
 			intaddr=mouse2Interruptu;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse3Interruptz !=NULL && mouse3foundz){
 			mouse3foundz=0;
 			intaddr=mouse3Interruptz;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
 		if(mouse3Interruptc !=NULL && mouse3foundc){
 			mouse3foundc=0;
 			intaddr=mouse3Interruptc;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 		if(mouse3Interruptu !=NULL && mouse3leftup){
 			mouse3leftup=0;
 			intaddr=mouse3Interruptu;
-			goto GotAnInterrupt;
+			return intaddr;
 		}
 
     }
     if(CSubInterrupt != NULL && CSubComplete) {                     // a CSUB has finished (INTERRUPT)
         intaddr = CSubInterrupt;
         CSubComplete = 0;
-        goto GotAnInterrupt;
+        return intaddr;
     }
     for(i = 0; i < NBRINTERRUPTS; i++) {                            // scan through the interrupt table
 		if(inttbl[i].pin != 0) {                                    // if this entry has an interrupt pin set
@@ -4465,7 +4460,7 @@ int check_interrupt(void) {
 			if((inttbl[i].lohi == T_HILO && v < inttbl[i].last) || (inttbl[i].lohi == T_LOHI && v > inttbl[i].last) || (inttbl[i].lohi == T_BOTH && v != inttbl[i].last)) {
 				intaddr = inttbl[i].intp;							// set the next stmt to the interrupt location
 				inttbl[i].last = v;									// save the new pin value
-				goto GotAnInterrupt;
+				return intaddr;
 			} else
 				inttbl[i].last = v;									// no interrupt, just update the pin value
 		}
@@ -4476,16 +4471,18 @@ int check_interrupt(void) {
     		// reset for the next tick but skip any ticks completely missed
     		while(TickTimer[i] > TickPeriod[i]) TickTimer[i] -= TickPeriod[i];
     		intaddr = TickInt[i];
-    		goto GotAnInterrupt;
+    		return intaddr;
     	}
     }
 
-    // if no interrupt was found then return having done nothing; the poll bit goes with the last source that needs it
+    // no interrupt was found; the poll bit goes with the last source that needs it
     if((IntReady.poll & INT_POLL_SCAN) && !PolledSourceArmed()) IntReady.poll &= ~INT_POLL_SCAN;
-	return 0;
+	return NULL;
+}
 
-    // an interrupt was found if we jumped to here
-GotAnInterrupt:
+// The running code sent to the interrupt routine at intaddr (IntScan's): IRETURN brings it back
+__attribute__((noinline)) void IntDispatch(char *intaddr) {
+	static char rti[4];		// a dummy IRETURN statement: the token (up to two bytes) and zeros to end it
     LocalIndex++;                                                   // IRETURN will decrement this
     SaveOptionErrorSkip = OptionErrorSkip;                          // a count, IGNORE (-1) or RESTART
     SaveErrorSkipDepth = ErrorSkipDepth;
@@ -4511,7 +4508,40 @@ GotAnInterrupt:
     }
 
     nextstmt = intaddr;                                             // the next command will be in the interrupt routine
-    return 1;
+}
+
+// the tick's bits, taken: read and cleared with interrupts off, so that a bit the tick sets meanwhile is not lost
+static inline unsigned int IntTickTake(void) {
+    unsigned int t = 0;
+    if(IntReady.tick) {
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
+        t = IntReady.tick;
+        IntReady.tick = 0;
+        __set_PRIMASK(primask);
+    }
+    return t;
+}
+
+int check_interrupt(void) {
+	char *intaddr;
+	(void)IntTickTake();                                            // (the tick's call for the GUI: answered here)
+	if(GUIactive && GUITimer1>=16){
+		GuiPointer();                                               // (the pointer, once there is a mouse: linked to it, it follows
+		GUITimer1=0;                                                // it as GUI CURSOR LINK MOUSE's does, below)
+	}
+	CursorFollowMouse();
+
+    ProcessTouch();                                             // check GUI touch
+    if(CheckGuiFlag) CheckGui();                                // This implements a LED flash
+
+    if(!IntReady.any) return 0;                                     // quick exit: nothing signalled and nothing to poll (S1c)
+    if(PrintScreenPending) PrintScreenNow();                        // OPTION PRINTSCREEN: Print Screen or Ctrl-\ while the
+                                                                    // program runs (Console.c)
+	if(InterruptReturn != NULL || CurrentLinePtr == NULL) return 0;	// skip if we are in an interrupt or in immediate mode
+    if((intaddr = IntScan()) == NULL) return 0;                     // nothing signalled is due, and nothing polled
+    IntDispatch(intaddr);
+	return 1;
 }
 
 

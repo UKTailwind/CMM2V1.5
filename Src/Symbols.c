@@ -385,6 +385,10 @@ void SymBindInit(void) {
     SymCold = (symcold_t *)SymColdBlock;
     SymCanonHead = (uint16_t *)(SymCold + count);
     SymCanonCount = count;
+    memset(SymL, 0xFF, count * sizeof(int16_t));                    // every name without a local (-1), not only the names
+                                                                    // read so far: a thread's own array is made the same
+                                                                    // way (docs/Threads_Plan.md), and a name first read in
+                                                                    // one thread must be unbound in every other
     SymBindHeap = hot + cold;
     SymCanonMask = hsize - 1;
     SymNCanon = 0;

@@ -1581,6 +1581,7 @@ void MIPS16 FlashRunSlot(int slot, int chain) {
 
 // RUN and CHAIN, the program loaded and the runtime cleared: prepare it and start at its first line
 static void MIPS16 RunStart(int runlib) {
+	StackPaint();                                                   // the stack's high-water mark is this program's
 	PrepareProgram(true);                                           // (MM.WATCHDOG is kept for the program: cleanend clears it)
     IgnorePIN = false;
     if(*ProgMemory != T_NEWLINE) { RunStarting = 0; return; }        // no program to run
