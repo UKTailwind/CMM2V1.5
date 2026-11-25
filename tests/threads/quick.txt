@@ -110,6 +110,7 @@ threads/tintown
 threads/tnet
 threads/tnetown
 threads/tsize
+threads/tnest
 
 ' timings: a statement of each kind, a SUB call and a FUNCTION call
 time threads/tstmt

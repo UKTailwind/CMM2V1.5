@@ -55,28 +55,40 @@ void clearprog(void);
 void execute_one_command(char *p);
 void MIPS16 ListProgramFlash(char *p, int all);
 void MIPS16 ListFile(char *pp, int all);
+/* The interpreter's stacks are each the running thread's own (Src/Thread.c, docs/Threads_Plan.md): forstack, dostack,
+   gosubstack and the rest point at its arrays, and ForLimit and the rest are how many entries it has. The main
+   program's are the arrays below, of the sizes they always were, and with no thread nothing else is ever pointed at.
+   A thread switch changes the pointers and copies nothing. */
 // stack to keep track of nested FOR/NEXT loops
-struct s_forstack forstack[MAXFORLOOPS + 1];
+struct s_forstack forstack_main[MAXFORLOOPS + 1];
+struct s_forstack *forstack = forstack_main;
+int ForLimit = MAXFORLOOPS;
 int forindex;
 extern unsigned long long int statement_time;
 extern char *firststmt;
 extern volatile uint64_t FastTimer;
 // stack to keep track of nested DO/LOOP loops
-struct s_dostack dostack[MAXDOLOOPS];
+struct s_dostack dostack_main[MAXDOLOOPS];
+struct s_dostack *dostack = dostack_main;
+int DoLimit = MAXDOLOOPS;
 int doindex;                                						// counts the number of nested DO/LOOP loops
 char *KeyInterrupt=NULL;
 volatile int Keycomplete=0;
 int keyselect=0;
 void ListNewLine(int *ListCnt, int all);
 // stack to keep track of GOSUBs, SUBs and FUNCTIONs
-char *gosubstack[MAXGOSUB];
-char *errorstack[MAXGOSUB];
-char *substack[MAXGOSUB];                   // the SUB/FUNCTION definition each frame runs, NULL for a GOSUB: STATIC names its variable after the innermost one
+char *gosubstack_main[MAXGOSUB], *errorstack_main[MAXGOSUB], *substack_main[MAXGOSUB];
+char **gosubstack = gosubstack_main;
+char **errorstack = errorstack_main;
+int GosubLimit = MAXGOSUB;
+char **substack = substack_main;                   // the SUB/FUNCTION definition each frame runs, NULL for a GOSUB: STATIC names its variable after the innermost one
 int gosubindex;
 char runcmd[STRINGSIZE];
 
 char DimUsed = false;						// used to catch OPTION BASE after DIM has been used
-struct sa_data datastore[MAXRESTORE];
+struct sa_data datastore_main[MAXRESTORE];
+struct sa_data *datastore = datastore_main;
+int RestoreLimit = MAXRESTORE;
 int restorepointer = 0;
 
 int TraceOn;                                // used to track the state of TRON/TROFF
@@ -2464,7 +2476,7 @@ void cmd_for(void) {
             }
         }
 
-        if(forindex == MAXFORLOOPS) error("Too many nested FOR loops");
+        if(forindex == ForLimit) error("Too many nested FOR loops");
 
         forstack[forindex].var = vptr;                              // save the variable index
         forstack[forindex].vartype = vtype;                         // save the type of the variable
@@ -2764,7 +2776,7 @@ void cmd_do(void) {
     }
 
     // add our pointers to the top of the stack
-    if(doindex == MAXDOLOOPS) error("Too many nested DO or WHILE loops");
+    if(doindex == DoLimit) error("Too many nested DO or WHILE loops");
     dostack[doindex].evalptr = evalp;
     dostack[doindex].doptr = nextstmt;
     dostack[doindex].level = LocalIndex;
@@ -2943,7 +2955,7 @@ void cmd_subfun(void) {
 // ON ERROR SKIP, or at the prompt) left gosubindex and LocalIndex one too high (TBS TID=15486; Peter, 21 Oct)
 void cmd_gosub(void) {
 	char *return_to = nextstmt;
-	if(gosubindex >= MAXGOSUB) error("Too many nested GOSUB");
+	if(gosubindex >= GosubLimit) error("Too many nested GOSUB");
 	routinechecks(1);
 	if(isnamestartsym(*cmdline))
 		nextstmt = findlabel(cmdline);								// must be a label (a symbol or text)
@@ -3102,7 +3114,7 @@ void cmd_read(void) {
     int vcnt, vidx, num_to_read=0;
     //Add READ SAVE and READ RESTORE
 	if (checkstring(cmdline, (char*)"SAVE")) {
-		if(restorepointer== MAXRESTORE - 1)error((char*)"Too many saves");
+		if(restorepointer== RestoreLimit - 1)error((char*)"Too many saves");
 		datastore[restorepointer].SaveNextDataLine = NextDataLine;
 		datastore[restorepointer].SaveNextData = NextData;
 		restorepointer++;
@@ -3313,7 +3325,7 @@ void cmd_read(void) {
     char *p, datatoken, *lineptr = NULL, *ptr;
     int vcnt, vidx, num_to_read=0;
 	if (checkstring(cmdline, "SAVE")) {
-		if(restorepointer== MAXRESTORE - 1)error((char*)"Too many saves");
+		if(restorepointer== RestoreLimit - 1)error((char*)"Too many saves");
 		datastore[restorepointer].SaveNextDataLine = NextDataLine;
 		datastore[restorepointer].SaveNextData = NextData;
 		restorepointer++;
@@ -3639,7 +3651,7 @@ void cmd_on(void) {
 
 		if(*argv[1] == ss[1]) {
 			// this is a GOSUB, same as a GOTO but we need to first push the return pointer
-			if(gosubindex >= MAXGOSUB) error("Too many nested GOSUB");
+			if(gosubindex >= GosubLimit) error("Too many nested GOSUB");
             errorstack[gosubindex] = CurrentLinePtr;
             substack[gosubindex] = NULL;                            // a GOSUB runs in the SUB it was called from
 			gosubstack[gosubindex++] = nextstmt;

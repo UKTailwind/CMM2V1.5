@@ -30,7 +30,7 @@ These run on a test board now:
 • [B]THREAD STOP n[/B] ends thread n where it stands. Its local variables and memory are freed.
 • [B]THREAD PAUSE n[/B] and [B]THREAD RESUME n[/B] hold thread n and let it go on.
 • [B]THREAD SLICE ms[/B] sets the time slice, 1 to 100 ms. It is 1 ms unless you say otherwise.
-• [B]THREAD START n SIZE kb LOCALS m, sub[/B] gives one thread its own stack size and number of local variables, so a small thread takes less memory. [B]THREAD SIZE kb [, locals][/B] sets them for threads started without.
+• [B]THREAD START n SIZE kb LOCALS m NEST d, sub[/B] gives one thread its own stack size, number of local variables and depth of loops and calls, so a small thread takes less memory. [B]THREAD SIZE kb [, locals [, nest]][/B] sets them for threads started without.
 • [B]THREAD LOCK k[/B] and [B]THREAD UNLOCK k[/B]: sixteen locks. Only one thread at a time gets past THREAD LOCK k; the others wait there, without using any processor time, until it unlocks. THREAD LOCK k, ms gives up after that many milliseconds with an error.
 • [B]THREAD HOLD[/B] and [B]THREAD RELEASE[/B]: no other thread runs between them. For a few statements that must not be split.
 • [B]THREAD WAIT n[/B] waits until thread n has ended. [B]THREAD WAIT FLAG f[/B] waits until FLAG(f) is 1, which any thread or an interrupt routine can set. Either can have a time limit: THREAD WAIT n, ms.
@@ -50,14 +50,14 @@ Still to come: the manual chapter.
 • [B]An interrupt belongs to the thread that set it up.[/B] SETTICK, SETPIN, ON KEY and the rest work as before, and the routine runs in the thread that set it up, with its colours and print position, and to its end before any other thread runs. So a thread can set up a SETTICK and sit in THREAD WAIT FLAG until its routine sets the flag, while the main program sits in INPUT. Interrupts set up by the main program run in the main program, as they always did.
 • [B]END in any thread, an error in any thread, or Ctrl-C stops the whole program.[/B] An error says where it was: "Error in thread 3, line 5". After an error or Ctrl-C the firmware also lists the threads, each with its line and what it was waiting for, which is how you find two threads that are each waiting for the other's lock.
 • [B]OPTION COMPILE ON works with threads.[/B]
-• [B]The cost:[/B] a program that starts no thread runs as fast as before. A switch takes about 5 microseconds, so 1 ms slices cost about half a percent. A thread takes about 37 KB of memory while it runs, given back when it ends.
+• [B]The cost:[/B] a program that starts no thread runs as fast as before. A switch takes about 5 microseconds, so 1 ms slices cost about half a percent. A thread takes about 26 KB of memory while it runs (as little as 14 KB if you make it small), given back when it ends.
 
 
 [SIZE=4][COLOR=BLUE][B]What they cannot do[/B][/COLOR][/SIZE]
 • [B]They do not make a program faster.[/B] There is one processor: four busy threads get a quarter of it each. Threads are for doing several things at once, not for doing one thing sooner.
 • [B]They cannot cut into a statement.[/B] A statement that takes a long time (a SORT of a large array, a file copy, loading a picture) holds every thread until it is done.
 • [B]No priorities.[/B] Every thread that is ready gets its turn.
-• [B]Limits:[/B] with the usual sizes a thread can go about nine FUNCTIONs deep (SUB calls take nothing) and have 48 local variables, and about ten threads can run at once; each takes about 37 KB. SIZE and LOCALS on THREAD START, or THREAD SIZE for all, change that: more stack for deep recursion, or a small stack and few locals for a simple thread (about 28 KB with SIZE 12 LOCALS 8).
+• [B]Limits:[/B] with the usual sizes a thread can go about nine FUNCTIONs deep (SUB calls take nothing) and have 48 local variables, its FOR loops, DO loops and calls can each be 20 deep, and about ten threads can run at once; each takes about 26 KB. SIZE, LOCALS and NEST on THREAD START, or THREAD SIZE for all, change that: more stack for deep recursion, or a small stack, few locals and shallow nesting for a simple thread (about 14 KB with SIZE 12 LOCALS 8 NEST 4). Each thread has its own lists of loops and calls, as long as it asks for, so it pays only for what it uses.
 • [B]Not allowed in a thread:[/B] RUN, CHAIN, FLASH RUN, LIBRARY LOAD, MsgBox() and GUI CLICK. Not allowed while any thread is running: ERASE, REDIM, CLEAR, SAVE CONTEXT and LOAD CONTEXT. THREAD START is for programs, not the command prompt, and CONTINUE does not work after Ctrl-C in a program with threads.
 
 

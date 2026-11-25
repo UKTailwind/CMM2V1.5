@@ -33,11 +33,10 @@ In bank 2 (the linker script): nothing here is on a statement's path until a pro
 #include "Symbols.h"
 #include "Thread.h"
 
-extern struct s_hash hashlist[MAXLOCALVARS];                        // (MMBasic.c: the running thread's locals, in the order made)
+extern struct s_hash *hashlist, hashlist_main[MAXLOCALVARS];        // (MMBasic.c: the running thread's locals, in the order made)
 extern int localtop;                                                // (and the next local slot)
 extern uint32_t DefinedSubFunMem;                                   // (a call whose arguments are being read)
 extern int DefinedSubFunLocalIndex;
-extern volatile char StrTmpLocalIndex[];                            // (Memory.c: each temporary block's level)
 extern int StrTmpIndex;
 
 #define T_FREE 0
@@ -104,15 +103,19 @@ struct s_thread {
                                                                     // arguments, then zeros (after the record: CallText)
     struct s_targ *args;                                            // the arguments' values, which the call asks for by
     int nargs;                                                      // MM.INFO(THREAD ARG n)
-    char tknbuf[TKNBUFSIZE];                                        // EXECUTE's line
-    char *gosub[MAXGOSUB], *errs[MAXGOSUB], *subs[MAXGOSUB];
-    struct s_forstack fors[MAXFORLOOPS + 1];
-    struct s_dostack dos[MAXDOLOOPS];
+    char *tknbuf;                                                   // EXECUTE's line: a block of its own, made at its first EXECUTE
+    /* Its own stacks, which the interpreter's pointers are set to while it runs (UseStacks): after the record, as
+       many entries as its NEST and LOCALS give (ThreadStart). The main program's point at the interpreter's own
+       arrays (forstack_main and the rest), of their full sizes. A switch copies none of them. */
+    char **gosub, **errs, **subs;
+    struct s_forstack *fors;
+    struct s_dostack *dos;
+    int nfor, ndo, ngosub, ntemp, ndata;                            // their entries (the interpreter's limits while it runs)
     struct s_hash *locals;                                          // its locals' list (after the record: as many as its
     int nlocals;                                                    // local slots, MAXLOCALVARS for the main program's)
-    char *tmp[MAXTEMPSTRINGS];
-    char tmplevel[MAXTEMPSTRINGS];
-    struct sa_data data[MAXRESTORE];
+    volatile char **tmp;
+    volatile char *tmplevel;
+    struct sa_data *data;
 };
 
 int ThreadCount = 0;
@@ -121,6 +124,7 @@ int ThreadSliceLen = 1;
 volatile unsigned int ThreadWakeMs = 0;
 int ThreadHoldDepth = INT_MAX;
 static int StackSize = THREAD_STACK, LocalSlots = THREAD_LOCALS;    // THREAD SIZE: what the next THREAD START gives
+static int NestDepth = THREAD_NEST;
 extern volatile int LoaderActive;                                   // (Loader.c: a loadable program is running)
 static struct s_thread *Thr[MAXTHREADS + 1];                        // by number: Thr[0] the main program's, made with the first thread
 static struct s_thread *Cur = NULL;                                 // the one running (NULL: no thread has been started)
@@ -228,21 +232,12 @@ static void ContextSave(struct s_thread *t) {
     ScreenSave(t);
     t->nextstmt = nextstmt; t->cmdline = cmdline; t->CmdTokenPtr = CmdTokenPtr; t->CurrentLinePtr = CurrentLinePtr;
     t->cmdtoken = cmdtoken; t->ExecDepth = ExecDepth; t->LocalIndex = LocalIndex;
-    t->gosubindex = gosubindex;
-    memcpy(t->gosub, gosubstack, gosubindex * sizeof(char *));
-    memcpy(t->errs, errorstack, gosubindex * sizeof(char *));
-    memcpy(t->subs, substack, gosubindex * sizeof(char *));
+    t->gosubindex = gosubindex;                                     // (its stacks are its own: only how full each is)
     t->forindex = forindex;
-    memcpy(t->fors, forstack, forindex * sizeof(struct s_forstack));
     t->doindex = doindex;
-    memcpy(t->dos, dostack, doindex * sizeof(struct s_dostack));
     t->hashlistpointer = hashlistpointer;
-    if(hashlistpointer > t->nlocals) error("Thread % has more locals than its LOCALS", (int)t->id);   // (findvar keeps to them)
-    memcpy(t->locals, hashlist, hashlistpointer * sizeof(struct s_hash));
     t->localtop = localtop; t->Localvarcnt = Localvarcnt;
     t->StrTmpIndex = StrTmpIndex; t->TempMemoryIsChanged = TempMemoryIsChanged;
-    memcpy(t->tmp, (void *)StrTmp, StrTmpIndex * sizeof(char *));
-    memcpy(t->tmplevel, (void *)StrTmpLocalIndex, StrTmpIndex);
     t->OptionErrorSkip = OptionErrorSkip; t->ErrorSkipDepth = ErrorSkipDepth;
     t->MMerrno = MMerrno; t->MMerrline = MMerrline;
     if(MMErrMsg != t->errmsg) {                                     // (error() points it at its own buffer)
@@ -256,28 +251,36 @@ static void ContextSave(struct s_thread *t) {
     t->waitresume = WaitResume; t->waitlimit = WaitLimit;
     t->FunReturnArrayCount = FunReturnArrayCount;
     t->NextData = NextData; t->NextDataLine = NextDataLine; t->restorepointer = restorepointer;
-    memcpy(t->data, datastore, restorepointer * sizeof(struct sa_data));
     t->SymTextLocals = SymTextLocals;
     t->screwup = ScrewUpTimer;                                      // EXECUTE's second runs only while its thread does
     ScrewUpTimer = 0;
+}
+
+// the interpreter's stacks are the main program's again: its own arrays, of their full sizes
+static void MainStacks(void) {
+    forstack = forstack_main; ForLimit = MAXFORLOOPS;
+    dostack = dostack_main; DoLimit = MAXDOLOOPS;
+    gosubstack = gosubstack_main; errorstack = errorstack_main; substack = substack_main; GosubLimit = MAXGOSUB;
+    datastore = datastore_main; RestoreLimit = MAXRESTORE;
+    StrTmp = StrTmp_main; StrTmpLocalIndex = StrTmpLocalIndex_main; TempLimit = MAXTEMPSTRINGS;
+    hashlist = hashlist_main;
 }
 
 // what the variables' code needs of a thread's state: its locals, its loops (ClearVars trims them), its temporary
 // memory, its bindings
 static void ContextLoadVars(struct s_thread *t) {
     LocalIndex = t->LocalIndex;
+    forstack = t->fors; ForLimit = t->nfor;
     forindex = t->forindex;
-    memcpy(forstack, t->fors, forindex * sizeof(struct s_forstack));
+    dostack = t->dos; DoLimit = t->ndo;
     doindex = t->doindex;
-    memcpy(dostack, t->dos, doindex * sizeof(struct s_dostack));
+    hashlist = t->locals;
     hashlistpointer = t->hashlistpointer;
-    memcpy(hashlist, t->locals, hashlistpointer * sizeof(struct s_hash));
     localtop = t->localtop; Localvarcnt = t->Localvarcnt;
     varcnt = Globalvarcnt + Localvarcnt;
     LocalBase = t->lbase; LocalLimit = t->llimit;
+    StrTmp = t->tmp; StrTmpLocalIndex = t->tmplevel; TempLimit = t->ntemp;
     StrTmpIndex = t->StrTmpIndex; TempMemoryIsChanged = t->TempMemoryIsChanged;
-    memcpy((void *)StrTmp, t->tmp, StrTmpIndex * sizeof(char *));
-    memcpy((void *)StrTmpLocalIndex, t->tmplevel, StrTmpIndex);
     if(SymL != NULL) SymL = t->syml;
     SymTextLocals = t->SymTextLocals;
 }
@@ -298,10 +301,8 @@ static void ContextLoad(struct s_thread *t) {
     ContextLoadVars(t);
     nextstmt = t->nextstmt; cmdline = t->cmdline; CmdTokenPtr = t->CmdTokenPtr; CurrentLinePtr = t->CurrentLinePtr;
     cmdtoken = t->cmdtoken; ExecDepth = t->ExecDepth;
+    gosubstack = t->gosub; errorstack = t->errs; substack = t->subs; GosubLimit = t->ngosub;
     gosubindex = t->gosubindex;
-    memcpy(gosubstack, t->gosub, gosubindex * sizeof(char *));
-    memcpy(errorstack, t->errs, gosubindex * sizeof(char *));
-    memcpy(substack, t->subs, gosubindex * sizeof(char *));
     OptionErrorSkip = t->OptionErrorSkip; ErrorSkipDepth = t->ErrorSkipDepth;
     MMerrno = t->MMerrno; MMerrline = t->MMerrline;
     MMErrMsg = t->errmsg;
@@ -312,8 +313,8 @@ static void ContextLoad(struct s_thread *t) {
     WaitResume = t->waitresume; WaitLimit = t->waitlimit;
     ScreenLoad(t);
     FunReturnArrayCount = t->FunReturnArrayCount;
+    datastore = t->data; RestoreLimit = t->ndata;
     NextData = t->NextData; NextDataLine = t->NextDataLine; restorepointer = t->restorepointer;
-    memcpy(datastore, t->data, restorepointer * sizeof(struct sa_data));
     StackFloor = t->floor;                                          // (from the record, never saved: PIXEL FILL turns the
     stackwarn = t->floor + 1024;                                    // check off for its length, and an error may leave it so)
     ScrewUpTimer = t->screwup;
@@ -354,6 +355,7 @@ static void ThreadReap(void) {
                 error("Thread % overflowed its stack", n);
             }
             FreeMemory(Thr[i]->stack);
+            if(Thr[i]->tknbuf != NULL) FreeMemory(Thr[i]->tknbuf);
             FreeMemory(Thr[i]);
             Thr[i] = NULL;
             any = 1;
@@ -890,7 +892,7 @@ int ThreadMemory(int *kb) {
     for(i = 1; i <= MAXTHREADS; i++)
         if(Thr[i] != NULL && ALIVE(Thr[i])) {
             n++;
-            b += MemSize(Thr[i]) + MemSize(Thr[i]->stack);
+            b += MemSize(Thr[i]) + MemSize(Thr[i]->stack) + (Thr[i]->tknbuf != NULL ? MemSize(Thr[i]->tknbuf) : 0);
         }
     b += MemSize(Thr[0]);
     *kb = (b + 512) / 1024;
@@ -922,7 +924,9 @@ void ThreadsStop(void) {
 }
 
 char *ThreadTokenBuffer(void) {
-    return (Cur == NULL || Cur->id == 0) ? tknbuf : Cur->tknbuf;
+    if(Cur == NULL || Cur->id == 0) return tknbuf;
+    if(Cur->tknbuf == NULL) Cur->tknbuf = GetMemory(TKNBUFSIZE);    // (its own, from its first EXECUTE to its end)
+    return Cur->tknbuf;
 }
 
 void ThreadStackLimits(void) {
@@ -946,6 +950,7 @@ int ThreadsEnd(void) {
     int i, eno = MMerrno, eline = MMerrline;
     StackSize = THREAD_STACK;                                       // (THREAD SIZE and SLICE are the program's)
     LocalSlots = THREAD_LOCALS;
+    NestDepth = THREAD_NEST;
     ThreadSliceLen = 1;
     ThreadHoldDepth = INT_MAX;
     memset(LockOwner, 0, sizeof(LockOwner));                        // (the locks, the hold and a wait are the program's too)
@@ -972,8 +977,10 @@ int ThreadsEnd(void) {
             ClearTempMemory();
         }
     }
+    MainStacks();
     LocalBase = 0; LocalLimit = MAXLOCALVARS;
     localtop = 0; hashlistpointer = 0; Localvarcnt = 0;
+    StrTmpIndex = 0; restorepointer = 0;
     varcnt = Globalvarcnt;
     LocalIndex = 0; gosubindex = forindex = doindex = 0;
     if(SymL != NULL) SymL = Thr[0]->syml;
@@ -985,6 +992,7 @@ int ThreadsEnd(void) {
     for(i = 1; i <= MAXTHREADS; i++)
         if(Thr[i] != NULL) {
             FreeMemory(Thr[i]->stack);
+            if(Thr[i]->tknbuf != NULL) FreeMemory(Thr[i]->tknbuf);
             FreeMemory(Thr[i]);
             Thr[i] = NULL;
         }
@@ -1079,8 +1087,10 @@ int ThreadArg(int n, long long int *i, MMFLOAT *f, char *s) {
 }
 
 // THREAD START n, sub [, argument ...]
-static void ThreadStart(int n, int StackSize, int LocalSlots, char *name, int argc, char **argv) {
+static void ThreadStart(int n, int StackSize, int LocalSlots, int Nest, char *name, int argc, char **argv) {
     struct s_thread *t;
+    char *q;
+    int nfor = Nest, ndo = Nest, ngosub = Nest + 1, ntemp = 64 + 16 * Nest, ndata = Nest < MAXRESTORE ? Nest : MAXRESTORE;
     struct s_targ ta[MAXTARGS];
     char *stack, sub[MAXVARLEN + 1], call[CALLMAX], *strs;
     int i, len = 0, base, maintop, bindings, calllen, nta, strbytes = 0;
@@ -1105,10 +1115,13 @@ static void ThreadStart(int n, int StackSize, int LocalSlots, char *name, int ar
     if(Cur != NULL) ThreadReap();                                   // (a number that has just ended is free to use again;
                                                                     // with the last of them gone, Cur is NULL after it)
     if(Cur == NULL) {                                               // the first: the main program's record
-        if((t = GetMemoryNull(sizeof(struct s_thread) + MAXLOCALVARS * sizeof(struct s_hash))) == NULL)
-            error("Not enough memory for a thread");
-        t->locals = (struct s_hash *)(t + 1);
-        t->nlocals = MAXLOCALVARS;
+        if((t = GetMemoryNull(sizeof(struct s_thread))) == NULL) error("Not enough memory for a thread");
+        t->locals = hashlist_main; t->nlocals = MAXLOCALVARS;        // (its stacks: the interpreter's own arrays)
+        t->fors = forstack_main; t->nfor = MAXFORLOOPS;
+        t->dos = dostack_main; t->ndo = MAXDOLOOPS;
+        t->gosub = gosubstack_main; t->errs = errorstack_main; t->subs = substack_main; t->ngosub = MAXGOSUB;
+        t->tmp = StrTmp_main; t->tmplevel = StrTmpLocalIndex_main; t->ntemp = MAXTEMPSTRINGS;
+        t->data = datastore_main; t->ndata = MAXRESTORE;
         t->state = T_READY;
         t->id = 0;
         t->floor = StackFloor;
@@ -1134,10 +1147,15 @@ static void ThreadStart(int n, int StackSize, int LocalSlots, char *name, int ar
     bindings = SymL != NULL ? SymCanonCount * sizeof(int16_t) : 0;
     stack = (OnChipFree() >= StackSize + 96 * 1024) ? GetInternalMemoryNull(StackSize) : NULL;
     if(stack == NULL) stack = GetMemoryNull(StackSize);
-    // (after the record: its arguments, its locals' list, its names' bindings, its call, and its arguments' strings;
-    // the arguments first, which hold 8-byte values)
-    t = stack != NULL ? GetMemoryNull(sizeof(struct s_thread) + nta * sizeof(struct s_targ) + LocalSlots * sizeof(struct s_hash)
-                                      + bindings + calllen + 4 + strbytes) : NULL;
+    /* After the record, in the order of their alignment: its arguments (8-byte values), its FOR and DO stacks, its DATA
+       saves, its GOSUB stack's three lists, its temporary memory's list, its locals' list, its names' bindings, the
+       temporary memory's levels, its call and its arguments' strings. NEST gives the stacks' entries: a FOR, a DO and
+       a SUB, FUNCTION or GOSUB each that deep (one more call for an interrupt routine), 64 + 16 a level of temporary
+       memory, and as many DATA saves. */
+    t = stack != NULL ? GetMemoryNull(sizeof(struct s_thread) + nta * sizeof(struct s_targ)
+                                      + (nfor + 1) * sizeof(struct s_forstack) + ndo * sizeof(struct s_dostack)
+                                      + ndata * sizeof(struct sa_data) + 3 * ngosub * sizeof(char *) + ntemp * sizeof(char *)
+                                      + LocalSlots * sizeof(struct s_hash) + bindings + ntemp + calllen + 4 + strbytes) : NULL;
     if(t == NULL) {
         if(stack != NULL) FreeMemory(stack);
         if(ThreadCount == 0) ThreadsOff();
@@ -1152,18 +1170,24 @@ static void ThreadStart(int n, int StackSize, int LocalSlots, char *name, int ar
     t->floor = (uint32_t)stack + THREAD_GUARD;
     t->lbase = t->localtop = base;
     t->llimit = base + LocalSlots;
-    t->locals = (struct s_hash *)((struct s_targ *)(t + 1) + nta);
-    t->nlocals = LocalSlots;
+    t->fors = (struct s_forstack *)((struct s_targ *)(t + 1) + nta); t->nfor = nfor;
+    t->dos = (struct s_dostack *)(t->fors + nfor + 1); t->ndo = ndo;
+    t->data = (struct sa_data *)(t->dos + ndo); t->ndata = ndata;
+    t->gosub = (char **)(t->data + ndata); t->errs = t->gosub + ngosub; t->subs = t->errs + ngosub; t->ngosub = ngosub;
+    t->tmp = (volatile char **)(t->subs + ngosub); t->ntemp = ntemp;
+    t->locals = (struct s_hash *)(t->tmp + ntemp); t->nlocals = LocalSlots;
+    q = (char *)(t->locals + LocalSlots);
     if(bindings) {
-        t->syml = (int16_t *)(t->locals + LocalSlots);
+        t->syml = (int16_t *)q;
         memset(t->syml, 0xFF, bindings);                            // (-1: no name has a local)
     }
+    t->tmplevel = (volatile char *)(q + bindings);
     t->CurrentLinePtr = CurrentLinePtr;                             // its SUB's call is reported at this line
     t->NextDataLine = (char *)ProgMemory;
     ScreenSave(t);                                                  // (the print position, colours and font of its starter)
     t->args = (struct s_targ *)(t + 1);
     t->nargs = nta;
-    t->call = (char *)(t->locals + LocalSlots) + bindings;
+    t->call = (char *)t->tmplevel + ntemp;
     memcpy(t->call, call, calllen);                                 // (the zeros after it end the statement and the "program")
     strs = t->call + calllen + 4;
     for(i = 0; i < nta; i++) {
@@ -1231,8 +1255,9 @@ static struct s_thread *Named(char *p) {
     return Thr[n];
 }
 
-/* THREAD START's first argument: the thread's number, then SIZE kb (its stack) and LOCALS m (its local slots), in
-   either order, each once, for this thread only; THREAD SIZE's otherwise. The same limits as THREAD SIZE's. */
+/* THREAD START's first argument: the thread's number, then SIZE kb (its stack), LOCALS m (its local slots) and NEST d
+   (how deep its FOR loops, its DO loops and its calls may each go), in any order, each once, for this thread only;
+   THREAD SIZE's otherwise. The same limits as THREAD SIZE's. */
 static int OptionValue(char **pp, int lo, int hi) {
     MMFLOAT f;
     long long int i;
@@ -1245,9 +1270,9 @@ static int OptionValue(char **pp, int lo, int hi) {
     return (int)i;
 }
 
-static char *StartOptions(char *p, int *n, int *size, int *slots) {
+static char *StartOptions(char *p, int *n, int *size, int *slots, int *nest) {
     char *q;
-    int gotsize = 0, gotslots = 0;
+    int gotsize = 0, gotslots = 0, gotnest = 0;
     *n = OptionValue(&p, 1, MAXTHREADS);
     for(;;) {
         skipspace(p);
@@ -1260,6 +1285,10 @@ static char *StartOptions(char *p, int *n, int *size, int *slots) {
             p = q;
             *slots = OptionValue(&p, 8, MAXLOCALVARS / 2) + 1;            // (+1: findvar keeps one slot free: m locals)
             gotslots = 1;
+        } else if(!gotnest && (q = checkstring(p, "NEST")) != NULL) {
+            p = q;
+            *nest = OptionValue(&p, 4, MAXGOSUB);
+            gotnest = 1;
         } else
             error("Syntax");
     }
@@ -1282,11 +1311,11 @@ void cmd_thread(void) {
         if(InterruptReturn != NULL) error("Invalid in an interrupt routine");
         if(ThreadCount) AskSwitch();                                // the statement tail makes the switch (ThreadSchedule)
     } else if((p = checkstring(cmdline, "START")) != NULL) {
-        int n, size = StackSize, slots = LocalSlots;
+        int n, size = StackSize, slots = LocalSlots, nest = NestDepth;
         getargs(&p, MAX_ARG_COUNT * 2 - 1, ",");
         if(argc < 3 || !(argc & 1)) error("Syntax");
-        q = StartOptions(argv[0], &n, &size, &slots);
-        ThreadStart(n, size, slots, argv[2], argc, argv);
+        q = StartOptions(argv[0], &n, &size, &slots, &nest);
+        ThreadStart(n, size, slots, nest, argv[2], argc, argv);
     } else if((p = checkstring(cmdline, "LOCK")) != NULL) {
         getargs(&p, 3, ",");
         if(!(argc == 1 || argc == 3)) error("Syntax");
@@ -1340,10 +1369,11 @@ void cmd_thread(void) {
         ThreadSliceLen = getint(p, 1, 100);
         if(ThreadSliceLeft) ThreadSliceLeft = ThreadSliceLen;
     } else if((p = checkstring(cmdline, "SIZE")) != NULL) {
-        getargs(&p, 3, ",");
-        if(!(argc == 1 || argc == 3)) error("Syntax");
+        getargs(&p, 5, ",");
+        if(!(argc == 1 || argc == 3 || argc == 5)) error("Syntax");
         if(*argv[0]) StackSize = getint(argv[0], 12, 512) * 1024;   // (12: the guard and 6 KB to run in)
-        if(argc == 3) LocalSlots = getint(argv[2], 8, MAXLOCALVARS / 2) + 1;   // (as THREAD START's LOCALS: m locals)
+        if(argc >= 3 && *argv[2]) LocalSlots = getint(argv[2], 8, MAXLOCALVARS / 2) + 1;   // (as THREAD START's LOCALS: m locals)
+        if(argc == 5) NestDepth = getint(argv[4], 4, MAXGOSUB);     // (as its NEST)
     } else
         error("Syntax");
 }

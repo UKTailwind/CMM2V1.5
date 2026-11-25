@@ -46,10 +46,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "MMBasic_Includes.h"
 #include "Hardware_Includes.h"
 
-extern struct s_hash hashlist[MAXLOCALVARS];                          // (MMBasic.c: the locals in creation order)
+extern struct s_hash *hashlist;                                       // (MMBasic.c: the locals in creation order)
 extern int hashlistpointer;
 extern int StrTmpIndex;                                             // (Memory.c: the temporary memory registry)
-extern volatile char StrTmpLocalIndex[];
 
 const symtab_t *SymTabProg = NULL;
 const symtab_t *SymTabLib = NULL;
@@ -597,7 +596,7 @@ int SymBegin(char *src) {
     SymLibSave = 0;
     symblk = NULL;
     if(!SymEnabled) return false;
-    if(StrTmpIndex >= MAXTEMPSTRINGS) return false;
+    if(StrTmpIndex >= TempLimit) return false;
     if((symblk = GetMemoryNull(SYMBLKSIZE)) == NULL) return false;
     // register it as temporary memory so that an error part way through a save frees it
     StrTmpLocalIndex[StrTmpIndex] = LocalIndex;

@@ -14,6 +14,7 @@ See MMBasic.h for the licence.
 #define THREAD_STACK (20 * 1024)                    // a thread's C stack
 #define THREAD_GUARD (6 * 1024)                     // the part of it below the stack check's floor (Stage 0's figures)
 #define THREAD_LOCALS 48                            // its local variable slots
+#define THREAD_NEST 20                              // how deep its FOR loops, DO loops and calls may each go (NEST)
 #define MAXLOCKS 16                                 // THREAD LOCK's locks, numbered 1 to MAXLOCKS
 
 extern int ThreadCount;                             // the threads started and not yet ended: 0, and nothing here is active

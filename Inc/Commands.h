@@ -82,7 +82,8 @@ struct s_forstack {
     }  __attribute__ ((aligned (8))) stepvalue;
 } __attribute__ ((aligned (8))) ;
 
-extern struct s_forstack forstack[MAXFORLOOPS + 1] ;
+extern struct s_forstack *forstack, forstack_main[MAXFORLOOPS + 1];   // the running thread's, and the main program's own
+extern int ForLimit, DoLimit, GosubLimit, RestoreLimit;               // (Commands.c: the entries the running thread has)
 extern int forindex;
 
 struct s_dostack {
@@ -131,15 +132,14 @@ struct sa_data{
     char* SaveNextDataLine;
     int SaveNextData;
 };
-extern struct sa_data datastore[MAXRESTORE];
+extern struct sa_data *datastore, datastore_main[MAXRESTORE];
 extern int restorepointer;
 
-extern struct s_dostack dostack[MAXDOLOOPS];
+extern struct s_dostack *dostack, dostack_main[MAXDOLOOPS];
 extern int doindex;
 
-extern char *gosubstack[MAXGOSUB];
-extern char *errorstack[MAXGOSUB];
-extern char *substack[MAXGOSUB];
+extern char **gosubstack, **errorstack, **substack;
+extern char *gosubstack_main[MAXGOSUB], *errorstack_main[MAXGOSUB], *substack_main[MAXGOSUB];
 extern int gosubindex;
 extern char DimUsed;
 

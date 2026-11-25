@@ -48,7 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef MEMORY_HEADER
 #define MEMORY_HEADER
 
-extern volatile char *StrTmp[];                                              // used to track temporary string space on the heap
+extern volatile char **StrTmp;                                               // used to track temporary string space on the heap
+extern volatile char *StrTmp_main[], *StrTmpLocalIndex, StrTmpLocalIndex_main[];   // (the main program's own: Thread.c)
+extern int TempLimit;                                               // the entries the running thread has
 extern int TempMemoryTop;                                           // this is the last index used for allocating temp memory
 extern int TempMemoryIsChanged;						                // used to prevent unnecessary scanning of strtmp[]
 

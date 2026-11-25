@@ -3048,11 +3048,11 @@ A third letter can be used in the alignment string to indicate the rotation of t
 Threads run SUBs of the program alongside the main program, each with its own loops, local variables and PAUSEs. One runs at a time; they take turns between statements, 1 ms each by default. See *Appendix R* for an overview, and the *Colour Maximite 2 Threads User Manual* for the details and worked programs.
 The main program is thread 0. Threads are numbered 1 to 16, as the program chooses. A thread ends when its SUB ends, at THREAD EXIT or at THREAD STOP; an error in any thread, END in any thread, or Ctrl-C stops the whole program and every thread.
 
-=+= THREAD START n [SIZE kb] [LOCALS m], sub [, argument ...]
+=+= THREAD START n [SIZE kb] [LOCALS m] [NEST d], sub [, argument ...]
 --- keep
 Starts thread 'n' (1 to 16) running the SUB 'sub'. The thread runs when its turn comes: THREAD START returns at once.
 Up to 16 arguments may follow. Each is evaluated by THREAD START, in the thread that runs it, and given to the SUB's parameters by value, so the new thread has its own copy. A whole array, written as its name with empty brackets (eg, data()), is passed as itself and must be a global array ("Only a global array can be passed to a thread").
-SIZE and LOCALS, in either order, apply to this thread only: its stack in Kbytes (12 to 512) and the number of local variables it may have (8 to 256). Without them THREAD SIZE's are used (20 and 48 unless the program set others).
+SIZE, LOCALS and NEST, in any order, apply to this thread only: its stack in Kbytes (12 to 512), the number of local variables it may have (8 to 256), and how deep its FOR loops, its DO loops and its SUB, FUNCTION and GOSUB calls may each go (4 to 100). Without them THREAD SIZE's are used (20, 48 and 20 unless the program set others). A thread takes memory for what it is given, so a thread with a simple job can be made small: THREAD START n SIZE 12 LOCALS 8 NEST 4 takes about 14 Kbytes where the default takes about 26.
 The new thread starts with the print position, colours, font and write page of the thread that started it. Its interrupts are its own (see *Appendix R*).
 'n' must not be running ("Thread n is running"). THREAD START is for programs, not the command prompt.
 
@@ -3078,9 +3078,9 @@ THREAD PAUSE holds thread 'n': it does not run, and its interrupts wait, until T
 --- keep
 The time slice, 1 to 100 milliseconds: how long a thread runs before the next one does, if it does not wait or yield first. It is 1 ms at RUN.
 
-=+= THREAD SIZE kb [, locals]
+=+= THREAD SIZE kb [, locals [, nest]]
 --- keep
-The stack, in Kbytes (12 to 512), and the number of local variables (8 to 256) of the threads started after it without SIZE and LOCALS of their own. They are 20 and 48 at RUN. A thread of 20 Kbytes can call about nine FUNCTIONs inside each other (SUB calls use no stack); a thread takes about 17 Kbytes more than its stack.
+The stack, in Kbytes (12 to 512), the number of local variables (8 to 256) and the depth of loops and calls (4 to 100) of the threads started after it without SIZE, LOCALS and NEST of their own. They are 20, 48 and 20 at RUN, and a value left out is not changed (THREAD SIZE 20, , 8). A thread of 20 Kbytes can call about nine FUNCTIONs inside each other (SUB calls use no stack); with these values a thread takes about 6 Kbytes more than its stack.
 
 =+= THREAD LOCK k [, timeout]
 or

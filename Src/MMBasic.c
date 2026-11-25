@@ -117,7 +117,8 @@ int LocalIndex;                                                     // used to t
 char OptionExplicit,OptionEscape;                                                // used to force the declaration of variables before their use
 char DefaultType;                                                   // the default type if a variable is not specifically typed
 int emptyarray=0;
-struct s_hash hashlist[MAXLOCALVARS];
+struct s_hash hashlist_main[MAXLOCALVARS];                          // the locals in the order made: the running thread's own
+struct s_hash *hashlist = hashlist_main;                            // list (Thread.c), the main program's this one
 char *subfun[MAXSUBFUN];                                            // table used to locate all subroutines and functions
 jmp_buf run;                                                       // longjump to recover from an error and abort
 jmp_buf mark;                                                       // longjump to recover from an error and abort
@@ -1180,7 +1181,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 
     // from now on we have a user defined sub or function (not a C routine)
 
-    if(gosubindex >= MAXGOSUB) error("Too many nested SUB/FUN");
+    if(gosubindex >= GosubLimit) error("Too many nested SUB/FUN");
 
 
     errorstack[gosubindex] = CallersLinePtr;
@@ -1525,7 +1526,7 @@ void DefinedSubFun(int isfun, char *cmd, int index, MMFLOAT *fa, long long int *
 
     // from now on we have a user defined sub or function (not a C routine)
 
-    if(gosubindex >= MAXGOSUB) error("Too many SUB and FUN");
+    if(gosubindex >= GosubLimit) error("Too many SUB and FUN");
     errorstack[gosubindex] = CallersLinePtr;
 	gosubstack[gosubindex++] = isfun ? NULL : nextstmt;             // NULL signifies that this is returned to by ending ExecuteProgram()
 #define buffneeded MAX_ARG_COUNT*(sizeof(union u_argval)+ 2*sizeof(int)+3*sizeof(unsigned char *)+sizeof(unsigned char))+ 2*STRINGSIZE
@@ -5081,7 +5082,7 @@ static void MIPS16 ClearRuntimeAll(int keep) {
 	for(i=0;i<TRACE_BUFF_SIZE;i++)TraceBuff[i]=0;
 	TraceBuffIndex=0;
 	SetFont(Option.DefaultFont);
-    memset(datastore, 0, sizeof(struct sa_data) * MAXRESTORE);
+    memset(datastore, 0, sizeof(struct sa_data) * RestoreLimit);
     restorepointer = 0;
 //Refresh the tokens to get them into cache
     tokenTHEN  = GetTokenValue("Then");

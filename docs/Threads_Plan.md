@@ -21,9 +21,12 @@ end).*
   stopped inside a `FUNCTION` has half an expression on the C stack. With a stack of its own (about a dozen
   instructions of assembler to swap) a thread can be stopped at any statement, and `PAUSE` in one thread simply lets
   the others run.
-- **Everything else a thread owns is copied out of the interpreter's globals when it stops and back when it runs**:
-  the statement pointers, the GOSUB, FOR and DO stacks, the list of its local variables, its temporary memory, its
-  error state. Only the parts in use are copied; a switch takes about 4.5 microseconds on a G1 (Stage 1's figure).
+- **Each thread has its own interpreter stacks, and a switch points the interpreter at them**: the GOSUB, FOR and DO
+  stacks, the DATA saves, the list of its local variables and its temporary memory's list are arrays of the thread's
+  own, as long as its NEST and LOCALS give, and `forstack`, `dostack` and the rest are pointers a switch sets (since
+  25 November; before that they were copied in and out, and every record held full-size copies). The few single
+  values (the statement pointers, the indices, the error state) are copied out of the interpreter's globals when
+  the thread stops and back when it runs.
 - **Locals are safe when two threads run the same SUB.** Each thread has its own range of local variable slots, its
   own call depth and its own name bindings. STATIC variables and globals are shared.
 - **Interrupt routines stay with the main program.** A thread that finds an interrupt due hands it to the main thread
@@ -106,10 +109,11 @@ exists, nothing below is active.
 
 ### What is switched
 
-The running thread always uses the interpreter's ordinary globals, at their ordinary addresses, so no existing code
-changes how it reaches them and the hot paths in ITCM stay as they are. When a thread stops, its values are copied
-from the globals into its record; when it runs again they are copied back. For the stacks, only the entries in use
-are copied.
+The running thread always uses the interpreter's ordinary globals, under their ordinary names, so no existing code
+changes how it reaches them and the hot paths in ITCM stay as they are. When a thread stops, its single values are
+copied from the globals into its record; when it runs again they are copied back. The stacks are not copied: each
+thread has its own, and the interpreter's names for them are pointers set at the switch (*The pointer swap* under
+Progress; as first built, the entries in use were copied).
 
 | State | Globals | Copied |
 |---|---|---|
@@ -1043,9 +1047,10 @@ finished first and then come back to it"):
   commands (2.3 KB at most between checks, measured) and what runs on any stack at any time: the hardware
   interrupts' handlers and the housekeeping in CheckAbort (1.2 KB idle, 2.6 KB during a TLS request; the audio
   decoders, Bluetooth and USB not measured yet). Those set the true floor and must be measured first.
-- **The record's size.** About 16.9 KB, mostly full-size save areas: 100 FOR levels (3.2 KB), 100 DO levels (4 KB),
-  the temporary strings' list for 1,024 (5 KB). They could be sized per thread. This matters most for an RP2040
-  port, where the guard too must come from the PicoMite's own measurements.
+- **The record's size.** It was about 16.9 KB, mostly full-size save areas: 100 FOR levels (3.2 KB), 100 DO levels
+  (4 KB), the temporary strings' list for 1,024 (5 KB). Done on 25 November (*The pointer swap* below): each thread's
+  lists are its own and as long as its NEST gives. For an RP2040 port the guard is what is left, and it must come
+  from the PicoMite's own measurements.
 
 ### Stage 5, its tools (25 November)
 
@@ -1064,3 +1069,49 @@ the compile modes.
 
 Left in Stage 5: the manual chapter, the commands and functions reference, release notes, and the full regression on
 a G1, a G2 and a G3.
+
+### The pointer swap: each thread's own stacks, sized by NEST (25 November)
+
+Peter, after the review of what a thread's record holds: "do the pointer swap and per-thread sizing now, this is
+fundamental for the port to the PicoMite". As first built, the record held a full-size copy of each of the
+interpreter's stacks (100 FOR levels, 100 DO levels, 100 calls, 1,024 temporary blocks, 50 DATA saves, EXECUTE's
+line: 14.5 KB of its 15.1), and a switch copied the entries in use out and in.
+
+| Part | How it was done |
+|---|---|
+| The interpreter's side | `forstack`, `dostack`, `gosubstack`, `errorstack`, `substack`, `datastore`, `StrTmp`, `StrTmpLocalIndex` and `hashlist` are pointers, with `ForLimit`, `DoLimit`, `GosubLimit`, `RestoreLimit` and `TempLimit` beside them. The arrays they were are `forstack_main` and the rest, of the sizes they always had: the main program's, and what the pointers are set to with no thread. Every test of `MAXFORLOOPS`, `MAXDOLOOPS`, `MAXGOSUB`, `MAXRESTORE` and `MAXTEMPSTRINGS` (Commands.c, MMBasic.c, MM_Misc.c, Memory.c, Symbols.c, Stream.c) tests the limit instead; nothing took `sizeof` of an array or declared one a second time |
+| A thread's lists | In the record's block, after the record: the arguments, the FOR and DO stacks, the DATA saves, the GOSUB stack's three lists, the temporary memory's list, the locals' list, the bindings, the temporary memory's levels, the call and the arguments' strings (in the order of their alignment) |
+| NEST | `THREAD START n NEST d` (4 to 100; 20 otherwise, `THREAD_NEST`), `THREAD SIZE kb [, locals [, nest]]`. d FOR levels, d DO levels, d + 1 calls (the thread's own SUB is one; an interrupt routine in the thread takes one), 64 + 16 d temporary blocks, d DATA saves (50 at most) |
+| The switch | `ContextSave` keeps each list's index; `ContextLoad` sets the pointers and limits. Nothing is copied. `MainStacks` puts the pointers back at the end of the program, before any record is freed |
+| EXECUTE's line | A block of its own (512 bytes) made at a thread's first EXECUTE and freed with the thread |
+
+What a thread takes, measured on the G1 (`tests/threads/tsize.bas`, `tnest.bas`):
+
+| Thread | Before | Now |
+|---|---|---|
+| The default: SIZE 20, LOCALS 48, NEST 20 | 37,376 bytes | 26,624 |
+| SIZE 12 LOCALS 8 | 27,648 | 17,152 |
+| SIZE 12 LOCALS 8 NEST 4 | | about 13,000 (14,336 in `tnest`, where SIZE 12 LOCALS 8 is 18,432: more names to bind) |
+
+So the record went from about 16.9 KB to about 6 KB by default and about 2 KB at the smallest, and what is left of
+a small thread is its stack: the 6 KB guard and 6 KB to run in. That is the next thing to bring down for an RP2040
+(*the stack-hungry commands testing the stack themselves*, above).
+
+Why it is safe: with no thread the pointers are the arrays they always were, with the same limits; a list too
+short gives the interpreter's usual error ("Too many nested FOR loops" and the rest) from the same test as before;
+the lists live in the thread's own block and are freed only when another thread reaps it or at the end, after the
+pointers are the main program's again; and an address taken in a list before a switch (a FOR whose limit calls a
+FUNCTION that yields) is still that thread's entry after it, where before it was an entry whose contents had been
+swapped out and back.
+
+On the G1 and the G3 (set to default mode 8, 640 x 480, as the G1, by Peter's word): the 30 thread tests in the
+three compile modes, 90 of 90 on each; the quick check the same as the build before but for `tsize`'s figures (and
+`m4fixes` on the G3, which now passes for the mode); the crashers and the 78 Route B programs as before. The
+timings: a yield to a thread and back 22.06 to 18.01 us on the G1 (18.85 to 15.32 on the G3), 18% less, and the
+same (18.10) with the thread eight FOR loops, a DO loop and four calls deep; the statements' own times within
+their usual scatter (a compiled SUB call +6% on the G1 and -0.6% on the G3: the flash layout, not the pointers).
+
+`tests/threads/tnest.bas`: the memory a NEST 4 thread saves; calls 4, 20 and 30 deep for NEST 4, the default and
+NEST 30, and the next refused; four FOR and four DO loops in threads of three sizes and the main program at once;
+strings; the main program still 100 deep beside a thread; THREAD SIZE's third value; the limits; and a fifth FOR
+loop in a NEST 4 thread stopping the program.

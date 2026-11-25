@@ -4,7 +4,7 @@
 
 ```
 THREAD START n, sub [, argument ...]
-THREAD START n SIZE kb LOCALS m, sub [, argument ...]
+THREAD START n SIZE kb LOCALS m NEST d, sub [, argument ...]
 ```
 
 THREAD START starts thread 'n', a number from 1 to 16 that you choose, running the SUB 'sub'. The main program is thread 0. THREAD START returns at once: the new thread runs when its turn comes, a moment later.
@@ -43,22 +43,23 @@ It must be a global array. A SUB's own array would vanish when that SUB returned
 
 Several threads may run the same SUB at the same time, each with its own parameters and LOCAL variables. MM.INFO(THREAD) tells a SUB which thread is running it.
 
-## SIZE and LOCALS
+## SIZE, LOCALS and NEST
 
-Each thread has a stack of its own, for the SUB and FUNCTION calls it makes, and room for a number of LOCAL variables. Unless you say otherwise a thread gets a 20 KB stack and 48 local variables. SIZE and LOCALS, after the thread's number and in either order, set them for that thread:
+Each thread has a stack of its own, for the SUB and FUNCTION calls it makes, room for a number of LOCAL variables, and its own lists of the FOR loops, DO loops and calls it is inside. Unless you say otherwise a thread gets a 20 KB stack, 48 local variables, and loops and calls 20 deep. SIZE, LOCALS and NEST, after the thread's number and in any order, set them for that thread:
 
 ```
-Thread Start 4 Size 12 Locals 8, Clock          ' a small thread
+Thread Start 4 Size 12 Locals 8 Nest 4, Clock   ' a small thread
 Thread Start 5 Size 48 Locals 100, Solver       ' a deep recursion
 ```
 
-SIZE is 12 to 512 KB and LOCALS 8 to 256. THREAD SIZE sets the defaults for threads started later without their own:
+SIZE is 12 to 512 KB, LOCALS 8 to 256 and NEST 4 to 100. THREAD SIZE sets the defaults for threads started later without their own:
 
 ```
 Thread Size 12, 16                               ' stack 12 KB, 16 locals
+Thread Size 12, 16, 8                            ' and loops and calls 8 deep
 ```
 
-Both go back to 20 KB and 48 at the next RUN. The chapter *Memory and Limits* says how to choose them.
+They go back to 20 KB, 48 and 20 at the next RUN. The chapter *Memory and Limits* says how to choose them.
 
 ## How a thread ends
 

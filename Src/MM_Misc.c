@@ -4551,7 +4551,7 @@ __attribute__((noinline)) void IntDispatch(char *intaddr) {
     if(commandtbl_at(intaddr) == cmdSUB) {
         memset(rti, 0, sizeof(rti));
         commandtbl_put(rti, cmdIRET);                               // setup a dummy IRETURN command
-        if(gosubindex >= MAXGOSUB) error("Too many SUBs for interrupt");
+        if(gosubindex >= GosubLimit) error("Too many SUBs for interrupt");
         errorstack[gosubindex] = CurrentLinePtr;
         substack[gosubindex] = intaddr;                             // for STATIC: the interrupt SUB is the SUB running
     	gosubstack[gosubindex++] = rti;                             // return from the subroutine to the dummy IRETURN command

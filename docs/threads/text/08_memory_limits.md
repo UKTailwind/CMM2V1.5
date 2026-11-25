@@ -5,9 +5,16 @@
 A thread takes two blocks of memory while it runs, both freed when it ends:
 
 - **its stack**: 20 KB unless SIZE or THREAD SIZE says otherwise. It comes from the fast memory inside the processor while plenty of that is free, and from the SDRAM otherwise;
-- **its record**: about 17 KB, which keeps the thread's loops, calls, temporary strings and other state while another thread runs.
+- **its record**: the thread's own lists of its FOR loops, DO loops, calls, temporary strings and local variables, with its other state. Its size follows LOCALS and NEST: about 6 KB by default, about 2 KB at the smallest.
 
-So a thread of the default size takes about 37 KB, and one started with SIZE 12 LOCALS 8 about 28 KB. On a Generation 1, with about 4 MB of memory for programs, and on a Generation 2 or 3, with about 15 MB, sixteen threads fit easily.
+{widths: 50,25,25}
+| Thread | Stack | In all |
+|---|---|---|
+| The default (SIZE 20 LOCALS 48 NEST 20) | 20 KB | about 26 KB |
+| SIZE 12 LOCALS 8 | 12 KB | about 17 KB |
+| SIZE 12 LOCALS 8 NEST 4 | 12 KB | about 14 KB |
+
+On a Generation 1, with about 4 MB of memory for programs, and on a Generation 2 or 3, with about 15 MB, sixteen threads fit easily. A thread that runs EXECUTE takes another 512 bytes from its first EXECUTE to its end.
 
 ## The stack
 
@@ -27,6 +34,18 @@ Each thread has room for a number of LOCAL variables at once: 48 unless LOCALS o
 
 All the threads' local variables come from one table of 512, which the main program shares, so the more each thread has, the fewer threads can run: with 48 each, about ten. LOCALS 8 for small threads lets all sixteen run.
 
+## Loops and calls (NEST)
+
+Each thread keeps its own lists of the loops and calls it is inside, and NEST says how long they are: 20 unless NEST or THREAD SIZE says otherwise. With NEST d a thread may be:
+
+- d FOR loops inside each other;
+- d DO loops inside each other;
+- d SUB, FUNCTION and GOSUB calls deep, counted from its own SUB. An interrupt routine that runs in the thread counts as one of them.
+
+Going deeper is the usual error: "Too many nested FOR loops", "Too many nested DO or WHILE loops", "Too many nested SUB/FUN" or "Too many nested GOSUB". NEST also sets how many temporary strings the thread's expressions may hold at once (64 and 16 more for each level), which no ordinary statement comes near; running out is "Not enough temporary memory".
+
+The main program's lists are the ones it always had, 100 deep, whatever the threads are given. A thread that loops, pauses and calls a SUB or two needs no more than NEST 4, the smallest.
+
 ## Limits
 
 {widths: 50,50}
@@ -36,6 +55,7 @@ All the threads' local variables come from one table of 512, which the main prog
 | Arguments to THREAD START | 16 |
 | Stack (SIZE) | 12 to 512 KB, 20 by default |
 | Local variables (LOCALS) | 8 to 256, 48 by default |
+| Loops and calls deep (NEST) | 4 to 100, 20 by default |
 | Time slice (THREAD SLICE) | 1 to 100 ms, 1 by default |
 | Locks | 16 |
 | Flags | 64 (FLAG(0) to FLAG(63)) |

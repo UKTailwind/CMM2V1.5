@@ -121,8 +121,12 @@ NOTE:
 // However, the PIC32 C compiler provides us with a convenient marker (see diagram above).
 
 
-volatile char *StrTmp[MAXTEMPSTRINGS];                                       // used to track temporary string space on the heap
-volatile char StrTmpLocalIndex[MAXTEMPSTRINGS];                              // used to track the LocalIndex for each temporary string space on the heap
+// (the running thread's own, as the stacks of Commands.c: Thread.c)
+volatile char *StrTmp_main[MAXTEMPSTRINGS];                                  // used to track temporary string space on the heap
+volatile char StrTmpLocalIndex_main[MAXTEMPSTRINGS];                         // used to track the LocalIndex for each temporary string space on the heap
+volatile char **StrTmp = StrTmp_main;
+volatile char *StrTmpLocalIndex = StrTmpLocalIndex_main;
+int TempLimit = MAXTEMPSTRINGS;
 
 //unsigned char *VarTableTop;                                         // this is the top of the RAM table
 
@@ -944,7 +948,7 @@ void m_alloc(int size) {
 // A pointer to the space is also saved in strtmp[] so that the memory can be automatically freed at the end of the command
 // StrTmpLocalIndex[] is used to track the sub/fun nesting level at which it was created
 void *GetTempMemory(int NbrBytes) {
-    if(StrTmpIndex >= MAXTEMPSTRINGS) error("Not enough temporary memory");
+    if(StrTmpIndex >= TempLimit) error("Not enough temporary memory");
     StrTmpLocalIndex[StrTmpIndex] = LocalIndex;
     StrTmp[StrTmpIndex] = (NbrBytes > 8192 ? GetMemory(NbrBytes) :GetInternalMemory(NbrBytes));
    // StrTmp[StrTmpIndex] = (NbrBytes > 8192 ? GetMemory(NbrBytes) :GetSystemMemory(NbrBytes)); //Get from bottom up
@@ -957,7 +961,7 @@ void *GetTempMemory(int NbrBytes) {
 // get a temporary string buffer
 // this is used by many BASIC string functions.  The space only lasts for the length of the command.
 void *GetTempStrMemory(void) {
-    if(StrTmpIndex >= MAXTEMPSTRINGS) error("Not enough temporary string memory");
+    if(StrTmpIndex >= TempLimit) error("Not enough temporary string memory");
     StrTmpLocalIndex[StrTmpIndex] = LocalIndex;
     StrTmp[StrTmpIndex] = GetStringMemory();
     TempMemoryIsChanged = true;
@@ -1112,7 +1116,7 @@ static void HeapWipe(void **keep, int *size, int n) {
     BBCSoundRelease();                                              // read now. PLAY BBC's state block is in this heap: freed while the map is valid
     memset(SDmap,0x00,SDMAP_SIZE);
     memset(mmap,0x00,sizeof(mmap));
-    for(i = 0; i < MAXTEMPSTRINGS; i++) StrTmp[i] = NULL;
+    for(i = 0; i < TempLimit; i++) StrTmp[i] = NULL;
     MBitsSet((unsigned char *)RAMEND, PUSED | PLAST);
 //    SBitsSet((unsigned char *)SRAMEND, PUSED | PLAST);
     SDBitsSet((unsigned char *)SDRAMEND, PUSED | PLAST);

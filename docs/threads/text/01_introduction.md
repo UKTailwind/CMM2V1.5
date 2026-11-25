@@ -64,7 +64,7 @@ THREAD START 1, Heart starts thread 1 running the SUB Heart. From then on two th
 - **Interrupts and Threads**: interrupts belong to the thread that sets them up.
 - **The Network and Bluetooth**: each belongs to one thread.
 - **Errors and Debugging**: what happens at an error, Ctrl-C and END, and THREAD LIST, TRACE, MEMORY and profiling.
-- **Memory and Limits**: what a thread takes, SIZE and LOCALS, and what cannot be done in a thread.
+- **Memory and Limits**: what a thread takes, SIZE, LOCALS and NEST, and what cannot be done in a thread.
 - **Worked Programs**: complete programs that use threads.
 - **Appendix A**: the commands and functions in brief.
 

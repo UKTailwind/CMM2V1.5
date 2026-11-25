@@ -31,13 +31,13 @@ The *Colour Maximite 2 Threads User Manual* describes threads in detail, with wo
 {widths: 42,58}
 | Command | What it does |
 |---|---|
-| THREAD START n [SIZE kb] [LOCALS m], sub [, argument ...] | Starts thread n (1 to 16) running the SUB, with its arguments by value |
+| THREAD START n [SIZE kb] [LOCALS m] [NEST d], sub [, argument ...] | Starts thread n (1 to 16) running the SUB, with its arguments by value |
 | THREAD EXIT | Ends the thread that runs it |
 | THREAD YIELD | Gives up the rest of the time slice |
 | THREAD STOP n | Ends thread n where it stands |
 | THREAD PAUSE n, THREAD RESUME n | Holds thread n, and lets it go on |
 | THREAD SLICE ms | The time slice, 1 to 100 ms (1 at RUN) |
-| THREAD SIZE kb [, locals] | The stack and local variables of later threads (20 KB and 48 at RUN) |
+| THREAD SIZE kb [, locals [, nest]] | The stack, local variables and depth of loops and calls of later threads (20 KB, 48 and 20 at RUN) |
 | THREAD LOCK k [, timeout], THREAD UNLOCK k | One thread at a time between them (16 locks) |
 | THREAD HOLD, THREAD RELEASE | No other thread runs between them |
 | THREAD WAIT n [, timeout] | Waits until thread n has ended |
@@ -100,6 +100,6 @@ These are refused in a thread other than the main program: RUN, CHAIN, FLASH RUN
 
 ## Memory and limits
 
-A thread takes its stack (20 KB unless SIZE or THREAD SIZE says otherwise) and a record of about 17 KB. A stack of 20 KB lets a thread call about nine FUNCTIONs inside each other; SUB calls take none. Each thread may have 48 local variables unless LOCALS or THREAD SIZE says otherwise, and about ten threads can run with these sizes. THREAD START n SIZE 12 LOCALS 8 makes a small thread for a simple job.
+A thread takes its stack (20 KB unless SIZE or THREAD SIZE says otherwise) and a record, whose size follows what the thread is given: about 6 KB by default. A stack of 20 KB lets a thread call about nine FUNCTIONs inside each other; SUB calls take none. Each thread may have 48 local variables unless LOCALS or THREAD SIZE says otherwise, and about ten threads can run with these sizes. Each thread's FOR loops, DO loops and calls may each be 20 deep unless NEST or THREAD SIZE says otherwise (the main program's 100, as always). So a default thread takes about 26 KB, and THREAD START n SIZE 12 LOCALS 8 NEST 4 makes a small thread of about 14 KB for a simple job.
 
 THREAD LIST shows how much stack each thread has used, MEMORY has a line for the threads, TRACE ON shows a thread's lines as [#n:line], and OPTION PROFILING charges each line only with the time its own thread spent on it.

@@ -1,0 +1,20 @@
+  SIZE 12 LOCALS 8: 18432 bytes; with NEST 4: 14336
+ok  NEST 4 takes at least 2 KB less than NEST 20
+  calls deep: NEST 4 4, the default 20, NEST 30 30
+ok  NEST 4: four calls deep
+ok  the default: twenty
+ok  NEST 30: thirty
+ok  and the next is refused
+ok  four FOR loops deep in NEST 4, the default, NEST 8 and the main program
+ok  and four DO loops
+ok  strings in a NEST 4 thread
+ok  and in a default one
+ok  the main program still calls a hundred deep beside a thread (Deep and 99)
+ok  THREAD SIZE 20, , 6: six calls deep
+ok  NEST 3 is refused
+ok  NEST twice is refused
+tnest: 13 of 13 passed
+Error in thread 5, line 154: Too many nested FOR loops
+
+Main program: line 162, ready
+Thread 5: line 154, running
