@@ -216,22 +216,21 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
                 }
                 else
                 {
-                        /* An error raised below, in getting the buffer, is not to stop the program. But the statement loop only counts
-                           a skip down at the depth ErrorSkipDepth holds, which only ON ERROR SKIP set: in a program that had not used
-                           it this count never dropped, and every later error in the program was skipped without a word (a web server
-                           after its first request). It also replaced the program's own ON ERROR SKIP n, IGNORE or RESTART. (The CMM2's,
-                           25 Nov 2026: tools/port_net.py makes this change until the PicoMite's file has its own.) */
-                        if (OptionErrorSkip == 0)
-                        {
-                                OptionErrorSkip = 1;
-                                ErrorSkipDepth = ExecDepth;
-                        }
                         if (state->buffer_recv[pcb] != NULL)
                         {
                                 FreeMemorySafe((void **)&state->buffer_recv[pcb]);
                                 //                                MMPrintString("Internal error in tcp_server_recv - Attempting recovery");
                         }
-                        state->buffer_recv[pcb] = GetMemory(p->tot_len);
+                        /* GetMemoryNull, not GetMemory: an error() here would longjmp out of lwIP. (This used to set
+                           OptionErrorSkip = 1 first, which also made the program skip every later error of its own
+                           when ON ERROR SKIP had not been used since reset, and could longjmp to a stale ErrNext.) */
+                        state->buffer_recv[pcb] = GetMemoryNull(p->tot_len);
+                        if (state->buffer_recv[pcb] == NULL)
+                        { // no room for it now: refuse the data, which lwIP keeps and offers again (refused_data)
+                                state->recv_len[pcb] = 0;
+                                state->inttrig[pcb] = 0;
+                                return ERR_MEM;
+                        }
                         state->inttrig[pcb] = 1;
                         // DEBUG_printf("Tcp_HTTP_recv on pcb %d / %d\r\n",pcb, p->tot_len);
                         state->recv_len[pcb] = pbuf_copy_partial(p, state->buffer_recv[pcb], p->tot_len, 0);
