@@ -763,18 +763,28 @@ void Rgb121BlitResize(char *p) {
         for(int y = 0; y < sh; y++)
             for(int x = 0; x < sw; x++) Put4(copy + y * ss, x, Get4(Row(s, sy + y), sx + x));
     } else ox = sx;
-    int64_t ystep = ((int64_t)sh << 16) / dh, yfp = (((int64_t)(y0 - dy) * sh) << 16) / dh;
-    int64_t xstep = ((int64_t)sw << 16) / dw, xfp0 = (((int64_t)(x0 - dx) * sw) << 16) / dw;
-    for(int y = y0; y < y1; y++, yfp += ystep) {
-        int py = (int)(yfp >> 16);
-        if(py >= sh) py = sh - 1;
-        const uint8_t *srow = copy ? copy + py * ss : Row(s, sy + py);
+    /* Pixel k of the destination rectangle (0 to dw-1 across; likewise down) shows pixel k * sw / dw of the source
+       rectangle, rounded down. The place is kept exactly, as a whole part and a remainder out of dw that carries: a
+       16.16 step is rounded down itself, which put every block's edge a pixel late whenever sw / dw (or dw / sw) was
+       not a power of two (the PicoMite's f9fc53c, 25 Nov 2026: its Blit.c's names). x0 and y0 are the first pixels
+       drawn, at or after dx and dy, so neither place starts below 0, and none passes the source's last pixel. */
+    unsigned int x_whole = sw / dw, x_rem = sw % dw, y_whole = sh / dh, y_rem = sh % dh;
+    int64_t tt = (int64_t)(y0 - dy) * sh;
+    int src_y = (int)(tt / dh);
+    unsigned int y_part = (unsigned int)(tt % dh);
+    tt = (int64_t)(x0 - dx) * sw;
+    int src_x0 = (int)(tt / dw);
+    unsigned int x_part0 = (unsigned int)(tt % dw);
+    for(int y = y0; y < y1; y++, src_y += y_whole, y_part += y_rem) {
+        if(y_part >= (unsigned int)dh) { y_part -= dh; src_y++; }
+        const uint8_t *srow = copy ? copy + src_y * ss : Row(s, sy + src_y);
         uint8_t *drow = Row(d, y);
-        int64_t xfp = xfp0;
-        for(int x = x0; x < x1; x++, xfp += xstep) {
-            int px = (int)(xfp >> 16), v;
-            if(px >= sw) px = sw - 1;
-            v = Get4(srow, ox + px);
+        int src_x = src_x0;
+        unsigned int x_part = x_part0;
+        for(int x = x0; x < x1; x++, src_x += x_whole, x_part += x_rem) {
+            int v;
+            if(x_part >= (unsigned int)dw) { x_part -= dw; src_x++; }
+            v = Get4(srow, ox + src_x);
             if(v != t) Put4(drow, x, v);
         }
     }
