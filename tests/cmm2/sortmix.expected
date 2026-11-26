@@ -1,0 +1,164 @@
+type 0 flags 0 index 0 part 0 hash 743456655
+type 0 flags 0 index 0 part 1 hash 626963248
+type 0 flags 0 index 0 part 2 hash 792931160
+type 0 flags 0 index 1 part 0 hash 720527810
+type 0 flags 0 index 1 part 1 hash 63546287
+type 0 flags 0 index 1 part 2 hash 613590644
+type 0 flags 1 index 0 part 0 hash 622314036
+type 0 flags 1 index 0 part 1 hash 539212145
+type 0 flags 1 index 0 part 2 hash 566660960
+type 0 flags 1 index 1 part 0 hash 369918414
+type 0 flags 1 index 1 part 1 hash 570150775
+type 0 flags 1 index 1 part 2 hash 646274402
+type 0 flags 2 index 0 part 0 hash 912921937
+type 0 flags 2 index 0 part 1 hash 964713662
+type 0 flags 2 index 0 part 2 hash 524535783
+type 0 flags 2 index 1 part 0 hash 857588236
+type 0 flags 2 index 1 part 1 hash 817378646
+type 0 flags 2 index 1 part 2 hash 929555121
+type 0 flags 3 index 0 part 0 hash 995703035
+type 0 flags 3 index 0 part 1 hash 302035088
+type 0 flags 3 index 0 part 2 hash 936387326
+type 0 flags 3 index 1 part 0 hash 123843031
+type 0 flags 3 index 1 part 1 hash 198814979
+type 0 flags 3 index 1 part 2 hash 520913287
+type 0 flags 4 index 0 part 0 hash 711665158
+type 0 flags 4 index 0 part 1 hash 383803247
+type 0 flags 4 index 0 part 2 hash 604937244
+type 0 flags 4 index 1 part 0 hash 751653272
+type 0 flags 4 index 1 part 1 hash 930347934
+type 0 flags 4 index 1 part 2 hash 406152929
+type 0 flags 5 index 0 part 0 hash 440556303
+type 0 flags 5 index 0 part 1 hash 760252005
+type 0 flags 5 index 0 part 2 hash 768246582
+type 0 flags 5 index 1 part 0 hash 263294219
+type 0 flags 5 index 1 part 1 hash 934516782
+type 0 flags 5 index 1 part 2 hash 383606169
+type 0 flags 6 index 0 part 0 hash 2525875
+type 0 flags 6 index 0 part 1 hash 193336016
+type 0 flags 6 index 0 part 2 hash 279991518
+type 0 flags 6 index 1 part 0 hash 237661437
+type 0 flags 6 index 1 part 1 hash 164130235
+type 0 flags 6 index 1 part 2 hash 873658176
+type 0 flags 7 index 0 part 0 hash 599696094
+type 0 flags 7 index 0 part 1 hash 857076049
+type 0 flags 7 index 0 part 2 hash 637201931
+type 0 flags 7 index 1 part 0 hash 239384908
+type 0 flags 7 index 1 part 1 hash 782526293
+type 0 flags 7 index 1 part 2 hash 16811510
+type 1 flags 0 index 0 part 0 hash 228227747
+type 1 flags 0 index 0 part 1 hash 446093102
+type 1 flags 0 index 0 part 2 hash 490567109
+type 1 flags 0 index 1 part 0 hash 910788897
+type 1 flags 0 index 1 part 1 hash 867944658
+type 1 flags 0 index 1 part 2 hash 80490979
+type 1 flags 1 index 0 part 0 hash 418388206
+type 1 flags 1 index 0 part 1 hash 14072450
+type 1 flags 1 index 0 part 2 hash 986447836
+type 1 flags 1 index 1 part 0 hash 521743553
+type 1 flags 1 index 1 part 1 hash 447154268
+type 1 flags 1 index 1 part 2 hash 42305221
+type 1 flags 2 index 0 part 0 hash 749905784
+type 1 flags 2 index 0 part 1 hash 806684253
+type 1 flags 2 index 0 part 2 hash 827999909
+type 1 flags 2 index 1 part 0 hash 582666157
+type 1 flags 2 index 1 part 1 hash 329426880
+type 1 flags 2 index 1 part 2 hash 364594204
+type 1 flags 3 index 0 part 0 hash 816265377
+type 1 flags 3 index 0 part 1 hash 360147292
+type 1 flags 3 index 0 part 2 hash 482157876
+type 1 flags 3 index 1 part 0 hash 476994936
+type 1 flags 3 index 1 part 1 hash 414457668
+type 1 flags 3 index 1 part 2 hash 410662000
+type 1 flags 4 index 0 part 0 hash 84653637
+type 1 flags 4 index 0 part 1 hash 622125521
+type 1 flags 4 index 0 part 2 hash 564880611
+type 1 flags 4 index 1 part 0 hash 775362315
+type 1 flags 4 index 1 part 1 hash 782266811
+type 1 flags 4 index 1 part 2 hash 128077491
+type 1 flags 5 index 0 part 0 hash 481371780
+type 1 flags 5 index 0 part 1 hash 449818782
+type 1 flags 5 index 0 part 2 hash 163905686
+type 1 flags 5 index 1 part 0 hash 210937307
+type 1 flags 5 index 1 part 1 hash 538822297
+type 1 flags 5 index 1 part 2 hash 397407251
+type 1 flags 6 index 0 part 0 hash 597570115
+type 1 flags 6 index 0 part 1 hash 242835209
+type 1 flags 6 index 0 part 2 hash 872687600
+type 1 flags 6 index 1 part 0 hash 578972506
+type 1 flags 6 index 1 part 1 hash 529084761
+type 1 flags 6 index 1 part 2 hash 775960583
+type 1 flags 7 index 0 part 0 hash 464186841
+type 1 flags 7 index 0 part 1 hash 448955088
+type 1 flags 7 index 0 part 2 hash 271380004
+type 1 flags 7 index 1 part 0 hash 336397315
+type 1 flags 7 index 1 part 1 hash 399705016
+type 1 flags 7 index 1 part 2 hash 987443381
+type 2 flags 0 index 0 part 0 hash 754830476
+type 2 flags 0 index 0 part 1 hash 368325522
+type 2 flags 0 index 0 part 2 hash 26002198
+type 2 flags 0 index 1 part 0 hash 226023133
+type 2 flags 0 index 1 part 1 hash 244125611
+type 2 flags 0 index 1 part 2 hash 781225281
+type 2 flags 1 index 0 part 0 hash 896074247
+type 2 flags 1 index 0 part 1 hash 666926774
+type 2 flags 1 index 0 part 2 hash 16193558
+type 2 flags 1 index 1 part 0 hash 275598430
+type 2 flags 1 index 1 part 1 hash 990188877
+type 2 flags 1 index 1 part 2 hash 263246857
+type 2 flags 2 index 0 part 0 hash 425595462
+type 2 flags 2 index 0 part 1 hash 431001763
+type 2 flags 2 index 0 part 2 hash 39781610
+type 2 flags 2 index 1 part 0 hash 157204962
+type 2 flags 2 index 1 part 1 hash 506397830
+type 2 flags 2 index 1 part 2 hash 754557936
+type 2 flags 3 index 0 part 0 hash 239913466
+type 2 flags 3 index 0 part 1 hash 485132953
+type 2 flags 3 index 0 part 2 hash 269388698
+type 2 flags 3 index 1 part 0 hash 445940365
+type 2 flags 3 index 1 part 1 hash 303454461
+type 2 flags 3 index 1 part 2 hash 740939617
+type 2 flags 4 index 0 part 0 hash 993926862
+type 2 flags 4 index 0 part 1 hash 932184072
+type 2 flags 4 index 0 part 2 hash 919700618
+type 2 flags 4 index 1 part 0 hash 689120612
+type 2 flags 4 index 1 part 1 hash 288303721
+type 2 flags 4 index 1 part 2 hash 462662737
+type 2 flags 5 index 0 part 0 hash 349126771
+type 2 flags 5 index 0 part 1 hash 318863868
+type 2 flags 5 index 0 part 2 hash 997820917
+type 2 flags 5 index 1 part 0 hash 418660252
+type 2 flags 5 index 1 part 1 hash 6280689
+type 2 flags 5 index 1 part 2 hash 315569101
+type 2 flags 6 index 0 part 0 hash 923984727
+type 2 flags 6 index 0 part 1 hash 168036544
+type 2 flags 6 index 0 part 2 hash 253969244
+type 2 flags 6 index 1 part 0 hash 677988148
+type 2 flags 6 index 1 part 1 hash 107262210
+type 2 flags 6 index 1 part 2 hash 811399245
+type 2 flags 7 index 0 part 0 hash 780354685
+type 2 flags 7 index 0 part 1 hash 500560875
+type 2 flags 7 index 0 part 2 hash 607986425
+type 2 flags 7 index 1 part 0 hash 756283169
+type 2 flags 7 index 1 part 1 hash 392537391
+type 2 flags 7 index 1 part 2 hash 791268337
+type 0 count 2 flags 1 hash 329830393
+type 0 count 5 flags 0 hash 354683468
+type 0 count 8 flags 1 hash 287517521
+type 0 count 11 flags 4 hash 200908634
+type 0 count 14 flags 5 hash 277793079
+type 0 count 1 flags 4 hash 213187696
+type 1 count 2 flags 1 hash 74580782
+type 1 count 5 flags 0 hash 572879590
+type 1 count 8 flags 1 hash 396037416
+type 1 count 11 flags 4 hash 539400900
+type 1 count 14 flags 5 hash 830160739
+type 1 count 1 flags 4 hash 911855571
+type 2 count 2 flags 1 hash 384586060
+type 2 count 5 flags 0 hash 775354528
+type 2 count 8 flags 1 hash 277816579
+type 2 count 11 flags 4 hash 422981745
+type 2 count 14 flags 5 hash 411289868
+type 2 count 1 flags 4 hash 298443458
+sortmix: 162 cases
+

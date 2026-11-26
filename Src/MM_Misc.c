@@ -393,6 +393,82 @@ void stringsort(unsigned char *sarray, int n, int offset, long long *index, int 
     }
 }
 
+/* SORT by a stable merge sort (Peter, 26 Nov 2026: "do the faster SORT"). The bubble sorts above took 38 s for 20,000
+   numbers on a G1 and held every thread meanwhile. The result is the same, element for element and index for index:
+   the order is the one the bubble sort's swap test gives (an element goes before an earlier one only if that test
+   would swap them), and both sorts are stable, so elements it does not order keep their places, as the index shows.
+   (A float NaN, which no comparison orders, may end in another place.) A list of positions is merge-sorted, then the
+   elements, and the index's entries with them, are moved along its cycles. It needs 8 bytes an element from the heap;
+   without them the bubble sorts above are used. In bank 2: SORT runs in the foreground only. */
+#define SORT_BANK2 __attribute__((section(".bank2"), noinline))
+typedef struct { void *a; int size; int flags; } sortkey_t;
+// 1 if element y must come before element x, x being the earlier: the bubble sorts' swap tests
+static int SORT_BANK2 SortBefore(const sortkey_t *k, int x, int y, int type) {
+    if(type == T_INT) {
+        int64_t *a = k->a;
+        return (k->flags & 1) ? a[y] > a[x] : a[y] < a[x];
+    }
+    if(type == T_NBR) {
+        MMFLOAT *a = k->a;
+        return (k->flags & 1) ? a[y] > a[x] : a[y] < a[x];
+    }
+    unsigned char *s1 = (unsigned char *)k->a + x * k->size, *s2 = (unsigned char *)k->a + y * k->size;
+    int reverse = 1 - ((k->flags & 1) << 1), kk = 0;
+    int ii = *s1 < *s2 ? *s1 : *s2;
+    unsigned char *p1 = s1 + 1, *p2 = s2 + 1;
+    while(ii-- && kk == 0) {
+        int c1 = *p1, c2 = *p2;
+        if(k->flags & 2) { c1 = toupper(c1); c2 = toupper(c2); }
+        if(c1 > c2) kk = reverse;
+        if(c1 < c2) kk = -reverse;
+        p1++; p2++;
+    }
+    if(kk == 0) {
+        if(*s1 > *s2) kk = reverse;
+        if(*s1 < *s2) kk = -reverse;
+    }
+    return kk == 1;
+}
+// n elements of size bytes at a, in place; index (or NULL) the index array, its entries from startpoint. 0 if there was
+// no memory for it (nothing done)
+static int SORT_BANK2 MergeSort(void *a, int n, int size, int type, int flags, long long *index, int startpoint) {
+    int *p, *t, *src, *dst, w, i;
+    unsigned char held[STRINGSIZE + 8];
+    sortkey_t k = { a, size, flags };
+    if(n < 2) return 1;
+    if((p = GetMemoryNull(2 * n * sizeof(int))) == NULL) return 0;
+    t = p + n;
+    for(i = 0; i < n; i++) p[i] = i;
+    src = p; dst = t;
+    for(w = 1; w < n; w *= 2) {                                     // bottom-up: runs of w merged into runs of 2w
+        for(i = 0; i < n; i += 2 * w) {
+            int l = i, m = i + w < n ? i + w : n, r = i + 2 * w < n ? i + 2 * w : n, o = i, x = l, y = m;
+            while(x < m && y < r) dst[o++] = SortBefore(&k, src[x], src[y], type) ? src[y++] : src[x++];
+            while(x < m) dst[o++] = src[x++];
+            while(y < r) dst[o++] = src[y++];
+        }
+        int *s = src; src = dst; dst = s;
+    }
+    // src[j] is the element that goes to place j: the moves follow each cycle once, the place done marked -1
+    for(i = 0; i < n; i++) {
+        int j, from;
+        long long ix = 0;
+        if(src[i] < 0 || src[i] == i) continue;
+        memcpy(held, (char *)a + i * size, size);
+        if(index) ix = index[startpoint + i];
+        for(j = i; (from = src[j]) != i; j = from) {
+            memcpy((char *)a + j * size, (char *)a + from * size, size);
+            if(index) index[startpoint + j] = index[startpoint + from];
+            src[j] = -1;
+        }
+        memcpy((char *)a + j * size, held, size);
+        if(index) index[startpoint + j] = ix;
+        src[j] = -1;
+    }
+    FreeMemory(p);
+    return 1;
+}
+
 /*enhanced sort from pico */
 void cmd_sort(void){
     MMFLOAT *a3float=NULL;
@@ -414,15 +490,19 @@ void cmd_sort(void){
     if(a3float!=NULL){
     	a3float+=startpoint;
     	if(a4int!=NULL)for(i=0;i<truesize+1;i++)a4int[i]=i+OptionBase;
-    	floatsort(a3float, size+1, a4int, flags, startpoint);
+    	if(!MergeSort(a3float, size+1, sizeof(MMFLOAT), T_NBR, flags, a4int, startpoint))
+    	    floatsort(a3float, size+1, a4int, flags, startpoint);  // (no memory for the merge sort)
     } else if(a3int!=NULL){
     	a3int+=startpoint;
     	if(a4int!=NULL)for(i=0;i<truesize+1;i++)a4int[i]=i+OptionBase;
-    	integersort(a3int,  size+1, a4int, flags, startpoint);
+    	if(!MergeSort(a3int, size+1, sizeof(int64_t), T_INT, flags, a4int, startpoint))
+    	    integersort(a3int,  size+1, a4int, flags, startpoint);
     } else if(a3str!=NULL){
     	a3str+=((startpoint)*(maxsize+1));
     	if(a4int!=NULL)for(i=0;i<truesize+1;i++)a4int[i]=i+OptionBase;
-    	stringsort(a3str, size+1,maxsize+1, a4int, flags, startpoint);
+    	if(!MergeSort(a3str, size+1, maxsize+1, T_STR, flags & 3, a4int, startpoint) || (flags & 4))
+    	    stringsort(a3str, size+1,maxsize+1, a4int, flags, startpoint);   // (no memory; or flag 4's move of the empty
+    	                                                                      // strings, after one pass that finds it sorted)
     }
 }
 /*

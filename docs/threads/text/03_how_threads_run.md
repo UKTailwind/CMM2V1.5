@@ -39,7 +39,7 @@ The switch to another thread is only ever made between two statements. A stateme
 - a PRINT always prints all its items together;
 - a LINE, BOX or TEXT is always drawn whole.
 
-The other side is that a long statement holds every thread until it ends. A SORT of a large array, a COPY of a big file, a LOAD PNG or a PIXEL FILL of the whole screen are each one statement: the other threads wait for them.
+The other side is that a long statement holds every thread until it ends. A COPY of a big file, a LOAD PNG, a large MATH matrix or a PIXEL FILL of the whole screen are each one statement: the other threads wait for them.
 
 One exception to "whole": a FUNCTION of your own, called from inside a statement, is made of statements, and the switch can come between them. The statement that called it continues afterwards, so the statement still happens, but other threads may run before it finishes.
 

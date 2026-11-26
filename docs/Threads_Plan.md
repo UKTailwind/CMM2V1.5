@@ -1229,3 +1229,10 @@ stopped thread's next statement boundary, which also mends the WEB case; (3) a g
 (as FRAMEBUFFER CLOSE's ThreadPageInUse); (4) `if(ThreadCount) ThreadPoll()` at the existing routinechecks(1) of the
 WARP commands, FILL, IMAGE, MATH and COPY; (5) `optiony` each thread's own, then the image commands. The manual's
 promise that a statement is never split would then name the commands that let others run part-way.
+
+**Done, 26 November: SORT** (Src/MM_Misc.c, MergeSort, in bank 2). A stable bottom-up merge sort of a list of
+positions, with the bubble sorts' own swap tests as its order, then the elements and the index's entries moved along
+the permutation's cycles: 8 bytes an element from the heap, the bubble sorts kept for when there are not. On a G3,
+20,000 floats 80 ms, 100,000 floats 0.44 s (the bubble sort: 38 s for 20,000 on a G1). tests/cmm2/sortmix.bas (162
+cases: integers, floats and strings, every flag, with and without the index, from a start point and for a count, with
+many equal elements) gives the bubble sort's output byte for byte. SORT no longer needs to give way.

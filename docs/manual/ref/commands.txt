@@ -2783,6 +2783,7 @@ Any of the optional parameters may be omitted so, for example, to sort just the 
 Example:
 The array city$() might contain the names of world cities and can be easily sorted into increasing alphabetical order with the command: SORT city$() 
 The SORT command will work with strings, floats and integers however the array to be sorted must be single dimensioned. 
+The sort is stable: elements that are equal (for strings, with bit1 set, equal apart from their case) keep the order they had, as the index array shows. It takes about half a second for 100,000 numbers on a Generation 3. It needs 8 bytes of free memory for each element sorted; without them it uses a slower method, which gives the same result. 
 Often data is held in multiple arrays, for example, the name of each city might be held in the array city$(), the population held in the array pop%() and the size of the city held in area!(). The same index would refer to the name, population and the area of the city.  
 Sorting and accessing this data is a little more complex but it can be done relatively easily using an optional parameter to the sort command as follows: 
 {l=484}SORT array(), indexarray%()
