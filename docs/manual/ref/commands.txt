@@ -3078,7 +3078,7 @@ A third letter can be used in the alignment string to indicate the rotation of t
 
 === THREAD
 --- keep
-Threads run SUBs of the program alongside the main program, each with its own loops, local variables and PAUSEs. One runs at a time; they take turns between statements, 1 ms each by default. See *Appendix R* for an overview, and the *Colour Maximite 2 Threads User Manual* for the details and worked programs.
+Threads run SUBs of the program alongside the main program, each with its own loops, local variables and PAUSEs. One runs at a time; they take turns between statements, 1 ms each by default. See *Appendix R* for an overview, and the *MMBasic Threads User Manual* for the details and worked programs.
 The main program is thread 0. Threads are numbered 1 to 16, as the program chooses. A thread ends when its SUB ends, at THREAD EXIT or at THREAD STOP; an error in any thread, END in any thread, or Ctrl-C stops the whole program and every thread.
 
 =+= THREAD START n [SIZE kb] [LOCALS m] [NEST d] [PRIORITY p], sub [, argument ...]
@@ -3140,7 +3140,7 @@ THREAD WAIT FLAG f [, timeout]
 --- keep
 THREAD WAIT 'n' waits until thread 'n' has ended (at once if it is not running). THREAD WAIT FLAG 'f' waits until FLAG('f') is 1 (0 to 63); any thread or an interrupt routine may set it, and the wait does not clear it.
 The thread uses no processor time while it waits, and takes its own interrupts. With 'timeout' (milliseconds) the command ends after that time whether or not what it waited for has happened: the program can look with MM.INFO(THREAD n) or FLAG(f).
-Inside THREAD HOLD the hold is let go while the thread waits, and taken again when the wait ends, so the other threads run meanwhile and the statements after the wait are held again. A test, the clearing of a flag and the wait can then be one step: see A queue between threads in the Threads User Manual. If what it waits for is so already, the hold is kept throughout.
+Inside THREAD HOLD the hold is let go while the thread waits, and taken again when the wait ends, so the other threads run meanwhile and the statements after the wait are held again. A test, the clearing of a flag and the wait can then be one step: see A queue between threads in the MMBasic Threads User Manual. If what it waits for is so already, the hold is kept throughout.
 
 =+= THREAD LIST
 --- keep

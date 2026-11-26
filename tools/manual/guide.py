@@ -1,6 +1,6 @@
 """guide.py [loadable|pc386|cc|apps|threads]: a companion manual, made in the user manual's template: Colour Maximite 2 Loadable
 Programs (docs/loadable/, the default), Colour Maximite 2 386 PC Emulator (docs/pc386/), Colour Maximite 2 C Compiler
-(docs/cc/), Colour Maximite 2 App User Guide (docs/apps/) or Colour Maximite 2 Threads User Manual (docs/threads/). Its title page, styles,
+(docs/cc/), Colour Maximite 2 App User Guide (docs/apps/) or MMBasic Threads User Manual (docs/threads/). Its title page, styles,
 page size and footer, with the guide's own front matter, a table of contents and a chapter for each file of the
 guide's text/ (written by chapter.py --docx --rawcode). Run it again after an edit; then tools/manual/word.ps1
 docs/loadable/Colour_Maximite_2_Loadable_Programs.docx docs/loadable/...pdf (or the pc386 guide's) makes the PDF.
@@ -232,10 +232,11 @@ APPS = {                                                # guide.py apps: all the
 
 THREADS = {                                             # guide.py threads: threads in MMBasic programs, for users
     'DIR': os.path.join(ROOT, 'docs', 'threads'),
-    'OUT': os.path.join(ROOT, 'docs', 'threads', 'Colour_Maximite_2_Threads_User_Manual.docx'),
-    'NAME': 'Colour Maximite 2 Threads User Manual',
+    'OUT': os.path.join(ROOT, 'docs', 'threads', 'MMBasic_Threads_User_Manual.docx'),   # (Colour_Maximite_2_... until 26 Nov 2026)
+    'NAME': 'MMBasic Threads User Manual',              # (it covers the Colour Maximite 2 and the PicoMite)
     'DATE': '26 November 2026',
     'TITLE': {
+        'Colour Maximite 2': 'MMBasic',
         'User Manual': 'Threads User Manual',
         'MMBasic Ver': 'Threads in MMBasic programs on the Colour Maximite 2 and the PicoMite',
         'Matches firmware': 'For firmware 8.00.00b5 and later',

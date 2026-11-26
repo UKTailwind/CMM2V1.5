@@ -24,7 +24,7 @@ End                               ' the threads stop with the program
 
 Threads suit work that goes on by itself: a clock in the corner of the screen, a tune played note by note, a sensor read every second, a game's aliens each moving on its own, a long calculation while the screen stays alive, a network request while the user types. Interrupts remain the tool for a quick answer to an event; a thread is for something with a flow of its own, and the two work well together.
 
-The *Colour Maximite 2 Threads User Manual* describes threads in detail, with worked programs. This appendix is an overview.
+The *MMBasic Threads User Manual* describes threads in detail, with worked programs. This appendix is an overview.
 
 ## The commands
 
@@ -66,7 +66,7 @@ Each thread has its own LOCAL variables, FOR and DO loops, SUB and FUNCTION call
 Everything else belongs to the whole program: global variables and arrays, STATIC variables, the screen itself, files, the keyboard, sound, sprites, the turtle, the pins, the current drive and directory, the OPTIONs, TIMER and FLAG(). Two things follow:
 
 - **Two statements that must go together need a lock.** A switch can come between any two statements, so `v = total` then `total = v + 1` in two threads can lose a count. Put them between THREAD LOCK 1 and THREAD UNLOCK 1 in every thread that does it, or between THREAD HOLD and THREAD RELEASE. A single statement (INC total) needs neither.
-- **A lock is a mutex.** THREAD LOCK and THREAD UNLOCK are what other languages call taking and releasing a mutex. The sixteen exist from RUN and need no creating: choose a number for each shared thing, name it with CONST, and put the lock, the work and the unlock in one SUB that every thread calls. A thread may PAUSE or use a file while it has a lock (not inside a hold), and only the threads that want that lock wait. THREAD LOCK k, 0 after ON ERROR SKIP tries a lock without waiting: MM.ERRNO is 0 if it was taken. A lock cannot be taken twice by the thread that has it, and only that thread can unlock it. The Threads User Manual has more, with a lock its owner can take again and what to do in interrupt routines.
+- **A lock is a mutex.** THREAD LOCK and THREAD UNLOCK are what other languages call taking and releasing a mutex. The sixteen exist from RUN and need no creating: choose a number for each shared thing, name it with CONST, and put the lock, the work and the unlock in one SUB that every thread calls. A thread may PAUSE or use a file while it has a lock (not inside a hold), and only the threads that want that lock wait. THREAD LOCK k, 0 after ON ERROR SKIP tries a lock without waiting: MM.ERRNO is 0 if it was taken. A lock cannot be taken twice by the thread that has it, and only that thread can unlock it. The MMBasic Threads User Manual has more, with a lock its owner can take again and what to do in interrupt routines.
 - **Give each shared thing one owner.** One thread reads the keyboard; one thread writes a file; each thread draws in its own part of the screen (two threads that PRINT without saying where write over each other). A variable that one thread sets and the others only read is always safe.
 
 ## Interrupts

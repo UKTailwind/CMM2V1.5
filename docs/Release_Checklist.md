@@ -97,7 +97,7 @@ screen). Check each title page's version and date, and the bookmarks.
 | Colour_Maximite_2_C_Compiler.pdf | docs/cc/text | `python tools/manual/guide.py cc` |
 | Colour_Maximite_2_386_PC_Emulator.pdf | docs/pc386/text | `python tools/manual/guide.py pc386` |
 | Stepper_Reference.pdf | docs/Stepper_Reference.pdf (tracked) | docs/stepper/generate_stepper_pdf.py, only when STEPPER changes |
-| Colour_Maximite_2_Threads_User_Manual.pdf | docs/threads/text | `python tools/manual/guide.py threads` (from 8.00.00b5) |
+| MMBasic_Threads_User_Manual.pdf | docs/threads/text | `python tools/manual/guide.py threads` (from 8.00.00b5; Colour_Maximite_2_Threads_User_Manual.pdf in 8.00.00b5 itself) |
 
 - [ ] **The User Manual: every chapter and every reference section rebuilt at every release**, not only those this
       release's commits touched, as text committed without a rebuild never reaches the .docx: 8.00.00b1 to b3 went out
@@ -172,7 +172,7 @@ screen). Check each title page's version and date, and the bookmarks.
       (with --draft, a short SHA gives HTTP 422).
   - A V8 beta is a **pre-release** and must not become Latest: 7.00's release candidate stays Latest
     (`--latest=false`).
-- [ ] The assets (RC6 had nine; 8.00.00b1 has the same set; from 8.00.00b5 a tenth, the Threads User Manual):
+- [ ] The assets (RC6 had nine; 8.00.00b1 has the same set; from 8.00.00b5 a tenth, the MMBasic Threads User Manual):
 
 | Asset | 7.00.00RC6 | 8.00.00b1 |
 |---|---|---|
