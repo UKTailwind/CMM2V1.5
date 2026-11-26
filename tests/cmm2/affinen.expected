@@ -1,0 +1,26 @@
+quarter turn: 0 wrong
+window on the world: 0 wrong
+error test 1: Framebuffer not created
+error test 2: Same framebuffer
+error test 3: Same page
+error test 4: Invalid syntax
+error test 5: Array 2 has 9 elements, array 1 has 10
+error test 6: Array 4 has 9 elements, array 1 has 10
+error test 7: Argument 5 must be an integer array
+error test 8: 0 is invalid (valid is 1 to 240)
+error test 9: 0 is invalid (valid is 1 to 16777216)
+error test 10: Invalid syntax
+error test 11: Right array has 9 elements, left array has 10
+error test 12: 2 is invalid (valid is 0 to 1)
+error test 13: 0 is invalid (valid is 1 to 240)
+error test 14: 256 is invalid (valid is 0 to 255)
+error test 15: no error, as wanted
+error test 16: Invalid syntax
+error test 17: no error, as wanted
+error test 18: no error, as wanted
+error test 19: 16777217 is invalid (valid is -16777216 to 16777216)
+error test 20: Argument 4 must be an integer array
+error test 21: Invalid for this screen mode
+error test 22: Invalid for this screen mode
+AFFINE AND SPAN TEST PASSED
+

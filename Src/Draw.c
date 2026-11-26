@@ -1119,7 +1119,7 @@ void cmd_framebuffer(void){
     	PageTable[WPN].size= PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[WPN].nbytes;
     	return;
     }
-    if(WarpCommand(cmdline, WARP_FRAMEBUFFER)) return;			// WARPH and WARPV (N, page 0, and F, the world) and WAIT: Warp.c
+    if(WarpCommand(cmdline, WARP_FRAMEBUFFER)) return;			// WARPH, WARPV, AFFINE and SPAN (N, page 0, and F, the world) and WAIT: Warp.c
     error("Syntax");
 }
 
@@ -2750,7 +2750,7 @@ void cmd_page(void){
     int maxW=PageTable[WritePage].xmax;
     if(VideoColour<8 && !(checkstring(cmdline, "WRITE") || checkstring(cmdline, "COPY") || checkstring(cmdline, "SCROLL") ||
     		WarpCommand(cmdline, WARP_TEST)))
-    	error("Invalid for this screen mode");                       // a 4 or 1-bit mode: PAGE WRITE, COPY, SCROLL (Rgb121.c), WARPH and WARPV (Warp.c)
+    	error("Invalid for this screen mode");                       // a 4 or 1-bit mode: PAGE WRITE, COPY, SCROLL (Rgb121.c), WARPH, WARPV, AFFINE and SPAN (Warp.c)
     p = checkstring(cmdline, "DISPLAY");
     if(p) {
     	int LayerIDX=LTDC_LAYER_1;
@@ -3234,7 +3234,7 @@ void cmd_page(void){
 			}
       	 return;
          }
-    if(WarpCommand(cmdline, WARP_PAGE)) return;					// PAGE WARPH and WARPV from TO to, ... (Warp.c)
+    if(WarpCommand(cmdline, WARP_PAGE)) return;					// PAGE WARPH, WARPV, AFFINE and SPAN from TO to, ... (Warp.c)
     error("Syntax");
 
 }

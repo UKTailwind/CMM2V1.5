@@ -884,9 +884,29 @@ The source and the destination can be of different sizes: the offsets wrap at th
 When ‘to’ is the display, use FRAMEBUFFER WAIT first: the destination is written from the top down, ahead of the frame.  For example, a parallax scroll in 2-row bands under a still score line 16 rows high (MODE 7):
 {b=0 a=0}`  DIM speed!(111), off%(111)\n  FOR i = 0 TO 111\n    speed!(i) = -(0.1 + i / 112)\n  NEXT\n  DO\n    camx = camx + 2\n    MATH SCALE speed!(), camx, off%()\n    FRAMEBUFFER WAIT\n    FRAMEBUFFER WARPH F, N, off%(), 2, 16\n  LOOP`
 
+=+= FRAMEBUFFER AFFINE from, to, u%(), v%(), du%(), dv%() [, step] [, first] [, left] [, width] [, edge] [, transparent]
+---
+Copies the buffer ‘from’ to the buffer ‘to’ with each row read from the source along a straight line of any direction and length.  One command turns and scales a whole picture, turns a sprite, or draws a floor in perspective (what the game consoles of the 1990s called *Mode 7*), with no BASIC loop over the pixels.  ‘from’ and ‘to’ are N (the display, page 0) or F (the framebuffer); they must differ ("Same framebuffer").  PAGE AFFINE does the same with page numbers, and in the 4-bit colour depth the PicoMite's letters are used (see below).  The 1-bit colour depth does not have it ("Invalid for this screen mode").
+‘u%()’, ‘v%()’, ‘du%()’ and ‘dv%()’ are one-dimensional integer arrays with the same number of elements ("Array 2 has 9 elements, array 1 has 10").  Each element is for one band of ‘step’ rows of the destination (default 1, at most its height), and the bands start at the row ‘first’ (default 0).  All four are in units of 1/65536 of a pixel.  ‘u%()’ and ‘v%()’ are the place in the source, x and y, that the first pixel of the band shows.  ‘du%()’ and ‘dv%()’ are how far that place moves for each pixel to the right.
+Pixel i of row j of band b shows the source pixel at x = (u(b) - j * dv(b) + i * du(b)) / 65536 and y = (v(b) + j * du(b) + i * dv(b)) / 65536, both rounded down.  With du = 65536 and dv = 0 the picture is at its own size and angle, and halving both doubles its size.  Down a band each row starts one step on at right angles, so one element with ‘step’ set to the height of the screen turns and zooms the whole picture with no tables.  With ‘step’ 1 every row has its own line, which is how a floor is drawn.
+‘left’ (default 0) and ‘width’ (default the destination's width) limit the copy to a window of columns, for a sprite.  ‘first’ and ‘left’ can be negative or beyond the edge (-16777216 to 16777216): the part of the window that is off the destination is not drawn, so a sprite can slide off the screen with no change to its arrays.  The rows outside the bands and the columns outside the window are left as they are.
+‘edge’ says what a pixel gets when its place is outside the source.  If it is omitted the source wraps round, and the arrays can hold any value (a camera position that keeps growing, for example).  -1 leaves the destination's pixel as it is, and a colour fills it.  ‘transparent’ is a source pixel that is not copied, given as FRAMEBUFFER WARPH takes it.  Pixels filled by ‘edge’ are written whatever their colour.
+The source and the destination can be of different sizes.  The places wrap at the source's width and height (or are outside it there), and the bands and the window are the destination's.  A framebuffer larger than the screen is then a larger map: a floor from a framebuffer of 1024 by 1024 does not repeat as soon as one the size of the screen.
+When ‘to’ is the display, use FRAMEBUFFER WAIT first.  For example, the framebuffer turned and zoomed about the middle of the screen (MODE 7):
+{b=0 a=0}`  CONST FP = 65536\n  DIM u%(0), v%(0), du%(0), dv%(0)\n  DO\n    a! = a! + 0.02 : z! = 1.5 + SIN(a! * 0.7)\n    du%(0) = FP * COS(a!) / z! : dv%(0) = -FP * SIN(a!) / z!\n    u%(0) = FP * 160 - 160 * du%(0) + 120 * dv%(0)\n    v%(0) = FP * 120 - 160 * dv%(0) - 120 * du%(0)\n    FRAMEBUFFER WAIT\n    FRAMEBUFFER AFFINE F, N, u%(), v%(), du%(), dv%(), 240\n  LOOP`
+
+=+= FRAMEBUFFER SPAN from, to, left%(), right%() [, step] [, first] [, fill] [, transparent] [, outside]
+---
+Copies, on each row, only the pixels from the column ‘left%()’ to the column ‘right%()’ (both included) of the buffer ‘from’ to the same place in the buffer ‘to’.  It makes a window of any shape: an iris that closes on the hero, a torch in the dark, or a wipe between two pictures along a curve.  ‘from’ and ‘to’ are N or F, as for FRAMEBUFFER WARPH; PAGE SPAN does the same with page numbers, and the 1-bit colour depth does not have it.
+‘left%()’ and ‘right%()’ are one-dimensional integer arrays with the same number of elements ("Right array has 9 elements, left array has 10"), one element for each band of ‘step’ rows of the destination (default 1) from the row ‘first’ (default 0, and it can be negative or beyond the edge).  A span is cut to the row, and a left column greater than the right gives an empty span.  No value in the arrays is an error.  The rows outside the bands are left as they are.
+If ‘fill’ is a colour the other pixels of each band's rows are set to it; if it is omitted or -1 they are left as they are.  ‘transparent’ is a source pixel that is not copied, given as FRAMEBUFFER WARPH takes it.  If ‘outside’ is 1 the two are exchanged: the pixels outside each span are copied, and those inside it are left or filled.
+‘from’ and ‘to’ can be the same buffer.  Nothing is copied then, so only ‘fill’ has an effect: it blanks a picture outside (or inside) a shape, in place.  If the source is the smaller of the two, a pixel whose place the source does not have is left as it is.
+For example, the framebuffer shown through a circle of radius 90, with the rest of the display black (MODE 7):
+{b=0 a=0}`  DIM lf%(239), rt%(239)\n  r = 90\n  FOR y = 0 TO 239\n    lf%(y) = 0 : rt%(y) = -1\n    IF ABS(y - 120) < r THEN\n      hw = SQR(r * r - (y - 120) * (y - 120))\n      lf%(y) = 160 - hw : rt%(y) = 160 + hw\n    ENDIF\n  NEXT\n  FRAMEBUFFER WAIT\n  FRAMEBUFFER SPAN F, N, lf%(), rt%(), 1, 0, RGB(BLACK)`
+
 =+= FRAMEBUFFER WAIT
 --- keep
-Pauses processing until the next frame blanking starts: use it before a command that writes to the display, such as FRAMEBUFFER WARPH, so that its picture is whole when it is shown.
+Pauses processing until the next frame blanking starts: use it before a command that writes to the display, such as FRAMEBUFFER WARPH, AFFINE or SPAN, so that its picture is whole when it is shown.
 
 =+= FRAMEBUFFER CLOSE
 --- keep
@@ -937,6 +957,12 @@ or
 FRAMEBUFFER WARPV from, to, yoff%() [, step] [, first] [, phase] [, edge] [, transparent]
 --- keep
 Copies each row or column of one buffer to another, each moved by its own offset, as the PicoMite does: see FRAMEBUFFER WARPH above for the arguments.  ‘from’ and ‘to’ can be N, F, 2, T or L.  They must have been created ("Layer not created" and the like) and must differ ("Same framebuffer").  ‘transparent’ is one of the 16 colours, 0 to 15.  The 1-bit colour depth does not have them ("Invalid for this screen mode").
+
+=+= FRAMEBUFFER AFFINE from, to, u%(), v%(), du%(), dv%() [, step] [, first] [, left] [, width] [, edge] [, transparent]
+or
+FRAMEBUFFER SPAN from, to, left%(), right%() [, step] [, first] [, fill] [, transparent] [, outside]
+--- keep
+AFFINE copies one buffer to another with each row read from the source along a straight line (a turn, a zoom, a floor in perspective), and SPAN copies only the pixels between a left and a right column on each row (a window of any shape), as the PicoMite does: see FRAMEBUFFER AFFINE and FRAMEBUFFER SPAN above for the arguments.  ‘from’ and ‘to’ can be N, F, 2, T or L.  They must have been created ("Layer not created" and the like); for AFFINE they must differ ("Same framebuffer").  ‘transparent’ is one of the 16 colours, 0 to 15.  The 1-bit colour depth does not have them ("Invalid for this screen mode").
 
 =+= FRAMEBUFFER MERGE [colour] [, B]
 --- keep
@@ -2166,6 +2192,12 @@ or
 PAGE WARPV from TO to, yoff%() [, step] [, first] [, phase] [, edge] [, transparent]
 --- keep
 FRAMEBUFFER WARPH and WARPV with page numbers: each row (WARPH) or column (WARPV) of the page ‘from’ is copied to the page ‘to’, each moved by its own offset (see FRAMEBUFFER WARPH for the arguments).  A comma can be used instead of TO.  The pages must differ ("Same page") and can be of different sizes (PAGE RESIZE).  It works in every colour depth but 1 bit.
+
+=+= PAGE AFFINE from TO to, u%(), v%(), du%(), dv%() [, step] [, first] [, left] [, width] [, edge] [, transparent]
+or
+PAGE SPAN from TO to, left%(), right%() [, step] [, first] [, fill] [, transparent] [, outside]
+--- keep
+FRAMEBUFFER AFFINE and SPAN with page numbers.  AFFINE copies the page ‘from’ to the page ‘to’ with each row read from the source along a straight line, for a turn, a zoom or a floor in perspective.  SPAN copies only the pixels between a left and a right column on each row (see FRAMEBUFFER AFFINE and FRAMEBUFFER SPAN for the arguments).  A comma can be used instead of TO.  The pages can be of different sizes (PAGE RESIZE).  For AFFINE they must differ ("Same page"); for SPAN they can be the same page, for the fill alone.  They work in every colour depth but 1 bit.
 
 =+= PAGE RESIZE pageno, w, h
 --- keep

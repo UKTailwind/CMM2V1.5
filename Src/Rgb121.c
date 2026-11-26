@@ -703,7 +703,7 @@ void Rgb121Framebuffer(void) {
         }
         if(s == d) error("Buffer not created");
         mycopy(PageTable[d].address, PageTable[s].address, Stride(d) * PageTable[d].ymax);
-    } else if(!WarpCommand(cmdline, WARP_FRAMEBUFFER4)) error("Syntax");   // WARPH and WARPV (Warp.c: not in a 1-bit mode)
+    } else if(!WarpCommand(cmdline, WARP_FRAMEBUFFER4)) error("Syntax");   // WARPH, WARPV, AFFINE and SPAN (Warp.c: not in a 1-bit mode)
 }
 
 /* BLIT FRAMEBUFFER from, to, x1, y1, x2, y2, w, h [, colour]: a rectangle of one framebuffer into another, a pixel of
