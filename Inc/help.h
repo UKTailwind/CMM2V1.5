@@ -7,7 +7,8 @@
 
 #ifndef __HELP_H
 #define __HELP_H
-const char *  const __attribute__((section(".rodata")))help[] = {
+// (in bank 2 since 8.00.00b5: read by HELP and the editor, both in the foreground; bank 1 had 536 bytes left)
+const char *  const __attribute__((section(".bank2.help")))help[] = {
  "*","* multiply",
  "+","+ add",
  "-","- subtract",
@@ -388,6 +389,8 @@ const char *  const __attribute__((section(".rodata")))help[] = {
  "MM.INFO(TCP REQUEST","MM.INFO(TCP REQUEST n)",
  "MM.INFO(TCPIP STATUS","MM.INFO(TCPIP STATUS)",
  "MM.INFO(TELNET","MM.INFO(TELNET)",
+ "MM.INFO(THREAD","MM.INFO(THREAD [n])",
+ "MM.INFO(THREAD LOCK","MM.INFO(THREAD LOCK k)",
  "MM.INFO(UDP PORT","MM.INFO(UDP PORT)",
  "MM.INFO(WIFI STATUS","MM.INFO(WIFI STATUS)",
  "MM.MESSAGE$","MM.MESSAGE$",
@@ -651,6 +654,22 @@ const char *  const __attribute__((section(".rodata")))help[] = {
  "TEMPR(","TEMPR( pin )",
  "TEXT","TEXT x, y, string$ [,alignment$] [, font] [, scale] [, colour] [, bc]",
  "THEN","IF expr THEN stmt [: stmt]",
+ "THREAD EXIT","THREAD EXIT",
+ "THREAD HOLD","THREAD HOLD",
+ "THREAD LIST","THREAD LIST",
+ "THREAD LOCK","THREAD LOCK k [, timeout]",
+ "THREAD PAUSE","THREAD PAUSE n",
+ "THREAD PRIORITY","THREAD PRIORITY n, p",
+ "THREAD RELEASE","THREAD RELEASE",
+ "THREAD RESUME","THREAD RESUME n",
+ "THREAD SIZE","THREAD SIZE kb [, locals [, nest]]",
+ "THREAD SLICE","THREAD SLICE ms",
+ "THREAD START","THREAD START n [SIZE kb] [LOCALS m] [NEST d] [PRIORITY p], sub [, argument ...]",
+ "THREAD STOP","THREAD STOP n",
+ "THREAD UNLOCK","THREAD UNLOCK k",
+ "THREAD WAIT","THREAD WAIT n [, timeout]",
+ "THREAD WAIT FLAG","THREAD WAIT FLAG f [, timeout]",
+ "THREAD YIELD","THREAD YIELD",
  "TIME$","TIME$ = 'HH:MM:SS'  | TIME$ = ?sec or string$ = TIME$",
  "TIMER","TIMER = msec or value = TIMER",
  "TMC22XX","TMC22xx pin, chip, address, current, holdpct, microsteps [,rsense] [,stealthchop] | SGTHRS | TCOOLTHRS | CLOSE",
