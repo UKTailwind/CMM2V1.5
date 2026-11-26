@@ -56,3 +56,26 @@
 | Stack overflow | A thread's FUNCTION calls went too deep for its stack |
 | Not enough Local variable memory | A thread made more LOCALs than its LOCALS |
 | Too many nested FOR loops (or DO or WHILE loops, SUB/FUN, GOSUB) | A thread's loops or calls went deeper than its NEST |
+
+## The PicoMite
+
+The commands and functions are the same, with these limits:
+
+{widths: 45,55}
+| Command | On the PicoMite |
+|---|---|
+| THREAD START n [SIZE kb] [LOCALS m] [NEST d] [PRIORITY p], sub [, argument ...] | n is 1 to 8. SIZE 6 to 512 KB (8 by default), LOCALS 8 to half the local variable region (24 by default on the RP2350, 16 on the RP2040), NEST 4 to 50 (8 and 6) |
+| THREAD SIZE kb [, locals [, nest]] | The same ranges; 8, and 24 and 8 (RP2350) or 16 and 6 (RP2040), at RUN |
+| THREAD LIST | No stack figure for the main program |
+
+The messages are the Colour Maximite 2's, and these besides:
+
+{widths: 45,55}
+| Message | Meaning |
+|---|---|
+| n is invalid (valid is 1 to 8) | A thread number outside 1 to 8 |
+| Framebuffer in use by thread n | FRAMEBUFFER CLOSE of a buffer another thread writes to |
+| JSON nested more than n deep: no stack for more | JSON$ of a document nested deeper than its thread's stack has room for |
+| Stack overflow, at depth n, stack s, heap h | The PicoMite's form of "Stack overflow" |
+
+An error is shown with its thread and line before the statement, as TRACE shows them, and the message after it: `[#3:40] x = a(i)` and then `Error : Index out of bounds`.

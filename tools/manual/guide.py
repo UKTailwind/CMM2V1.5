@@ -237,7 +237,7 @@ THREADS = {                                             # guide.py threads: thre
     'DATE': '26 November 2026',
     'TITLE': {
         'User Manual': 'Threads User Manual',
-        'MMBasic Ver': 'Threads in MMBasic programs on the Colour Maximite 2',
+        'MMBasic Ver': 'Threads in MMBasic programs on the Colour Maximite 2 and the PicoMite',
         'Matches firmware': 'For firmware 8.00.00b5 and later',
         'Geoff Graham': 'Peter Mather',
         'For updates to this manual': 'The firmware and this manual are at',
@@ -248,12 +248,13 @@ THREADS = {                                             # guide.py threads: thre
               'threads, how they take turns, which commands let the others run while they wait, sharing data safely '
               'with locks (mutexes), holds and flags, interrupts and the network with threads, errors and debugging, memory and '
               'limits, and complete programs. It assumes a working knowledge of MMBasic; the user manual has the same '
-              'commands in its reference sections and an overview in its Appendix R.'),
+              'commands in its reference sections and an overview in its Appendix R. It covers the PicoMite\'s threads '
+              'too: where the PicoMite differs, a note in italics beginning PicoMite says how.'),
     'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '
                 'and problems with threads reported as issues of the repository above.'),
     'COPYRIGHT': ('This manual is copyright 2026 Peter Mather and is distributed under a Creative Commons '
                   'Attribution-NonCommercial-ShareAlike 3.0 Australia license (CC BY-NC-SA 3.0), as the user manual is.'),
-    'SUBJECT': 'Threads in MMBasic programs on the Colour Maximite 2',
+    'SUBJECT': 'Threads in MMBasic programs on the Colour Maximite 2 and the PicoMite',
     'TITLE_ADD': {},
 }
 

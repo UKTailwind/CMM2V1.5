@@ -13,6 +13,8 @@ Each thread has its own:
 
 The last group means that one thread's COLOUR, FONT, PRINT @ or PAGE WRITE does not change another thread's. A new thread starts with those of the thread that started it, and MODE gives every thread the new mode's.
 
+!NOTE PicoMite: the PicoMite's write page is its FRAMEBUFFER WRITE target (N, F, L, T or 2), each thread's own. FRAMEBUFFER CLOSE refuses a buffer another thread writes to ("Framebuffer in use by thread n"); a thread that closes the buffer it writes to itself goes back to N, as a program always has.
+
 ## What they share
 
 Everything else belongs to the whole program:
@@ -297,6 +299,8 @@ How it works:
 Use a different pair of flags for each queue, and keep its arrays and counts for it alone. An interrupt routine cannot wait, so it should not call Put or Get: let it set a flag, and let its thread do the Put (see *Interrupts and Threads*). THREAD WAIT lets go of a hold only: a lock (THREAD LOCK) stays taken while its thread waits, so keep these SUBs to THREAD HOLD.
 
 !NOTE In the 8.00.00b5 firmware first posted on 26 November THREAD WAIT inside THREAD HOLD was an error. For that file, end the hold before the wait and hold again after it, and clear the flag inside the hold in the same step as the test: a flag stays 1 until a thread clears it, so a Put that comes between the release and the wait still wakes the Get.
+
+!NOTE PicoMite: the PicoMite's threads have let go of the hold in THREAD WAIT from the start.
 
 ## Waiting for a thread
 

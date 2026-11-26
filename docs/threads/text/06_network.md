@@ -2,6 +2,8 @@
 
 These apply only to a Colour Maximite 2 with the WiFi module.
 
+!NOTE PicoMite: the network is the WebMite's (the builds for the Raspberry Pi Pico W and Pico 2 W, the HDMI WebMite and the PicoMite PC3), and Bluetooth is the Bluetooth builds' and the PC3's. The rules are the same.
+
 ## The network belongs to one thread
 
 The network's commands (WEB OPEN TCP CLIENT, TCP CLIENT REQUEST, WEB NTP, WEB MQTT, WEB PING, WEB TRANSMIT and the rest) share one set of state inside the firmware: one TCP client connection, one MQTT client, one timer for their waits. So the network belongs to one thread at a time:
@@ -41,3 +43,5 @@ The thread that waits for the network takes no interrupt while it waits, as a WE
 Bluetooth is the same. Its scan, its serial connection (COM8) and its keyboard each keep one state, so BLUETOOTH commands belong to one thread, by the same rule as the network: the main program may use them to set up, the first other thread to use one has Bluetooth until it ends, and a BLUETOOTH command in any other thread is the error "Bluetooth belongs to thread n". BLUETOOTH CONNECT, SCAN and the other commands that wait let the other threads run.
 
 Using COM8 once it is open (PRINT #, INPUT #) is like using any COM port: it is shared, and best given to one thread.
+
+!NOTE PicoMite: Bluetooth's serial connection is the one BLUETOOTH CONNECT SERIAL opens; it too is best given to one thread.

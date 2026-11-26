@@ -9,9 +9,13 @@ THREAD START n SIZE kb LOCALS m NEST d PRIORITY p, sub [, argument ...]
 
 THREAD START starts thread 'n', a number from 1 to 16 that you choose, running the SUB 'sub'. The main program is thread 0. THREAD START returns at once: the new thread runs when its turn comes, a moment later.
 
+!NOTE PicoMite: 'n' is 1 to 8.
+
 The SUB must be a SUB of the program (not a FUNCTION, and not a CSUB), and thread 'n' must not already be running ("Thread n is running"). The number becomes free again when the thread ends. THREAD START is for programs: at the command prompt it is refused.
 
 A thread starts with the print position, colours, font and write page of the thread that started it.
+
+!NOTE PicoMite: the PicoMite has no pages. A thread starts with the FRAMEBUFFER WRITE target (N, F, L, T or 2) of the thread that started it, and has its own from then on.
 
 ## Arguments
 
@@ -60,6 +64,8 @@ Thread Size 12, 16, 8                            ' and loops and calls 8 deep
 ```
 
 They go back to 20 KB, 48 and 20 at the next RUN. PRIORITY p, in the same place, gives the thread more of the processor than the others: see *Priority* in the next chapter. The chapter *Memory and Limits* says how to choose them.
+
+!NOTE PicoMite: SIZE is 6 to 512 KB, 8 by default. LOCALS is 8 to half the local variable region (192 to 256 slots, by build), 24 by default on the RP2350 and 16 on the RP2040. NEST is 4 to 50, 8 by default on the RP2350 and 6 on the RP2040. THREAD SIZE's defaults go back to these at the next RUN.
 
 ## How a thread ends
 

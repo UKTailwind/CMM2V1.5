@@ -6,6 +6,8 @@ A thread is a SUB of your program that runs alongside the main program. Once sta
 
 The Colour Maximite 2 has one processor, so only one thread runs at any instant. The firmware shares the processor between them: each runs for a short time slice, a millisecond unless you choose otherwise, and the next one then has its turn. The switch from one thread to the next always comes between two statements, never in the middle of one. Because the slices are short, the threads appear to run at the same time.
 
+!NOTE PicoMite: a program can have up to eight threads. The RP2040 and the RP2350 have two cores, but the second drives the display or does the firmware's other work, so every thread runs on the first and they take turns there exactly as described.
+
 ## Why use them
 
 MMBasic programs have long done several things at once with interrupts: SETTICK calls a routine every so often, SETPIN calls one when a pin changes, and the main program does the rest. That works well when each event needs a short, quick answer. It works less well when the job has a flow of its own: wait a second, do something, wait for a key, do something else. Written with interrupts, such a job becomes a routine that is called again and again and a variable that remembers where it had got to.
@@ -56,6 +58,10 @@ End
 
 THREAD START 1, Heart starts thread 1 running the SUB Heart. From then on two things go on at once: Heart adds one to beats every half a second, and the main program shows beats ten times a second until a key is pressed. END stops the program, and its threads with it.
 
+## The Colour Maximite 2 and the PicoMite
+
+This manual is for threads on both the Colour Maximite 2 and the PicoMite: the PicoMite firmware's RP2040 and RP2350 builds (the PicoMite, PicoMiteVGA, PicoMiteHDMI and WebMite, the PicoMite PC3 and the others). The commands are the same, and they work the same way on both. Where the PicoMite differs, a note in italics beginning *PicoMite* says how, and Appendix A ends with the PicoMite's limits and its own messages. Where the text gives a figure measured on one of the machines, a time or a size, it says which.
+
 ## How this manual is arranged
 
 - **Starting and Ending Threads**: THREAD START, its arguments, and the ways a thread ends.
@@ -66,6 +72,6 @@ THREAD START 1, Heart starts thread 1 running the SUB Heart. From then on two th
 - **Errors and Debugging**: what happens at an error, Ctrl-C and END, and THREAD LIST, TRACE, MEMORY and profiling.
 - **Memory and Limits**: what a thread takes, SIZE, LOCALS and NEST, and what cannot be done in a thread.
 - **Worked Programs**: complete programs that use threads.
-- **Appendix A**: the commands and functions in brief.
+- **Appendix A**: the commands and functions in brief, and the PicoMite's limits and messages.
 
 The firmware's user manual has the same commands in its reference sections, and an overview in its Appendix R.

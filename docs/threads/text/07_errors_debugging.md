@@ -10,6 +10,8 @@ Error in thread 3, line 40: Index out of bounds
 
 ON ERROR is each thread's own: ON ERROR SKIP in one thread skips only that thread's next error, and MM.ERRNO and MM.ERRMSG$ are each thread's.
 
+!NOTE PicoMite: the PicoMite shows the thread and line before the statement, as TRACE does, and the message after it: "[#3:40] x = a(i)" and then "Error : Index out of bounds".
+
 ## The list of threads
 
 After an error or Ctrl-C, the firmware lists each thread with the line it was at and what it was doing:
@@ -37,6 +39,8 @@ Thread 3: line 8, in PAUSE, stack used at most 660 of 16384
 
 This is the way to choose a thread's SIZE: run the program through its deepest work, then look at THREAD LIST (see *Memory and Limits*).
 
+!NOTE PicoMite: the main program's line has no stack figure: its stack is the processor's own, not one of the threads'.
+
 ## TRACE
 
 TRACE ON prints each line's number as it runs, in square brackets. A line run by a thread other than the main program is shown with the thread's number:
@@ -59,6 +63,8 @@ In a program with threads running, MEMORY has a last line with the memory of the
 
 With OPTION PROFILING ON, LIST PROFILE gives each line's count and average time. With threads, a line's time is only the time its own thread spent on it: the time other threads ran while it waited is theirs. A main program in PAUSE 300 while a thread counts shows a few microseconds for the PAUSE line, and the thread's lines show where the 300 ms went.
 
+!NOTE PicoMite: the PicoMite's OPTION PROFILING reports by SUB and FUNCTION when the program ends. With threads, a SUB's time is only its own thread's: the time other threads ran while its thread waited is not charged to it. OPTION PROFILING is refused while the program has a thread, so set it before the first THREAD START.
+
 ## Stack overflow
 
 A thread's stack holds its SUB and FUNCTION calls. A FUNCTION that calls itself too deeply, or a thread given too small a SIZE, can run out:
@@ -68,6 +74,8 @@ Error in thread 2, line 12: Stack overflow
 ```
 
 The cure is a bigger SIZE for that thread, or less recursion. THREAD LIST shows how close each thread has come.
+
+!NOTE PicoMite: the message is "Stack overflow, at depth n, stack s, heap h". On the RP2350 the processor also guards the bottom of each thread's stack, so an overrun restarts the PicoMite rather than overwriting memory; the RP2040 has no such guard, which is one more reason to give a thread room to spare.
 
 ## Common mistakes
 
@@ -79,3 +87,5 @@ The cure is a bigger SIZE for that thread, or less recursion. THREAD LIST shows 
 - **A test of a value another thread is changing**, followed by an action on it: the value may have changed in between. Use THREAD HOLD or a lock around both.
 - **A busy loop waiting for another thread** (`Do While done = 0 : Loop`). It works, but uses the processor the other thread needs. THREAD WAIT n, or THREAD WAIT FLAG, waits without.
 - **Too little stack.** A thread of the default 20 KB can call about nine FUNCTIONs inside each other.
+
+!NOTE PicoMite: a thread of the default 8 KB can call about three FUNCTIONs inside each other as text on a PC3, two on the RP2040, and about six with OPTION COMPILE ON.

@@ -63,6 +63,8 @@ A thread that waits uses no processor time: the others run until what it waits f
 
 So a program can sit in INPUT for its user while threads keep the screen moving, or wait two seconds for a web server while a game goes on.
 
+!NOTE PicoMite: the frame waits are FRAMEBUFFER WAIT, FRAMEBUFFER COPY ...,B and MAP SET (and MAP's other forms that wait for the frame); they let the other threads run on a VGA or HDMI PicoMite. A panel has no frame interrupt to count by, so there a frame wait holds every thread until it ends. The PicoMite has no PAGE commands. CPU SLEEP is a PAUSE while the program has threads, and without threads the wait it always was.
+
 When two threads wait for the same frame (FRAMEBUFFER WAIT, PAGE COPY ...,B), both get it: each wakes at the start of the next frame.
 
 ## Waits that hold every thread
@@ -76,9 +78,11 @@ Other commands that take time hold every thread until they end, as any long stat
 
 ## The cost
 
-A program that starts no thread runs exactly as fast as it did before threads existed. With threads, a switch from one thread to another takes about 5 microseconds, so 1 ms slices cost about half a percent of the processor. A thread in a wait costs nothing.
+A program that starts no thread runs exactly as fast as it did before threads existed. With threads, a switch from one thread to another takes about 5 microseconds on a Colour Maximite 2, so 1 ms slices cost about half a percent of the processor. A thread in a wait costs nothing.
 
-Starting a thread takes about a third of a millisecond, mostly for preparing its stack.
+Starting a thread takes about a third of a millisecond on a Colour Maximite 2, mostly for preparing its stack.
+
+!NOTE PicoMite: on a PicoMite PC3 (an RP2350 at 315 MHz) a THREAD YIELD to another thread and back, two switches and three statements, takes about 30 microseconds, and THREAD START with the thread's end about 220 microseconds. A program that starts no thread runs within a percent of the speed of a firmware without threads.
 
 ## OPTION COMPILE
 

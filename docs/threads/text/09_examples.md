@@ -45,6 +45,8 @@ End
 
 Each ball has its own position and speed as the parameters of its SUB, so one SUB serves all four. Each CIRCLE and TEXT carries its own colour, so the threads cannot disturb each other's colours, and each thread's print position is its own, so the clock does not move the line being typed.
 
+!NOTE PicoMite: in MODE 1 of a VGA or HDMI PicoMite each 8 by 8 block of the screen has one colour, so run it in MODE 2, or MODE 3 on an RP2350 (in place of CLS).
+
 ## A long job with a live screen
 
 The picture is drawn by a thread. The main program reads the keys: P pauses the drawing, R lets it go on, Q stops it.
@@ -150,6 +152,8 @@ End
 ```
 
 The file belongs to the Writer thread alone; the Sampler only fills the array. THREAD HOLD in the routine is not strictly needed (an interrupt routine runs whole, with no other thread), but it shows the pattern for code that is not a routine.
+
+!NOTE PicoMite: an analogue input is GP26, GP27 or GP28: SetPin GP26, AIN and Pin(GP26) in place of pin 7.
 
 ## A web request while a game runs
 

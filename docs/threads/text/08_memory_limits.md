@@ -1,5 +1,7 @@
 # Memory and Limits
 
+!NOTE PicoMite: the figures in this chapter are the Colour Maximite 2's. The PicoMite's are in *The PicoMite*, at the end of the chapter.
+
 ## What a thread takes
 
 A thread takes two blocks of memory while it runs, both freed when it ends:
@@ -87,3 +89,32 @@ And these are not possible:
 - **TIMER = 0** in one thread sets the timer for all.
 - **OPTION settings** (BASE, DEFAULT, EXPLICIT, ANGLE and the rest) are the program's: set them before the threads start.
 - **Loadable programs** (RUN "name.app"), the C compiler's programs and MicroPython do not use threads; a CSUB runs whole, with no switch inside it.
+
+## The PicoMite
+
+**What a thread takes.** Its stack and its record come from the part of the heap in the processor's own memory, never from the PSRAM. On a PicoMite PC3 a thread of the defaults takes 10,752 bytes, its 8 KB stack and its record, and one of SIZE 6 LOCALS 8 NEST 4 takes 7,936. That heap is 108 KB on the PC3 and 114 to 155 KB on the RP2040 builds, so eight threads of the defaults fit on each, beside a program of a fair size.
+
+**The stack.** A FUNCTION call takes about 1.3 KB of a thread's stack as text on a PC3, 1.4 KB on the RP2040, and about 0.65 KB with OPTION COMPILE ON; SUB calls take none. Below the stack check's floor every thread keeps 3 KB for the commands themselves, as the Colour Maximite 2 keeps 6 KB: the deepest measured (a TLS request, PRINT's formatting of a number, an error raised inside an expression) go about 2 KB below the statement that runs them, and LOAD PNG about 1.6 KB. A thread of the default 8 KB can be about three FUNCTIONs deep as text on a PC3, two on the RP2040, and about six with OPTION COMPILE ON. Choose SIZE with THREAD LIST, as above.
+
+**Local variables.** All the threads' local variables come from the local variable region, the table OPTION LOCAL VARIABLES sets: 256 slots on the PC3 and 192 or 240 on the other builds, shared with the main program's locals. A thread's LOCALS may be up to half of it. Eight threads of the default LOCALS fit: eight of 24 in the PC3's 256, eight of 16 in an RP2040's 192.
+
+**Loops and calls.** NEST is 4 to 50. The main program's own lists are the ones it always had: 20 FOR loops, 20 DO loops and 50 calls deep, whatever the threads are given.
+
+{widths: 50,50}
+| What | Limit on the PicoMite |
+|---|---|
+| Threads at once | 8 (numbered 1 to 8), and the main program |
+| Arguments to THREAD START | 16 |
+| Stack (SIZE) | 6 to 512 KB, 8 by default |
+| Local variables (LOCALS) | 8 to half the local variable region; 24 by default on the RP2350, 16 on the RP2040 |
+| Loops and calls deep (NEST) | 4 to 50; 8 by default on the RP2350, 6 on the RP2040 |
+| Time slice, priority, locks and flags | As the Colour Maximite 2's |
+
+**What cannot be done in a thread.** These are refused in a thread other than the main program ("Not allowed in a thread"): RUN, CHAIN, FLASH RUN, FLASH CHAIN, RAM RUN, RAM CHAIN, NEW, LOAD of a program, LIBRARY, AUTOSAVE, EDIT, LIST, XMODEM, ZMODEM and GUI CLICK. These are refused while any thread is running ("Not allowed while a thread is running"): ERASE, REDIM, CLEAR, SAVE CONTEXT, LOAD CONTEXT and OPTION PROFILING. A loadable program (RUN "name.app") runs with no thread switch, as on the Colour Maximite 2. SQL and USER commands may be used in a thread.
+
+**Things to know.**
+
+- **FRAMEBUFFER CLOSE** is refused while another thread writes to the buffer ("Framebuffer in use by thread n").
+- **JSON$** reads a document nested as deep as the stack has room for: about 27 levels in a thread of the default SIZE on a PC3, and 117 in the main program. Deeper is "JSON nested more than n deep: no stack for more".
+- **CPU SLEEP** is a PAUSE while the program has threads.
+- **A frame wait on a panel** holds every thread until it ends.
