@@ -13,8 +13,9 @@ still d68c9e6 that day (two LIBRARY LOAD commits ahead of GitHub's cba5ea0), so 
 
 ## What is being ported
 
-On the CMM2 (branch `threads`, `Src/Thread.c`, 1,418 lines, 12.1 KB of code, with about 2.3 KB more in the rest of
-the firmware for the hooks: the pointers, the statement tail, the waits and the interrupt scan):
+On the CMM2 (branch `threads`, `Src/Thread.c`, 1,418 lines, 12.1 KB of code, with about 2.5 KB more in the rest of
+the firmware for the hooks: the pointers, the statement tail, the waits and the interrupt scan; 14.6 KB of flash in
+all, measured against v8-dev 217b350, and 1.4 KB of RAM before any thread is started):
 
 - A thread is a SUB running on a C stack of its own, with a record that holds its interpreter state. The main
   program is thread 0; threads are numbered 1 to 16.
@@ -256,7 +257,8 @@ measured again: two busy threads that share a lock with no THREAD YIELD did 39% 
   MAP SET's wait for the frame (the colours are now loaded by the merge's interrupt), and the merge into `threads`
   conflicted at exactly the loop the threads had replaced with `ThreadFrameWait`. It was the only conflict of the
   merge. Hence Stage P0's step 5: one function for the frame waits from the start, in the main branch too.
-- **The threads' code is not all in `Thread.c`.** The hooks add about 2.3 KB to the rest of the CMM2's firmware. That
+- **The threads' code is not all in `Thread.c`.** The hooks add about 2.5 KB to the rest of the CMM2's firmware, 2.3 KB
+  of it in flash bank 1. That
   was enough to overrun flash bank 1 by 136 bytes when v8-dev's new commands arrived, and a cold command parser had
   to move to bank 2. The PicoMite's flash has room, but on the RP2040 the same hooks land partly in functions that
   run from RAM (section 11): measure after each stage, not only after P0.
