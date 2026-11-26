@@ -537,6 +537,10 @@ static void ThreadMain(void) {
 void ThreadSchedule(void) {
     struct s_thread *to;
     if(Cur == NULL || Held()) return;
+    if(Cur->pending != NULL) return;                                // a routine handed to this thread runs first, from this
+                                                                    // same statement tail (ThreadIntTake): NextReady passes
+                                                                    // over Cur, so the routine waited a whole round of turns
+                                                                    // (the PicoMite port's ttick, its e9aea51, 26 Nov 2026)
     to = NextReady();
     if(to != Cur) ThreadSwitchTo(to);
 }
