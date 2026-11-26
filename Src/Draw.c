@@ -2671,9 +2671,13 @@ void cmd_clut(void){
 	char *p;
 	if(VideoColour==1)error("Invalid for this screen mode");       // (the CLUT is the tiles': Mono.c)
     if((p=checkstring(cmdline, "SET"))) {
+		Rgb121ClutPending=1;                                        // (a mode with a merge: its interrupt loads the CLUT as the frame ends, in the blanking: Rgb121.c)
 		pagesetdone=0;
 		while(!pagesetdone)CheckAbort();
-		HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+		if(Rgb121ClutPending) {                                     // (no merge: loaded here, which is in the blanking then)
+			HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+			Rgb121ClutPending=0;
+		}
 		if(VideoColour==4) CommitMapRGB();                          // (the colours shown now: SAVE IMAGE's, Rgb121.c)
     } else if((p=checkstring(cmdline, "RESET"))){
     	reset_CLUT();
