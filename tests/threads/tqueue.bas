@@ -1,4 +1,5 @@
-' tqueue.bas - threads: the queue of the Threads User Manual's "A queue between threads" (Sharing Data Safely), its
+' tqueue.bas - threads: the queue of 8.00.00b5's Threads User Manual ("A queue between threads"), which releases the
+' hold before it waits and so runs on every version (the manual's queue now waits inside the hold: tcond.bas); its
 ' Put and Get as printed there, with a small queue so that it is often full as well as empty. One producer and one
 ' consumer: every message arrives, in order. Two producers and two consumers with yields between their operations:
 ' nothing is lost or taken twice. Both kinds of wait happen, and a busy thread runs while they wait.
@@ -137,18 +138,12 @@ For stress = 0 To 1
   Check "  both consumers ended", ended, 2
 Next
 
-' inside a hold the wait is refused (release first, as Put and Get do)
-Thread Hold
-Flag(5) = 0
-On Error Skip
-Thread Wait Flag 5
-Thread Release
-Check "THREAD WAIT FLAG inside THREAD HOLD is an error", MM.ErrMsg$ = "Cannot wait while the threads are held", 1
+' a flag already set: THREAD WAIT FLAG inside a hold goes on at once (tcond.bas tests the wait that lets go of it)
 Thread Hold
 Flag(5) = 1
 On Error Skip
 Thread Wait Flag 5
 Thread Release
-Check "but not when the flag is already set", MM.Errno, 0
+Check "THREAD WAIT FLAG inside THREAD HOLD, the flag already set", MM.Errno, 0
 Print "tqueue:"; pass; " of"; tests; " passed"
 

@@ -16,7 +16,7 @@
 | THREAD UNLOCK k | Gives lock k up |
 | THREAD HOLD | No other thread runs, and their interrupts wait, until THREAD RELEASE |
 | THREAD RELEASE | Ends THREAD HOLD (they nest) |
-| THREAD WAIT n [, timeout] | Waits until thread n has ended, or for 'timeout' ms |
+| THREAD WAIT n [, timeout] | Waits until thread n has ended, or for 'timeout' ms. Inside THREAD HOLD it lets go of the hold while it waits |
 | THREAD WAIT FLAG f [, timeout] | Waits until FLAG(f) is 1 (0 to 63), or for 'timeout' ms |
 | THREAD LIST | Each thread's line, state and stack |
 | MM.INFO(THREAD) | The running thread's number (0 the main program) |
@@ -44,7 +44,7 @@
 | Lock k is already held by this thread | THREAD LOCK of a lock the thread holds |
 | Lock k is not held by this thread | THREAD UNLOCK of a lock the thread does not hold |
 | The threads are not held | THREAD RELEASE with no THREAD HOLD |
-| Cannot wait while the threads are held | A wait inside THREAD HOLD |
+| Cannot wait while the threads are held | THREAD LOCK of a lock another thread has, inside THREAD HOLD |
 | Cannot wait in an interrupt routine | THREAD LOCK or WAIT that cannot end at once, in a routine |
 | A thread cannot wait for itself | THREAD WAIT of the running thread's number |
 | The network belongs to thread n | A WEB command in a thread that does not own the network |

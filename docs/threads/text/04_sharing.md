@@ -193,7 +193,13 @@ If free > 0 Then free = free - 1 : got = 1
 Thread Release
 ```
 
-Use it only for a few quick statements: everything else waits, the other threads' interrupts included. A wait that cannot end at once (PAUSE, THREAD LOCK, INPUT and the rest) is an error inside a hold ("Cannot wait while the threads are held"), since no other thread could make it end. HOLD and RELEASE nest; RELEASE with no HOLD is an error.
+Use it only for a few quick statements: everything else waits, the other threads' interrupts included. HOLD and RELEASE nest; RELEASE with no HOLD is an error.
+
+Waits inside a hold:
+
+- **THREAD WAIT** lets go of the hold while it waits, and takes it again when the wait ends: the other threads run meanwhile, and the statements after the wait are held again. Other systems call this a condition variable. *A queue between threads*, below, shows what it is for. If what it waits for is so already, it does not wait, and the hold is kept throughout.
+- **THREAD LOCK** of a lock another thread has is an error inside a hold ("Cannot wait while the threads are held"), since that thread could not run to unlock it.
+- **PAUSE, INPUT and the waits for a frame** do wait, and every other thread waits with them until they end. Keep them out of a hold.
 
 ## Passing messages with flags
 
@@ -235,39 +241,29 @@ Dim q$(QSIZE - 1)
 Dim Integer head, tail, count
 
 Sub Put(m$)                         ' waits while the queue is full
-  Local Integer done
-  Do
-    Thread Hold
-    If count < QSIZE Then
-      q$(tail) = m$
-      tail = (tail + 1) Mod QSIZE
-      Inc count
-      Flag(1) = 1                   ' not empty: wakes a Get
-      done = 1
-    Else
-      Flag(2) = 0                   ' full: cleared in the same step as the test
-    EndIf
-    Thread Release
-    If done = 0 Then Thread Wait Flag 2   ' until a Get makes room
-  Loop Until done
+  Thread Hold
+  Do While count = QSIZE
+    Flag(2) = 0                     ' full: wait for a Get to make room
+    Thread Wait Flag 2              ' (lets go of the hold while it waits)
+  Loop
+  q$(tail) = m$
+  tail = (tail + 1) Mod QSIZE
+  Inc count
+  Flag(1) = 1                       ' not empty: wakes a Get
+  Thread Release
 End Sub
 
 Sub Get(m$)                         ' waits while the queue is empty
-  Local Integer done
-  Do
-    Thread Hold
-    If count > 0 Then
-      m$ = q$(head)
-      head = (head + 1) Mod QSIZE
-      Inc count, -1
-      Flag(2) = 1                   ' not full: wakes a Put
-      done = 1
-    Else
-      Flag(1) = 0                   ' empty: cleared in the same step as the test
-    EndIf
-    Thread Release
-    If done = 0 Then Thread Wait Flag 1   ' until a Put adds one
-  Loop Until done
+  Thread Hold
+  Do While count = 0
+    Flag(1) = 0                     ' empty: wait for a Put
+    Thread Wait Flag 1
+  Loop
+  m$ = q$(head)
+  head = (head + 1) Mod QSIZE
+  Inc count, -1
+  Flag(2) = 1                       ' not full: wakes a Put
+  Thread Release
 End Sub
 ```
 
@@ -293,13 +289,14 @@ Loop
 
 How it works:
 
-- **The test and the change are made together, inside the hold.** No other thread can put or take between Get finding the queue empty and Get clearing FLAG(1).
-- **The wait comes after THREAD RELEASE.** THREAD WAIT FLAG inside a hold is the error "Cannot wait while the threads are held" (unless the flag is already 1), since no other thread could set it.
-- **No wake-up is lost in the gap between the release and the wait.** A flag stays 1 until a thread clears it, and only a thread that holds the threads and finds the queue empty (or full) clears it. If a Put comes in the gap, FLAG(1) is 1 when Get reaches THREAD WAIT FLAG, and the wait ends at once.
-- **A thread that wakes looks again.** With two consumers, both wake when a message is put, and the second finds the queue empty again and goes back to waiting. That is why each SUB is a loop: being woken means "look again", not "there is a message for you".
+- **The test, the flag and the wait are one step.** Get finds the queue empty, clears FLAG(1) and starts to wait, all inside the hold, so no Put can come in between. THREAD WAIT FLAG then lets go of the hold, and a Put can run.
+- **Waking takes the hold again.** When the wait ends, Get holds the threads once more before it looks at the queue, so the statements after the wait are as safe as those before it.
+- **A thread that wakes looks again.** With two consumers, both wake when a message is put, and the second finds the queue empty again and goes back to waiting. That is why the wait is in a loop: being woken means "look again", not "there is a message for you".
 - **A waiting thread uses no processor time,** and the others run.
 
-Use a different pair of flags for each queue, and keep its arrays and counts for it alone. An interrupt routine cannot wait, so it should not call Put or Get: let it set a flag, and let its thread do the Put (see *Interrupts and Threads*). THREAD LOCK and THREAD UNLOCK in place of THREAD HOLD and THREAD RELEASE work just as well, and leave threads that do not use the queue running; for these few quick statements a hold is the simpler.
+Use a different pair of flags for each queue, and keep its arrays and counts for it alone. An interrupt routine cannot wait, so it should not call Put or Get: let it set a flag, and let its thread do the Put (see *Interrupts and Threads*). THREAD WAIT lets go of a hold only: a lock (THREAD LOCK) stays taken while its thread waits, so keep these SUBs to THREAD HOLD.
+
+!NOTE Before 8.00.00b6 THREAD WAIT inside THREAD HOLD was an error. For those versions, end the hold before the wait and hold again after it, and clear the flag inside the hold in the same step as the test: a flag stays 1 until a thread clears it, so a Put that comes between the release and the wait still wakes the Get.
 
 ## Waiting for a thread
 
@@ -324,7 +321,8 @@ For readers who know threads from another language or a real-time operating syst
 | Priority inheritance | Built in: a lock lends priority (*How Threads Run*) |
 | Critical section; scheduler lock | THREAD HOLD and THREAD RELEASE |
 | Atomic operation | Any single statement |
-| Event, semaphore or condition variable | FLAG(f) with THREAD WAIT FLAG f |
+| Event or semaphore | FLAG(f) with THREAD WAIT FLAG f |
+| Condition variable | THREAD WAIT FLAG f inside THREAD HOLD, which lets go of the hold while it waits |
 | Message queue; bounded buffer | The Put and Get SUBs of *A queue between threads* |
 | Join | THREAD WAIT n |
 | Yield; sleep | THREAD YIELD; PAUSE |

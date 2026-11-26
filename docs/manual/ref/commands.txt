@@ -3130,7 +3130,8 @@ A lock belongs to the thread that took it: taking it again is an error ("Lock k 
 or
 THREAD RELEASE
 --- keep
-No other thread runs between THREAD HOLD and THREAD RELEASE, and other threads' interrupts wait. For a few statements that must not be split (eg, reading a total and writing it back). They nest. A wait inside a hold that cannot end at once is an error ("Cannot wait while the threads are held").
+No other thread runs between THREAD HOLD and THREAD RELEASE, and other threads' interrupts wait. For a few statements that must not be split (eg, reading a total and writing it back). They nest.
+THREAD WAIT inside a hold lets go of the hold while it waits and takes it again when the wait ends, as a condition variable's wait does with its mutex (see THREAD WAIT). THREAD LOCK of a lock another thread has is an error inside a hold ("Cannot wait while the threads are held"), since that thread could not run to unlock it. PAUSE, INPUT and the frame waits inside a hold keep every other thread waiting until they end.
 
 =+= THREAD WAIT n [, timeout]
 or
@@ -3138,6 +3139,7 @@ THREAD WAIT FLAG f [, timeout]
 --- keep
 THREAD WAIT 'n' waits until thread 'n' has ended (at once if it is not running). THREAD WAIT FLAG 'f' waits until FLAG('f') is 1 (0 to 63); any thread or an interrupt routine may set it, and the wait does not clear it.
 The thread uses no processor time while it waits, and takes its own interrupts. With 'timeout' (milliseconds) the command ends after that time whether or not what it waited for has happened: the program can look with MM.INFO(THREAD n) or FLAG(f).
+Inside THREAD HOLD the hold is let go while the thread waits, and taken again when the wait ends, so the other threads run meanwhile and the statements after the wait are held again. A test, the clearing of a flag and the wait can then be one step: see A queue between threads in the Threads User Manual. If what it waits for is so already, the hold is kept throughout.
 
 =+= THREAD LIST
 --- keep

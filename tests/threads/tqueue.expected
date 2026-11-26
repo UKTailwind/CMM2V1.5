@@ -11,6 +11,5 @@ ok    both consumers ended
 ok  two producers and two consumers, with yields: 2000 messages
 ok    the sum of their numbers
 ok    both consumers ended
-ok  THREAD WAIT FLAG inside THREAD HOLD is an error
-ok  but not when the flag is already set
-tqueue: 15 of 15 passed
+ok  THREAD WAIT FLAG inside THREAD HOLD, the flag already set
+tqueue: 14 of 14 passed

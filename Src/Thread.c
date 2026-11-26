@@ -1378,7 +1378,24 @@ void cmd_thread(void) {
         if(!(argc == 1 || argc == 3)) error("Syntax");
         k = (kind == W_FLAG) ? getint(argv[0], 0, 63) : getint(argv[0], 1, MAXTHREADS);
         if(kind == W_THREAD && k == me) error("A thread cannot wait for itself");
+        /* Inside THREAD HOLD the hold is let go while the thread waits, and taken again when the wait ends, as a
+           condition variable's wait lets go of its mutex: the test that found the queue empty, the flag's clearing and
+           the start of the wait are one step, and the statements after the wait run held again (a Back Shed user's
+           request, 26 Nov 2026). Only THREAD HOLD's own hold: one made by C code that runs BASIC (ThreadHoldDepth)
+           still refuses the wait, and so does an interrupt routine. A wait that ends at once keeps the hold throughout.
+           On an interrupt for this thread WaitFor returns with the statement to run again after the routine: the
+           hold is taken again here first, so the routine runs held, and the statement lets it go again. */
+        int held = 0;
+        if(HoldCount && ThreadHoldDepth == INT_MAX && InterruptReturn == NULL && !WaitOver(kind, k)) {
+            held = HoldCount;
+            HoldCount = 0;
+            Resignal();                                             // (the other threads' interrupts held back)
+        }
         WaitFor(kind, k, TimeLimit(argc, argv), token);             // (at its time limit the program looks for itself)
+        if(held) {
+            HoldCount = held;
+            HoldBy = me;
+        }
     } else if((p = checkstring(cmdline, "LIST")) != NULL) {
         checkend(p);
         ThreadList(1);

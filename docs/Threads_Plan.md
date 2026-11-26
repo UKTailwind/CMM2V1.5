@@ -1170,3 +1170,62 @@ a millisecond while a program runs, where it rode on OPTION USB POLLING's 2 ms. 
 already: one 512-byte block a round trip, about 85 KB/s from a PC whose own WiFi link pings the router at 3 to
 4 ms. Two more of the PicoMite's network fixes are not on the CMM2 yet: WEB TCP INTERRUPT 0 (#155, 6a4161d), and
 WEB TLS CA and NOVERIFY refused while a TLS connection is open (7ffee2a).
+
+## After 8.00.00b5 (26 November)
+
+### THREAD WAIT inside THREAD HOLD
+
+A Back Shed user asked that THREAD WAIT FLAG inside THREAD HOLD let go of the hold, so that a test, the clearing of a
+flag and the wait are one step. It now does, for both forms of THREAD WAIT (cmd_thread, Src/Thread.c): the hold's depth
+is kept, the hold let go and the held-back interrupts looked for again (Resignal), and the depth restored, with the
+thread as its holder, when WaitFor returns. That includes WaitFor's return for an interrupt of the waiting thread, so
+the routine runs held and the statement lets the hold go again when it runs again. A wait that is over already keeps
+the hold throughout; a hold made by C code that runs BASIC (ThreadHoldDepth) and a wait in an interrupt routine are
+refused as before; THREAD LOCK inside a hold is still refused (its owner could not run). The Threads User Manual's
+queue now waits inside the hold. tests/threads/tcond.bas (19 checks); tqueue.bas keeps the release-then-wait form,
+which every version runs.
+
+Found on the way: the manual said PAUSE, INPUT and the frame waits are errors inside a hold. They are not: they run,
+and every other thread waits until they end (PauseFor and ThreadPoll return at once while Held). The manual says so now.
+
+### Long commands: which could let the other threads run part-way
+
+Peter asked which long commands could be split safely. A survey of the source (26 November; read, not run), checked
+against the code at the points below. Nothing has been changed.
+
+A command can give way in the middle of its own C loop, as the network's do (NetYield -> ThreadPoll): each thread has
+its own C stack. ThreadPoll takes no interrupt and does nothing while the threads are held. What makes it unsafe is
+state that another thread can reach in the meantime:
+
+- **FatFs** is built without re-entrancy or file locking (FATFS/ffconf.h: FF_FS_REENTRANT 0, FF_FS_LOCK 0): giving
+  way between two whole FatFs calls is safe (routinechecks(1) already runs other FatFs calls there: the sound's
+  refill, a GIF's frames, the web server), inside one never. The SD card and USB drive drivers (multi-block
+  transfers with the card selected, the MSC chain's state) must never give way.
+- **Globals a command sets for its whole run:** `optiony` (MM_Misc.c:104), set to 0 by SAVE IMAGE and PNG and by LOAD
+  BMP, PNG and GIF (FileIO.c:409, 459, 1760, 1858, 1871, 1922); static scratch (cmd_fill's `fill*`, Draw.c:3470;
+  `linebuff`; the PNG encoder's, the JPEG decoder's and GIF's statics); the SQL module's one stack.
+- **Another thread's MODE or FRAMEBUFFER CLOSE** while a command keeps a page's address (the WARP commands, IMAGE,
+  FILL) would leave it writing to freed memory. FRAMEBUFFER CLOSE refuses only the other threads' write and read pages.
+- **THREAD STOP** of a thread in the middle of a command frees its locals and temporary memory only (ThreadStop,
+  Thread.c), so heap blocks, BASIC file numbers and globals the command had set would be left. This applies today to
+  a thread stopped inside a WEB command's wait.
+
+| Command | Long because | Could give way? |
+|---|---|---|
+| SORT | a bubble sort, O(n^2): 38 s for 20,000 floats on a G1 | Yes: it holds only its arrays. Better still, an O(n log n) sort makes it short for every program |
+| COPY | the file's size, 4 KB a pass | Yes, between passes, once its two file numbers cannot be closed by another thread |
+| FRAMEBUFFER and PAGE WARPH, WARPV, AFFINE, SPAN | rows | Yes, at their routinechecks every 16 rows, once MODE and FRAMEBUFFER CLOSE are guarded |
+| FILL, IMAGE RESIZE and ROTATE, MATH (matrices, FFT) | area, size | Yes, after moving FILL's and IMAGE's statics into locals |
+| LOAD PNG, LOAD BMP, SAVE IMAGE and PNG | pixels | After `optiony` becomes each thread's own; the PNG encoder needs an owner |
+| LOAD JPG, LOAD GIF, PLAY of a file, RAY | decoding, one engine | Only with an owner for the engine, as the network has |
+| PIXEL FILL | area | Never: it runs on a stack moved to the free memory (MinHeap) |
+| PULSIN, BITSTREAM, DHT22, WS2812, 1-Wire, DISTANCE | timing | Never |
+| LIBRARY and OPTION saves (flash erase and write) | a sector erase | Never: bank 2 cannot be read meanwhile |
+| SQL | the module's work | Never inside a call to the module; between rows only with an owner |
+| CLS, PAGE COPY, BLIT, sprites, KILL, RENAME, DRAW3D, TURTLE, JSON$ | a few ms at most, or one FatFs call | Not worth it |
+
+Suggested order, if wanted: (1) SORT by a faster method, which needs no threads work; (2) THREAD STOP deferred to the
+stopped thread's next statement boundary, which also mends the WEB case; (3) a guard for the pages a command is using
+(as FRAMEBUFFER CLOSE's ThreadPageInUse); (4) `if(ThreadCount) ThreadPoll()` at the existing routinechecks(1) of the
+WARP commands, FILL, IMAGE, MATH and COPY; (5) `optiony` each thread's own, then the image commands. The manual's
+promise that a statement is never split would then name the commands that let others run part-way.

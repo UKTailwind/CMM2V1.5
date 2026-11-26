@@ -97,6 +97,7 @@ threads/tbind
 threads/tlock
 threads/tmutex
 threads/tqueue
+threads/tcond
 threads/twait
 threads/targs
 
