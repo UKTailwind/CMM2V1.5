@@ -4,7 +4,7 @@ newest first, their headings one level down. It is the release's Release_Notes_<
 import os, re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BETAS = ['8.00.00b4', '8.00.00b3', '8.00.00b2', '8.00.00b1']                       # newest first
+BETAS = ['8.00.00b5', '8.00.00b4', '8.00.00b3', '8.00.00b2', '8.00.00b1']                       # newest first
 OUT = os.path.join(ROOT, 'docs', 'Release_Notes_8.00.00.md')
 
 parts = ['# Colour Maximite 2: MMBasic 8.00 release notes\n',

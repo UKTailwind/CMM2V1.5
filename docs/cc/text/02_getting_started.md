@@ -2,7 +2,7 @@
 
 ## Installing it
 
-Copy the cc folder from CMM2_Programs_8.00.00b4.zip to the SD card, so that the card has:
+Copy the cc folder from CMM2_Programs_8.00.00b5.zip to the SD card, so that the card has:
 
 | File | What it is |
 |---|---|

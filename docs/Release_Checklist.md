@@ -97,6 +97,7 @@ screen). Check each title page's version and date, and the bookmarks.
 | Colour_Maximite_2_C_Compiler.pdf | docs/cc/text | `python tools/manual/guide.py cc` |
 | Colour_Maximite_2_386_PC_Emulator.pdf | docs/pc386/text | `python tools/manual/guide.py pc386` |
 | Stepper_Reference.pdf | docs/Stepper_Reference.pdf (tracked) | docs/stepper/generate_stepper_pdf.py, only when STEPPER changes |
+| Colour_Maximite_2_Threads_User_Manual.pdf | docs/threads/text | `python tools/manual/guide.py threads` (from 8.00.00b5) |
 
 - [ ] **The User Manual: every chapter and every reference section rebuilt at every release**, not only those this
       release's commits touched, as text committed without a rebuild never reaches the .docx: 8.00.00b1 to b3 went out
@@ -104,6 +105,9 @@ screen). Check each title page's version and date, and the bookmarks.
       8 and 14 November. Keep a copy of the .docx first, then:
       `python tools/manual/inventory.py`, `python tools/manual/appendix_n.py`, `python tools/manual/reftext.py build`,
       `python tools/manual/chapter.py docs/manual/text/*.md`, the title page, then word.ps1 for the PDF.
+- [ ] A new chapter needs its Heading 1 in the .docx before chapter.py is run: without it chapter.py stops at that
+      file and saves nothing, so no chapter is rebuilt (8.00.00b5's Appendix R: a copy of the last appendix's heading,
+      added before the document's last section mark). Check that the run ends with exit 0.
 - [ ] The User Manual's text compared before and after the rebuild (every paragraph of the two .docx, tables
       included, through python-docx): each difference is this release's change or text that had not been built
       before; say the latter in the notes' The manuals. No [MANUAL TODO] note may be left in it. Leave
@@ -168,7 +172,7 @@ screen). Check each title page's version and date, and the bookmarks.
       (with --draft, a short SHA gives HTTP 422).
   - A V8 beta is a **pre-release** and must not become Latest: 7.00's release candidate stays Latest
     (`--latest=false`).
-- [ ] The assets (RC6 had nine; 8.00.00b1 has the same set):
+- [ ] The assets (RC6 had nine; 8.00.00b1 has the same set; from 8.00.00b5 a tenth, the Threads User Manual):
 
 | Asset | 7.00.00RC6 | 8.00.00b1 |
 |---|---|---|

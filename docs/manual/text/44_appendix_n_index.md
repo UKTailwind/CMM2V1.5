@@ -317,6 +317,7 @@ Every keyword of the language, and the section of this manual where it is descri
 | TEMPR( | Functions |
 | TEXT | Commands |
 | THEN | Commands, with IF |
+| THREAD | Commands; Appendix R |
 | TILE | Commands |
 | TILEMAP | Commands; TILEMAP_User_Manual.pdf |
 | TILEMAP( | Functions; TILEMAP_User_Manual.pdf |
