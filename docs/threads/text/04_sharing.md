@@ -223,6 +223,84 @@ THREAD WAIT FLAG does not clear the flag: the thread that waited clears it when 
 
 An interrupt routine can set a flag too, which is how a thread waits for an event (see *Interrupts and Threads*).
 
+## A queue between threads
+
+The producer and consumer above pass one item at a time, and each waits for the other. A queue lets the producer run ahead: it puts messages in, as many as the queue holds, and a consumer takes them out in the same order when it is ready. Any number of threads may put and take.
+
+The queue is an array used as a ring, with the place of the next message to take (`head`), the place for the next one put (`tail`) and the number in it (`count`). Putting a message is several statements, so it is done inside THREAD HOLD. Two flags say when a waiting thread should look again: FLAG(1) that the queue is no longer empty, FLAG(2) that it is no longer full.
+
+```
+Const QSIZE = 16
+Dim q$(QSIZE - 1)
+Dim Integer head, tail, count
+
+Sub Put(m$)                         ' waits while the queue is full
+  Local Integer done
+  Do
+    Thread Hold
+    If count < QSIZE Then
+      q$(tail) = m$
+      tail = (tail + 1) Mod QSIZE
+      Inc count
+      Flag(1) = 1                   ' not empty: wakes a Get
+      done = 1
+    Else
+      Flag(2) = 0                   ' full: cleared in the same step as the test
+    EndIf
+    Thread Release
+    If done = 0 Then Thread Wait Flag 2   ' until a Get makes room
+  Loop Until done
+End Sub
+
+Sub Get(m$)                         ' waits while the queue is empty
+  Local Integer done
+  Do
+    Thread Hold
+    If count > 0 Then
+      m$ = q$(head)
+      head = (head + 1) Mod QSIZE
+      Inc count, -1
+      Flag(2) = 1                   ' not full: wakes a Put
+      done = 1
+    Else
+      Flag(1) = 0                   ' empty: cleared in the same step as the test
+    EndIf
+    Thread Release
+    If done = 0 Then Thread Wait Flag 1   ' until a Put adds one
+  Loop Until done
+End Sub
+```
+
+A thread sends with `Put "hello"` and receives with `Get m$`, which waits until there is a message and puts it in `m$`:
+
+```
+Sub Producer
+  Local Integer i
+  For i = 1 To 100
+    Put "Reading " + Str$(i)
+  Next
+  Put ""                            ' an empty message: the end
+End Sub
+
+Dim m$
+Thread Start 1, Producer
+Do
+  Get m$
+  If m$ = "" Then Exit Do
+  Print m$
+Loop
+```
+
+How it works:
+
+- **The test and the change are made together, inside the hold.** No other thread can put or take between Get finding the queue empty and Get clearing FLAG(1).
+- **The wait comes after THREAD RELEASE.** THREAD WAIT FLAG inside a hold is the error "Cannot wait while the threads are held" (unless the flag is already 1), since no other thread could set it.
+- **No wake-up is lost in the gap between the release and the wait.** A flag stays 1 until a thread clears it, and only a thread that holds the threads and finds the queue empty (or full) clears it. If a Put comes in the gap, FLAG(1) is 1 when Get reaches THREAD WAIT FLAG, and the wait ends at once.
+- **A thread that wakes looks again.** With two consumers, both wake when a message is put, and the second finds the queue empty again and goes back to waiting. That is why each SUB is a loop: being woken means "look again", not "there is a message for you".
+- **A waiting thread uses no processor time,** and the others run.
+
+Use a different pair of flags for each queue, and keep its arrays and counts for it alone. An interrupt routine cannot wait, so it should not call Put or Get: let it set a flag, and let its thread do the Put (see *Interrupts and Threads*). THREAD LOCK and THREAD UNLOCK in place of THREAD HOLD and THREAD RELEASE work just as well, and leave threads that do not use the queue running; for these few quick statements a hold is the simpler.
+
 ## Waiting for a thread
 
 THREAD WAIT n waits until thread 'n' has ended, at once if it is not running. With a timeout it gives up after that many milliseconds, and MM.INFO(THREAD n) says whether the thread ended. A thread cannot wait for itself.
@@ -247,6 +325,7 @@ For readers who know threads from another language or a real-time operating syst
 | Critical section; scheduler lock | THREAD HOLD and THREAD RELEASE |
 | Atomic operation | Any single statement |
 | Event, semaphore or condition variable | FLAG(f) with THREAD WAIT FLAG f |
+| Message queue; bounded buffer | The Put and Get SUBs of *A queue between threads* |
 | Join | THREAD WAIT n |
 | Yield; sleep | THREAD YIELD; PAUSE |
 | A thread's own storage | LOCAL variables and the SUB's parameters |

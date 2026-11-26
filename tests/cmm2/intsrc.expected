@@ -5,7 +5,7 @@ tone ends: 1  after ok
 -- ADC START with an interrupt
 adc done: 1
 -- DAC START with two arrays and an interrupt
-dac done: 1  second channel: 3000
+dac done: 1  second channel: 1000
 -- the COUNT5 interrupt (PIN(18) = n moves the high word)
 count interrupts: 2
 -- a sprite collision
