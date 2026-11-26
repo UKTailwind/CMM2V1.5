@@ -1244,3 +1244,28 @@ was left, SORT of 2,000 integers took the bubble sorts' path (206 ms against 6 m
 are in the decoder's heap block, not on the stack: its deepest point from 5,648 bytes to about 184. The same text
 for the PicoMite's copy is with its threads session. The 6 KB guard was set for LOAD PNG (5.6 KB below its last
 check); JSON$ at its 100 levels (4.1 KB) is now the deepest measured, so the guard could come down to about 4.5 KB.
+
+### What switching costs, and the fast RAM (26 November)
+
+Peter asked whether the switch code should run from ITCM. Measured on a G3 (480 MHz) with v8-dev 223b697 (scratchpad
+itcm/t/tswbench.bas and tslice.bas; each the best of three, steady over two runs):
+
+| Measure | Result |
+|---|---|
+| THREAD YIELD to a thread and back (two switches, three statements) | 15.7 us |
+| A queue of one slot (Put and Get waiting inside THREAD HOLD): a message | 125 us |
+| A program with one thread idle in PAUSE, against none | 0.2% slower (the statement tail's check) |
+| The same work by two threads, against the main program doing it twice: 1 ms slices | 2.8% longer |
+| the same, 10 ms slices | 2.2% |
+| the same, 100 ms slices (about nine switches in all) | 2.1% |
+
+- **The switches cost about 0.7% at 1 ms slices** (1 ms against 100 ms): about 7 us a switch, its effect on the
+  instruction cache included.
+- **About 2% stays with almost no switches.** A thread's C stack is in the on-chip D2 RAM (0x3000xxxx), the main
+  program's in the DTCM: the interpreter's frames are a little slower to reach there, so code runs about 2% slower in a
+  thread than in the main program. Placing code cannot change it; thread stacks in the DTCM could, and it is full (its
+  statics have grown 14.5 KB since 21 October).
+- **ITCM has no room for the switch path** (about 2.5 KB): the firmware's ITCM code must end below 0xA000, where the
+  loadable programs' ITCM begins, and it reaches 0x9EB8 (the link with the path marked ITCM_CODE failed so).
+
+Peter, 26 November: leave as-is.
