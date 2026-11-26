@@ -101,6 +101,7 @@ threads/targs
 ' Stage 4: waits that let the other threads run; each thread's print position, colours and font
 threads/tinput
 threads/tframe
+threads/tmapset
 threads/tscreen
 threads/tpage
 threads/teval

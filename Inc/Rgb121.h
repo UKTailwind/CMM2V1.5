@@ -33,6 +33,7 @@ uint32_t Rgb121Layout(int mode, uint32_t start);
 void Rgb121Clut(void);
 void SetMapRGB(int slot, uint32_t colour);      // the colours a 4-bit mode shows (MAP n = c, MAP SET): Rgb121.c
 void CommitMapRGB(void);
+extern volatile uint8_t Rgb121ClutPending;      // MAP SET: the merge's interrupt loads the CLUT as the frame ends (Rgb121.c)
 void Rgb121Shown(char *p, int n);               // ReadBuffer4's colours as shown, after MAP (SAVE IMAGE and PNG)
 void CursorOverlaySet(int on);                  // GUI CURSOR in a 4 or 1-bit mode: over the merge's display
 void CursorOverlayColour(int c);
@@ -50,11 +51,11 @@ void Rgb121BlitFramebuffer(char *p);
 void Rgb121BlitResize(char *p);
 void Rgb121Row(uint8_t *d, int dx, const uint8_t *s, int sx, int w, int t);
 void Rgb121MergeRequest(void);
-// FRAMEBUFFER and PAGE WARPH and WARPV, and the 8, 12, 16 and 32-bit modes' FRAMEBUFFER WAIT (Warp.c): 1 if cmd was
-// one of them (and it has been run, unless WARP_TEST)
-#define WARP_FRAMEBUFFER  0                     // FRAMEBUFFER in an 8, 12, 16 or 32-bit mode: WARPH, WARPV and WAIT
-#define WARP_FRAMEBUFFER4 1                     // FRAMEBUFFER in a 4 or 1-bit mode (Rgb121Framebuffer): WARPH and WARPV
-#define WARP_PAGE         2                     // PAGE WARPH and WARPV
-#define WARP_TEST         3                     // whether cmd is WARPH or WARPV, not run (cmd_page's 4-bit list)
+// FRAMEBUFFER and PAGE WARPH, WARPV, AFFINE and SPAN, and the 8, 12, 16 and 32-bit modes' FRAMEBUFFER WAIT (Warp.c):
+// 1 if cmd was one of them (and it has been run, unless WARP_TEST)
+#define WARP_FRAMEBUFFER  0                     // FRAMEBUFFER in an 8, 12, 16 or 32-bit mode: the four and WAIT
+#define WARP_FRAMEBUFFER4 1                     // FRAMEBUFFER in a 4 or 1-bit mode (Rgb121Framebuffer): the four
+#define WARP_PAGE         2                     // PAGE WARPH, WARPV, AFFINE and SPAN
+#define WARP_TEST         3                     // whether cmd is one of the four, not run (cmd_page's 4-bit list)
 int WarpCommand(char *cmd, int form);
 #endif

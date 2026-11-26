@@ -1116,7 +1116,7 @@ void cmd_framebuffer(void){
     	PageTable[WPN].size= PageTable[WPN].xmax*PageTable[WPN].ymax*PageTable[WPN].nbytes;
     	return;
     }
-    if(WarpCommand(cmdline, WARP_FRAMEBUFFER)) return;			// WARPH and WARPV (N, page 0, and F, the world) and WAIT: Warp.c
+    if(WarpCommand(cmdline, WARP_FRAMEBUFFER)) return;			// WARPH, WARPV, AFFINE and SPAN (N, page 0, and F, the world) and WAIT: Warp.c
     error("Syntax");
 }
 
@@ -2668,8 +2668,12 @@ void cmd_clut(void){
 	char *p;
 	if(VideoColour==1)error("Invalid for this screen mode");       // (the CLUT is the tiles': Mono.c)
     if((p=checkstring(cmdline, "SET"))) {
+		Rgb121ClutPending=1;                                        // (a mode with a merge: its interrupt loads the CLUT as the frame ends, in the blanking: Rgb121.c)
 		ThreadFrameWait();                                         // (the other threads run meanwhile)
-		HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+		if(Rgb121ClutPending) {                                     // (no merge: loaded here, which is in the blanking then)
+			HAL_LTDC_ConfigCLUT(&hltdc, CLUT, 256, 0);
+			Rgb121ClutPending=0;
+		}
 		if(VideoColour==4) CommitMapRGB();                          // (the colours shown now: SAVE IMAGE's, Rgb121.c)
     } else if((p=checkstring(cmdline, "RESET"))){
     	reset_CLUT();
@@ -2744,7 +2748,7 @@ void cmd_page(void){
     int maxW=PageTable[WritePage].xmax;
     if(VideoColour<8 && !(checkstring(cmdline, "WRITE") || checkstring(cmdline, "COPY") || checkstring(cmdline, "SCROLL") ||
     		WarpCommand(cmdline, WARP_TEST)))
-    	error("Invalid for this screen mode");                       // a 4 or 1-bit mode: PAGE WRITE, COPY, SCROLL (Rgb121.c), WARPH and WARPV (Warp.c)
+    	error("Invalid for this screen mode");                       // a 4 or 1-bit mode: PAGE WRITE, COPY, SCROLL (Rgb121.c), WARPH, WARPV, AFFINE and SPAN (Warp.c)
     p = checkstring(cmdline, "DISPLAY");
     if(p) {
     	int LayerIDX=LTDC_LAYER_1;
@@ -3219,7 +3223,7 @@ void cmd_page(void){
 			}
       	 return;
          }
-    if(WarpCommand(cmdline, WARP_PAGE)) return;					// PAGE WARPH and WARPV from TO to, ... (Warp.c)
+    if(WarpCommand(cmdline, WARP_PAGE)) return;					// PAGE WARPH, WARPV, AFFINE and SPAN from TO to, ... (Warp.c)
     error("Syntax");
 
 }

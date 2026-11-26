@@ -320,11 +320,24 @@ static void __attribute__((noinline)) ITCM_CODE Merge8Run(void) {
     }
 }
 
+/* MAP SET in a mode with a merge (4 bits, or 8-bit rows shown four times): the CLUT is loaded here, by the merge's
+   interrupt as the frame ends and before it merges, so while the LTDC is not reading it (the vertical blanking: 1.4 ms
+   at 640x480). MAP SET used to load it itself after its wait for the frame's end, which is after the merge too (2.3 ms
+   at 320x240 with both layers): lines 25 to 29 of the next frame were being drawn while the 256 entries were written,
+   and a program that sets its colours for every frame showed a band of wrong pixels there (the lake of the PicoMite's
+   warp_demo.bas, Peter, 25 Nov 2026). In .extra, so that the merge's code does not move. */
+volatile uint8_t Rgb121ClutPending;
+static void __attribute__((section(".extra"), noinline)) Rgb121ClutLoad(void) {
+    for(int k = 0; k < 256; k++) LTDC_Layer1->CLUTWR = ((uint32_t)k << 24) | (CLUT[k] & 0xFFFFFF);
+    Rgb121ClutPending = 0;
+}
+
 // the software interrupt the LTDC's line interrupt pends at the end of each frame. A frame's end that came while the
 // merge ran is let go: the next merge starts at the next frame's end, so a merge longer than a frame (a large mode, a
 // slow board) runs every other frame rather than back to back, and the program below it, Ctrl-C included, still runs
 void CEC_IRQHandler(void) {
     if(!Rgb121Active) return;
+    if(Rgb121ClutPending) Rgb121ClutLoad();                         // MAP SET's colours, while the frame is blanked
     if(VideoColour == 1) MonoMergeRun();
     else if(VideoColour == 8) Merge8Run();
     else Rgb121Merge();
@@ -703,7 +716,7 @@ void Rgb121Framebuffer(void) {
         }
         if(s == d) error("Buffer not created");
         mycopy(PageTable[d].address, PageTable[s].address, Stride(d) * PageTable[d].ymax);
-    } else if(!WarpCommand(cmdline, WARP_FRAMEBUFFER4)) error("Syntax");   // WARPH and WARPV (Warp.c: not in a 1-bit mode)
+    } else if(!WarpCommand(cmdline, WARP_FRAMEBUFFER4)) error("Syntax");   // WARPH, WARPV, AFFINE and SPAN (Warp.c: not in a 1-bit mode)
 }
 
 /* BLIT FRAMEBUFFER from, to, x1, y1, x2, y2, w, h [, colour]: a rectangle of one framebuffer into another, a pixel of

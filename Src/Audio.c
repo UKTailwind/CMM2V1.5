@@ -1532,13 +1532,14 @@ int PlayAlbumTrack(int n) {
 }
 
 // The MMBasic command:  PLAY
-// PLAY MODSAMPLE, in .extra so that the code after cmd_play keeps its place:
+// PLAY MODSAMPLE, out of line so that the code after cmd_play keeps its place. In bank 2 (it was in .extra until the
+// threads build left bank 1 136 bytes short, 26 Nov 2026): a command's parser, run in the foreground only:
 //   PLAY MODSAMPLE sampleno, channel [, volume] [, samplerate] [, pan] [, LOOP]   a sample of the MOD file over it
 //   PLAY MODSAMPLE CHANGE channel [, volume] [, samplerate] [, pan]   a playing one's volume, rate or pan, where it is
 //   PLAY MODSAMPLE STOP [channel]                                     one channel stopped, or all four
 // LOOP may end the list after any argument from the channel on. The rate is the MOD player's period, 3579545 / rate.
 // pan is -100 (the left speaker only) to 100 (the right only), 0 (both, the default) between: a simple balance.
-__attribute__((section(".extra"), noinline)) static void ModSampleCommand(char *tp){
+__attribute__((section(".bank2"), noinline)) static void ModSampleCommand(char *tp){
     char *q;
     if((q = checkstring(tp, "STOP"))) {
         int ch = -1;
@@ -2075,7 +2076,7 @@ void cmd_play(void) {
     }
 
     if((tp = checkstring(cmdline, "MODSAMPLE"))) {
-        ModSampleCommand(tp);                                       // (in .extra: below)
+        ModSampleCommand(tp);                                       // (in bank 2: below)
         return;
     }
 
