@@ -1236,3 +1236,11 @@ the permutation's cycles: 8 bytes an element from the heap, the bubble sorts kep
 20,000 floats 80 ms, 100,000 floats 0.44 s (the bubble sort: 38 s for 20,000 on a G1). tests/cmm2/sortmix.bas (162
 cases: integers, floats and strings, every flag, with and without the index, from a start point and for a count, with
 many equal elements) gives the bubble sort's output byte for byte. SORT no longer needs to give way.
+On a G1 (26 November, with the PNG change below): tests/cmm2 gives what 8.00.00b5 gave on that board, byte for byte,
+for every program, the 36 thread tests and the crash tests pass; with the heap filled so that no 16,000-byte block
+was left, SORT of 2,000 integers took the bubble sorts' path (206 ms against 6 ms) and gave the same order and index.
+
+**Done, 26 November: LOAD PNG's stack** (Src/upng.c, b794088). The Huffman tables and their working arrays (5.4 KB)
+are in the decoder's heap block, not on the stack: its deepest point from 5,648 bytes to about 184. The same text
+for the PicoMite's copy is with its threads session. The 6 KB guard was set for LOAD PNG (5.6 KB below its last
+check); JSON$ at its 100 levels (4.1 KB) is now the deepest measured, so the guard could come down to about 4.5 KB.
