@@ -6,6 +6,8 @@
 
 *26 November 2026. Compared with 8.00.00b4, the last version released.*
 
+*Later on 26 November the release's .bin was replaced by one in which THREAD WAIT inside THREAD HOLD lets go of the hold while it waits, a Back Shed user's request (see Threads below), and the User Manual, the Threads User Manual and these notes with it. Nothing else in the firmware changed. The new .bin is built from v8-dev a2db2ec; the tag v8.00.00b5 stays at the first .bin's source (311624c).*
+
 This is the fifth beta of MMBasic 8.00 for the Colour Maximite 2. Please report problems on the Back Shed forum. 7.00.00RC6 remains the last release of version 7.
 
 The same firmware file runs on the Generation 1, the Generation 2 and the Generation 3.
@@ -91,6 +93,7 @@ Threads suit work that goes on by itself: a clock in the corner of the screen, a
 How they behave:
 
 - **A statement is never split.** INC total in two threads never loses a count, a PRINT prints all its items together, and a LINE or BOX is drawn whole. Two statements that must go together need a lock (THREAD LOCK) or a hold (THREAD HOLD).
+- **THREAD WAIT inside THREAD HOLD lets go of the hold while it waits,** and takes it again when the wait ends, as a condition variable's wait does in other languages. A thread can test a shared queue, clear its flag and wait as one step, with no other thread coming in between; the Threads User Manual's queue between threads is written this way. (In the .bin first posted it was an error.)
 - **A thread that waits uses no processor time.** PAUSE, INPUT and LINE INPUT, the waits for a frame (FRAMEBUFFER WAIT, PAGE COPY ...,B, MAP SET and the others), SYNC, TEMPR(), the WEB and BLUETOOTH commands, THREAD LOCK and THREAD WAIT all let the other threads run meanwhile.
 - **Each thread has its own** LOCAL variables, FOR and DO loops, SUB and FUNCTION calls, ON ERROR setting, place in the DATA, print position, colours, font and write page. Global variables, the screen, files, the keyboard and everything else belong to the whole program.
 - **An interrupt routine runs in the thread that set it up** (SETTICK, SETPIN, ON KEY and the rest), with that thread's colours and print position.
@@ -198,6 +201,10 @@ CMM2_Programs_8.00.00b5.zip is 8.00.00b4's zip with the SQL sample of this relea
 - **micropython.app** is the same build: its source has had no change since 18 November.
 
 ### Tested
+
+**The replacement .bin (THREAD WAIT inside THREAD HOLD), on a Generation 3** (V1.1, 480MHz, with WiFi): the 36 thread tests, among them a new one for the wait inside a hold (19 checks: the queue in that form, the other threads running during the wait and not after it, nested holds, a time limit, a flag already set, an interrupt routine during the wait, and the waits a hold still refuses), match with OPTION COMPILE OFF, ON and SHADOW; tests/cmm2, the PicoMite tests and the crash tests gave what the first .bin gave on that board. In flash bank 1 the two files differ only in the places of code in bank 2 that their calls and pointers name, so the first .bin's other tests below (the Generation 1's suites, its timings, the update from 8.00.00b4 and the programs) stand for it. The Generation 1 was not connected for it.
+
+The first .bin:
 
 **The release file on a Generation 1** (400MHz, with the plug-in WiFi module and OPTION WIFI set: it joined at start-up). The options file saved under the build before it loaded unchanged.
 

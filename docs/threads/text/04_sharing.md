@@ -296,7 +296,7 @@ How it works:
 
 Use a different pair of flags for each queue, and keep its arrays and counts for it alone. An interrupt routine cannot wait, so it should not call Put or Get: let it set a flag, and let its thread do the Put (see *Interrupts and Threads*). THREAD WAIT lets go of a hold only: a lock (THREAD LOCK) stays taken while its thread waits, so keep these SUBs to THREAD HOLD.
 
-!NOTE Before 8.00.00b6 THREAD WAIT inside THREAD HOLD was an error. For those versions, end the hold before the wait and hold again after it, and clear the flag inside the hold in the same step as the test: a flag stays 1 until a thread clears it, so a Put that comes between the release and the wait still wakes the Get.
+!NOTE In the 8.00.00b5 firmware first posted on 26 November THREAD WAIT inside THREAD HOLD was an error. For that file, end the hold before the wait and hold again after it, and clear the flag inside the hold in the same step as the test: a flag stays 1 until a thread clears it, so a Put that comes between the release and the wait still wakes the Get.
 
 ## Waiting for a thread
 
