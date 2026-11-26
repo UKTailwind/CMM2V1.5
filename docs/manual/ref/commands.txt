@@ -3123,7 +3123,7 @@ The stack, in Kbytes (12 to 512), the number of local variables (8 to 256) and t
 or
 THREAD UNLOCK k
 --- keep
-Sixteen locks, numbered 1 to 16. Only one thread at a time gets past THREAD LOCK 'k': another that comes to it waits there, using no processor time, until the owner reaches THREAD UNLOCK 'k'. With 'timeout' (milliseconds), a lock not obtained in that time is the error "Lock k timed out".
+Sixteen locks, numbered 1 to 16: what other languages call a mutex. Only one thread at a time gets past THREAD LOCK 'k': another that comes to it waits there, using no processor time, until the owner reaches THREAD UNLOCK 'k'. With 'timeout' (milliseconds), a lock not obtained in that time is the error "Lock k timed out"; a 'timeout' of 0 after ON ERROR SKIP tries the lock without waiting (MM.ERRNO is 0 if it was taken).
 A lock belongs to the thread that took it: taking it again is an error ("Lock k is already held by this thread"), and so is unlocking another's ("Lock k is not held by this thread"). A thread that ends gives up its locks. MM.INFO(THREAD LOCK k) is the owner.
 
 =+= THREAD HOLD

@@ -74,6 +74,8 @@ The cure is a bigger SIZE for that thread, or less recursion. THREAD LIST shows 
 - **A thread that never ends and a main program that does.** The main program reaching its end ends the program, and every thread with it. Put a loop, or THREAD WAIT, at the end of the main program.
 - **Two threads reading the keyboard.** Each gets some of the keys. Let one thread read it.
 - **Two statements on shared data without a lock.** See *Sharing Data Safely*.
+- **A global variable as a thread's loop counter.** FOR i = 1 TO 10 in a SUB that two threads run, with a global i, is one counter for both. Make it LOCAL, as in an interrupt routine; OPTION EXPLICIT finds the ones that were never declared.
+- **A lock left taken.** EXIT SUB between THREAD LOCK and THREAD UNLOCK: the next thread to want the lock waits for ever. Ctrl-C shows which thread has it.
 - **A test of a value another thread is changing**, followed by an action on it: the value may have changed in between. Use THREAD HOLD or a lock around both.
 - **A busy loop waiting for another thread** (`Do While done = 0 : Loop`). It works, but uses the processor the other thread needs. THREAD WAIT n, or THREAD WAIT FLAG, waits without.
 - **Too little stack.** A thread of the default 20 KB can call about nine FUNCTIONs inside each other.

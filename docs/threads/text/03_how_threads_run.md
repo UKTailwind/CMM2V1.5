@@ -52,7 +52,7 @@ A thread that waits uses no processor time: the others run until what it waits f
 |---|---|
 | PAUSE, CPU SLEEP | the time |
 | INPUT, LINE INPUT | a line typed at the keyboard or the console, or from a COM port |
-| FRAMEBUFFER WAIT, PAGE COPY ...,B, PAGE DISPLAY, FRAMEBUFFER WINDOW ...,B, CLUT SET and RESET | the start of the next frame |
+| FRAMEBUFFER WAIT, PAGE COPY ...,B, PAGE DISPLAY, FRAMEBUFFER WINDOW ...,B, MAP SET, RESET, GREYSCALE and MAXIMITE | the start of the next frame |
 | SYNC | the end of SYNC's period |
 | ADC START (with no interrupt) | the samples |
 | TEMPR() | the sensor's conversion |

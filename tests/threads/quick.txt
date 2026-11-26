@@ -95,6 +95,7 @@ threads/tbind
 
 ' Stage 3: locks, THREAD HOLD, THREAD WAIT, arguments
 threads/tlock
+threads/tmutex
 threads/twait
 threads/targs
 

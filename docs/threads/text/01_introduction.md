@@ -60,7 +60,7 @@ THREAD START 1, Heart starts thread 1 running the SUB Heart. From then on two th
 
 - **Starting and Ending Threads**: THREAD START, its arguments, and the ways a thread ends.
 - **How Threads Run**: the time slice, priorities, which commands let the other threads run while they wait, and what threads cost.
-- **Sharing Data Safely**: what each thread has of its own, what they share, and the locks, holds and flags that keep shared data right.
+- **Sharing Data Safely**: what each thread has of its own, what they share, and the locks (the mutex of other systems), holds and flags that keep shared data right.
 - **Interrupts and Threads**: interrupts belong to the thread that sets them up.
 - **The Network and Bluetooth**: each belongs to one thread.
 - **Errors and Debugging**: what happens at an error, Ctrl-C and END, and THREAD LIST, TRACE, MEMORY and profiling.

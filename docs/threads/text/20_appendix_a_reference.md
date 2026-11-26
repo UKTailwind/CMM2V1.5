@@ -12,7 +12,7 @@
 | THREAD SLICE ms | The time slice, 1 to 100 ms (1 at RUN) |
 | THREAD PRIORITY n, p | The priority of running thread n (0 the main program): the time slices in its turn, 1 to 10 (1 at RUN). A lock's holder has the turn of a thread that waits for it |
 | THREAD SIZE kb [, locals [, nest]] | The stack, local variables and depth of loops and calls of threads started without SIZE, LOCALS and NEST (20, 48 and 20 at RUN) |
-| THREAD LOCK k [, timeout] | Takes lock k (1 to 16), waiting for it if another thread has it; "Lock k timed out" after 'timeout' ms |
+| THREAD LOCK k [, timeout] | Takes lock k (1 to 16), a mutex, waiting for it if another thread has it; "Lock k timed out" after 'timeout' ms (0 tries it without waiting) |
 | THREAD UNLOCK k | Gives lock k up |
 | THREAD HOLD | No other thread runs, and their interrupts wait, until THREAD RELEASE |
 | THREAD RELEASE | Ends THREAD HOLD (they nest) |
@@ -31,7 +31,10 @@
 | Thread n is running | THREAD START of a number already in use |
 | Thread n is not running | THREAD PAUSE or RESUME of a thread that is not running |
 | x is not a SUB | THREAD START names something that is not a SUB |
+| Invalid at the command prompt | THREAD START typed at the prompt |
 | Only a global array can be passed to a thread | A SUB's own array given to THREAD START |
+| Too many arguments for a thread | More than 16 arguments to THREAD START |
+| Arguments too long for a thread | The new thread's call does not fit a line (many arrays with long names) |
 | Not enough memory for a thread | No room for the thread's stack and record |
 | Not enough local variables for a thread | The local variable table is full (smaller LOCALS) |
 | Not in a thread | THREAD EXIT in the main program |
@@ -46,6 +49,9 @@
 | A thread cannot wait for itself | THREAD WAIT of the running thread's number |
 | The network belongs to thread n | A WEB command in a thread that does not own the network |
 | Bluetooth belongs to thread n | A BLUETOOTH command in a thread that does not own Bluetooth |
+| The network (or Bluetooth) is in use by thread n | A WEB or BLUETOOTH command in an interrupt routine while another thread's is under way |
+| Invalid in an interrupt routine | THREAD YIELD in a routine |
+| Too many interrupt routines set up in threads | More than 64 different routines set up by threads |
 | Thread n overflowed its stack | Thread n's stack was overrun (larger SIZE) |
 | Stack overflow | A thread's FUNCTION calls went too deep for its stack |
 | Not enough Local variable memory | A thread made more LOCALs than its LOCALS |

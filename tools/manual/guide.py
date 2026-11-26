@@ -234,7 +234,7 @@ THREADS = {                                             # guide.py threads: thre
     'DIR': os.path.join(ROOT, 'docs', 'threads'),
     'OUT': os.path.join(ROOT, 'docs', 'threads', 'Colour_Maximite_2_Threads_User_Manual.docx'),
     'NAME': 'Colour Maximite 2 Threads User Manual',
-    'DATE': '25 November 2026',
+    'DATE': '26 November 2026',
     'TITLE': {
         'User Manual': 'Threads User Manual',
         'MMBasic Ver': 'Threads in MMBasic programs on the Colour Maximite 2',
@@ -246,7 +246,7 @@ THREADS = {                                             # guide.py threads: thre
     'ABOUT': ('This manual is for MMBasic programmers who want a program to do several things at once with threads: '
               'SUBs that run alongside the main program, started with THREAD START. It covers starting and ending '
               'threads, how they take turns, which commands let the others run while they wait, sharing data safely '
-              'with locks, holds and flags, interrupts and the network with threads, errors and debugging, memory and '
+              'with locks (mutexes), holds and flags, interrupts and the network with threads, errors and debugging, memory and '
               'limits, and complete programs. It assumes a working knowledge of MMBasic; the user manual has the same '
               'commands in its reference sections and an overview in its Appendix R.'),
     'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '
