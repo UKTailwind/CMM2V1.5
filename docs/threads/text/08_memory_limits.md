@@ -92,7 +92,7 @@ And these are not possible:
 
 ## The PicoMite
 
-**What a thread takes.** Its stack and its record come from the part of the heap in the processor's own memory, never from the PSRAM. On a PicoMite PC3 a thread of the defaults takes 10,752 bytes, its 8 KB stack and its record, and one of SIZE 6 LOCALS 8 NEST 4 takes 7,936. That heap is 108 KB on the PC3 and 114 to 155 KB on the RP2040 builds, so eight threads of the defaults fit on each, beside a program of a fair size.
+**What a thread takes.** Its stack and its record come from the part of the heap in the processor's own memory, never from the PSRAM. On a PicoMite PC3 a thread of the defaults takes 10,752 bytes, its 8 KB stack and its record, and one of SIZE 6 LOCALS 8 NEST 4 takes 7,936. That heap is 104 KB on the PC3 and 114 to 155 KB on the RP2040 builds, so eight threads of the defaults fit on each, beside a program of a fair size.
 
 **The stack.** A FUNCTION call takes about 1.3 KB of a thread's stack as text on a PC3, 1.4 KB on the RP2040, and about 0.65 KB with OPTION COMPILE ON; SUB calls take none. Below the stack check's floor every thread keeps 3 KB for the commands themselves, as the Colour Maximite 2 keeps 4.5 KB: the deepest measured (a TLS request, PRINT's formatting of a number, an error raised inside an expression) go about 2 KB below the statement that runs them, and LOAD PNG about 1.6 KB. A thread of the default 8 KB can be about three FUNCTIONs deep as text on a PC3, two on the RP2040, and about six with OPTION COMPILE ON. Choose SIZE with THREAD LIST, as above.
 
