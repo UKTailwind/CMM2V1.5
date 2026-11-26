@@ -20,9 +20,9 @@ On a Generation 1, with about 4 MB of memory for programs, and on a Generation 2
 
 ## The stack
 
-A thread's stack holds the SUBs and FUNCTIONs it is inside. SUB calls take almost none of it. FUNCTION calls take about 1.4 KB each (less with OPTION COMPILE ON, more for a string FUNCTION). The commands themselves need room below that, up to about 6 KB for the largest (LOAD PNG), which every stack keeps free.
+A thread's stack holds the SUBs and FUNCTIONs it is inside. SUB calls take almost none of it. FUNCTION calls take about 1 KB each for a FUNCTION with a parameter, more with LOCAL variables or for a string FUNCTION. The commands themselves need room below that, up to about 2.5 KB for the deepest (JSON$ at its 64 levels): every stack keeps 4.5 KB free for them and for the interrupts' handlers.
 
-With the default 20 KB, a thread can be about nine FUNCTIONs deep. To choose a size:
+With the default 20 KB, a recursive FUNCTION with one parameter can go about 15 deep in a thread (14 with OPTION COMPILE ON), and about 6 with SIZE 12, the smallest. To choose a size:
 
 1. Run the program through the deepest work each thread does.
 2. Look at THREAD LIST: "stack used at most n of m".

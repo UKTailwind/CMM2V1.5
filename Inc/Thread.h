@@ -12,7 +12,7 @@ See MMBasic.h for the licence.
 
 #define MAXTHREADS 16                               // the threads a program may start, numbered 1 to MAXTHREADS
 #define THREAD_STACK (20 * 1024)                    // a thread's C stack
-#define THREAD_GUARD (6 * 1024)                     // the part of it below the stack check's floor (Stage 0's figures)
+#define THREAD_GUARD 4608                           // the part of it below the stack check's floor: STACK_GUARD's 4.5K
 #define THREAD_LOCALS 48                            // its local variable slots
 #define THREAD_PRIORITY_MAX 10                      // THREAD PRIORITY: 1 (every thread's at RUN) to this
 #define THREAD_NEST 20                              // how deep its FOR loops, DO loops and calls may each go (NEST)

@@ -86,6 +86,6 @@ The cure is a bigger SIZE for that thread, or less recursion. THREAD LIST shows 
 - **A lock left taken.** EXIT SUB between THREAD LOCK and THREAD UNLOCK: the next thread to want the lock waits for ever. Ctrl-C shows which thread has it.
 - **A test of a value another thread is changing**, followed by an action on it: the value may have changed in between. Use THREAD HOLD or a lock around both.
 - **A busy loop waiting for another thread** (`Do While done = 0 : Loop`). It works, but uses the processor the other thread needs. THREAD WAIT n, or THREAD WAIT FLAG, waits without.
-- **Too little stack.** A thread of the default 20 KB can call about nine FUNCTIONs inside each other.
+- **Too little stack.** A thread of the default 20 KB can call about 15 FUNCTIONs inside each other, fewer if they have LOCAL variables.
 
 !NOTE PicoMite: a thread of the default 8 KB can call about three FUNCTIONs inside each other as text on a PC3, two on the RP2040, and about six with OPTION COMPILE ON.

@@ -1,4 +1,4 @@
-ok  recursive FUNCTION with locals, depth 18
+ok  recursive FUNCTION with locals, depth 20
 ok  each frame's locals survive the deeper calls
 ok  VARCNT back after deep recursion
 ok  a local hides the global G%

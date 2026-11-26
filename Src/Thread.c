@@ -1305,7 +1305,7 @@ static char *StartOptions(char *p, int *n, int *size, int *slots, int *nest, int
         if(*p == 0) return p;
         if(!gotsize && (q = checkstring(p, "SIZE")) != NULL) {
             p = q;
-            *size = OptionValue(&p, 12, 512) * 1024;                  // (12: the guard and 6 KB to run in)
+            *size = OptionValue(&p, 12, 512) * 1024;                  // (12: the 4.5 KB guard and 7.5 KB to run in)
             gotsize = 1;
         } else if(!gotslots && (q = checkstring(p, "LOCALS")) != NULL) {
             p = q;
@@ -1431,7 +1431,7 @@ void cmd_thread(void) {
     } else if((p = checkstring(cmdline, "SIZE")) != NULL) {
         getargs(&p, 5, ",");
         if(!(argc == 1 || argc == 3 || argc == 5)) error("Syntax");
-        if(*argv[0]) StackSize = getint(argv[0], 12, 512) * 1024;   // (12: the guard and 6 KB to run in)
+        if(*argv[0]) StackSize = getint(argv[0], 12, 512) * 1024;   // (12: the 4.5 KB guard and 7.5 KB to run in)
         if(argc >= 3 && *argv[2]) LocalSlots = getint(argv[2], 8, MAXLOCALVARS / 2) + 1;   // (as THREAD START's LOCALS: m locals)
         if(argc == 5) NestDepth = getint(argv[4], 4, MAXGOSUB);     // (as its NEST)
     } else
