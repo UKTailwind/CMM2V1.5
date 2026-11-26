@@ -452,7 +452,7 @@ This behaviour is for Microsoft compatibility, the FIX() function provides a tru
 
 === JSON$(array%(), string$)
 ---
-Returns a string representing a specific item out of the JSON input stored in the longstring array%().  Note that many JSON data sets are quite large and may be too big to parse with the memory available.
+Returns a string representing a specific item out of the JSON input stored in the longstring array%().  Note that many JSON data sets are quite large and may be too big to parse with the memory available.  Objects and arrays may be nested 64 levels deep; deeper data is the error "Invalid JSON data".
 {kn=1}Examples (taken from api.openweathermap.org):
 {l=720}JSON$(a%(), “name”)
 {l=720}JSON$(a%(), “coord.lat”)

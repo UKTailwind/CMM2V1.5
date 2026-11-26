@@ -4760,7 +4760,7 @@ static void json_free_hook(void *ptr) { (void)ptr; }               // json_arena
 // string in array%().  The PicoMite's (9749c83): the long string copied by its own length, at most the array's
 // room; the result buffer taken before it is written; the path read before the parse, so an error in it cannot
 // leave the arena allocated; a path that starts or ends with an index; the argument count, the path's buffers
-// and a string over 255 checked; nesting limited to CJSON_NESTING_LIMIT 100 (CMakeLists.txt), inside the stack.
+// and a string over 255 checked; nesting limited to CJSON_NESTING_LIMIT 64 (CMakeLists.txt), inside the stack.
 void fun_json(void){
     char *json_string = NULL;
     const cJSON *root = NULL;
