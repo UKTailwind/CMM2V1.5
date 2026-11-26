@@ -26,14 +26,14 @@ End Sub
 
 Thread Start 1, Brief                 ' once first, so that what a first use takes for good is not counted
 Do While c < 1 : Thread Yield : Loop
-Thread Yield
+Thread Wait 1                         ' (its count is in, but it may not have reached its END SUB)
 c = 0
 h0 = MM.Info(Heap) : i0 = MM.Info(HeapI) : v0 = MM.Info(VarCnt)
 For r = 1 To 50
   For i = 1 To 10 : Thread Start i, Brief : Next
   Do While c < 10 * r : Thread Yield : Loop
-Next
-Thread Yield
+  For i = 1 To 10 : Thread Wait i : Next  ' (a thread switched out after its INC is still running: the next round's
+Next                                    '  THREAD START of its number would be refused; the PicoMite port's find)
 h1 = MM.Info(Heap) : i1 = MM.Info(HeapI)
 Check "500 threads ran to their end", c, 500
 Check "the heap is as it was", h1 - h0, 0
