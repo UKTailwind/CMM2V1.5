@@ -239,10 +239,10 @@ THREADS = {                                             # guide.py threads: thre
         'Colour Maximite 2': 'MMBasic',
         'User Manual': 'Threads User Manual',
         'MMBasic Ver': 'Threads in MMBasic programs on the Colour Maximite 2 and the PicoMite',
-        'Matches firmware': 'For firmware 8.00.00b5 and later',
+        'Matches firmware': 'For Colour Maximite 2 firmware 8.00.00b5 and PicoMite firmware 8.00.00b4, and later',
         'Geoff Graham': 'Peter Mather',
         'For updates to this manual': 'The firmware and this manual are at',
-        'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5',
+        'http://geoffg.net': 'https://github.com/UKTailwind/CMM2V1.5 (Colour Maximite 2) and https://github.com/UKTailwind/PicoMite (PicoMite)',
     },
     'ABOUT': ('This manual is for MMBasic programmers who want a program to do several things at once with threads: '
               'SUBs that run alongside the main program, started with THREAD START. It covers starting and ending '
@@ -252,7 +252,7 @@ THREADS = {                                             # guide.py threads: thre
               'commands in its reference sections and an overview in its Appendix R. It covers the PicoMite\'s threads '
               'too: where the PicoMite differs, a note in italics beginning PicoMite says how.'),
     'SUPPORT': ('Questions should be raised on the Back Shed forum ( http://www.thebackshed.com/forum/Microcontrollers ), '
-                'and problems with threads reported as issues of the repository above.'),
+                'and problems with threads reported as issues of the repository above for the machine concerned.'),
     'COPYRIGHT': ('This manual is copyright 2026 Peter Mather and is distributed under a Creative Commons '
                   'Attribution-NonCommercial-ShareAlike 3.0 Australia license (CC BY-NC-SA 3.0), as the user manual is.'),
     'SUBJECT': 'Threads in MMBasic programs on the Colour Maximite 2 and the PicoMite',
