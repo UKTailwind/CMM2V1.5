@@ -111,8 +111,12 @@ whole program save runs with interrupts off (`FileIO.c` 8397-8469): no tick, so 
 
 `error()` and `CheckAbort` end with `longjmp(mark)` into `main()`'s frame (`PicoMite.c` 4538), from whichever
 stack is current. With PSP threads the jump leaves `CONTROL.SPSEL` set and MSP holding the place the main program
-was switched out at: the next interrupt would then write below live frames. The first thing at the landing, before
-anything else and in assembler, is: if SPSEL is set, clear it (the stack pointer the jump restored is then MSP).
+was switched out at: the next interrupt would then write below live frames. With SPSEL set, the jump's write of the
+stack pointer goes to PSP, so PSP then holds `main()`'s frame and MSP is stale: clearing SPSEL alone would bring the
+stale MSP back. The first thing at the landing, before anything else and in assembler, is: if SPSEL is set, read SP,
+clear SPSEL, ISB, and write the value read to MSP. (Corrected on 26 November after the PicoMite session's review: the
+first version said that clearing SPSEL was enough. The CMM2's threads do not have this case, since `ThreadSwap`
+moves MSP itself and never sets SPSEL.)
 Then, as on the CMM2: note where each thread was (`ThreadsStopped`), end them (`ThreadsEnd`, on the main stack
 only), print the list after the error's message. The same applies to `jmprun` (EXECUTE "RUN ..."), which a thread
 may not take: RUN, CHAIN, NEW and the other program-replacing commands are the main program's only.
