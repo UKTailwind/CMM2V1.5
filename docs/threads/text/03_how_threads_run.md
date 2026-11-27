@@ -9,6 +9,8 @@ Only one thread runs at a time. Each runs until one of these happens, and then t
 - it runs THREAD YIELD, which gives up the rest of its slice;
 - an interrupt that belongs to another thread is due (see *Interrupts and Threads*).
 
+A CSUB is a single statement, so every other thread waits until it returns. A CSUB can give the others their turns by calling CSubYield (offset 0x1C0 in the PicoMite's call table, 0x08000384 in the CMM2's own; the CMM2's 8.00.00b6 and the PicoMite's V8.00.00b5 and later); mmb2csub calls it for a THREAD YIELD in a routine that it converts. Each turn the others get is one time slice, so a thread with a burst of work to do while a CSUB runs, such as redrawing a clock, should put THREAD HOLD and THREAD RELEASE round it to finish it in one turn.
+
 The threads take turns in number order, the main program among them as thread 0. A thread whose PAUSE has just ended goes first, ahead of the others, so that a thread that does something every 50 ms does it on time even while others are busy.
 
 THREAD SLICE ms sets the slice, from 1 to 100 ms. A longer slice means fewer switches, so slightly less time lost to them, but a busy thread then keeps the others waiting longer. One millisecond suits almost every program.

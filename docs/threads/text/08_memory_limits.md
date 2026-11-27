@@ -88,7 +88,8 @@ And these are not possible:
 - **CLS** puts only the running thread's print position back to the top.
 - **TIMER = 0** in one thread sets the timer for all.
 - **OPTION settings** (BASE, DEFAULT, EXPLICIT, ANGLE and the rest) are the program's: set them before the threads start.
-- **Loadable programs** (RUN "name.app"), the C compiler's programs and MicroPython do not use threads; a CSUB runs whole, with no switch inside it.
+- **Loadable programs** (RUN "name.app"), the C compiler's programs and MicroPython do not use threads.
+- **A CSUB is a single statement:** the other threads wait while it runs, unless it calls CSubYield (a THREAD YIELD in a routine converted by mmb2csub), which lets them have their turns (see *How Threads Run*).
 
 ## The PicoMite
 
