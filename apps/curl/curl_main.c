@@ -31,25 +31,46 @@ static void report(const char *what, uint64_t bytes, uint64_t us, uint32_t polls
            (unsigned long)(us / 1000), (unsigned long)(us ? bytes * 1000000 / us / 1024 : 0), (unsigned long)polls);
 }
 
-/* an HTTP GET through the services alone: mode 0 polls before every sock_recv, mode 1 only when nothing came */
-static void bench_raw(const uint8_t ip[4], int port, const char *req, int mode) {
-    int h = cmm2->sock_open(1), r, st;
-    uint64_t t0, bytes = 0;
-    uint32_t polls = 0;
-    if(h < 0) { printf("sock_open %d\n", h); return; }
+/* the benches' connect, given 15 s (the network polled meanwhile); 0, and the handle closed, if it failed */
+static int bench_connect(int h, const uint8_t ip[4], int port) {
+    uint64_t t0 = cmm2->micros();
+    int st;
     cmm2->sock_connect(h, ip, port);
     while(!((st = cmm2->sock_state(h)) & 1)) {
-        if(st < 0) { printf("connect %d\n", st); cmm2->sock_close(h); return; }
+        if(st < 0 || cmm2->micros() - t0 > 15000000u) {
+            if(st < 0) printf("connect %d\n", st);
+            else puts("connect: no answer in 15 s");
+            cmm2->sock_close(h);
+            return 0;
+        }
         cmm2->net_poll();
     }
+    return 1;
+}
+
+/* 1 (and said) once nothing has come for 15 s: a dead network ends a bench rather than hanging it */
+static int bench_stalled(uint64_t last, uint64_t bytes) {
+    if(cmm2->micros() - last <= 15000000u) return 0;
+    printf("stalled: nothing for 15 s after %lu bytes\n", (unsigned long)bytes);
+    return 1;
+}
+
+/* an HTTP GET through the services alone: mode 0 polls before every sock_recv, mode 1 only when nothing came */
+static void bench_raw(const uint8_t ip[4], int port, const char *req, int mode) {
+    int h = cmm2->sock_open(1), r;
+    uint64_t t0, last, bytes = 0;
+    uint32_t polls = 0;
+    if(h < 0) { printf("sock_open %d\n", h); return; }
+    if(!bench_connect(h, ip, port)) return;
     cmm2->sock_send(h, (const uint8_t *)req, strlen(req), NULL, 0);
-    t0 = cmm2->micros();
+    t0 = last = cmm2->micros();
     for(;;) {
         if(mode == 0) { cmm2->net_poll(); polls++; }
         r = cmm2->sock_recv(h, buf, sizeof(buf), NULL, NULL);
-        if(r > 0) { bytes += r; continue; }
+        if(r > 0) { bytes += r; last = cmm2->micros(); continue; }
         if(r == 0) break;
         if(r != -11) { printf("recv %d\n", r); break; }
+        if(bench_stalled(last, bytes)) break;
         if(mode == 1) { cmm2->net_poll(); polls++; }
     }
     report(mode ? "services, poll when empty" : "services, poll before each recv", bytes, cmm2->micros() - t0, polls);
@@ -74,6 +95,38 @@ static void bench_sock(const uint8_t ip[4], int port, const char *req) {
     closesocket(fd);
 }
 
+/* a download through the services that leaves the radio alone for gap_ms after each 512 KB, as a program busy with
+   other work does (27 Nov 2026: the browser's network died after some pages) */
+static void bench_gap(const uint8_t ip[4], int port, const char *req, int gap_ms) {
+    int h = cmm2->sock_open(1), r, gaps = 0;
+    uint64_t t0, last, bytes = 0, next = 512 * 1024, g;
+    if(h < 0) { printf("sock_open %d\n", h); return; }
+    if(!bench_connect(h, ip, port)) return;
+    cmm2->sock_send(h, (const uint8_t *)req, strlen(req), NULL, 0);
+    t0 = last = cmm2->micros();
+    for(;;) {
+        r = cmm2->sock_recv(h, buf, sizeof(buf), NULL, NULL);
+        if(r > 0) {
+            bytes += r;
+            last = cmm2->micros();
+            if(bytes >= next) {                 /* (busy, the radio not looked at) */
+                next += 512 * 1024;
+                g = cmm2->micros() + (uint64_t)gap_ms * 1000u;
+                while(cmm2->micros() < g) {}
+                gaps++;
+            }
+            continue;
+        }
+        if(r == 0) break;
+        if(r != -11) { printf("recv %d\n", r); break; }
+        if(bench_stalled(last, bytes)) break;
+        cmm2->net_poll();
+    }
+    printf("gaps of %d ms: %lu bytes in %lu ms, %d gaps\n", gap_ms, (unsigned long)bytes,
+           (unsigned long)((cmm2->micros() - t0) / 1000), gaps);
+    cmm2->sock_close(h);
+}
+
 static int bench(int argc, char **argv) {
     struct in_addr a;
     uint8_t ip[4];
@@ -81,13 +134,17 @@ static int bench(int argc, char **argv) {
     uint64_t t0;
     int i, port;
     if(argc < 5 || !inet_aton(argv[2], &a)) {
-        puts("RUN \"curl.app\", --cmm2-bench a.b.c.d port /path");
+        puts("RUN \"curl.app\", --cmm2-bench a.b.c.d port /path [gap_ms]");
         return 2;
     }
     memcpy(ip, &a.s_addr, 4);
     port = atoi(argv[3]);
     snprintf(req, sizeof(req), "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", argv[4], argv[2]);
     if(cmm2->version < 21 || cmm2->net_poll() != 2) { puts("no network"); return 1; }
+    if(argc > 5) {
+        bench_gap(ip, port, req, atoi(argv[5]));
+        return 0;
+    }
     t0 = cmm2->micros();
     for(i = 0; i < 1000; i++) cmm2->net_poll();
     printf("net_poll, idle: %lu us each\n", (unsigned long)((cmm2->micros() - t0) / 1000));
