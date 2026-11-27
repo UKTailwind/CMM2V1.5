@@ -72,6 +72,8 @@
 #define Vector_VideoColour        (*(int*)0x8000378)       	// VideoColour
 #define Vector_DrawCircle         (*(int*)0x800037C)       	// DrawCircle(int x, int y, int radius, int w, int c, int fill, MMFLOAT aspect)
 #define Vector_DrawTriangle       (*(int*)0x8000380)       	// DrawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int c, int fill)
+#define Vector_CSubYield          (*(int*)0x8000384)        // void CSubYield(void): THREAD YIELD (firmware 8.00.00b6 on; on older
+                                                            // firmware this slot is past the table's end: do not call it there)
 //Macros to call each function.
 
 #define uSec(a)                         ((void (*)(unsigned int )) Vector_uSec) (a)
@@ -143,6 +145,7 @@
 #define VideoColour                     (*(int *) Vector_VideoColour)
 #define DrawCircle(a,b,c,d,e,f,g)       ((void (*)(int,int,int,int,int,int,MMFLOAT)) Vector_DrawCircle) (a,b,c,d,e,f,g)
 #define DrawTriangle(a,b,c,d,e,f,g,h)   ((void (*)(int,int,int,int,int,int,int,int)) Vector_DrawTriangle) (a,b,c,d,e,f,g,h)
+#define CSubYield()                     ((void (*)(void)) Vector_CSubYield) ()   // the other threads have their turns
 // these added for V6.00.00
 //#define CFuncInt3                       (*(unsigned int *) Vector_CFuncInt3)
 //#define CFuncInt4                       (*(unsigned int *) Vector_CFuncInt4)

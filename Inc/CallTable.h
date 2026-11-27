@@ -114,3 +114,4 @@
     CT(&gui_bcolour)                    /* 0x1b4 */
     CTF(PinVal)                         /* 0x1b8 */
     CT(PinPut)                          /* 0x1bc */
+    CT(CSubYield)                       /* 0x1c0 THREAD YIELD for a CSUB (8.00.00b6 on; the PicoMite's slot) */

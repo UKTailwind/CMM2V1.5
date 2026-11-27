@@ -125,6 +125,7 @@ const void * const CallTable[] __attribute__((section(".cspace")))  = {	(void *)
 																		(void *)&VideoColour,
 																		(void *)DrawCircle,
 																		(void *)DrawTriangle,
+																		(void *)CSubYield,                  // 0x08000384: THREAD YIELD for a CSUB (8.00.00b6 on)
                                                                        // (void *)CallExecuteProgram,  //Duplicate ???
 									   	   	   	   	   	   	   	   	   	   };
 

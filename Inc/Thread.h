@@ -27,6 +27,7 @@ extern volatile unsigned int ThreadWakeMs;          // mSecTimer when the first 
 extern volatile uint32_t FrameCount;                // frames shown: counted by the LTDC's interrupt (ltdc.c)
 extern volatile unsigned char ThreadFrameWaiters;   // threads waiting for the next one, which that interrupt wakes by
 extern volatile unsigned char ThreadFrameDue;       // this and IntSignal
+void CSubYield(void);                              // THREAD YIELD for a CSUB, through the CallTables
 void ThreadPoll(void);                              // a wait loop found nothing yet: the other threads have their turns
 void ThreadFrameWait(void);                         // to the start of the next frame
 void ThreadSleepDeaf(long long t);                  // to the microsecond clock's t, with no interrupt taken (SYNC)

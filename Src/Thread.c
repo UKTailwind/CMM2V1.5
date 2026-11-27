@@ -639,6 +639,18 @@ void ThreadPoll(void) {
     Deaf(0);
 }
 
+/* THREAD YIELD for a CSUB (the CallTables: the CMM2's at 0x08000384, the PicoMite's layout at 0x1C0; Peter, 27 Nov 2026,
+   as the PicoMite's CSubYield). A CSUB runs whole inside its one statement, and threads switch only between statements,
+   so a long compiled routine held every other thread until it returned (a chess search held its clock for seconds).
+   This is ThreadPoll offered to CSUBs: the other threads have their turns, and the CSUB carries on when this thread's
+   comes round, at once if none is ready. It does nothing with no threads, inside THREAD HOLD (ThreadPoll's Held()) or
+   in an interrupt routine, which runs to its end before any other thread runs; it returns rather than raising an
+   error there, so a CSUB that yields can still be called from a routine. */
+void CSubYield(void) {
+    if(ThreadCount == 0 || InterruptReturn != NULL) return;
+    ThreadPoll();
+}
+
 /* FRAMEBUFFER WAIT, PAGE COPY ...,B and the others that wait for a frame's start. With no thread it is the wait it
    always was, on the flag the LTDC's interrupt sets. With threads the others run meanwhile, and the wait is on that
    interrupt's count of frames: each waiter clears the flag, so of two that wait at once one could miss its frame.
