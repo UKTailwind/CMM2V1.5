@@ -75,6 +75,13 @@ int doindex;                                						// counts the number of nested
 char *KeyInterrupt=NULL;
 volatile int Keycomplete=0;
 int keyselect=0;
+// ON KEY k off: END (cleanend), an error (the prompt's landing pad) and RUN (ClearExternalIO). Left armed after an
+// error, the console swallowed key k at the prompt and the next program jumped to the old routine (issue #8)
+void OnKeyOff(void) {
+    KeyInterrupt = NULL;
+    keyselect = 0;
+    Keycomplete = 0;
+}
 void ListNewLine(int *ListCnt, int all);
 // stack to keep track of GOSUBs, SUBs and FUNCTIONs
 char *gosubstack_main[MAXGOSUB], *errorstack_main[MAXGOSUB], *substack_main[MAXGOSUB];

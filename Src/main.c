@@ -407,7 +407,7 @@ void cleanend(void){
     com2_TX_interrupt=NULL;
     com3_interrupt=NULL;									// set the next stmt to the interrupt location
     com3_TX_interrupt=NULL;
-    KeyInterrupt=NULL;									    // set the next stmt to the interrupt location
+    OnKeyOff();                                                     // ON KEY k (Commands.c)
     WAVInterrupt=NULL;									    // set the next stmt to the interrupt location
     EFFECTInterrupt=NULL;
     COLLISIONInterrupt=NULL;									    // set the next stmt to the interrupt location
@@ -442,7 +442,6 @@ void cleanend(void){
     FastTickStop();
     IntReady.any = 0;                                               // nothing is armed now: signals left from the program sent
                                                                     // every statement at the prompt through check_interrupt
-	keyselect=0;
 	ScrollLCD(adjust,1);
 	CurrentY-=adjust;
     if(CurrentY + gui_font_height >= maxH-(ShortScroll?gui_font_height:0)-1) {
@@ -893,6 +892,7 @@ if(setjmp(mark) != 0) {
 	  FreeMemorySafe((void *)&PageTable[BPN].address);
 	  if(CurrentlyPlaying != P_NOTHING)CloseAudio(1);
 	  FrameInterrupt=NULL;
+	  OnKeyOff();                                                   // ON KEY k: left armed, the prompt swallowed key k (issue #8)
 	  FastTickStop();                                               // SETTICK FAST's TIM13 (END, an error, Ctrl-C: up to 50 kHz on at the prompt)
 	  if(gif!=NULL){
 		GifTimer=5000;

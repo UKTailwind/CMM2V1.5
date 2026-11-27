@@ -2143,6 +2143,7 @@ void ClearExternalIO(void) {
 	InterruptReturn = NULL;
 	IntReady.any = 0;                                               // no interrupt armed, none signalled
     OnKeyGOSUB = NULL;
+    OnKeyOff();                                                     // and ON KEY k (Commands.c)
 
     for(i = 0; i <= NBRSETTICKS; i++) TickInt[i] = NULL;
     for(i = 0; i < NBRSETTICKS; i++) TickActive[i] = 1;

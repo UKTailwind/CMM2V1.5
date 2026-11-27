@@ -156,6 +156,7 @@ extern char *CheckIfTypeSpecified(char *p, int *type, int AllowDefaultType);
 
 extern unsigned int BusSpeed;
 extern char *OnKeyGOSUB;
+extern void OnKeyOff(void);                                         // ON KEY k off (Commands.c)
 extern char EchoOption;
 extern void do_help(char *p);
 void array_set(char *tp);                       // ARRAY SET / MATH SET (Commands.c)
