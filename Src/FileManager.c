@@ -3766,7 +3766,7 @@ static void fm_display_setup(void)
         CloseAllFiles();
         InitHeap();
     }
-    setmode(Option.mode, DEFCOLOUR, 0, Option.mode == 12 ? 1 : 0);
+    setmode(Option.mode, DefaultDepth(), 0, Option.mode == 12 ? 1 : 0);
     SetFont(((Option.editfont - 1) << 4) | 1);
     reset_CLUT();
     pagesetdone = 0;
@@ -3790,7 +3790,7 @@ static void fm_display_restore(void)
     MX470Cursor(0, 0);
     SetFont(Option.DefaultFont);
     setterminal();
-    setmode(Option.mode, DEFCOLOUR, 0, Option.mode == 12 ? 1 : 0);
+    setmode(Option.mode, DefaultDepth(), 0, Option.mode == 12 ? 1 : 0);
     reset_CLUT();
 }
 

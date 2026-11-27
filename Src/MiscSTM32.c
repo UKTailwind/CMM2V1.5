@@ -223,16 +223,17 @@ void printoptions(void){
 	MMPrintString((char *)BoardSignOn());                           // (the banner's: G1, G2 or G3 and the clock)
 	MMPrintString( "MMBasic " VERSION "\r\n" );
 
-	if(Option.mode==8) 	PO2Str("Default mode 8","640x480",3);
-    else if(Option.mode==9)	PO2Str("Default mode 9","1024x768",3);
-    else if(Option.mode==10)	PO2Str("Default mode 10","848x480",3);
-    else if(Option.mode==11)	PO2Str("Default mode 11","1280x720",3);
-    else if(Option.mode==12)	PO2Str("Default mode 12","960x540",3);
-    else if(Option.mode==14)	PO2Str("Default mode 14","960x540",3);
-    else if(Option.mode==15)	PO2Str("Default mode 15","1280x1024",3);
-    else if(Option.mode==16)	PO2Str("Default mode 16","1920x1080",3);
-    else if(Option.mode==18)	PO2Str("Default mode 18","1024x600",3);
-    else if(Option.mode==19)	PO2Str("Default mode 19","720x400",3);
+	{                                                               // (",16": OPTION DEFAULT MODE's depth, Flash.h)
+	    static const struct { uint8_t m; const char *res; } dm[] = {{8, "640x480"}, {9, "1024x768"}, {10, "848x480"},
+	        {11, "1280x720"}, {12, "960x540"}, {14, "960x540"}, {15, "1280x1024"}, {16, "1920x1080"}, {18, "1024x600"},
+	        {19, "720x400"}};
+	    char dms[24];
+	    for(int i = 0; i < (int)(sizeof(dm) / sizeof(dm[0])); i++)
+	        if(Option.mode == dm[i].m) {
+	            sprintf(dms, "Default mode %d%s", Option.mode, DefaultDepth() == 16 ? ",16" : "");
+	            PO2Str(dms, dm[i].res, 3);
+	        }
+	}
 	if(VideoMode==1) 	PO2Str("VGA mode 800x600",DepthName(),3);
     else if(VideoMode==2) 	PO2Str("VGA mode 640x400",DepthName(),3);
     else if(VideoMode==3) 	PO2Str("VGA mode 320x200",DepthName(),3);
@@ -1517,7 +1518,7 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
 	        return;
 	    }
 	    int fsize = f_size(FileTable[fnbr].fptr);
-	    if(fsize != sizeof(struct option_s) && fsize != OPTION_SIZE_L3 && fsize != OPTION_SIZE_L4) {   // (OPTION_SIZE_L3 and _L4: saved before the WEB options or Bluetooth's,
+	    if(fsize != sizeof(struct option_s) && fsize != OPTION_SIZE_L3 && fsize != OPTION_SIZE_L4 && fsize != OPTION_SIZE_L5) {   // (OPTION_SIZE_L3 to _L5: saved before the WEB options, Bluetooth's or the default mode's depth,
 	        FileClose(fnbr);                                    // which LoadOptions then sets off, as for a record in flash)
 	        error("File size incorrect: not saved by OPTION DISK SAVE in this firmware");
 	    }
@@ -1814,8 +1815,13 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
         }
 	}
 	tp = checkstring(cmdline, "DEFAULT MODE");
-	if(tp) {
+	if(tp) {                                                        // OPTION DEFAULT MODE n [, depth]: depth 8 (as always) or 16
+	    getargs(&tp, 3, ",");                                       // (27 Nov 2026, Peter), for the prompt, EDIT, FM and RUN
+	    if(argc != 1 && argc != 3) error("Syntax");
 	    if(CurrentLinePtr) error("Invalid in a program");
+	    int depth = argc == 3 ? getinteger(argv[2]) : 8;
+	    if(depth != 8 && depth != 16) error("Colour depth must be 8 or 16");
+	    tp = argv[0];
  		if(checkstring(tp, "8")) {
             Option.mode=8;
             Option.editfont=1;
@@ -1850,6 +1856,8 @@ void MIPS16 __attribute__((section(".bank2"))) OtherOptions(void) {
             Option.mode=19;
             Option.editfont=1;
         } else error("Invalid mode");
+        if(depth == 16 && (Option.mode == 15 || Option.mode == 16)) error("Mode % has 8-bit colour only", Option.mode);
+        Option.ModeDepth = depth;
         goto saveandreset;
 	}
     extern volatile int ConsoleUartUp;

@@ -180,7 +180,7 @@ uint8_t *linebuff=(uint8_t *)LBUFFSTART;
 
 void __attribute__((section(".extra"))) InitDisplayOther(void){
 	docopy=mycopy;
-	setmode(-Option.mode,DEFCOLOUR,0,1);
+	setmode(-Option.mode,DefaultDepth(),0,1);                     // (the start-up's: OPTION DEFAULT MODE's depth, Flash.h)
     PromptFont = gui_font;
     PromptFC = gui_fcolour = Option.DefaultFC;
     PromptBC = gui_bcolour = Option.DefaultBC;

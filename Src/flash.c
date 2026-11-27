@@ -541,9 +541,12 @@ static void OptionsFrom(uint32_t from) {
             Option.ServerResponceTime = Option.UDPServerResponceTime = 5000;
         }
         // layout 5: Bluetooth off, the WiFi half on only if OPTION WIFI was set (as before OPTION RADIO), no pairings
-        Option.Radio = RADIO_BT_OFF | (*Option.SSID ? 0 : RADIO_WIFI_OFF);
-        Option.audio_bluetooth = 0;
-        mymemset((char *)Option.bt_tlv, 0xFF, sizeof(Option.bt_tlv));
+        if(l < 5) {
+            Option.Radio = RADIO_BT_OFF | (*Option.SSID ? 0 : RADIO_WIFI_OFF);
+            Option.audio_bluetooth = 0;
+            mymemset((char *)Option.bt_tlv, 0xFF, sizeof(Option.bt_tlv));
+        }
+        Option.ModeDepth = 8;                                       // layout 6: the default mode 8-bit, as it always was
         Option.layout = OPTION_LAYOUT;
     }
     // (the on-screen keyboard's strip, OptionVResreserved, is not set here as the PicoMite's LoadOptions sets it: the
@@ -695,6 +698,7 @@ void ResetAllOptions(void) {
 	Option.Radio = RADIO_WIFI_OFF | RADIO_BT_OFF;                   // OPTION RADIO NONE: the module is optional
 	Option.audio_bluetooth = 0;
 	mymemset((char *)Option.bt_tlv, 0xFF, sizeof(Option.bt_tlv));  // no pairings (BTstack's erased TLV)
+	Option.ModeDepth = 8;                                           // (OPTION DEFAULT MODE n, 16: 16)
 	mymemset((char *)Option.path,0,sizeof(Option.path));
 	mymemset((char *)Option.offsets,0,sizeof(Option.offsets));
 }

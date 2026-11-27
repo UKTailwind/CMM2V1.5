@@ -1617,7 +1617,7 @@ static void MIPS16 RunStart(int runlib) {
 	PrepareProgram(true);                                           // (MM.WATCHDOG is kept for the program: cleanend clears it)
     IgnorePIN = false;
     if(*ProgMemory != T_NEWLINE) { RunStarting = 0; return; }        // no program to run
-    setmode(Option.mode,DEFCOLOUR,0,Option.mode==12?1:0);
+    setmode(Option.mode,DefaultDepth(),0,Option.mode==12?1:0);
     int dmem = G1NetBlock() ? G1_NET_BLOCK - 0xD0000000 : 512*6*1024;   // (a G1's network block left alone: Memory.h)
     if((uint32_t)PageTable[0].address==0xD0000000){
     	mymemset((char *)0x24000000,0,512*1024);

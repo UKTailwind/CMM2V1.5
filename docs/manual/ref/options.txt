@@ -121,9 +121,9 @@ Used to set the default type for a variable which is not explicitly defined.
 If OPTION DEFAULT NONE is used then all variables must have their type explicitly defined or the error "Variable type not specified" will occur.
 When a program is run the default is set to FLOAT for compatibility with Microsoft BASIC and previous versions of MMBasic.  MM.INFO(OPTION DEFAULT) returns the current setting.
 
-=== OPTION DEFAULT MODE n
+=== OPTION DEFAULT MODE n [, bits]
 --- P roomy
-Specifies the video mode for the command prompt, the editor and the file manager, which is also the mode a program starts in.  The colour depth is 8 bits.  ‘n’ can be:
+Specifies the video mode for the command prompt, the editor and the file manager, which is also the mode a program starts in.  ‘bits’ is its colour depth, 8 (the default) or 16; modes 15 and 16 have 8 only.  A program that draws in 16-bit colour, the web browser for one, then needs no MODE command, and the monitor is not switched for every run.  ‘n’ can be:
 1 = 800x600, 100 x 50 characters (the default)
 8 = 640x480, 80 x 40 characters
 9 = 1024x768, 102 x 48 characters

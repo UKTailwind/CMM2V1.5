@@ -729,6 +729,11 @@ MX_I2C4_Init();
 MX_GPIO_Init();
 RAMSETUP();
 FMC_Bank1_R->BTCR[1] = 0x000030D2;
+// the LTDC first for the SDRAM: its read QoS in the AXI interconnect (GPV: initiator 6's READ_QOS) 15, the CPU's, the
+// DMA2D's and the others' staying 0. At 1280x720 16-bit the display reads 148 MB/s, and a loadable program running
+// from the SDRAM with the DMA2D copying left it short: its FIFO ran dry many times a second, lines on the screen torn
+// (the web browser, 27 Nov 2026). With this, about half as often.
+*(volatile uint32_t *)0x51047100 = 15;
 MS7210_Release();                                                   // (PG3 high once it is 10 ms old: MS7210.c)
 ProgMemory = (char *)PROGRAM_RAM;                                   // V8: the program always runs from the SDRAM, never the
                                                                     // flash (Memory.h; Option.ProgramStartCode is not used)
@@ -912,7 +917,7 @@ if(setjmp(mark) != 0) {
 	  PicoTempEnd();                                                 // a program's own OPTION PICOMITE goes with it
 	  if(PicoActive && PicoFlavour() != PICO_NONE) PicoModeEnd();     // (OPTION PICOMITE: the program's mode stays, PicoMode.c; a
 	                                                                 // mode the program's own gave goes, as the option has)
-	  else setmode(Option.mode,DEFCOLOUR,0,0);
+	  else setmode(Option.mode,DefaultDepth(),0,0);
 	  WritePage=ReadPage=0;
 	  if(CurrentY<0)CurrentY=0;
 	  if(errpos){

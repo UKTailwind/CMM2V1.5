@@ -281,6 +281,7 @@ struct option_s {
 	unsigned char Radio;                // OPTION RADIO (Flash.h, layout 5)
 	unsigned char audio_bluetooth;      // OPTION AUDIO BLUETOOTH
 	unsigned char bt_tlv[2048];         // the Bluetooth pairings
+	unsigned char ModeDepth;            // OPTION DEFAULT MODE's colour depth, 8 or 16 (Flash.h, layout 6)
 	unsigned char end;
 // 128
 };

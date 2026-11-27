@@ -229,7 +229,7 @@ void PicoOption(char *tp) {
         PicoResNow = -1;
         if(PicoFlavour() != f || PicoResolution() != r) {           // (as it is already: the display left alone)
             if(d) PicoModeSet(1);                                   // the PicoMite's MODE 1, which RUN gives a program under it
-            else setmode(Option.mode, DEFCOLOUR, 0, Option.mode == 12 ? 1 : 0);   // NONE: the CMM2's own, as RUN sets it
+            else setmode(Option.mode, DefaultDepth(), 0, Option.mode == 12 ? 1 : 0);   // NONE: the CMM2's own, as RUN sets it
         }
         return;
     }
