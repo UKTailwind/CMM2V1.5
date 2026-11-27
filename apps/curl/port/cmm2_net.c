@@ -1,5 +1,6 @@
 /* cmm2_net.c: BSD sockets for a loadable program, on the firmware's lwIP through services version 21 (Inc/cmm2img.h,
-   Src/net/LoaderNet.c), for libcurl and the browser. docs/Web_Browser_Study.md, step 1. MIT License, as cmm2img.h.
+   Src/net/LoaderNet.c), for libcurl in curl.app and the browser (docs/Web_Browser_Study.md). MIT License, as
+   cmm2img.h.
 
    - A socket's descriptor is SOCK_FD0 plus its slot (16-23), clear of the files' (3-10, tools/sdk/syscalls.c) and
      under newlib's FD_SETSIZE, so select() takes both. closesocket() closes one (curl's HAVE_CLOSESOCKET).

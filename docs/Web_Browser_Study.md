@@ -425,7 +425,7 @@ showing PDFs in the browser (they are downloaded instead), extensions, printing,
 
 Each step is a program that runs on a G2 or G3 and shows something, so the hard parts are met first.
 
-1. **fetch.app: libcurl, mbedTLS and the socket layer,** as a command-line `curl` (`RUN "fetch.app", url`). It
+1. **curl.app: libcurl, mbedTLS and the socket layer,** as a command-line `curl` (`RUN "curl.app", url`). It
    saves the page to the card and prints the times. **Done when:**
    - HTTPS pages from a dozen large sites come back whole, gzip included, with certificates verified;
    - the handshake is timed for ECDSA and RSA chains, TLS 1.2 and 1.3;
@@ -444,22 +444,23 @@ Each step is a program that runs on a G2 or G3 and shows something, so the hard 
    (`--axi`, `--itcm`) if step 2's times call for it.
 7. **The App User Guide:** a chapter for the browser, with what it cannot do.
 
-### Step 1 done (27 Nov 2026): fetch.app
+### Step 1 done (27 Nov 2026): curl.app
 
 **What it is:** curl 8.23.0's own command-line tool with libcurl, mbedTLS 3.6.8 and zlib 1.3.1, all built as
-released (apps/browser/make.py fetches them, SHA-256 checked). The CMM2's side is all in apps/browser:
+released (apps/curl/make.py fetches them, SHA-256 checked). Built as fetch.app in apps/browser, it became curl.app
+in apps/curl the same day, a program of its own for the app library (Peter), with its chapter in the App User Guide
+(docs/apps/text/14_curl.md). The CMM2's side is all in apps/curl, which the browser builds on:
 - `port/cmm2_net.c`: BSD sockets, `select` and `getaddrinfo` on services version 21;
 - `port/cmm2_tls.c`: the RNG for mbedTLS's entropy;
 - `port/curl_config.h` and `port/mbedtls_user_config.h`;
 - `port/cmm2_stdio.c`: 16 KB file buffers;
-- `fetch_main.c`.
+- `curl_main.c`: cacert.pem beside the app; a word about the clock when a certificate is refused.
 
 It is a full curl for HTTP, HTTPS and `file:`. Left out: FTP and the other protocols, HTTP/2, IPv6, Brotli,
-international domain names. Run on the G3 (V8 8.000005, its Wi-Fi module, COM50), with curl's CA bundle as
-A:/cacert.pem:
+international domain names. Run on the G3 (V8 8.000005, its Wi-Fi module, COM50), with curl's CA bundle beside it:
 
 ```
-RUN "fetch.app", -o page.html https://en.wikipedia.org/wiki/Main_Page
+RUN "A:/curl/curl.app", -o page.html https://en.wikipedia.org/wiki/Main_Page
 ```
 
 **The step's four tests:**
@@ -477,7 +478,7 @@ RUN "fetch.app", -o page.html https://en.wikipedia.org/wiki/Main_Page
 - **Ctrl-C** ends a download in 0.12 s (exit code 130).
 - **The Wi-Fi link** decided most of the speed on the day: 5 to 37 ms to the PC with up to 5% loss, against 1 to 6 ms
   on 15 Nov.
-  - `RUN "fetch.app", --cmm2-bench ip port /path` times a plain HTTP download on the services alone: 750 to 870 KB/s
+  - `RUN "curl.app", --cmm2-bench ip port /path` times a plain HTTP download on the services alone: 750 to 870 KB/s
     from the PC; through port/cmm2_net.c, 720 KB/s.
   - curl over plain HTTP got 465 KB/s at the same time: curl's own work for each read, from the SDRAM. That is
     tuning for later.
@@ -498,7 +499,7 @@ RUN "fetch.app", -o page.html https://en.wikipedia.org/wiki/Main_Page
 
 ## Decisions for Peter
 
-- **Go or not,** and whether a first step (fetch.app) is worth doing on its own: it is also a `curl` for the CMM2.
+- **Go or not:** decided 27 Nov, go. Step 1 is done, and curl.app is a program of its own.
 - **TLS in the app** (recommended: libcurl drives it, and the firmware is unchanged) or a TLS service in the
   firmware.
 - **Services version 23:** `--bigheap` and `--vram` on a G2, or the browser making do with `alloc`.

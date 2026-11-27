@@ -1,6 +1,7 @@
-/* mbedtls_user_config.h: the browser's changes to mbedTLS 3.6's default configuration (MBEDTLS_USER_CONFIG_FILE, read
-   after include/mbedtls/mbedtls_config.h). The defaults stay, TLS 1.2 and 1.3 among them; out go what needs an operating
-   system, the server side, DTLS and x86's instructions. docs/Web_Browser_Study.md, step 1. MIT License, as cmm2img.h. */
+/* mbedtls_user_config.h: curl.app's and the browser's changes to mbedTLS 3.6's default configuration
+   (MBEDTLS_USER_CONFIG_FILE, read after include/mbedtls/mbedtls_config.h). The defaults stay, TLS 1.2 and 1.3 among
+   them; out go what needs an operating system, the server side, DTLS and x86's instructions. MIT License, as
+   cmm2img.h. */
 
 /* the CMM2 has no BSD sockets of mbedTLS's kind, no POSIX timers and no file system for PSA's key store */
 #undef MBEDTLS_NET_C

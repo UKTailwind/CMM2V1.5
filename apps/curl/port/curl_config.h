@@ -7,7 +7,7 @@
 
 #define CURL_OS "arm-none-eabi-cmm2"
 
-/* the curl tool's main (src/tool_main.c), called by fetch_main.c's: no other file of curl's has a main */
+/* the curl tool's main (src/tool_main.c), called by curl_main.c's: no other file of curl's has a main */
 #define main curl_tool_main
 
 /* the machine: Cortex-M7, ILP32 */

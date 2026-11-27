@@ -87,6 +87,6 @@ apps/wifi/out/
 # Bluetooth (apps/bt/make.py): BTstack fetched at a pinned commit, and the build
 apps/bt/btstack/
 apps/bt/out/
-# The web browser (apps/browser/make.py): curl, mbedTLS and zlib fetched as release archives, and the build
-apps/browser/src/
-apps/browser/out/
+# curl (apps/curl/make.py): curl, mbedTLS and zlib fetched as release archives, and the build
+apps/curl/src/
+apps/curl/out/

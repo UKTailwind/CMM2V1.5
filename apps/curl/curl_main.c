@@ -1,17 +1,22 @@
-/* fetch_main.c: fetch.app, the curl tool (curl 8.23.0) for the Colour Maximite 2, step 1 of docs/Web_Browser_Study.md.
-   curl's own main (src/tool_main.c) is renamed curl_tool_main by port/curl_config.h, and called from here.
-       RUN "fetch.app", [options] url ...
-   as curl takes them ("--help all" lists them). The CA bundle is A:/cacert.pem unless --cacert names another.
-       RUN "fetch.app", --cmm2-bench a.b.c.d port /path
-   measures the network services themselves: what net_poll costs, and an HTTP download through the services directly
-   and through port/cmm2_net.c's sockets.
-       RUN "fetch.app", --cmm2-mem [curl's options] url ...
-   runs curl as usual, then prints the heap's high-water mark. MIT License, as cmm2img.h. */
+/* curl_main.c: curl.app, the curl tool (curl 8.23.0) for the Colour Maximite 2 (docs/apps/text/14_curl.md). curl's own
+   main (src/tool_main.c) is renamed curl_tool_main by port/curl_config.h, and called from here.
+       RUN "A:/curl/curl.app", [options] url ...
+   as curl takes them ("--help all" lists them).
+   - The CA bundle: --cacert's, else CURL_CA_BUNDLE's, else cacert.pem in the app's own folder if it is there (as the
+     programs zip has it), else A:/cacert.pem (the manual's WEB TLS CA example; port/curl_config.h).
+   - When a certificate is refused and the CMM2's clock is before 2026, it says the clock may be why.
+   Two options of the CMM2's, for measuring:
+       RUN "curl.app", --cmm2-bench a.b.c.d port /path
+   what net_poll costs, and an HTTP download through the services directly and through port/cmm2_net.c's sockets;
+       RUN "curl.app", --cmm2-mem [curl's options] url ...
+   curl as usual, then the heap's high-water mark. MIT License, as cmm2img.h. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -76,7 +81,7 @@ static int bench(int argc, char **argv) {
     uint64_t t0;
     int i, port;
     if(argc < 5 || !inet_aton(argv[2], &a)) {
-        puts("RUN \"fetch.app\", --cmm2-bench a.b.c.d port /path");
+        puts("RUN \"curl.app\", --cmm2-bench a.b.c.d port /path");
         return 2;
     }
     memcpy(ip, &a.s_addr, 4);
@@ -92,9 +97,38 @@ static int bench(int argc, char **argv) {
     return 0;
 }
 
+/* cacert.pem in the app's own folder, given to curl's own lookup (src/tool_operate.c, cacertpaths) as CURL_CA_BUNDLE,
+   unless the user has set that: --cacert still wins over it */
+static void ca_beside_app(const char *app) {
+    static char path[300];
+    struct stat st;
+    const char *slash = strrchr(app, '/');
+    size_t n;
+    if(getenv("CURL_CA_BUNDLE")) return;
+    if(!slash) slash = strrchr(app, '\\');
+    n = slash ? (size_t)(slash - app + 1) : (app[0] && app[1] == ':' ? 2 : 0);
+    if(n + sizeof("cacert.pem") > sizeof(path)) return;
+    memcpy(path, app, n);
+    strcpy(path + n, "cacert.pem");
+    if(stat(path, &st) == 0 && !S_ISDIR(st.st_mode)) setenv("CURL_CA_BUNDLE", path, 1);
+}
+
+/* after a refused certificate (curl's 60) or a failed handshake (35): a clock before 2026 is the likely reason, as a
+   certificate is valid only between two dates */
+static void clock_hint(int r) {
+    time_t t = time(NULL);
+    struct tm tm;
+    if(r != 60 && r != 35) return;
+    gmtime_r(&t, &tm);
+    if(tm.tm_year + 1900 >= 2026) return;
+    fprintf(stderr, "The CMM2's clock says %04d-%02d-%02d, and certificates are checked against it: WEB NTP sets it.\n",
+            tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+}
+
 int main(int argc, char **argv) {
     int r, mem = 0;
     if(argc > 1 && !strcmp(argv[1], "--cmm2-bench")) return bench(argc, argv);
+    if(argc > 0) ca_beside_app(argv[0]);
     if(argc > 1 && !strcmp(argv[1], "--cmm2-mem")) {           /* curl as usual, then the heap's high-water mark */
         mem = 1;
         argv[1] = argv[0];
@@ -103,6 +137,7 @@ int main(int argc, char **argv) {
     }
     r = curl_tool_main(argc, argv);
     fflush(stdout);
+    clock_hint(r);
     fflush(stderr);
     if(mem) {
         struct mallinfo mi = mallinfo();
