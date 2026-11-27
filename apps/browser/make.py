@@ -10,7 +10,7 @@ with libcurl, mbedTLS and zlib from apps/curl (its make.py, sources and port/) f
    include folders serves them all), the paths made Windows ones, into out/obj/<component>.
 3. tools/sdk/build.py links them with libcurl's objects into out/browser.app (services version 21, G2 and G3 only).
 
-Changes for the CMM2: libnsfb's RAM surface is replaced by port/cmm2_surface.c; NetSurf's main is renamed netsurf_main
+Changes for the CMM2: libnsfb gains the screen's surface, port/cmm2_surface.c; NetSurf's main is renamed netsurf_main
 and called by port/cmm2_main.c; the curl fetcher is added (the native build has no libcurl); the resource path is
 /browser/res on the current drive. On the card: A:/browser/browser.app, A:/browser/res (out/res: src/res and
 port/Choices), A:/browser/cacert.pem.
@@ -43,7 +43,7 @@ LIBS = ['libwapcaplet', 'libparserutils', 'libhubbub', 'libcss', 'libdom', 'libn
         'libnsutils']
 LEAVE_OUT = {                                   # sources the native build had that the CMM2 does without
     'libdom': ['bindings/xml/expat_xmlparser.c'],                       # (XML: expat; NetSurf parses HTML)
-    'libnsfb': ['src/surface/ram.c', 'src/surface/wld.c'],               # (cmm2_surface.c in RAM's place; Wayland)
+    'libnsfb': ['src/surface/wld.c'],                                    # (Wayland)
 }
 ADD = {                                         # sources added: (file, extra flags)
     'libnsfb': [(os.path.join(PORT, 'cmm2_surface.c'), [])],

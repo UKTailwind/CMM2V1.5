@@ -1,10 +1,12 @@
-/* cmm2_surface.c: libnsfb's surface for the Colour Maximite 2 (apps/browser, docs/Web_Browser_Study.md). It takes the
-   place of libnsfb's RAM surface (registered as NSFB_SURFACE_RAM, by the name "cmm2"; src/surface/ram.c is left out of
-   the build), so the framebuffer front end's -f cmm2 selects it.
+/* cmm2_surface.c: libnsfb's surface for the Colour Maximite 2 (apps/browser, docs/Web_Browser_Study.md), by the name
+   "cmm2", so the framebuffer front end's -f cmm2 selects it. libnsfb's surface kinds are a fixed list, so it takes
+   SDL's (not built here). Not the RAM surface's: the front end makes each image's bitmap a RAM surface
+   (frontends/framebuffer/bitmap.c), and with the screen in that slot every image failed to the red placeholder.
    - NetSurf draws into a buffer in the program's memory, RGB565, and update copies each changed rectangle to the page
      shown by the DMA2D: the page is not cached, and drawing there a pixel at a time would be slow.
-   - The mode follows the size asked for (-w, -h): 800x600 MODE 1, 1024x768 MODE 9, 1280x720 MODE 11, 640x480 MODE 8;
-     depth 16 (-b 16).
+   - The screen's mode is used as it is (gfx_target: its page, size and depth), never changed (Peter, 27 Nov 2026: a
+     mode change, two for each run, is a large event on the SDRAM's bus). It must be of 16-bit colour and the size
+     asked for (cmm2_main.c asks for its own). The screen is cleared when NetSurf ends.
    - input pumps the network (services version 21's net_poll: nothing else does while NetSurf waits) and the USB
      devices, for up to its timeout. Ctrl-C asks NetSurf to quit. Keys and the mouse come in step 3.
    - A test run (cmm2_main.c's --shot) is finished here once the page is drawn: cmm2_shot_poll.
@@ -24,6 +26,7 @@
 int cmm2_shot_poll(void);                       /* cmm2_main.c: 1 once a test run has saved its picture */
 
 static cmm2_video v;
+uint8_t *volatile cmm2_page_buffer;            /* (NetSurf's buffer, for reading through the ST-Link beside the page) */
 
 static int cmm2_defaults(nsfb_t *nsfb) {
     nsfb->width = 800;
@@ -33,23 +36,20 @@ static int cmm2_defaults(nsfb_t *nsfb) {
     return 0;
 }
 
-static int mode_for(int w, int h) {
-    if(w == 800 && h == 600) return 1;
-    if(w == 1024 && h == 768) return 9;
-    if(w == 1280 && h == 720) return 11;
-    if(w == 640 && h == 480) return 8;
-    return -1;
-}
-
 static int cmm2_initialise(nsfb_t *nsfb) {
-    int mode = mode_for(nsfb->width, nsfb->height);
+    cmm2_target t;
     uint8_t *p;
-    if(mode < 0 || nsfb->format != NSFB_FMT_RGB565) return -1;
-    if(cmm2->version < 21 || cmm2->video_mode(mode, 16, &v) < 0) return -1;
-    if(v.width != (uint32_t)nsfb->width || v.height != (uint32_t)nsfb->height || v.copies != 1) return -1;
+    if(nsfb->format != NSFB_FMT_RGB565 || cmm2->version < 21 || cmm2->gfx_target(&t) != 0) return -1;
+    if(t.bpp != 16 || t.width != (uint32_t)nsfb->width || t.height != (uint32_t)nsfb->height || t.pitch != t.width * 2)
+        return -1;
+    v.fb = t.fb;
+    v.width = t.width;
+    v.height = t.height;
+    v.pitch = t.pitch;
     if((p = realloc(nsfb->ptr, (size_t)nsfb->width * nsfb->height * 2)) == NULL) return -1;
     memset(p, 0xFF, (size_t)nsfb->width * nsfb->height * 2);
     nsfb->ptr = p;
+    cmm2_page_buffer = p;
     nsfb->linelen = nsfb->width * 2;
     cmm2->con_screen(0);                        /* (the console to serial only: the page is NetSurf's) */
     return 0;
@@ -67,6 +67,7 @@ static int cmm2_geometry(nsfb_t *nsfb, int width, int height, enum nsfb_format_e
 
 static int cmm2_finalise(nsfb_t *nsfb) {
     while(cmm2->dma2d_busy()) {}
+    cmm2->gfx_cls(0);                           /* (the mode stays: the page cleared for the prompt) */
     free(nsfb->ptr);
     nsfb->ptr = NULL;
     return 0;
@@ -128,4 +129,4 @@ const nsfb_surface_rtns_t cmm2_rtns = {
     .cursor = cmm2_cursor,
 };
 
-NSFB_SURFACE_DEF(cmm2, NSFB_SURFACE_RAM, &cmm2_rtns)
+NSFB_SURFACE_DEF(cmm2, NSFB_SURFACE_SDL, &cmm2_rtns)

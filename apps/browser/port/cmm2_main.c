@@ -2,7 +2,10 @@
    own main (frontends/framebuffer/gui.c, compiled with -Dmain=netsurf_main), called from here with the CMM2's surface
    unless the words say otherwise:
        RUN "browser.app", [--shot FILE] [NetSurf's options] [url]
-   - -f cmm2 -w 1280 -h 720 -b 16 are put in front: 720p, MODE 11 (Peter, 27 Nov 2026). A later -w/-h/-b wins.
+   - The page is drawn in the mode the screen is in, which must be one of 16-bit colour: MODE 9,16 (1024x768) or
+     MODE 11,16 (720p), say, set before the RUN. The browser does not change the mode (Peter, 27 Nov 2026: a mode change
+     is a large event on the SDRAM's bus, two of them for every run), so -f cmm2 -w <its width> -h <its height> -b 16
+     are put in front, from gfx_target (MMBasic's HRes and VRes).
    - --shot FILE: a test run. When the first page has finished loading (cmm2_page_done, from patches/netsurf-0001) and
      been drawn, the screen is saved as FILE (SAVE PNG's), the times and the memory are printed, and NetSurf quits.
    MIT License, as Inc/cmm2img.h. */
@@ -90,11 +93,19 @@ int uname(struct utsname *u) {
 }
 
 int main(int argc, char **argv) {
-    static char *defaults[] = {"-f", "cmm2", "-w", "1280", "-h", "720", "-b", "16"};   /* 720p, MODE 11 (Peter) */
+    static char w[12], h[12];
+    static char *defaults[] = {"-f", "cmm2", "-w", w, "-h", h, "-b", "16"};   /* the screen's own mode (see above) */
+    cmm2_target t;
     char **nargv;
     int i, n = 0;
     t_start = cmm2->micros();
     stack_paint();
+    if(cmm2->gfx_target(&t) != 0 || t.bpp != 16 || t.pitch != t.width * 2) {
+        puts("The browser needs a mode of 16-bit colour: MODE 9,16 or MODE 11,16, say, before RUN");
+        return 1;
+    }
+    snprintf(w, sizeof(w), "%lu", (unsigned long)t.width);
+    snprintf(h, sizeof(h), "%lu", (unsigned long)t.height);
     if((nargv = malloc((argc + 9) * sizeof(char *))) == NULL) return 1;
     nargv[n++] = argv[0];
     for(i = 1; i < argc; i++)                   /* (-v, NetSurf's log on the console, counts only as the first word) */
