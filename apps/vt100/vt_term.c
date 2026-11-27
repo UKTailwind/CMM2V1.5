@@ -166,12 +166,22 @@ static void put_pixel(int x, int y, int colour) {
     }
 }
 
+/* a double-width line, by column 0's flag: libvterm gives the right half's cells the line's old flag (its setlineinfo
+   callback erases them before the line's info is stored), so a cell there cannot tell (issue #13) */
+static int row_dwl(int row) {
+    VTermPos p = {row, 0};
+    VTermScreenCell c;
+    vterm_screen_get_cell(vs, p, &c);
+    return c.attrs.dwl;
+}
+
 static void draw_live(int row, int col, int inverse) {
     VTermPos pos = {row, col};
     VTermScreenCell c;
     int fg, bg, at = 0, x;
     vterm_screen_get_cell(vs, pos, &c);
-    if(c.attrs.dwl && col >= tcols / 2) return;                     /* past the edge of a double-width line: a narrower screen keeps them */
+    if(col >= tcols / 2 && (c.attrs.dwl || row_dwl(row))) return;  /* past the edge of a double-width line (a narrower screen keeps them):
+                                                                       drawn single-width, the cell went over the line's text */
     if(c.chars[0] == (uint32_t)-1) c.chars[0] = ' ';                /* the right half of a wide character: there are no wide glyphs */
     fg = colour(&c.fg, 0, c.attrs.bold);
     bg = colour(&c.bg, 1, 0);
@@ -231,16 +241,18 @@ static void cover(int on) {                                         /* the curso
     if(curvis && !cursor_off && (!curblink || blinkon)) {
         drawn_cpos = curpos;
         if(curpos.row < trows && curpos.col < tcols) {
+            if(curpos.col >= tcols / 2 && row_dwl(curpos.row)) drawn_cpos.col = tcols / 2 - 1;  /* a line made double-width
+                                       with the cursor in its right half (libvterm leaves it there): at the right margin, as a VT100 */
             drawn_cursor = 1;
-            if(curshape == VTERM_PROP_CURSORSHAPE_BLOCK) draw_live(curpos.row, curpos.col, 1);
+            if(curshape == VTERM_PROP_CURSORSHAPE_BLOCK) draw_live(drawn_cpos.row, drawn_cpos.col, 1);
             else {
                 VTermScreenCell c;
                 int x, y, i, j, w, h, col, dbl;
-                vterm_screen_get_cell(vs, curpos, &c);
+                vterm_screen_get_cell(vs, drawn_cpos, &c);
                 dbl = c.attrs.dwl ? 2 : 1;
                 col = colour(&c.fg, 0, 0);
-                x = ox + curpos.col * cw * dbl;
-                y = oy + curpos.row * ch;
+                x = ox + drawn_cpos.col * cw * dbl;
+                y = oy + drawn_cpos.row * ch;
                 w = curshape == VTERM_PROP_CURSORSHAPE_BAR_LEFT ? 2 : cw * dbl;
                 h = curshape == VTERM_PROP_CURSORSHAPE_BAR_LEFT ? ch : 2;
                 if(curshape == VTERM_PROP_CURSORSHAPE_UNDERLINE) y += ch - 2;
@@ -248,11 +260,15 @@ static void cover(int on) {                                         /* the curso
             }
         }
     }
-    if(mousemode && mcol >= 0 && mrow < trows && mcol < tcols && !(drawn_cursor && drawn_cpos.row == mrow && drawn_cpos.col == mcol)) {
-        drawn_mpos.row = mrow;
-        drawn_mpos.col = mcol;
-        drawn_mouse = 1;
-        draw_live(mrow, mcol, 1);
+    if(mousemode && mcol >= 0 && mrow < trows && mcol < tcols) {
+        int mc = row_dwl(mrow) ? mcol / 2 : mcol;                   /* the cell under the pointer: on a double-width line,
+                                                                       half its screen column (issue #13) */
+        if(!(drawn_cursor && drawn_cpos.row == mrow && drawn_cpos.col == mc)) {
+            drawn_mpos.row = mrow;
+            drawn_mpos.col = mc;
+            drawn_mouse = 1;
+            draw_live(mrow, mc, 1);
+        }
     }
 }
 
@@ -548,6 +564,10 @@ static void vt52_write(const char *bytes, size_t n) {
 void vtt_write(const char *bytes, size_t n) {
     if(vt == NULL) return;
     dirty = 1;
+    cover(0);                                                       /* the cursor and pointer off while libvterm's screen is still
+                                                                       the one drawn: put back after it had scrolled, a cell got the
+                                                                       text of the row below, and the scroll then carried it up a row
+                                                                       (issue #12). vtt_update puts them back */
     while(n) {
         const char *p;
         size_t len;
