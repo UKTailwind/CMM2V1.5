@@ -1,0 +1,26 @@
+diff --git a/content/fetchers/curl.c b/content/fetchers/curl.c
+index a9e4320..a10b827 100644
+--- a/content/fetchers/curl.c
++++ b/content/fetchers/curl.c
+@@ -1158,6 +1158,11 @@ static CURLcode fetch_curl_set_postdata(struct curl_fetch_info *f)
+ 	return code;
+ }
+ 
++/* the Colour Maximite 2's port (apps/browser): given each fetch that verifies certificates, it gives curl the CA bundle
++   parsed once, through CURLOPT_SSL_CTX_FUNCTION, in place of curl's reading and parsing the whole file again for every
++   connection (0.7 s each there, with mbedTLS) */
++extern void cmm2_curl_ca(CURL *handle, const char *bundle) __attribute__((weak));
++
+ /**
+  * Set options specific for a fetch.
+  *
+@@ -1259,6 +1264,9 @@ static CURLcode fetch_curl_set_options(struct curl_fetch_info *f)
+ 		/* do verification */
+ 		SETOPT(CURLOPT_SSL_VERIFYPEER, 1L);
+ 		SETOPT(CURLOPT_SSL_VERIFYHOST, 2L);
++		if (cmm2_curl_ca != NULL) {
++			cmm2_curl_ca(f->curl_handle, nsoption_charp(ca_bundle));
++		}
+ #ifdef WITH_OPENSSL
+ 		if (curl_with_openssl) {
+ 			SETOPT(CURLOPT_SSL_CTX_FUNCTION, fetch_curl_sslctxfun);

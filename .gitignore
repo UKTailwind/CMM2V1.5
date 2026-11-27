@@ -90,3 +90,6 @@ apps/bt/out/
 # curl (apps/curl/make.py): curl, mbedTLS and zlib fetched as release archives, and the build
 apps/curl/src/
 apps/curl/out/
+# The web browser (apps/browser/make.py): NetSurf and its libraries from host/gen.sh, libpng and libjpeg, and the build
+apps/browser/src/
+apps/browser/out/

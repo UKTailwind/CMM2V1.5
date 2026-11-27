@@ -1,0 +1,25 @@
+diff --git a/frontends/framebuffer/gui.c b/frontends/framebuffer/gui.c
+index 5bfc822..f44dedb 100644
+--- a/frontends/framebuffer/gui.c
++++ b/frontends/framebuffer/gui.c
+@@ -2060,6 +2060,10 @@ gui_window_start_throbber(struct gui_window *g)
+ 	framebuffer_schedule(100, throbber_advance, g);
+ }
+ 
++/* the Colour Maximite 2's port (apps/browser): told when a page has finished loading, as a test run saves the screen
++   then */
++extern void cmm2_page_done(struct browser_window *bw) __attribute__((weak));
++
+ static void
+ gui_window_stop_throbber(struct gui_window *gw)
+ {
+@@ -2068,6 +2072,9 @@ gui_window_stop_throbber(struct gui_window *gw)
+ 
+ 	fb_update_back_forward(gw);
+ 
++	if (cmm2_page_done != NULL) {
++		cmm2_page_done(gw->bw);
++	}
+ }
+ 
+ static void

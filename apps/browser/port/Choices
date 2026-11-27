@@ -1,0 +1,6 @@
+ca_bundle:/browser/cacert.pem
+memory_cache_size:2097152
+max_fetchers:4
+max_fetchers_per_host:2
+max_cached_fetch_handles:2
+enable_javascript:0
