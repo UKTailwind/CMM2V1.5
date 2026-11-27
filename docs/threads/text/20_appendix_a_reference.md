@@ -39,7 +39,7 @@
 | Not enough local variables for a thread | The local variable table is full (smaller LOCALS) |
 | Not in a thread | THREAD EXIT in the main program |
 | Not allowed in a thread | RUN, CHAIN, LIST and the others of *Memory and Limits* |
-| Not allowed while a thread is running | ERASE, REDIM, CLEAR, SAVE or LOAD CONTEXT |
+| Not allowed while a thread is running | ERASE, REDIM, CLEAR, SAVE or LOAD CONTEXT; on the PicoMite also RAM FILE LOAD |
 | Lock k timed out | THREAD LOCK k, timeout: the lock was not free in time |
 | Lock k is already held by this thread | THREAD LOCK of a lock the thread holds |
 | Lock k is not held by this thread | THREAD UNLOCK of a lock the thread does not hold |

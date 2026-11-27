@@ -111,7 +111,7 @@ And these are not possible:
 | Loops and calls deep (NEST) | 4 to 50; 8 by default on the RP2350, 6 on the RP2040 |
 | Time slice, priority, locks and flags | As the Colour Maximite 2's |
 
-**What cannot be done in a thread.** These are refused in a thread other than the main program ("Not allowed in a thread"): RUN, CHAIN, FLASH RUN, FLASH CHAIN, RAM RUN, RAM CHAIN, NEW, LOAD of a program, LIBRARY, AUTOSAVE, EDIT, LIST, XMODEM, ZMODEM and GUI CLICK. These are refused while any thread is running ("Not allowed while a thread is running"): ERASE, REDIM, CLEAR, SAVE CONTEXT, LOAD CONTEXT and OPTION PROFILING. A loadable program (RUN "name.app") runs with no thread switch, as on the Colour Maximite 2. SQL and USER commands may be used in a thread.
+**What cannot be done in a thread.** These are refused in a thread other than the main program ("Not allowed in a thread"): RUN, CHAIN, FLASH RUN, FLASH CHAIN, RAM RUN, RAM CHAIN, NEW, LOAD of a program, LIBRARY, AUTOSAVE, EDIT, LIST, FILES, XMODEM, ZMODEM and GUI CLICK. These are refused while any thread is running ("Not allowed while a thread is running"): ERASE, REDIM, CLEAR, SAVE CONTEXT, LOAD CONTEXT, RAM FILE LOAD and OPTION PROFILING. A loadable program (RUN "name.app") runs with no thread switch, as on the Colour Maximite 2. SQL and USER commands may be used in a thread.
 
 **Things to know.**
 
