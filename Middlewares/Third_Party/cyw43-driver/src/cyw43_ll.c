@@ -43,6 +43,10 @@
 #include "cyw43_internal.h"
 #include "cyw43_stats.h"
 
+#ifndef CYW43_SPI_HIGH_SPEED                      // (CMM2: the gSPI's mode a port may choose; upstream's is high speed)
+#define CYW43_SPI_HIGH_SPEED HIGH_SPEED_MODE
+#endif
+
 #include CYW43_WIFI_NVRAM_INCLUDE_FILE
 
 #if CYW43_USE_SPI
@@ -1435,7 +1439,8 @@ int cyw43_ll_bus_init(cyw43_ll_t *self_in, const uint8_t *mac) {
 
     bool success = false;
     do {
-        uint32_t val = WORD_LENGTH_32 | ENDIAN_BIG | HIGH_SPEED_MODE | WAKE_UP |
+        // CMM2 (27 Nov 2026, CMM2_SOURCE.md): CYW43_SPI_HIGH_SPEED, HIGH_SPEED_MODE upstream, 0 (normal mode) on the CMM2
+        uint32_t val = WORD_LENGTH_32 | ENDIAN_BIG | CYW43_SPI_HIGH_SPEED | WAKE_UP |
             0x4 << (8 * SPI_RESPONSE_DELAY) | INTR_WITH_STATUS << (8 * SPI_STATUS_ENABLE);
         #if defined(CYW43_PIN_WL_HOST_WAKE)
         val |= INTERRUPT_POLARITY_HIGH;

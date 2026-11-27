@@ -76,6 +76,14 @@ void cyw43_cmm2_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 #define CYW43_IOCTL_TIMEOUT_US 1000000
 #endif
 
+// The gSPI's speed mode (cyw43_ll.c's CYW43_SPI_HIGH_SPEED): normal, in which the chip changes its data on SCK's
+// falling edge and SPI2 (mode 0) reads it on the rising edge, half a clock later; upstream's high-speed mode changes
+// it on the rising edge, and was read on that same edge, held only by the chip's output delay. The add-on module's
+// chip drives the line through 470 R, so each bit takes tens of ns to settle. On it (27 Nov 2026, the web browser's
+// load, Src/net/cyw43_bus_cmm2.c): 12 MHz normal ran 20 page loads clean (PB15 not pulled down); 24 MHz failed in
+// both modes, normal at once, high-speed within a minute.
+#define CYW43_SPI_HIGH_SPEED 0
+
 #ifndef CYW43_USE_STATS
 #define CYW43_USE_STATS 0
 #endif

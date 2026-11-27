@@ -28,26 +28,44 @@
 /* The radio's log (cyw43_configport.h's CYW43_PRINTF): the driver's warnings, the chip's events (cyw43_state's
    trace_flags, CYW43_TRACE_ASYNC_EV, set by WebStart) and the link's changes (WebMite_cmm2.c), each line stamped with
    the time in ms. A ring in the radio's RAM: cyw43_log_pos counts every byte written, so the latest are the
-   CYW43_LOG_SIZE before it. Nothing shows it on the console; read it through the ST-Link (by the symbols' addresses). */
+   CYW43_LOG_SIZE before it. A line the same as the one before is counted, not written again ("(N more)" when another
+   comes), so that a run of the same warning cannot push the first one out. Nothing shows it on the console; read it
+   through the ST-Link (by the symbols' addresses). */
 #define CYW43_LOG_SIZE 4096
 char cyw43_log[CYW43_LOG_SIZE];
 volatile uint32_t cyw43_log_pos;
 
+static void log_put(const char *s, int n) {
+    for (int i = 0; i < n; i++) cyw43_log[(cyw43_log_pos + i) % CYW43_LOG_SIZE] = s[i];
+    cyw43_log_pos += n;
+}
+
 void cyw43_cmm2_log(const char *fmt, ...) {
     static bool line_start = true;
-    char b[160];
-    int n = 0;
-    if (line_start) n = snprintf(b, sizeof(b), "[%lu] ", (unsigned long)(MicrosNow() / 1000u));
+    static char last[128];
+    static uint32_t repeats;
+    char b[160], msg[128];
     va_list ap;
     va_start(ap, fmt);
-    int m = vsnprintf(b + n, sizeof(b) - n, fmt, ap);
+    int m = vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
-    if (m < 0) return;
-    n += m;
-    if (n > (int)sizeof(b) - 1) n = sizeof(b) - 1;
-    for (int i = 0; i < n; i++) cyw43_log[(cyw43_log_pos + i) % CYW43_LOG_SIZE] = b[i];
-    cyw43_log_pos += n;
-    line_start = n > 0 && b[n - 1] == '\n';
+    if (m <= 0) return;
+    if (m > (int)sizeof(msg) - 1) m = sizeof(msg) - 1;
+    bool whole = line_start && msg[m - 1] == '\n';
+    if (whole && strcmp(msg, last) == 0) {
+        repeats++;
+        return;
+    }
+    unsigned long ms = (unsigned long)(MicrosNow() / 1000u);
+    if (repeats) {
+        log_put(b, snprintf(b, sizeof(b), "[%lu] (%lu more)\n", ms, (unsigned long)repeats));
+        repeats = 0;
+    }
+    strcpy(last, whole ? msg : "");
+    int n = line_start ? snprintf(b, sizeof(b), "[%lu] ", ms) : 0;
+    memcpy(b + n, msg, (size_t)m);
+    log_put(b, n + m);
+    line_start = msg[m - 1] == '\n';
 }
 
 static volatile bool poll_pending;

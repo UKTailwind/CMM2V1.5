@@ -289,18 +289,19 @@ void NetYield(void) {
 // state of a join under way, is also that of a join done, as cyw43_ctrl.c folds its 0xE01 back to it), the interface's
 // link, up and address bits (1, 2, 4: 7 is all well) and the SPI transfers that failed
 static void web_log_link(void) {
-    static uint32_t join = 0xFFFFFFFFu, errs;
+    static uint32_t join = 0xFFFFFFFFu, errs, stops;
     static int link = -1;
-    extern uint32_t cyw43_cmm2_bus_errors(void);
+    extern uint32_t cyw43_cmm2_bus_errors(void), cyw43_cmm2_spi_stops(void);
     struct netif *n = &cyw43_state.netif[CYW43_ITF_STA];
     int l = (netif_is_link_up(n) ? 1 : 0) | (netif_is_up(n) ? 2 : 0) | (ip4_addr_isany_val(*netif_ip4_addr(n)) ? 0 : 4);
-    uint32_t e = cyw43_cmm2_bus_errors();
-    if (cyw43_state.wifi_join_state != join || l != link || e != errs)
-        cyw43_cmm2_log("link: join 0x%lX, netif %d, bus errors %lu\n", (unsigned long)cyw43_state.wifi_join_state,
-                       l, (unsigned long)e);
+    uint32_t e = cyw43_cmm2_bus_errors(), s = cyw43_cmm2_spi_stops();
+    if (cyw43_state.wifi_join_state != join || l != link || e != errs || s != stops)
+        cyw43_cmm2_log("link: join 0x%lX, netif %d, bus errors %lu, receives stopped %lu\n",
+                       (unsigned long)cyw43_state.wifi_join_state, l, (unsigned long)e, (unsigned long)s);
     join = cyw43_state.wifi_join_state;
     link = l;
     errs = e;
+    stops = s;
 }
 
 void WebPoll(void) {

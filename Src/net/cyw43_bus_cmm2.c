@@ -7,38 +7,39 @@
 /*
  * cyw43_bus_cmm2.c: pico-sdk's cyw43_bus_pio_spi.c (src/rp2_common/pico_cyw43_driver, the PicoMite's pico-sdk) for
  * the Colour Maximite 2's firmware, as apps/wifi's (step 1 of docs/Web_Plan.md). The gSPI framing below make_cmd() is copied as it is. Only what drove the RP2040's PIO and
- * DMA is new: the transfer is SPI2 of the STM32H743 in half-duplex (CFG2.COMM = 3, one data line), polled.
+ * DMA is new: the transfer is SPI2 of the STM32H743 in half-duplex (CFG2.COMM = 3, one data line), in SPI mode 0;
+ * transfers longer than its 16-byte FIFO by DMA (DMA2 streams 6 and 7), the short ones polled.
  *
- * Measured from BASIC on the G3 (15 Nov 2026, tests/wifi): the chip in high-speed mode, which cyw43_ll.c sets, changes
- * the line on the rising edge, and SPI2 reads it in SPI mode 0, sampling on that same edge while the chip's output
- * delay holds the bit, as the PIO's spi_gap01_sample0 does (sampling on the falling edge instead, mode 1, reads
- * nothing right: 27 Nov 2026).
- *
- * The clock: 12.5 MHz at most (SPI_MAX_HZ): 12 MHz on a 480 MHz board (SPI2's kernel clock, PLL1Q, 48 MHz, /4), 10 MHz
- * on a 400 MHz one. The transfers are polled, and SPI2's receive FIFO holds 16 bytes, so an interrupt that keeps the
- * CPU for longer than 16 bytes take on the wire fills it; MASRX then stops the clock until the FIFO is read. At 24 MHz
- * that was 5.3 us: about one packet in six was stopped so during a download, and a stopped read now and then came back
- * wrong (27 Nov 2026, the G3: TCP checksum errors, then a length read wrong, the reads out of step with the chip's packet
- * FIFO, and the chip silent for good: the network dead until a restart). For an hour that afternoon a loadable
- * program's download in MODE 11,16 or 1,8 died so within its first 8 MB in four builds out of four; later the same
- * test ran clean at 24 MHz, so what decides it (the interrupts' load, the radio's traffic) varies. At 12 MHz (10.7 us)
- * a download is stopped a few times in 8 MB instead of about 950, and every run came through, in the bad hour too
- * (96 MB in MODE 11,16), at about 1 MB/s (24 MHz: 1.5 MB/s). cyw43_ll.c also now recovers from a read out of step.
+ * The add-on module's chip drives the data line through 470 R, so each bit it sends takes tens of ns to settle on the
+ * line (the connector's capacitance), and the margins were found on the G3 (27 Nov 2026, Peter), under the web
+ * browser's load (its code in the SDRAM, the display, the DMA2D), where a download test alone had passed:
+ *  - the chip in the gSPI's normal mode (Inc/net/cyw43_configport.h): it changes the line on SCK's falling edge and
+ *    SPI2 reads it on the rising one. Upstream's high-speed mode (the change on the rising edge, read on that same
+ *    edge) gave register reads with odd bits set.
+ *  - the clock 12.5 MHz at most (SPI2_MAX_HZ): 12 MHz on a 480 MHz board (PLL1Q, 48 MHz, /4), 10 MHz on a 400 MHz
+ *    one. 16 MHz (from the HSI) and 24 MHz died within minutes in either mode, 24 MHz in normal mode at once.
+ *  - PB15 not pulled down: with the pull-down 12 MHz normal mode died after eight page loads; without it, twenty ran
+ *    with not one warning in the radio's log.
+ *  - the DMA: polled, an interrupt that kept the CPU longer than the FIFO lasts filled it, and MASRX stopped the clock
+ *    until it was read, about one packet in six at 24 MHz; the DMA empties the FIFO whatever the CPU is doing.
+ * What failed: reads came back wrong (TCP checksum errors, a packet's length read wrong, the reads out of step with the
+ * chip's packet FIFO), the chip refused packets ("F2 not ready") or went silent, and the network was dead until a
+ * restart. cyw43_ll.c also now recovers from a read out of step.
  *
  * The wire carries the buffer's bytes in memory order, each MSB first (the PIO's DMA swapped each word's bytes and
  * shifted it out MSB first). SPI2 sends 32-bit frames MSB first, so each word is byte-reversed (__REV) on the way out
  * and on the way in. All lengths are multiples of 4, as pico-sdk asserts.
  *
- * Pins: PB13 SPI2_SCK (AF5), PB15 SPI2_MOSI (AF5) during a transfer and an input (pulled down, as pico-sdk does)
- * between transfers, so that cyw43_hal_pin_read() sees the chip's IRQ; PI3 CS; PI8 WL_ON (cyw43_driver_cmm2.c).
+ * Pins: PB13 SPI2_SCK (AF5), PB15 SPI2_MOSI (AF5) during a transfer and an input (not pulled, see above) between
+ * transfers, so that cyw43_hal_pin_read() sees the chip's IRQ; PI3 CS; PI8 WL_ON (cyw43_driver_cmm2.c).
  *
  * A G3 V1.2 (main.c RM2OnBoard, docs/G3_V1.2_Header_Plan.md) has the module on the board, on SPI6: PG13 SCK and PG14
  * the data line (both AF5), CS PF7, WL_ON PF8. SPI6 is one of the H743's limited SPIs: frames of 16 bits at most, an
  * 8-byte FIFO and at most 1023 frames a transfer (TSIZE). So each word, byte-reversed as above, goes as two 16-bit
  * frames, its high half first, and the wire carries the same bits; a transfer of more than SPI16_PART_WORDS words is
  * made in parts, with CS held low. SPI6's kernel clock is the D3 bus clock (120 MHz on a 480 MHz board), divided to
- * SPI_MAX_HZ at most as SPI2's is: 7.5 MHz, whose 8-byte FIFO then lasts 8.5 us, about as long as SPI2's (not yet
- * tried on a V1.2 with its module fitted).
+ * SPI_MAX_HZ at most: 7.5 MHz, so that its 8-byte FIFO lasts 8.5 us. It is polled: a D3 peripheral's DMA is the BDMA,
+ * not yet done (nor tried on a V1.2 with its module fitted).
  */
 
 #include <stdlib.h>
@@ -70,8 +71,22 @@ static inline __attribute__((always_inline)) uint32_t __swap16x2(uint32_t a) {
 #define SWAP32(a) __swap16x2(a)
 
 #define SPI2_TIMEOUT_US 20000                    // (a transfer is at most 2 KB: 1.4 ms at 12 MHz)
-#define SPI_MAX_HZ 12500000u                     // the bus clock at most, SPI2's and a G3 V1.2's SPI6's (see above)
+#define SPI2_MAX_HZ 12500000u                    // SPI2's clock at most (see above)
+#define SPI_MAX_HZ 12500000u                     // a G3 V1.2's SPI6's at most, polled (see above)
 #define SPI16_PART_WORDS 511u                    // a limited SPI's TSIZE: 1023 frames at most, two to a word
+#define SPI2_FIFO_WORDS 4u                       // what SPI2's 16-byte FIFO holds: shorter transfers are polled
+
+#define DMA_TX DMA2_Stream7
+#define DMA_RX DMA2_Stream6
+#define DMA_TX_FLAGS (0x3Du << 22)               // (DMA2's HIFCR: stream 7's FE, DME, TE, HT and TC flags)
+#define DMA_RX_FLAGS (0x3Du << 16)               // (stream 6's)
+#define DMA_BUF_WORDS 528u                       // the largest transfer, 2,060 bytes in, in whole cache lines
+static uint32_t dma_buf[DMA_BUF_WORDS] __attribute__((aligned(32)));
+static uint32_t spi_stops;                       // receives MASRX stopped (the DMA held off: none seen)
+
+uint32_t cyw43_cmm2_spi_stops(void) {
+    return spi_stops;
+}
 
 void cyw43_cmm2_pin_mode(GPIO_TypeDef *port, int bit, int moder);   // cyw43_driver_cmm2.c: 0 input, 1 output, 2 AF
 
@@ -129,22 +144,39 @@ int cyw43_spi_init(cyw43_int_t *self) {
     RCC->APB1LRSTR |= RCC_APB1LRSTR_SPI2RST;
     RCC->APB1LRSTR &= ~RCC_APB1LRSTR_SPI2RST;
 
-    // PB13 (SCK) and PB15 (the data line): AF5, medium speed; PB15 pulled down, as pico-sdk sets the data pin
+    // PB13 (SCK) and PB15 (the data line): AF5, medium speed, no pulls. (pico-sdk pulls the data pin down; on the
+    // add-on module, whose chip drives the line through 470 R, the radio failed under load with PB15 pulled down and
+    // ran a long test clean without it: 27 Nov 2026, Peter's suggestion)
     GPIOB->AFR[1] = (GPIOB->AFR[1] & ~((0xFu << 20) | (0xFu << 28))) | (5u << 20) | (5u << 28);
     GPIOB->OSPEEDR = (GPIOB->OSPEEDR & ~((3u << 26) | (3u << 30))) | (1u << 26) | (1u << 30);
     GPIOB->OTYPER &= ~((1u << 13) | (1u << 15));
-    GPIOB->PUPDR = (GPIOB->PUPDR & ~((3u << 26) | (3u << 30))) | (2u << 30);
+    GPIOB->PUPDR &= ~((3u << 26) | (3u << 30));
     cyw43_cmm2_pin_mode(GPIOB, 13, 2);
 
-    // SPI2: master, software NSS, half-duplex, mode 0, MSB first, 32-bit frames, PLL1Q divided to SPI_MAX_HZ at most;
-    // AFCNTR keeps SCK low (and the data line driven while it transmits) when it is off between phases
+    // SPI2: master, software NSS, half-duplex, mode 0, MSB first, 32-bit frames, PLL1Q divided to SPI2_MAX_HZ at
+    // most; AFCNTR keeps SCK low (and the data line driven while it transmits) when it is off between phases
     PLL1_ClocksTypeDef pll1;
     uint32_t mbr = 0;                            // the divider: 2 << mbr
     HAL_RCCEx_GetPLL1ClockFreq(&pll1);
-    while (mbr < 7 && (pll1.PLL1_Q_Frequency >> (mbr + 1)) > SPI_MAX_HZ) mbr++;
+    while (mbr < 7 && (pll1.PLL1_Q_Frequency >> (mbr + 1)) > SPI2_MAX_HZ) mbr++;
     SPI2->CR1 = SPI_CR1_SSI;
     SPI2->CFG1 = (mbr << SPI_CFG1_MBR_Pos) | (31u << SPI_CFG1_DSIZE_Pos);
     SPI2->CFG2 = SPI_CFG2_AFCNTR | SPI_CFG2_SSM | SPI_CFG2_MASTER | SPI_CFG2_COMM_0 | SPI_CFG2_COMM_1;
+
+    // DMA2: stream 7 to SPI2's TXDR, stream 6 from its RXDR (DMAMUX1 channels 15 and 14), words, direct mode
+    RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
+    (void)RCC->AHB1ENR;
+    DMA_TX->CR = 0;
+    DMA_RX->CR = 0;
+    while ((DMA_TX->CR | DMA_RX->CR) & DMA_SxCR_EN) {}
+    DMAMUX1_Channel15->CCR = DMA_REQUEST_SPI2_TX;
+    DMAMUX1_Channel14->CCR = DMA_REQUEST_SPI2_RX;
+    DMA_TX->PAR = (uint32_t)&SPI2->TXDR;
+    DMA_RX->PAR = (uint32_t)&SPI2->RXDR;
+    DMA_TX->M0AR = (uint32_t)dma_buf;
+    DMA_RX->M0AR = (uint32_t)dma_buf;
+    DMA_TX->FCR = 0;
+    DMA_RX->FCR = 0;
     return 0;
 }
 
@@ -182,8 +214,71 @@ static void stop_spi_comms(void) {
     ns_delay(IRQ_SAMPLE_DELAY_NS);
 }
 
-// n words out: SPI2 transmitting (HDDIR), TSIZE n, filled as the FIFO takes them
+// the end of a DMA transfer: SPI2 off (the line let go), its DMA requests and the stream off
+static void spi2_dma_end(DMA_Stream_TypeDef *s, uint32_t dmaen) {
+    SPI2->IFCR = 0xFF8;
+    SPI2->CR1 = SPI_CR1_SSI;
+    SPI2->CFG1 &= ~dmaen;
+    s->CR = 0;
+    while (s->CR & DMA_SxCR_EN) {}
+}
+
+// n words out by DMA: byte-reversed into dma_buf, which is written from the cache to the RAM for the DMA
+static int spi2_send_dma(const uint32_t *w, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) dma_buf[i] = __REV(w[i]);
+    SCB_CleanDCache_by_Addr(dma_buf, (int32_t)((n * 4 + 31) & ~31u));
+    DMA2->HIFCR = DMA_TX_FLAGS;
+    DMA_TX->NDTR = n;
+    DMA_TX->CR = DMA_SxCR_DIR_0 | DMA_SxCR_MINC | DMA_SxCR_PSIZE_1 | DMA_SxCR_MSIZE_1 | DMA_SxCR_PL;
+    SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR;
+    SPI2->CR2 = n;
+    DMA_TX->CR |= DMA_SxCR_EN;                   // (RM0433: the stream, then TXDMAEN, then SPE)
+    SPI2->CFG1 |= SPI_CFG1_TXDMAEN;
+    SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR | SPI_CR1_SPE;
+    SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR | SPI_CR1_SPE | SPI_CR1_CSTART;
+    uint64_t t0 = MicrosNow();
+    int ret = 0;
+    while (!(SPI2->SR & SPI_SR_EOT))
+        if (MicrosNow() - t0 > SPI2_TIMEOUT_US) { ret = -CYW43_EIO; break; }
+    spi2_dma_end(DMA_TX, SPI_CFG1_TXDMAEN);
+    return ret;
+}
+
+// n words in by DMA, into dma_buf (invalidated before, so that no line of it is written back over the DMA's data, and
+// after), then byte-reversed into w. MASRX stays: should the DMA be held off until the FIFO filled, the clock stops.
+static int spi2_receive_dma(uint32_t *w, uint32_t n) {
+    int32_t bytes = (int32_t)((n * 4 + 31) & ~31u);
+    SCB_InvalidateDCache_by_Addr(dma_buf, bytes);
+    DMA2->HIFCR = DMA_RX_FLAGS;
+    DMA_RX->NDTR = n;
+    DMA_RX->CR = DMA_SxCR_MINC | DMA_SxCR_PSIZE_1 | DMA_SxCR_MSIZE_1 | DMA_SxCR_PL;
+    SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX;
+    SPI2->CR2 = n;
+    SPI2->CFG1 |= SPI_CFG1_RXDMAEN;              // (RM0433: RXDMAEN, then the stream, then SPE)
+    DMA_RX->CR |= DMA_SxCR_EN;
+    SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX | SPI_CR1_SPE;
+    SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX | SPI_CR1_SPE | SPI_CR1_CSTART;
+    uint64_t t0 = MicrosNow();
+    int ret = 0;
+    for (;;) {
+        uint32_t sr = SPI2->SR;
+        if ((sr & SPI_SR_EOT) && DMA_RX->NDTR == 0) break;
+        if (sr & SPI_SR_SUSP) {
+            spi_stops++;
+            SPI2->IFCR = SPI_IFCR_SUSPC;
+            SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX | SPI_CR1_SPE | SPI_CR1_CSTART;
+        }
+        if (MicrosNow() - t0 > SPI2_TIMEOUT_US) { ret = -CYW43_EIO; break; }
+    }
+    spi2_dma_end(DMA_RX, SPI_CFG1_RXDMAEN);
+    SCB_InvalidateDCache_by_Addr(dma_buf, bytes);
+    for (uint32_t i = 0; i < n; i++) w[i] = __REV(dma_buf[i]);
+    return ret;
+}
+
+// n words out: SPI2 transmitting (HDDIR), TSIZE n, filled as the FIFO takes them; more than the FIFO holds, by DMA
 static int spi2_send(const uint32_t *w, uint32_t n) {
+    if (n > SPI2_FIFO_WORDS && n <= DMA_BUF_WORDS) return spi2_send_dma(w, n);
     SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR;
     SPI2->CR2 = n;
     SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_HDDIR | SPI_CR1_SPE;
@@ -204,8 +299,10 @@ static int spi2_send(const uint32_t *w, uint32_t n) {
     return ret;
 }
 
-// n words in: SPI2 receiving, TSIZE n; MASRX stops the clock rather than overrun when an interrupt holds the CPU
+// n words in: SPI2 receiving, TSIZE n; MASRX stops the clock rather than overrun when an interrupt holds the CPU (the
+// FIFO holds a short transfer whole, so it is never stopped); more than the FIFO holds, by DMA
 static int spi2_receive(uint32_t *w, uint32_t n) {
+    if (n > SPI2_FIFO_WORDS && n <= DMA_BUF_WORDS) return spi2_receive_dma(w, n);
     SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX;
     SPI2->CR2 = n;
     SPI2->CR1 = SPI_CR1_SSI | SPI_CR1_MASRX | SPI_CR1_SPE;
