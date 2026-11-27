@@ -1058,6 +1058,8 @@ int ThreadsEnd(void) {
     Stopping = 0;
     ThreadSliceLeft = 0;
     ThreadWakeMs = 0;
+    RotLast = 0;                                                    // (as ThreadsOff: a program stopped in a routine handed
+    Handed = GiveBack = GiveBackTo = NULL;                          // out of turn must not leave them on freed records, #15)
     return 1;
 }
 
@@ -1304,7 +1306,8 @@ static void ThreadStop(int n) {
     ContextLoad(Cur);
     if(t->state == T_WAIT && t->wkind == W_FRAME) ThreadFrameWaiters--;
     t->state = T_DONE;
-    ThreadCount--;
+    if(t == GiveBack || t == GiveBackTo) GiveBack = GiveBackTo = NULL;   // (a routine stopped the thread whose turn it cut:
+    ThreadCount--;                                                  // its record is freed below, and nobody has the rest)
     Disown(n);
     ThreadReap();
 }
