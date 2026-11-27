@@ -1116,6 +1116,11 @@ static int cyw43_ll_sdpcm_poll_device(cyw43_int_t *self, size_t *len, uint8_t **
     self->had_successful_packet = true;
     if ((hdr[0] ^ hdr[1]) != 0xffff) {
         CYW43_WARN("error: hdr mismatch %04x ^ %04x\n", hdr[0], hdr[1]);
+        // CMM2 (27 Nov 2026, CMM2_SOURCE.md): a read out of step with the chip's F2 FIFO (a length read wrong): the
+        // rest of the frame dropped and the interrupt status read again, as for an invalid length above. Left as it
+        // was, the chip waited for the frame's end and never signalled another packet.
+        cyw43_write_reg_u8(self, BACKPLANE_FUNCTION, SPI_FRAME_CONTROL, (1 << 0));
+        self->had_successful_packet = false;
         return -1;
     }
     return sdpcm_process_rx_packet(self, self->spid_buf, len, buf);

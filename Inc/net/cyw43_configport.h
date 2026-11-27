@@ -48,10 +48,12 @@ typedef unsigned int uint;                      // (pico.h's, used by the copied
 #endif
 
 // The driver's messages (its warnings, the firmware banner) go to pico-sdk's printf on the PicoMite, which its console
-// does not show; here printf is the console, so they are left out as there. The firmware says what the user needs
-// ("WiFi module not found", WEB CONNECT's own messages).
+// does not show; here printf is the console, so they are kept off it as there. The firmware says what the user needs
+// ("WiFi module not found", WEB CONNECT's own messages). They go to the radio's log instead (cyw43_driver_cmm2.c,
+// cyw43_cmm2_log): a ring in the radio's RAM, with the chip's events and the link's changes, read through the ST-Link.
 #ifndef CYW43_PRINTF
-#define CYW43_PRINTF(...) ((void)0)
+void cyw43_cmm2_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+#define CYW43_PRINTF(...) cyw43_cmm2_log(__VA_ARGS__)
 #endif
 
 #ifndef CYW43_GPIO

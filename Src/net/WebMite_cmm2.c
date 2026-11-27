@@ -209,6 +209,7 @@ void WebStart(void) {
     if (bt) BtHeapInit(BtBlock, BT_BLOCK_SIZE);         // (its heap, before cyw43_arch_init sets BTstack up)
     time_from_clock();
     if (cyw43_arch_init_with_country(wifi_country_to_cyw43(Option.wifi_country_code)) != 0) return;
+    cyw43_state.trace_flags |= CYW43_TRACE_ASYNC_EV;    // (the chip's events to the radio's log: cyw43_driver_cmm2.c)
     if (wifi) {
         cyw43_arch_enable_sta_mode();           // (the chip's firmware loaded: a missing module fails here)
         up = (cyw43_state.itf_state & (1 << CYW43_ITF_STA)) != 0;   // (no answer to the gSPI test read: no module)
@@ -284,11 +285,30 @@ void NetYield(void) {
     if (ThreadCount) ThreadPoll();
 }
 
+// the link's changes to the radio's log (cyw43_driver_cmm2.c): the join's state (cyw43.h's WIFI_JOIN_STATE_*: 1, the
+// state of a join under way, is also that of a join done, as cyw43_ctrl.c folds its 0xE01 back to it), the interface's
+// link, up and address bits (1, 2, 4: 7 is all well) and the SPI transfers that failed
+static void web_log_link(void) {
+    static uint32_t join = 0xFFFFFFFFu, errs;
+    static int link = -1;
+    extern uint32_t cyw43_cmm2_bus_errors(void);
+    struct netif *n = &cyw43_state.netif[CYW43_ITF_STA];
+    int l = (netif_is_link_up(n) ? 1 : 0) | (netif_is_up(n) ? 2 : 0) | (ip4_addr_isany_val(*netif_ip4_addr(n)) ? 0 : 4);
+    uint32_t e = cyw43_cmm2_bus_errors();
+    if (cyw43_state.wifi_join_state != join || l != link || e != errs)
+        cyw43_cmm2_log("link: join 0x%lX, netif %d, bus errors %lu\n", (unsigned long)cyw43_state.wifi_join_state,
+                       l, (unsigned long)e);
+    join = cyw43_state.wifi_join_state;
+    link = l;
+    errs = e;
+}
+
 void WebPoll(void) {
     static int busy = 0;
     if (busy || NetHold || !(WIFIconnected || WebScanActive)) return;
     busy = 1;
     ProcessWeb(1);
+    web_log_link();
     busy = 0;
 }
 

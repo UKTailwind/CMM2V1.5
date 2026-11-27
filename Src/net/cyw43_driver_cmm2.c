@@ -15,6 +15,8 @@
  */
 
 #include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include "stm32h7xx_hal.h"
 #include "Loader.h"                             // (MicrosNow)
 #include "cyw43.h"
@@ -22,6 +24,31 @@
 #ifndef CYW43_SLEEP_CHECK_MS
 #define CYW43_SLEEP_CHECK_MS 50
 #endif
+
+/* The radio's log (cyw43_configport.h's CYW43_PRINTF): the driver's warnings, the chip's events (cyw43_state's
+   trace_flags, CYW43_TRACE_ASYNC_EV, set by WebStart) and the link's changes (WebMite_cmm2.c), each line stamped with
+   the time in ms. A ring in the radio's RAM: cyw43_log_pos counts every byte written, so the latest are the
+   CYW43_LOG_SIZE before it. Nothing shows it on the console; read it through the ST-Link (by the symbols' addresses). */
+#define CYW43_LOG_SIZE 4096
+char cyw43_log[CYW43_LOG_SIZE];
+volatile uint32_t cyw43_log_pos;
+
+void cyw43_cmm2_log(const char *fmt, ...) {
+    static bool line_start = true;
+    char b[160];
+    int n = 0;
+    if (line_start) n = snprintf(b, sizeof(b), "[%lu] ", (unsigned long)(MicrosNow() / 1000u));
+    va_list ap;
+    va_start(ap, fmt);
+    int m = vsnprintf(b + n, sizeof(b) - n, fmt, ap);
+    va_end(ap);
+    if (m < 0) return;
+    n += m;
+    if (n > (int)sizeof(b) - 1) n = sizeof(b) - 1;
+    for (int i = 0; i < n; i++) cyw43_log[(cyw43_log_pos + i) % CYW43_LOG_SIZE] = b[i];
+    cyw43_log_pos += n;
+    line_start = n > 0 && b[n - 1] == '\n';
+}
 
 static volatile bool poll_pending;
 static uint32_t last_poll_ms;

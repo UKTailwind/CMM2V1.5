@@ -11,8 +11,19 @@
  *
  * Measured from BASIC on the G3 (15 Nov 2026, tests/wifi): the chip in high-speed mode, which cyw43_ll.c sets, changes
  * the line on the rising edge, and SPI2 reads it in SPI mode 0, sampling on that same edge while the chip's output
- * delay holds the bit, as the PIO's spi_gap01_sample0 does. No errors at 24 MHz (SPI2's kernel clock, PLL1Q, 48 MHz
- * on a 480 MHz board, /2; a 400 MHz board's PLL1Q is 40 MHz, so 20 MHz there).
+ * delay holds the bit, as the PIO's spi_gap01_sample0 does (sampling on the falling edge instead, mode 1, reads
+ * nothing right: 27 Nov 2026).
+ *
+ * The clock: 12.5 MHz at most (SPI_MAX_HZ): 12 MHz on a 480 MHz board (SPI2's kernel clock, PLL1Q, 48 MHz, /4), 10 MHz
+ * on a 400 MHz one. The transfers are polled, and SPI2's receive FIFO holds 16 bytes, so an interrupt that keeps the
+ * CPU for longer than 16 bytes take on the wire fills it; MASRX then stops the clock until the FIFO is read. At 24 MHz
+ * that was 5.3 us: about one packet in six was stopped so during a download, and a stopped read now and then came back
+ * wrong (27 Nov 2026, the G3: TCP checksum errors, then a length read wrong, the reads out of step with the chip's packet
+ * FIFO, and the chip silent for good: the network dead until a restart). For an hour that afternoon a loadable
+ * program's download in MODE 11,16 or 1,8 died so within its first 8 MB in four builds out of four; later the same
+ * test ran clean at 24 MHz, so what decides it (the interrupts' load, the radio's traffic) varies. At 12 MHz (10.7 us)
+ * a download is stopped a few times in 8 MB instead of about 950, and every run came through, in the bad hour too
+ * (96 MB in MODE 11,16), at about 1 MB/s (24 MHz: 1.5 MB/s). cyw43_ll.c also now recovers from a read out of step.
  *
  * The wire carries the buffer's bytes in memory order, each MSB first (the PIO's DMA swapped each word's bytes and
  * shifted it out MSB first). SPI2 sends 32-bit frames MSB first, so each word is byte-reversed (__REV) on the way out
@@ -26,7 +37,8 @@
  * 8-byte FIFO and at most 1023 frames a transfer (TSIZE). So each word, byte-reversed as above, goes as two 16-bit
  * frames, its high half first, and the wire carries the same bits; a transfer of more than SPI16_PART_WORDS words is
  * made in parts, with CS held low. SPI6's kernel clock is the D3 bus clock (120 MHz on a 480 MHz board), divided to
- * 30 MHz at most.
+ * SPI_MAX_HZ at most as SPI2's is: 7.5 MHz, whose 8-byte FIFO then lasts 8.5 us, about as long as SPI2's (not yet
+ * tried on a V1.2 with its module fitted).
  */
 
 #include <stdlib.h>
@@ -57,8 +69,8 @@ static inline __attribute__((always_inline)) uint32_t __swap16x2(uint32_t a) {
 }
 #define SWAP32(a) __swap16x2(a)
 
-#define SPI2_TIMEOUT_US 20000                    // (a transfer is at most 2 KB: 700 us at 24 MHz)
-#define SPI6_MAX_HZ 30000000u                    // a G3 V1.2's bus clock at most (docs/G3_V1.2_Header_Plan.md)
+#define SPI2_TIMEOUT_US 20000                    // (a transfer is at most 2 KB: 1.4 ms at 12 MHz)
+#define SPI_MAX_HZ 12500000u                     // the bus clock at most, SPI2's and a G3 V1.2's SPI6's (see above)
 #define SPI16_PART_WORDS 511u                    // a limited SPI's TSIZE: 1023 frames at most, two to a word
 
 void cyw43_cmm2_pin_mode(GPIO_TypeDef *port, int bit, int moder);   // cyw43_driver_cmm2.c: 0 input, 1 output, 2 AF
@@ -74,7 +86,7 @@ typedef struct {
 static bus_data_t bus_data_instance;
 static uint32_t cpu_mhz = 480;
 
-// a G3 V1.2: SPI6, as SPI2 is set below but for the frames (16 bits) and the clock (pclk4, divided to SPI6_MAX_HZ)
+// a G3 V1.2: SPI6, as SPI2 is set below but for the frames (16 bits) and the clock (pclk4, divided to SPI_MAX_HZ)
 static void spi6_init(void) {
     RCC->AHB4ENR |= RCC_AHB4ENR_GPIOFEN | RCC_AHB4ENR_GPIOGEN;
     RCC->D3CCIPR &= ~RCC_D3CCIPR_SPI6SEL;        // SPI6's kernel clock: pclk4, the D3 bus clock (its reset value)
@@ -91,7 +103,7 @@ static void spi6_init(void) {
     cyw43_cmm2_pin_mode(GPIOG, 13, 2);
 
     uint32_t mbr = 0, pclk = HAL_RCCEx_GetD3PCLK1Freq();   // the divider: 2 << mbr
-    while (mbr < 7 && (pclk >> (mbr + 1)) > SPI6_MAX_HZ) mbr++;
+    while (mbr < 7 && (pclk >> (mbr + 1)) > SPI_MAX_HZ) mbr++;
     SPI6->CR1 = SPI_CR1_SSI;
     SPI6->CFG1 = (mbr << SPI_CFG1_MBR_Pos) | (15u << SPI_CFG1_DSIZE_Pos);
     SPI6->CFG2 = SPI_CFG2_AFCNTR | SPI_CFG2_SSM | SPI_CFG2_MASTER | SPI_CFG2_COMM_0 | SPI_CFG2_COMM_1;
@@ -124,10 +136,14 @@ int cyw43_spi_init(cyw43_int_t *self) {
     GPIOB->PUPDR = (GPIOB->PUPDR & ~((3u << 26) | (3u << 30))) | (2u << 30);
     cyw43_cmm2_pin_mode(GPIOB, 13, 2);
 
-    // SPI2: master, software NSS, half-duplex, mode 0, MSB first, 32-bit frames, /2; AFCNTR keeps SCK low (and the
-    // data line driven while it transmits) when it is off between phases
+    // SPI2: master, software NSS, half-duplex, mode 0, MSB first, 32-bit frames, PLL1Q divided to SPI_MAX_HZ at most;
+    // AFCNTR keeps SCK low (and the data line driven while it transmits) when it is off between phases
+    PLL1_ClocksTypeDef pll1;
+    uint32_t mbr = 0;                            // the divider: 2 << mbr
+    HAL_RCCEx_GetPLL1ClockFreq(&pll1);
+    while (mbr < 7 && (pll1.PLL1_Q_Frequency >> (mbr + 1)) > SPI_MAX_HZ) mbr++;
     SPI2->CR1 = SPI_CR1_SSI;
-    SPI2->CFG1 = (0u << SPI_CFG1_MBR_Pos) | (31u << SPI_CFG1_DSIZE_Pos);
+    SPI2->CFG1 = (mbr << SPI_CFG1_MBR_Pos) | (31u << SPI_CFG1_DSIZE_Pos);
     SPI2->CFG2 = SPI_CFG2_AFCNTR | SPI_CFG2_SSM | SPI_CFG2_MASTER | SPI_CFG2_COMM_0 | SPI_CFG2_COMM_1;
     return 0;
 }
