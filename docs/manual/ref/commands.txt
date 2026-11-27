@@ -3091,7 +3091,7 @@ The new thread starts with the print position, colours, font and write page of t
 
 =+= THREAD EXIT
 --- keep
-Ends the thread that runs it, wherever it is: in a loop, a SUB or a FUNCTION. Its local variables and memory are freed, and its locks and ownership of the network are given up. It is an error in the main program ("Not in a thread"), which ends with END.
+Ends the thread that runs it, wherever it is: in a loop, a SUB or a FUNCTION. Its local variables and memory are freed, and its locks and ownership of the network are given up. It is an error in the main program ("Not in a thread"), which ends with END, and in an interrupt routine ("Invalid in an interrupt routine"): a routine that wants its thread to end sets a flag that the thread's loop tests.
 
 =+= THREAD YIELD
 --- keep
@@ -3099,7 +3099,7 @@ Gives up the rest of the running thread's time slice: the next thread that can r
 
 =+= THREAD STOP n
 --- keep
-Ends thread 'n' where it stands, as THREAD EXIT would. Nothing happens if 'n' is not running. A thread may stop itself.
+Ends thread 'n' where it stands, as THREAD EXIT would. Nothing happens if 'n' is not running. A thread may stop itself, but not from an interrupt routine ("Invalid in an interrupt routine"); a routine may stop another thread.
 
 =+= THREAD PAUSE n
 or

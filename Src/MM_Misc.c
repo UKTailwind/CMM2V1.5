@@ -2535,6 +2535,7 @@ void cmd_ireturn(void){
     MMerrno = SaveMMerrno;
     MMerrline = SaveMMerrline;
     IntSignal();                                                    // scan once more: another interrupt may have become due meanwhile (S1c)
+    if(ThreadCount) ThreadIntDone();                                // (a routine handed out of turn: back to the thread it cut)
 }
 
 

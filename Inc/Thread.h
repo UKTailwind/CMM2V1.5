@@ -38,6 +38,7 @@ int IntMay(char *routine);                          // IntScan: may routine's in
 int ThreadIntHere(char *routine);                   // check_interrupt: 1 run it here; 0 handed to its thread
 char *ThreadIntTake(void);                          // check_interrupt: one handed to the running thread, or NULL
 int ThreadIntWaiting(void);                         // ... is there one
+void ThreadIntDone(void);                           // IRETURN: a routine handed out of turn has ended (Thread.c)
 void ThreadsScreenReset(void);                      // MODE: every thread has the new mode's screen state
 int ThreadPageInUse(int page);                      // another thread writes to or reads from the page
 void ThreadPageClosed(int page);                    // a 4-bit mode's framebuffer has closed

@@ -98,6 +98,8 @@ threads/tlock
 threads/tmutex
 threads/tqueue
 threads/tcond
+threads/texitint
+threads/trot
 threads/twait
 threads/targs
 

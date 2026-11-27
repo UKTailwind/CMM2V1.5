@@ -50,7 +50,7 @@
 | The network belongs to thread n | A WEB command in a thread that does not own the network |
 | Bluetooth belongs to thread n | A BLUETOOTH command in a thread that does not own Bluetooth |
 | The network (or Bluetooth) is in use by thread n | A WEB or BLUETOOTH command in an interrupt routine while another thread's is under way |
-| Invalid in an interrupt routine | THREAD YIELD in a routine |
+| Invalid in an interrupt routine | THREAD YIELD, THREAD EXIT, or THREAD STOP of its own thread, in a routine |
 | Too many interrupt routines set up in threads | More than 64 different routines set up by threads |
 | Thread n overflowed its stack | Thread n's stack was overrun (larger SIZE) |
 | Stack overflow | A thread's FUNCTION calls went too deep for its stack |
