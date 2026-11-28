@@ -175,6 +175,132 @@ static void ln_udp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip
     s->uport[i] = port;
 }
 
+/* ---- The network pumped every few ms while a program computes (27 Nov 2026, Peter: "reliable sub 10 ms") ----
+   A program pumps the network itself (net_poll), but can go seconds without while it computes (the web browser
+   laying out a page: 3.4 s seen), with the pages' data and the network's broadcasts arriving at the radio and nothing
+   reading them; the radio then failed. Any program, whether it uses the network or not: the network's broadcasts
+   come all the same while the Wi-Fi is up (and a program starts with seconds of work before its first net_poll).
+   The pump must run in the program's own context, never in an interrupt (cyw43_arch_poll has never worked from one
+   on the PicoMite). So the 1 ms tick (Timers.c, LoaderNetPumpTick), when a program has not pumped the network for
+   PUMP_MS, asks for an interrupt below every other (SWPMI1's,
+   unused), which does no network work itself: if the program was in its own code (never inside a service, so never
+   inside the firmware's network, files or console), it changes where the program goes on to, LoaderNetPumpEntry. That
+   runs in thread mode, as if the program had called net_poll at that instruction: it keeps every register, the flags
+   and the FPU's, pumps the network (LoaderNetPumpRun: net_poll's own LoaderNetPoll) on the program's stack, and goes
+   back to where the program was. Not while an instruction of an IT block or a load or store of several registers is
+   under way (the next tick tries again). A long service (a file read) pumps between its pieces: LoaderNetPumpDue. */
+#define PUMP_MS 5
+extern volatile int LoaderActive;               // (Loader.c: a program runs)
+static volatile uint32_t pump_lo, pump_hi;       // the program's code (Loader.c: its image, or its flash if XIP)
+static volatile int pump_pending;                // a pump asked for and not yet run
+volatile uint32_t pump_ret_pc, pump_ret_xpsr;    // where the program was, and its flags (LoaderNetPumpEntry's)
+volatile uint32_t pump_runs, pump_misses;        // (pumps run; asked for but the program was in the firmware)
+volatile uint32_t pump_worst_gap, pump_worst_pc, pump_worst_lr;   // (27 Nov 2026, on trial: where the program was
+                                                 // at the longest time without a pump: its PC and LR)
+
+void LoaderNetProgramStart(uint32_t lo, uint32_t hi) {
+    pump_lo = lo;
+    pump_hi = hi;
+    pump_worst_gap = 0;
+    pump_pending = 0;
+    HAL_NVIC_SetPriority(SWPMI1_IRQn, 15, 0);                       // (PendSV's: below every other)
+    HAL_NVIC_ClearPendingIRQ(SWPMI1_IRQn);
+    HAL_NVIC_EnableIRQ(SWPMI1_IRQn);
+}
+
+void LoaderNetProgramEnd(void) {
+    HAL_NVIC_DisableIRQ(SWPMI1_IRQn);
+    pump_lo = pump_hi = 0;
+}
+
+static int pump_due(void) {
+    extern uint32_t cyw43_cmm2_last_call_ms(void);
+    extern int WebNetHeld(void);
+    return startupcomplete && WIFIconnected && !WebNetHeld() &&
+           (uint32_t)(cyw43_hal_ticks_ms() - cyw43_cmm2_last_call_ms()) >= PUMP_MS;
+}
+
+// from the 1 ms tick, while a program runs
+void LoaderNetPumpTick(void) {
+    if (!pump_pending && pump_due()) NVIC_SetPendingIRQ(SWPMI1_IRQn);
+}
+
+// from a long service, in thread mode between its pieces (not from the network's own services)
+void LoaderNetPumpDue(void) {
+    if (LoaderActive && !pump_pending && pump_due()) LoaderNetPoll();
+}
+
+// thread mode, from LoaderNetPumpEntry: the program's net_poll, for it
+void LoaderNetPumpRun(void) {
+    pump_runs++;
+    LoaderNetPoll();
+    pump_pending = 0;
+}
+
+// the interrupt: frame is the registers the core pushed for the thread it interrupted, exc_return its EXC_RETURN
+void __attribute__((used)) LoaderNetPumpIrq(uint32_t *frame, uint32_t exc_return) {
+    uint32_t pc = frame[6], xpsr = frame[7];
+    if (!(exc_return & 8) || pump_pending || !LoaderActive || pc - pump_lo >= pump_hi - pump_lo ||
+        (xpsr & 0x0600FC00u)) {                 // (EPSR's IT/ICI bits: in an IT block, or a multiple load or store)
+        extern uint32_t cyw43_cmm2_last_call_ms(void);
+        uint32_t gap = cyw43_hal_ticks_ms() - cyw43_cmm2_last_call_ms();
+        if (gap > pump_worst_gap) {
+            pump_worst_gap = gap;
+            pump_worst_pc = pc;
+            pump_worst_lr = frame[5];
+        }
+        pump_misses++;
+        return;
+    }
+    extern void LoaderNetPumpEntry(void);
+    pump_ret_pc = pc | 1u;
+    pump_ret_xpsr = xpsr;
+    pump_pending = 1;
+    frame[6] = (uint32_t)LoaderNetPumpEntry & ~1u;
+    frame[7] = (xpsr & (1u << 9)) | 0x01000000u;                    // (Thumb; bit 9, the frame's alignment, kept)
+}
+
+__attribute__((naked)) void SWPMI1_IRQHandler(void) {
+    __asm volatile(
+        "tst   lr, #4                \n"
+        "ite   eq                    \n"
+        "mrseq r0, msp               \n"
+        "mrsne r0, psp               \n"
+        "mov   r1, lr                \n"
+        "b     LoaderNetPumpIrq      \n");
+}
+
+// where the program goes on to after the interrupt: in thread mode, as a call made at the instruction it was at
+__attribute__((naked, used)) void LoaderNetPumpEntry(void) {
+    __asm volatile(
+        "sub   sp, sp, #8                    \n"    // [sp]: the program's flags, [sp+4]: where it was
+        "push  {r0-r4, r12, lr}              \n"
+        "movw  r0, #:lower16:pump_ret_xpsr   \n"
+        "movt  r0, #:upper16:pump_ret_xpsr   \n"
+        "ldr   r0, [r0]                      \n"
+        "str   r0, [sp, #28]                 \n"
+        "movw  r0, #:lower16:pump_ret_pc     \n"
+        "movt  r0, #:upper16:pump_ret_pc     \n"
+        "ldr   r0, [r0]                      \n"
+        "str   r0, [sp, #32]                 \n"
+        "vpush {s0-s15}                      \n"
+        "vmrs  r0, fpscr                     \n"
+        "push  {r0}                          \n"
+        "mov   r4, sp                        \n"
+        "bic   r0, r4, #7                    \n"
+        "mov   sp, r0                        \n"    // (8-byte aligned for the call)
+        "bl    LoaderNetPumpRun              \n"
+        "mov   sp, r4                        \n"
+        "pop   {r0}                          \n"
+        "vmsr  fpscr, r0                     \n"
+        "vpop  {s0-s15}                      \n"
+        "ldr   r0, [sp, #28]                 \n"
+        "msr   APSR_nzcvqg, r0               \n"
+        "pop   {r0-r4, r12, lr}              \n"
+        "add   sp, sp, #4                    \n"
+        "pop   {pc}                          \n");
+}
+
 /* ---- the services ---- */
 int LoaderNetPoll(void) {
     if (!startupcomplete) return 0;

@@ -40,6 +40,8 @@ static void log_put(const char *s, int n) {
     cyw43_log_pos += n;
 }
 
+static void log_context(void);
+
 void cyw43_cmm2_log(const char *fmt, ...) {
     static bool line_start = true;
     static char last[128];
@@ -66,10 +68,29 @@ void cyw43_cmm2_log(const char *fmt, ...) {
     memcpy(b + n, msg, (size_t)m);
     log_put(b, n + m);
     line_start = msg[m - 1] == '\n';
+    if (whole && strncmp(msg, "[CYW43]", 7) == 0) log_context();
 }
 
 static volatile bool poll_pending;
 static uint32_t last_poll_ms;
+static uint32_t last_call_ms, call_gap_ms, poll_gap_ms;   // (cyw43_cmm2_poll's: for log_context)
+
+// when cyw43_cmm2_poll was last called, in ms (LoaderNet.c's pump: a program that has not pumped the network lately)
+uint32_t cyw43_cmm2_last_call_ms(void) {
+    return last_call_ms;
+}
+
+// after a warning of the driver's: whether a program was running, the time from the last poll but one to the last
+// (and from the last call of cyw43_cmm2_poll but one to the last: no call at all while a program does not pump the
+// network), and the receives MASRX has stopped (cyw43_bus_cmm2.c)
+static void log_context(void) {
+    extern volatile int LoaderActive;
+    extern uint32_t cyw43_cmm2_spi_polled_stops(void);
+    char b[128];
+    log_put(b, snprintf(b, sizeof(b), "    (program %d, poll gap %lu ms, call gap %lu ms, stops %lu)\n",
+                        LoaderActive, (unsigned long)poll_gap_ms, (unsigned long)call_gap_ms,
+                        (unsigned long)cyw43_cmm2_spi_polled_stops()));
+}
 
 typedef struct { GPIO_TypeDef *port; uint8_t bit; } wl_pin_t;
 static const wl_pin_t pins_addon[] = {          // the add-on module, on the rear connector
@@ -151,7 +172,7 @@ void cyw43_post_poll_hook(void) {
 
 // The chip has something for the driver: its IRQ is up (the data line, while CS is high), or the driver asked for a poll
 int cyw43_cmm2_waiting(void) {
-    return cyw43_poll != NULL && (poll_pending || cyw43_hal_pin_read(CYW43_PIN_WL_HOST_WAKE));
+    return cyw43_poll != NULL && (poll_pending || cyw43_ll_has_work(&cyw43_state.cyw43_ll));
 }
 
 void cyw43_cmm2_poll(void) {
@@ -159,11 +180,15 @@ void cyw43_cmm2_poll(void) {
         return;
     }
     uint32_t now = cyw43_hal_ticks_ms();
-    if (!poll_pending && !cyw43_hal_pin_read(CYW43_PIN_WL_HOST_WAKE) &&
+    call_gap_ms = now - last_call_ms;
+    last_call_ms = now;
+    // (cyw43_ll_has_work: the IRQ, or a stream of packets still being read: cyw43_ll.c)
+    if (!poll_pending && !cyw43_ll_has_work(&cyw43_state.cyw43_ll) &&
         !(cyw43_sleep && now - last_poll_ms >= CYW43_SLEEP_CHECK_MS)) {
         return;
     }
     poll_pending = false;
+    poll_gap_ms = now - last_poll_ms;
     last_poll_ms = now;
     if (cyw43_sleep > 0) {
         cyw43_sleep--;

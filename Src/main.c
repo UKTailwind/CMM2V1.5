@@ -1257,7 +1257,7 @@ void SystemClock_Config(void)
                               |RCC_PERIPHCLK_SPI2|RCC_PERIPHCLK_I2C2
                               |RCC_PERIPHCLK_ADC|RCC_PERIPHCLK_I2C1
                               |RCC_PERIPHCLK_I2C4|RCC_PERIPHCLK_USB
-                              |RCC_PERIPHCLK_FMC;
+                              |RCC_PERIPHCLK_FMC|RCC_PERIPHCLK_CKPER;
   PeriphClkInitStruct.PLL2.PLL2M = 1;
   PeriphClkInitStruct.PLL2.PLL2N = (HAL_GetREVID()!=0x1003 && G1Hardware==0? 120:100);
   PeriphClkInitStruct.PLL2.PLL2P = 16;
@@ -1277,7 +1277,11 @@ void SystemClock_Config(void)
   PeriphClkInitStruct.PLL3.PLL3FRACN = 0;
 
   PeriphClkInitStruct.FmcClockSelection = RCC_FMCCLKSOURCE_PLL2;
-  PeriphClkInitStruct.Spi123ClockSelection = RCC_SPI123CLKSOURCE_PLL;
+  // SPI1-3's kernel clock: per_ck, the HSI's 64 MHz, on every board (28 Nov 2026, Peter): the Wi-Fi module's SPI2 at
+  // 32 MHz (Src/net/cyw43_bus_cmm2.c); PLL1Q gave 48 MHz (40 on a G1). SPI.c's speed table was made for 100 MHz, so
+  // the SPI commands still run no faster than asked.
+  PeriphClkInitStruct.CkperClockSelection = RCC_CLKPSOURCE_HSI;
+  PeriphClkInitStruct.Spi123ClockSelection = RCC_SPI123CLKSOURCE_CLKP;
   PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_PLL2;
   PeriphClkInitStruct.Usart16ClockSelection = RCC_USART16CLKSOURCE_PLL2;
   PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_HSI48;
@@ -3302,6 +3306,7 @@ void routinechecks(int all){
 			if(Option.MaxCtrls || osk_state)ProcessTouch();          // (the on-screen keyboard's taps too: OSK.c)
 			if(GPSchannel)processgps();
 			if(!LoaderActive) { WebPoll(); BtPoll(); }              // the network and Bluetooth (Src/net): only from the full checks, which
+			else { extern void LoaderNetPumpDue(void); LoaderNetPumpDue(); }   // (a program's: if it is due, Src/net/LoaderNet.c)
 			                                                        // the flash writer's loops never ask for (bank 2 stalls)
 		}
 		USBtime=0;

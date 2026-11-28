@@ -215,19 +215,39 @@ static int ld_close(int h) {
     ldmodfile[h] = 0;
     return ld_fail(r);
 }
+// A long read or write goes in pieces of LD_PIECE, the network pumped between them if a program using it is due
+// (LoaderNet.c's pump: a 700 KB font is about 0.3 s of the card's time, which the radio cannot wait)
+#define LD_PIECE 0x4000u
+extern void LoaderNetPumpDue(void);
 static int32_t ld_read(int h, void *buf, uint32_t n) {
-    UINT got = 0;
+    UINT got = 0, part;
     FIL *f = ld_fil(h);
     if(f == NULL) return -FR_INVALID_OBJECT;
-    FRESULT r = f_read(f, buf, n, &got);
+    FRESULT r = FR_OK;
+    LoaderNetPumpDue();                                             // (stdio reads a buffer at a time)
+    while(got < n) {
+        uint32_t k = n - got > LD_PIECE ? LD_PIECE : n - got;
+        if((r = f_read(f, (uint8_t *)buf + got, k, &part)) != FR_OK) break;
+        got += part;
+        if(part < k) break;                                         // (the end of the file)
+        if(got < n) LoaderNetPumpDue();
+    }
     return r ? -(int)r : (int32_t)got;
 }
 static int32_t ld_write(int h, const void *buf, uint32_t n) {
-    UINT put = 0;
+    UINT put = 0, part;
     FIL *f = ld_fil(h);
     if(f == NULL) return -FR_INVALID_OBJECT;
     if(f_tell(f) + n > f_size(f)) ld_unmap(f);                     // (the file grows: the FAT is followed again)
-    FRESULT r = f_write(f, buf, n, &put);
+    FRESULT r = FR_OK;
+    LoaderNetPumpDue();
+    while(put < n) {
+        uint32_t k = n - put > LD_PIECE ? LD_PIECE : n - put;
+        if((r = f_write(f, (const uint8_t *)buf + put, k, &part)) != FR_OK) break;
+        put += part;
+        if(part < k) break;                                         // (the card full)
+        if(put < n) LoaderNetPumpDue();
+    }
     return r ? -(int)r : (int32_t)put;
 }
 static int ld_seek(int h, uint32_t pos) {
@@ -1664,6 +1684,7 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
         i = h.image_size - off;
         if(i > 0x10000) i = 0x10000;
         if(!ld_get(base + off, i)) { ld_done(); ld_giveback(oldmin); error("Cannot read the program"); }
+        { extern void WebPoll(void); WebPoll(); }                  // (the radio pumped as it reads: LoaderNet.c)
     }
     if(h.reloc_count) {
         rel = (uint32_t *)(base + end);
@@ -1695,9 +1716,15 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
     if(invram) LoaderVram = 1;                                      // runs, and the display memory when the program is there)
     LoaderNoSbrk = joined;
     if(LoaderExec || LoaderVram) MPU_Config_nCacheable(0);
+    {                                                               // (its code, for the network's pump: LoaderNet.c)
+        extern void LoaderNetProgramStart(uint32_t lo, uint32_t hi);
+        if(xip) LoaderNetProgramStart((uint32_t)xip, xip->data_load);
+        else LoaderNetProgramStart((uint32_t)base, (uint32_t)base + h.image_size);
+    }
     LoaderActive = 1;
     code = LoaderCall(xip ? (void *)xip->entry : base + h.entry, &ldstart, (uint32_t)base + area);
     LoaderActive = 0;
+    { extern void LoaderNetProgramEnd(void); LoaderNetProgramEnd(); }
     ld_tidy();                                                      // (a Ctrl-C stays: the BASIC program stops next)
     ld_giveback(oldmin);
     ConsoleRxBufTail = ConsoleRxBufHead;                            // (the keys the program had, not typed into BASIC)
@@ -1873,6 +1900,7 @@ const void *LoaderModuleLoad(int slot, char *fname, uint32_t heap, const void *b
         i = h.image_size - off;
         if(i > 0x10000) i = 0x10000;
         if(!ld_get(base + off, i)) { ld_done(); LoaderModuleDrop(slot); error("Cannot read $", fname); }
+        { extern void WebPoll(void); WebPoll(); }                  // (the radio pumped as it reads: LoaderNet.c)
     }
     if(h.reloc_count) {
         rel = (uint32_t *)(base + end);

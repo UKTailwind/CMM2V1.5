@@ -1094,7 +1094,7 @@ static int cyw43_ll_sdpcm_poll_device(cyw43_int_t *self, size_t *len, uint8_t **
             bus_gspi_status & F2_F3_FIFO_RD_UNDERFLOW) {
             CYW43_DEBUG("SPI invalid bytes pending %" PRIu32 "\n", bytes_pending);
             cyw43_write_reg_u8(self, BACKPLANE_FUNCTION, SPI_FRAME_CONTROL, (1 << 0));
-            self->had_successful_packet = false;
+            self->had_successful_packet = true; // CMM2: the status read again at the next poll (see below)
             return -1;
         }
     } else {
@@ -1111,12 +1111,27 @@ static int cyw43_ll_sdpcm_poll_device(cyw43_int_t *self, size_t *len, uint8_t **
     #pragma GCC diagnostic ignored "-Wcast-align"
     uint16_t *hdr = (uint16_t *)self->spid_buf;
     #pragma GCC diagnostic pop
+    // CMM2 (27 Nov 2026, CMM2_SOURCE.md): the status said a packet was there and the read gave nothing (the chip had
+    // not the data ready to give: a read 4 us after the status, at 32 MHz). Upstream cleared had_successful_packet, so
+    // that only the chip's interrupt would bring the next read; but the chip had raised its packet interrupt for this
+    // packet already, and a packet left in its FIFO raises no other. So the packet stayed in the chip, nothing more
+    // came, and the chip's bus was put to sleep with it and would not wake. Now the status is read again at the next
+    // poll and the read tried again (cyw43_ll_has_work is true while had_successful_packet is), and after
+    // ZERO_HDR_TRIES in a row the frame is dropped, as for a bad length. The same after a bad length or a mismatch.
+    #define ZERO_HDR_TRIES 8
+    static uint8_t zero_hdr_tries;
     if (hdr[0] == 0 && hdr[1] == 0) {
         // no packets
-        CYW43_DEBUG("No packet zero size header\n");
-        self->had_successful_packet = false;
+        CYW43_WARN("F2 read gave nothing (%u bytes pending, try %u)\n", (unsigned)bytes_pending,
+            (unsigned)zero_hdr_tries + 1);
+        if (++zero_hdr_tries >= ZERO_HDR_TRIES) {
+            zero_hdr_tries = 0;
+            cyw43_write_reg_u8(self, BACKPLANE_FUNCTION, SPI_FRAME_CONTROL, (1 << 0));
+        }
+        self->had_successful_packet = true;
         return -1;
     }
+    zero_hdr_tries = 0;
     self->had_successful_packet = true;
     if ((hdr[0] ^ hdr[1]) != 0xffff) {
         CYW43_WARN("error: hdr mismatch %04x ^ %04x\n", hdr[0], hdr[1]);
@@ -1124,7 +1139,7 @@ static int cyw43_ll_sdpcm_poll_device(cyw43_int_t *self, size_t *len, uint8_t **
         // rest of the frame dropped and the interrupt status read again, as for an invalid length above. Left as it
         // was, the chip waited for the frame's end and never signalled another packet.
         cyw43_write_reg_u8(self, BACKPLANE_FUNCTION, SPI_FRAME_CONTROL, (1 << 0));
-        self->had_successful_packet = false;
+        self->had_successful_packet = true; // (the status read again at the next poll, as above)
         return -1;
     }
     return sdpcm_process_rx_packet(self, self->spid_buf, len, buf);
@@ -1439,7 +1454,7 @@ int cyw43_ll_bus_init(cyw43_ll_t *self_in, const uint8_t *mac) {
 
     bool success = false;
     do {
-        // CMM2 (27 Nov 2026, CMM2_SOURCE.md): CYW43_SPI_HIGH_SPEED, HIGH_SPEED_MODE upstream, 0 (normal mode) on the CMM2
+        // CMM2 (27 Nov 2026, CMM2_SOURCE.md): the speed mode from CYW43_SPI_HIGH_SPEED (HIGH_SPEED_MODE, as upstream)
         uint32_t val = WORD_LENGTH_32 | ENDIAN_BIG | CYW43_SPI_HIGH_SPEED | WAKE_UP |
             0x4 << (8 * SPI_RESPONSE_DELAY) | INTR_WITH_STATUS << (8 * SPI_STATUS_ENABLE);
         #if defined(CYW43_PIN_WL_HOST_WAKE)
@@ -2388,7 +2403,9 @@ int cyw43_ll_gpio_get(cyw43_ll_t *self_in, int gpio_n, bool *gpio_en) {
 bool cyw43_ll_has_work(cyw43_ll_t *self_in) {
     cyw43_int_t *self = CYW_INT_FROM_LL(self_in);
     int int_pin = cyw43_cb_read_host_interrupt_pin(self->cb_data);
-    return int_pin == host_interrupt_pin_active;
+    // CMM2 (27 Nov 2026, CMM2_SOURCE.md): also while a stream of packets is being read (had_successful_packet): the
+    // chip raises its interrupt once for a packet, and one left unread raises no other (cyw43_ll_sdpcm_poll_device)
+    return int_pin == host_interrupt_pin_active || self->had_successful_packet;
 }
 
 #if CYW43_ENABLE_BLUETOOTH

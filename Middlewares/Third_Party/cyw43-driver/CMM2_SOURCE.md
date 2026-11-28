@@ -5,18 +5,26 @@ redistribution for personal, non-commercial use only; the driver moved to the MI
 1828b5a, ten commits later), from https://github.com/georgerobotics/cyw43-driver
 at 055d64274b014dd7b1c2fc94d26e8a18face7124, the commit the PicoMite's pico-sdk (2.3.1) has.
 
-One change (27 Nov 2026): in src/cyw43_ll.c's SPI cyw43_ll_sdpcm_poll_device, a packet whose header's length and
-its complement disagree ("hdr mismatch", a read out of step with the chip's F2 FIFO) now ends the frame
-(SPI_FRAME_CONTROL) and clears had_successful_packet, as an invalid length just above it does. Upstream only returned,
-so the chip waited for the rest of that frame and never signalled another packet: the network dead until a restart.
-On the CMM2 the wrong reads came from the gSPI's high-speed mode (see the next).
-
-A second (27 Nov 2026): src/cyw43_ll.c's bus set-up takes the gSPI's speed mode from CYW43_SPI_HIGH_SPEED,
-HIGH_SPEED_MODE by default as upstream, 0 (normal mode) in Inc/net/cyw43_configport.h. In high-speed mode the chip
-changes its data on SCK's rising edge, and the STM32's SPI2 (mode 0) read it on that same edge, held only by the
-chip's output delay: under load (the web browser in MODE 11,16) reads now and then came back wrong, the chip's
-packet FIFO went out of step and the network died. In normal mode the data changes on the falling edge, half a
-clock before it is read.
+Changes (27 Nov 2026), all in src/cyw43_ll.c, marked "CMM2":
+- **A packet the status announces is never left in the chip.** In the SPI cyw43_ll_sdpcm_poll_device, when the read of
+  a packet the status had announced gave nothing (an all-zero header: the chip had not taken the read; on 28 Nov 2026
+  the cause was found to be the clock starting too soon after CS fell, now fixed in Src/net/cyw43_bus_cmm2.c, and the
+  retry is kept for any read that still comes back empty), upstream cleared had_successful_packet, so that only the
+  chip's interrupt would bring the next read. But the chip raises its packet interrupt once for a packet, and one left
+  in its FIFO raises no other: the packet stayed, nothing more came, the chip's bus was put to sleep with it and would
+  not wake (seen through a trace of the bus transfers). Now had_successful_packet stays set, so the status is read
+  again at the next poll and the read tried again (up to eight times, then the frame is dropped); the same after an
+  invalid length and after a header mismatch. cyw43_ll_has_work is also true while had_successful_packet is set, so
+  that the poll comes without the interrupt. (pico-sdk's code is the same as upstream's here: a Pico W has the gap
+  too, met less often.)
+- **A header mismatch** (the length and its complement disagree: a read out of step with the chip's F2 FIFO) ends the
+  frame (SPI_FRAME_CONTROL), as an invalid length just above it does. Upstream only returned, so the chip waited for
+  the rest of that frame.
+- **The gSPI's speed mode** from CYW43_SPI_HIGH_SPEED, HIGH_SPEED_MODE by default as upstream (and as
+  Inc/net/cyw43_configport.h has it): the chip changes its data on SCK's rising edge, and the STM32's SPI2 (mode 0)
+  reads it on the next rising edge, a whole clock later, which the add-on module's 470 R line needs above 16 MHz.
+  Src/net/cyw43_bus_cmm2.c runs SPI2 at 8 MHz while the chip is in normal mode (its start) and at 32 MHz in
+  high-speed mode.
 
 Taken: src/*.h, and src/cyw43_ll.c, cyw43_ctrl.c, cyw43_stats.c and cyw43_lwip.c (the SPI bus's register code is
 pico-sdk's, in Src/net/cyw43_bus_cmm2.c, so src/cyw43_spi.c is left out, with the SDIO and UART files); from firmware/,

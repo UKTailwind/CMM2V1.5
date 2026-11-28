@@ -131,8 +131,11 @@ Initialise the 1 mSec timer used for internal timekeeping.
 ****************************************************************************************************/
 
 volatile uint32_t msTicks; /* Counts 1ms timeticks */
+extern volatile int LoaderActive;
+extern void LoaderNetPumpTick(void);
 void Timer1msHandler(void) {                            /* ----- SysTick_Handler - */
 	mSecTimer++;													// used by the TIMER function
+	if(LoaderActive) LoaderNetPumpTick();							// the network pumped while a program computes (Src/net/LoaderNet.c)
 	static int n1=0,cl1=0,m1=0;
 	static int n2=0,cl2=0,m2=0;
 	static int n3=0,cl3=0,m3=0;
