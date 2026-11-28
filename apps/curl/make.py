@@ -38,7 +38,8 @@ MPL_URL = 'https://www.mozilla.org/media/MPL/2.0/index.txt'   # cacert.pem's lic
 FLAGS = ['-DHAVE_CONFIG_H', '-DBUILDING_LIBCURL', '-DCURL_STATICLIB', '-DSTM32H743xx',
          '-DMBEDTLS_USER_CONFIG_FILE=<mbedtls_user_config.h>',
          '-Wno-format']                         # (curl prints uint32_t, unsigned long here, with %u: the same 32 bits)
-LDFLAGS = ['-Wl,--wrap=fopen', '-Wl,--wrap=fdopen']   # (port/cmm2_stdio.c: 16 KB file buffers)
+LDFLAGS = ['-Wl,--wrap=fopen', '-Wl,--wrap=fdopen',   # (port/cmm2_stdio.c: 16 KB file buffers,
+           '-Wl,--wrap=fgets', '-Wl,--wrap=_write']    # CR LF lines read as LF, Ctrl-C while it prints)
 
 
 def fetch_all():

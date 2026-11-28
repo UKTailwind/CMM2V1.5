@@ -26,7 +26,7 @@ A double quote cannot be passed in a word, and a command line can be at most abo
 
 ## Leaving It
 
-curl ends by itself when it has finished. **Ctrl-C** stops it in the middle of a transfer.
+curl ends by itself when it has finished. **Ctrl-C** stops it, in the middle of a transfer or while it prints.
 
 ## Some Examples
 
@@ -47,9 +47,11 @@ curl ends by itself when it has finished. **Ctrl-C** stops it in the middle of a
 
 -s turns off the progress meter, and -S still shows errors when -s is on. --compressed asks the server to send gzip, which is often less than a third of the size.
 
+-H @file reads headers from a file, one to a line, instead of from the command line.
+
 ## Options in a File
 
--K reads options from a file, one to a line, without the leading dashes. Quotes, long headers and lists of files all go in it:
+-K reads options from a file, one to a line, without the leading dashes. Quotes, long headers and lists of files all go in it. Make it with the editor, or have a program write it with PRINT #:
 
 ```
 # A:/fetch.cfg
@@ -66,7 +68,7 @@ output = "two.txt"
 RUN "A:/curl/curl.app", -K A:/fetch.cfg
 ```
 
-Add the line parallel to fetch the files at the same time, which is quicker when there are several.
+Add the line parallel to fetch the files at the same time, which is quicker when there are several. A line that starts with # is a comment.
 
 ## Help
 
@@ -86,19 +88,26 @@ RUN "A:/curl/curl.app", -o A:/curl/cacert.new https://curl.se/ca/cacert.pem
 
 then RENAME it over the old one when it has arrived. -k turns the checking off, for a site with a home-made certificate on your own network: never use it for anything that matters.
 
+## Files on the Card: file: Addresses
+
+curl reads a file on the card with a file: address, such as file:///curl/notes.txt. It must not have a drive letter (curl accepts those only on Windows, and refuses file:///A:/notes.txt with code 3): the file is on the current drive.
+
 ## When It Fails
 
 If curl stops with an error, it says why, and MMBasic gives its number: A:/curl/curl.app ended with code n. The commonest are:
 
 {widths: 10,42}
 | Code | What it means |
+| 3 | The address is not one curl can use, such as a file: address with a drive letter |
 | 6 | The site's name was not found. Check the spelling and that Wi-Fi is up |
 | 7 | The site did not answer |
 | 22 | The server said no (with -f), such as 404, not found |
 | 23 | The file could not be written: a wrong folder, or the card is full |
+| 26 | A file to send (-F or -T) could not be read |
 | 28 | It took too long |
 | 35 | The secure connection could not be made |
 | 60 | The site's certificate was refused: see Certificates and the Clock |
+| 77 | cacert.pem could not be read: it is not beside curl.app or in A:/ |
 | 130 | Ctrl-C was pressed |
 
 Some sites refuse anything that is not a full web browser, and send a page saying so, or 403. curl cannot get past those.
@@ -110,6 +119,7 @@ Some sites refuse anything that is not a full web browser, and send a page sayin
 - No IPv6, and no international domain names (names with letters other than a to z).
 - Compression: gzip and deflate, not Brotli or zstd. Servers send gzip when that is all curl asks for.
 - No .curlrc file read at the start, and --remote-time cannot set a file's date.
+- No drive letter in a file: address.
 
 ## Speed
 
