@@ -1,10 +1,12 @@
-/* posix.c: two POSIX calls NetSurf makes that newlib-nano and tools/sdk/syscalls.c do not give (apps/browser).
+/* posix.c: POSIX calls NetSurf makes that newlib-nano and tools/sdk/syscalls.c do not give, or not for a socket
+   (apps/browser).
      realpath   utils/filepath.c finds a resource by it: NULL (ENOENT) when the file is not there, else its whole name.
                 On the current drive that is a name from its root with no drive, "/browser/res/default.css", as on
                 a Unix: NetSurf turns a name into a file: URL and back, and "A:" came back as "/A:/...", which
                 MMBasic does not take (27 Nov 2026: the style sheets failed to load). Another drive's name keeps
                 its "B:".
      scandir    content/fetchers/file/file.c lists a folder for a file: URL with it.
+     close      for curl's sockets too (below).
    MIT License, as Inc/cmm2img.h. */
 #include <sys/types.h>                          /* (first: newlib's dirent.h wants ssize_t) */
 #include <dirent.h>
@@ -85,4 +87,18 @@ nomem:
     closedir(d);
     errno = ENOMEM;
     return -1;
+}
+
+/* close: NetSurf closes curl's sockets with close() (the fetch table's default socket_close, utils/inet.h's
+   ns_close_socket), but the port's sockets (apps/curl/port/cmm2_net.c) are closed by closesocket only, and
+   tools/sdk's _close takes a descriptor it does not know for one closed already. So no socket was ever closed: the
+   eight the port and the firmware have were gone after eight connections, and no other site could be reached (28 Nov
+   2026: after Wikipedia, which opens six). Wrapped at the link (make.py), so that close() closes a socket too, as on
+   a Unix; curl.app's own build is unchanged (curl calls closesocket). */
+int cmm2_is_socket(int fd);
+int closesocket(int fd);
+int __real_close(int fd);
+
+int __wrap_close(int fd) {
+    return cmm2_is_socket(fd) ? closesocket(fd) : __real_close(fd);
 }

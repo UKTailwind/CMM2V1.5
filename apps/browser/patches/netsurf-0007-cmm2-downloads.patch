@@ -1,0 +1,39 @@
+diff --git a/frontends/framebuffer/gui.c b/frontends/framebuffer/gui.c
+--- a/frontends/framebuffer/gui.c
++++ b/frontends/framebuffer/gui.c
+@@ -2194,6 +2194,12 @@
+ 	nsurl *url;
+ 	nserror ret;
+ 	nsfb_t *nsfb;
++#ifdef __CMM2__
++	/* the Colour Maximite 2's port (apps/browser/port/cmm2_download.c):
++	 * downloads saved on the card, which this front end has no table for */
++	extern struct gui_download_table *cmm2_download_table;
++	extern void cmm2_downloads_stop(void);
++#endif
+ 	struct netsurf_table framebuffer_table = {
+ 		.misc = &framebuffer_misc_table,
+ 		.window = &framebuffer_window_table,
+@@ -2203,6 +2209,9 @@
+ 		.utf8 = framebuffer_utf8_table,
+ 		.bitmap = framebuffer_bitmap_table,
+ 		.layout = framebuffer_layout_table,
++#ifdef __CMM2__
++		.download = cmm2_download_table,
++#endif
+ 	};
+ 
+         ret = netsurf_register(&framebuffer_table);
+@@ -2280,6 +2289,12 @@
+ 	} else {
+ 		framebuffer_run();
+ 
++#ifdef __CMM2__
++		/* downloads still going stopped, before the window they show
++		 * their progress in is destroyed, and the caches they write
++		 * through are finalised (a fetch's data came after: an assert) */
++		cmm2_downloads_stop();
++#endif
+ 		browser_window_destroy(bw);
+ 	}
+ 

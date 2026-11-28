@@ -1,6 +1,7 @@
 ca_bundle:/browser/cacert.pem
-memory_cache_size:2097152
+memory_cache_size:524288
 max_fetchers:4
 max_fetchers_per_host:2
 max_cached_fetch_handles:2
 enable_javascript:0
+fb_font_cachesize:1024

@@ -58,6 +58,13 @@
                                                   the program is in the heap it borrows, and the 3 MB is its heap2).
                                                   Meanwhile only the modes whose page fits the internal RAM can be set
                                                   (MODE 7,8 is set at the start); MMBasic's pages are cleared after */
+#define CMM2IMG_FLAG_PAGES   0x04              /* a G2 or G3 lends it the display memory not shown (mkimage --pages;
+                                                  V8, 28 Nov 2026, the web browser), as heap2: from the end of the page
+                                                  shown to 0xD0700000 (5.5 MB in MODE 9,16), in the mode as it is. No
+                                                  mode can be set meanwhile, so it is for a program that keeps the
+                                                  mode it is given; it is not lent if the page drawn to is in it or the
+                                                  mode is merged (4-bit, 1-bit). The pages are cleared after. A flag of
+                                                  its own: the programs built --vram set their own modes on a G2 */
 #define CMM2IMG_BASE         0xD1800000u       /* where a G2 loads an application: link here and nothing is moved
                                                   there (a G1 moves it, by its relocations) */
 #define CMM2IMG_AREA         0x00800000u       /* a G2's 8 MB: image, .bss, heap, stack */

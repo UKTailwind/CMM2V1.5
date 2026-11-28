@@ -12,8 +12,9 @@ with libcurl, mbedTLS and zlib from apps/curl (its make.py, sources and port/) f
 
 Changes for the CMM2: libnsfb gains the screen's surface, port/cmm2_surface.c; NetSurf's main is renamed netsurf_main
 and called by port/cmm2_main.c; the curl fetcher is added (the native build has no libcurl); the resource path is
-/browser/res on the current drive. On the card: A:/browser/browser.app, A:/browser/res (out/res: src/res and
-port/Choices), A:/browser/cacert.pem.
+/browser/res on the current drive; the text is drawn by FreeType (patches/netsurf-0004) in DejaVu's fonts, from
+/browser/fonts. On the card: A:/browser/browser.app, A:/browser/res (out/res: src/res and port/Choices),
+A:/browser/fonts (out/fonts: eight DejaVu faces and their licence), A:/browser/cacert.pem.
     CHDIR "A:/browser"
     RUN "browser.app", --shot shot.png https://example.com/
 """
@@ -44,23 +45,44 @@ LIBS = ['libwapcaplet', 'libparserutils', 'libhubbub', 'libcss', 'libdom', 'libn
 LEAVE_OUT = {                                   # sources the native build had that the CMM2 does without
     'libdom': ['bindings/xml/expat_xmlparser.c'],                       # (XML: expat; NetSurf parses HTML)
     'libnsfb': ['src/surface/wld.c'],                                    # (Wayland)
+    'netsurf': ['frontends/framebuffer/font_internal.c',                # (the built-in bitmap font: FreeType's
+                'build/Linux-framebuffer/font-ns-sans.c'],              # instead)
 }
 ADD = {                                         # sources added: (file, extra flags)
     'libnsfb': [(os.path.join(PORT, 'cmm2_surface.c'), [])],
-    'netsurf': [('content/fetchers/curl.c', []), ('content/handlers/image/png.c', []),
+    'netsurf': [('frontends/framebuffer/font_freetype.c', []),
+                ('content/fetchers/curl.c', []), ('content/handlers/image/png.c', []),
                 ('content/handlers/image/jpeg.c', []), (os.path.join(PORT, 'cmm2_main.c'), []),
-                (os.path.join(PORT, 'iconv.c'), []), (os.path.join(PORT, 'posix.c'), [])],
+                (os.path.join(PORT, 'iconv.c'), []), (os.path.join(PORT, 'posix.c'), []),
+                (os.path.join(PORT, 'cmm2_download.c'), [])],
 }
 ZLIB_GZ = ['gzlib.c', 'gzread.c', 'gzclose.c']   # (zlib's gzip file reading, for utils/hashtable.c; apps/curl's zlib)
 
-IMAGES = {                                      # the decoders NetSurf's native build went without: folder: (url, SHA-256)
+ARCHIVES = {                                    # what NetSurf's native build went without: folder: (url, SHA-256)
     'libpng-1.6.59': ('https://download.sourceforge.net/libpng/libpng-1.6.59.tar.xz',
                       'd80dd2a38a37f803cb9b6ac7b14bd6e74ddc3b654780a8380bdf93523fdb4389'),
     'jpeg-9f': ('https://www.ijg.org/files/jpegsrc.v9f.tar.gz',                   # (the IJG's own: jconfig.txt is its
                 '04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b'),   # jconfig.h, no CMake)
+    'freetype-2.15.0': ('https://download.savannah.gnu.org/releases/freetype/freetype-2.15.0.tar.xz',
+                        '93cd47eb719c325107f2d3cf087d06299e944c3b48a40b55537302304dea1dd5'),
+    'dejavu-fonts-ttf-2.37': ('https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/'
+                              'dejavu-fonts-ttf-2.37.tar.bz2',
+                              'fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7'),
 }
 PNG = os.path.join(SRC, 'libpng-1.6.59')
 JPEG = os.path.join(SRC, 'jpeg-9f')
+FT = os.path.join(SRC, 'freetype-2.15.0')
+DEJAVU = os.path.join(SRC, 'dejavu-fonts-ttf-2.37')
+# FreeType (step 4 of the study): TrueType, hinted and anti-aliased, its options and modules port/freetype's
+FT_SOURCES = ['src/base/ftsystem.c', 'src/base/ftinit.c', 'src/base/ftdebug.c', 'src/base/ftbase.c', 'src/base/ftbbox.c',
+              'src/base/ftbitmap.c', 'src/base/ftglyph.c', 'src/truetype/truetype.c', 'src/sfnt/sfnt.c',
+              'src/smooth/smooth.c', 'src/cache/ftcache.c']
+FT_FLAGS = ['-DFT_CONFIG_OPTIONS_H=<ftoption_cmm2.h>', '-DFT_CONFIG_MODULES_H=<ftmodule_cmm2.h>',
+            '-I' + os.path.join(PORT, 'freetype'), '-I' + os.path.join(FT, 'include')]
+# the fonts on the card (A:/browser/fonts): the faces NetSurf's framebuffer front end asks for by name
+# (NETSURF_FB_FONT_*), DejaVu's licence with them
+FONTS = ['DejaVuSans.ttf', 'DejaVuSans-Bold.ttf', 'DejaVuSans-Oblique.ttf', 'DejaVuSans-BoldOblique.ttf',
+         'DejaVuSerif.ttf', 'DejaVuSerif-Bold.ttf', 'DejaVuSansMono.ttf', 'DejaVuSansMono-Bold.ttf']
 PNG_SOURCES = ['png.c', 'pngerror.c', 'pngget.c', 'pngmem.c', 'pngpread.c', 'pngread.c', 'pngrio.c', 'pngrtran.c',
                'pngrutil.c', 'pngset.c', 'pngtrans.c']
 JPEG_SOURCES = ['jaricom.c', 'jcomapi.c', 'jdapimin.c', 'jdapistd.c', 'jdarith.c', 'jdatasrc.c', 'jdcoefct.c',
@@ -69,9 +91,9 @@ JPEG_SOURCES = ['jaricom.c', 'jcomapi.c', 'jdapimin.c', 'jdapistd.c', 'jdarith.c
                 'jmemnobs.c', 'jquant1.c', 'jquant2.c', 'jutils.c']   # (decoding only)
 
 
-def fetch_images():
+def fetch_archives():
     import tarfile, urllib.request
-    for name, (url, sha) in IMAGES.items():
+    for name, (url, sha) in ARCHIVES.items():
         folder = os.path.join(SRC, name)
         if not os.path.isdir(folder):
             arc = os.path.join(SRC, os.path.basename(url))
@@ -134,7 +156,8 @@ def flags_for(comp, m):
     if comp == 'netsurf':
         out += ['-DWITH_CURL', '-I' + os.path.join(curl.CURL, 'include'), '-I' + curl.ZLIB,
                 '-I' + os.path.join(curl.PORT, 'include'),               # (sys/socket.h, netinet/in.h...: apps/curl's)
-                '-DWITH_PNG', '-DWITH_JPEG', '-I' + PNG, '-I' + JPEG]
+                '-DWITH_PNG', '-DWITH_JPEG', '-I' + PNG, '-I' + JPEG,
+                '-DFB_USE_FREETYPE'] + FT_FLAGS
     if comp == 'libnsfb':
         out += ['-I' + os.path.join(SRC, 'libnsfb', 'src')]
     return out
@@ -159,6 +182,7 @@ def compile_all():
     units['libpng'] = ([(os.path.join(PNG, f), []) for f in PNG_SOURCES],
                        ['-I' + PNG, '-I' + curl.ZLIB, '-DPNG_ARM_NEON_OPT=0'])   # (no NEON on a Cortex-M7)
     units['libjpeg'] = ([(os.path.join(JPEG, f), []) for f in JPEG_SOURCES], ['-I' + JPEG])
+    units['freetype'] = ([(os.path.join(FT, f), []) for f in FT_SOURCES], ['-DFT2_BUILD_LIBRARY'] + FT_FLAGS)
     units['malloc'] = ([(os.path.join(PORT, 'browser_malloc.c'), [])], [])   # (dlmalloc, into MMBasic's heap)
     for comp, (srcs, flags) in units.items():
         odir = os.path.join(OUT, 'obj', comp)
@@ -198,18 +222,32 @@ def card_files():
         shutil.rmtree(res)
     shutil.copytree(os.path.join(SRC, 'res'), res)
     shutil.copyfile(os.path.join(PORT, 'Choices'), os.path.join(res, 'Choices'))
+    fonts = os.path.join(OUT, 'fonts')
+    os.makedirs(fonts, exist_ok=True)
+    for f in FONTS:
+        shutil.copyfile(os.path.join(DEJAVU, 'ttf', f), os.path.join(fonts, f))
+    shutil.copyfile(os.path.join(DEJAVU, 'LICENSE'), os.path.join(fonts, 'LICENSE'))
 
 
 def main():
     gen('--gen' in sys.argv)
     curl.fetch_all()
-    fetch_images()
+    fetch_archives()
     objs = compile_all()
     lst = os.path.join(OUT, 'browser.objects')
     open(lst, 'w').write('\n'.join(objs) + '\n')
     cmd = [sys.executable, '-I', os.path.join(SDK, 'build.py'), os.path.join(OUT, 'browser.app'), '--sources', lst,
-           '--api', '21', '--g2', '--stack', str(1024 * 1024)] + \
-          ['--ldflag=' + f for f in curl.LDFLAGS]   # (a 1 MB stack: NetSurf's layout recurses deeply)
+           '--api', '21', '--g2', '--pages', '--stack', str(1024 * 1024)] + \
+          ['--ldflag=' + f for f in curl.LDFLAGS + ['-Wl,--wrap=free', '-Wl,--wrap=realloc', '-Wl,--wrap=malloc',
+                                                    '-Wl,--wrap=calloc', '-Wl,--wrap=socket',
+                                                    '-Wl,--wrap=connect', '-Wl,--wrap=closesocket',
+                                                    '-Wl,--wrap=getsockopt', '-Wl,--wrap=getaddrinfo',
+                                                    '-Wl,--wrap=close']]
+    # (--pages: a G2 or G3 lends the display memory not shown, as heap2, the big blocks' pool in port/browser_malloc.c.
+    # A 1 MB stack: NetSurf's layout recurses deeply. malloc, calloc, realloc and free wrapped: port/browser_malloc.c
+    # notes their callers, so that a request not met, or a block given back that was never given out, names its code.
+    # socket, connect, closesocket, getsockopt and getaddrinfo wrapped: port/cmm2_main.c's --cmm2-netlog. close
+    # wrapped: port/posix.c, so that NetSurf's close() of a socket closes it)
     subprocess.run(cmd, check=True)
     card_files()
 

@@ -83,6 +83,16 @@ int LoaderExec;                                                     // 1 while t
 volatile int LoaderActive;                                          // 1 while a program runs: CheckAbort leaves a Ctrl-C to it
 int LoaderVram;                                                     // 1 while the display memory holds the program's code (the
 static int ldlent;                                                  // same); ldlent: a G1's display memory lent (CMM2IMG_FLAG_VRAM)
+// A G2's or G3's display memory not shown, lent to a program built --pages (CMM2IMG_FLAG_PAGES: not --vram, whose
+// programs set their own modes on a G2) as its heap2 (28 Nov 2026, Peter: the web
+// browser, which draws in the mode it is given and has only the page shown, can use the rest): from the end of the page
+// shown (ShareNeeded, which the LTDC's pages end at; the start of the SDRAM if none is there) to the compiler's stream
+// at 0xD0700000. 5.5 MB in MODE 9,16. Meanwhile no mode can be set (the pages would be laid over it); cleared after,
+// as MMBasic's pages are after a MODE. Not lent if the mode is merged (its display made from the pages) or the page
+// drawn to is in it. The SDRAM there is normal, cached memory (main.c's MPU regions above ShareNeeded)
+static int ldlent2;
+static char *ldlent2_at;
+static uint32_t ldlent2_size;
 
 // the time in microseconds since start-up: TIM16 counts 0-49999 at 1 MHz and uSecTimer its wraps (CFunctions.c's
 // timer()), both read until they agree, so a wrap between the two reads is not lost
@@ -426,6 +436,7 @@ static int ld_vscaled(int mode, int depth, int scale, cmm2_video *v) {
     if(scale == 2 && (mode == 3 || mode == 5 || mode == 6 || mode == 7 || mode == 12 || mode == 13 || mode == 17))
         return -1;                                                  // (their lines shown twice already: ltdc.c's ModeRowScale)
     if(VideoColour != lay && PageTable[WPN].address != NULL) return -2;     // (a FRAMEBUFFER of another depth)
+    if(ldlent2) return -1;                                          // (a G2's display memory lent: no new pages over it)
     if(ldlent) {                                                    // the display memory lent: page 0 must be in the internal
         uint32_t bytes = (uint32_t)(xres[mode] / scale) * (yres[mode] / scale) * (lay / 8);     // RAM (pagegen puts it there
         if(scale == 2 || ModeRowScale(mode) == 2) bytes *= 2;       // while it fits), not in the 3 MB the program has
@@ -1490,6 +1501,12 @@ static void ld_screenback(void) {
 // again (Peter: those regions are set for the fastest reads and writes), and BASIC's screen put back
 static void ld_giveback(void *oldmin) {
     LoaderNoSbrk = 0;
+    if(ldlent2) {                                                   // (a G2's display memory not shown: cleared, as after a
+        ldlent2 = 0;                                                // MODE, and written out of the cache)
+        memset(ldlent2_at, 0, ldlent2_size);
+        SCB_CleanInvalidateDCache_by_Addr((uint32_t *)ldlent2_at, ldlent2_size);
+        ldlent2_at = NULL;
+    }
     if(ldlent) {
         ldlent = 0;
         memset((void *)LOADER_VRAM_BASE, 0, LOADER_VRAM_SIZE);
@@ -1657,7 +1674,17 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
         heap = base + end;
         heapsize = area - end - stack;
     }
-    if(heap2size > heapsize) {
+    ldlent2_at = NULL;
+    if(!G1Hardware && (h.flags & CMM2IMG_FLAG_PAGES) && heap2 == NULL && !DisplayMerged) {  // (a G2's display memory not
+        uint32_t lo = ShareNeeded ? ShareNeeded : 0xD0000000u, hi = RB_STREAM_BASE;           // shown, lent: ldlent2)
+        uint32_t w = (uint32_t)PageTable[WritePage].address;
+        if(lo + 0x100000u <= hi && !(w >= lo && w < hi)) {
+            heap2 = ldlent2_at = (char *)lo;                        // (ldlent2 set once the load is sure to go on, below)
+            heap2size = ldlent2_size = hi - lo;
+        }
+    }
+    if(heap2size > heapsize && ldlent2_at == NULL) {                // (a G1's two blocks: the larger malloc's. A G2's
+                                                                    // display memory stays heap2: the program asked for it)
         char *t = heap; heap = heap2; heap2 = t;
         uint32_t s = heapsize; heapsize = heap2size; heap2size = s;
     }
@@ -1674,6 +1701,7 @@ static int ld_app(char *fname, const cmm2xip_header *xip, char *text, char *show
         error("Needs % KB, more than the 8 MB", (int)(need / 1024));
     }
     ld_screensave();                                                // (BASIC's screen, put back at the end)
+    if(ldlent2_at != NULL) ldlent2 = 1;                             // (a G2's display memory not shown, lent: see above)
     if(vram) {                                                      // the display memory lent: the screen first to a mode
         cmm2_video v;                                               // whose page is in the internal RAM (MODE 7,8), so that
         ldlent = 1;                                                 // nothing is drawn where the program goes

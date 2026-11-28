@@ -1,0 +1,208 @@
+diff --git a/content/hlcache.c b/content/hlcache.c
+index 545b28e..b21e1a0 100644
+--- a/content/hlcache.c
++++ b/content/hlcache.c
+@@ -576,6 +576,33 @@ void hlcache_stop(void)
+ 	guit->misc->schedule(-1, hlcache_clean, NULL);
+ }
+ 
++/* (hlcache_clean_now's work, also scheduled by hlcache_clean_soon) */
++static void hlcache_clean_forced(void *p)
++{
++	static int force = 1;
++
++	(void)p;
++	/* forced: a page stopped while loading still counts as loading,
++	 * which the cleaner otherwise leaves until the browser ends; twice:
++	 * destroying a page gives up the images it held, which the second
++	 * pass then destroys (each pass reschedules the cleaner, which the
++	 * scheduler keeps unique) */
++	hlcache_clean(&force);
++	hlcache_clean(&force);
++}
++
++/* See hlcache.h for documentation */
++void hlcache_clean_now(void)
++{
++	hlcache_clean_forced(NULL);
++}
++
++/* See hlcache.h for documentation */
++void hlcache_clean_soon(void)
++{
++	guit->misc->schedule(0, hlcache_clean_forced, NULL);
++}
++
+ /* See hlcache.h for documentation */
+ void hlcache_finalise(void)
+ {
+diff --git a/content/hlcache.h b/content/hlcache.h
+index 986bdd3..b13b708 100644
+--- a/content/hlcache.h
++++ b/content/hlcache.h
+@@ -89,6 +89,20 @@ nserror hlcache_initialise(const struct hlcache_parameters *hlcache_parameters);
+  */
+ void hlcache_stop(void);
+ 
++/**
++ * Clean the high-level cache now, as well as on its schedule: contents no
++ * longer used are destroyed at once, even one stopped while loading (the
++ * Colour Maximite 2's, apps/browser patches/netsurf-0005: a page given up is
++ * freed before the next is built).
++ */
++void hlcache_clean_now(void);
++
++/**
++ * The same from the main loop, at its next pass (from code that a content
++ * destroyed at once could still be using).
++ */
++void hlcache_clean_soon(void);
++
+ /**
+  * Finalise the high-level cache, destroying any remaining contents
+  */
+diff --git a/desktop/browser_window.c b/desktop/browser_window.c
+index 226741b..a9b09f9 100644
+--- a/desktop/browser_window.c
++++ b/desktop/browser_window.c
+@@ -1443,6 +1443,9 @@ browser_window_refresh_url_bar_internal(struct browser_window *bw, nsurl *url)
+ }
+ 
+ 
++/* (the Colour Maximite 2's, patches/netsurf-0005: below) */
++static void browser_window_give_up_page(struct browser_window *bw);
++
+ /**
+  * Browser window content event callback handler.
+  */
+@@ -1491,6 +1494,7 @@ browser_window_callback(hlcache_handle *c, const hlcache_event *event, void *pw)
+ 			bw->refresh_interval = -1;
+ 			browser_window_set_status(bw,
+ 						  content_get_status_message(c));
++			browser_window_give_up_page(bw);
+ 		}
+ 		break;
+ 
+@@ -3236,6 +3240,25 @@ void browser_window_destroy(struct browser_window *bw)
+ }
+ 
+ 
++/**
++ * The URL an internal page (an error or query page) shows in the URL bar:
++ * the page being loaded, or else the page it took the place of (the Colour
++ * Maximite 2's, apps/browser patches/netsurf-0005, 28 Nov 2026: an error page
++ * for a page that ran out of memory after it had loaded had no loading URL,
++ * and the URL bar's assert stopped the browser), or about:blank.
++ */
++static nsurl *browser_window_internal_url(struct browser_window *bw)
++{
++	if (bw->loading_parameters.url != NULL) {
++		return bw->loading_parameters.url;
++	}
++	if (bw->current_parameters.url != NULL) {
++		return bw->current_parameters.url;
++	}
++	return corestring_nsurl_about_blank;
++}
++
++
+ /* exported interface, documented in netsurf/browser_window.h */
+ nserror browser_window_refresh_url_bar(struct browser_window *bw)
+ {
+@@ -3259,7 +3282,7 @@ nserror browser_window_refresh_url_bar(struct browser_window *bw)
+ 		ret = browser_window_refresh_url_bar_internal(bw, url);
+ 	} else if (bw->frag_id == NULL) {
+ 		if (bw->internal_nav) {
+-			url = bw->loading_parameters.url;
++			url = browser_window_internal_url(bw);
+ 		} else {
+ 			url = hlcache_handle_get_url(bw->current_content);
+ 		}
+@@ -3267,7 +3290,7 @@ nserror browser_window_refresh_url_bar(struct browser_window *bw)
+ 	} else {
+ 		/* Combine URL and Fragment */
+ 		if (bw->internal_nav) {
+-			url = bw->loading_parameters.url;
++			url = browser_window_internal_url(bw);
+ 		} else {
+ 			url = hlcache_handle_get_url(bw->current_content);
+ 		}
+@@ -3498,6 +3521,64 @@ browser_window_navigate(struct browser_window *bw,
+ }
+ 
+ 
++/**
++ * A page the window gave up, closed and released and the cache cleaned (the
++ * Colour Maximite 2's, patches/netsurf-0005), from the main loop and not at
++ * once: a navigation often comes from inside that page's own code (a link's
++ * click, in its mouse action), which goes on with it after navigating (28 Nov
++ * 2026: destroyed at once, the heap was damaged).
++ */
++static void browser_window_drop_page(void *p)
++{
++	hlcache_handle *c = p;
++
++	content_close(c);
++	hlcache_handle_release(c);
++	hlcache_clean_now();
++}
++
++/**
++ * The callback of a page the window gave up, until it is dropped: what it
++ * still says (an image of it finishing, say) no longer goes to the window
++ */
++static nserror browser_window_dropped_callback(hlcache_handle *handle,
++		const hlcache_event *event, void *pw)
++{
++	(void)handle;
++	(void)event;
++	(void)pw;
++	return NSERROR_OK;
++}
++
++/**
++ * The Colour Maximite 2's (apps/browser, patches/netsurf-0005; Peter, 28 Nov
++ * 2026): one page in memory at a time. The page shown was kept until the next
++ * was ready, and the cache kept it for up to 20 s after, so two pages were
++ * built side by side: a Wikipedia page takes up to 19 MB of the browser's 20.
++ * So the window gives up the page shown when the next one's content has been
++ * made (CONTENT_MSG_LOADING: its type is known, and none of its data has been
++ * read), and the page is closed, released and the cache cleaned from the main
++ * loop (browser_window_drop_page). Until then the page stays: a link that
++ * turns out to be a download, or that fails, leaves it as it was (it was given
++ * up at the navigation at first, and a download left the window blank). The
++ * window is blank from then until the next page is ready, and Back fetches a
++ * page again (from the memory cache, or the network); its scroll position is
++ * kept in the history. Frames are left as they were.
++ */
++static void browser_window_give_up_page(struct browser_window *bw)
++{
++	if (bw->parent == NULL && bw->current_content != NULL) {
++		hlcache_handle *old = bw->current_content;
++		bw->current_content = NULL;
++		hlcache_handle_replace_callback(old,
++				browser_window_dropped_callback, NULL);
++		guit->misc->schedule(0, browser_window_drop_page, old);
++		if (bw->window != NULL) {
++			guit->window->invalidate(bw->window, NULL);
++		}
++	}
++}
++
+ /**
+  * Internal navigation handler for normal fetches
+  */
+@@ -3768,6 +3849,13 @@ navigate_internal_query_fetcherror(struct browser_window *bw,
+ 	if (is_retry) {
+ 		/* Finally navigate to the original loading parameters */
+ 		bw->internal_nav = false;
++		if (bw->loading_parameters.url == NULL) {
++			/* the Colour Maximite 2's (patches/netsurf-0005): an
++			 * error page for a page that had loaded (one that ran
++			 * out of memory after) has no loading parameters: the
++			 * page is fetched again */
++			return browser_window__reload_current_parameters(bw);
++		}
+ 		return navigate_internal_real(bw, &bw->loading_parameters);
+ 	}
+ 

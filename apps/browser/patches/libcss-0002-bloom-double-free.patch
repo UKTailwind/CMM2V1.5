@@ -1,0 +1,19 @@
+diff --git a/src/select/select.c b/src/select/select.c
+index 9e4e384..8017e05 100644
+--- a/src/select/select.c
++++ b/src/select/select.c
+@@ -1022,6 +1022,14 @@ static void css_select__finalise_selection_state(
+ 	}
+ 
+ 	if (state->node_data != NULL) {
++		/* The Colour Maximite 2's (apps/browser, patches/libcss-0002,
++		 * 28 Nov 2026): a selection given up keeps the parent's bloom
++		 * filter here, borrowed (css__get_parent_bloom); the node's own
++		 * replaces it only in css__set_node_data, which takes the node
++		 * data when selection succeeds. Destroyed with it, the parent's
++		 * filter was freed, and freed again with the parent's node
++		 * data: a selection that ran out of memory damaged the heap. */
++		state->node_data->bloom = NULL;
+ 		css__destroy_node_data(state->node_data);
+ 	}
+ 

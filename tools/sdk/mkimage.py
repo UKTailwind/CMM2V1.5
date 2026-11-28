@@ -1,4 +1,4 @@
-"""mkimage.py ELF OUT.app [--name NAME] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram]
+"""mkimage.py ELF OUT.app [--name NAME] [--stack BYTES] [--heap BYTES] [--api N] [--g2] [--vram] [--pages]
 
 Makes a loadable program for the CMM2 (Inc/cmm2img.h) from an ELF that app.ld linked with -Wl,--emit-relocs:
 the 64-byte header, the image (every allocated section with contents, from the link address, gaps zeroed), then the
@@ -60,6 +60,8 @@ def main():
     ap.add_argument('--api', type=int, default=1)   # the services' version it uses: older firmware refuses it
     ap.add_argument('--g2', action='store_true')    # CMM2IMG_FLAG_G2: a G1 refuses it (more than a G1's memory)
     ap.add_argument('--vram', action='store_true')  # CMM2IMG_FLAG_VRAM: a G1 lends it its display memory too
+    ap.add_argument('--pages', action='store_true')  # CMM2IMG_FLAG_PAGES: a G2 or G3 lends it the display memory not
+                                                     # shown, as heap2 (for a program that keeps the mode it is given)
     ap.add_argument('--module', action='store_true')  # CMM2IMG_KIND_MODULE: loaded beside a BASIC program
     ap.add_argument('--fixed', action='store_true')  # no relocations: the program moves itself to the address it is linked for
     a = ap.parse_args()
@@ -130,7 +132,7 @@ def main():
     rel = b''.join(struct.pack('<I', r) for r in sorted(relocs, key=lambda r: r & 0x0FFFFFFF))
     crc = zlib.crc32(bytes(image) + rel) & 0xFFFFFFFF
     name = (a.name or a.out.replace('\\', '/').split('/')[-1].rsplit('.', 1)[0])[:15].encode()
-    flags = (0x01 if a.g2 else 0) | (0x02 if a.vram else 0)
+    flags = (0x01 if a.g2 else 0) | (0x02 if a.vram else 0) | (0x04 if a.pages else 0)
     hdr = HEADER.pack(b'CMM2IMG\0', 1, a.api, 2 if a.module else 1, flags, 0, base, len(image), bss_end - end, entry - base, a.stack, a.heap,
                       len(relocs), crc, name)
     open(a.out, 'wb').write(hdr + bytes(image) + rel)

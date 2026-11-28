@@ -1,0 +1,78 @@
+diff --git a/desktop/netsurf.c b/desktop/netsurf.c
+index bd78589..dac08ba 100644
+--- a/desktop/netsurf.c
++++ b/desktop/netsurf.c
+@@ -83,7 +83,15 @@
+ /** ensure there is a minimal amount of memory for source objetcs and
+  * decoded bitmaps.
+  */
++#ifdef __CMM2__
++/* On the CMM2 the Choices' size is taken down to 256 KB: the 2 MB minimum
++ * kept 2 MB of the pages left (their data and images) in a memory of 20 MB,
++ * and a large page that fitted the first time no longer did when it was
++ * gone back to (28 Nov 2026). One page in memory at a time, as Peter asked. */
++#define MINIMUM_MEMORY_CACHE_SIZE (256 * 1024)
++#else
+ #define MINIMUM_MEMORY_CACHE_SIZE (2 * 1024 * 1024)
++#endif
+ 
+ /** default minimum object time before object is pushed to backing store. (s) */
+ #define LLCACHE_STORE_MIN_LIFETIME (60 * 30)
+diff --git a/frontends/framebuffer/bitmap.c b/frontends/framebuffer/bitmap.c
+index c9b5854..01a7fee 100644
+--- a/frontends/framebuffer/bitmap.c
++++ b/frontends/framebuffer/bitmap.c
+@@ -206,6 +206,9 @@ static int bitmap_get_height(void *bitmap)
+  * \param content content structure to render
+  * \return true on success and bitmap updated else false
+  */
++#ifdef __CMM2__
++#define bitmap_render bitmap_render_thumbnail
++#endif
+ static nserror
+ bitmap_render(struct bitmap *bitmap,
+ 	      struct hlcache_handle *content)
+@@ -232,7 +235,15 @@ bitmap_render(struct bitmap *bitmap,
+ 	 * width, unless it exceeds 1024, in which case we use 1024. This means
+ 	 * we never create excessively large render buffers for huge contents,
+ 	 * which would eat memory and cripple performance. */
++#ifdef __CMM2__
++	/* On the CMM2 the limit is 256: a page as wide as the screen asked
++	 * for a 3.4 MB buffer for each page's thumbnail, in a memory of 20 MB,
++	 * and often did not get it after a large page (28 Nov 2026). 256 is
++	 * still more than twice the thumbnail's width, and needs 220 KB. */
++	cwidth = max(width, min(content_get_width(content), 256));
++#else
+ 	cwidth = max(width, min(content_get_width(content), 1024));
++#endif
+ 	/* The height is set in proportion with the width, according to the
+ 	 * aspect ratio of the required thumbnail. */
+ 	cheight = ((cwidth * height) + (width / 2)) / width;
+@@ -269,6 +280,27 @@ bitmap_render(struct bitmap *bitmap,
+ 	return NSERROR_OK;
+ }
+ 
++#ifdef __CMM2__
++#undef bitmap_render
++/* On the CMM2 a request not met while the thumbnail is drawn is not the
++ * page's (apps/browser/port/browser_malloc.c): a page that fits, but leaves
++ * no room for its thumbnail, is shown without one, not stopped as too large
++ * (28 Nov 2026). */
++extern int cmm2_optional_alloc;
++
++static nserror
++bitmap_render(struct bitmap *bitmap,
++	      struct hlcache_handle *content)
++{
++	nserror r;
++
++	cmm2_optional_alloc++;
++	r = bitmap_render_thumbnail(bitmap, content);
++	cmm2_optional_alloc--;
++	return r;
++}
++#endif
++
+ static struct gui_bitmap_table bitmap_table = {
+ 	.create = bitmap_create,
+ 	.destroy = bitmap_destroy,
